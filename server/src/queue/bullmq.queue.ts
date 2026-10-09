@@ -1,16 +1,16 @@
 import { Queue, Worker } from 'bullmq';
 import { IQueueService, SubmissionJob, JobProcessor } from './queue.interface.js';
 import { ENV } from '../config/env.js';
-import IORedis from 'ioredis';
+import { Redis } from 'ioredis';
 
 export class BullMQQueue implements IQueueService {
   readonly name = 'BullMQQueue';
   private queue: Queue;
-  private connection: IORedis.Redis;
+  private connection: Redis;
   private worker: Worker | null = null;
 
   constructor() {
-    this.connection = new IORedis.Redis(ENV.REDIS_URL, {
+    this.connection = new Redis(ENV.REDIS_URL, {
       maxRetriesPerRequest: null,
     });
     this.queue = new Queue('logicq_submissions', {

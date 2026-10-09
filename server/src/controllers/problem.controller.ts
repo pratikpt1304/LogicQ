@@ -58,7 +58,10 @@ export async function getDailyChallenge(req: AuthRequest, res: Response): Promis
     res.status(200).json({
       success: true,
       data: {
-        problem,
+        problem: {
+          ...problem,
+          tags: typeof problem.tags === 'string' ? JSON.parse(problem.tags) : (problem.tags || []),
+        },
         todayIST,
         secondsUntilNextReset: getSecondsUntilNextISTMidnight(),
         userStatus: {

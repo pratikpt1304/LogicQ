@@ -178,6 +178,7 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
 
   // Realtime notification to user
   emitSubmissionVerdict(submission.userId, {
+    userId: submission.userId,
     submissionId,
     verdict: overallVerdict,
     runtimeMs: maxRuntime,

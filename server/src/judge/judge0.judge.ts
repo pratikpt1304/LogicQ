@@ -45,7 +45,7 @@ export class Judge0Judge implements IJudge {
       throw new Error(`Judge0 API request failed with status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as any;
 
     const decode = (str: string | null) =>
       str ? Buffer.from(str, 'base64').toString('utf8') : '';

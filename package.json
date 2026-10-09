@@ -19,6 +19,7 @@
     "setup": "npm --prefix server install && npm --prefix client install && npm run db:push && npm run db:seed"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "puppeteer-core": "^25.13.0"
   }
 }
