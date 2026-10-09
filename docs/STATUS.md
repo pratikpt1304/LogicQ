@@ -11,6 +11,7 @@
 
 | Phase | Description | Status | Verification & Deliverables |
 |---|---|---|---|
+| **Dual-Tier Architecture Specs** | Firebase Central + Student Google Drive | **COMPLETED** | Authored `/docs/DATA_ARCHITECTURE.md`, `/docs/DRIVE_INTEGRATION.md`, `/docs/SECURITY_RULES.md`, `/docs/MAINTENANCE.md`; updated `/docs/MASTER_SPEC.md` and `/docs/DEPLOYMENT.md`. |
 | **Specifications (Tasks 1–9)** | Master Blueprint & Policy Specs | **COMPLETED** | Authored `/docs/DEPLOYMENT.md`, `/docs/JUDGE.md`, `/docs/PROBLEMS.md`, `/docs/PRODUCT.md`, `/docs/FAIRNESS.md`, `/docs/ACCESS.md`, `/docs/MVP.md`, `/docs/PRIVACY_OPS.md`, and `/docs/MASTER_SPEC.md`. |
 | **Launch Reset** | Zero-Demo Data Clean State | **COMPLETED** | Purged fake users, demo submissions/contests. Preserved 16 problems, 6 badges, 1 zeroed admin. Backed up DB. |
 |---|---|---|---|

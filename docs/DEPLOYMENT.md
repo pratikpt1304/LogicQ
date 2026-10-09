@@ -1,239 +1,154 @@
-# LogicQ Deployment Architecture & Infrastructure Guide
+# LogicQ Deployment & Cloud Infrastructure Specification: Firebase + Cloud Run
 
-## 1. Executive Summary & Strategy
-LogicQ is a full-stack real-time competitive programming platform featuring C code execution, WebSocket live scoreboards, and asynchronous task queues. This document outlines the hosting topology, platform choices, cost tiers, and step-by-step production runbooks.
+## 1. Production Architecture Overview
 
----
+The authoritative infrastructure for LogicQ combines **Firebase** for identity, authoritative data, and business logic, with **Google Cloud Run** for isolated C code compilation and execution:
 
-## 2. Infrastructure Topology: What Runs Where
-
-| Component | Technology | Target Environment (Production Recommended) | Free-Tier Fallback Environment |
-| :--- | :--- | :--- | :--- |
-| **Frontend SPA** | React + Vite + Tailwind | Cloudflare Pages / Vercel / Render Static | Cloudflare Pages / Vercel (Unlimited bandwidth, global CDN) |
-| **Backend API & WebSockets** | Node.js + Express + Socket.IO | Render Web Service / Railway / Single VPS (Hetzner/DigitalOcean) | Render Free Web Service (Spins down on idle) or Fly.io |
-| **Relational Database** | PostgreSQL 16 | Managed PostgreSQL (Railway / Supabase / Neon) | Supabase Free Tier (500MB DB, pooling included) / Neon Serverless |
-| **Job Queue & Cache** | Redis 7 | Upstash Redis (Serverless) / Redis on VPS | Upstash Redis Free Tier (10,000 commands/day) or In-Memory fallback |
-| **C Execution Judge** | Docker Container Sandbox / Judge0 | Isolated Linux Docker Runner / Judge0 Community API | Self-hosted Docker on VPS or Free Public Judge0 CE endpoint |
-
----
-
-## 3. Why Firebase Hosting Alone Cannot Run LogicQ
-A common misconception is deploying a competitive programming platform entirely onto Firebase Hosting. Firebase Hosting is strictly a **static asset Content Delivery Network (CDN)** and cannot run LogicQ because:
-
-1. **No Long-Lived Processes**: Competitive code judging requires compiling and executing C code (`gcc -O2`) in an isolated subprocess with strict ulimits. Firebase Hosting only serves static HTML/JS/CSS.
-2. **Firebase Cloud Functions Limitations**:
-   - Cloud Functions runs in ephemeral serverless micro-VMs without root privileges or Docker daemon access.
-   - `gcc` and standard build-essential packages are not installed in standard Node.js serverless runtimes.
-   - Subprocesses cannot be strictly sandboxed against CPU or memory exhaustion without root cgroups.
-   - Maximum execution timeouts and cold starts degrade code run latency.
-3. **WebSocket Disconnects**: Socket.IO requires persistent TCP duplex connections for live contest scoreboards and submission status streaming. Serverless HTTP functions terminate after request/response cycles.
-4. **Filesystem Constraints**: Local filesystem writes in serverless environments are ephemeral (typically limited to an in-memory `/tmp` mount) and do not support low-level Linux security policies (`seccomp`, `prlimit`, `chroot`).
-
----
-
-## 4. Cost Estimates & Hosting Budgets
-
-### Tier A: Absolute Free Tier (₹0 / $0 per month)
-Designed for initial beta testing, hackathons, and zero-budget campus pilots.
-- **Frontend**: Cloudflare Pages / Vercel (₹0)
-- **Backend API**: Render Web Service (Free Tier, 512MB RAM — spins down after 15 min inactivity; cold start ~30s) (₹0)
-- **Database**: Supabase PostgreSQL Free Tier (500MB storage) (₹0)
-- **Queue/Cache**: Upstash Redis Free Tier (10,000 commands/day) (₹0)
-- **Judge**: Free Judge0 CE Public API tier or in-process Local GCC Runner (if hosted on personal server/laptop via ngrok/Cloudflare Tunnel) (₹0)
-- **Total Monthly Cost**: **₹0 / $0**
-
-### Tier B: Recommended Production VPS Tier (₹450 – ₹750 / $5 – $9 per month)
-Designed for 300–1000 campus users and up to 100 concurrent contestants during arena rounds.
-- **Host**: 1x Hetzner Cloud CX22 (2 vCPU, 4 GB RAM, 40 GB NVMe) or DigitalOcean Droplet ($6/month)
-- **All-in-One Docker Compose**:
-  - Caddy / Nginx Reverse Proxy (Automatic Let's Encrypt SSL)
-  - LogicQ React SPA (Static build served via Nginx/Caddy)
-  - LogicQ Express API (Node.js 20 cluster mode via PM2/Docker)
-  - PostgreSQL 16 container (mounted persistent volume)
-  - Redis 7 container
-  - Docker-in-Docker / Isolated Judge Worker container
-- **Total Monthly Cost**: **~₹480/month (~$5.80 USD)**
-
----
-
-## 5. Step-by-Step Production Deployment Runbook (Docker / VPS)
-
-### Step 5.1: Server Provisioning
-1. Launch an Ubuntu 24.04 LTS VPS instance (e.g., Hetzner CX22, DigitalOcean, or AWS EC2 t4g.medium).
-2. Configure basic firewall (UFW):
-   ```bash
-   sudo ufw allow OpenSSH
-   sudo ufw allow 80/tcp
-   sudo ufw allow 443/tcp
-   sudo ufw enable
-   ```
-3. Install Docker Engine and Docker Compose:
-   ```bash
-   curl -fsSL https://get.docker.com -o get-docker.sh
-   sudo sh get-docker.sh
-   sudo usermod -aG docker $USER
-   ```
-
-### Step 5.2: Repository Setup & Configuration
-1. Clone the repository into `/opt/logicq`:
-   ```bash
-   sudo git clone https://github.com/your-org/logicq.git /opt/logicq
-   cd /opt/logicq
-   ```
-2. Create production environment file `/opt/logicq/.env.production`:
-   ```env
-   # Application
-   NODE_ENV=production
-   PORT=5000
-   CLIENT_URL=https://logicq.yourcollege.edu
-
-   # Security & Auth
-   JWT_ACCESS_SECRET=your_hyper_secure_access_secret_min_32_chars
-   JWT_REFRESH_SECRET=your_hyper_secure_refresh_secret_min_32_chars
-   COOKIE_DOMAIN=logicq.yourcollege.edu
-   COOKIE_SECURE=true
-   SESSION_SECRET=your_session_secret_min_32_chars
-
-   # Database
-   DATABASE_URL=postgresql://logicq_user:strong_pg_pass@postgres:5432/logicq_prod?schema=public
-
-   # Redis / Queue
-   REDIS_URL=redis://redis:6379
-
-   # Judge Configuration
-   JUDGE_TYPE=DOCKER
-   DOCKER_JUDGE_IMAGE=logicq-c-sandbox:latest
-   MAX_CONCURRENT_JUDGES=4
-   JUDGE_TIMEOUT_MS=2000
-   JUDGE_MEMORY_LIMIT_MB=64
-
-   # Admin Seed
-   ADMIN_EMAIL=admin@logicq.yourcollege.edu
-   ADMIN_PASSWORD=ProductionSuperAdminSecret2026!
-
-   # Institutional Access
-   AUTH_MODE=OPEN
-   ALLOWED_EMAIL_DOMAINS=yourcollege.edu,alumni.yourcollege.edu
-   ```
-
-### Step 5.3: Production Docker Compose (`docker-compose.prod.yml`)
-```yaml
-version: '3.8'
-
-services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - server
-      - client
-
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: logicq_user
-      POSTGRES_PASSWORD: strong_pg_pass
-      POSTGRES_DB: logicq_prod
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logicq_user -d logicq_prod"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - redisdata:/data
-
-  server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    env_file: .env.production
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
-  client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    restart: unless-stopped
-
-volumes:
-  caddy_data:
-  caddy_config:
-  pgdata:
-  redisdata:
 ```
-
-### Step 5.4: SSL Reverse Proxy Configuration (`Caddyfile`)
-```caddy
-logicq.yourcollege.edu {
-    encode gzip zstd
-
-    # API and WebSocket Routing
-    handle /api/* {
-        reverse_proxy server:5000
-    }
-    handle /socket.io/* {
-        reverse_proxy server:5000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
-        }
-    }
-
-    # Frontend SPA
-    handle {
-        reverse_proxy client:80
-    }
-}
++----------------------------------------------------------------------------------------------------+
+|                                    LOGICQ CLOUD TOPOLOGY                                           |
+|                                                                                                    |
+|  [ Student Browser: React SPA + Monaco Editor + Google Identity Services (GIS) ]                   |
+|        |                                     |                                                     |
+|        | Direct OAuth (drive.appdata)        | HTTPS / WebSockets                                  |
+|        v                                     v                                                     |
+|  [ Student Google Drive ]         [ Firebase Hosting / Cloudflare CDN ]                            |
+|    - drafts/*.c                              |                                                     |
+|    - notes/*.md                              v                                                     |
+|    - settings/editor.json         [ Firebase Cloud Functions (2nd Gen) / API Gateway ]             |
+|                                     - Auth Verification (Google Sign-In + Custom Claims)            |
+|                                     - Scoring, Streaks & Gamification Engine                       |
+|                                     - Secret Manager Access (Judge Secrets, Service Accounts)     |
+|                                              |                                                     |
+|                      +-----------------------+-----------------------+                             |
+|                      |                                               |                             |
+|                      v                                               v                             |
+|         [ Cloud Firestore Database ]                    [ Cloud Run Judge Sandbox ]                |
+|           - Authoritative Accounts                        - Isolated Linux Container               |
+|           - Problems & Hidden Tests                       - gcc -O2 -std=c17 Sandbox               |
+|           - Submissions & Verdicts                        - Strict cgroups, timeouts, seccomp      |
+|           - Contests & Leaderboards                       - Disabled Network (--network none)      |
+|           - Support & Audit Logs                          (Or External Judge0 Instance)            |
++----------------------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 6. Database Backups, Restores & Health Monitoring
+## 2. Infrastructure Breakdown: What Runs Where
 
-### Automated Daily Snapshots (Cron)
-Create `/etc/cron.daily/logicq-backup`:
+| Component | Cloud Service | Purpose & Trust Boundary |
+| :--- | :--- | :--- |
+| **Frontend Web App** | Firebase Hosting (or Cloudflare Pages) | Serves optimized React Vite SPA, static assets, and Monaco editor. |
+| **Authentication** | Firebase Authentication | Google Sign-in provider. Enforces role-based custom claims (`student`, `admin`). |
+| **Authoritative Database** | Cloud Firestore | Holds all trusted state (problems, hidden test suites, submissions, scores, audit trails). |
+| **API & Business Logic** | Cloud Functions for Firebase (v2) | Validates submissions, calls judge service, updates streaks, and calculates XP. |
+| **Secret Management** | Google Cloud Secret Manager | Holds Judge service auth tokens, internal API keys, and admin secrets. |
+| **C Execution Judge** | Google Cloud Run Container (or Judge0) | Dedicated, isolated Docker container executing C binaries with strict CPU/memory limits. |
+| **Student Personal Data**| **Student Google Drive** (`drive.appdata`) | Private, client-side autosave for code drafts and learning notes. |
+
+---
+
+## 3. Why Firebase Hosting & Plain Cloud Functions Cannot Run C Code
+
+It is technically impossible and dangerous to compile and run untrusted C code directly within Firebase Hosting or plain Cloud Functions:
+
+1. **Static CDN Limitation**: Firebase Hosting is strictly a distributed static file cache. It cannot execute server-side binaries or runtime scripts.
+2. **Serverless Micro-VM Environment**:
+   - Google Cloud Functions run in managed, read-only runtime containers. Standard compilers (`gcc`, `clang`, `make`) are not present in standard Node.js runtimes.
+   - Cloud Functions lack the Linux kernel permissions needed to invoke `chroot`, configure `cgroups`, or apply `seccomp` system call filters.
+3. **Severe Vulnerability to Denial-of-Service**:
+   - Running user-submitted C code within the function's own process space exposes the runtime to fork bombs, thread starvation, and uncontrolled memory consumption.
+4. **The Safe Solution**: Untrusted C compilation is strictly decoupled to an **isolated Cloud Run Sandbox Container** equipped with root cgroups and memory quotas, or delegated to a hardened **Judge0** instance.
+
+---
+
+## 4. Firebase Plan Requirements (Blaze Plan)
+
+Deploying LogicQ requires upgrading the Firebase Project to the **Blaze Plan (Pay as you go)**.
+
+### Why Blaze is Mandatory:
+- **Cloud Functions (2nd Gen)**: Built on top of Google Cloud Run and Google Cloud Buildpacks, which require billing to be enabled.
+- **Outbound Network Requests**: Free Spark tier blocks all outbound network requests from Cloud Functions to external hosts (such as Judge0 or custom judge runners).
+- **Secret Manager Integration**: Accessing Google Cloud Secret Manager from Cloud Functions requires the Blaze tier.
+
+---
+
+## 5. Comprehensive Cost Estimates
+
+### 5.1 Free Allowance Thresholds (Blaze Tier Includes Free Allowances)
+Google Cloud and Firebase provide generous perpetual monthly free tier allowances:
+- **Firebase Auth**: Unlimited Google Sign-In authentications.
+- **Cloud Firestore**: 50,000 document reads, 20,000 document writes, 20,000 document deletes per day (FREE).
+- **Cloud Functions (v2)**: 2,000,000 invocations, 400,000 GB-seconds of compute per month (FREE).
+- **Cloud Run (Judge)**: 2,000,000 requests, 360,000 vCPU-seconds, 180 GB-hours of memory per month (FREE).
+- **Google Drive Storage**: Stored in students' personal accounts (₹0 platform cost).
+
+### 5.2 Estimated Monthly Cost by Scale
+
+| Usage Scenario | Registered Users | Concurrent Contestants | Monthly Estimate (USD) | Monthly Estimate (INR) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Pilot / College Class** | 50 – 150 | 25 | **$0.00 / month** | **₹0 / month** (Within free quotas) |
+| **Campus Department** | 300 – 600 | 50 – 75 | **$1.50 – $4.00 / mo** | **₹125 – ₹330 / month** |
+| **Multi-College Arena** | 1,000 – 2,500 | 150 – 250 | **$6.00 – $12.00 / mo** | **₹500 – ₹1,000 / month** |
+
+---
+
+## 6. Step-by-Step Deployment Runbook
+
+### Step 6.1: Firebase Project Setup
+1. Create a Firebase project in the [Firebase Console](https://console.firebase.google.com/).
+2. Upgrade project to **Blaze Plan**.
+3. Enable **Authentication** -> Turn on **Google Sign-in Provider**.
+4. Enable **Cloud Firestore** -> Select production mode and regional location (`asia-south1` Mumbai recommended for Indian colleges).
+5. Install Firebase CLI locally:
+   ```bash
+   npm install -g firebase-tools
+   firebase login
+   firebase use --add <your-firebase-project-id>
+   ```
+
+### Step 6.2: Google Cloud Console Configuration (OAuth & Secrets)
+1. In [Google Cloud Console](https://console.cloud.google.com/), go to **APIs & Services** -> **Enabled APIs**.
+2. Enable:
+   - Google Drive API
+   - Secret Manager API
+   - Cloud Run Admin API
+3. Configure **OAuth Consent Screen**:
+   - User Type: **External** (or **Internal** if restricted to single Google Workspace).
+   - Scopes: `.../auth/drive.appdata` and `.../auth/drive.file`.
+   - Add test user email addresses if in Testing mode.
+4. Set up Secrets in Secret Manager:
+   ```bash
+   gcloud secrets create JUDGE0_KEY --data-file=-
+   gcloud secrets create JUDGE_ENDPOINT --data-file=-
+   ```
+
+### Step 6.3: Deploy Firestore Security Rules & Indexes
 ```bash
-#!/bin/bash
-BACKUP_DIR="/var/backups/logicq"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-mkdir -p "$BACKUP_DIR"
-
-# PostgreSQL Logical Dump
-docker exec $(docker ps -qf "name=postgres") pg_dump -U logicq_user logicq_prod | gzip > "$BACKUP_DIR/db_$TIMESTAMP.sql.gz"
-
-# Retain 14 days of backups
-find "$BACKUP_DIR" -type f -name "*.sql.gz" -mtime +14 -delete
+firebase deploy --only firestore:rules,firestore:indexes
 ```
-Make executable: `sudo chmod +x /etc/cron.daily/logicq-backup`.
 
-### Backup Verification & Restore Test
-To verify backup viability in a staging sandbox:
+### Step 6.4: Deploy Cloud Functions
 ```bash
-gunzip < /var/backups/logicq/db_20261009_000000.sql.gz | docker exec -i logicq_postgres_test psql -U logicq_user -d logicq_staging
+firebase deploy --only functions
 ```
 
-### Health & Logging
-- **Application Logs**: Streamed via Docker log driver (`docker compose logs -f --tail=100 server`).
-- **Health Check Endpoint**: `GET /api/health` returns JSON `{ status: "ok", uptime, database: "connected", redis: "connected" }`.
-- **External Monitoring**: Free UptimeRobot / BetterStack monitor hitting `https://logicq.yourcollege.edu/api/health` every 60 seconds with email/webhook alerting.
+### Step 6.5: Deploy Cloud Run Judge Service (Optional if using self-hosted sandbox)
+```bash
+gcloud builds submit --tag gcr.io/<PROJECT_ID>/logicq-judge-sandbox ./server/docker
+gcloud run deploy logicq-judge-sandbox \
+  --image gcr.io/<PROJECT_ID>/logicq-judge-sandbox \
+  --platform managed \
+  --region asia-south1 \
+  --no-allow-unauthenticated \
+  --memory 512Mi \
+  --cpu 1
+```
+
+### Step 6.6: Deploy Frontend SPA to Firebase Hosting
+```bash
+cd client
+npm run build
+cd ..
+firebase deploy --only hosting
+```

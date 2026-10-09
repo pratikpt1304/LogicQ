@@ -1,21 +1,24 @@
 # LogicQ Master Engineering Specification & Unified Blueprint
 
-> **STATUS**: THE SINGLE SOURCE OF TRUTH FOR LOGICQ  
-> This specification consolidates the original architecture requirements, the branding/visual guidelines, and the deployment, judge safety, and governance decisions. All previous prompt directives are superseded by this document where conflicts exist.
+> **STATUS**: THE AUTHORITATIVE SINGLE SOURCE OF TRUTH FOR LOGICQ  
+> This specification consolidates the original master requirements, the branding/visual guidelines, the deployment/judge policies, and the **Firebase Central Backend + Student Google Drive Dual-Tier Architecture**. All earlier prompt directives are superseded by this document where conflicts exist.
 
 ---
 
 ## 1. Conflict Resolution Log & Authoritative Decisions
 
-| Dimension | Initial Build Prompt | Subsequent Directives | Final Resolved Decision (Master Spec) |
-| :--- | :--- | :--- | :--- |
-| **1. Background & Theme** | Deep near-black dark developer theme | "use white in bg" | **Crisp White Theme (`#FFFFFF`)** with clean bordered cards as default; dark mode toggle supported. |
-| **2. Demo Content vs Launch** | Seed sample users, fake submissions, demo contest | "Clean and reset the entire website for real launch" | **Zero Fake Data Policy**. All test users/submissions purged. 16 curated master C problems and 6 badges preserved. |
-| **3. Judge Security in Prod** | Local GCC judge used throughout | Strict threat model & fail-closed security | **Fail-Closed Sandbox**. `LocalGccJudge` strictly disabled in `NODE_ENV=production`. Requires `DockerJudge` or `Judge0`. |
-| **4. Admin Bootstrapping** | Seeded with static credentials in code | Secure credentials without hardcoded defaults | **Environment Injection Only**. Admin created via `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars. Zero static passwords in source code. |
-| **5. Signup Policy** | Open email registration | Campus restriction vs open signup options | **Configurable `AUTH_MODE`**. Supports `OPEN` (any email), `DOMAIN_RESTRICTED` (campus whitelist), and `INVITE_ONLY`. |
-| **6. Scoring Economy** | Single unified point counter | Prevent daily grinding from skewing contests | **Dual-Economy Model**. Daily challenges grant **XP & Streaks**; Arena contests grant **Competitive Rating**. |
-| **7. Release Scope** | Build all features simultaneously | Phased staging with stop checkpoints | **Three-Phase Staged Delivery**: Release 1 (MVP) -> Release 2 (Contests & Badges) -> Release 3 (Intelligence & Anti-Cheating). |
+| # | Dimension | Initial Prompt | Subsequent Directives | Final Authoritative Resolution (Master Spec) |
+| :-: | :--- | :--- | :--- | :--- |
+| **1** | **Visual Theme** | Deep dark developer theme | "use white in bg" | **Crisp White Background (`#FFFFFF`)** with clean bordered cards as default; dark mode toggle supported. |
+| **2** | **Data Policy** | Seed fake users and demo contest | "Clean and reset entire website for real launch" | **Zero Fake Data Policy**. All test users/submissions purged. 16 curated C problems and 6 badges preserved. |
+| **3** | **Backend & Database** | Node.js + Express + PostgreSQL / SQLite | Firebase Central + Student Google Drive | **Dual-Tier Architecture**: Firebase (Auth, Firestore, Cloud Functions/Cloud Run) as trusted central authority + Student Google Drive (`drive.appdata`) for personal data. |
+| **4** | **Identity & Roles** | Email/Password JWT in httpOnly cookies | Firebase Auth with Google Sign-in | **Firebase Auth + Google Sign-In Provider**. Roles (`STUDENT`, `ADMIN`) set via server-managed Firebase Custom Claims. |
+| **5** | **Client Write Security**| Express REST API endpoints | Firestore Security Rules | **Server-Only Mutation Invariant**: Clients can NEVER write verdicts, points, streaks, or ranks. Firestore rules enforce zero client writes on authoritative collections. |
+| **6** | **Student Drafts & Notes**| Centralized database records | Student-owned storage | **Student's Google Drive (`drive.appdata`)** with silent fallback to private Firestore vault/localStorage if college Workspace blocks Drive. |
+| **7** | **Maintenance & Privacy**| Global admin access to everything | Zero backdoor into student Drives | **Zero-Backdoor Invariant**: Admins cannot access student Drives. System maintenance via Firebase audit logs; student-initiated "Send Debug Report" modal. |
+| **8** | **Judge Sandboxing** | Local GCC in dev | Fail-closed sandboxing | **Isolated Linux Container (Cloud Run / Judge0)**. `LocalGccJudge` strictly disabled in production. Fail-closed if no safe judge configured. |
+| **9** | **Scoring Economy** | Unified point counter | Separate daily vs contest ratings | **Dual-Economy Model**: Daily Challenge awards **XP & Streaks**; Arena Contests award **Competitive Rating (Elo)**. |
+| **10**| **Release Scope** | Build all features simultaneously | Phased staging with stop checkpoints | **Three-Phase Staged Delivery**: Release 1 (MVP) -> Release 2 (Contests & Badges) -> Release 3 (Intelligence & Anti-Cheating). |
 
 ---
 
@@ -28,122 +31,131 @@
 
 ---
 
-## 3. Technology Stack Architecture
+## 3. Technology Stack & Dual-Tier Architecture
 
 ```
-+-----------------------------------------------------------------------------------------+
-|                                LOGICQ FULL-STACK TOPOLOGY                               |
-|                                                                                         |
-|  [ Frontend Client: React 18 + Vite + TypeScript + Tailwind CSS + Monaco Editor ]       |
-|                                     |                                                   |
-|                        REST API & WebSockets (Socket.IO)                                |
-|                                     v                                                   |
-|  [ Backend API: Node.js 20 + Express + TypeScript + Zod Validation + Helmet/CORS ]      |
-|                                     |                                                   |
-|         +---------------------------+---------------------------+                       |
-|         |                           |                           |                       |
-|         v                           v                           v                       |
-|  [ PostgreSQL / SQLite ]     [ Redis / In-Memory Queue ]   [ C Judge Engine ]           |
-|    Prisma ORM                  BullMQ Worker Pool           Docker / Judge0 / Local GCC |
-+-----------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------+
+|                                LOGICQ FULL-STACK ARCHITECTURE                                      |
+|                                                                                                    |
+|  [ Frontend Client: React 18 + Vite + TypeScript + Tailwind CSS + Monaco Editor ]                   |
+|        |                                              |                                            |
+|        | Google Identity Services                     | HTTPS / WebSockets / Cloud Functions v2    |
+|        v (drive.appdata)                              v                                            |
+|  +---------------------------+              +---------------------------------------------------+  |
+|  | STUDENT GOOGLE DRIVE      |              | CENTRAL TRUSTED TIER: FIREBASE & GOOGLE CLOUD     |  |
+|  | (User-Owned & Sovereign)  |              +---------------------------------------------------+  |
+|  +---------------------------+              | - Firebase Auth (Google Provider + Custom Claims) |  |
+|  | - drafts/{slug}.c         |              | - Cloud Firestore (Authoritative Data Store)      |  |
+|  | - notes/{slug}.md         |              | - Cloud Functions v2 (Business Logic & Secrets)   |  |
+|  | - settings/editor.json    |              | - Secret Manager (Judge0 Key, API Keys)           |  |
+|  | - backups/*.json          |              | - Cloud Run C Judge Sandbox (or Judge0)           |  |
+|  |                           |              | - Firebase App Check & Rate Limiting              |  |
+|  | * Zero Admin Access       |              | - Firestore Security Rules (Tamper-Proof)         |  |
+|  | * Silent Fallback if      |              +---------------------------------------------------+  |
+|  |   Workspace Blocks Drive  |                                                                     |
+|  +---------------------------+                                                                     |
++----------------------------------------------------------------------------------------------------+
 ```
 
-- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Monaco Editor (`@monaco-editor/react`), Lucide Icons, React Router v6, TanStack Query.
-- **Backend**: Node.js 20 LTS, Express, TypeScript, Zod request schema validation, Helmet security headers, CORS cookie policies.
-- **Data Persistence**: Prisma ORM with PostgreSQL 16 (production) or SQLite (`dev.db` for zero-setup local dev).
-- **Task Queue**: BullMQ backed by Redis (or in-process graceful fallback).
-- **Real-Time Communication**: Socket.IO for submission status streams and live contest leaderboards.
+### Technology Matrix
+- **Frontend SPA**: React 18, Vite, TypeScript, Tailwind CSS, Monaco Editor (`@monaco-editor/react`), Google Identity Services (GIS).
+- **Identity Provider**: Firebase Auth (Google Sign-In), custom claims for RBAC (`STUDENT`, `ADMIN`).
+- **Authoritative Data**: Cloud Firestore (NoSQL, real-time listeners for live updates).
+- **Backend API & Business Logic**: Cloud Functions for Firebase (2nd Gen) / Node.js 20 LTS + TypeScript + Zod.
+- **Judge Execution**: Google Cloud Run sandbox container running Debian with `gcc -O2 -std=c17` (or Judge0 CE API).
+- **Secrets Management**: Google Cloud Secret Manager (accessed only by Cloud Functions).
+- **User-Owned Storage**: Student's personal Google Drive via `drive.appdata` (isolated AppData folder).
 
 ---
 
-## 4. Sandboxed C Execution Engine (`IJudge`)
+## 4. Dual-Tier Data Allocation & Storage Rules
+
+### Tier A: Central Trusted Firestore (Platform Authoritative)
+1. **`users`**: UID, email, displayName, photoURL, role (`STUDENT`|`ADMIN`), status (`ACTIVE`|`BANNED`), stats (points, streak, solved counts).
+2. **`problems`**: Problem statement, constraints, time/memory limits, visible samples, reference solutions, hints, status (`DRAFT`|`VALIDATED`|`PUBLISHED`|`RETIRED`).
+3. **`problems/{id}/hidden_tests`**: Subcollection containing private verification test suites. **STRICTLY INACCESSIBLE TO CLIENTS** (`allow read, write: if false;`).
+4. **`submissions`**: Official records containing evaluated code, verdict, runtime (ms), memory (KB), and test results. **WRITTEN ONLY BY SERVER JUDGE**.
+5. **`daily_schedule`**: IST calendar mapping of featured challenges and bonus multipliers.
+6. **`leaderboards` & `contests`**: Live competitive rankings and tournament schedules.
+7. **`admin_audit_logs`**: Immutable trail of administrative actions.
+8. **`support_reports`**: Student-initiated diagnostic bug reports.
+9. **`users/{uid}/drafts`**: Private fallback vault used **only** when a student's college Workspace blocks Google Drive.
+
+### Tier B: Student Personal Google Drive (User Sovereignty)
+1. **`drafts/{slug}.c`**: In-progress code drafts per problem.
+2. **`notes/{slug}.md`**: Personal scratchpads and algorithmic notes.
+3. **`settings/editor.json`**: Personal IDE settings (Monaco theme, font size, keybindings).
+4. **`backups/*.json`**: Exportable archives of the student's personal submission history.
+
+---
+
+## 5. Security Model, App Check & Firestore Rules
+
+### Tamper-Proof Guarantees
+- **No Client Verdict Writes**: Firestore rules enforce `allow create, update, delete: if false;` on `/submissions`. Only the backend judge via Firebase Admin SDK can create submissions.
+- **No Client Point/Streak Inflation**: User stats (`points`, `streak`) cannot be updated by client requests (`allow update: if !affectedKeys().hasAny(['role', 'status', 'stats'])`).
+- **Hidden Test Case Secrecy**: Subcollection `hidden_tests` rejects all client queries.
+- **Per-User Submission Privacy**: Students can only read submissions where `request.auth.uid == resource.data.userId`.
+- **Firebase App Check**: Protects API endpoints and Firestore from unauthorized bot traffic and scraped calls.
+- **Rate Limiting**: Cloud Functions enforce 10-second submission cooldowns and IP-level limits.
+
+---
+
+## 6. Sandboxed C Execution Engine & Compilation Standards
 
 ### Compilation Standard
 ```bash
 gcc -O2 -std=c17 -Wall -Wextra -Werror=vla -fdiagnostics-color=never -pipe -lm solution.c -o solution
 ```
 
-### Execution Limits
-- **CPU Time Limit**: 2000 ms (Wall-clock watchdog: 2500 ms).
-- **Memory Limit**: 64 MB (RSS + Swap combined).
-- **Process Limit**: Max 32 PIDs (fork bomb mitigation).
+### Execution Guardrails (Linux Container)
+- **CPU Time Limit**: 2000 ms hard limit (supervisor watchdog: 2500 ms).
+- **Memory Limit**: 64 MB (RSS + Swap combined via Linux cgroups).
+- **Process Limit**: Max 32 PIDs (`pids.max = 32` prevents fork bombs).
 - **Output Limit**: 64 KB stdout/stderr buffer truncation.
-- **Filesystem**: Read-only root mount; ephemeral unprivileged `tmpfs`.
+- **Filesystem**: Read-only container root; ephemeral noexec `tmpfs`.
 - **Networking**: Disabled (`--network none`).
-
-### Supported Judge Implementations
-1. `DockerJudge`: Runs untrusted binary inside isolated Linux container with cgroups and seccomp filters (Primary Production).
-2. `Judge0Judge`: Submits code to external Judge0 CE / enterprise instance via REST API (Production Alternative).
-3. `LocalGccJudge`: Local development runner for Windows/Linux. **Forbidden in production.**
-4. `FailClosedJudge`: Default fallback when no safe judge is verified. Emits `JUDGE_UNAVAILABLE`.
+- **Fail-Closed Security**: `LocalGccJudge` is strictly forbidden in production. If no safe Cloud Run / Judge0 runner is configured, the system fails closed with `JUDGE_UNAVAILABLE`.
 
 ---
 
-## 5. Problem Quality & Validation Pipeline
+## 7. Google Drive Integration & Resilience
 
-### Required Problem Specifications
-- Title, Slug, Markdown Statement, Input Format, Output Format, Constraints ($N, \text{values}$).
-- $\ge 2$ Visible Samples with Markdown derivations.
-- $\ge 5$ Hidden Test Cases covering minimum, maximum, integer boundary, pointer/string edge, and adversarial sequences.
-- 1 Canonical Reference Solution in C (`reference_solution.c`).
-- 2 Negative Control Solutions (`wrong_solution_1.c`, `wrong_solution_2.c`).
-
-### Lifecycle State Machine
-$$\text{Draft} \xrightarrow{\text{Automated Gate: Ref=AC, Neg=Fail}} \text{Validated} \xrightarrow{\text{Schedule/Publish}} \text{Published} \xrightarrow{\text{Deprecate}} \text{Retired}$$
+- **Requested Scopes**: Minimal `https://www.googleapis.com/auth/drive.appdata` (hidden folder) and `https://www.googleapis.com/auth/drive.file`. Full Drive access is strictly prohibited.
+- **Progressive Consent**: Never requested at registration; requested via an optional, explicit prompt inside the workspace after login.
+- **DriveStorage Interface**: Provides `listDrafts`, `saveDraft`, `loadDraft`, `exportBackup`, `deleteAll`.
+- **Conflict Handling**: Compares `lastModified` timestamps; prompts user to choose version or merge instead of silently overwriting.
+- **Workspace Policy Resilience**: If a college Google Workspace domain blocks third-party Drive apps, LogicQ silently activates the private Firestore fallback (`users/{uid}/drafts`) or browser `localStorage`, displaying a non-alarming indicator. Full platform functionality remains available.
 
 ---
 
-## 6. Access Control & Authorization (RBAC)
+## 8. Zero-Backdoor Maintenance & Data Governance
 
-### Roles & Capabilities
-- **`STUDENT`**: Solve daily challenges, run custom inputs, submit code, view history, view post-solve editorials, participate in contests.
-- **`INSTRUCTOR`**: All student permissions + problem authoring, test case creation, problem validation gate execution, contest review queue.
-- **`ADMIN`**: Platform superuser. User management (bans/roles), system configuration, daily challenge scheduler, analytics.
-
-### Authentication & Sessions
-- Access Token (JWT, 15-minute expiry) in memory / authorization header.
-- Refresh Token (JWT, 7-day expiry) stored in `httpOnly`, `Secure`, `SameSite=Lax` cookie.
-- Token rotation on every refresh; immediate revocation on password change or account suspension.
-- Automated admin bootstrap from `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables.
-
----
-
-## 7. Product Differentiation & Learning Features
-
-1. **C-Specific Runtime Diagnostics**: Translates `SIGSEGV`, `SIGFPE`, and `MLE` into actionable educational guidance rather than cryptic errors.
-2. **Tiered Progressive Hints**: 3 structured hint levels (Logic Approach, Edge Case Watch, C Pointer Tip) with opt-in confirmation.
-3. **Post-Solve Editorial & C Deep Dive**: Unlocked strictly after achieving Accepted verdict; details asymptotic complexity and safe pointer idioms.
-4. **Visual Diff on Sample Cases**: Aligned character-level diff highlighting whitespace and newline divergence for failed visible tests.
-5. **Student Problem Issue Reporting**: Immediate feedback modal for reporting ambiguous descriptions or flawed test suites.
-
----
-
-## 8. Competitive Integrity & Scoring Rules
-
-- **Dual-Economy Separation**:
-  - Daily Challenge: Awards **10–30 XP** and increments **Daily Streak**. Active-day solve awards +5 bonus XP.
-  - Arena Contests: Awards **Competitive Rating (Elo)** based on ICPC penalty points.
-- **Submission Rate Limits**: 10-second cooldown on practice problems; 30-second cooldown in contests.
-- **AST Token Similarity**: Submissions exhibiting $\ge 85\%$ token similarity during contests are flagged for manual admin inspection (never auto-banned).
+- **Zero Drive Access for Admins**: No developer or administrator can read student Drives. No service accounts have Drive scopes.
+- **Maintenance via Firebase**: Admins manage problems, contests, and users via Firebase Console and Admin Dashboard. All mutations are logged to `admin_audit_logs`.
+- **Student "Send Debug Report"**: Student inspects the exact JSON telemetry payload (browser, OS, error log, optional draft snippet) before consenting to send to `support_reports`.
+- **"Export My Data"**: Packages central Firestore history + Drive drafts into a downloadable ZIP.
+- **"Delete My Account & Data"**: Revokes auth tokens, deletes Firestore user records, clears the Drive app data folder, and anonymizes contest scores (`[Deleted User]`). Aligned with India's DPDP Act principles.
 
 ---
 
 ## 9. Phased Release Milestone Plan
 
 ### Release 1 (MVP) — Current Focus:
-- Full Authentication (JWT, Cookies, Open/Domain-restricted, Safe Admin Seed).
-- Daily C Challenge (IST calendar synchronization, 16 curated problems).
-- Monaco C Web IDE with Custom Input Sandbox and Submit Execution.
-- Pluggable Safe C Judge with Fail-Closed Security Policy.
-- Detailed Submission History with Code Review Modal.
-- Global Student XP Leaderboard with clean empty state.
-- Admin Problem Management with Automated Validation Gate.
-- Problem Reporting Modal.
-- Student Privacy Notice & Self-Service Account Deletion.
+1. Firebase Auth (Google Sign-In) + Custom Claims (`STUDENT`, `ADMIN`).
+2. Firestore Security Rules + automated emulator test suite.
+3. Daily C Challenge (IST calendar synchronization, 16 curated problems).
+4. Monaco C Web IDE with Custom Input Sandbox and Submit Execution.
+5. Cloud Run / Judge0 Safe C Judge with Fail-Closed Security Policy.
+6. Detailed Submission History with Code Review Modal.
+7. Global Student XP Leaderboard with clean empty state.
+8. Student Google Drive integration with silent Firestore fallback.
+9. Admin Problem Management with Automated Validation Gate.
+10. Student "Send Debug Report", "Export Data", and "Delete Account" workflows.
 
-### Release 2 (The Arena):
-- Timed Contests with countdowns and hidden problem set until start.
-- Real-time live scoreboard streamed over WebSockets.
+### Release 2 (Competitive Arena):
+- Timed Arena contests with countdowns and hidden problem set until start.
+- Real-time live scoreboard streamed over Firestore real-time listeners / WebSockets.
 - Gamified Achievement Badges and Streak multiplier mechanics.
 - College and graduation year leaderboard filters.
 
@@ -158,4 +170,4 @@ $$\text{Draft} \xrightarrow{\text{Automated Gate: Ref=AC, Neg=Fail}} \text{Valid
 ## 10. Operational Guidelines & Verification Invariant
 
 - **Zero Fake Data Invariant**: Production database begins with clean empty states. No dummy mock users or demo scores.
-- **Test Before Complete Invariant**: No phase or task is marked complete without running automated test suites (`vitest`, `supertest`) and validating in the real application interface.
+- **Test Before Complete Invariant**: No phase or task is marked complete without running automated test suites (`vitest`, `@firebase/rules-unit-testing`) and validating in the real application interface.
