@@ -181,3 +181,45 @@ In response to the requirement for a clean white background (`bg-white` / `#FFFF
 - `03_dashboard_white.png` — Student dashboard featuring daily challenge card on light gradient, streak metrics, 12-week heatmap, and recent submissions table.
 - `04_challenge_white.png` — C11 split-pane workspace with white background statement, Monaco light theme editor, and test case drawer.
 - `05_leaderboard_white.png` — Competitive leaderboard with white podium cards and rankings ladder.
+
+---
+
+## Production Launch Clean Reset (Zero Demo Data)
+
+To prepare LogicQ for real, professional production launch, the system underwent a complete reset:
+
+1. **Pre-Reset Backup:**
+   - Full SQLite database snapshot preserved at `server/backups/dev.db.pre_launch_backup_*`.
+
+2. **Test & Demo Data Purge:**
+   - All sample student users (`c_wizard`, `pointer_ninja`, `bit_flipper`, `null_pointer`, etc.) removed.
+   - All demo submissions, execution records, test cases results, and user badges cleared (`0 submissions`, `0 unlocks`).
+   - Demo contests and participants cleared (`0 contests`).
+   - System Administrator account (`admin@logicq.io`) stats reset to clean zero (`0 points`, `0 streak`, `0 submissions`).
+
+3. **Curated Master Content Preserved:**
+   - 16 Original, production-grade C problems across Easy, Medium, and Hard difficulty levels.
+   - Complete hidden and visible evaluation test case suites.
+   - 6 Platform achievement badge definitions.
+   - Featured daily challenge configured and scheduled for today's IST date (`2026-10-09`).
+
+4. **UI De-Mocking:**
+   - Removed pre-configured demo credentials / quick-fill buttons from the Sign In page.
+   - Excluded administrator accounts from student leaderboard rankings.
+   - Built polished, production-grade empty states for:
+     - **Competitive Leaderboard:** Trophy banner welcoming first challenger solves.
+     - **Competitive Arena:** Swords banner announcing upcoming contest rounds with CTA to problem catalog.
+     - **Submission History:** Clean empty state prompting students to solve their first challenge.
+     - **Admin Live Stream:** Clean empty state waiting for real-time evaluations.
+
+### Launch State Verification Screenshots (`/docs/screenshots/logicq_launch/`)
+
+- `01_landing_launch.png` — Production hero page with live GCC sandbox and zero demo artifacts.
+- `02_login_clean.png` — Production-grade login form with no demo helper buttons.
+- `03_leaderboard_empty.png` — Leaderboard with clean empty state waiting for real challenger solves.
+- `04_arena_empty.png` — Arena with polished empty state waiting for official scheduled rounds.
+- `05_catalog_fresh.png` — 16 curated problems with 0 submissions each and clean unsolved status.
+- `06_challenge_fresh.png` — Clean workspace for today's daily challenge ready for first solve.
+- `07_admin_dashboard_clean.png` — Admin console with 1 registered user, 0 global submissions, and 0% acceptance rate.
+- `08_register_clean.png` — Student registration page ready for real user onboarding.
+- `09_fresh_student_dashboard.png` — Verified brand-new student dashboard with 0 streak, 0 points, and 0 solved problems.

@@ -70,8 +70,22 @@ export const LeaderboardPage: React.FC = () => {
           Loading leaderboard standings...
         </div>
       ) : rankedUsers.length === 0 ? (
-        <div className="glass-card p-12 text-center rounded-2xl border border-white/[0.08] font-mono text-xs text-slate-400">
-          No rankings recorded for this timeframe yet. Be the first to solve!
+        <div className="glass-card p-16 text-center rounded-2xl border border-slate-200 dark:border-white/[0.08] font-mono flex flex-col items-center justify-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400 shadow-sm">
+            <Trophy className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Leaderboard Open for Challenger Submissions</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              No solutions have been logged for this timeframe yet. Solve today's daily challenge to earn base points, trigger your streak, and claim the rank #1 position!
+            </p>
+          </div>
+          <Link
+            to="/challenge"
+            className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all"
+          >
+            <span>Conquer Daily Challenge</span>
+          </Link>
         </div>
       ) : (
         <>

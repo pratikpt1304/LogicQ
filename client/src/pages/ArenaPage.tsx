@@ -35,8 +35,22 @@ export const ArenaPage: React.FC = () => {
             Loading arena contests...
           </div>
         ) : contests.length === 0 ? (
-          <div className="glass-card p-12 text-center rounded-2xl border border-white/[0.08] text-slate-400 font-mono text-xs">
-            No active contests scheduled at this moment. Check back soon!
+          <div className="glass-card p-16 text-center rounded-2xl border border-slate-200 dark:border-white/[0.08] font-mono flex flex-col items-center justify-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-500 dark:text-cyan-400 shadow-sm">
+              <Swords className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">No Active Arena Rounds Scheduled</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                Official timed ICPC-style contests will be announced here. Sharpen your pointer and logic skills on our curated problem catalog while waiting for the next arena drop!
+              </p>
+            </div>
+            <Link
+              to="/archive"
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all"
+            >
+              <span>Explore Problem Catalog</span>
+            </Link>
           </div>
         ) : (
           contests.map((contest: any) => {

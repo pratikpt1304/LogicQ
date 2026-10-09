@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/common/Logo.js';
-import { KeyRound, Mail, ArrowRight, Shield, AlertCircle } from 'lucide-react';
+import { KeyRound, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
@@ -29,12 +29,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickFill = (id: string, pass: string) => {
-    setIdentifier(id);
-    setPassword(pass);
-    setError(null);
   };
 
   return (
@@ -108,30 +102,6 @@ export const LoginPage: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Fill Demo Credentials */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <span className="text-[11px] font-mono text-slate-500 block mb-2 font-medium">
-              PRE-CONFIGURED TEST LOGINS:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin@logicq.io', 'AdminPassword123!')}
-                className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-mono transition-colors"
-              >
-                <Shield className="w-3 h-3 text-purple-400" />
-                <span>Admin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('alice@example.com', 'StudentPass123!')}
-                className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-mono transition-colors"
-              >
-                <span>Student</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">

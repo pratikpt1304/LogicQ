@@ -59,7 +59,10 @@ export async function getLeaderboard(req: Request, res: Response): Promise<void>
     // Weekly or All-Time Leaderboard
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        where: { isBanned: false },
+        where: {
+          isBanned: false,
+          role: { not: 'ADMIN' },
+        },
         orderBy: [{ totalPoints: 'desc' }, { currentStreak: 'desc' }, { createdAt: 'asc' }],
         skip,
         take: limit,
@@ -81,7 +84,12 @@ export async function getLeaderboard(req: Request, res: Response): Promise<void>
           },
         },
       }),
-      prisma.user.count({ where: { isBanned: false } }),
+      prisma.user.count({
+        where: {
+          isBanned: false,
+          role: { not: 'ADMIN' },
+        },
+      }),
     ]);
 
     const ranked = users.map((u, idx) => ({

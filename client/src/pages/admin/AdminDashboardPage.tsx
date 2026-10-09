@@ -315,57 +315,63 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Submissions Live Stream */}
       {activeTab === 'submissions' && (
         <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
-                <tr>
-                  <th className="px-6 py-3.5">User</th>
-                  <th className="px-6 py-3.5">Problem</th>
-                  <th className="px-6 py-3.5">Verdict</th>
-                  <th className="px-6 py-3.5">Runtime</th>
-                  <th className="px-6 py-3.5">Submitted</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {submissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-bold text-white">
-                      @{sub.user?.username || 'user'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-300">
-                      {sub.problem?.title}
-                    </td>
-                    <td className="px-6 py-4">
-                      <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
-                    </td>
-                    <td className="px-6 py-4 text-slate-400">
-                      {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                      {new Date(sub.createdAt).toLocaleTimeString()}
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => setSelectedSubmissionCode(sub.code)}
-                        className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10"
-                        title="Inspect Code"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => rejudgeMutation.mutate(sub.id)}
-                        className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10"
-                        title="Re-judge"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
-                    </td>
+          {submissions.length === 0 ? (
+            <div className="p-12 text-center text-xs font-mono text-slate-500">
+              No live submissions recorded yet. Incoming evaluations from challengers will stream here automatically.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-6 py-3.5">User</th>
+                    <th className="px-6 py-3.5">Problem</th>
+                    <th className="px-6 py-3.5">Verdict</th>
+                    <th className="px-6 py-3.5">Runtime</th>
+                    <th className="px-6 py-3.5">Submitted</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {submissions.map((sub: any) => (
+                    <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-bold text-white">
+                        @{sub.user?.username || 'user'}
+                      </td>
+                      <td className="px-6 py-4 text-slate-300">
+                        {sub.problem?.title}
+                      </td>
+                      <td className="px-6 py-4">
+                        <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                      </td>
+                      <td className="px-6 py-4 text-slate-400">
+                        {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {new Date(sub.createdAt).toLocaleTimeString()}
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <button
+                          onClick={() => setSelectedSubmissionCode(sub.code)}
+                          className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10"
+                          title="Inspect Code"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => rejudgeMutation.mutate(sub.id)}
+                          className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10"
+                          title="Re-judge"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

@@ -45,8 +45,18 @@ export const HistoryPage: React.FC = () => {
             Loading submission history...
           </div>
         ) : submissions.length === 0 ? (
-          <div className="py-20 text-center font-mono text-slate-400 text-xs">
-            No submissions recorded yet. Try solving today's challenge!
+          <div className="py-20 text-center font-mono flex flex-col items-center justify-center space-y-3">
+            <Clock className="w-8 h-8 text-slate-400 opacity-40 mb-1" />
+            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">No Submissions Recorded</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+              Your C code evaluations and test verdicts will appear here once you run or submit code.
+            </p>
+            <Link
+              to="/challenge"
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all"
+            >
+              <span>Solve First Challenge</span>
+            </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">

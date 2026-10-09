@@ -92,84 +92,16 @@ async function main() {
   });
   console.log(`Admin created: ${adminUser.username} (${adminUser.email})`);
 
-  // 3. Create Sample Student Users
-  const studentsData = [
-    {
-      username: 'c_wizard',
-      email: 'alice@example.com',
-      fullName: 'Alice Chen',
-      college: 'MIT EECS',
-      bio: 'Pointers never segfault on my watch. C enthusiast.',
-      totalPoints: 280,
-      currentStreak: 9,
-      longestStreak: 14,
-      lastSolvedDate: '2026-10-09',
-    },
-    {
-      username: 'pointer_ninja',
-      email: 'devin@example.com',
-      fullName: 'Devin Patel',
-      college: 'IIT Bombay',
-      bio: 'Low-level systems hacker and competitive coder.',
-      totalPoints: 215,
-      currentStreak: 5,
-      longestStreak: 8,
-      lastSolvedDate: '2026-10-09',
-    },
-    {
-      username: 'bit_flipper',
-      email: 'marcus@example.com',
-      fullName: 'Marcus Vance',
-      college: 'Stanford University',
-      bio: 'Optimizing assembly and memory alignments.',
-      totalPoints: 140,
-      currentStreak: 3,
-      longestStreak: 6,
-      lastSolvedDate: '2026-10-08',
-    },
-    {
-      username: 'null_pointer',
-      email: 'elena@example.com',
-      fullName: 'Elena Rostova',
-      college: 'TU Munich',
-      bio: 'Learning defensive C coding and debugging memory leaks.',
-      totalPoints: 85,
-      currentStreak: 1,
-      longestStreak: 4,
-      lastSolvedDate: '2026-10-07',
-    },
-  ];
+  // 3. Date context for daily challenge scheduling
+  const now = new Date();
+  const istDateString = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
 
-  const defaultStudentHash = await bcrypt.hash('StudentPass123!', 10);
-  const studentMap: Record<string, any> = {};
-
-  for (const s of studentsData) {
-    const user = await prisma.user.upsert({
-      where: { email: s.email },
-      update: s,
-      create: {
-        ...s,
-        passwordHash: defaultStudentHash,
-        role: 'STUDENT',
-      },
-    });
-    studentMap[s.username] = user;
-  }
-  console.log('Sample students seeded.');
-
-  // Award First Blood badge to sample students
-  const firstBloodBadge = await prisma.badge.findUnique({ where: { slug: 'first-blood' } });
-  if (firstBloodBadge) {
-    for (const u of Object.values(studentMap)) {
-      await prisma.userBadge.upsert({
-        where: { userId_badgeId: { userId: u.id, badgeId: firstBloodBadge.id } },
-        update: {},
-        create: { userId: u.id, badgeId: firstBloodBadge.id },
-      });
-    }
-  }
-
-  // 4. Create 16 Original C Problems
+  // 4. Create Curated Original C Problems
   const problemsData = [
     {
       slug: 'sum-of-multiples',
@@ -1124,146 +1056,20 @@ int main() {
   }
   console.log(`Seeded ${problemsData.length} original C problems with test cases.`);
 
-  // 5. Create a Scheduled Contest: "Genesis C Arena Round 1"
-  const now = new Date();
-  const startTime = new Date(now.getTime() - 1000 * 60 * 30); // Started 30 mins ago (ONGOING)
-  const endTime = new Date(now.getTime() + 1000 * 60 * 90);   // Ends in 90 mins
-
-  const contest = await prisma.contest.upsert({
-    where: { slug: 'genesis-c-arena-round-1' },
-    update: {
-      status: 'ONGOING',
-      startTime,
-      endTime,
-    },
-    create: {
-      slug: 'genesis-c-arena-round-1',
-      title: 'Genesis C Arena — Round 1',
-      description: 'The inaugural competitive programming arena contest of LogicQ. Test your logic, pointer manipulation, and speed under ICPC penalty scoring.',
-      startTime,
-      endTime,
-      durationMinutes: 120,
-      status: 'ONGOING',
-    },
-  });
-
-  // Link 4 problems to contest
-  const contestProblemSlugs = [
-    'in-place-string-reversal',
-    'bitwise-parity-check',
-    'valid-parentheses-stack',
-    'merge-k-sorted-arrays',
-  ];
-
-  await prisma.contestProblem.deleteMany({ where: { contestId: contest.id } });
-  for (let i = 0; i < contestProblemSlugs.length; i++) {
-    const slug = contestProblemSlugs[i];
-    const prob = problemMap[slug];
-    if (prob) {
-      await prisma.contestProblem.create({
-        data: {
-          contestId: contest.id,
-          problemId: prob.id,
-          orderIndex: i,
-          points: (i + 1) * 100,
-        },
-      });
-    }
+  // 5. Schedule Today's Featured Daily Challenge
+  const featuredSlug = 'daily-longest-unique-substring';
+  if (problemMap[featuredSlug]) {
+    await prisma.problem.update({
+      where: { id: problemMap[featuredSlug].id },
+      data: {
+        isDaily: true,
+        scheduledDate: istDateString,
+      },
+    });
+    console.log(`Featured daily challenge configured: "${featuredSlug}" for ${istDateString} (IST).`);
   }
 
-  // Register participants to contest
-  await prisma.contestParticipant.deleteMany({ where: { contestId: contest.id } });
-  const sampleParticipants = [
-    { username: 'c_wizard', score: 300, penaltyTime: 42, rank: 1 },
-    { username: 'pointer_ninja', score: 300, penaltyTime: 65, rank: 2 },
-    { username: 'bit_flipper', score: 100, penaltyTime: 18, rank: 3 },
-  ];
-
-  for (const sp of sampleParticipants) {
-    const u = studentMap[sp.username];
-    if (u) {
-      await prisma.contestParticipant.create({
-        data: {
-          contestId: contest.id,
-          userId: u.id,
-          score: sp.score,
-          penaltyTime: sp.penaltyTime,
-          rank: sp.rank,
-        },
-      });
-    }
-  }
-  console.log('Sample contest seeded with participants.');
-
-  // 6. Create sample accepted submissions for dashboard stats & leaderboards
-  const sampleSubmissions = [
-    {
-      username: 'c_wizard',
-      problemSlug: 'sum-of-multiples',
-      code: '#include <stdio.h>\nint main() { int n; scanf("%d", &n); long long sum = 0; for(int i=1; i<=n; i++) if(i%3==0 || i%5==0) sum+=i; printf("%lld\\n", sum); return 0; }',
-      verdict: 'ACCEPTED',
-      runtimeMs: 4,
-      memoryKb: 512,
-      pointsAwarded: 10,
-    },
-    {
-      username: 'c_wizard',
-      problemSlug: 'bitwise-parity-check',
-      code: '#include <stdio.h>\nint main() { unsigned int x; scanf("%u", &x); int c = 0; while(x) { c ^= (x & 1); x >>= 1; } printf("%s\\n", c ? "ODD" : "EVEN"); return 0; }',
-      verdict: 'ACCEPTED',
-      runtimeMs: 3,
-      memoryKb: 480,
-      pointsAwarded: 10,
-    },
-    {
-      username: 'c_wizard',
-      problemSlug: 'daily-longest-unique-substring',
-      code: '#include <stdio.h>\n#include <string.h>\nint main() { printf("3\\n"); return 0; }',
-      verdict: 'ACCEPTED',
-      runtimeMs: 5,
-      memoryKb: 520,
-      pointsAwarded: 25,
-    },
-    {
-      username: 'pointer_ninja',
-      problemSlug: 'sum-of-multiples',
-      code: '#include <stdio.h>\nint main() { int n; scanf("%d", &n); long long sum = 0; for(int i=1; i<=n; i++) if(i%3==0 || i%5==0) sum+=i; printf("%lld\\n", sum); return 0; }',
-      verdict: 'ACCEPTED',
-      runtimeMs: 4,
-      memoryKb: 512,
-      pointsAwarded: 10,
-    },
-    {
-      username: 'bit_flipper',
-      problemSlug: 'bitwise-parity-check',
-      code: '#include <stdio.h>\nint main() { unsigned int x; scanf("%u", &x); int c = 0; while(x) { c ^= (x & 1); x >>= 1; } printf("%s\\n", c ? "ODD" : "EVEN"); return 0; }',
-      verdict: 'ACCEPTED',
-      runtimeMs: 3,
-      memoryKb: 480,
-      pointsAwarded: 10,
-    },
-  ];
-
-  for (const sub of sampleSubmissions) {
-    const user = studentMap[sub.username];
-    const prob = problemMap[sub.problemSlug];
-    if (user && prob) {
-      await prisma.submission.create({
-        data: {
-          userId: user.id,
-          problemId: prob.id,
-          code: sub.code,
-          verdict: sub.verdict,
-          runtimeMs: sub.runtimeMs,
-          memoryKb: sub.memoryKb,
-          pointsAwarded: sub.pointsAwarded,
-        },
-      });
-    }
-  }
-  console.log('Sample submissions seeded.');
-
-  console.log('Seeding completed successfully!');
+  console.log('Production master seed completed successfully! Zero demo data injected.');
 }
 
 main()
