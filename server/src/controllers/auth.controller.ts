@@ -388,3 +388,115 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     res.status(500).json({ success: false, message: 'Failed to reset password' });
   }
 }
+
+export const googleAuthSchema = z.object({
+  body: z.object({
+    idToken: z.string().optional(),
+    email: z.string().email('Valid email is required'),
+    fullName: z.string().min(1, 'Full name is required'),
+    avatarUrl: z.string().optional().nullable(),
+    googleUid: z.string().optional(),
+  }),
+});
+
+export async function googleAuth(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, fullName, avatarUrl } = req.body;
+
+    // Check institutional domain restrictions if enabled
+    if (process.env.AUTH_MODE === 'DOMAIN_RESTRICTED') {
+      const allowed = (process.env.ALLOWED_EMAIL_DOMAINS || '')
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean);
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (allowed.length > 0 && (!domain || !allowed.includes(domain))) {
+        res.status(403).json({
+          success: false,
+          message: `Access restricted to institutional email domains: ${allowed.map((d) => '@' + d).join(', ')}`,
+        });
+        return;
+      }
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (user && user.isBanned) {
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended by an administrator.',
+      });
+      return;
+    }
+
+    if (!user) {
+      // Auto-provision student account for verified Google Sign-In
+      const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      let username = baseUsername;
+      const count = await prisma.user.count({ where: { username } });
+      if (count > 0) {
+        username = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      user = await prisma.user.create({
+        data: {
+          username,
+          email,
+          passwordHash,
+          fullName,
+          avatarUrl: avatarUrl || null,
+          role: 'STUDENT',
+        },
+      });
+    } else if (avatarUrl && !user.avatarUrl) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { avatarUrl },
+      });
+    }
+
+    const tokenPayload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    res.cookie('access_token', accessToken, getCookieOptions(15 * 60 * 1000));
+    res.cookie('refresh_token', refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+
+    res.status(200).json({
+      success: true,
+      message: 'Signed in successfully via Google',
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          college: user.college,
+          avatarUrl: user.avatarUrl,
+          totalPoints: user.totalPoints,
+          currentStreak: user.currentStreak,
+        },
+        accessToken,
+      },
+    });
+  } catch (err: any) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ success: false, message: 'Google authentication failed' });
+  }
+}
+

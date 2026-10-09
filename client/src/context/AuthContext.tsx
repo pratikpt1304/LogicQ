@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types/index.js';
 import { api } from '../api/client.js';
+import { signInWithPopup } from 'firebase/auth';
+import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
+
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
   login: (identifier: string, password: string) => Promise<User>;
+  loginWithGoogle: () => Promise<User>;
   register: (data: {
     username: string;
     email: string;
@@ -17,6 +21,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -52,6 +57,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.data.user;
   };
 
+  const loginWithGoogle = async (): Promise<User> => {
+    const cred = await signInWithPopup(firebaseAuth, googleAuthProvider);
+    const idToken = await cred.user.getIdToken();
+    const res = await api.post('/auth/google', {
+      idToken,
+      email: cred.user.email,
+      fullName: cred.user.displayName || cred.user.email?.split('@')[0] || 'Challenger',
+      avatarUrl: cred.user.photoURL,
+      googleUid: cred.user.uid,
+    });
+    if (!res.success || !res.data?.user) {
+      throw new Error(res.message || 'Google sign-in failed');
+    }
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
   const register = async (data: {
     username: string;
     email: string;
@@ -70,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await api.post('/auth/logout');
+      await firebaseAuth.signOut().catch(() => {});
     } finally {
       setUser(null);
     }
@@ -86,6 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isAdmin: user?.role === 'ADMIN',
         login,
+        loginWithGoogle,
         register,
         logout,
         refreshUser,
