@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.js';
+import { useTheme } from '../../context/ThemeContext.js';
 import { Logo } from '../common/Logo.js';
 import {
   Flame,
@@ -15,10 +16,13 @@ import {
   X,
   Swords,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -41,7 +45,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/[0.07] bg-dark-950/80 backdrop-blur-xl transition-all">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-white/[0.07] bg-white/90 dark:bg-dark-950/80 backdrop-blur-xl transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand */}
         <Logo size="md" />
@@ -57,11 +61,11 @@ export const Navbar: React.FC = () => {
                 to={item.path}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all ${
                   active
-                    ? 'text-cyan-400 bg-cyan-500/10 border border-cyan-500/20'
-                    : 'text-slate-300 hover:text-white hover:bg-white/[0.04]'
+                    ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 font-semibold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${active ? 'text-cyan-400' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${active ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`} />
                 {item.label}
               </Link>
             );
@@ -101,32 +105,46 @@ export const Navbar: React.FC = () => {
                 </Link>
               )}
 
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-slate-200 dark:border-slate-700/60 transition-colors"
+                aria-label="Toggle Theme"
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-4 h-4 text-slate-700" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                )}
+              </button>
+
               {/* User Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-full bg-dark-850 border border-slate-700/60 hover:border-slate-500 transition-all text-sm"
+                  className="flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-full bg-slate-50 dark:bg-dark-850 border border-slate-200 dark:border-slate-700/60 hover:border-slate-400 dark:hover:border-slate-500 transition-all text-sm"
                 >
                   <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center text-xs font-bold text-dark-950">
                     {user.username.charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-slate-200 text-xs max-w-[100px] truncate">
+                  <span className="font-medium text-slate-800 dark:text-slate-200 text-xs max-w-[100px] truncate">
                     {user.username}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 </button>
 
                 {profileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-dark-900 border border-slate-700/80 shadow-2xl py-1 z-50 backdrop-blur-xl">
-                    <div className="px-4 py-2 border-b border-slate-800 text-xs">
-                      <p className="font-semibold text-white truncate">{user.fullName}</p>
-                      <p className="text-slate-400 font-mono text-[11px] truncate">@{user.username}</p>
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-slate-700/80 shadow-xl py-1 z-50 backdrop-blur-xl">
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 text-xs">
+                      <p className="font-semibold text-slate-900 dark:text-white truncate">{user.fullName}</p>
+                      <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate">@{user.username}</p>
                     </div>
 
                     <Link
                       to={`/profile/${user.username}`}
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-white/[0.05]"
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.05]"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-slate-400" />
                       View Profile
@@ -135,7 +153,7 @@ export const Navbar: React.FC = () => {
                     <Link
                       to="/history"
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-white/[0.05]"
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.05]"
                     >
                       <Code2 className="w-3.5 h-3.5 text-slate-400" />
                       My Submissions
@@ -145,20 +163,20 @@ export const Navbar: React.FC = () => {
                       <Link
                         to="/admin"
                         onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs text-purple-300 hover:bg-purple-500/10"
+                        className="flex items-center gap-2 px-4 py-2 text-xs text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
                         Admin Dashboard
                       </Link>
                     )}
 
-                    <div className="border-t border-slate-800 mt-1"></div>
+                    <div className="border-t border-slate-100 dark:border-slate-800 mt-1"></div>
 
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-left"
                     >
-                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                      <LogOut className="w-3.5 h-3.5 text-rose-500" />
                       Sign Out
                     </button>
                   </div>
@@ -167,9 +185,23 @@ export const Navbar: React.FC = () => {
             </>
           ) : (
             <div className="flex items-center gap-2">
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+                className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-slate-200 dark:border-slate-700/60 transition-colors mr-1"
+                aria-label="Toggle Theme"
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-4 h-4 text-slate-700" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                )}
+              </button>
+
               <Link
                 to="/login"
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.05] transition-all"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
               >
                 Sign In
               </Link>

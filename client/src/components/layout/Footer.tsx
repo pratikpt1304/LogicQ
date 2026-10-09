@@ -4,7 +4,7 @@ import { Terminal, Shield, Cpu, Github, ExternalLink } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-white/[0.06] bg-dark-950/90 py-12 px-4 sm:px-6 lg:px-8 mt-auto">
+    <footer className="border-t border-slate-200 dark:border-white/[0.06] bg-slate-50/80 dark:bg-dark-950/90 py-12 px-4 sm:px-6 lg:px-8 mt-auto">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col items-center md:items-start gap-2">
           <Logo size="sm" showTagline={true} />

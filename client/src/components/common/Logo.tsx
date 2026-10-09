@@ -13,7 +13,7 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
   return (
     <Link to="/" className="flex items-center gap-2.5 group select-none">
       <div
-        className="relative flex items-center justify-center rounded-xl bg-dark-850 border border-slate-700/60 p-1.5 transition-transform duration-200 group-hover:scale-105 group-hover:border-cyan-500/40"
+        className="relative flex items-center justify-center rounded-xl bg-slate-100 dark:bg-dark-850 border border-slate-200 dark:border-slate-700/60 p-1.5 transition-transform duration-200 group-hover:scale-105 group-hover:border-cyan-500/40"
         style={{ width: iconSize, height: iconSize }}
       >
         <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
@@ -60,17 +60,17 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
       </div>
 
       <div className="flex flex-col">
-        <div className={`font-extrabold tracking-tight text-white flex items-center ${textSize}`}>
+        <div className={`font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center ${textSize}`}>
           Logic
           <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
             Q
           </span>
-          <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-semibold tracking-wider rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+          <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-semibold tracking-wider rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
             C11
           </span>
         </div>
         {showTagline && (
-          <span className="text-[10px] font-mono text-slate-400 tracking-wider font-medium">
+          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 tracking-wider font-medium">
             Think in logic. Code in C.
           </span>
         )}

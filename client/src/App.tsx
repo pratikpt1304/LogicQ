@@ -62,7 +62,7 @@ export const App: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col bg-dark-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-dark-950 text-slate-900 dark:text-slate-100 transition-colors">
       <Navbar />
 
       <main className="flex-1">

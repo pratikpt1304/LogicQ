@@ -103,37 +103,37 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Featured Daily Challenge Card */}
-      <div className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-dark-900 via-dark-850 to-dark-900 p-6 sm:p-8 shadow-2xl overflow-hidden backdrop-blur-xl">
+      <div className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-white via-cyan-50/30 to-white dark:from-dark-900 dark:via-dark-850 dark:to-dark-900 p-6 sm:p-8 shadow-sm dark:shadow-2xl overflow-hidden backdrop-blur-xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="px-2.5 py-1 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="px-2.5 py-1 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 text-xs font-mono font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                 FEATURED DAILY CHALLENGE
               </span>
 
               {dailyProblem && <DifficultyBadge difficulty={dailyProblem.difficulty} />}
 
               {isDailySolved ? (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Solved Today (+{dailyProblem?.basePoints + 15} PTS)
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
+                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
                   <Zap className="w-3.5 h-3.5" />
                   Active Today
                 </span>
               )}
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-white">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
               {dailyProblem?.title || 'Loading Daily Challenge...'}
             </h2>
 
-            <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
               {dailyProblem?.description?.replace(/### Problem Description|###|```/g, '') ||
                 'Solving today\'s challenge earns base points + first-time solve and daily bonuses.'}
             </p>
@@ -303,15 +303,15 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Recent Submissions Feed */}
-      <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-dark-850">
-          <h3 className="text-sm font-mono font-bold text-white tracking-wide uppercase flex items-center gap-2">
-            <Clock className="w-4 h-4 text-cyan-400" />
+      <div className="glass-card rounded-2xl border border-slate-200 dark:border-white/[0.08] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-dark-850">
+          <h3 className="text-sm font-mono font-bold text-slate-800 dark:text-white tracking-wide uppercase flex items-center gap-2">
+            <Clock className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
             Recent Submissions
           </h3>
           <Link
             to="/history"
-            className="text-xs font-mono text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"
+            className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 font-semibold flex items-center gap-1"
           >
             <span>View All</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -325,7 +325,7 @@ export const DashboardPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.04]">
+              <thead className="bg-slate-100/70 dark:bg-dark-900/60 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-white/[0.04]">
                 <tr>
                   <th className="px-6 py-3">Problem</th>
                   <th className="px-6 py-3">Difficulty</th>
@@ -335,9 +335,9 @@ export const DashboardPage: React.FC = () => {
                   <th className="px-6 py-3 text-right">Submitted</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                 {recentSubmissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={sub.id} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-3.5 font-bold text-white">
                       <Link
                         to={`/challenge/${sub.problemSlug}`}

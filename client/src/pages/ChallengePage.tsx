@@ -210,30 +210,30 @@ export const ChallengePage: React.FC = () => {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left Pane: Problem Statement (Columns 1-5 on desktop) */}
         <div
-          className={`lg:col-span-5 h-full overflow-y-auto border-r border-white/[0.08] bg-dark-950 p-6 space-y-6 ${
+          className={`lg:col-span-5 h-full overflow-y-auto border-r border-slate-200 dark:border-white/[0.08] bg-white dark:bg-dark-950 p-6 space-y-6 ${
             activeMobileTab !== 'statement' ? 'hidden lg:block' : ''
           }`}
         >
           {/* Header */}
-          <div className="space-y-3 pb-4 border-b border-white/[0.06]">
+          <div className="space-y-3 pb-4 border-b border-slate-200 dark:border-white/[0.06]">
             <div className="flex items-center gap-2">
               <DifficultyBadge difficulty={problem.difficulty} size="sm" />
               {problem.isDaily && (
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-semibold">
                   Daily Challenge
                 </span>
               )}
               {userStatus?.isSolved && (
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-semibold">
                   <Check className="w-3 h-3" /> Solved
                 </span>
               )}
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-white">{problem.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{problem.title}</h1>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-400">
-              <span>Points: <strong className="text-cyan-400">{problem.basePoints} PTS</strong></span>
+            <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-500 dark:text-slate-400">
+              <span>Points: <strong className="text-cyan-600 dark:text-cyan-400">{problem.basePoints} PTS</strong></span>
               <span>•</span>
               <span>Time: {problem.timeLimitMs}ms</span>
               <span>•</span>
@@ -259,7 +259,7 @@ export const ChallengePage: React.FC = () => {
                   {tagsList.map((tag: string) => (
                     <span
                       key={tag}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono bg-dark-850 text-slate-400 border border-white/[0.06]"
+                      className="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-100 dark:bg-dark-850 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.06]"
                     >
                       #{tag}
                     </span>
@@ -270,33 +270,33 @@ export const ChallengePage: React.FC = () => {
           </div>
 
           {/* Markdown Content */}
-          <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed font-sans">
+          <div className="prose dark:prose-invert prose-sm max-w-none text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{problem.description}</ReactMarkdown>
           </div>
 
           {/* Visible Sample Test Cases */}
           {sampleCases.length > 0 && (
-            <div className="space-y-4 pt-4 border-t border-white/[0.06]">
-              <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/[0.06]">
+              <h3 className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                 Sample Test Cases
               </h3>
 
               {sampleCases.map((tc: any, index: number) => (
                 <div
                   key={tc.id || index}
-                  className="rounded-xl border border-white/[0.06] bg-dark-900 p-3.5 space-y-2 text-xs font-mono"
+                  className="rounded-xl border border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-dark-900 p-3.5 space-y-2 text-xs font-mono"
                 >
-                  <span className="text-slate-400 font-semibold block">Case {index + 1}:</span>
+                  <span className="text-slate-600 dark:text-slate-400 font-semibold block">Case {index + 1}:</span>
                   <div>
                     <span className="text-slate-500 block text-[10px]">INPUT</span>
-                    <pre className="p-2 rounded bg-dark-950 text-cyan-300 overflow-x-auto">
+                    <pre className="p-2 rounded bg-slate-100 dark:bg-dark-950 text-cyan-700 dark:text-cyan-300 border border-slate-200 dark:border-transparent overflow-x-auto">
                       {tc.input}
                     </pre>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[10px]">EXPECTED OUTPUT</span>
-                    <pre className="p-2 rounded bg-dark-950 text-emerald-300 overflow-x-auto">
+                    <pre className="p-2 rounded bg-slate-100 dark:bg-dark-950 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-transparent overflow-x-auto">
                       {tc.expectedOutput}
                     </pre>
                   </div>
@@ -308,14 +308,14 @@ export const ChallengePage: React.FC = () => {
 
         {/* Right Pane: Code Editor & Execution Drawer (Columns 6-12 on desktop) */}
         <div
-          className={`lg:col-span-7 flex flex-col h-full bg-dark-950 overflow-hidden ${
+          className={`lg:col-span-7 flex flex-col h-full bg-slate-50 dark:bg-dark-950 overflow-hidden ${
             activeMobileTab === 'statement' ? 'hidden lg:flex' : ''
           }`}
         >
           {/* Top Bar for Code Actions */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-dark-900 border-b border-white/[0.06]">
-            <span className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-dark-900 border-b border-slate-200 dark:border-white/[0.06]">
+            <span className="text-xs font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
               GCC 16.2.0 C11 Sandbox
             </span>
 
@@ -323,9 +323,9 @@ export const ChallengePage: React.FC = () => {
               <button
                 onClick={() => runMutation.mutate()}
                 disabled={runMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-200 bg-dark-800 hover:bg-dark-700 border border-slate-700/80 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-dark-800 dark:hover:bg-dark-700 border border-slate-200 dark:border-slate-700/80 transition-colors disabled:opacity-50"
               >
-                <Play className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+                <Play className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 fill-cyan-600 dark:fill-cyan-400" />
                 <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
               </button>
 
@@ -355,12 +355,12 @@ export const ChallengePage: React.FC = () => {
 
           {/* Bottom Execution Panel Drawer */}
           <div
-            className={`border-t border-white/[0.08] bg-dark-900 transition-all duration-300 flex flex-col ${
+            className={`border-t border-slate-200 dark:border-white/[0.08] bg-white dark:bg-dark-900 transition-all duration-300 flex flex-col ${
               isDrawerOpen ? 'h-64' : 'h-10'
             }`}
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between px-4 py-2 bg-dark-850 border-b border-white/[0.04]">
+            <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-dark-850 border-b border-slate-200 dark:border-white/[0.04]">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -369,8 +369,8 @@ export const ChallengePage: React.FC = () => {
                   }}
                   className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
                     activeBottomTab === 'testcases'
-                      ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 font-bold'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'text-cyan-600 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-300 dark:border-cyan-500/30 font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                   }`}
                 >
                   Test Cases
@@ -383,8 +383,8 @@ export const ChallengePage: React.FC = () => {
                   }}
                   className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
                     activeBottomTab === 'custom'
-                      ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 font-bold'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'text-cyan-600 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-300 dark:border-cyan-500/30 font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                   }`}
                 >
                   Custom Stdin
@@ -397,20 +397,20 @@ export const ChallengePage: React.FC = () => {
                   }}
                   className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
                     activeBottomTab === 'output'
-                      ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 font-bold'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'text-cyan-600 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-300 dark:border-cyan-500/30 font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                   }`}
                 >
                   Verdict & Output
                   {submissionResult && (
-                    <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-cyan-400" />
+                    <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400" />
                   )}
                 </button>
               </div>
 
               <button
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                className="p-1 rounded text-slate-400 hover:text-white transition-colors"
+                className="p-1 rounded text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
               >
                 {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
@@ -442,13 +442,13 @@ export const ChallengePage: React.FC = () => {
                       <div className="space-y-2">
                         <div>
                           <span className="text-[10px] text-slate-500 uppercase">Input</span>
-                          <pre className="p-2 rounded bg-dark-950 text-cyan-300">
+                          <pre className="p-2 rounded bg-slate-100 dark:bg-dark-950 text-cyan-700 dark:text-cyan-300 border border-slate-200 dark:border-transparent">
                             {sampleCases[selectedCaseTab].input}
                           </pre>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-500 uppercase">Expected Output</span>
-                          <pre className="p-2 rounded bg-dark-950 text-emerald-300">
+                          <pre className="p-2 rounded bg-slate-100 dark:bg-dark-950 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-transparent">
                             {sampleCases[selectedCaseTab].expectedOutput}
                           </pre>
                         </div>
@@ -460,14 +460,14 @@ export const ChallengePage: React.FC = () => {
                 {/* Tab: Custom Input */}
                 {activeBottomTab === 'custom' && (
                   <div className="h-full flex flex-col">
-                    <span className="text-slate-400 text-[11px] mb-1">
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px] mb-1">
                       Standard Input (passed to program's stdin):
                     </span>
                     <textarea
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
                       rows={5}
-                      className="w-full flex-1 p-2.5 rounded-lg bg-dark-950 border border-slate-700 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400 resize-none"
+                      className="w-full flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-dark-950 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500 resize-none"
                       placeholder="Enter raw input here..."
                     />
                   </div>
@@ -478,15 +478,15 @@ export const ChallengePage: React.FC = () => {
                   <div className="space-y-4">
                     {/* Submission Verdict Banner */}
                     {submissionResult && (
-                      <div className="p-3.5 rounded-xl border border-white/[0.08] bg-dark-850 flex items-center justify-between">
+                      <div className="p-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-dark-850 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <VerdictBadge verdict={submissionResult.verdict} size="md" />
-                          <span className="text-slate-300">
-                            Runtime: <strong className="text-white">{submissionResult.runtimeMs}ms</strong>
+                          <span className="text-slate-600 dark:text-slate-300">
+                            Runtime: <strong className="text-slate-900 dark:text-white">{submissionResult.runtimeMs}ms</strong>
                           </span>
                         </div>
                         {submissionResult.pointsAwarded > 0 && (
-                          <span className="text-emerald-400 font-bold">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                             +{submissionResult.pointsAwarded} PTS Awarded!
                           </span>
                         )}
@@ -496,16 +496,16 @@ export const ChallengePage: React.FC = () => {
                     {/* Per-Test Case Results list */}
                     {submissionResult?.testCaseResults && (
                       <div className="space-y-2">
-                        <span className="text-[11px] text-slate-400 font-semibold block uppercase">
+                        <span className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block uppercase">
                           Evaluation Results:
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {submissionResult.testCaseResults.map((tc: any, idx: number) => (
                             <div
                               key={tc.id || idx}
-                              className="p-2.5 rounded-lg bg-dark-950 border border-white/[0.06] flex items-center justify-between"
+                              className="p-2.5 rounded-lg bg-slate-100/70 dark:bg-dark-950 border border-slate-200 dark:border-white/[0.06] flex items-center justify-between"
                             >
-                              <span className="text-slate-400">Test {idx + 1}</span>
+                              <span className="text-slate-600 dark:text-slate-400">Test {idx + 1}</span>
                               <VerdictBadge verdict={tc.verdict} size="sm" />
                             </div>
                           ))}
@@ -516,10 +516,10 @@ export const ChallengePage: React.FC = () => {
                     {/* Compile Error Output */}
                     {submissionResult?.compileOutput && (
                       <div>
-                        <span className="text-rose-400 font-semibold block mb-1">
+                        <span className="text-rose-600 dark:text-rose-400 font-semibold block mb-1">
                           Compiler Diagnostics (GCC 16):
                         </span>
-                        <pre className="p-3 rounded-lg bg-dark-950 border border-rose-500/30 text-rose-300 overflow-x-auto whitespace-pre-wrap">
+                        <pre className="p-3 rounded-lg bg-rose-50 dark:bg-dark-950 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 overflow-x-auto whitespace-pre-wrap">
                           {submissionResult.compileOutput}
                         </pre>
                       </div>
@@ -529,10 +529,10 @@ export const ChallengePage: React.FC = () => {
                     {runResult && !submissionResult && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-400 text-xs">Custom Run Output:</span>
-                          <span className="text-cyan-400">{runResult.runtimeMs}ms</span>
+                          <span className="text-slate-600 dark:text-slate-400 text-xs">Custom Run Output:</span>
+                          <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{runResult.runtimeMs}ms</span>
                         </div>
-                        <pre className="p-3 rounded-lg bg-dark-950 text-cyan-200 overflow-x-auto whitespace-pre-wrap">
+                        <pre className="p-3 rounded-lg bg-slate-100 dark:bg-dark-950 text-cyan-800 dark:text-cyan-200 border border-slate-200 dark:border-transparent overflow-x-auto whitespace-pre-wrap">
                           {runResult.stdout || '(No output produced)'}
                         </pre>
                         {runResult.stderr && (

@@ -6,12 +6,12 @@ export default {
     extend: {
       colors: {
         dark: {
-          950: '#05070D',
-          900: '#090D16',
-          850: '#0E1422',
-          800: '#141C2E',
-          700: '#1E2942',
-          600: '#2A3859',
+          950: 'var(--bg-main, #FFFFFF)',
+          900: 'var(--bg-card, #FFFFFF)',
+          850: 'var(--bg-surface, #F1F5F9)',
+          800: 'var(--bg-surface-hover, #E2E8F0)',
+          700: 'var(--border-main, #CBD5E1)',
+          600: 'var(--text-muted, #64748B)',
         },
         cyan: {
           400: '#22D3EE',

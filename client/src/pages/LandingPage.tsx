@@ -134,9 +134,9 @@ int main() {
 
           <Link
             to="/archive"
-            className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-mono text-sm font-semibold text-slate-300 bg-dark-850 hover:bg-dark-800 border border-slate-700/60 hover:border-slate-500 transition-all"
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-mono text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-dark-850 hover:bg-slate-200 dark:hover:bg-dark-800 border border-slate-300 dark:border-slate-700/60 hover:border-slate-400 dark:hover:border-slate-500 transition-all"
           >
-            <Code2 className="w-4 h-4 text-cyan-400" />
+            <Code2 className="w-4 h-4 text-cyan-500" />
             <span>Browse Problem Bank</span>
           </Link>
         </div>
@@ -144,35 +144,35 @@ int main() {
         {/* Feature Highlights Badges */}
         <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto text-left">
           <div className="glass-card p-4 rounded-xl">
-            <div className="flex items-center gap-2 text-cyan-400 mb-1 font-mono text-xs font-semibold">
+            <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 mb-1 font-mono text-xs font-semibold">
               <Cpu className="w-4 h-4" />
               <span>GCC 16.2.0</span>
             </div>
-            <p className="text-xs text-slate-400">Native C11 execution with strict time & memory limits</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Native C11 execution with strict time & memory limits</p>
           </div>
 
           <div className="glass-card p-4 rounded-xl">
-            <div className="flex items-center gap-2 text-emerald-400 mb-1 font-mono text-xs font-semibold">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1 font-mono text-xs font-semibold">
               <Flame className="w-4 h-4" />
               <span>IST Streaks</span>
             </div>
-            <p className="text-xs text-slate-400">Build daily momentum and unlock milestone badges</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Build daily momentum and unlock milestone badges</p>
           </div>
 
           <div className="glass-card p-4 rounded-xl">
-            <div className="flex items-center gap-2 text-purple-400 mb-1 font-mono text-xs font-semibold">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1 font-mono text-xs font-semibold">
               <Trophy className="w-4 h-4" />
               <span>Live Arena</span>
             </div>
-            <p className="text-xs text-slate-400">Timed competitive contests with ICPC penalty time</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Timed competitive contests with ICPC penalty time</p>
           </div>
 
           <div className="glass-card p-4 rounded-xl">
-            <div className="flex items-center gap-2 text-amber-400 mb-1 font-mono text-xs font-semibold">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1 font-mono text-xs font-semibold">
               <ShieldAlert className="w-4 h-4" />
               <span>Zero Leakage</span>
             </div>
-            <p className="text-xs text-slate-400">Hidden evaluation cases stay secured in the judge</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Hidden evaluation cases stay secured in the judge</p>
           </div>
         </div>
       </section>
@@ -180,26 +180,26 @@ int main() {
       {/* Live Interactive Sandbox Section */}
       <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-10">
-          <span className="text-xs font-mono text-cyan-400 font-semibold tracking-wider uppercase">
+          <span className="text-xs font-mono text-cyan-600 dark:text-cyan-400 font-semibold tracking-wider uppercase">
             Interactive Testbed
           </span>
-          <h2 className="text-3xl font-extrabold text-white mt-2">Test Live GCC Sandbox</h2>
-          <p className="text-sm text-slate-400 mt-2 max-w-xl mx-auto">
+          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Test Live GCC Sandbox</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-xl mx-auto">
             Experience our instant, sandboxed C compiler. Pick a snippet or modify code directly.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.1] bg-dark-900/90 shadow-2xl overflow-hidden backdrop-blur-xl">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-dark-900/90 shadow-xl overflow-hidden backdrop-blur-xl">
           {/* Controls Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-dark-850 border-b border-white/[0.06]">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-slate-50 dark:bg-dark-850 border-b border-slate-200 dark:border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-400">Presets:</span>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Presets:</span>
               <button
                 onClick={() => handleSnippetSelect('pointers')}
                 className={`px-3 py-1 rounded-md text-xs font-mono transition-colors ${
                   activeSnippetKey === 'pointers'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.04]'
+                    ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/40 font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100 dark:bg-white/[0.04]'
                 }`}
               >
                 Pointer Swap
@@ -208,8 +208,8 @@ int main() {
                 onClick={() => handleSnippetSelect('bitwise')}
                 className={`px-3 py-1 rounded-md text-xs font-mono transition-colors ${
                   activeSnippetKey === 'bitwise'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.04]'
+                    ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/40 font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100 dark:bg-white/[0.04]'
                 }`}
               >
                 Bitwise Hacks
@@ -218,8 +218,8 @@ int main() {
                 onClick={() => handleSnippetSelect('nullcheck')}
                 className={`px-3 py-1 rounded-md text-xs font-mono transition-colors ${
                   activeSnippetKey === 'nullcheck'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                    : 'text-slate-400 hover:text-slate-200 bg-white/[0.04]'
+                    ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/40 font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-slate-100 dark:bg-white/[0.04]'
                 }`}
               >
                 Defensive Malloc
@@ -237,9 +237,9 @@ int main() {
           </div>
 
           {/* Sandbox Editor & Terminal Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/[0.08]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-white/[0.08]">
             {/* Code Input */}
-            <div className="p-4 bg-dark-950/80">
+            <div className="p-4 bg-slate-50/50 dark:bg-dark-950/80">
               <div className="flex items-center justify-between text-xs font-mono text-slate-500 mb-2">
                 <span>C SOURCE</span>
                 <span>Editable</span>
@@ -248,13 +248,13 @@ int main() {
                 value={sandboxCode}
                 onChange={(e) => setSandboxCode(e.target.value)}
                 rows={14}
-                className="w-full bg-transparent font-mono text-xs sm:text-sm text-slate-200 resize-none focus:outline-none focus:ring-0 leading-relaxed"
+                className="w-full bg-transparent font-mono text-xs sm:text-sm text-slate-900 dark:text-slate-200 resize-none focus:outline-none focus:ring-0 leading-relaxed"
                 spellCheck={false}
               />
             </div>
 
             {/* Terminal Output */}
-            <div className="p-4 bg-dark-950 flex flex-col justify-between min-h-[250px]">
+            <div className="p-4 bg-slate-900 dark:bg-dark-950 flex flex-col justify-between min-h-[250px]">
               <div>
                 <div className="flex items-center justify-between text-xs font-mono text-slate-500 mb-2">
                   <span className="flex items-center gap-1.5">

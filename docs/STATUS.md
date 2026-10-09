@@ -152,3 +152,32 @@ All 11 browser verifications executed against headless Chrome and captured in `/
 | **Job Queue** | `InMemoryQueue` (built-in async worker) | BullMQ + Redis | In dev, jobs run concurrently in-process without Redis. In prod, provide `REDIS_URL=redis://...` to enable BullMQ. |
 | **Realtime** | Socket.IO (HTTP server integration) | Socket.IO + Redis adapter | Full real-time support active for verdicts, countdowns, and scoreboards. |
 | **Email** | `ConsoleMailService` (logs to stdout) | `SmtpMailService` (NodeMailer) | Verification and password reset URLs are logged to terminal in dev. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` for live emails. |
+
+---
+
+## White Background Theme & Dual Theme Engine
+
+In response to the requirement for a clean white background (`bg-white` / `#FFFFFF`), LogicQ has been upgraded with a comprehensive dual-theme system:
+
+1. **Light Mode (Active Default):**
+   - **Background:** Crisp pure white (`#FFFFFF`) with subtle slate gradients and border definition.
+   - **Text & Headings:** High-contrast dark slate (`#0F172A` / `#1E2942`) for maximum readability.
+   - **Monaco Editor:** Automatically loads Monaco's native light theme (`vs`) with C syntax highlighting.
+   - **Components:** Glass cards, problem statements, sample test inputs, and metrics cards all dynamically adapt to light borders and surfaces.
+
+2. **Dark Mode (Toggleable):**
+   - Obsidian near-black (`#05070D`) developer theme with `#00F2FE` cyan and `#10B981` emerald neon accents.
+   - Monaco editor switches to custom dark syntax highlighting (`logicq-dark`).
+
+3. **Persistent Theme Toggle:**
+   - Seamless ☀️ / 🌙 theme toggle button in the desktop and mobile Navigation bar.
+   - State persisted in browser `localStorage` under `logicq_theme`.
+   - Zero-flicker early initialization script in `<head>`.
+
+### White Background Verification Screenshots (`/docs/screenshots/logicq_white/`)
+
+- `01_landing_white.png` — Landing page with pure white background, hero banner, interactive live GCC compiler sandbox, and rank progression tiers.
+- `02_login_white.png` — Sign in page with clean white container, form fields, and quick-fill helper buttons.
+- `03_dashboard_white.png` — Student dashboard featuring daily challenge card on light gradient, streak metrics, 12-week heatmap, and recent submissions table.
+- `04_challenge_white.png` — C11 split-pane workspace with white background statement, Monaco light theme editor, and test case drawer.
+- `05_leaderboard_white.png` — Competitive leaderboard with white podium cards and rankings ladder.
