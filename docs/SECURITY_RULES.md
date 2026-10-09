@@ -2,25 +2,40 @@
 
 ## 1. Security Invariants & Threat Boundaries
 
-Firestore is the authoritative record for all trusted platform state. LogicQ enforces six uncompromising security invariants in Firestore Security Rules:
+LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or operation not explicitly authorized is categorically rejected.
 
-1. **Zero Client Verdict Creation**: A client web browser can **NEVER** write or update a `Submission` document. All submissions are processed and written strictly by backend Cloud Functions / Cloud Run containers using the privileged Firebase Admin SDK.
-2. **Zero Client Point or Streak Mutation**: Clients can never write to user stats, points, streaks, or ranks. Any client attempt to alter `stats.points` or `stats.streak` is unconditionally rejected.
-3. **Hidden Test Cases Are Inviolable**: The `hidden_tests` subcollection is blocked to all client queries (`allow read, write: if false;`). It can only be read by the server-side judge worker.
-4. **Submission Privacy**: A student can only query and read their own submissions (`request.auth.uid == resource.data.userId`). They cannot view code or test breakdowns of other competitors.
-5. **Admin Access Governed by Custom Claims**: Administrative privileges require `request.auth.token.role == 'ADMIN'`, a claim that can only be issued by trusted backend service accounts.
-6. **Audit Trail Immutability**: `admin_audit_logs` cannot be queried or written by any client, ensuring administrators cannot tamper with audit trails via browser consoles.
+```
++----------------------------------------------------------------------------------------------------+
+|                                FIRESTORE DENY-BY-DEFAULT PERIMETER                                 |
+|                                                                                                    |
+|  match /{document=**} { allow read, write: if false; }                                            |
+|                                                                                                    |
+|  - Verdict Creation:         BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
+|  - Points & Streak Mutation: BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
+|  - Hidden Test Cases:        BLOCKED TO ALL CLIENTS (allow read, write: if false;)                |
+|  - Peer Code Inspection:     BLOCKED (Students read only their own submissions)                   |
+|  - Role Elevation:           BLOCKED (request.auth.token.role == 'ADMIN' custom claim required)   |
+|  - Deletion of Submissions:  BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                |
++----------------------------------------------------------------------------------------------------+
+```
 
 ---
 
-## 2. Complete Production Firestore Security Rules (`firestore.rules`)
+## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // -------------------------------------------------------------------------
+    // 0. DENY BY DEFAULT TOP-LEVEL PERIMETER
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Security Helper Functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -34,10 +49,10 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // USERS COLLECTION
+    // 1. USERS COLLECTION
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      // Any authenticated user can read public user profile data for leaderboards
+      // Authenticated users can read public user profile data for leaderboards
       allow read: if isAuthenticated();
 
       // Users can only create their own base profile upon first login
@@ -46,24 +61,24 @@ service cloud.firestore {
                     && request.resource.data.stats.points == 0
                     && request.resource.data.stats.streak == 0;
 
-      // Users can update non-authoritative profile fields (college, graduationYear)
+      // Users can update non-authoritative profile fields (college, graduationYear, bio)
       // BUT CANNOT modify role, status, points, or streaks!
       allow update: if isOwner(userId)
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-                         'role', 'status', 'banReason', 'stats'
+                         'role', 'status', 'banReason', 'stats', 'points', 'totalPoints', 'streak', 'currentStreak'
                        ]);
 
-      // Only server Admin SDK can delete users or update roles/stats
+      // Submissions and user records cannot be deleted by clients
       allow delete: if false;
 
-      // Private fallback drafts (used when Google Drive is unavailable/blocked)
+      // Private fallback drafts (used only when Google Drive is unavailable/blocked)
       match /drafts/{draftId} {
         allow read, write: if isOwner(userId);
       }
     }
 
     // -------------------------------------------------------------------------
-    // PROBLEMS COLLECTION
+    // 2. PROBLEMS COLLECTION
     // -------------------------------------------------------------------------
     match /problems/{problemId} {
       // Students can read published problems; admins can read drafts
@@ -82,7 +97,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // SUBMISSIONS COLLECTION
+    // 3. SUBMISSIONS COLLECTION (APPEND-ONLY & UNTOUCHABLE BY CLIENTS)
     // -------------------------------------------------------------------------
     match /submissions/{submissionId} {
       // Students can ONLY read their own submissions. Admins can read all.
@@ -96,7 +111,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // LEADERBOARDS & CONTESTS
+    // 4. LEADERBOARDS & CONTESTS
     // -------------------------------------------------------------------------
     match /leaderboards/{leaderboardId} {
       allow read: if isAuthenticated();
@@ -109,7 +124,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // SUPPORT & DEBUG REPORTS
+    // 5. SUPPORT & DEBUG REPORTS
     // -------------------------------------------------------------------------
     match /support_reports/{reportId} {
       // Students can create a report, but must own the userId on the report
@@ -124,7 +139,7 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // ADMIN AUDIT LOGS
+    // 6. ADMIN AUDIT LOGS
     // -------------------------------------------------------------------------
     match /admin_audit_logs/{logId} {
       // Audit logs are strictly written and managed by Firebase Admin SDK
@@ -136,36 +151,21 @@ service cloud.firestore {
 
 ---
 
-## 3. Firebase Emulator Test Suite Specification (`tests/firestore-rules.test.ts`)
+## 3. Automated Adversarial Cheating Test Suite Results
 
-To verify the rules against real-world adversarial attacks, LogicQ includes an automated test suite using `@firebase/rules-unit-testing`:
+All cheating permutations and attack vectors are tested in [`server/tests/firestore-security-rules.test.ts`](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/server/tests/firestore-security-rules.test.ts):
 
-### Test Matrix & Adversarial Attack Scenarios
-
-| Test ID | Scenario Description | Actor | Target Resource | Action | Expected Outcome |
-| :---: | :--- | :--- | :--- | :---: | :---: |
-| **SEC-01** | Student reads published challenge statement | Student (`alice`) | `/problems/two-sum` | `GET` | ✅ **PERMITTED** |
-| **SEC-02** | Student attempts to read unpublished draft problem | Student (`alice`) | `/problems/draft-knapsack` | `GET` | 🛑 **DENIED** |
-| **SEC-03** | Student attempts to read hidden test cases | Student (`alice`) | `/problems/two-sum/hidden_tests/test1` | `GET` | 🛑 **DENIED** |
-| **SEC-04** | Student attempts to forge an `ACCEPTED` submission | Student (`alice`) | `/submissions/sub_123` | `SET` | 🛑 **DENIED** |
-| **SEC-05** | Student attempts to inflate their XP points in profile | Student (`alice`) | `/users/alice` (`stats.points += 500`) | `UPDATE` | 🛑 **DENIED** |
-| **SEC-06** | Student attempts to elevate themselves to `ADMIN` | Student (`alice`) | `/users/alice` (`role = 'ADMIN'`) | `UPDATE` | 🛑 **DENIED** |
-| **SEC-07** | Student reads their own submission history | Student (`alice`) | `/submissions/alice_sub_1` | `GET` | ✅ **PERMITTED** |
-| **SEC-08** | Student attempts to view rival competitor's submission | Student (`alice`) | `/submissions/bob_sub_1` | `GET` | 🛑 **DENIED** |
-| **SEC-09** | Student saves private draft to their fallback vault | Student (`alice`) | `/users/alice/drafts/two-sum` | `SET` | ✅ **PERMITTED** |
-| **SEC-10** | Student attempts to overwrite rival's private draft | Student (`alice`) | `/users/bob/drafts/two-sum` | `SET` | 🛑 **DENIED** |
-| **SEC-11** | Student submits consented debug report with own UID | Student (`alice`) | `/support_reports/rep_1` | `CREATE` | ✅ **PERMITTED** |
-| **SEC-12** | Student attempts to spoof debug report with victim UID | Student (`alice`) | `/support_reports/rep_1` (`userId: 'bob'`) | `CREATE` | 🛑 **DENIED** |
-| **SEC-13** | Admin views all submissions and debug reports | Admin (`charlie`) | `/submissions/bob_sub_1`, `/support_reports` | `GET` | ✅ **PERMITTED** |
-| **SEC-14** | Client attempts to tamper with audit logs directly | Admin (`charlie`) | `/admin_audit_logs/log_1` | `SET` | 🛑 **DENIED** |
-
----
-
-## 4. Running the Rules Verification in Local Emulator
-
-Run the automated security rules suite in the development environment:
-```bash
-# 1. Start Firebase Local Firestore Emulator
-npx firebase emulators:exec --only firestore "npm run test:rules"
 ```
-The test runner confirms that all 14 adversarial permutations return the exact expected security verdicts with zero privilege leaks.
+ ✓ tests/firestore-security-rules.test.ts (8 tests)
+   ✓ CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL
+   ✓ CHEAT ATTEMPT 2: Student attempts to elevate their own role to ADMIN -> MUST FAIL
+   ✓ CHEAT ATTEMPT 3: Student attempts to read hidden test cases -> MUST FAIL
+   ✓ CHEAT ATTEMPT 4: Student attempts to read another competitor code submission -> MUST FAIL
+   ✓ CHEAT ATTEMPT 5: Student attempts to delete their failed submission -> MUST FAIL
+   ✓ CHEAT ATTEMPT 6: Client attempts to forge an ACCEPTED submission directly -> MUST FAIL
+   ✓ VALID OPERATION: Student reads their own submission -> MUST SUCCEED
+   ✓ VALID OPERATION: Admin reads any submission -> MUST SUCCEED
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+```
