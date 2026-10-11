@@ -111,8 +111,65 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 4. LEADERBOARDS & CONTESTS
+    // 4. WEEKLY COMPETITION, LEADERBOARDS, SUMMARIES & CONTESTS
     // -------------------------------------------------------------------------
+    match /weeks/{weekId} {
+      allow read: if isAuthenticated();
+      // Clients can NEVER write or freeze weeks; managed strictly by Server / Admin SDK
+      allow write: if false;
+
+      // Daily scheduled challenges inside a week: readable only after 17:00 IST unlockAt
+      match /days/{dayNumber} {
+        allow read: if isAuthenticated() && (
+          resource.data.unlockAt <= request.time || isAdmin()
+        );
+        allow write: if false; // Written only by Admin API / 17:00 IST Auto-Fallback
+      }
+
+      // Weekly live & frozen leaderboards: clients can NEVER write weekly ranks
+      match /leaderboard/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if false; // Server-updated only
+      }
+    }
+
+    match /weekly_summaries/{summaryId} {
+      // Students can read ONLY their own weekly summary; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      // CLIENTS CAN NEVER WRITE OR MODIFY WEEKLY RESULTS OR SUMMARIES!
+      allow create, update, delete: if false;
+    }
+
+    match /weekly_corrections/{correctionId} {
+      // Post-freeze rejudge correction proposals: readable by Admin only, written by Server only
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /streak_events/{eventId} {
+      // Students can read ONLY their own streak freeze/break ledger; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      // CLIENTS CAN NEVER WRITE OR FORGE STREAK FREEZES!
+      allow create, update, delete: if false;
+    }
+
+    match /streak_pauses/{pauseId} {
+      // Any authenticated student can read active/upcoming exam pause windows
+      allow read: if isAuthenticated();
+      // Only Admins can declare or modify pause windows; students cannot write pauses
+      allow write: if isAdmin();
+    }
+
+    match /integrity_flags/{flagId} {
+      // Phase 2 similarity flags: readable by Admin only, written by Server/Admin SDK
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /leaderboards/{leaderboardId} {
       allow read: if isAuthenticated();
       allow write: if false; // Server-updated only
@@ -139,11 +196,17 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 6. ADMIN AUDIT LOGS
+    // 6. ADMIN AUDIT LOGS & SYSTEM ALERTS
     // -------------------------------------------------------------------------
     match /admin_audit_logs/{logId} {
       // Audit logs are strictly written and managed by Firebase Admin SDK
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /system_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }
@@ -151,21 +214,24 @@ service cloud.firestore {
 
 ---
 
-## 3. Automated Adversarial Cheating Test Suite Results
+## 3. Automated Adversarial Cheating Test Suite Specification
 
-All cheating permutations and attack vectors are tested in [`server/tests/firestore-security-rules.test.ts`](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/server/tests/firestore-security-rules.test.ts):
+All cheating permutations and attack vectors in [`server/tests/firestore-security-rules.test.ts`](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/server/tests/firestore-security-rules.test.ts) cover:
 
 ```
- ✓ tests/firestore-security-rules.test.ts (8 tests)
+ ✓ tests/firestore-security-rules.test.ts (13 tests)
    ✓ CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL
    ✓ CHEAT ATTEMPT 2: Student attempts to elevate their own role to ADMIN -> MUST FAIL
    ✓ CHEAT ATTEMPT 3: Student attempts to read hidden test cases -> MUST FAIL
    ✓ CHEAT ATTEMPT 4: Student attempts to read another competitor code submission -> MUST FAIL
    ✓ CHEAT ATTEMPT 5: Student attempts to delete their failed submission -> MUST FAIL
    ✓ CHEAT ATTEMPT 6: Client attempts to forge an ACCEPTED submission directly -> MUST FAIL
-   ✓ VALID OPERATION: Student reads their own submission -> MUST SUCCEED
-   ✓ VALID OPERATION: Admin reads any submission -> MUST SUCCEED
-
- Test Files  1 passed (1)
-      Tests  8 passed (8)
+   ✓ CHEAT ATTEMPT 7: Client attempts to write or forge weekly leaderboard ranks -> MUST FAIL
+   ✓ CHEAT ATTEMPT 8: Client attempts to write or modify a weekly result summary -> MUST FAIL
+   ✓ CHEAT ATTEMPT 9: Student attempts to read another student's weekly summary or locked future challenge -> MUST FAIL
+   ✓ CHEAT ATTEMPT 10: Student attempts to forge a streak freeze (/streak_events) -> MUST FAIL
+   ✓ CHEAT ATTEMPT 11: Student attempts to declare an admin streak pause (/streak_pauses) -> MUST FAIL
+   ✓ VALID OPERATION: Student reads their own submission, own weekly summary, and own streak events -> MUST SUCCEED
+   ✓ VALID OPERATION: Admin reads any submission, weekly correction queue, and declares a streak pause -> MUST SUCCEED
 ```
+

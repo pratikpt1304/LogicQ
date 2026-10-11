@@ -71,19 +71,26 @@ Cloud Firestore charges per document read. Uncontrolled reads can rapidly exhaus
 | **Problem Statement Open** | 1,500 opens | 1 (Problem Doc) | 1,500 | 0 | 0 |
 | **Submission Evaluation** | 2,000 submissions | 1 (Problem checks) | 2,000 | 2 (Submission + Ledger) | 4,000 |
 | **Dashboard Summary Sync** | 2,000 solves | 0 | 0 | 1 (Materialized View) | 2,000 |
-| **Leaderboard Check** | 1,000 checks | 1 (Cached Doc) | 1,000 | 0 | 0 |
+| **Current Week Leaderboard Check** | 1,000 checks | 1 (Cached Week Doc) | 1,000 | 0 | 0 |
 | **Leaderboard Background Sync**| 24 hours (1/min debounce) | 0 | 0 | 1 (Every 5 mins) | 288 |
 | **Submission History Open** | 500 views | 10 (Recent 10) | 5,000 | 0 | 0 |
+| **17:00 IST Daily Release & Streak Freeze Cron** | 1 run/day (`0 17 * * *`) | ~155 (Active streak + pause check) | 155 | ~65 (Freezes + breaks + fallback) | 65 |
+| **Mon 17:05 IST Weekly Close & Summary Cron** | 1 run/week (`5 17 * * 1`, amortized/day) | ~290 / day (`2,030/wk`) | 290 | ~75 / day (`525/wk` summaries) | 75 |
 | **Client TanStack Cache Hit**| 3,000 cached loads | 0 (In-Memory) | 0 | 0 | 0 |
-| **TOTAL ESTIMATED DAILY** | — | — | **~10,500 Reads** | — | **~6,288 Writes** |
+| **TOTAL ESTIMATED DAILY** | — | — | **~10,945 Reads** | — | **~6,428 Writes** |
 
 ### 3.3 Comparison Against Perpetual Free Tier Allowances
 
 | Quota Dimension | Perpetual Free Quota (Blaze/Spark) | LogicQ 500-User Consumption | Utilization % | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **Document Reads** | **50,000 / day** | ~10,500 / day | **21.0%** | 🟢 **WELL WITHIN QUOTA (FREE)** |
-| **Document Writes** | **20,000 / day** | ~6,288 / day | **31.4%** | 🟢 **WELL WITHIN QUOTA (FREE)** |
+| **Document Reads** | **50,000 / day** | ~10,945 / day | **21.9%** | 🟢 **WELL WITHIN QUOTA (FREE)** |
+| **Document Writes** | **20,000 / day** | ~6,428 / day | **32.1%** | 🟢 **WELL WITHIN QUOTA (FREE)** |
 | **Document Deletes** | **20,000 / day** | 0 / day (Append-only) | **0.0%** | 🟢 **ZERO UTILIZATION** |
+| **Cloud Scheduler Jobs** | **3 free jobs / month** | 2 jobs (`daily` + `weekly`) | **66.7%** | 🟢 **$0.00 / MONTH (REQUIRES BLAZE PLAN)** |
+
+> [!WARNING]
+> **Blaze Plan Requirement for Scheduled Functions (`onSchedule`)**:  
+> Deploying Firebase Scheduled Cloud Functions (`dailyReleaseAndStreakJob` at `0 17 * * *` and `closeAndSummarizeWeekJob` at `5 17 * * 1` `Asia/Kolkata`) requires upgrading the Firebase project to the **Blaze (Pay-As-You-Go) Plan** because Cloud Scheduler and Pub/Sub APIs require an active billing account. Actual monthly cost for 2 cron jobs and 500 students remains **$0.00/month** (within Google Cloud's perpetual free tier of 3 free scheduler jobs and 2M function invocations). If operating strictly without a billing card on Spark, use the GitHub Actions cron webhook fallback + lazy `17:00 IST` server evaluation documented in [`/docs/WEEKLY_SYSTEM.md`](./WEEKLY_SYSTEM.md).
 
 ---
 

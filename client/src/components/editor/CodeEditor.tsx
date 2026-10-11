@@ -85,7 +85,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           <span className="ml-2 font-mono text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
             solution.c
             <span className="text-[10px] text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-200 dark:border-cyan-500/20 font-bold">
-              C11
+              C
             </span>
           </span>
         </div>

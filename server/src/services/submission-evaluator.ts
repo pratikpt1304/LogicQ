@@ -8,7 +8,13 @@ import { emitSubmissionVerdict, emitContestScoreboardUpdate } from '../sockets/s
 import { getContestScoreboardData } from './contest.service.js';
 
 function normalizeOutput(str: string = ''): string {
-  return str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  return str
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim();
 }
 
 export async function evaluateSubmission(submissionId: string): Promise<void> {
@@ -83,6 +89,18 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
       continue;
     }
 
+    if (exec.verdict === Verdict.MEMORY_LIMIT_EXCEEDED) {
+      testResults.push({
+        testCaseId: tc.id,
+        verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+        runtimeMs: exec.runtimeMs,
+        stderr: exec.stderr || 'Memory / output limit exceeded',
+        orderIndex: i,
+      });
+      if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.MEMORY_LIMIT_EXCEEDED;
+      continue;
+    }
+
     if (exec.verdict === Verdict.RUNTIME_ERROR) {
       testResults.push({
         testCaseId: tc.id,
@@ -139,25 +157,17 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
 
   let pointsAwarded = 0;
   if (overallVerdict === Verdict.ACCEPTED) {
-    // Scoring
-    const scoreResult = await calculatePointsAndAward(submission.userId, submission.problemId);
+    // Scoring (pass submissionId so rejudging never double-awards points)
+    const scoreResult = await calculatePointsAndAward(
+      submission.userId,
+      submission.problemId,
+      submissionId
+    );
     pointsAwarded = scoreResult.pointsAwarded;
-
-    // Daily streak if problem is daily
-    if (submission.problem.isDaily) {
-      await updateUserStreak(submission.userId);
-    }
-
-    // Badges evaluation
-    await evaluateAndAwardBadges(submission.userId);
-
-    // If contest submission, update contest participant score
-    if (submission.contestId) {
-      await updateContestScore(submission.contestId, submission.userId, submission.problemId);
-    }
   }
 
-  // Update submission record
+  // Persist final verdict and points BEFORE evaluating badges or contest scores
+  // so that queries for verdict === 'ACCEPTED' include this submission immediately.
   const updatedSubmission = await prisma.submission.update({
     where: { id: submissionId },
     data: {
@@ -175,6 +185,21 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
       },
     },
   });
+
+  if (overallVerdict === Verdict.ACCEPTED) {
+    // Daily streak if problem is daily
+    if (submission.problem.isDaily) {
+      await updateUserStreak(submission.userId);
+    }
+
+    // Badges evaluation (now sees updatedSubmission.verdict === 'ACCEPTED')
+    await evaluateAndAwardBadges(submission.userId);
+
+    // If contest submission, update contest participant score
+    if (submission.contestId) {
+      await updateContestScore(submission.contestId, submission.userId, submission.problemId);
+    }
+  }
 
   // Realtime notification to user
   emitSubmissionVerdict(submission.userId, {
@@ -198,35 +223,42 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
   }
 }
 
-async function updateContestScore(contestId: string, userId: string, problemId: string) {
-  const contestProblem = await prisma.contestProblem.findUnique({
-    where: { contestId_problemId: { contestId, problemId } },
-  });
-  if (!contestProblem) return;
-
+async function updateContestScore(contestId: string, userId: string, _problemId: string) {
   const participant = await prisma.contestParticipant.findUnique({
     where: { contestId_userId: { contestId, userId } },
   });
 
   if (!participant) return;
 
-  // Check if first accepted solve for this user on this contest problem
-  const acceptedCount = await prisma.submission.count({
+  // Idempotently compute total contest score from all distinct ACCEPTED contest problems
+  const acceptedContestSubs = await prisma.submission.findMany({
     where: {
       contestId,
       userId,
-      problemId,
       verdict: 'ACCEPTED',
     },
+    select: { problemId: true },
   });
 
-  if (acceptedCount === 1) {
-    // First AC for this problem
-    await prisma.contestParticipant.update({
-      where: { contestId_userId: { contestId, userId } },
-      data: {
-        score: { increment: contestProblem.points },
-      },
-    });
-  }
+  const solvedProblemIds = Array.from(new Set(acceptedContestSubs.map((s) => s.problemId)));
+
+  const solvedContestProblems =
+    solvedProblemIds.length > 0
+      ? await prisma.contestProblem.findMany({
+          where: {
+            contestId,
+            problemId: { in: solvedProblemIds },
+          },
+          select: { points: true },
+        })
+      : [];
+
+  const exactScore = solvedContestProblems.reduce((sum, cp) => sum + cp.points, 0);
+
+  await prisma.contestParticipant.update({
+    where: { contestId_userId: { contestId, userId } },
+    data: {
+      score: exactScore,
+    },
+  });
 }

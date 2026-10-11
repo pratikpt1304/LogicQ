@@ -1,17 +1,22 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { getTodayIST, getSecondsUntilNextISTMidnight } from '../utils/ist.js';
+import {
+  getTodayIST,
+  getChallengeDayIST,
+  getSecondsUntilNext1700IST,
+} from '../utils/ist.js';
 
 export async function getDailyChallenge(req: AuthRequest, res: Response): Promise<void> {
   try {
     const todayIST = getTodayIST();
+    const challengeDayIST = getChallengeDayIST();
 
-    // Look for challenge scheduled for today, or fallback to any isDaily problem
+    // Look for challenge scheduled for current 17:00 IST challenge day, or todayIST, or fallback to any isDaily problem
     let problem = await prisma.problem.findFirst({
       where: {
         status: 'PUBLISHED',
-        OR: [{ scheduledDate: todayIST }, { isDaily: true }],
+        OR: [{ scheduledDate: challengeDayIST }, { scheduledDate: todayIST }, { isDaily: true }],
       },
       include: {
         testCases: {
@@ -63,7 +68,8 @@ export async function getDailyChallenge(req: AuthRequest, res: Response): Promis
           tags: typeof problem.tags === 'string' ? JSON.parse(problem.tags) : (problem.tags || []),
         },
         todayIST,
-        secondsUntilNextReset: getSecondsUntilNextISTMidnight(),
+        challengeDayIST,
+        secondsUntilNextReset: getSecondsUntilNext1700IST(),
         userStatus: {
           isSolved: isSolvedToday,
           attempts: userAttempts,
@@ -78,8 +84,8 @@ export async function getDailyChallenge(req: AuthRequest, res: Response): Promis
 
 export async function getProblems(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const difficulty = req.query.difficulty as string | undefined;
     const category = req.query.category as string | undefined;
     const search = req.query.search as string | undefined;

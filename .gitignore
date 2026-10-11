@@ -18,6 +18,8 @@ build/
 *.sqlite-journal
 *.db
 *.db-journal
+server/backups/
+.firebase/
 
 # Logs & Runtime
 npm-debug.log*
@@ -27,6 +29,7 @@ yarn-error.log*
 .temp/
 temp/
 scratch/
+live_test*.png
 
 # OS Files
 .DS_Store

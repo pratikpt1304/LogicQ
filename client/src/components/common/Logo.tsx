@@ -65,9 +65,6 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
           <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
             Q
           </span>
-          <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono font-semibold tracking-wider rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-            C11
-          </span>
         </div>
         {showTagline && (
           <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 tracking-wider font-medium">

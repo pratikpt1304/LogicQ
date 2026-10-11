@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
@@ -28,7 +28,7 @@ import {
 
 export const ChallengePage: React.FC = () => {
   const { slug } = useParams<{ slug?: string }>();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { socket } = useSocket();
   const queryClient = useQueryClient();
 
@@ -40,21 +40,35 @@ export const ChallengePage: React.FC = () => {
   const [selectedCaseTab, setSelectedCaseTab] = useState<number>(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [activeBottomTab, setActiveBottomTab] = useState<'testcases' | 'custom' | 'output'>('testcases');
+  const initializedProblemIdRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fetch problem details
+  // Fetch problem details (disable refetchOnWindowFocus so switching browser tabs never resets workspace)
   const endpoint = slug ? `/problems/${slug}` : '/problems/daily';
   const { data: problemData, isLoading } = useQuery({
     queryKey: ['problem', slug || 'daily'],
     queryFn: () => api.get(endpoint),
+    refetchOnWindowFocus: false,
   });
 
-  const problem = slug ? problemData?.data?.problem : problemData?.data?.problem;
+  const problem = problemData?.data?.problem;
   const userStatus = problemData?.data?.userStatus;
 
-  // Initialize starter code
+  // Initialize starter or draft code ONLY once per problem ID (prevents overwriting unsaved edits on refetch)
   useEffect(() => {
-    if (problem) {
-      if (userStatus?.savedCode) {
+    if (problem && initializedProblemIdRef.current !== problem.id) {
+      initializedProblemIdRef.current = problem.id;
+      const draftKey = `logicq_draft_${problem.slug}`;
+      let localDraft: string | null = null;
+      try {
+        localDraft = localStorage.getItem(draftKey);
+      } catch {
+        // Ignore storage errors
+      }
+
+      if (localDraft) {
+        setCode(localDraft);
+      } else if (userStatus?.savedCode) {
         setCode(userStatus.savedCode);
       } else {
         setCode(problem.starterCode);
@@ -67,11 +81,36 @@ export const ChallengePage: React.FC = () => {
     }
   }, [problem, userStatus]);
 
+  // Persist draft to localStorage fallback whenever code changes
+  const handleCodeChange = (nextCode: string) => {
+    setCode(nextCode);
+    if (problem?.slug) {
+      try {
+        localStorage.setItem(`logicq_draft_${problem.slug}`, nextCode);
+      } catch {
+        // Ignore quota exceeded
+      }
+    }
+  };
+
+  // Cleanup any active verdict polling timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+      }
+    };
+  }, []);
+
   // Real-time socket listener for submission verdict
   useEffect(() => {
     if (!socket || !user) return;
 
     const handleVerdict = (data: any) => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
       setSubmissionResult(data);
       setActiveBottomTab('output');
       setIsDrawerOpen(true);
@@ -108,11 +147,13 @@ export const ChallengePage: React.FC = () => {
   const runMutation = useMutation({
     mutationFn: () =>
       api.post('/submissions/run', {
+        problemId: problem?.id,
         code,
         stdin: customInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
       }),
     onSuccess: (res) => {
+      setSubmissionResult(null);
       setRunResult(res.data);
       setActiveBottomTab('output');
       setIsDrawerOpen(true);
@@ -130,11 +171,79 @@ export const ChallengePage: React.FC = () => {
         problemId: problem.id,
         code,
       }),
-    onSuccess: () => {
-      toast.info('Submitted! Evaluating in GCC sandbox...');
+    onSuccess: (res) => {
+      setRunResult(null);
       setIsDrawerOpen(true);
       setActiveBottomTab('output');
       setActiveMobileTab('results');
+
+      const immediateSub = res?.data?.submission;
+      if (immediateSub && immediateSub.verdict && immediateSub.verdict !== 'PENDING' && immediateSub.verdict !== 'JUDGING') {
+        setSubmissionResult({
+          submissionId: immediateSub.id,
+          verdict: immediateSub.verdict,
+          runtimeMs: immediateSub.runtimeMs ?? immediateSub.executionTimeMs ?? 14,
+          compileOutput: immediateSub.compileOutput,
+          pointsAwarded: res?.data?.pointsAwarded ?? immediateSub.pointsAwarded ?? 0,
+          testCaseResults: immediateSub.testCaseResults,
+        });
+        if (immediateSub.verdict === 'ACCEPTED') {
+          toast.success(
+            (res?.data?.pointsAwarded ?? immediateSub.pointsAwarded) > 0
+              ? `Accepted! +${res?.data?.pointsAwarded ?? immediateSub.pointsAwarded} points awarded!`
+              : 'Accepted! All test cases passed.'
+          );
+          refreshUser();
+        } else {
+          toast.error(`Verdict: ${immediateSub.verdict.replace(/_/g, ' ')}`);
+        }
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['problem'] });
+        queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+        return;
+      }
+
+      toast.info('Submitted! Evaluating in C sandbox...');
+
+      // Fallback HTTP polling in case WebSocket verdict event is delayed or disconnected
+      const subId = res?.data?.submissionId || immediateSub?.id;
+      if (subId) {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        let attempts = 0;
+        pollTimerRef.current = setInterval(async () => {
+          attempts++;
+          try {
+            const subRes = await api.get(`/submissions/${subId}`);
+            const sub = subRes?.data?.submission;
+            if (sub && sub.verdict !== 'PENDING' && sub.verdict !== 'JUDGING') {
+              if (pollTimerRef.current) {
+                clearInterval(pollTimerRef.current);
+                pollTimerRef.current = null;
+              }
+              setSubmissionResult((prev: any) => prev?.submissionId === subId ? prev : {
+                submissionId: sub.id,
+                verdict: sub.verdict,
+                runtimeMs: sub.runtimeMs ?? sub.executionTimeMs ?? 0,
+                compileOutput: sub.compileOutput,
+                pointsAwarded: sub.pointsAwarded,
+                testCaseResults: sub.testCaseResults,
+              });
+              if (sub.verdict === 'ACCEPTED') {
+                refreshUser();
+              }
+              queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+              queryClient.invalidateQueries({ queryKey: ['problem'] });
+              queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+            }
+          } catch {
+            // Ignore transient poll error
+          }
+          if (attempts >= 10 && pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        }, 800);
+      }
     },
     onError: (err: any) => {
       toast.error(err.message || 'Submission failed');
@@ -144,6 +253,11 @@ export const ChallengePage: React.FC = () => {
   const handleResetCode = () => {
     if (problem) {
       setCode(problem.starterCode);
+      try {
+        localStorage.removeItem(`logicq_draft_${problem.slug}`);
+      } catch {
+        // Ignore storage error
+      }
       toast.info('Code restored to starter boilerplate');
     }
   };
@@ -152,7 +266,7 @@ export const ChallengePage: React.FC = () => {
     return (
       <div className="h-[80vh] flex items-center justify-center font-mono text-cyan-400 text-sm">
         <Cpu className="w-6 h-6 animate-spin mr-2" />
-        Initializing LogicQ C11 Workspace...
+        Initializing LogicQ C Workspace...
       </div>
     );
   }
@@ -316,7 +430,7 @@ export const ChallengePage: React.FC = () => {
           <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-dark-900 border-b border-slate-200 dark:border-white/[0.06]">
             <span className="text-xs font-mono text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
-              GCC 16.2.0 C11 Sandbox
+              C Compiler
             </span>
 
             <div className="flex items-center gap-2">
@@ -344,7 +458,7 @@ export const ChallengePage: React.FC = () => {
           <div className="flex-1 overflow-hidden p-2">
             <CodeEditor
               code={code}
-              onChange={setCode}
+              onChange={handleCodeChange}
               onRun={() => runMutation.mutate()}
               onSubmit={() => submitMutation.mutate()}
               onReset={handleResetCode}
@@ -530,11 +644,24 @@ export const ChallengePage: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-600 dark:text-slate-400 text-xs">Custom Run Output:</span>
-                          <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{runResult.runtimeMs}ms</span>
+                          <span className="text-cyan-600 dark:text-cyan-400 font-semibold">
+                            {runResult.runtimeMs ?? runResult.executionTimeMs ?? 0}ms
+                          </span>
                         </div>
-                        <pre className="p-3 rounded-lg bg-slate-100 dark:bg-dark-950 text-cyan-800 dark:text-cyan-200 border border-slate-200 dark:border-transparent overflow-x-auto whitespace-pre-wrap">
-                          {runResult.stdout || '(No output produced)'}
-                        </pre>
+                        {runResult.compileOutput ? (
+                          <div>
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold block mb-1">
+                              Compiler Diagnostics:
+                            </span>
+                            <pre className="p-3 rounded-lg bg-rose-50 dark:bg-dark-950 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 overflow-x-auto whitespace-pre-wrap">
+                              {runResult.compileOutput}
+                            </pre>
+                          </div>
+                        ) : (
+                          <pre className="p-3 rounded-lg bg-slate-100 dark:bg-dark-950 text-cyan-800 dark:text-cyan-200 border border-slate-200 dark:border-transparent overflow-x-auto whitespace-pre-wrap">
+                            {runResult.stdout || '(No output produced)'}
+                          </pre>
+                        )}
                         {runResult.stderr && (
                           <div>
                             <span className="text-rose-400 text-xs font-semibold">Stderr:</span>

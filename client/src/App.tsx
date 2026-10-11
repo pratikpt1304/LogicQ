@@ -19,6 +19,7 @@ import { HistoryPage } from './pages/HistoryPage.js';
 import { AchievementsPage } from './pages/AchievementsPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.js';
+import { NotFoundPage } from './pages/NotFoundPage.js';
 
 // Route Guards
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -62,10 +63,10 @@ export const App: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-dark-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-dark-950 text-slate-900 dark:text-slate-100 transition-colors overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 w-full overflow-x-hidden">
         <Routes>
           {/* Root: if authenticated go to dashboard, else landing */}
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
@@ -86,17 +87,66 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/challenge" element={<ChallengePage />} />
-          <Route path="/challenge/:slug" element={<ChallengePage />} />
-          <Route path="/archive" element={<ArchivePage />} />
+          <Route
+            path="/challenge"
+            element={
+              <ProtectedRoute>
+                <ChallengePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/challenge/:slug"
+            element={
+              <ProtectedRoute>
+                <ChallengePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/archive"
+            element={
+              <ProtectedRoute>
+                <ArchivePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Arena & Competitions */}
-          <Route path="/arena" element={<ArenaPage />} />
-          <Route path="/arena/:slug" element={<ContestDetailPage />} />
+          <Route
+            path="/arena"
+            element={
+              <ProtectedRoute>
+                <ArenaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/arena/:slug"
+            element={
+              <ProtectedRoute>
+                <ContestDetailPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Leaderboard & Achievements */}
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/achievements" element={<AchievementsPage />} />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <LeaderboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/achievements"
+            element={
+              <ProtectedRoute>
+                <AchievementsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/history"
             element={
@@ -115,7 +165,14 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/profile/:username" element={<ProfilePage />} />
+          <Route
+            path="/profile/:username"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin Protected Portal */}
           <Route
@@ -128,7 +185,7 @@ export const App: React.FC = () => {
           />
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
 

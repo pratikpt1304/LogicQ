@@ -1,7 +1,28 @@
 import { Response } from 'express';
+import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getTodayIST } from '../utils/ist.js';
+
+function stripDangerousHtml(str: string): string {
+  return str.replace(/<[^>]*>?/gm, '').trim();
+}
+
+export const updateProfileSchema = z.object({
+  body: z.object({
+    fullName: z.string().min(2, 'Full name must be at least 2 characters').max(80, 'Full name cannot exceed 80 characters').optional(),
+    bio: z.string().max(500, 'Bio cannot exceed 500 characters').optional().nullable(),
+    college: z.string().max(120, 'College name cannot exceed 120 characters').optional().nullable(),
+    avatarUrl: z
+      .string()
+      .max(500)
+      .refine((val) => !val || /^https?:\/\//i.test(val), {
+        message: 'Avatar URL must use http:// or https:// protocol',
+      })
+      .optional()
+      .nullable(),
+  }),
+});
 
 export async function getDashboardStats(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -12,20 +33,38 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
 
     const userId = req.user.userId;
 
-    const [user, allUsersCount, higherRankedCount, submissions, totalProblems] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          userBadges: { include: { badge: true } },
-        },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userBadges: { include: { badge: true } },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    const [allUsersCount, higherRankedCount, submissions, totalProblems] = await Promise.all([
+      prisma.user.count({
+        where: { isBanned: false, role: { not: 'ADMIN' } },
       }),
-      prisma.user.count({ where: { isBanned: false } }),
       prisma.user.count({
         where: {
           isBanned: false,
-          totalPoints: {
-            gt: (await prisma.user.findUnique({ where: { id: userId }, select: { totalPoints: true } }))?.totalPoints || 0,
-          },
+          role: { not: 'ADMIN' },
+          OR: [
+            { totalPoints: { gt: user.totalPoints } },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: { gt: user.currentStreak },
+            },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: user.currentStreak,
+              createdAt: { lt: user.createdAt },
+            },
+          ],
         },
       }),
       prisma.submission.findMany({
@@ -40,14 +79,9 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
       prisma.problem.count({ where: { status: 'PUBLISHED' } }),
     ]);
 
-    if (!user) {
-      res.status(404).json({ success: false, message: 'User not found' });
-      return;
-    }
-
     const rank = higherRankedCount + 1;
 
-    // Difficulty breakdown of solved problems
+    // Difficulty breakdown of distinct solved problems
     const acceptedSubmissions = submissions.filter((s) => s.verdict === 'ACCEPTED');
     const solvedProblemMap = new Map<string, string>();
     for (const sub of acceptedSubmissions) {
@@ -66,7 +100,7 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
       else if (diff === 'HARD') hardSolved++;
     }
 
-    // Activity heatmap: group accepted solves by YYYY-MM-DD
+    // Activity heatmap: group submissions by YYYY-MM-DD
     const activityMap: Record<string, number> = {};
     for (const s of submissions) {
       const dateStr = new Date(s.createdAt).toISOString().split('T')[0];
@@ -136,7 +170,6 @@ export async function getUserProfile(req: AuthRequest, res: Response): Promise<v
         submissions: {
           where: { verdict: 'ACCEPTED' },
           orderBy: { createdAt: 'desc' },
-          take: 10,
           include: {
             problem: {
               select: { id: true, title: true, slug: true, difficulty: true },
@@ -155,17 +188,33 @@ export async function getUserProfile(req: AuthRequest, res: Response): Promise<v
       (await prisma.user.count({
         where: {
           isBanned: false,
-          totalPoints: { gt: user.totalPoints },
+          role: { not: 'ADMIN' },
+          OR: [
+            { totalPoints: { gt: user.totalPoints } },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: { gt: user.currentStreak },
+            },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: user.currentStreak,
+              createdAt: { lt: user.createdAt },
+            },
+          ],
         },
       })) + 1;
 
-    // Distinct problems solved
+    // Distinct problems solved across ALL accepted submissions (not truncated to 10)
     const solvedMap = new Map<string, string>();
     for (const sub of user.submissions) {
-      solvedMap.set(sub.problem.id, sub.problem.difficulty);
+      if (!solvedMap.has(sub.problem.id)) {
+        solvedMap.set(sub.problem.id, sub.problem.difficulty);
+      }
     }
 
-    let easy = 0, medium = 0, hard = 0;
+    let easy = 0,
+      medium = 0,
+      hard = 0;
     for (const d of solvedMap.values()) {
       if (d === 'EASY') easy++;
       else if (d === 'MEDIUM') medium++;
@@ -192,7 +241,7 @@ export async function getUserProfile(req: AuthRequest, res: Response): Promise<v
             ...ub.badge,
             unlockedAt: ub.unlockedAt,
           })),
-          recentSolves: user.submissions.map((s) => ({
+          recentSolves: user.submissions.slice(0, 10).map((s) => ({
             id: s.id,
             problemTitle: s.problem.title,
             problemSlug: s.problem.slug,
@@ -220,9 +269,9 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
     const updated = await prisma.user.update({
       where: { id: req.user.userId },
       data: {
-        fullName: fullName || undefined,
-        bio: bio !== undefined ? bio : undefined,
-        college: college !== undefined ? college : undefined,
+        fullName: typeof fullName === 'string' ? stripDangerousHtml(fullName) : undefined,
+        bio: typeof bio === 'string' ? stripDangerousHtml(bio) : bio === null ? null : undefined,
+        college: typeof college === 'string' ? stripDangerousHtml(college) : college === null ? null : undefined,
         avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined,
       },
       select: {

@@ -4,6 +4,7 @@ import {
   login,
   refresh,
   logout,
+  logoutAll,
   getMe,
   forgotPassword,
   resetPassword,
@@ -25,6 +26,7 @@ authRouter.post('/register', authLimiter, validate(registerSchema), register);
 authRouter.post('/login', authLimiter, validate(loginSchema), login);
 authRouter.post('/refresh', refresh);
 authRouter.post('/logout', logout);
+authRouter.post('/logout-all', authenticate, logoutAll);
 authRouter.get('/me', authenticate, getMe);
 authRouter.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), forgotPassword);
 authRouter.post('/reset-password', authLimiter, validate(resetPasswordSchema), resetPassword);

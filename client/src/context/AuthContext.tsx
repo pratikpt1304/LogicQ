@@ -19,9 +19,11 @@ interface AuthContextType {
     college?: string;
   }) => Promise<User>;
   logout: () => Promise<void>;
+  logoutAllDevices: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes for shared lab computers
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -32,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchCurrentUser = async () => {
     try {
       const res = await api.get('/auth/me');
-      if (res.success && res.data?.user) {
+      if (res?.success && res?.data?.user) {
         setUser(res.data.user);
       } else {
         setUser(null);
@@ -50,8 +52,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (identifier: string, password: string): Promise<User> => {
     const res = await api.post('/auth/login', { identifier, password });
-    if (!res.success || !res.data?.user) {
-      throw new Error(res.message || 'Login failed');
+    if (!res?.success || !res?.data?.user) {
+      throw new Error(res?.message || 'Login failed');
     }
     setUser(res.data.user);
     return res.data.user;
@@ -67,8 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl: cred.user.photoURL,
       googleUid: cred.user.uid,
     });
-    if (!res.success || !res.data?.user) {
-      throw new Error(res.message || 'Google sign-in failed');
+    if (!res?.success || !res?.data?.user) {
+      throw new Error(res?.message || 'Google sign-in failed');
     }
     setUser(res.data.user);
     return res.data.user;
@@ -82,8 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     college?: string;
   }): Promise<User> => {
     const res = await api.post('/auth/register', data);
-    if (!res.success || !res.data?.user) {
-      throw new Error(res.message || 'Registration failed');
+    if (!res?.success || !res?.data?.user) {
+      throw new Error(res?.message || 'Registration failed');
     }
     setUser(res.data.user);
     return res.data.user;
@@ -97,6 +99,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
     }
   };
+
+  const logoutAllDevices = async () => {
+    try {
+      await api.post('/auth/logout-all');
+      await firebaseAuth.signOut().catch(() => {});
+    } finally {
+      setUser(null);
+    }
+  };
+
+  // Shared lab safety: 30-minute idle timeout auto-logout
+  useEffect(() => {
+    if (!user) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        logout();
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, [user]);
 
   const refreshUser = async () => {
     await fetchCurrentUser();
@@ -112,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         register,
         logout,
+        logoutAllDevices,
         refreshUser,
       }}
     >

@@ -32,4 +32,6 @@ adminRouter.get('/submissions', getAdminSubmissions);
 adminRouter.post('/submissions/:id/rejudge', rejudgeSubmission);
 adminRouter.get('/users', getAdminUsers);
 adminRouter.put('/users/:id/role', updateUserRole);
+adminRouter.patch('/users/:id/role', updateUserRole);
 adminRouter.put('/users/:id/ban', updateUserBan);
+adminRouter.patch('/users/:id/ban', updateUserBan);

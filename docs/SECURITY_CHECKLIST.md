@@ -13,11 +13,11 @@
 | **1.2** | **Score Tampering** | Clients blocked from writing verdicts, points, streaks, or ranks | `firestore-security-rules.test.ts` (CHEAT 1, 6) | ✅ **PASS** | Automated test proves client write rejected. |
 | **1.3** | **Privilege Escalation**| Clients blocked from self-assigning `ADMIN` role | `firestore-security-rules.test.ts` (CHEAT 2) | ✅ **PASS** | Role modifications rejected. Custom claims required. |
 | **1.4** | **Test Suite Secrecy** | Hidden test cases subcollection completely unreadable by clients | `firestore-security-rules.test.ts` (CHEAT 3) | ✅ **PASS** | Rules evaluate to false for all client tokens. |
-| **1.5** | **Peer Code Privacy** | Students can read only their own submissions | `firestore-security-rules.test.ts` (CHEAT 4) | ✅ **PASS** | Cross-student queries rejected. |
-| **1.6** | **History Immutability**| Clients blocked from deleting submissions | `firestore-security-rules.test.ts` (CHEAT 5) | ✅ **PASS** | Submission `delete` operation rejected. |
-| **2.1** | **Backend Auth & RBAC**| Cloud Functions check `context.auth` and custom claims | Middleware unit tests | ✅ **PASS** | Unauthenticated and unauthorized calls rejected. |
-| **2.2** | **Input Validation** | All endpoint parameters validated via strict Zod schemas | Server integration tests | ✅ **PASS** | Malformed payloads rejected with HTTP 400. |
-| **2.3** | **Error Sanitization** | Generic error messages returned to clients (no stack traces) | Express error handler audit | ✅ **PASS** | Internal database paths masked in responses. |
+| **1.5** | **Peer Code Privacy** | Students can read only their own submissions (`403` on peer ID) | `firestore-security-rules.test.ts` & `SA-01` | ✅ **PASS** | Cross-student queries rejected in Firestore & API. |
+| **1.6** | **History Immutability**| Clients blocked from deleting submissions; problems soft-retire | `firestore-security-rules.test.ts` & `SA-06` | ✅ **PASS** | Submission `delete` rejected; curriculum soft-retires. |
+| **2.1** | **Backend Auth & RBAC**| Live DB check for `isBanned`/`role` on every JWT; token revocation | `security-audit-regressions.test.ts` (`SA-02`) | ✅ **PASS** | Banned/demoted tokens rejected immediately (`403`/`401`). |
+| **2.2** | **Input Validation** | `256kb` JSON cap, `64KB` code/stdin cap, `http(s)` avatar, HTML strip | `security-audit-regressions.test.ts` (`SA-03`) | ✅ **PASS** | Oversized & XSS payloads rejected/stripped. |
+| **2.3** | **Error Sanitization** | Generic `500` error messages in production (no stack traces) | `app.ts` & `SA-07` | ✅ **PASS** | Internal error details masked in production. |
 | **2.4** | **Firebase App Check** | Rejects requests without valid App Check token | Code verification | ⚠️ **PENDING GCP SETUP** | Requires registering Web App in Firebase App Check with reCAPTCHA Enterprise. |
 | **2.5** | **Secret Management** | Judge secrets and OAuth keys stored in Secret Manager | Architecture verification | ⚠️ **PENDING GCP SETUP** | Secrets must be provisioned in Google Cloud Secret Manager. |
 | **3.1** | **Identity Provider** | Google Sign-In only (password authentication disabled in prod) | Auth provider configuration | ✅ **PASS** | Native Google Identity Services OAuth. |

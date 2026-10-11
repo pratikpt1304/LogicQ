@@ -25,14 +25,29 @@ app.use(
 
 app.use(
   cors({
-    origin: [ENV.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+      ENV.CLIENT_URL,
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'https://logicq-clanguage.web.app',
+      'https://logicq-clanguage.firebaseapp.com',
+    ],
     credentials: true,
   })
 );
 
 app.use(cookieParser());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+
+// Additional Security Headers
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  next();
+});
 
 // Health Check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -53,11 +68,18 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', userRouter);
 app.use('/api/admin', adminRouter);
 
-// Global Error Handler
+// Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err?.type === 'entity.too.large') {
+    res.status(413).json({
+      success: false,
+      message: 'Payload too large (maximum 256KB allowed)',
+    });
+    return;
+  }
   console.error('Unhandled Server Error:', err);
   res.status(500).json({
     success: false,
-    message: err.message || 'Internal server error',
+    message: ENV.NODE_ENV === 'production' ? 'Internal server error' : (err.message || 'Internal server error'),
   });
 });

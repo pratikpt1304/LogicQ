@@ -30,7 +30,10 @@ export const Navbar: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const navLinks = [
+  const isLanding = location.pathname === '/' || location.pathname === '/landing';
+
+  // App challenger navigation for logged-in users or inside app routes
+  const appNavLinks = [
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
     { label: 'Archive', path: '/archive', icon: Code2 },
     { label: 'Arena', path: '/arena', icon: Swords },
@@ -50,27 +53,29 @@ export const Navbar: React.FC = () => {
         {/* Brand */}
         <Logo size="md" />
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-          {navLinks.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all ${
-                  active
-                    ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 font-semibold'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${active ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Desktop Navigation (Only shown for logged-in users) */}
+        {user && (
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+            {appNavLinks.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all ${
+                    active
+                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${active ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Right Section: Stats & User or Auth CTAs */}
         <div className="hidden md:flex items-center gap-3">
@@ -215,41 +220,58 @@ export const Navbar: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Hamburger Button */}
+        {/* Mobile Actions */}
         <div className="flex md:hidden items-center gap-2">
-          {user && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono">
-              <Flame className="w-3 h-3 text-orange-400 fill-orange-400" />
-              <span>{user.currentStreak}d</span>
+          {user ? (
+            <>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono">
+                <Flame className="w-3 h-3 text-orange-400 fill-orange-400" />
+                <span>{user.currentStreak}d</span>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/login"
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05]"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="px-3 py-1 rounded-lg text-xs font-semibold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
+              >
+                Register
+              </Link>
             </div>
           )}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/[0.05]"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b border-white/[0.08] bg-dark-900/95 px-4 pt-2 pb-6 space-y-3 backdrop-blur-2xl">
+      {/* Mobile Drawer (Only shown when authenticated) */}
+      {mobileMenuOpen && user && (
+        <div className="md:hidden border-b border-slate-200 dark:border-white/[0.08] bg-white/95 dark:bg-dark-900/95 px-4 pt-2 pb-6 space-y-3 backdrop-blur-2xl">
           <nav className="space-y-1">
-            {navLinks.map((item) => {
-              const Icon = item.icon;
+            {appNavLinks.map((item) => {
+              const Icon = item.icon!;
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={item.path!}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
-                    isActive(item.path)
-                      ? 'text-cyan-400 bg-cyan-500/10'
-                      : 'text-slate-300 hover:bg-white/[0.04]'
+                    isActive(item.path!)
+                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                   }`}
                 >
-                  <Icon className="w-4 h-4 text-cyan-400" />
+                  <Icon className="w-4 h-4 text-cyan-500" />
                   {item.label}
                 </Link>
               );

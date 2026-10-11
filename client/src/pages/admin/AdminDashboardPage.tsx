@@ -22,7 +22,7 @@ import { Difficulty, Verdict } from '../../types/index.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'problems' | 'submissions' | 'users' | 'analytics'>('problems');
+  const [activeTab, setActiveTab] = useState<'problems' | 'submissions' | 'users' | 'analytics'>('analytics');
 
   // Modal States
   const [isCreateProblemOpen, setIsCreateProblemOpen] = useState(false);
@@ -72,6 +72,7 @@ export const AdminDashboardPage: React.FC = () => {
   });
 
   const overview = analyticsData?.data?.overview;
+  const pilotAnalytics = analyticsData?.data?.pilotAnalytics;
   const problems = problemsData?.data?.problems || [];
   const submissions = submissionsData?.data?.submissions || [];
   const users = usersData?.data?.users || [];
@@ -210,7 +211,19 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Admin Tabs */}
-      <div className="flex items-center gap-2 border-b border-white/[0.08] pb-3 text-xs font-mono">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.08] pb-3 text-xs font-mono">
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'analytics'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>2-Week Pilot Analytics</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('problems')}
           className={`px-4 py-2 rounded-xl transition-colors ${
@@ -244,6 +257,438 @@ export const AdminDashboardPage: React.FC = () => {
           User Roster ({users.length})
         </button>
       </div>
+
+      {/* Tab: 2-Week Pilot Analytics */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-8" data-testid="pilot-analytics-view">
+          {/* Pilot Window KPI Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-card p-5 rounded-2xl border border-cyan-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                DAILY ACTIVE STUDENTS (DAU)
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-cyan-400 font-mono">
+                  {pilotAnalytics?.window?.todayDau ?? 0}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  today · peak {pilotAnalytics?.window?.peakDau ?? 0}
+                </span>
+              </div>
+              <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                Avg {pilotAnalytics?.window?.averageDau ?? 0}/day ·{' '}
+                {pilotAnalytics?.window?.totalActivePilotStudents ?? 0} unique in 14d
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-emerald-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                SOLVING ≥ 4 OF 7 CHALLENGES
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-emerald-400 font-mono">
+                  {pilotAnalytics?.fourOfSevenCohort?.uniqueQualifiedStudentsAnyWeek ?? 0}
+                </span>
+                <span className="text-xs font-mono text-slate-400">students qualified</span>
+              </div>
+              <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                W1: {pilotAnalytics?.fourOfSevenCohort?.week1?.qualifiedCount ?? 0} (
+                {pilotAnalytics?.fourOfSevenCohort?.week1?.qualifiedPctOfActive ?? 0}%) · W2:{' '}
+                {pilotAnalytics?.fourOfSevenCohort?.week2?.qualifiedCount ?? 0} (
+                {pilotAnalytics?.fourOfSevenCohort?.week2?.qualifiedPctOfActive ?? 0}%)
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-amber-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                STEEPEST DAILY DROP-OFF
+              </span>
+              {pilotAnalytics?.dropOffByDay?.steepestDropOffDay ? (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold text-amber-400 font-mono">
+                      -{pilotAnalytics.dropOffByDay.steepestDropOffDay.dropOffCount}
+                    </span>
+                    <span className="text-xs font-mono text-rose-400">
+                      (-{pilotAnalytics.dropOffByDay.steepestDropOffDay.dropOffRatePct}%)
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                    On {pilotAnalytics.dropOffByDay.steepestDropOffDay.label}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl font-extrabold text-emerald-400 font-mono">0%</span>
+                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                    No day-over-day drop recorded
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-rose-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                MOST-FAILED PROBLEM
+              </span>
+              {pilotAnalytics?.mostFailedProblems?.length > 0 ? (
+                <>
+                  <span className="text-base font-extrabold text-rose-400 font-mono truncate block">
+                    {pilotAnalytics.mostFailedProblems[0].title}
+                  </span>
+                  <p className="text-[11px] font-mono text-slate-400 mt-1.5">
+                    {pilotAnalytics.mostFailedProblems[0].failedSubmissions} failed (
+                    {pilotAnalytics.mostFailedProblems[0].failureRatePct}% fail rate)
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="text-xl font-extrabold text-slate-400 font-mono">—</span>
+                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                    No failed submissions in window
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 1. Daily Active Students (14-Day Visual Bar Chart) */}
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span>1. Daily Active Students (14-Day Pilot Window · 17:00 IST Boundary)</span>
+                </h2>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Window: {pilotAnalytics?.window?.startDate || 'Day 1'} to{' '}
+                  {pilotAnalytics?.window?.endDate || 'Day 14'} · Cyan = Active Students (Attempted) ·
+                  Emerald = Students Who Solved (AC)
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 sm:grid-cols-14 gap-2 pt-4 items-end min-h-[160px]">
+              {(pilotAnalytics?.dailyActiveStudents || []).map((day: any) => {
+                const maxDau = Math.max(1, pilotAnalytics?.window?.peakDau || 1);
+                const activeHeightPct = Math.max(8, Math.round((day.activeStudents / maxDau) * 100));
+                const solvedHeightPct =
+                  day.solvingStudents > 0
+                    ? Math.max(6, Math.round((day.solvingStudents / maxDau) * 100))
+                    : 0;
+                return (
+                  <div
+                    key={day.date}
+                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-dark-900/60 border border-white/[0.05]"
+                  >
+                    <span className="text-[10px] font-mono font-bold text-cyan-300">
+                      {day.activeStudents}
+                    </span>
+                    <div className="w-full h-24 flex items-end justify-center gap-1 bg-dark-950/70 rounded-lg p-1">
+                      <div
+                        style={{ height: `${activeHeightPct}%` }}
+                        className="w-2.5 rounded-t bg-cyan-400 transition-all"
+                        title={`Active Students: ${day.activeStudents}`}
+                      />
+                      <div
+                        style={{ height: `${solvedHeightPct}%` }}
+                        className="w-2.5 rounded-t bg-emerald-400 transition-all"
+                        title={`Solving Students (AC): ${day.solvingStudents}`}
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-400 text-center leading-tight">
+                      W{day.weekNumber}·D{day.dayInWeek}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-500">
+                      {day.date.slice(5)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Students Solving at Least 4 of 7 Challenges */}
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-5">
+            <div>
+              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>2. Students Solving at Least 4 of 7 Challenges (Weekly Retention Cohort)</span>
+              </h2>
+              <p className="text-xs font-mono text-slate-400 mt-0.5">
+                Tracks students who solved ≥ 4 distinct challenges within each 7-day competition week.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[pilotAnalytics?.fourOfSevenCohort?.week1, pilotAnalytics?.fourOfSevenCohort?.week2]
+                .filter(Boolean)
+                .map((wk: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-5 rounded-xl bg-dark-900/70 border border-white/[0.07] space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-white font-mono">{wk.weekLabel}</h3>
+                        <span className="text-[11px] font-mono text-slate-500">
+                          {wk.startDate} → {wk.endDate}
+                        </span>
+                      </div>
+                      <div className="text-right font-mono">
+                        <span className="text-xl font-extrabold text-emerald-400">
+                          {wk.qualifiedCount} / {wk.activeStudentsInWeek}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">
+                          {wk.qualifiedPctOfActive}% of active ({wk.qualifiedPctOfRegistered}% of all
+                          registered)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Solve Count Buckets */}
+                    <div className="grid grid-cols-4 gap-2 text-center font-mono text-xs">
+                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                        <span className="text-base font-bold text-emerald-300 block">
+                          {wk.buckets?.solved7Plus ?? 0}
+                        </span>
+                        <span className="text-[10px] text-emerald-400">7/7 Perfect</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
+                        <span className="text-base font-bold text-cyan-300 block">
+                          {wk.buckets?.solved4to6 ?? 0}
+                        </span>
+                        <span className="text-[10px] text-cyan-400">4–6/7 Met</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                        <span className="text-base font-bold text-amber-300 block">
+                          {wk.buckets?.solved1to3 ?? 0}
+                        </span>
+                        <span className="text-[10px] text-amber-400">1–3/7 Partial</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                        <span className="text-base font-bold text-rose-300 block">
+                          {wk.buckets?.solved0 ?? 0}
+                        </span>
+                        <span className="text-[10px] text-rose-400">0/7 Solved</span>
+                      </div>
+                    </div>
+
+                    {/* Student Breakdown List */}
+                    {wk.students?.length > 0 ? (
+                      <div className="max-h-48 overflow-y-auto border-t border-white/[0.06] pt-3">
+                        <table className="w-full text-left text-[11px] font-mono">
+                          <thead className="text-slate-400 uppercase text-[10px]">
+                            <tr>
+                              <th className="pb-2">Student</th>
+                              <th className="pb-2">Solved</th>
+                              <th className="pb-2">Submissions</th>
+                              <th className="pb-2 text-right">Cohort Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.04]">
+                            {wk.students.map((st: any) => (
+                              <tr key={st.userId}>
+                                <td className="py-1.5 text-white font-semibold">
+                                  {st.fullName}{' '}
+                                  <span className="text-slate-500">(@{st.username})</span>
+                                </td>
+                                <td className="py-1.5 text-cyan-400 font-bold">
+                                  {st.solvedCount} / 7
+                                </td>
+                                <td className="py-1.5 text-slate-400">{st.totalSubmissions}</td>
+                                <td className="py-1.5 text-right">
+                                  {st.metFourOfSeven ? (
+                                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                                      MET ≥4/7
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px]">
+                                      BELOW 4/7
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-mono text-slate-500 text-center py-3">
+                        No student submissions recorded in {wk.weekLabel}.
+                      </p>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* 3. Drop-Off by Day (14-Day Funnel Table) */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-6 border-b border-white/[0.06]">
+              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-amber-400" />
+                <span>3. Drop-Off by Day (Day 1 → Day 14 Retention & Participation Funnel)</span>
+              </h2>
+              <p className="text-xs font-mono text-slate-400 mt-0.5">
+                Day-over-day active challenger retention, solve conversion, and drop-off rate across
+                the 2-week pilot.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-6 py-3">Pilot Day (17:00 IST)</th>
+                    <th className="px-6 py-3">Active Students</th>
+                    <th className="px-6 py-3">Solved (AC) Students</th>
+                    <th className="px-6 py-3">Solve Conversion</th>
+                    <th className="px-6 py-3">Day-over-Day Drop-Off</th>
+                    <th className="px-6 py-3">Retention vs Baseline</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {(pilotAnalytics?.dropOffByDay?.dailyFunnel || []).map((row: any) => (
+                    <tr key={row.date} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-3 font-bold text-white">{row.label}</td>
+                      <td className="px-6 py-3 text-cyan-400 font-bold">{row.activeStudents}</td>
+                      <td className="px-6 py-3 text-emerald-400 font-bold">
+                        {row.solvingStudents}
+                      </td>
+                      <td className="px-6 py-3 text-slate-300">{row.solveConversionPct}%</td>
+                      <td className="px-6 py-3">
+                        {row.dayIndex === 1 ? (
+                          <span className="text-slate-500">Baseline (Day 1)</span>
+                        ) : row.dropOffCount > 0 ? (
+                          <span className="text-rose-400 font-bold">
+                            -{row.dropOffCount} students (-{row.dropOffRatePct}%)
+                          </span>
+                        ) : row.netChangeCount > 0 ? (
+                          <span className="text-emerald-400 font-semibold">
+                            +{row.netChangeCount} students
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">0 drop (Steady)</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 h-2 bg-dark-900 rounded-full overflow-hidden">
+                            <div
+                              style={{
+                                width: `${Math.min(100, row.retentionFromBaselinePct)}%`,
+                              }}
+                              className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                            />
+                          </div>
+                          <span className="text-slate-300 text-[11px]">
+                            {row.retentionFromBaselinePct}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4. Most-Failed Problems */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-6 border-b border-white/[0.06]">
+              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-rose-400" />
+                <span>4. Most-Failed Problems (2-Week Pilot Bottlenecks)</span>
+              </h2>
+              <p className="text-xs font-mono text-slate-400 mt-0.5">
+                Problems ranked by failed submission volume and failure rate, with error verdict
+                distribution.
+              </p>
+            </div>
+
+            {!pilotAnalytics?.mostFailedProblems?.length ? (
+              <div className="p-10 text-center text-xs font-mono text-slate-500">
+                No problem submissions recorded in the 2-week pilot window yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-6 py-3.5">Problem</th>
+                      <th className="px-6 py-3.5">Difficulty</th>
+                      <th className="px-6 py-3.5">Failed / Total</th>
+                      <th className="px-6 py-3.5">Failure Rate</th>
+                      <th className="px-6 py-3.5">Students (Fail / Try / AC)</th>
+                      <th className="px-6 py-3.5">Top Failure Verdict</th>
+                      <th className="px-6 py-3.5">Verdict Breakdown</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {pilotAnalytics.mostFailedProblems.map((prob: any) => (
+                      <tr key={prob.problemId} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4">
+                          <span className="font-bold text-white text-sm block">{prob.title}</span>
+                          <span className="text-slate-500 text-[11px]">{prob.category}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
+                        </td>
+                        <td className="px-6 py-4 font-bold text-rose-400">
+                          {prob.failedSubmissions} / {prob.totalSubmissions}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-2 bg-dark-900 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${prob.failureRatePct}%` }}
+                                className="h-full bg-rose-500"
+                              />
+                            </div>
+                            <span className="text-rose-300 font-bold">{prob.failureRatePct}%</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-300">
+                          <span className="text-rose-400 font-bold">
+                            {prob.uniqueFailedStudents}
+                          </span>{' '}
+                          /{' '}
+                          <span className="text-cyan-400">{prob.uniqueAttemptedStudents}</span> /{' '}
+                          <span className="text-emerald-400">{prob.uniqueSolvedStudents}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {prob.topFailureVerdict ? (
+                            <VerdictBadge verdict={prob.topFailureVerdict as Verdict} size="sm" />
+                          ) : (
+                            <span className="text-emerald-400 text-[11px]">0 Failures</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1.5 text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300">
+                              WA: {prob.verdictBreakdown?.WRONG_ANSWER || 0}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300">
+                              CE: {prob.verdictBreakdown?.COMPILE_ERROR || 0}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300">
+                              TLE: {prob.verdictBreakdown?.TIME_LIMIT_EXCEEDED || 0}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300">
+                              RE: {prob.verdictBreakdown?.RUNTIME_ERROR || 0}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tab: Problems */}
       {activeTab === 'problems' && (

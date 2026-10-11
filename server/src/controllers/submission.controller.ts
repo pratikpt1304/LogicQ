@@ -5,11 +5,15 @@ import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getJudge } from '../judge/judge.factory.js';
 import { getQueue } from '../queue/queue.factory.js';
 import { evaluateSubmission } from '../services/submission-evaluator.js';
+import { getTodayIST, getChallengeDayIST } from '../utils/ist.js';
 
 export const runCodeSchema = z.object({
   body: z.object({
-    code: z.string().min(1, 'Source code cannot be empty'),
-    stdin: z.string().default(''),
+    code: z
+      .string()
+      .min(1, 'Source code cannot be empty')
+      .max(65536, 'Source code cannot exceed 64KB'),
+    stdin: z.string().max(65536, 'Standard input cannot exceed 64KB').default(''),
     timeLimitMs: z.number().min(100).max(5000).default(1000),
   }),
 });
@@ -17,7 +21,10 @@ export const runCodeSchema = z.object({
 export const submitSolutionSchema = z.object({
   body: z.object({
     problemId: z.string().uuid('Valid problem ID is required'),
-    code: z.string().min(1, 'Source code cannot be empty'),
+    code: z
+      .string()
+      .min(1, 'Source code cannot be empty')
+      .max(65536, 'Source code cannot exceed 64KB'),
     contestId: z.string().uuid().optional().nullable(),
   }),
 });
@@ -58,6 +65,31 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
     if (!problem) {
       res.status(404).json({ success: false, message: 'Problem not found' });
       return;
+    }
+
+    // Security check: non-admins cannot submit to unpublished/retired or future-locked challenges
+    if (req.user.role !== 'ADMIN') {
+      if (problem.status !== 'PUBLISHED') {
+        res.status(403).json({
+          success: false,
+          message: 'Forbidden: This problem is not published for submissions.',
+        });
+        return;
+      }
+
+      const todayIST = getTodayIST();
+      const challengeDayIST = getChallengeDayIST();
+      if (
+        problem.scheduledDate &&
+        problem.scheduledDate > todayIST &&
+        problem.scheduledDate > challengeDayIST
+      ) {
+        res.status(403).json({
+          success: false,
+          message: 'Forbidden: This scheduled challenge has not unlocked yet.',
+        });
+        return;
+      }
     }
 
     // Check submission cooldown: max 1 submission every 5 seconds
@@ -119,8 +151,8 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
       return;
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
     const [submissions, total] = await Promise.all([
@@ -184,13 +216,16 @@ export async function getSubmissionById(req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Only author or admin can view source code
+    // Strict IDOR protection: Only the submission owner or an ADMIN can read a submission record
     const isOwner = req.user?.userId === submission.userId;
     const isAdmin = req.user?.role === 'ADMIN';
 
     if (!isOwner && !isAdmin) {
-      // Redact source code for unauthorized viewers
-      (submission as any).code = '// Hidden by security policy until authorized';
+      res.status(403).json({
+        success: false,
+        message: 'Forbidden: Students can only read their own submissions.',
+      });
+      return;
     }
 
     res.status(200).json({

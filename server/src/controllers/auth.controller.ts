@@ -58,6 +58,22 @@ export async function register(req: Request, res: Response): Promise<void> {
   try {
     const { username, email, password, fullName, college } = req.body;
 
+    // Enforce institutional domain restrictions on email/password signup when enabled
+    if (process.env.AUTH_MODE === 'DOMAIN_RESTRICTED') {
+      const allowed = (process.env.ALLOWED_EMAIL_DOMAINS || '')
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean);
+      const domain = email.split('@')[1]?.toLowerCase();
+      if (allowed.length > 0 && (!domain || !allowed.includes(domain))) {
+        res.status(403).json({
+          success: false,
+          message: `Registration restricted to institutional email domains: ${allowed.map((d) => '@' + d).join(', ')}`,
+        });
+        return;
+      }
+    }
+
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email }, { username }],
@@ -261,6 +277,31 @@ export async function logout(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function logoutAll(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    await prisma.refreshToken.updateMany({
+      where: { userId: req.user.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+
+    res.status(200).json({
+      success: true,
+      message: 'Signed out from all devices successfully',
+    });
+  } catch (err: any) {
+    console.error('LogoutAll error:', err);
+    res.status(500).json({ success: false, message: 'Failed to sign out from all devices' });
+  }
+}
+
 export async function getMe(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user) {
@@ -317,12 +358,13 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     }
 
     const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetPasswordToken: token,
+        resetPasswordToken: hashedToken,
         resetPasswordExpires: expires,
       },
     });
@@ -359,10 +401,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 export async function resetPassword(req: Request, res: Response): Promise<void> {
   try {
     const { token, newPassword } = req.body;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await prisma.user.findFirst({
       where: {
-        resetPasswordToken: token,
+        resetPasswordToken: hashedToken,
         resetPasswordExpires: { gt: new Date() },
       },
     });
@@ -373,14 +416,20 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash,
-        resetPasswordToken: null,
-        resetPasswordExpires: null,
-      },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          resetPasswordToken: null,
+          resetPasswordExpires: null,
+        },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
 
     res.status(200).json({ success: true, message: 'Password has been reset successfully. Please log in.' });
   } catch (err: any) {
