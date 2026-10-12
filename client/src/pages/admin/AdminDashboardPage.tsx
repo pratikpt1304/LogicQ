@@ -1314,10 +1314,31 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Tab: Problems */}
       {activeTab === 'problems' && (
-        <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+        <div className="space-y-4">
+          <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-cyan-400" />
+                <span>LogicQ Challenge Library & Daily Problem Pool</span>
+              </h2>
+              <p className="text-xs font-mono text-slate-400 mt-0.5">
+                Total {problems.length} challenges configured. Add new custom or manual C coding questions with test cases.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCreateProblemOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Question / Problem</span>
+            </button>
+          </div>
+
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
                 <tr>
                   <th className="px-6 py-3.5">Title & Slug</th>
                   <th className="px-6 py-3.5">Difficulty</th>
@@ -1377,6 +1398,7 @@ export const AdminDashboardPage: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
       )}
 
       {/* Tab: Submissions Live Stream */}
