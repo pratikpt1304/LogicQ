@@ -4,58 +4,77 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { Logo } from '../common/Logo.js';
 import {
+  clearPwaUserCachesAndDrafts,
+  triggerPwaInstallPrompt,
+  useIsStandalonePwa,
+} from '../common/PwaManager.js';
+import {
+  Home,
   Flame,
   Trophy,
   Code2,
   Calendar,
-  Award,
   ShieldCheck,
   User as UserIcon,
   LogOut,
   Menu,
   X,
-  Swords,
   ChevronDown,
   Sun,
   Moon,
+  Download,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const isStandalone = useIsStandalonePwa();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    path === '/challenge'
+      ? location.pathname === '/challenge' || location.pathname.startsWith('/challenge/')
+      : location.pathname === path;
 
-  const isLanding = location.pathname === '/' || location.pathname === '/landing';
-
-  // App challenger navigation for logged-in users or inside app routes
+  // Signed-in navbar items in exact canonical order: Home, Daily Challenge, Leaderboard
   const appNavLinks = [
+    { label: 'Home', path: '/dashboard', icon: Home },
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
-    { label: 'Archive', path: '/archive', icon: Code2 },
-    { label: 'Arena', path: '/arena', icon: Swords },
     { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-    { label: 'Badges', path: '/achievements', icon: Award },
   ];
 
   const handleLogout = async () => {
+    await clearPwaUserCachesAndDrafts();
     await logout();
     navigate('/');
     setProfileDropdownOpen(false);
+    setMobileMenuOpen(false);
+  };
+
+  const handleInstallClick = async () => {
+    setProfileDropdownOpen(false);
+    setMobileMenuOpen(false);
+    await triggerPwaInstallPrompt();
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-white/[0.07] bg-white/90 dark:bg-dark-950/80 backdrop-blur-xl transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Brand */}
-        <Logo size="md" />
+    <header
+      style={{
+        minHeight: 'var(--navbar-height, 4rem)',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+      }}
+      className="sticky top-0 z-50 w-full border-b border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-main)] transition-colors"
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+        {/* Brand (links to /dashboard when signed in, / when signed out) */}
+        <Logo size="md" to={user ? '/dashboard' : '/'} />
 
         {/* Desktop Navigation (Only shown for logged-in users) */}
         {user && (
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+          <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
             {appNavLinks.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
@@ -63,39 +82,44 @@ export const Navbar: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all ${
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     active
-                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]'
+                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${active ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`} />
-                  {item.label}
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${
+                      active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
+                    }`}
+                  />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
         )}
 
-        {/* Right Section: Stats & User or Auth CTAs */}
-        <div className="hidden md:flex items-center gap-3">
+        {/* Right Section: Stats, Theme Toggle & User or Auth CTAs */}
+        <div className="hidden md:flex items-center gap-2.5">
           {user ? (
             <>
               {/* Daily Streak Pill */}
               <div
                 title="Current Daily Challenge Streak"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-semibold"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
               >
-                <Flame className="w-3.5 h-3.5 text-orange-400 fill-orange-400 animate-pulse" />
+                <Flame className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
                 <span>{user.currentStreak}d streak</span>
               </div>
 
               {/* Total Points Pill */}
               <div
                 title="Total LogicQ Score"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-semibold"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold"
               >
-                <span className="text-[10px] text-cyan-400">PTS</span>
+                <span>PTS</span>
                 <span>{user.totalPoints}</span>
               </div>
 
@@ -103,86 +127,109 @@ export const Navbar: React.FC = () => {
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-mono font-semibold hover:bg-purple-500/25 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold hover:bg-[var(--bg-surface-hover)] transition-colors"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-                  Admin
+                  <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
+                  <span>Admin</span>
                 </Link>
               )}
 
               {/* Theme Toggle Button */}
               <button
+                type="button"
                 onClick={toggleTheme}
-                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-                className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-slate-200 dark:border-slate-700/60 transition-colors"
-                aria-label="Toggle Theme"
+                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)] transition-colors"
               >
-                {theme === 'light' ? (
-                  <Moon className="w-4 h-4 text-slate-700" />
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-[var(--color-warning)]" />
                 ) : (
-                  <Sun className="w-4 h-4 text-amber-400" />
+                  <Moon className="w-4 h-4 text-[var(--color-accent)]" />
                 )}
               </button>
 
               {/* User Dropdown */}
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 pl-2 pr-1.5 py-1 rounded-full bg-slate-50 dark:bg-dark-850 border border-slate-200 dark:border-slate-700/60 hover:border-slate-400 dark:hover:border-slate-500 transition-all text-sm"
+                  aria-expanded={profileDropdownOpen}
+                  aria-haspopup="menu"
+                  className="flex items-center gap-2 min-h-[40px] pl-2 pr-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-colors text-sm"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500 to-emerald-500 flex items-center justify-center text-xs font-bold text-dark-950">
-                    {user.username.charAt(0).toUpperCase()}
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#8B9BFF] to-[#46D9A0] flex items-center justify-center text-xs font-bold text-[#0C0F1F]">
+                    {(user.displayName || user.username || 'S').charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-slate-800 dark:text-slate-200 text-xs max-w-[100px] truncate">
-                    {user.username}
+                  <span className="font-medium text-[var(--text-main)] text-xs max-w-[110px] truncate">
+                    {user.displayName || user.maskedPrn || user.username}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 </button>
 
                 {profileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-dark-900 border border-slate-200 dark:border-slate-700/80 shadow-xl py-1 z-50 backdrop-blur-xl">
-                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 text-xs">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">{user.fullName}</p>
-                      <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate">@{user.username}</p>
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-2 w-56 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-xl py-1.5 z-50"
+                  >
+                    <div className="px-4 py-2 border-b border-[var(--border-line)] text-xs">
+                      <p className="font-semibold text-[var(--text-main)] truncate">
+                        {user.displayName || user.fullName}
+                      </p>
+                      <p className="text-[var(--text-muted)] font-mono text-xs truncate">
+                        {user.maskedPrn || `@${user.username}`}
+                      </p>
                     </div>
 
                     <Link
                       to={`/profile/${user.username}`}
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
                     >
-                      <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                      View Profile
+                      <UserIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                      <span>View Profile</span>
                     </Link>
 
                     <Link
                       to="/history"
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.05]"
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
                     >
-                      <Code2 className="w-3.5 h-3.5 text-slate-400" />
-                      My Submissions
+                      <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                      <span>My Submissions</span>
                     </Link>
+
+                    {!isStandalone && (
+                      <button
+                        type="button"
+                        onClick={handleInstallClick}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] text-left"
+                      >
+                        <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                        <span>Install LogicQ</span>
+                      </button>
+                    )}
 
                     {isAdmin && (
                       <Link
                         to="/admin"
                         onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs text-purple-600 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10"
+                        className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                        Admin Dashboard
+                        <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                        <span>Admin Dashboard</span>
                       </Link>
                     )}
 
-                    <div className="border-t border-slate-100 dark:border-slate-800 mt-1"></div>
+                    <div className="border-t border-[var(--border-line)] my-1"></div>
 
                     <button
+                      type="button"
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-left"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-error)] hover:bg-[var(--bg-surface)] transition-colors text-left"
                     >
-                      <LogOut className="w-3.5 h-3.5 text-rose-500" />
-                      Sign Out
+                      <LogOut className="w-3.5 h-3.5 text-[var(--color-error)]" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 )}
@@ -190,29 +237,29 @@ export const Navbar: React.FC = () => {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              {/* Theme Toggle Button */}
               <button
+                type="button"
                 onClick={toggleTheme}
-                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-                className="p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] border border-slate-200 dark:border-slate-700/60 transition-colors mr-1"
-                aria-label="Toggle Theme"
+                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)] transition-colors"
               >
-                {theme === 'light' ? (
-                  <Moon className="w-4 h-4 text-slate-700" />
+                {theme === 'dark' ? (
+                  <Sun className="w-4 h-4 text-[var(--color-warning)]" />
                 ) : (
-                  <Sun className="w-4 h-4 text-amber-400" />
+                  <Moon className="w-4 h-4 text-[var(--color-accent)]" />
                 )}
               </button>
 
               <Link
                 to="/login"
-                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-[var(--border-line)] transition-colors"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all font-mono"
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md transition-all font-mono"
               >
                 Register Free
               </Link>
@@ -220,17 +267,34 @@ export const Navbar: React.FC = () => {
           )}
         </div>
 
-        {/* Mobile Actions */}
-        <div className="flex md:hidden items-center gap-2">
+        {/* Mobile Actions (minimum 44x44px tap targets) */}
+        <div className="flex md:hidden items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)]"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-[var(--color-warning)]" />
+            ) : (
+              <Moon className="w-4 h-4 text-[var(--color-accent)]" />
+            )}
+          </button>
+
           {user ? (
             <>
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono">
-                <Flame className="w-3 h-3 text-orange-400 fill-orange-400" />
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono">
+                <Flame className="w-3.5 h-3.5 text-[var(--color-warning)]" />
                 <span>{user.currentStreak}d</span>
               </div>
               <button
+                type="button"
+                aria-label="Toggle navigation menu"
+                aria-expanded={mobileMenuOpen}
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
@@ -239,13 +303,13 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <Link
                 to="/login"
-                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05]"
+                className="inline-flex items-center justify-center min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] border border-[var(--border-line)]"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="px-3 py-1 rounded-lg text-xs font-semibold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
+                className="inline-flex items-center justify-center min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
               >
                 Register
               </Link>
@@ -256,83 +320,75 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer (Only shown when authenticated) */}
       {mobileMenuOpen && user && (
-        <div className="md:hidden border-b border-slate-200 dark:border-white/[0.08] bg-white/95 dark:bg-dark-900/95 px-4 pt-2 pb-6 space-y-3 backdrop-blur-2xl">
-          <nav className="space-y-1">
+        <div className="md:hidden border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-4 pt-2 pb-6 space-y-3">
+          <nav aria-label="Mobile Navigation" className="space-y-1">
             {appNavLinks.map((item) => {
-              const Icon = item.icon!;
+              const Icon = item.icon;
+              const active = isActive(item.path);
               return (
                 <Link
                   key={item.path}
-                  to={item.path!}
+                  to={item.path}
+                  aria-current={active ? 'page' : undefined}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
-                    isActive(item.path!)
-                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
+                  className={`flex items-center gap-2.5 min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-medium ${
+                    active
+                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
+                      : 'text-[var(--text-main)] hover:bg-[var(--bg-surface)]'
                   }`}
                 >
-                  <Icon className="w-4 h-4 text-cyan-500" />
-                  {item.label}
+                  <Icon className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="border-t border-slate-800 pt-3 space-y-2">
-            {user ? (
-              <>
-                <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-slate-400">
-                  <span>@{user.username}</span>
-                  <span className="text-cyan-400">{user.totalPoints} PTS</span>
-                </div>
-                <Link
-                  to={`/profile/${user.username}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/[0.05]"
-                >
-                  My Profile
-                </Link>
-                <Link
-                  to="/history"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/[0.05]"
-                >
-                  Submission History
-                </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm text-purple-300 hover:bg-purple-500/10"
-                  >
-                    Admin Portal
-                  </Link>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-rose-400 hover:bg-rose-500/10"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col gap-2 pt-1">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-2 text-center rounded-lg text-sm font-semibold text-slate-300 bg-white/[0.04] border border-white/[0.08]"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-2 text-center rounded-lg text-sm font-semibold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono"
-                >
-                  Register Free
-                </Link>
-              </div>
+          <div className="border-t border-[var(--border-line)] pt-3 space-y-1">
+            <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-[var(--text-muted)]">
+              <span>{user.maskedPrn || `@${user.username}`}</span>
+              <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
+            </div>
+            <Link
+              to={`/profile/${user.username}`}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+            >
+              My Profile
+            </Link>
+            <Link
+              to="/history"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+            >
+              Submission History
+            </Link>
+            {!isStandalone && (
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                className="w-full flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)] text-left"
+              >
+                <Download className="w-4 h-4" />
+                <span>Install LogicQ</span>
+              </button>
             )}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+              >
+                Admin Portal
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center min-h-[44px] text-left px-3 py-2 rounded-lg text-sm text-[var(--color-error)] hover:bg-[var(--bg-surface)]"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       )}

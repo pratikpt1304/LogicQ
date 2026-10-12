@@ -27,17 +27,26 @@ export async function calculatePointsAndAward(
     }
   }
 
-  // Check if user has already solved or been awarded points for this problem on any other submission
-  const previousAccepted = await prisma.submission.findFirst({
-    where: {
-      userId,
-      problemId,
-      ...(submissionId ? { id: { not: submissionId } } : {}),
-      OR: [{ verdict: 'ACCEPTED' }, { pointsAwarded: { gt: 0 } }],
-    },
-  });
+  // Check if user has already solved or been awarded points for this problem on any other submission or approved upload
+  const [previousAccepted, previousApprovedUpload] = await Promise.all([
+    prisma.submission.findFirst({
+      where: {
+        userId,
+        problemId,
+        ...(submissionId ? { id: { not: submissionId } } : {}),
+        OR: [{ verdict: 'ACCEPTED' }, { pointsAwarded: { gt: 0 } }],
+      },
+    }),
+    prisma.uploadedSolution.findFirst({
+      where: {
+        userId,
+        problemId,
+        OR: [{ status: 'APPROVED' }, { pointsAwarded: { gt: 0 } }],
+      },
+    }),
+  ]);
 
-  const isFirstSolve = !previousAccepted;
+  const isFirstSolve = !previousAccepted && !previousApprovedUpload;
 
   // If already solved, award 0 points to prevent point farming
   if (!isFirstSolve) {

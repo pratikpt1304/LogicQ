@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -12,33 +12,42 @@ import {
   Calendar,
   ArrowRight,
   TrendingUp,
-  Award,
   Clock,
   Sparkles,
   Zap,
+  Lock,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const [selectedWeekOffset, setSelectedWeekOffset] = useState<number>(0);
 
-  const { data: dailyData, isLoading: dailyLoading } = useQuery({
+  const { data: dailyData } = useQuery({
     queryKey: ['daily-challenge'],
     queryFn: () => api.get('/problems/daily'),
   });
 
-  const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => api.get('/users/dashboard/stats'),
+  const { data: statsData } = useQuery({
+    queryKey: ['dashboard-stats', selectedWeekOffset],
+    queryFn: () =>
+      api.get(
+        `/users/dashboard/stats${selectedWeekOffset !== 0 ? `?weekOffset=${selectedWeekOffset}` : ''}`
+      ),
   });
 
   const dailyProblem = dailyData?.data?.problem;
+  const currentWeekDays: any[] = dailyData?.data?.currentWeek || [];
   const isDailySolved = dailyData?.data?.userStatus?.isSolved;
   const secondsLeft = dailyData?.data?.secondsUntilNextReset;
 
   const stats = statsData?.data?.stats;
+  const weeklySummaries: any[] = statsData?.data?.weeklySummaries || [];
+  const activeWeeklySummary =
+    weeklySummaries.find((w: any) => w.weekOffset === selectedWeekOffset) ||
+    statsData?.data?.weeklySummary ||
+    null;
   const recentSubmissions = statsData?.data?.recentSubmissions || [];
   const activityMap = statsData?.data?.activityMap || {};
-  const badges = statsData?.data?.badges || [];
 
   // Generate 12-week heatmap grid
   const renderHeatmap = () => {
@@ -53,7 +62,7 @@ export const DashboardPage: React.FC = () => {
     return (
       <div className="grid grid-flow-col grid-rows-7 gap-1.5 overflow-x-auto py-2">
         {days.map((day) => {
-          let bg = 'bg-dark-800 border-white/[0.04]';
+          let bg = 'bg-[var(--bg-surface)] border-[var(--border-line)]';
           if (day.count === 1) bg = 'bg-cyan-500/40 border-cyan-500/50';
           else if (day.count === 2) bg = 'bg-cyan-400 border-cyan-400';
           else if (day.count >= 3) bg = 'bg-emerald-400 border-emerald-400 shadow-sm shadow-emerald-400/50';
@@ -62,7 +71,7 @@ export const DashboardPage: React.FC = () => {
             <div
               key={day.date}
               title={`${day.date}: ${day.count} submissions`}
-              className={`w-3.5 h-3.5 rounded-sm border ${bg} transition-colors hover:scale-125 cursor-pointer`}
+              className={`w-3.5 h-3.5 rounded-sm border ${bg} transition-colors cursor-pointer`}
             />
           );
         })}
@@ -75,27 +84,30 @@ export const DashboardPage: React.FC = () => {
       {/* Welcome & Overview Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] flex items-center gap-2.5">
             <span>Welcome back, {user?.fullName || user?.username}</span>
-            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--color-accent)] border border-[var(--border-line)]">
               CHALLENGER
             </span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
-            {user?.college ? `${user.college} • ` : ''}Keep your logic sharp with today's featured problem.
+          <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-mono">
+            {user?.college ? `${user.college} • ` : ''}Keep your logic sharp with today&apos;s featured problem.
           </p>
         </div>
 
         {/* Global Standings Card */}
         <div className="flex items-center gap-3">
-          <div className="glass-card px-4 py-2 rounded-xl border border-white/[0.08] flex items-center gap-3">
-            <Trophy className="w-5 h-5 text-amber-400" />
+          <div className="glass-card px-4 py-2 rounded-xl border border-[var(--border-line)] flex items-center gap-3">
+            <Trophy className="w-5 h-5 text-[var(--color-warning)]" />
             <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider block">
                 GLOBAL RANK
               </span>
-              <span className="text-sm font-mono font-bold text-white">
-                #{stats?.rank || 1} <span className="text-[11px] text-slate-500 font-normal">of {stats?.totalUsers || 1}</span>
+              <span className="text-sm font-mono font-bold text-[var(--text-main)]">
+                #{stats?.rank || 1}{' '}
+                <span className="text-[11px] text-[var(--text-muted)] font-normal">
+                  of {stats?.totalUsers || 1}
+                </span>
               </span>
             </div>
           </div>
@@ -103,43 +115,50 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Featured Daily Challenge Card */}
-      <div className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-white via-cyan-50/30 to-white dark:from-dark-900 dark:via-dark-850 dark:to-dark-900 p-6 sm:p-8 shadow-sm dark:shadow-2xl overflow-hidden backdrop-blur-xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
-
+      <div className="relative rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-8 shadow-sm overflow-hidden">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="px-2.5 py-1 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 text-xs font-mono font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+              <span className="px-2.5 py-1 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent)]" />
                 FEATURED DAILY CHALLENGE
               </span>
 
               {dailyProblem && <DifficultyBadge difficulty={dailyProblem.difficulty} />}
 
               {isDailySolved ? (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-success)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Solved Today (+{dailyProblem?.basePoints + 15} PTS)
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
+                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-warning)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
                   <Zap className="w-3.5 h-3.5" />
                   Active Today
                 </span>
               )}
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">
               {dailyProblem?.title || 'Loading Daily Challenge...'}
             </h2>
 
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-              {dailyProblem?.description?.replace(/### Problem Description|###|```/g, '') ||
-                'Solving today\'s challenge earns base points + first-time solve and daily bonuses.'}
+            <p className="text-xs sm:text-sm text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+              {dailyProblem?.description
+                ?.replace(/### Problem Description|### Input Format|### Output Format|###/g, '')
+                .replace(/\*\*Featured Daily Challenge:\*\*/g, '')
+                .replace(/\\le/g, '≤')
+                .replace(/\\ge/g, '≥')
+                .replace(/\\times/g, '×')
+                .replace(/[`*$]/g, '')
+                .trim() ||
+                "Solving today's challenge earns base points + first-time solve and daily bonuses."}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-1">
-              <span>Points: <strong className="text-cyan-400">{dailyProblem?.basePoints || 25} PTS</strong></span>
+            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[var(--text-muted)] pt-1">
+              <span>
+                Points: <strong className="text-[var(--color-accent)]">{dailyProblem?.basePoints || 25} PTS</strong>
+              </span>
               <span>•</span>
               <span>Time Limit: {dailyProblem?.timeLimitMs || 1000}ms</span>
               <span>•</span>
@@ -152,11 +171,136 @@ export const DashboardPage: React.FC = () => {
 
             <Link
               to={dailyProblem ? `/challenge/${dailyProblem.slug}` : '/challenge'}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <span>{isDailySolved ? 'Review Workspace' : 'Solve Daily Challenge'}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
+          </div>
+        </div>
+
+        {/* Current Week's 7 Challenges Catch-Up Strip */}
+        {currentWeekDays.length > 0 && (
+          <div
+            data-testid="dashboard-week-strip"
+            className="mt-6 pt-5 border-t border-[var(--border-line)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          >
+            <span className="text-xs font-mono font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+              <span>This Week&apos;s Catch-Up (7 Challenges):</span>
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {currentWeekDays.map((day: any) => {
+                const isLocked = day.status === 'LOCKED' || !day.problem;
+                if (isLocked) {
+                  return (
+                    <span
+                      key={day.dayNumber}
+                      title={day.unlockLabel}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-muted)] opacity-80"
+                    >
+                      <Lock className="w-3 h-3" />
+                      <span>Day {day.dayNumber}</span>
+                    </span>
+                  );
+                }
+                return (
+                  <Link
+                    key={day.dayNumber}
+                    to={`/challenge/${day.problem.slug}`}
+                    title={`Day ${day.dayNumber}: ${day.problem.title}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors ${
+                      day.isSolved
+                        ? 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--color-success)]'
+                        : 'bg-[var(--bg-main)] border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)]'
+                    }`}
+                  >
+                    {day.isSolved && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />}
+                    <span>Day {day.dayNumber}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Weekly Result Summary & Past Weeks Selector Card */}
+      <div
+        data-testid="dashboard-weekly-summary"
+        className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-mono font-bold text-[var(--text-main)] uppercase tracking-wide flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[var(--color-accent)]" />
+              <span>Your Weekly Summary & Past Weeks Standings</span>
+            </h3>
+            <p className="text-xs font-mono text-[var(--text-muted)] mt-0.5">
+              {activeWeeklySummary?.weekLabel || 'Current Week'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="dashboard-week-selector" className="text-xs font-mono text-[var(--text-muted)]">
+              Past Weeks:
+            </label>
+            <select
+              id="dashboard-week-selector"
+              data-testid="dashboard-week-selector"
+              value={selectedWeekOffset}
+              onChange={(e) => setSelectedWeekOffset(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] focus:outline-none focus:border-[var(--color-accent)]"
+            >
+              {(weeklySummaries.length > 0
+                ? weeklySummaries
+                : [
+                    { weekOffset: 0, weekLabel: 'Current Week' },
+                    { weekOffset: -1, weekLabel: 'Last Week' },
+                    { weekOffset: -2, weekLabel: '2 Weeks Ago' },
+                    { weekOffset: -3, weekLabel: '3 Weeks Ago' },
+                  ]
+              ).map((wk: any) => (
+                <option key={wk.weekOffset} value={wk.weekOffset}>
+                  {wk.weekLabel}
+                </option>
+              ))}
+            </select>
+            <Link
+              to="/leaderboard"
+              className="px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono font-semibold text-[var(--color-accent)] hover:border-[var(--color-accent)]"
+            >
+              Full Leaderboard &rarr;
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-[var(--border-line)] text-xs font-mono">
+          <div>
+            <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY RANK</span>
+            <strong className="text-[var(--text-main)] text-base">
+              #{activeWeeklySummary?.rank || stats?.rank || 1}
+            </strong>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY POINTS</span>
+            <strong className="text-[var(--color-accent)] text-base">
+              {activeWeeklySummary?.weeklyPoints ?? stats?.totalPoints ?? 0} PTS
+            </strong>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)] block text-[11px]">PERCENTILE</span>
+            <strong className="text-[var(--color-success)] text-base">
+              {activeWeeklySummary?.percentile ?? stats?.percentile ?? 100}%
+            </strong>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)] block text-[11px]">VS PREVIOUS WEEK</span>
+            <strong className="text-[var(--text-main)] text-base">
+              {(activeWeeklySummary?.previousWeekDelta ?? 0) >= 0
+                ? `+${activeWeeklySummary?.previousWeekDelta ?? 0} PTS`
+                : `${activeWeeklySummary?.previousWeekDelta} PTS`}
+            </strong>
           </div>
         </div>
       </div>
@@ -164,64 +308,64 @@ export const DashboardPage: React.FC = () => {
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Streak Card */}
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
+        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">DAILY STREAK</span>
-            <Flame className="w-5 h-5 text-orange-400 fill-orange-400" />
+            <span className="text-xs font-mono text-[var(--text-muted)]">DAILY STREAK</span>
+            <Flame className="w-5 h-5 text-[var(--color-warning)]" />
           </div>
-          <div className="text-2xl font-extrabold text-white font-mono">
+          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
             {stats?.currentStreak || user?.currentStreak || 0}
-            <span className="text-xs text-slate-400 font-normal ml-1">days</span>
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">days</span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1">
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
             Personal best: {stats?.longestStreak || user?.longestStreak || 0} days
           </p>
         </div>
 
         {/* Total Points */}
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
+        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">TOTAL SCORE</span>
-            <TrendingUp className="w-5 h-5 text-cyan-400" />
+            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL SCORE</span>
+            <TrendingUp className="w-5 h-5 text-[var(--color-accent)]" />
           </div>
-          <div className="text-2xl font-extrabold text-cyan-300 font-mono">
+          <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
             {stats?.totalPoints || user?.totalPoints || 0}
-            <span className="text-xs text-slate-400 font-normal ml-1">PTS</span>
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">PTS</span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1">
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
             Earn points on Accepted submissions
           </p>
         </div>
 
         {/* Problems Solved */}
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
+        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">PROBLEMS SOLVED</span>
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <span className="text-xs font-mono text-[var(--text-muted)]">PROBLEMS SOLVED</span>
+            <CheckCircle2 className="w-5 h-5 text-[var(--color-success)]" />
           </div>
-          <div className="text-2xl font-extrabold text-white font-mono">
+          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
             {stats?.totalSolved || 0}
-            <span className="text-xs text-slate-500 font-normal ml-1">
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">
               / {stats?.totalProblems || 16}
             </span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1">
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
             Distinct challenges solved in C
           </p>
         </div>
 
-        {/* Badges Unlocked */}
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
+        {/* Accuracy Rate */}
+        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-slate-400">HONORS & BADGES</span>
-            <Award className="w-5 h-5 text-purple-400" />
+            <span className="text-xs font-mono text-[var(--text-muted)]">ACCURACY RATE</span>
+            <Trophy className="w-5 h-5 text-[var(--color-accent)]" />
           </div>
-          <div className="text-2xl font-extrabold text-purple-300 font-mono">
-            {badges.length}
-            <span className="text-xs text-slate-400 font-normal ml-1">unlocked</span>
+          <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
+            {stats?.accuracy ?? 100}%
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">accepted</span>
           </div>
-          <p className="text-[11px] font-mono text-slate-500 mt-1">
-            Milestones & arena achievements
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
+            {stats?.totalSubmissions || 0} total submissions evaluated
           </p>
         </div>
       </div>
@@ -229,47 +373,68 @@ export const DashboardPage: React.FC = () => {
       {/* Two Column Layout: Solved Breakdown & Heatmap */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Difficulty Breakdown */}
-        <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-4">
-          <h3 className="text-sm font-mono font-bold text-white tracking-wide uppercase">
+        <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] space-y-4">
+          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase">
             Solve Breakdown by Difficulty
           </h3>
 
           <div className="space-y-4 pt-2">
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-emerald-400 font-semibold">Easy</span>
-                <span className="text-slate-300 font-bold">{stats?.difficultyBreakdown?.easy || 0} solved</span>
+                <span className="text-[var(--color-success)] font-semibold">Easy</span>
+                <span className="text-[var(--text-main)] font-bold">
+                  {stats?.solvedByDifficulty?.EASY ?? stats?.difficultyBreakdown?.easy ?? 0} solved
+                </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-dark-900 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, ((stats?.difficultyBreakdown?.easy || 0) / 6) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (((stats?.solvedByDifficulty?.EASY ?? 0) as number) / 6) * 100
+                    )}%`,
+                  }}
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-amber-400 font-semibold">Medium</span>
-                <span className="text-slate-300 font-bold">{stats?.difficultyBreakdown?.medium || 0} solved</span>
+                <span className="text-[var(--color-warning)] font-semibold">Medium</span>
+                <span className="text-[var(--text-main)] font-bold">
+                  {stats?.solvedByDifficulty?.MEDIUM ?? stats?.difficultyBreakdown?.medium ?? 0} solved
+                </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-dark-900 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, ((stats?.difficultyBreakdown?.medium || 0) / 6) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (((stats?.solvedByDifficulty?.MEDIUM ?? 0) as number) / 6) * 100
+                    )}%`,
+                  }}
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-rose-400 font-semibold">Hard</span>
-                <span className="text-slate-300 font-bold">{stats?.difficultyBreakdown?.hard || 0} solved</span>
+                <span className="text-[var(--color-error)] font-semibold">Hard</span>
+                <span className="text-[var(--text-main)] font-bold">
+                  {stats?.solvedByDifficulty?.HARD ?? stats?.difficultyBreakdown?.hard ?? 0} solved
+                </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-dark-900 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
                 <div
                   className="h-full bg-rose-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, ((stats?.difficultyBreakdown?.hard || 0) / 4) * 100)}%` }}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (((stats?.solvedByDifficulty?.HARD ?? 0) as number) / 4) * 100
+                    )}%`,
+                  }}
                 />
               </div>
             </div>
@@ -277,22 +442,22 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Activity Heatmap */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-white/[0.08] space-y-4">
+        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-[var(--border-line)] space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono font-bold text-white tracking-wide uppercase flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[var(--color-accent)]" />
               Submission Heatmap
             </h3>
-            <span className="text-[11px] font-mono text-slate-500">Last 12 Weeks</span>
+            <span className="text-[11px] font-mono text-[var(--text-muted)]">Last 12 Weeks</span>
           </div>
 
           <div className="pt-2">{renderHeatmap()}</div>
 
-          <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)]">
             <span>Daily challenge counts towards streak</span>
             <div className="flex items-center gap-1.5">
               <span>Less</span>
-              <div className="w-2.5 h-2.5 rounded bg-dark-800" />
+              <div className="w-2.5 h-2.5 rounded bg-[var(--bg-surface)]" />
               <div className="w-2.5 h-2.5 rounded bg-cyan-500/40" />
               <div className="w-2.5 h-2.5 rounded bg-cyan-400" />
               <div className="w-2.5 h-2.5 rounded bg-emerald-400" />
@@ -303,15 +468,15 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Recent Submissions Feed */}
-      <div className="glass-card rounded-2xl border border-slate-200 dark:border-white/[0.08] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-dark-850">
-          <h3 className="text-sm font-mono font-bold text-slate-800 dark:text-white tracking-wide uppercase flex items-center gap-2">
-            <Clock className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+      <div className="glass-card rounded-2xl border border-[var(--border-line)] overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)]">
+          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[var(--color-accent)]" />
             Recent Submissions
           </h3>
           <Link
             to="/history"
-            className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 dark:hover:text-cyan-300 font-semibold flex items-center gap-1"
+            className="text-xs font-mono text-[var(--color-accent)] hover:underline font-semibold flex items-center gap-1"
           >
             <span>View All</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -319,13 +484,13 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {recentSubmissions.length === 0 ? (
-          <div className="py-12 text-center text-xs font-mono text-slate-500">
-            No submissions recorded yet. Open today's challenge to make your first solve!
+          <div className="py-12 text-center text-xs font-mono text-[var(--text-muted)]">
+            No submissions recorded yet. Open today&apos;s challenge to make your first solve!
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-slate-100/70 dark:bg-dark-900/60 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-white/[0.04]">
+              <thead className="bg-[var(--bg-main)] text-[var(--text-muted)] uppercase text-[10px] tracking-wider border-b border-[var(--border-line)]">
                 <tr>
                   <th className="px-6 py-3">Problem</th>
                   <th className="px-6 py-3">Difficulty</th>
@@ -335,30 +500,30 @@ export const DashboardPage: React.FC = () => {
                   <th className="px-6 py-3 text-right">Submitted</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+              <tbody className="divide-y divide-[var(--border-line)]">
                 {recentSubmissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-3.5 font-bold text-white">
+                  <tr key={sub.id} className="hover:bg-[var(--bg-surface)] transition-colors">
+                    <td className="px-6 py-3.5 font-bold text-[var(--text-main)]">
                       <Link
-                        to={`/challenge/${sub.problemSlug}`}
-                        className="hover:text-cyan-400 transition-colors"
+                        to={`/challenge/${sub.problem?.slug || sub.problemSlug}`}
+                        className="hover:text-[var(--color-accent)] transition-colors"
                       >
-                        {sub.problemTitle}
+                        {sub.problem?.title || sub.problemTitle}
                       </Link>
                     </td>
                     <td className="px-6 py-3.5">
-                      <DifficultyBadge difficulty={sub.difficulty} size="sm" />
+                      <DifficultyBadge difficulty={sub.problem?.difficulty || sub.difficulty} size="sm" />
                     </td>
                     <td className="px-6 py-3.5">
                       <VerdictBadge verdict={sub.verdict} size="sm" />
                     </td>
-                    <td className="px-6 py-3.5 text-slate-400">
-                      {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
+                    <td className="px-6 py-3.5 text-[var(--text-muted)]">
+                      {sub.runtimeMs !== null && sub.runtimeMs !== undefined ? `${sub.runtimeMs}ms` : '—'}
                     </td>
-                    <td className="px-6 py-3.5 font-bold text-cyan-400">
+                    <td className="px-6 py-3.5 font-bold text-[var(--color-accent)]">
                       +{sub.pointsAwarded} PTS
                     </td>
-                    <td className="px-6 py-3.5 text-right text-slate-500">
+                    <td className="px-6 py-3.5 text-right text-[var(--text-muted)]">
                       {new Date(sub.createdAt).toLocaleDateString()}
                     </td>
                   </tr>
