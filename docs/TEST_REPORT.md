@@ -22,7 +22,9 @@
 | `tests/data-safety.test.ts` | Immutable submissions, append-only rejudges, soft-delete problem retirement, monotonic points ledger | **PASS (4/4)** |
 | `tests/scoring.test.ts` | Daily challenge streak initialization, same-day idempotency, consecutive increment, missed-day reset | **PASS (4/4)** |
 | `tests/judge.test.ts` | Local GCC C11 compilation, stdin/stdout, `COMPILE_ERROR`, `TIME_LIMIT_EXCEEDED`, `RUNTIME_ERROR` | **PASS (6/6)** |
-| `tests/judge-malicious.test.ts` | Infinite loop TLE, stack overflow termination, file read exfiltration block, stdout flood truncation, compile bomb timeout | **PASS (6/6)** |
+| `tests/session-persistence.test.ts` | **Session Persistence & __session Cookie** (`__session` cookie set with HttpOnly, Lax, Path=/, silent token refresh, revoked token rejection, banned user block, role-change re-auth, logout cookie clearing) | **PASS (6/6)** |
+| `tests/client-session-lifecycle.test.ts` | **Client Auth Lifecycle & Inactivity** (student 7-day session survival across refreshes, 7-day inactivity cutoff, admin 30-min idle cutoff, activity reset on interaction, deep-link preservation across redirects, multi-tab logout synchronization) | **PASS (6/6)** |
+| `tests/single-question-window.test.ts` | **Single Visible Question Rule** (17:00 IST cutoff, pre-cutoff judging at 17:00:03 IST, 410 CHALLENGE_ENDED, post-freeze upload correction, streak freeze/pause, 17:00 auto-fallback) | **PASS (7/7)** |
 
 ---
 
@@ -30,6 +32,15 @@
 - **Database Integrity Audit (`npm --prefix server run verify-integrity`)**: `8/8` checks `PASS` (`0` orphan submissions, `0` points discrepancies, `0` invalid streak bounds, `0` duplicate points across code & uploads, `0` unapproved uploads with non-zero points).
 - **Bundle Audit (`node scripts/check-bundle.mjs`)**: `PASS` across all `8` built files in `client/dist` (`0` `socket.io` references, `0` `cdn.jsdelivr.net` or third-party CDN URLs).
 - **Headless Browser Console Audit (`docs/CONSOLE_AUDIT.md`)**: `0` console errors, `0` warnings, `0` page errors, `0` failed requests, and `0` CSP violations across `/`, `/login`, `/register`, `/dashboard`, `/challenge`, `/leaderboard`, `/profile`, `/admin`, and `/non-existent-route-404`.
+
+---
+
+## 3. Session Refresh & Inactivity Test Audit (`/docs/SESSION_AUDIT.md`)
+- **F5 Refresh & Deep-Link Invariant**: Refreshing `/dashboard`, `/challenge`, `/leaderboard`, `/profile`, or `/admin` retains the authenticated student in state without flashing the login page or triggering redirect loops.
+- **Inactivity Windows**: Verified **7-day inactivity** for students and **30-minute idle limit** for admins. User activity (keystrokes, mouse, touch, scrolling, API calls) updates `logicq_last_activity` and extends the session.
+- **Firebase Hosting Cookie Compatibility**: Server sets `__session` cookie (HttpOnly, Lax, Path=/), enabling CDN edge forwarding to Cloud Functions.
+- **Multi-Tab Sync**: Logging out in one tab propagates `logicq_logout_event` to all other open tabs immediately.
+- **Network Resilience**: Temporary network disconnects and offline mode preserve the cached student session; users are never signed out on transient fetch failures.
 
 ---
 
