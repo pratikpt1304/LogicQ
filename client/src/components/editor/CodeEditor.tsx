@@ -1,6 +1,7 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
 
 interface CodeEditorProps {
@@ -181,6 +182,68 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     monaco.editor.setTheme(monacoThemeName);
   }, [monacoThemeName]);
 
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (readOnly) {
+      toast.error('Editor is currently read-only.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error(`File "${file.name}" exceeds the 2 MB limit.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === 'string') {
+        onChange(content);
+        toast.success(`Loaded "${file.name}" into editor (${file.size} bytes)`);
+      }
+    };
+    reader.onerror = () => {
+      toast.error(`Failed to read "${file.name}"`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (readOnly) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (readOnly) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!/\.(c|cpp|h|txt)$/i.test(file.name) && file.type && !file.type.includes('text')) {
+      toast.error('Only C source files (.c, .h, .cpp, .txt) can be loaded into the editor.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error(`File "${file.name}" exceeds the 2 MB limit.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === 'string') {
+        onChange(content);
+        toast.success(`Loaded "${file.name}" into editor (${file.size} bytes)`);
+      }
+    };
+    reader.onerror = () => {
+      toast.error(`Failed to read "${file.name}"`);
+    };
+    reader.readAsText(file);
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -235,6 +298,29 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {!readOnly && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".c,.h,.cpp,.txt,text/plain"
+                className="hidden"
+                onChange={handleFileUpload}
+                data-testid="code-file-input"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload .c or source code file from your device (or drag & drop into editor)"
+                data-testid="upload-code-file-btn"
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                <span>Upload .c</span>
+              </button>
+            </>
+          )}
+
           {onReset && !readOnly && (
             <button
               type="button"
@@ -263,9 +349,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       </div>
 
-      {/* Editor Main Canvas */}
+      {/* Editor Main Canvas with Drag & Drop */}
       <div
         ref={containerRef}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         data-testid="monaco-editor-canvas"
         className="flex-1 min-h-[160px] relative overflow-hidden overscroll-contain"
       />

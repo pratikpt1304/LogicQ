@@ -308,6 +308,20 @@ function saveStoredSubmissions(subs: any[]) {
   localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
 }
 
+function getStoredUploads(): any[] {
+  try {
+    const raw = localStorage.getItem('logicq_fallback_uploads');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveStoredUploads(uploads: any[]) {
+  localStorage.setItem('logicq_fallback_uploads', JSON.stringify(uploads));
+}
+
 function getSecondsUntilNext1700IST(): number {
   const now = new Date();
   const istOffsetMs = 5.5 * 60 * 60 * 1000;
@@ -637,14 +651,79 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     );
   }
 
-  if (path === '/uploads/my' || path === '/admin/uploads') {
-    return { success: true, data: [] };
+  if (path === '/uploads/my' && method === 'GET') {
+    const user = getCurrentUser();
+    const problemId = params.get('problemId');
+    const all = getStoredUploads();
+    const filtered = all.filter((u) => {
+      if (user && u.userId && u.userId !== user.id) return false;
+      if (problemId && u.problemId !== problemId) return false;
+      return true;
+    });
+    return { success: true, data: filtered };
+  }
+
+  if (path === '/uploads' && method === 'POST') {
+    const user = getCurrentUser();
+    const uploads = getStoredUploads();
+    const newUpload = {
+      id: `up-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      userId: user?.id || 'guest',
+      problemId: body.problemId,
+      studentNote: body.studentNote || '',
+      files: body.files || [],
+      status: 'PENDING_REVIEW',
+      pointsAwarded: 0,
+      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    uploads.unshift(newUpload);
+    saveStoredUploads(uploads);
+    return {
+      success: true,
+      message: 'Uploaded for review. Solution saved successfully.',
+      data: newUpload,
+    };
+  }
+
+  if (path.startsWith('/uploads/') && method === 'PUT') {
+    const uploadId = path.replace('/uploads/', '');
+    const uploads = getStoredUploads();
+    const idx = uploads.findIndex((u) => u.id === uploadId);
+    if (idx >= 0) {
+      uploads[idx] = {
+        ...uploads[idx],
+        studentNote: body.studentNote !== undefined ? body.studentNote : uploads[idx].studentNote,
+        files: body.files || uploads[idx].files,
+        submittedAt: new Date().toISOString(),
+      };
+      saveStoredUploads(uploads);
+      return {
+        success: true,
+        message: 'Upload updated successfully.',
+        data: uploads[idx],
+      };
+    }
+    return { success: false, message: 'Upload not found.' };
+  }
+
+  if (path.startsWith('/uploads/') && method === 'DELETE') {
+    const uploadId = path.replace('/uploads/', '');
+    const uploads = getStoredUploads();
+    const remaining = uploads.filter((u) => u.id !== uploadId);
+    saveStoredUploads(remaining);
+    return { success: true, message: 'Upload cancelled.' };
+  }
+
+  if (path === '/admin/uploads' && method === 'GET') {
+    return { success: true, data: getStoredUploads() };
   }
 
   if (path === '/submissions/my' || path.startsWith('/submissions/problem/')) {
     const user = getCurrentUser();
     const subs = getStoredSubmissions().filter((s) => !user || s.userId === user.id);
-    return { success: true, data: { submissions: subs, uploadedSolutions: [] } };
+    const userUploads = getStoredUploads().filter((u) => !user || u.userId === user.id);
+    return { success: true, data: { submissions: subs, uploadedSolutions: userUploads } };
   }
 
   if (path.startsWith('/submissions/') && method === 'GET') {
