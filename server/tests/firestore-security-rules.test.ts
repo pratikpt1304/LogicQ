@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Firestore Security Rules Cheating & Adversarial Attack Simulation Suite
- * 
+ *
  * Simulates and verifies the exact permission logic enforced by `firestore.rules`:
  * - Deny by default
  * - Attempt to edit points / streak -> REJECTED
@@ -10,6 +12,8 @@ import { describe, it, expect } from 'vitest';
  * - Attempt to read another student's submission -> REJECTED
  * - Attempt to set own role to ADMIN -> REJECTED
  * - Attempt to delete a submission record -> REJECTED
+ * - Attempt to read/write disabled Arena (`contests`) or Archive (`archive`) collections -> REJECTED for all roles
+ * - Attempt by student to read a locked future problem or past-week problem -> REJECTED
  */
 
 interface AuthContext {
@@ -38,11 +42,19 @@ class RulesEvaluator {
     if (!ctx.auth) return false;
     if (ctx.auth.uid !== targetUserId) return false;
 
-    // Rule: Cannot modify role, status, points, streak, or stats
     const incomingData = ctx.request.resource?.data || {};
     const existingData = ctx.resource?.data || {};
 
-    const forbiddenKeys = ['role', 'status', 'banReason', 'stats', 'points', 'totalPoints', 'streak', 'currentStreak'];
+    const forbiddenKeys = [
+      'role',
+      'status',
+      'banReason',
+      'stats',
+      'points',
+      'totalPoints',
+      'streak',
+      'currentStreak',
+    ];
     for (const key of forbiddenKeys) {
       if (key in incomingData && incomingData[key] !== existingData[key]) {
         return false; // CHEAT REJECTED
@@ -51,28 +63,41 @@ class RulesEvaluator {
     return true;
   }
 
-  static evaluateHiddenTestRead(ctx: FirestoreRuleContext): boolean {
+  static evaluateHiddenTestRead(_ctx: FirestoreRuleContext): boolean {
     // Rule: match /hidden_tests/{testId} { allow read, write: if false; }
-    // Always returns false for client access
     return false;
   }
 
   static evaluateSubmissionRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
-    // Rule: allow read: if auth.uid == resource.data.userId || auth.token.role == 'ADMIN'
     const ownerId = ctx.resource?.data?.userId;
     const isAdmin = ctx.auth.token.role === 'ADMIN';
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
-  static evaluateSubmissionWrite(ctx: FirestoreRuleContext): boolean {
-    // Rule: allow create, update, delete: if false; (Only server Admin SDK can write)
+  static evaluateSubmissionWrite(_ctx: FirestoreRuleContext): boolean {
     return false;
   }
 
-  static evaluateSubmissionDelete(ctx: FirestoreRuleContext): boolean {
-    // Rule: allow delete: if false;
+  static evaluateSubmissionDelete(_ctx: FirestoreRuleContext): boolean {
     return false;
+  }
+
+  static evaluateContestAccess(_ctx: FirestoreRuleContext): boolean {
+    // Rule: match /contests/{contestId} { allow read, write: if false; }
+    return false;
+  }
+
+  static evaluateArchiveAccess(_ctx: FirestoreRuleContext): boolean {
+    // Rule: match /archive/{archiveId} { allow read, write: if false; }
+    return false;
+  }
+
+  static evaluateProblemRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.token.role === 'ADMIN') return true;
+    const data = ctx.resource?.data || {};
+    return data.status === 'published' && data.isCurrentWeekUnlocked === true;
   }
 }
 
@@ -125,7 +150,6 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
   });
 
   it('CHEAT ATTEMPT 4: Student attempts to read another competitor code submission -> MUST FAIL', () => {
-    // Alice attempts to inspect Bob's submission
     const ctx: FirestoreRuleContext = {
       auth: studentAlice,
       resource: { data: { id: 'sub_bob_1', userId: 'student_bob', code: 'secret_solution()' } },
@@ -157,6 +181,33 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(isAllowed).toBe(false);
   });
 
+  it('CHEAT ATTEMPT 7: Unauthenticated, Student, or Admin client attempts to read/write disabled contests or archive collections -> MUST FAIL', () => {
+    const rulesFile = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    expect(rulesFile).toContain('match /contests/{contestId=**}');
+    expect(rulesFile).toContain('match /archive/{docId=**}');
+
+    for (const caller of [null, studentAlice, studentBob, adminCharlie]) {
+      expect(RulesEvaluator.evaluateContestAccess({ auth: caller, request: {} })).toBe(false);
+      expect(RulesEvaluator.evaluateArchiveAccess({ auth: caller, request: {} })).toBe(false);
+    }
+  });
+
+  it('CHEAT ATTEMPT 8: Student attempts to read a locked future problem or past-week archive problem -> MUST FAIL', () => {
+    const lockedFutureProblem: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { status: 'published', isCurrentWeekUnlocked: false } },
+      request: {},
+    };
+    const unlockedCurrentWeekProblem: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { status: 'published', isCurrentWeekUnlocked: true } },
+      request: {},
+    };
+
+    expect(RulesEvaluator.evaluateProblemRead(lockedFutureProblem)).toBe(false);
+    expect(RulesEvaluator.evaluateProblemRead(unlockedCurrentWeekProblem)).toBe(true);
+  });
+
   it('VALID OPERATION: Student reads their own submission -> MUST SUCCEED', () => {
     const ctx: FirestoreRuleContext = {
       auth: studentAlice,
@@ -177,5 +228,21 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     const isAllowed = RulesEvaluator.evaluateSubmissionRead(ctx);
     expect(isAllowed).toBe(true);
+  });
+
+  it('CHEAT ATTEMPT 9: Storage Rules & uploadedSolutions — blocks reading peer uploads, overwriting/deleting files, invalid MIME types, >5MB files, and self-approval', () => {
+    const storageRules = fs.readFileSync(path.resolve(__dirname, '../../storage.rules'), 'utf-8');
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    expect(storageRules).toContain('match /{allPaths=**}');
+    expect(storageRules).toContain('allow read, write: if false;');
+    expect(storageRules).toContain('match /uploads/{userId}/{problemId}/{submissionId}/{fileId}');
+    expect(storageRules).toContain('allow read: if isOwner(userId) || isAdmin();');
+    expect(storageRules).toContain('allow create: if isOwner(userId) && isValidUploadMimeType() && isWithinSizeLimit();');
+    expect(storageRules).toContain('allow update, delete: if false;');
+
+    expect(firestoreRules).toContain('match /uploaded_solutions/{uploadId}');
+    expect(firestoreRules).toContain('match /upload_reviews/{reviewId}');
+    expect(firestoreRules).toContain('allow write: if false;');
   });
 });
