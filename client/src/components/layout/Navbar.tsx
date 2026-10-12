@@ -78,34 +78,33 @@ export const Navbar: React.FC = () => {
         {/* Brand (links to /dashboard when signed in, / when signed out) */}
         <Logo size="md" to={user ? '/dashboard' : '/'} />
 
-        {/* Desktop Navigation (Only shown for logged-in users) */}
-        {user && (
-          <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
-            {appNavLinks.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    active
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
+        {/* Desktop Navigation (Home, Daily Challenge, Practice, Leaderboard) */}
+        <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
+          {appNavLinks.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            const targetPath = item.path === '/dashboard' && !user ? '/' : item.path;
+            return (
+              <Link
+                key={item.path}
+                to={targetPath}
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  active
+                    ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
+                }`}
+              >
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
                   }`}
-                >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        )}
+                />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* Right Section: Stats, Theme Toggle & User or Auth CTAs */}
         <div className="hidden md:flex items-center gap-2.5">
@@ -301,51 +300,43 @@ export const Navbar: React.FC = () => {
           </button>
 
           {user ? (
-            <>
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono">
-                <Flame className="w-3.5 h-3.5 text-[var(--color-warning)]" />
-                <span>{user.currentStreak}d</span>
-              </div>
-              <button
-                type="button"
-                aria-label="Toggle navigation menu"
-                aria-expanded={mobileMenuOpen}
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <Link
-                to="/login"
-                className="inline-flex items-center justify-center min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] border border-[var(--border-line)]"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/register"
-                className="inline-flex items-center justify-center min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
-              >
-                Register
-              </Link>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono">
+              <Flame className="w-3.5 h-3.5 text-[var(--color-warning)]" />
+              <span>{user.currentStreak}d</span>
             </div>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center min-h-[40px] px-3 py-1 rounded-lg text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] border border-[var(--border-line)]"
+            >
+              Sign In
+            </Link>
           )}
+
+          <button
+            type="button"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Drawer (Only shown when authenticated) */}
-      {mobileMenuOpen && user && (
+      {/* Mobile Drawer (Accessible to everyone) */}
+      {mobileMenuOpen && (
         <div className="md:hidden border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-4 pt-2 pb-6 space-y-3">
           <nav aria-label="Mobile Navigation" className="space-y-1">
             {appNavLinks.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const targetPath = item.path === '/dashboard' && !user ? '/' : item.path;
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={targetPath}
                   aria-current={active ? 'page' : undefined}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-2.5 min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-medium ${
@@ -362,24 +353,63 @@ export const Navbar: React.FC = () => {
           </nav>
 
           <div className="border-t border-[var(--border-line)] pt-3 space-y-1">
-            <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-[var(--text-muted)]">
-              <span>{user.maskedPrn || user.displayName || 'Student'}</span>
-              <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
-            </div>
-            <Link
-              to="/profile"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-            >
-              My Profile
-            </Link>
-            <Link
-              to="/history"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-            >
-              Submission History
-            </Link>
+            {user ? (
+              <>
+                <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-[var(--text-muted)]">
+                  <span>{user.maskedPrn || user.displayName || 'Student'}</span>
+                  <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
+                </div>
+                <Link
+                  to="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                >
+                  My Profile
+                </Link>
+                <Link
+                  to="/history"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                >
+                  Submission History
+                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                  >
+                    Admin Portal
+                  </Link>
+                )}
+                {(isChecker || isAdmin) && (
+                  <Link
+                    to="/checker/reviews"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-emerald-400 hover:bg-[var(--bg-surface)]"
+                  >
+                    My Reviews (Checker)
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center min-h-[44px] text-left px-3 py-2 rounded-lg text-sm text-[var(--color-error)] hover:bg-[var(--bg-surface)]"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <div className="pt-2">
+                <Link
+                  to="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
+                >
+                  Register Free
+                </Link>
+              </div>
+            )}
             {!isStandalone && (
               <button
                 type="button"
@@ -390,31 +420,6 @@ export const Navbar: React.FC = () => {
                 <span>Install LogicQ</span>
               </button>
             )}
-            {isAdmin && (
-              <Link
-                to="/admin"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-              >
-                Admin Portal
-              </Link>
-            )}
-            {(isChecker || isAdmin) && (
-              <Link
-                to="/checker/reviews"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-emerald-400 hover:bg-[var(--bg-surface)]"
-              >
-                My Reviews (Checker)
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full flex items-center min-h-[44px] text-left px-3 py-2 rounded-lg text-sm text-[var(--color-error)] hover:bg-[var(--bg-surface)]"
-            >
-              Sign Out
-            </button>
           </div>
         </div>
       )}

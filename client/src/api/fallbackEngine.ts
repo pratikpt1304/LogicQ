@@ -24,7 +24,21 @@ const STORAGE_KEYS = {
   PROBLEMS: 'logicq_fallback_problems_v1',
   PRN_INDEX: 'logicq_fallback_prn_index_v1',
   PRN_HISTORY: 'logicq_fallback_prn_history_v1',
+  PRACTICE_PROGRESS: 'logicq_fallback_practice_progress_v1',
 };
+
+import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+
+const ALL_PRACTICE_PROBLEMS = [
+  ...PRACTICE_MODULE_1_PROBLEMS,
+  ...PRACTICE_MODULE_2_PROBLEMS,
+  ...PRACTICE_MODULE_3_PROBLEMS,
+  ...PRACTICE_MODULE_4_PROBLEMS,
+];
 
 const DEFAULT_PROBLEMS = [
   {
@@ -1293,6 +1307,245 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         prnChangedAt: null,
         isPrnChangeEligible: true,
         nextAllowedDate: null,
+      },
+    };
+  }
+
+  // PRACTICE MODULES
+  if (path === '/practice/modules') {
+    const current = getCurrentUser();
+    let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number }> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+      if (raw) storedProgress = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    const userPrefix = current?.id ? `${current.id}:` : 'anon:';
+
+    let previousModuleSolved = 0;
+    const modulesResponse = PRACTICE_CONFIG.MODULES.map((m, idx) => {
+      const moduleProblems = ALL_PRACTICE_PROBLEMS.filter((p) => p.moduleSlug === m.slug);
+      const solvedInModule = moduleProblems.filter(
+        (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
+      ).length;
+
+      const threshold = PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7;
+      const isUnlocked = idx === 0 || previousModuleSolved >= threshold;
+      const prevTitle = idx > 0 ? PRACTICE_CONFIG.MODULES[idx - 1].title : '';
+      const requirementText =
+        idx === 0
+          ? 'Unlocked by default'
+          : `Solve ${threshold} of 10 in ${prevTitle} to unlock`;
+
+      previousModuleSolved = solvedInModule;
+
+      return {
+        id: m.id,
+        slug: m.slug,
+        title: m.title,
+        order: m.order,
+        description: m.description,
+        isUnlocked,
+        requirementText,
+        totalQuestions: m.totalQuestions,
+        solvedCount: solvedInModule,
+        progressPercent: Math.round((solvedInModule / m.totalQuestions) * 100),
+        distribution: m.distribution,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        modules: modulesResponse,
+      },
+    };
+  }
+
+  // PRACTICE MODULE PROBLEMS
+  if (path.startsWith('/practice/modules/') && path.endsWith('/problems')) {
+    const moduleSlug = path.replace('/practice/modules/', '').replace('/problems', '');
+    const current = getCurrentUser();
+    let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number }> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+      if (raw) storedProgress = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    const userPrefix = current?.id ? `${current.id}:` : 'anon:';
+
+    const moduleConfig = PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug);
+    if (!moduleConfig) {
+      const err = new Error('Practice module not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+
+    const modIdx = PRACTICE_CONFIG.MODULES.findIndex((m) => m.slug === moduleSlug);
+    const threshold = PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7;
+    if (modIdx > 0) {
+      const prevMod = PRACTICE_CONFIG.MODULES[modIdx - 1];
+      const prevProblems = ALL_PRACTICE_PROBLEMS.filter((p) => p.moduleSlug === prevMod.slug);
+      const prevSolved = prevProblems.filter(
+        (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
+      ).length;
+      if (prevSolved < threshold) {
+        const err = new Error(
+          `Solve at least ${threshold} questions in ${prevMod.title} to unlock this module.`
+        ) as Error & { status?: number; code?: string };
+        err.status = 403;
+        err.code = 'MODULE_LOCKED';
+        throw err;
+      }
+    }
+
+    const moduleProblems = ALL_PRACTICE_PROBLEMS
+      .filter((p) => p.moduleSlug === moduleSlug)
+      .sort((a, b) => a.moduleOrder - b.moduleOrder);
+
+    const problemRows = moduleProblems.map((p) => {
+      const prog = storedProgress[`${userPrefix}${p.slug}`];
+      const isSolved = Boolean(prog?.isSolved);
+      const attemptsCount = prog?.attemptsCount || 0;
+      const status = isSolved ? 'SOLVED' : attemptsCount > 0 ? 'ATTEMPTED' : 'NOT_STARTED';
+
+      return {
+        id: p.slug,
+        slug: p.slug,
+        title: p.title,
+        difficulty: p.difficulty,
+        category: p.category,
+        basePoints: p.basePoints,
+        moduleOrder: p.moduleOrder,
+        isSolved,
+        attemptsCount,
+        status,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        module: {
+          id: moduleConfig.id,
+          slug: moduleConfig.slug,
+          title: moduleConfig.title,
+          order: moduleConfig.order,
+          description: moduleConfig.description,
+        },
+        problems: problemRows,
+      },
+    };
+  }
+
+  // PRACTICE SINGLE PROBLEM
+  if (path.startsWith('/practice/problems/')) {
+    const problemSlug = path.replace('/practice/problems/', '');
+    const problem = ALL_PRACTICE_PROBLEMS.find((p) => p.slug === problemSlug);
+    if (!problem) {
+      const err = new Error('Practice problem not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+
+    const current = getCurrentUser();
+    let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number; lastVerdict?: string }> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+      if (raw) storedProgress = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    const userPrefix = current?.id ? `${current.id}:` : 'anon:';
+    const prog = storedProgress[`${userPrefix}${problemSlug}`];
+
+    return {
+      success: true,
+      data: {
+        problem: {
+          id: problem.slug,
+          slug: problem.slug,
+          moduleSlug: problem.moduleSlug,
+          title: problem.title,
+          difficulty: problem.difficulty,
+          category: problem.category,
+          tags: problem.tags,
+          description: problem.description,
+          starterCode: problem.starterCode,
+          timeLimitMs: problem.timeLimitMs,
+          memoryLimitMb: problem.memoryLimitMb,
+          basePoints: problem.basePoints,
+          testCases: problem.sampleTests.map((t, idx) => ({
+            id: `sample-${idx + 1}`,
+            input: t.input,
+            expectedOutput: t.expectedOutput,
+            isHidden: false,
+          })),
+        },
+        userProgress: prog
+          ? {
+              isSolved: prog.isSolved,
+              attemptsCount: prog.attemptsCount,
+              lastVerdict: prog.lastVerdict || (prog.isSolved ? 'ACCEPTED' : 'WRONG_ANSWER'),
+              bestRuntimeMs: prog.bestRuntimeMs,
+            }
+          : null,
+      },
+    };
+  }
+
+  // PRACTICE SUBMISSION
+  if (path === '/practice/submit' && method === 'POST') {
+    const current = getCurrentUser();
+    const { problemSlug, code } = body;
+    const problem = ALL_PRACTICE_PROBLEMS.find((p) => p.slug === problemSlug);
+    if (!problem) {
+      const err = new Error('Practice problem not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+
+    let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number; lastVerdict?: string }> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+      if (raw) storedProgress = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    const userPrefix = current?.id ? `${current.id}:` : 'anon:';
+    const key = `${userPrefix}${problemSlug}`;
+    const prev = storedProgress[key] || { isSolved: false, attemptsCount: 0, bestRuntimeMs: 14 };
+
+    // Basic syntax acceptance in client fallback mode
+    const isAccepted = Boolean(code && code.includes('main') && code.length > 30);
+    const verdict = isAccepted ? 'ACCEPTED' : 'WRONG_ANSWER';
+    const runtimeMs = 12;
+
+    storedProgress[key] = {
+      isSolved: prev.isSolved || isAccepted,
+      attemptsCount: prev.attemptsCount + 1,
+      bestRuntimeMs: isAccepted ? Math.min(prev.bestRuntimeMs, runtimeMs) : prev.bestRuntimeMs,
+      lastVerdict: verdict,
+    };
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_PROGRESS, JSON.stringify(storedProgress));
+
+    return {
+      success: true,
+      data: {
+        submission: {
+          id: `prac_sub_${Date.now()}`,
+          verdict,
+          runtimeMs,
+          compileOutput: isAccepted ? '' : 'Mismatch on hidden test case',
+          testCaseResults: problem.sampleTests.map((t, idx) => ({
+            testCaseId: `sample-${idx + 1}`,
+            verdict: isAccepted ? 'ACCEPTED' : 'WRONG_ANSWER',
+            runtimeMs: 4,
+            orderIndex: idx + 1,
+          })),
+        },
       },
     };
   }

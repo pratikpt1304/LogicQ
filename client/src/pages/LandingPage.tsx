@@ -5,6 +5,10 @@ import {
   ArrowRight,
   LogIn,
   Sparkles,
+  Code2,
+  BookOpen,
+  CheckCircle2,
+  Lock,
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -43,6 +47,14 @@ export const LandingPage: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </Link>
 
+          <Link
+            to="/practice"
+            className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-mono text-sm font-semibold text-[var(--color-accent)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface)] border border-[var(--color-accent)] transition-all"
+          >
+            <Code2 className="w-4 h-4 text-[var(--color-accent)]" />
+            <span>Practice Curriculum (4 Modules)</span>
+          </Link>
+
           {!user && (
             <Link
               to="/login"
@@ -52,6 +64,126 @@ export const LandingPage: React.FC = () => {
               <span>Sign In</span>
             </Link>
           )}
+        </div>
+      </section>
+
+      {/* Practice Curriculum Preview Section */}
+      <section className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-y border-[var(--border-line)] bg-[var(--bg-panel)]/40">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+          <div>
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-xs font-mono font-semibold mb-2">
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>4-MODULE CURRICULUM</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)]">
+              Self-Paced C Practice Track
+            </h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1.5 max-w-2xl">
+              10 curated problems per module across Easy, Medium, and Hard. Solve 7 of 10 in each module to unlock the next one.
+            </p>
+          </div>
+
+          <Link
+            to="/practice"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md transition-all shrink-0"
+          >
+            <span>Open Practice Modules</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Module 1 */}
+          <Link
+            to="/practice/control-structures"
+            className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                MODULE 1 • UNLOCKED
+              </span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
+              Control Structures
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] line-clamp-2">
+              Decisions, branching, iteration flow, and nested loops.
+            </p>
+            <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
+              <span>10 Problems</span>
+              <span className="text-[var(--color-accent)] font-semibold">Start &rarr;</span>
+            </div>
+          </Link>
+
+          {/* Module 2 */}
+          <Link
+            to="/practice/pointers-and-functions"
+            className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                MODULE 2 • GATE 7/10
+              </span>
+              <Lock className="w-4 h-4 text-amber-400" />
+            </div>
+            <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
+              Pointers and functions
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] line-clamp-2">
+              Addresses, dereferencing, pass-by-reference, and function pointers.
+            </p>
+            <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
+              <span>10 Problems</span>
+              <span className="text-amber-400 font-semibold">Solve 7 to Unlock</span>
+            </div>
+          </Link>
+
+          {/* Module 3 */}
+          <Link
+            to="/practice/array-and-its-applications"
+            className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
+                MODULE 3 • GATE 7/10
+              </span>
+              <Lock className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+            <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
+              Array & Applications
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] line-clamp-2">
+              1D/2D arrays, matrix arithmetic, searching, and sorting.
+            </p>
+            <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
+              <span>10 Problems</span>
+              <span className="text-[var(--text-muted)]">Requires Module 2</span>
+            </div>
+          </Link>
+
+          {/* Module 4 */}
+          <Link
+            to="/practice/advanced-data-types-dynamic-memory"
+            className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
+                MODULE 4 • GATE 7/10
+              </span>
+              <Lock className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+            <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
+              Dynamic Memory & Types
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] line-clamp-2">
+              Structs, unions, malloc/calloc/free, and linked nodes.
+            </p>
+            <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
+              <span>10 Problems</span>
+              <span className="text-[var(--text-muted)]">Requires Module 3</span>
+            </div>
+          </Link>
         </div>
       </section>
 
