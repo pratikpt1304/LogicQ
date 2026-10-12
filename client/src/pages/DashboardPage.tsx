@@ -102,10 +102,18 @@ export const DashboardPage: React.FC = () => {
                 GLOBAL RANK
               </span>
               <span className="text-sm font-mono font-bold text-[var(--text-main)]">
-                #{stats?.rank || 1}{' '}
-                <span className="text-[11px] text-[var(--text-muted)] font-normal">
-                  of {stats?.totalUsers || 1}
-                </span>
+                {stats?.rank ? (
+                  <>
+                    #{stats.rank}{' '}
+                    <span className="text-[11px] text-[var(--text-muted)] font-normal">
+                      of {stats?.totalUsers || 1} ranked
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-[var(--text-muted)] font-normal">
+                    NOT RANKED YET
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -231,9 +239,16 @@ export const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-[var(--border-line)] text-xs font-mono">
           <div>
             <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY RANK</span>
-            <strong className="text-[var(--text-main)] text-base">
-              #{activeWeeklySummary?.rank || stats?.rank || 1}
-            </strong>
+            {activeWeeklySummary?.rank || stats?.rank ? (
+              <strong className="text-[var(--text-main)] text-base">
+                #{activeWeeklySummary?.rank || stats?.rank}
+              </strong>
+            ) : (
+              <div>
+                <strong className="text-[var(--text-muted)] text-sm block">Not ranked yet</strong>
+                <span className="text-[10px] text-[var(--color-accent)] block">Solve today&apos;s challenge</span>
+              </div>
+            )}
           </div>
           <div>
             <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY POINTS</span>
@@ -243,17 +258,31 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <span className="text-[var(--text-muted)] block text-[11px]">PERCENTILE</span>
-            <strong className="text-[var(--color-success)] text-base">
-              {activeWeeklySummary?.percentile ?? stats?.percentile ?? 100}%
-            </strong>
+            {(activeWeeklySummary?.percentile ?? stats?.percentile) !== null && (activeWeeklySummary?.percentile ?? stats?.percentile) !== undefined ? (
+              <strong className="text-[var(--color-success)] text-base">
+                Top {activeWeeklySummary?.percentile ?? stats?.percentile}%
+              </strong>
+            ) : (
+              <div>
+                <strong className="text-[var(--text-muted)] text-base block">—</strong>
+                <span className="text-[10px] text-[var(--text-muted)] block">Needs 10 ranked students</span>
+              </div>
+            )}
           </div>
           <div>
             <span className="text-[var(--text-muted)] block text-[11px]">VS PREVIOUS WEEK</span>
-            <strong className="text-[var(--text-main)] text-base">
-              {(activeWeeklySummary?.previousWeekDelta ?? 0) >= 0
-                ? `+${activeWeeklySummary?.previousWeekDelta ?? 0} PTS`
-                : `${activeWeeklySummary?.previousWeekDelta} PTS`}
-            </strong>
+            {activeWeeklySummary?.previousWeekDelta !== null && activeWeeklySummary?.previousWeekDelta !== undefined ? (
+              <strong className="text-[var(--text-main)] text-base">
+                {activeWeeklySummary.previousWeekDelta >= 0
+                  ? `+${activeWeeklySummary.previousWeekDelta} PTS`
+                  : `${activeWeeklySummary.previousWeekDelta} PTS`}
+              </strong>
+            ) : (
+              <div>
+                <strong className="text-[var(--text-muted)] text-base block">—</strong>
+                <span className="text-[10px] text-[var(--text-muted)] block">No previous week yet</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -334,12 +363,9 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
             {stats?.totalSolved || 0}
-            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">
-              / {stats?.totalProblems || 16}
-            </span>
           </div>
           <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            Distinct challenges solved in C
+            This week: {stats?.thisWeekSolved ?? stats?.totalSolved ?? 0} of 7 solved
           </p>
         </div>
 
@@ -350,11 +376,19 @@ export const DashboardPage: React.FC = () => {
             <Trophy className="w-5 h-5 text-[var(--color-accent)]" />
           </div>
           <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
-            {stats?.accuracy ?? 100}%
-            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">accepted</span>
+            {stats?.accuracy !== null && stats?.accuracy !== undefined ? (
+              <>
+                {stats.accuracy}%
+                <span className="text-xs text-[var(--text-muted)] font-normal ml-1">accepted</span>
+              </>
+            ) : (
+              <span className="text-[var(--text-muted)]">—</span>
+            )}
           </div>
           <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            {stats?.totalSubmissions || 0} total submissions evaluated
+            {(stats?.totalSubmissions || 0) > 0
+              ? `${stats?.totalSubmissions} total submissions evaluated`
+              : 'No submissions yet'}
           </p>
         </div>
       </div>

@@ -23,6 +23,7 @@ import {
   formatPublicDisplayName,
   generateShortId,
   verifyAllowlistCsv,
+  getPrnChangeCooldownStatus,
 } from '../config/academic.config.js';
 
 // Serialization lock for atomic PRN registration transactions under high concurrency
@@ -204,6 +205,8 @@ export function formatSelfUserResponse(user: {
     prn: user.prn,
   });
 
+  const cooldownStatus = getPrnChangeCooldownStatus(user.prnChangedAt);
+
   return {
     id: user.id,
     username: user.username,
@@ -226,6 +229,9 @@ export function formatSelfUserResponse(user: {
     division: user.division || null,
     profileComplete: user.profileComplete ?? Boolean(user.prn && user.college && user.department && user.year),
     bio: user.bio || null,
+    prnChangedAt: user.prnChangedAt || null,
+    prnNextAllowedDate: cooldownStatus.nextAllowedDate ? cooldownStatus.nextAllowedDate.toISOString() : null,
+    isPrnChangeEligible: cooldownStatus.isEligible,
     createdAt: user.createdAt,
   };
 }

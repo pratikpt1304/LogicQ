@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Live_Site-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Live Site" /></a>
   <a href="https://github.com/pratikpt1304/LogicQ/releases/tag/v1.0.0-pilot"><img src="https://img.shields.io/badge/Release-v1.0.0--pilot-blue?style=for-the-badge&logo=github&logoColor=white" alt="Release Tag" /></a>
-  <img src="https://img.shields.io/badge/Tests-107%2F107_Passing-success?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-117%2F117_Passing-success?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" />
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node" />
@@ -97,18 +97,25 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
   - 30-minute decision edit window with immutable versioning in `UploadReview`.
   - 48-hour SLA deadline returning stale assigned uploads to the unassigned queue.
 
-### 🔒 4. PRN Academic Identity & Security Rules
+### 🔒 4. PRN Academic Identity & Rolling 30-Day Self-Service
 - 12-digit university PRN validation enforced across frontend and backend schemas.
 - Unique PRN enforcement via atomic transaction on private collection `prnIndex/{prn}`.
-- Immutable after registration: students cannot modify PRN or college; changes require an audited admin action with password re-authentication.
+- Rolling 30-day self-service change cooldown: students may fix or update their own PRN at most once in any rolling 30-day window with password confirmation, while college remains locked to Sanjivani University. All points, streaks, submissions, and ranks permanently adhere to the student UID.
 - Deny-by-default Cloud Firestore Security Rules (`rules_version = '2';`).
 
-### ⚡ 5. Session Persistence & F5 Refresh Bug Fix
+### 📊 5. Transparent Metrics & Content Shield
+- Unranked students with 0 points display "Not ranked yet" rather than misleading default #1 ranks or 100% percentiles.
+- Percentile calculation strictly requires $\ge 10$ ranked students (`Top X% = ceil(rank / N * 100)`), gracefully showing "Needs 10 ranked students" otherwise.
+- Accuracy displays "—" and "No submissions yet" on 0 submissions to prevent divide-by-zero artifacts.
+- Zero question pool leak: problem counts display active progress ("This week: Y of 7 solved") without leaking total question backlog.
+- Book citation isolation: problem descriptions are original algorithmic rewordings with formal input/output specs, blocking author names or book references from student-visible payloads while retaining book references in admin-only metadata (`sourceRefJson`).
+
+### ⚡ 6. Session Persistence & F5 Refresh Bug Fix
 - Seamless session restoration across full-page refresh (F5), new tabs, browser restarts, and installed PWA launches.
 - Eliminates the flash of login/landing screen with a branded pre-auth loading shell.
 - Enforces strict inactivity timeouts: **7 days** for students, **8 hours** for checkers, and **30 minutes** for admins.
 
-### 📱 6. Progressive Web App (PWA) & Mobile C Bar
+### 📱 7. Progressive Web App (PWA) & Mobile C Bar
 - Fully installable PWA on Android, iOS, Windows, and macOS with service worker offline fallback (`/offline.html`).
 - Specialized mobile C programming keypad toolbar:
   `{ } ( ) [ ] ; # " * & -> = == != < > \n Tab`
@@ -303,7 +310,7 @@ The application will be live at:
 LogicQ enforces strict quality gates before any code is approved for release:
 
 ```bash
-# 1. Execute full backend test suite (18 test files, 107 tests)
+# 1. Execute full backend test suite (20 test files, 117 tests)
 npm --prefix server test
 
 # 2. Verify database ledger points and transaction integrity
@@ -317,7 +324,7 @@ node scripts/check-bundle.mjs
 ```
 
 ### Test Suite Coverage Summary:
-- **107 of 107 unit, integration, and security tests pass** across 18 test files (`vitest`).
+- **117 of 117 unit, integration, and security tests pass** across 20 test files (`vitest`).
 - **100% database integrity verified** (`verify-integrity.ts`).
 - **0 bundle security violations**: verified zero development URLs, mock endpoints, or non-sandboxed connections in compiled client assets.
 

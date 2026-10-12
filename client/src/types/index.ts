@@ -33,8 +33,11 @@ export interface User {
   avatarUrl?: string | null;
   totalPoints: number;
   currentStreak: number;
-  longestStreak: number;
+  longestStreak?: number;
   lastSolvedDate?: string | null;
+  prnChangedAt?: string | null;
+  prnNextAllowedDate?: string | null;
+  isPrnChangeEligible?: boolean;
   createdAt?: string;
 }
 

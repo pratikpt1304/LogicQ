@@ -1,10 +1,26 @@
 import { User } from '../types/index.js';
+import {
+  ALLOWED_DEPARTMENTS,
+  ALLOWED_YEARS,
+  DIVISION_REGEX,
+  DISPLAY_NAME_MIN,
+  DISPLAY_NAME_MAX,
+  PRN_REGEX,
+  getPrnChangeCooldownStatus,
+  containsProfanity,
+  maskPrn,
+  formatOwnIdentityLabel,
+  formatPublicDisplayName,
+  generateShortId,
+} from '../config/academic.config.js';
 
 const STORAGE_KEYS = {
   USERS: 'logicq_fallback_users_v1',
   CURRENT_USER_ID: 'logicq_fallback_current_user_id_v1',
   SUBMISSIONS: 'logicq_fallback_submissions_v1',
   PROBLEMS: 'logicq_fallback_problems_v1',
+  PRN_INDEX: 'logicq_fallback_prn_index_v1',
+  PRN_HISTORY: 'logicq_fallback_prn_history_v1',
 };
 
 const DEFAULT_PROBLEMS = [
@@ -21,7 +37,7 @@ const DEFAULT_PROBLEMS = [
     tags: ['Scope', 'Shadowing', 'Variables', 'Basics'],
     description: `### Problem Description
 
-In C, variables declared in an inner block shadow variables of the same name declared in an enclosing outer block or at file scope (Yashavant Kanetkar, *Test Your C Skills*, Chapter 1: Declarations and Initializations).
+In C, variables declared in an inner block shadow variables of the same name declared in an enclosing outer block or at file scope.
 
 Given three integer inputs:
 - An outer global initial base value $G$
@@ -51,7 +67,7 @@ int main() {
     // TODO: Track nested scope stack and print resolved value after each operation
     
     return 0;
-}`,
+} `,
     testCases: [
       { id: 'tc-1', input: '10 20 30\n3\nENTER 2\nEXIT\nENTER 5\n', expectedOutput: '60\n30\n150\n', isSample: true, isHidden: false },
       { id: 'tc-2', input: '5 15 25\n2\nEXIT\nEXIT\n', expectedOutput: '15\n5\n', isSample: true, isHidden: false },
@@ -70,7 +86,7 @@ int main() {
     tags: ['Switch Case', 'Fallthrough', 'Control Flow', 'Basics'],
     description: `### Problem Description
 
-In standard C, \`switch\` statements execute sequentially from the matched \`case\` label until an explicit \`break\` is encountered (Yashavant Kanetkar, *Test Your C Skills*, Chapter 2: Control Instructions).
+In standard C, \`switch\` statements execute sequentially from the matched \`case\` label until an explicit \`break\` is encountered.
 
 Given an initial accumulator value $V_0$, switch code $C$, and four operation modifiers $X_1, X_2, X_3, X_4$:
 - Case 1: Add $X_1$ to $A$ (falls through to Case 2)
@@ -92,7 +108,7 @@ int main() {
     // TODO: Implement switch-case with fallthrough semantics
     
     return 0;
-}`,
+} `,
     testCases: [
       { id: 'tc-3', input: '10 1\n5 2 7 9\n', expectedOutput: '23\n', isSample: true, isHidden: false },
       { id: 'tc-4', input: '10 2\n5 2 7 9\n', expectedOutput: '13\n', isSample: true, isHidden: false },
@@ -111,7 +127,7 @@ int main() {
     tags: ['Pointers', 'Arrays', 'Pointer Arithmetic', 'Address Calculations'],
     description: `### Problem Description
 
-In C pointer arithmetic, array indexing is identical to pointer dereferencing: \`a[i][j][k]\` is strictly defined as \`*(*(*(a + i) + j) + k)\` (Yashavant Kanetkar, *Test Your C Skills*, Chapter 7: Pointers).
+In C pointer arithmetic, array indexing is identical to pointer dereferencing: \`a[i][j][k]\` is strictly defined as \`*(*(*(a + i) + j) + k)\`.
 
 Compute the linear offset, element value, and byte address for 3D array coordinate queries, or decompose linear offsets back to coordinates.`,
     starterCode: `#include <stdio.h>
@@ -127,7 +143,7 @@ int main() {
     // TODO: Process coordinate and linear pointer offset queries
     
     return 0;
-}`,
+} `,
     testCases: [
       { id: 'tc-5', input: '2 3 4 1000\n2\nCOORD 1 2 3\nLINEAR 7\n', expectedOutput: 'VAL: 24 OFFSET: 23 ADDR: 1092\nI: 0 J: 1 K: 3\n', isSample: true, isHidden: false },
     ],
@@ -145,7 +161,7 @@ int main() {
     tags: ['Bitwise', 'Bitmask', 'Shifting', 'Basics'],
     description: `### Problem Description
 
-In systems C programming, bitwise operators allow compact manipulation of packed bitfields and hardware flag registers (Yashavant Kanetkar, *Test Your C Skills*, Chapter 14: Bitwise Operators).
+In systems C programming, bitwise operators allow compact manipulation of packed bitfields and hardware flag registers.
 
 Implement a 32-bit register flag manager supporting SET, CLEAR, FLIP, TEST, COUNT, and HEX operations.`,
     starterCode: `#include <stdio.h>
@@ -181,7 +197,32 @@ function saveStoredProblems(problems: any[]) {
 function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = JSON.parse(raw);
+      let migrated = false;
+      const sanitized = parsed.map((u) => {
+        let updated = false;
+        let college = u.college;
+        if (!college || college === 'Sanjivani College of Engineering') {
+          college = 'Sanjivani University';
+          updated = true;
+        }
+        let shortId = u.shortId;
+        if (!shortId) {
+          shortId = generateShortId(u.id);
+          updated = true;
+        }
+        if (updated) {
+          migrated = true;
+          return { ...u, college, shortId };
+        }
+        return u;
+      });
+      if (migrated) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
+      }
+      return sanitized;
+    }
   } catch {
     // ignore
   }
@@ -192,12 +233,13 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       email: 'admin@logicq.io',
       fullName: 'Bitwise Club Admin',
       role: 'ADMIN',
-      college: 'Sanjivani College of Engineering',
+      college: 'Sanjivani University',
       totalPoints: 120,
       currentStreak: 5,
       longestStreak: 7,
       password: 'password123',
       isBanned: false,
+      shortId: 'ADM1',
       createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
     },
   ];
@@ -387,13 +429,13 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         .split('@')[0]
         .replace(/[^a-zA-Z0-9_]/g, '_')
         .slice(0, 24);
-      found = {
+      const newUser = {
         id: `usr-google-${Date.now()}`,
         username: baseUsername,
         email: email || `${baseUsername}@sanjivani.org.in`,
         fullName: fullName || baseUsername,
         avatarUrl,
-        role: 'STUDENT',
+        role: 'STUDENT' as const,
         college: 'Sanjivani University',
         profileComplete: false,
         totalPoints: 0,
@@ -402,8 +444,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         isBanned: false,
         createdAt: new Date().toISOString(),
       };
-      users.push(found);
+      users.push(newUser);
       saveStoredUsers(users);
+      found = newUser;
     }
     if (found.isBanned) {
       throw new Error('Your account has been suspended by an administrator.');
@@ -599,50 +642,354 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       const day = s.createdAt.split('T')[0];
       activityMap[day] = (activityMap[day] || 0) + 1;
     });
+
+    const totalPoints = user?.totalPoints || 0;
+    const acceptedCount = subs.filter((s) => s.verdict === 'ACCEPTED').length;
+    const accuracy = subs.length > 0 ? Math.round((acceptedCount / subs.length) * 100) : null;
+    const rank = totalPoints > 0 ? 1 : null;
+    const percentile = null; // Staging mock has < 10 ranked users
+
     return {
       success: true,
       data: {
         stats: {
-          totalPoints: user?.totalPoints || 0,
+          totalPoints,
           currentStreak: user?.currentStreak || 0,
           longestStreak: user?.longestStreak || user?.currentStreak || 0,
           totalSolved: solvedIds.size,
+          thisWeekSolved: solvedIds.size,
+          thisWeekTotal: 7,
           totalSubmissions: subs.length,
-          globalRank: 1,
+          accuracy,
+          rank,
+          percentile,
+          studentsBeaten: 0,
+          totalUsers: totalPoints > 0 ? 1 : 0,
         },
+        weeklySummary: {
+          weekLabel: 'Current Week',
+          weeklyPoints: totalPoints,
+          rank,
+          percentile,
+          previousWeekDelta: null,
+          solvedCount: solvedIds.size,
+          perDayResults: [],
+        },
+        weeklySummaries: [],
         recentSubmissions: subs.slice(0, 8),
         activityMap,
       },
     };
   }
 
-  if (path === '/users/profile' && method === 'PUT') {
+  if (path === '/users/profile' && (method === 'PUT' || method === 'PATCH')) {
     const current = getCurrentUser();
     if (!current) throw new Error('Authentication required');
+
+    // Immutability rule: student cannot change PRN or college
+    if (body.prn !== undefined || body.college !== undefined) {
+      throw new Error('Students cannot change PRN or college after signup.');
+    }
+
+    // Validation
+    const trimmedDisplay = typeof body.displayName === 'string' ? body.displayName.trim() : body.displayName;
+    if (trimmedDisplay) {
+      if (trimmedDisplay.length < DISPLAY_NAME_MIN || trimmedDisplay.length > DISPLAY_NAME_MAX) {
+        throw new Error(`Display name must be between ${DISPLAY_NAME_MIN} and ${DISPLAY_NAME_MAX} characters.`);
+      }
+      if (containsProfanity(trimmedDisplay)) {
+        throw new Error('Display name contains inappropriate language.');
+      }
+      if (/\d{8,}/.test(trimmedDisplay)) {
+        throw new Error('Display name cannot contain a PRN or long numeric sequence.');
+      }
+    }
+
+    if (body.department && !ALLOWED_DEPARTMENTS.includes(body.department)) {
+      throw new Error('Please select a valid department.');
+    }
+
+    if (body.year && !ALLOWED_YEARS.includes(body.year)) {
+      throw new Error('Please select a valid academic year (FY, SY, or TY).');
+    }
+
+    const trimmedDiv = typeof body.division === 'string' ? body.division.trim().toUpperCase() : body.division;
+    if (trimmedDiv && !DIVISION_REGEX.test(trimmedDiv)) {
+      throw new Error('Division must be up to 3 letters or digits (e.g., A, B, C1).');
+    }
+
     const users = getStoredUsers();
     const idx = users.findIndex((u) => u.id === current.id);
+    const existing = idx !== -1 ? users[idx] : current;
+
+    const shortId = existing.shortId || generateShortId(existing.id);
+    const updatedUser = {
+      ...existing,
+      displayName: trimmedDisplay === '' ? null : (trimmedDisplay ?? existing.displayName ?? null),
+      fullName: trimmedDisplay || existing.fullName || existing.username,
+      department: body.department ?? existing.department,
+      year: body.year ?? existing.year,
+      division: trimmedDiv === '' ? null : (trimmedDiv ?? existing.division ?? null),
+      bio: typeof body.bio === 'string' ? body.bio.trim() : (body.bio ?? existing.bio ?? null),
+      avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
+      shortId,
+      college: 'Sanjivani University',
+    };
+
     if (idx !== -1) {
-      users[idx] = {
-        ...users[idx],
-        fullName: body.fullName ?? users[idx].fullName,
-        bio: body.bio ?? users[idx].bio,
-        college: body.college ?? users[idx].college,
-      };
+      users[idx] = updatedUser;
       saveStoredUsers(users);
     }
-    return { success: true, data: { user: getCurrentUser() } };
+
+    // Persist to current user cache
+    try {
+      localStorage.setItem('logicq_active_user', JSON.stringify(updatedUser));
+    } catch {
+      // ignore
+    }
+
+    const prnCooldown = getPrnChangeCooldownStatus(updatedUser.prnChangedAt);
+
+    return {
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          ...updatedUser,
+          prnNextAllowedDate: prnCooldown.nextAllowedDate ? prnCooldown.nextAllowedDate.toISOString() : null,
+          isPrnChangeEligible: prnCooldown.isEligible,
+        },
+      },
+    };
+  }
+
+  // PRN CHANGE ROUTE (Rolling 30-day cooldown, 30-day released anti-squatting lock)
+  if (path === '/users/change-prn' && method === 'POST') {
+    const current = getCurrentUser();
+    if (!current) throw new Error('Authentication required');
+
+    const newPrn = typeof body.newPrn === 'string' ? body.newPrn.trim() : '';
+    const confirmPrn = typeof body.confirmPrn === 'string' ? body.confirmPrn.trim() : '';
+    const reauthConfirmed = Boolean(body.reauthConfirmed);
+
+    if (!newPrn || !confirmPrn) {
+      throw new Error('Both PRN fields are required.');
+    }
+    if (newPrn !== confirmPrn) {
+      throw new Error('The confirmation PRN does not match the new PRN.');
+    }
+    if (!PRN_REGEX.test(newPrn)) {
+      throw new Error('PRN must be exactly 12 digits (0-9).');
+    }
+    if (!reauthConfirmed) {
+      throw new Error('Please confirm your identity by checking the re-authentication confirmation box.');
+    }
+
+    const users = getStoredUsers();
+    const idx = users.findIndex((u) => u.id === current.id);
+    const existing = idx !== -1 ? users[idx] : current;
+
+    if (existing.prn === newPrn) {
+      throw new Error('The new PRN cannot be identical to your current PRN.');
+    }
+
+    // Check 30-day rolling cooldown
+    const cooldownStatus = getPrnChangeCooldownStatus(existing.prnChangedAt);
+    if (!cooldownStatus.isEligible) {
+      const allowedStr = cooldownStatus.nextAllowedDate
+        ? cooldownStatus.nextAllowedDate.toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })
+        : 'in 30 days';
+      throw new Error(
+        `PRN can only be changed once every 30 days. You may change your PRN again on ${allowedStr} (${cooldownStatus.daysRemaining} days remaining).`
+      );
+    }
+
+    // Uniqueness & Anti-squatting reservation check
+    const takenUser = users.find((u) => u.id !== existing.id && u.prn === newPrn);
+    if (takenUser) {
+      throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+    }
+
+    // Check fallback PRN index for 30-day anti-squatting reservations
+    let prnIndex: Record<string, { userId: string; status: string; reservedUntil?: string }> = {};
+    try {
+      const rawIdx = localStorage.getItem(STORAGE_KEYS.PRN_INDEX);
+      if (rawIdx) prnIndex = JSON.parse(rawIdx);
+    } catch {}
+
+    const indexEntry = prnIndex[newPrn];
+    if (indexEntry) {
+      if (indexEntry.status === 'ACTIVE' && indexEntry.userId !== existing.id) {
+        throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+      }
+      if (indexEntry.status === 'RELEASED_RESERVED' && indexEntry.reservedUntil) {
+        const reservedUntil = new Date(indexEntry.reservedUntil).getTime();
+        if (Date.now() < reservedUntil && indexEntry.userId !== existing.id) {
+          throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+        }
+      }
+    }
+
+    const now = new Date();
+    const oldPrn = existing.prn || null;
+
+    // Record PRN History
+    let prnHistoryList: any[] = [];
+    try {
+      const rawHist = localStorage.getItem(STORAGE_KEYS.PRN_HISTORY);
+      if (rawHist) prnHistoryList = JSON.parse(rawHist);
+    } catch {}
+
+    prnHistoryList.push({
+      id: `prn-hist-${Date.now()}`,
+      userId: existing.id,
+      oldPrn,
+      newPrn,
+      changedBy: existing.id,
+      changedByRole: existing.role || 'STUDENT',
+      reason: 'STUDENT_MONTHLY_SELF_SERVICE',
+      ipAddress: '127.0.0.1',
+      createdAt: now.toISOString(),
+    });
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.PRN_HISTORY, JSON.stringify(prnHistoryList));
+    } catch {}
+
+    // Update PRN Index: mark old PRN as RELEASED_RESERVED for 30 days, claim new PRN as ACTIVE
+    if (oldPrn) {
+      const reservationEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      prnIndex[oldPrn] = {
+        userId: existing.id,
+        status: 'RELEASED_RESERVED',
+        reservedUntil: reservationEnd.toISOString(),
+      };
+    }
+    prnIndex[newPrn] = {
+      userId: existing.id,
+      status: 'ACTIVE',
+    };
+    try {
+      localStorage.setItem(STORAGE_KEYS.PRN_INDEX, JSON.stringify(prnIndex));
+    } catch {}
+
+    // Update user record
+    const updatedUser = {
+      ...existing,
+      prn: newPrn,
+      prnChangedAt: now.toISOString(),
+    };
+
+    if (idx !== -1) {
+      users[idx] = updatedUser;
+      saveStoredUsers(users);
+    }
+
+    try {
+      localStorage.setItem('logicq_active_user', JSON.stringify(updatedUser));
+    } catch {}
+
+    const newCooldown = getPrnChangeCooldownStatus(updatedUser.prnChangedAt);
+    const maskedPrn = maskPrn(newPrn);
+
+    return {
+      success: true,
+      message: 'PRN updated successfully. Your new PRN is active.',
+      data: {
+        prn: maskedPrn,
+        prnChangedAt: updatedUser.prnChangedAt,
+        prnNextAllowedDate: newCooldown.nextAllowedDate ? newCooldown.nextAllowedDate.toISOString() : null,
+        isPrnChangeEligible: newCooldown.isEligible,
+      },
+    };
   }
 
   if (path.startsWith('/users/profile/') && method === 'GET') {
-    const username = path.replace('/users/profile/', '');
+    const param = path.replace('/users/profile/', '');
     const users = getStoredUsers();
+    const current = getCurrentUser();
+    // Allow lookup by id, shortId, or username (case-insensitive)
     const target =
-      users.find((u) => u.username.toLowerCase() === username.toLowerCase()) || getCurrentUser();
-    const subs = getStoredSubmissions().filter((s) => target && s.userId === target.id);
+      users.find(
+        (u) =>
+          u.id === param ||
+          (u.shortId && u.shortId.toLowerCase() === param.toLowerCase()) ||
+          u.username.toLowerCase() === param.toLowerCase()
+      ) || current;
+
+    if (!target) {
+      throw new Error('Challenger not found');
+    }
+
+    const isOwner = Boolean(current && current.id === target.id);
+    const subs = getStoredSubmissions().filter((s) => s.userId === target.id);
+    const shortId = target.shortId || generateShortId(target.id);
+    const publicDisplayName = formatPublicDisplayName({
+      displayName: target.displayName,
+      shortId,
+      id: target.id,
+    });
+    const ownMaskedPrn = isOwner ? maskPrn(target.prn) : undefined;
+    const ownIdentityLabel = isOwner
+      ? formatOwnIdentityLabel({
+          department: target.department,
+          year: target.year,
+          prn: target.prn,
+          maskedPrn: ownMaskedPrn,
+        })
+      : undefined;
+
+    const targetCooldown = getPrnChangeCooldownStatus(target.prnChangedAt);
+
+    // Real rank computation: ONLY students with totalPoints > 0 are ranked!
+    let rank: number | null = null;
+    if ((target.totalPoints || 0) > 0) {
+      const rankedUsers = users
+        .filter((u) => !u.isBanned && (u.totalPoints || 0) > 0)
+        .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
+      const targetRankIdx = rankedUsers.findIndex((u) => u.id === target.id);
+      rank = targetRankIdx !== -1 ? targetRankIdx + 1 : null;
+    }
+
     return {
       success: true,
       data: {
-        user: target,
+        user: {
+          id: target.id,
+          username: target.username,
+          displayName: target.displayName,
+          publicDisplayName,
+          shortId,
+          fullName: isOwner ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+          college: target.college || 'Sanjivani University',
+          department: target.department,
+          year: target.year,
+          division: target.division,
+          bio: target.bio,
+          avatarUrl: target.avatarUrl,
+          role: target.role,
+          totalPoints: target.totalPoints || 0,
+          currentStreak: target.currentStreak || 0,
+          longestStreak: target.longestStreak || 0,
+          rank, // null if 0 points
+          totalSolved: new Set(subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)).size,
+          // Privacy protection: Never expose PRN or email to other students!
+          ...(isOwner
+            ? {
+                prn: target.prn,
+                maskedPrn: ownMaskedPrn,
+                email: target.email,
+                ownIdentityLabel,
+                prnChangedAt: target.prnChangedAt || null,
+                prnNextAllowedDate: targetCooldown.nextAllowedDate ? targetCooldown.nextAllowedDate.toISOString() : null,
+                isPrnChangeEligible: targetCooldown.isEligible,
+              }
+            : {}),
+        },
         stats: {
           totalSolved: new Set(subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)).size,
           totalSubmissions: subs.length,
@@ -663,24 +1010,116 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
   // LEADERBOARD
   if (path.startsWith('/leaderboard')) {
-    const users = getStoredUsers().filter((u) => !u.isBanned);
-    const leaderboard = users
-      .map((u, i) => ({
-        rank: i + 1,
+    const current = getCurrentUser();
+    const allUsers = getStoredUsers().filter((u) => !u.isBanned);
+    // Real rank: only students with totalPoints > 0 (or weekly points > 0) are ranked!
+    const rankedEligible = allUsers
+      .filter((u) => (u.totalPoints || 0) > 0)
+      .sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
+
+    const totalRanked = rankedEligible.length;
+
+    const leaderboard = rankedEligible.map((u, idx) => {
+      const isCurrentUser = Boolean(current && u.id === current.id);
+      const shortId = u.shortId || generateShortId(u.id);
+      const publicDisplayName = formatPublicDisplayName({
+        displayName: u.displayName,
+        shortId,
+        id: u.id,
+      });
+      const ownMaskedPrn = isCurrentUser ? maskPrn(u.prn) : undefined;
+      const ownIdentityLabel = isCurrentUser
+        ? formatOwnIdentityLabel({
+            department: u.department,
+            year: u.year,
+            prn: u.prn,
+            maskedPrn: ownMaskedPrn,
+          })
+        : undefined;
+
+      const rank = idx + 1;
+      const studentsBeaten = Math.max(0, totalRanked - rank);
+      const percentile = totalRanked <= 1 ? 100 : Math.round(((totalRanked - rank + 1) / totalRanked) * 100);
+
+      return {
+        rank,
         id: u.id,
         username: u.username,
-        fullName: u.fullName,
-        college: u.college || 'Sanjivani College of Engineering',
+        displayName: u.displayName,
+        publicDisplayName,
+        shortId,
+        displayLabel: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+        fullName: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+        isCurrentUser,
+        ...(isCurrentUser ? { maskedPrn: ownMaskedPrn, ownIdentityLabel } : {}),
+        college: u.college || 'Sanjivani University',
+        department: u.department || null,
+        year: u.year || null,
+        division: u.division || null,
         totalPoints: u.totalPoints || 0,
+        weeklyPoints: u.totalPoints || 0,
         currentStreak: u.currentStreak || 0,
+        longestStreak: u.longestStreak || 0,
         solvedCount: Math.max(0, Math.floor((u.totalPoints || 0) / 20)),
-      }))
-      .sort((a, b) => b.totalPoints - a.totalPoints)
-      .map((u, idx) => ({ ...u, rank: idx + 1 }));
+        percentile,
+        studentsBeaten,
+      };
+    });
+
+    let pinnedOwnRow = leaderboard.find((r) => r.isCurrentUser) || null;
+    if (!pinnedOwnRow && current) {
+      // Current user has 0 points - they are NOT ranked yet!
+      const shortId = current.shortId || generateShortId(current.id);
+      const publicDisplayName = formatPublicDisplayName({
+        displayName: current.displayName,
+        shortId,
+        id: current.id,
+      });
+      const ownMaskedPrn = maskPrn(current.prn);
+      const ownIdentityLabel = formatOwnIdentityLabel({
+        department: current.department,
+        year: current.year,
+        prn: current.prn,
+        maskedPrn: ownMaskedPrn,
+      });
+
+      pinnedOwnRow = {
+        rank: null, // NOT RANKED YET!
+        id: current.id,
+        username: current.username,
+        displayName: current.displayName,
+        publicDisplayName,
+        shortId,
+        displayLabel: ownIdentityLabel || publicDisplayName,
+        fullName: ownIdentityLabel || publicDisplayName,
+        isCurrentUser: true,
+        maskedPrn: ownMaskedPrn,
+        ownIdentityLabel,
+        college: current.college || 'Sanjivani University',
+        department: current.department || null,
+        year: current.year || null,
+        division: current.division || null,
+        totalPoints: current.totalPoints || 0,
+        weeklyPoints: current.totalPoints || 0,
+        currentStreak: current.currentStreak || 0,
+        longestStreak: current.longestStreak || 0,
+        solvedCount: 0,
+        percentile: 0,
+        studentsBeaten: 0,
+      } as any;
+    }
 
     return {
       success: true,
-      data: { leaderboard },
+      data: {
+        leaderboard,
+        pinnedOwnRow,
+        totalRanked,
+        availableWeeks: [
+          { weekOffset: 0, weekLabel: 'Current Week (Live)', isFrozen: false },
+          { weekOffset: -1, weekLabel: 'Last Week (Final Rankings)', isFrozen: true },
+        ],
+      },
     };
   }
 
@@ -791,6 +1230,64 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }));
     saveStoredProblems(problems);
     return { success: true };
+  }
+
+  // ADMIN: Reveal student PRN (Audit-logged)
+  if (path.startsWith('/admin/users/') && path.endsWith('/reveal-prn') && method === 'POST') {
+    const current = getCurrentUser();
+    if (!current || current.role !== 'ADMIN') {
+      const err = new Error('Admin privileges required') as Error & { status?: number };
+      err.status = 403;
+      throw err;
+    }
+    const id = path.replace('/admin/users/', '').replace('/reveal-prn', '');
+    const users = getStoredUsers();
+    const student = users.find((u) => u.id === id);
+    if (!student) {
+      const err = new Error('Student not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+    return {
+      success: true,
+      message: 'PRN accessed under audited administrative policy.',
+      data: {
+        userId: student.id,
+        prn: student.prn,
+        revealedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  // ADMIN: Reset student PRN cooldown (Audit-logged)
+  if (path.startsWith('/admin/users/') && path.endsWith('/reset-prn-cooldown') && method === 'POST') {
+    const current = getCurrentUser();
+    if (!current || current.role !== 'ADMIN') {
+      const err = new Error('Admin privileges required') as Error & { status?: number };
+      err.status = 403;
+      throw err;
+    }
+    const id = path.replace('/admin/users/', '').replace('/reset-prn-cooldown', '');
+    const users = getStoredUsers();
+    const idx = users.findIndex((u) => u.id === id);
+    if (idx === -1) {
+      const err = new Error('Student not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+    users[idx].prnChangedAt = null;
+    saveStoredUsers(users);
+
+    return {
+      success: true,
+      message: 'PRN change cooldown reset successfully for student.',
+      data: {
+        userId: users[idx].id,
+        prnChangedAt: null,
+        isPrnChangeEligible: true,
+        nextAllowedDate: null,
+      },
+    };
   }
 
   return { success: true, data: {} };

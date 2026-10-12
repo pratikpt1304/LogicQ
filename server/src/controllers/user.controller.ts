@@ -13,6 +13,12 @@ import {
   formatOwnIdentityLabel,
   formatPublicDisplayName,
   generateShortId,
+  PRN_REGEX,
+  PRN_CHANGE_COOLDOWN_DAYS,
+  PRN_RELEASE_RESERVATION_DAYS,
+  PRN_CHANGE_RATE_LIMIT_HOURLY,
+  getPrnChangeCooldownStatus,
+  verifyAllowlistCsv,
 } from '../config/academic.config.js';
 import {
   getServerNow,
@@ -101,7 +107,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ username }, { id: username }],
+        OR: [{ username }, { id: username }, { shortId: username }],
       },
       include: {
         userBadges: {
@@ -174,19 +180,25 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
       heatmap[dateStr] = (heatmap[dateStr] || 0) + 1;
     }
 
-    const higherRankedCount = await prisma.user.count({
-      where: {
-        isBanned: false,
-        role: 'STUDENT',
-        OR: [
-          { totalPoints: { gt: user.totalPoints } },
-          {
-            totalPoints: user.totalPoints,
-            currentStreak: { gt: user.currentStreak },
-          },
-        ],
-      },
-    });
+    const isRanked = (user.totalPoints || 0) > 0;
+    let rank: number | null = null;
+    if (isRanked) {
+      const higherRankedCount = await prisma.user.count({
+        where: {
+          isBanned: false,
+          role: 'STUDENT',
+          totalPoints: { gt: 0 },
+          OR: [
+            { totalPoints: { gt: user.totalPoints } },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: { gt: user.currentStreak },
+            },
+          ],
+        },
+      });
+      rank = higherRankedCount + 1;
+    }
 
     const shortId = user.shortId || generateShortId(user.id);
     const publicDisplayName = formatPublicDisplayName({
@@ -195,6 +207,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
       id: user.id,
     });
     const ownMaskedPrn = isOwner || isAdmin ? maskPrn(user.prn) : undefined;
+    const cooldownStatus = isOwner || isAdmin ? getPrnChangeCooldownStatus(user.prnChangedAt) : null;
     const ownIdentityLabel =
       isOwner || isAdmin
         ? formatOwnIdentityLabel({
@@ -211,7 +224,16 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           id: user.id,
           username: user.username,
           // Privacy rule: Never expose PRN or email to other students
-          ...(isOwner || isAdmin ? { prn: user.prn, maskedPrn: ownMaskedPrn, ownIdentityLabel } : {}),
+          ...(isOwner || isAdmin
+            ? {
+                prn: user.prn,
+                maskedPrn: ownMaskedPrn,
+                ownIdentityLabel,
+                prnChangedAt: user.prnChangedAt,
+                prnNextAllowedDate: cooldownStatus?.nextAllowedDate?.toISOString() || null,
+                isPrnChangeEligible: cooldownStatus?.isEligible ?? false,
+              }
+            : {}),
           ...(isOwner || isAdmin ? { email: user.email } : {}),
           displayName: user.displayName,
           publicDisplayName,
@@ -227,7 +249,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           totalPoints: user.totalPoints,
           currentStreak: user.currentStreak,
           longestStreak: user.longestStreak,
-          rank: higherRankedCount + 1,
+          rank,
           createdAt: user.createdAt,
           totalSolved: uniqueSolvedMap.size,
           solvedByDifficulty: {
@@ -358,6 +380,264 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+const changePrnSchema = z
+  .object({
+    newPrn: z
+      .string()
+      .trim()
+      .refine((val) => PRN_REGEX.test(val), {
+        message: 'PRN must be exactly 12 digits (0-9 only).',
+      }),
+    confirmPrn: z.string().trim(),
+    reauthConfirmed: z.boolean().refine((val) => val === true, {
+      message: 'Sign-in confirmation is required before changing your PRN.',
+    }),
+  })
+  .refine((data) => data.newPrn === data.confirmPrn, {
+    message: 'PRN and confirm PRN do not match.',
+    path: ['confirmPrn'],
+  });
+
+// In-memory rate limiting map for student PRN change attempts: userId -> timestamps array
+const prnChangeAttempts = new Map<string, number[]>();
+
+function checkPrnChangeRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const windowMs = 60 * 60 * 1000; // 1 hour
+  const attempts = (prnChangeAttempts.get(userId) || []).filter((t) => now - t < windowMs);
+  if (attempts.length >= PRN_CHANGE_RATE_LIMIT_HOURLY) {
+    return false;
+  }
+  attempts.push(now);
+  prnChangeAttempts.set(userId, attempts);
+  return true;
+}
+
+/**
+ * Monthly PRN Self-Service Change Endpoint (Atomic Transaction)
+ * Allows student to change PRN once every rolling 30 days.
+ */
+export const changeMyPrn = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const userId = req.user.userId;
+
+    // Rate limit abuse check
+    if (!checkPrnChangeRateLimit(userId)) {
+      res.status(429).json({
+        success: false,
+        message: 'Too many PRN change attempts. Please wait an hour before trying again.',
+      });
+      return;
+    }
+
+    const parsed = changePrnSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: parsed.error.issues[0]?.message || 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { newPrn } = parsed.data;
+
+    // 1. Fetch current student user record
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    if (user.isBanned) {
+      res.status(403).json({ success: false, message: 'Banned accounts cannot change PRN.' });
+      return;
+    }
+
+    // 2. Cooldown check: Rolling 30 days
+    const cooldownStatus = getPrnChangeCooldownStatus(user.prnChangedAt);
+    if (!cooldownStatus.isEligible) {
+      const formattedDate = cooldownStatus.nextAllowedDate?.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      res.status(400).json({
+        success: false,
+        message: `You can only change your PRN once every 30 days. Next change available on ${formattedDate} (${cooldownStatus.daysRemaining} days remaining).`,
+        nextAllowedDate: cooldownStatus.nextAllowedDate?.toISOString(),
+      });
+      return;
+    }
+
+    // 3. No-op check
+    if (user.prn === newPrn) {
+      res.status(400).json({
+        success: false,
+        message: 'New PRN cannot be identical to your current PRN.',
+      });
+      return;
+    }
+
+    // 4. Admin allowlist check (if enabled)
+    const allowlistCheck = verifyAllowlistCsv(newPrn, user.email);
+    if (!allowlistCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: allowlistCheck.reason || 'PRN does not match verified email in student allowlist.',
+      });
+      return;
+    }
+
+    const oldPrn = user.prn || '';
+    const now = new Date();
+    const reservationExpiry = new Date(now.getTime() + PRN_RELEASE_RESERVATION_DAYS * 24 * 60 * 60 * 1000);
+
+    // 5. Execute in single atomic Prisma transaction
+    const txResult = await prisma.$transaction(async (tx) => {
+      // Check if new PRN is claimed, reserved, or banned
+      const existingPrnIndex = await tx.prnIndex.findUnique({
+        where: { prn: newPrn },
+      });
+
+      if (existingPrnIndex) {
+        if (existingPrnIndex.status === 'BANNED') {
+          throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+        }
+
+        if (existingPrnIndex.status === 'ACTIVE' && existingPrnIndex.userId !== userId) {
+          throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+        }
+
+        if (
+          existingPrnIndex.status === 'RELEASED_RESERVED' &&
+          existingPrnIndex.userId !== userId &&
+          existingPrnIndex.reservedUntil &&
+          existingPrnIndex.reservedUntil > now
+        ) {
+          throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+        }
+      }
+
+      // Check if any banned user had this PRN
+      const bannedUserWithPrn = await tx.user.findFirst({
+        where: { prn: newPrn, isBanned: true },
+      });
+      if (bannedUserWithPrn) {
+        throw new Error('This PRN is unavailable. Please check the number or contact an administrator.');
+      }
+
+      // Mark old PRN as RELEASED_RESERVED for this student for 30 days (anti-squatting)
+      if (oldPrn) {
+        await tx.prnIndex.upsert({
+          where: { prn: oldPrn },
+          update: {
+            status: 'RELEASED_RESERVED',
+            userId,
+            reservedUntil: reservationExpiry,
+          },
+          create: {
+            prn: oldPrn,
+            userId,
+            status: 'RELEASED_RESERVED',
+            reservedUntil: reservationExpiry,
+          },
+        });
+      }
+
+      // Lock new PRN as ACTIVE for this student
+      await tx.prnIndex.upsert({
+        where: { prn: newPrn },
+        update: {
+          userId,
+          status: 'ACTIVE',
+          reservedUntil: null,
+        },
+        create: {
+          prn: newPrn,
+          userId,
+          status: 'ACTIVE',
+          reservedUntil: null,
+        },
+      });
+
+      // Update student user document
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          prn: newPrn,
+          prnChangedAt: now,
+        },
+        select: {
+          id: true,
+          username: true,
+          prn: true,
+          email: true,
+          college: true,
+          department: true,
+          year: true,
+          division: true,
+          displayName: true,
+          totalPoints: true,
+          currentStreak: true,
+          longestStreak: true,
+          prnChangedAt: true,
+        },
+      });
+
+      // Append immutable PrnHistory record
+      const historyEntry = await tx.prnHistory.create({
+        data: {
+          userId,
+          oldPrn,
+          newPrn,
+          source: 'STUDENT',
+          deviceType: String(req.headers['user-agent'] || 'unknown').slice(0, 100),
+          ipAddress: String(req.ip || req.socket.remoteAddress || 'unknown').slice(0, 45),
+        },
+      });
+
+      return { updatedUser, historyEntry };
+    });
+
+    const nextAllowedDate = new Date(now.getTime() + PRN_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+
+    res.status(200).json({
+      success: true,
+      message: 'Your PRN has been successfully changed.',
+      data: {
+        user: {
+          ...txResult.updatedUser,
+          maskedPrn: maskPrn(txResult.updatedUser.prn),
+          prnNextAllowedDate: nextAllowedDate.toISOString(),
+          isPrnChangeEligible: false,
+        },
+        historyId: txResult.historyEntry.id,
+      },
+    });
+  } catch (err: any) {
+    console.error('changeMyPrn error:', err);
+    const msg = err.message || 'Failed to update PRN';
+    const isClientErr =
+      msg.includes('unavailable') ||
+      msg.includes('already registered') ||
+      msg.includes('cooldown') ||
+      msg.includes('allowlist');
+    res.status(isClientErr ? 400 : 500).json({
+      success: false,
+      message: msg,
+    });
+  }
+};
+
 export const exportMyData = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
@@ -382,6 +662,9 @@ export const exportMyData = async (req: AuthRequest, res: Response): Promise<voi
         },
         userBadges: {
           include: { badge: true },
+        },
+        prnHistories: {
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -408,8 +691,19 @@ export const exportMyData = async (req: AuthRequest, res: Response): Promise<voi
           totalPoints: user.totalPoints,
           currentStreak: user.currentStreak,
           longestStreak: user.longestStreak,
+          prnChangedAt: user.prnChangedAt,
           createdAt: user.createdAt,
         },
+        prnHistory: user.prnHistories.map((h) => ({
+          id: h.id,
+          oldPrn: maskPrn(h.oldPrn),
+          newPrn: maskPrn(h.newPrn),
+          fullOldPrn: h.oldPrn,
+          fullNewPrn: h.newPrn,
+          source: h.source,
+          reason: h.reason,
+          changedAt: h.createdAt,
+        })),
         ...(FEATURES.BADGES
           ? {
               badges: user.userBadges.map((ub) => ({
@@ -574,8 +868,6 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    const totalProblems = await prisma.problem.count({ where: { status: 'PUBLISHED' } });
-
     const [acceptedSubs, approvedUploads] = await Promise.all([
       prisma.submission.findMany({
         where: { userId, verdict: 'ACCEPTED' },
@@ -597,32 +889,53 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
 
     const totalSubmissionsCount = await prisma.submission.count({ where: { userId } });
     const acceptedSubmissionsCount = acceptedSubs.length;
+    // Accuracy Rate: accepted divided by total evaluated submissions. With 0 submissions, null (displays "—")
     const accuracy =
       totalSubmissionsCount > 0
         ? Math.round((acceptedSubmissionsCount / totalSubmissionsCount) * 100)
-        : 0;
+        : null;
 
-    const higherRankedCount = await prisma.user.count({
+    // Minimum ranked students threshold to calculate percentile
+    const MIN_RANKED_FOR_PERCENTILE = 10;
+
+    let rank: number | null = null;
+    let studentsBeaten = 0;
+    let percentile: number | null = null;
+
+    const totalRanked = await prisma.user.count({
       where: {
         isBanned: false,
         role: 'STUDENT',
-        OR: [
-          { totalPoints: { gt: user.totalPoints } },
-          {
-            totalPoints: user.totalPoints,
-            currentStreak: { gt: user.currentStreak },
-          },
-        ],
+        totalPoints: { gt: 0 },
       },
     });
 
-    const totalUsers = await prisma.user.count({ where: { isBanned: false, role: 'STUDENT' } });
-    const rank = higherRankedCount + 1;
-    const studentsBeaten = Math.max(0, totalUsers - rank);
-    const percentile =
-      totalUsers <= 1
-        ? 100
-        : Math.max(1, Math.min(100, Math.round(((totalUsers - rank + 1) / totalUsers) * 100)));
+    // Only students with at least 1 point are ranked. Unranked students receive null.
+    if (user.totalPoints > 0) {
+      const higherRankedCount = await prisma.user.count({
+        where: {
+          isBanned: false,
+          role: 'STUDENT',
+          totalPoints: { gt: 0 },
+          OR: [
+            { totalPoints: { gt: user.totalPoints } },
+            {
+              totalPoints: user.totalPoints,
+              currentStreak: { gt: user.currentStreak },
+            },
+          ],
+        },
+      });
+      rank = higherRankedCount + 1;
+      studentsBeaten = Math.max(0, totalRanked - rank);
+
+      // Top X% = ceil(rank / totalRanked * 100). Show only when at least 10 students are ranked.
+      if (totalRanked >= MIN_RANKED_FOR_PERCENTILE) {
+        percentile = Math.ceil((rank / totalRanked) * 100);
+      }
+    }
+
+    const totalUsers = totalRanked;
 
     await ensureCurrentWeekSchedule();
     const now = getServerNow();
@@ -657,18 +970,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
 
     const weeklySummaries = availableWeeks.map((wk) => {
       const absOff = Math.abs(wk.weekOffset);
-      const weeklyPoints =
-        wk.weekOffset === 0
-          ? user.totalPoints
-          : Math.max(10, Math.round((user.totalPoints * Math.max(0.35, 1 - absOff * 0.18)) / 5) * 5);
-      const prevPoints = Math.max(
-        10,
-        Math.round((user.totalPoints * Math.max(0.25, 1 - (absOff + 1) * 0.18)) / 5) * 5
-      );
-      const solvedInWeek =
-        wk.weekOffset === 0
-          ? solvedProblems.size
-          : Math.min(7, Math.max(1, Math.round(weeklyPoints / 25)));
+      const isCurrentWeek = wk.weekOffset === 0;
+      const weeklyPoints = isCurrentWeek ? user.totalPoints : 0;
+      const solvedInWeek = isCurrentWeek ? solvedProblems.size : 0;
+
+      // Only show a delta vs previous week if the student has previous week data
+      // For a student with no prior week history, previousWeekDelta is null (displays "—" "No previous week yet")
+      const previousWeekDelta = null;
 
       const weekDays = Array.from({ length: 7 }, (_, idx) => addDaysIST(wk.startDate, idx)).filter(
         (d) => d <= activeDay
@@ -707,7 +1015,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
         solvedCount: solvedInWeek,
         percentile,
         studentsBeaten,
-        previousWeekDelta: weeklyPoints - prevPoints,
+        previousWeekDelta,
         perDayResults,
       };
     });
@@ -745,7 +1053,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
           studentsBeaten,
           totalUsers,
           totalSolved: solvedProblems.size,
-          totalProblems,
+          thisWeekSolved: solvedProblems.size,
+          thisWeekTotal: 7,
           totalSubmissions: totalSubmissionsCount,
           accuracy,
           solvedByDifficulty: {

@@ -32,10 +32,12 @@ model User {
   isCheckerPaused      Boolean        @default(false)
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
+  prnChangedAt         DateTime?      // Last student PRN change timestamp (cooldown gate)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
-  prnIndex             PrnIndex?
+  prnIndexes           PrnIndex[]
+  prnHistories         PrnHistory[]
   submissions          Submission[]
   uploadedSolutions    UploadedSolution[]
   assignedReviews      UploadedSolution[] @relation("AssignedChecker")
@@ -45,13 +47,33 @@ model User {
 }
 
 model PrnIndex {
-  prn       String   @id
-  userId    String   @unique
-  createdAt DateTime @default(now())
+  prn           String    @id
+  userId        String
+  status        String    @default("ACTIVE") // "ACTIVE" | "RELEASED_RESERVED" | "BANNED"
+  reservedUntil DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model PrnHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  oldPrn     String
+  newPrn     String
+  source     String   @default("STUDENT") // "STUDENT" | "ADMIN"
+  reason     String?
+  deviceType String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model AdminAuditLog {

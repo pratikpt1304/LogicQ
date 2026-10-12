@@ -11,6 +11,8 @@ import {
   ALLOWED_YEARS,
   PRN_REGEX,
   DIVISION_REGEX,
+  getPrnChangeCooldownStatus,
+  PRN_RELEASE_RESERVATION_DAYS,
 } from '../config/academic.config.js';
 
 export const problemAdminSchema = z.object({
@@ -599,6 +601,17 @@ export async function createProblem(req: AuthRequest, res: Response): Promise<vo
   try {
     const { testCases, tags, ...problemData } = req.body;
 
+    // Content Leak Guard: Block direct book citations in student-facing descriptions or titles
+    const textToCheck = `${problemData.title || ''} ${problemData.description || ''}`;
+    if (/Kanetkar|Test Your C Skills/i.test(textToCheck)) {
+      res.status(400).json({
+        success: false,
+        message:
+          'Content policy violation: Direct book citations or author names ("Kanetkar", "Test Your C Skills") are forbidden in problem statements. Store book references exclusively in sourceRefJson.',
+      });
+      return;
+    }
+
     const existing = await prisma.problem.findUnique({ where: { slug: problemData.slug } });
     if (existing) {
       res.status(400).json({ success: false, message: 'A problem with this slug already exists' });
@@ -636,6 +649,17 @@ export async function updateProblem(req: AuthRequest, res: Response): Promise<vo
   try {
     const { id } = req.params;
     const { testCases, tags, ...problemData } = req.body;
+
+    // Content Leak Guard: Block direct book citations in student-facing descriptions or titles
+    const textToCheck = `${problemData.title || ''} ${problemData.description || ''}`;
+    if (/Kanetkar|Test Your C Skills/i.test(textToCheck)) {
+      res.status(400).json({
+        success: false,
+        message:
+          'Content policy violation: Direct book citations or author names ("Kanetkar", "Test Your C Skills") are forbidden in problem statements. Store book references exclusively in sourceRefJson.',
+      });
+      return;
+    }
 
     const existing = await prisma.problem.findUnique({ where: { id } });
     if (!existing) {
@@ -900,7 +924,12 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
           totalPoints: true,
           currentStreak: true,
           isBanned: true,
+          prnChangedAt: true,
           createdAt: true,
+          prnHistories: {
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          },
           _count: {
             select: { submissions: true },
           },
@@ -912,10 +941,15 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       data: {
-        users: users.map((u) => ({
-          ...u,
-          submissionCount: u._count.submissions,
-        })),
+        users: users.map((u) => {
+          const cooldown = getPrnChangeCooldownStatus(u.prnChangedAt);
+          return {
+            ...u,
+            prnNextAllowedDate: cooldown.nextAllowedDate?.toISOString() || null,
+            isPrnChangeEligible: cooldown.isEligible,
+            submissionCount: u._count.submissions,
+          };
+        }),
         pagination: {
           page,
           limit,
@@ -1069,6 +1103,21 @@ export async function adminUpdateUserPrnAndCollege(req: AuthRequest, res: Respon
         },
       });
 
+      // Record PrnHistory entry if PRN changed
+      if (targetUser.prn !== prn) {
+        await tx.prnHistory.create({
+          data: {
+            userId: id,
+            oldPrn: targetUser.prn || '',
+            newPrn: prn,
+            source: 'ADMIN',
+            reason,
+            deviceType: String(req.headers['user-agent'] || 'admin').slice(0, 100),
+            ipAddress: String(req.ip || 'admin').slice(0, 45),
+          },
+        });
+      }
+
       return { updatedUser, auditEntry };
     });
 
@@ -1090,6 +1139,119 @@ export async function adminUpdateUserPrnAndCollege(req: AuthRequest, res: Respon
     }
     console.error('Admin update PRN error');
     res.status(500).json({ success: false, message: 'Failed to update student PRN' });
+  }
+}
+
+/**
+ * Audited Admin Action: Reveal full PRN for a student
+ * Emits an immutable ADMIN_REVEAL_PRN audit log entry.
+ */
+export async function adminRevealStudentPrn(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { id } = req.params;
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, username: true, email: true, prn: true },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ success: false, message: 'Student user not found' });
+      return;
+    }
+
+    // Log the audit reveal
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user.userId,
+        targetUserId: id,
+        action: 'ADMIN_REVEAL_PRN',
+        reason: req.body?.reason || 'Administrative verification of student PRN',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        prn: targetUser.prn,
+        studentId: targetUser.id,
+      },
+    });
+  } catch (err: any) {
+    console.error('Admin reveal PRN error:', err);
+    res.status(500).json({ success: false, message: 'Failed to reveal student PRN' });
+  }
+}
+
+/**
+ * Audited Admin Action: Reset 30-day PRN change cooldown for a student
+ * Enables student to change PRN immediately. Requires reason and admin re-authentication password.
+ */
+export async function adminResetPrnCooldown(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { id } = req.params;
+    const { adminPassword, reason } = req.body;
+
+    if (!reason || reason.trim().length < 3) {
+      res.status(400).json({ success: false, message: 'Audit reason required (at least 3 characters).' });
+      return;
+    }
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Admin privileges required' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(adminPassword || '', adminUser.passwordHash);
+    if (!passwordValid) {
+      res.status(401).json({ success: false, message: 'Admin re-authentication failed: incorrect password.' });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ success: false, message: 'Student user not found' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: { prnChangedAt: null },
+      });
+
+      await tx.adminAuditLog.create({
+        data: {
+          adminId: adminUser.id,
+          targetUserId: id,
+          action: 'ADMIN_RESET_PRN_COOLDOWN',
+          reason,
+        },
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Student PRN change cooldown successfully reset.',
+      data: {
+        userId: id,
+        prnChangedAt: null,
+        isPrnChangeEligible: true,
+      },
+    });
+  } catch (err: any) {
+    console.error('Admin reset PRN cooldown error:', err);
+    res.status(500).json({ success: false, message: 'Failed to reset PRN cooldown' });
   }
 }
 

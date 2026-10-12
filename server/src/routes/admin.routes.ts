@@ -12,6 +12,8 @@ import {
   updateUserRole,
   updateUserBan,
   adminUpdateUserPrnAndCollege,
+  adminRevealStudentPrn,
+  adminResetPrnCooldown,
   getAdminAuditLogs,
   exportUsersCsv,
   exportWeeklyResultsCsv,
@@ -57,6 +59,8 @@ adminRouter.get('/checkers', getAdminCheckers);
 adminRouter.patch('/checkers/:id/pause', toggleCheckerPause);
 
 adminRouter.get('/users', getAdminUsers);
+adminRouter.post('/users/:id/reveal-prn', adminRevealStudentPrn);
+adminRouter.post('/users/:id/reset-prn-cooldown', adminResetPrnCooldown);
 adminRouter.put('/users/:id/prn', adminUpdateUserPrnAndCollege);
 adminRouter.patch('/users/:id/prn', adminUpdateUserPrnAndCollege);
 adminRouter.patch('/users/:id/academic-identity', adminUpdateUserPrnAndCollege);

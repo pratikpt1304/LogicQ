@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getUserProfile,
   updateProfile,
+  changeMyPrn,
   getDashboardStats,
   exportMyData,
   deleteMyAccount,
@@ -31,6 +32,7 @@ userRouter.all('/:username/badges', (_req, res) => {
 userRouter.get('/dashboard/stats', authenticate, getDashboardStats);
 userRouter.get('/me/export', authenticate, exportMyData);
 userRouter.delete('/me', authenticate, deleteMyAccount);
+userRouter.post('/change-prn', authenticate, changeMyPrn);
 userRouter.get('/profile/:username', optionalAuthenticate, getUserProfile);
 userRouter.get('/:username/profile', optionalAuthenticate, getUserProfile);
 userRouter.put('/profile', authenticate, updateProfile);

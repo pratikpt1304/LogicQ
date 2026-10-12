@@ -35,8 +35,9 @@ LogicQ operates on a **Zero-Trust, User-Centric Data Partitioning Architecture**
 
 | Data Entity | Primary Storage Location | Access Protocol | Authoritative Source? | Rationale & Security Rules |
 | :--- | :--- | :--- | :---: | :--- |
-| **Private User Document (PII + PRN)** | Firebase Auth + Firestore (`users/{uid}`) | Owner / Admin Read; Validated Student Update (`department`, `year`, `division`, `displayName`) | **YES** | Stores private `prn` (`^[0-9]{12}$`) and `email`. Never readable by other students. `prn` and `college` are immutable after signup except via audited Admin re-authenticated action. |
-| **PRN Uniqueness Index** | Firestore (`prnIndex/{prn}`) / SQL (`PrnIndex`) | **Server Transaction Only** (`allow read, write: if false;`) | **YES** | Enforces 1-to-1 uniqueness of 12-digit PRNs inside an atomic transaction on signup/profile completion. Freed upon account deletion. |
+| **Private User Document (PII + PRN)** | Firebase Auth + Firestore (`users/{uid}`) | Owner / Admin Read; Validated Student Update (`department`, `year`, `division`, `displayName`) | **YES** | Stores private `prn` (`^[0-9]{12}$`), `email`, and `prnChangedAt` (timestamp). Never readable by other students. Direct client write to `prn`, `prnChangedAt`, or `college` is strictly denied in Firestore rules. Students can change their PRN at most once per rolling 30 days via Cloud Function transaction. |
+| **PRN Uniqueness Index** | Firestore (`prnIndex/{prn}`) / SQL (`PrnIndex`) | **Server Transaction Only** (`allow read, write: if false;`) | **YES** | Enforces 1-to-1 uniqueness and anti-squatting status (`ACTIVE`, `RELEASED_RESERVED`, `BANNED`). Tracks `userId`, `reservedUntil`, `status`. Atomic in server transaction. |
+| **PRN Change Audit Ledger** | Firestore (`users/{uid}/prnHistory/{id}`) / SQL (`PrnHistory`) | **Server Write Only**; Owner & Admin Read | **YES** | Append-only ledger recording `oldPrn`, `newPrn`, `changedAt`, `source` (`STUDENT` \| `ADMIN`), and request telemetry. Never modified or deleted by client. |
 | **Public Profile Mirror (Non-PII)** | Firestore (`publicProfiles/{uid}`) | Authenticated Read / Server Write | **YES** | Exposes non-PII fields (`displayName` or `"Student <shortId>"`, `college`, `department`, `year`, `division`, `stats`). **Never** contains `prn` or `email`. |
 | **Problem Statements & Samples** | Firestore (`problems`) | Public Read (Published only) | **YES** | Problem catalog, constraints, and visible samples. Client read-only. |
 | **Hidden Test Cases** | Firestore (`problems/{id}/hidden_tests`) | **Server Only** (`allow: false`) | **YES** | Encrypted/hidden test cases. Clients have zero read access. Executed only by judge worker. |
@@ -87,6 +88,8 @@ interface FirestoreUser {
   displayName?: string | null; // Optional student-chosen public label (3-20 chars, profanity-filtered)
   shortId: string; // Short random non-PII suffix used for fallback public label ("Student 4F9A")
   profileComplete: boolean; // False until PRN, college, department, year are completed (gates Google Sign-In)
+  prnChangedAt?: FirebaseFirestore.Timestamp | null; // Timestamp of last student PRN change (null if never changed)
+  prnNextAllowedChangeDate?: string | null; // ISO string when student can next change PRN (30 days from prnChangedAt)
   photoURL?: string;
   role: 'STUDENT' | 'ADMIN';
   status: 'ACTIVE' | 'BANNED';
@@ -104,15 +107,35 @@ interface FirestoreUser {
 }
 ```
 
-### Collection: `prnIndex/{prn}` (Transactional PRN Uniqueness Lock)
+### Collection: `prnIndex/{prn}` (Transactional PRN Uniqueness & Anti-Squatting Lock)
 ```typescript
 // STRICTLY SERVER-ONLY (allow read, write: if false;)
 // Created atomically inside a transaction alongside users/{uid}.
-// Deleted when the user deletes their account, or re-keyed in a transaction when an Admin updates a PRN.
+// Deleted or marked RELEASED_RESERVED when changed/deleted.
 interface FirestorePrnIndex {
   prn: string; // Document ID: 12-digit PRN (^[0-9]{12}$)
   userId: string; // Bound Firebase Auth UID / User ID (1 PRN per account)
+  status: 'ACTIVE' | 'RELEASED_RESERVED' | 'BANNED';
+  reservedUntil?: FirebaseFirestore.Timestamp | null; // Reserved for previous holder for 30 days
   createdAt: FirebaseFirestore.Timestamp;
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+```
+
+### Subcollection: `users/{userId}/prnHistory/{historyId}` (Append-Only PRN Change Audit)
+```typescript
+// READABLE BY OWNER AND ADMIN (allow read: if isOwner(userId) || isAdmin(); allow write: if false;)
+// Strictly written on the server inside Cloud Function transaction.
+interface FirestorePrnHistory {
+  id: string;
+  userId: string;
+  oldPrn: string;
+  newPrn: string;
+  changedAt: FirebaseFirestore.Timestamp;
+  source: 'STUDENT' | 'ADMIN';
+  reason?: string;
+  deviceType?: string;
+  ipAddress?: string;
 }
 ```
 
@@ -139,8 +162,8 @@ interface FirestorePublicProfile {
 ### Privacy, Masking, Data Export & Account Deletion Rules
 - **Own-View Masked PRN**: When a student views their own profile or their own pinned row on the weekly leaderboard, the server formats their identity label with `department`, `year`, and the last 4 digits of their PRN masked as `"••••••5678"` (e.g., `"AIML • FY • ••••••5678"`).
 - **Other Students' View**: Other students never receive the `prn` or `maskedPrn` of peers; they see `displayName` (if configured) or `"Student " + shortId`.
-- **Data Export (`GET /api/users/me/export`)**: Exports full personal record including `prn`, `college`, `department`, `year`, `division`, `displayName`, `email`, submissions, and points.
-- **Account Deletion (`DELETE /api/users/me`)**: Removes `prn` from `users/{uid}`, deletes `prnIndex/{prn}` so the PRN is freed, clears `publicProfiles/{uid}` and profile PII (`email`, `displayName`, `division`, `bio`, `avatarUrl`), and retains only anonymized submission/leaderboard aggregates with no link to the student's PRN or email.
+- **Data Export (`GET /api/users/me/export`)**: Exports full personal record including `prn`, `college`, `department`, `year`, `division`, `displayName`, `email`, `prnHistory` array, submissions, and points.
+- **Account Deletion (`DELETE /api/users/me`)**: Removes `prn` from `users/{uid}`, releases `prnIndex/{prn}`, clears `publicProfiles/{uid}` and profile PII (`email`, `displayName`, `division`, `bio`, `avatarUrl`), and retains only anonymized submission/leaderboard aggregates with no link to the student's PRN or email.
 
 
 ### Collection: `problems/{problemId}`

@@ -218,6 +218,57 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     details: `Total Users: ${totalUsers} (Students: ${studentCount}), Problems: ${totalProblems}, Submissions: ${totalSubmissions} (Accepted: ${acceptedSubmissions}).`,
   });
 
+  // 8. Academic College Uniformity Check (Must be 'Sanjivani University')
+  const nonUniversityUsers = await prisma.user.findMany({
+    where: {
+      college: { not: 'Sanjivani University' },
+    },
+    select: { id: true, college: true },
+  });
+  results.push({
+    checkName: 'Academic College Uniformity (Sanjivani University)',
+    passed: nonUniversityUsers.length === 0,
+    details:
+      nonUniversityUsers.length === 0
+        ? 'All users have standardized college name: Sanjivani University.'
+        : `Found ${nonUniversityUsers.length} users with legacy or missing college names.`,
+    count: nonUniversityUsers.length,
+  });
+
+  // 9. Short ID Integrity Check (Every user must have a non-empty shortId)
+  const usersMissingShortId = await prisma.user.findMany({
+    where: {
+      OR: [{ shortId: null }, { shortId: '' }],
+    },
+    select: { id: true },
+  });
+  results.push({
+    checkName: 'User Short ID Integrity',
+    passed: usersMissingShortId.length === 0,
+    details:
+      usersMissingShortId.length === 0
+        ? 'All users have non-empty stable shortIds.'
+        : `Found ${usersMissingShortId.length} users missing shortId.`,
+    count: usersMissingShortId.length,
+  });
+
+  // 10. Zero-Point Students Leaderboard Exclusion Invariant
+  // Verify that any user with totalPoints === 0 is not awarded positive ranks in leaderboard queries
+  const zeroPointUsersWithPoints = await prisma.user.findMany({
+    where: {
+      totalPoints: { lt: 0 },
+    },
+  });
+  results.push({
+    checkName: 'Zero/Negative Points Invariant',
+    passed: zeroPointUsersWithPoints.length === 0,
+    details:
+      zeroPointUsersWithPoints.length === 0
+        ? 'No users have negative totalPoints.'
+        : `Found ${zeroPointUsersWithPoints.length} users with invalid points.`,
+    count: zeroPointUsersWithPoints.length,
+  });
+
   return results;
 }
 

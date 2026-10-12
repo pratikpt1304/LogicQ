@@ -233,6 +233,32 @@ export const AdminDashboardPage: React.FC = () => {
     },
   });
 
+  const [revealedPrns, setRevealedPrns] = useState<Record<string, string>>({});
+  const revealPrnMutation = useMutation({
+    mutationFn: (userId: string) => api.post(`/admin/users/${userId}/reveal-prn`),
+    onSuccess: (res: any, userId: string) => {
+      const prn = res?.data?.prn;
+      if (prn) {
+        setRevealedPrns((prev) => ({ ...prev, [userId]: prn }));
+        toast.success('PRN revealed and logged in administrative audit trail.');
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to reveal student PRN');
+    },
+  });
+
+  const resetCooldownMutation = useMutation({
+    mutationFn: (userId: string) => api.post(`/admin/users/${userId}/reset-prn-cooldown`),
+    onSuccess: () => {
+      toast.success('Student PRN change cooldown reset successfully.');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to reset student PRN cooldown');
+    },
+  });
+
   const togglePauseMutation = useMutation({
     mutationFn: ({ id, isCheckerPaused }: { id: string; isCheckerPaused: boolean }) =>
       api.patch(`/admin/checkers/${id}/pause`, { isCheckerPaused }),
@@ -318,6 +344,10 @@ export const AdminDashboardPage: React.FC = () => {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (/Kanetkar|Test Your C Skills/i.test(`${problemForm.title} ${problemForm.description}`)) {
+      toast.error('Direct book citations or author names are forbidden in student-facing text.');
+      return;
+    }
     createProblemMutation.mutate(problemForm);
   };
 
@@ -1772,10 +1802,34 @@ export const AdminDashboardPage: React.FC = () => {
                 {users.map((u: any) => (
                   <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-4">
-                      <span className="font-bold text-white block">{u.prn || '—'}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white block">
+                          {revealedPrns[u.id] || (u.maskedPrn || (u.prn ? `••••••${u.prn.slice(-4)}` : '—'))}
+                        </span>
+                        {!revealedPrns[u.id] && u.prn && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Reveal full PRN for ${u.displayName || u.username}? This action is recorded in the administrative audit log.`)) {
+                                revealPrnMutation.mutate(u.id);
+                              }
+                            }}
+                            disabled={revealPrnMutation.isPending}
+                            className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-cyan-300 transition-colors"
+                            title="Reveal full PRN (Audited)"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                       <span className="text-slate-400 text-xs">
                         {u.displayName || u.fullName} (@{u.username})
                       </span>
+                      {u.prnChangedAt && (
+                        <div className="text-[10px] text-amber-400/90 pt-0.5">
+                          Changed: {new Date(u.prnChangedAt).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-slate-300">
                       {u.college || 'Sanjivani University'}
@@ -1823,6 +1877,21 @@ export const AdminDashboardPage: React.FC = () => {
                         <Edit3 className="w-3 h-3" />
                         Edit PRN
                       </button>
+
+                      {u.prnChangedAt && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Reset PRN change 30-day cooldown for ${u.displayName || u.username}? This will allow the student to immediately change their PRN again.`)) {
+                              resetCooldownMutation.mutate(u.id);
+                            }
+                          }}
+                          disabled={resetCooldownMutation.isPending}
+                          className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 hover:bg-amber-500/20 inline-flex items-center gap-1"
+                          title="Reset student 30-day cooldown"
+                        >
+                          Reset Cooldown
+                        </button>
+                      )}
 
                       <select
                         value={u.role}
@@ -2133,9 +2202,16 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-300 mb-1">
-                  PROBLEM STATEMENT (MARKDOWN)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-mono text-slate-300">
+                    PROBLEM STATEMENT (MARKDOWN)
+                  </label>
+                  {/(Chapter|Exercise|Page)\s*\d+/i.test(problemForm.description) && (
+                    <span className="text-[11px] font-mono text-amber-400">
+                      ⚠️ Warning: Mentions Chapter/Exercise/Page. Ensure problem statement does not leak internal book structure.
+                    </span>
+                  )}
+                </div>
                 <textarea
                   rows={6}
                   required
@@ -2143,6 +2219,11 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setProblemForm({ ...problemForm, description: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white leading-relaxed resize-none"
                 />
+                {/Kanetkar|Test Your C Skills/i.test(`${problemForm.title} ${problemForm.description}`) && (
+                  <p className="mt-1 text-[11px] font-mono text-rose-400 font-semibold">
+                    🚫 Blocked: Direct book citation or author name detected. Keep problem statements reworded without author/book names.
+                  </p>
+                )}
               </div>
 
               <div>

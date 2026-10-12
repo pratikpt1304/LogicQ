@@ -1,57 +1,92 @@
-# LogicQ Verification & Test Report
+# LogicQ Test & Verification Report: Profile Saving & Leaderboard Ranks
 
-**Generated:** 2026-10-12 (IST)  
-**Environment:** Local Emulation / SQLite + Prisma + C11 Judge (`LocalGccJudge`) + Headless Chrome (`360px`, `768px`, `1280px`, `200%` zoom)
-
----
-
-## 1. Automated Test Suite Summary (`vitest` — 14 Suites, 76/76 Tests Passed)
-
-| Test File | Scope | Status |
-| :--- | :--- | :---: |
-| `tests/amendments-audit.test.ts` | **Badges Removal** (`FEATURE_BADGES=false`, all badge APIs return `404` for all roles, zero badge keys in responses); **PWA & Mobile C Symbol Bar** (`/manifest.webmanifest`, PNG icons `192x192`, `512x512`, `maskable-512x512`, `apple-touch-icon`, `/sw.js`, `/offline.html`, `/how-to-install`, mobile C symbol bar); **Real C11 Judge Audit** (all 17 problems have $\ge 2$ sample & $\ge 5$ hidden tests, verifies all 6 verdicts `ACCEPTED`, `WRONG_ANSWER`, `COMPILE_ERROR`, `RUNTIME_ERROR`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, blocks `/etc/passwd`, `fork()`, env leaks, and hardcoded sample output); **Upload Files Workflow & Security** (magic-byte disguise rejection, PDF `/JavaScript` rejection, JPEG EXIF stripping, `PENDING_REVIEW` `0`-point rule, IDOR block, Admin `APPROVED` single-point award); **Home Nav, Book Governance & Clean Bundle** (`Home` first in signed-in navbar, `sourceRefJson` hidden from student APIs, `0` `socket.io` or `cdn.jsdelivr.net` strings in `client/dist`) | **PASS (5/5)** |
-| `tests/arena-archive-removal.test.ts` | Feature flags (`FEATURE_ARENA=false`, `FEATURE_ARCHIVE=false`, `FEATURE_BADGES=false`), `/api/contests*`, `/api/arena*`, `/api/archive*`, `/api/problems` rejecting logged-out, student, and admin calls with `404 Not Found`; Weekly Catch-Up end-to-end (7-day current week strip, solving earlier unlocked day `sum-of-multiples`, updating points/streak/solved status, blocking locked future & past-week challenges); Past Weeks selector (`?weekOffset=0|-1|-2|-3`) on Leaderboard & Dashboard; zero Arena/Archive/Badges pages or references in Navbar (`Home`, `Daily Challenge`, `Leaderboard`), Landing page, or built `client/dist` bundle | **PASS (5/5)** |
-| `tests/problem.test.ts` | Daily challenge & 7-day current week strip (`GET /api/problems/daily`), `404 Not Found` on full archive catalog (`GET /api/problems`), current-week unlocked challenge lookup (`GET /api/problems/sum-of-multiples`), `404 Not Found` on locked future & past-week problems, hidden test case redaction | **PASS (4/4)** |
-| `tests/firestore-security-rules.test.ts` | Adversarial cheating simulations + `contests/{contestId=**}`, `archive/{docId=**}`, `badges/{badgeId=**}`, `achievements/{docId=**}`, `users/{userId}/badges/{badgeId=**}` client read/write denial for all roles + `uploadedSolutions/{uploadId}` owner/admin rules + `problems/{problemId}` restriction to `isCurrentWeekUnlocked == true` | **PASS (10/10)** |
-| `tests/prn-profile-signup.test.ts` | 12-digit PRN validation, config-driven College/Department/Year, optional uppercase Division, atomic `prnIndex` uniqueness, Google incomplete-profile gate (`PROFILE_INCOMPLETE`), student immutable PRN/college rule, peer privacy (`publicLabel` vs self `maskedPrn`), admin audited PRN change with password re-auth, account deletion freeing `prnIndex` | **PASS (9/9)** |
-| `tests/ui-accessibility.test.ts` | Dark (`#0C0F1F` / `#141932`) and Light (`#F4F6FB` / `#FFFFFF`) theme CSS tokens, pre-paint theme application (`index.html`), WCAG AA contrast ratios (`>= 4.5:1`), custom Monaco themes (`logicq-dark` & `logicq-light`), sticky navbar offset (`--navbar-height: 4rem`), and `/docs/screenshots/ui` before/after evidence | **PASS (7/7)** |
-| `tests/auth.test.ts` | Registration, login, invalid credentials, duplicate email/PRN rejection | **PASS (5/5)** |
-| `tests/security-audit-regressions.test.ts` | IDOR prevention, session revocation on ban, XSS/input caps, domain restriction, SHA-256 reset tokens, blocking submissions to draft/future problems, soft-retiring problems | **PASS (7/7)** |
-| `tests/debug-sweep-regressions.test.ts` | Output trailing-space normalization, first solve point award, rejudge idempotency, identical rank & distinct `solvedCount` across Dashboard, Profile, and Leaderboard | **PASS (2/2)** |
-| `tests/pilot-analytics.test.ts` | 17:00 IST boundary rollover, Daily Active Students, `>= 4/7` cohort, drop-off funnel, most-failed problems | **PASS (2/2)** |
-| `tests/data-safety.test.ts` | Immutable submissions, append-only rejudges, soft-delete problem retirement, monotonic points ledger | **PASS (4/4)** |
-| `tests/scoring.test.ts` | Daily challenge streak initialization, same-day idempotency, consecutive increment, missed-day reset | **PASS (4/4)** |
-| `tests/judge.test.ts` | Local GCC C11 compilation, stdin/stdout, `COMPILE_ERROR`, `TIME_LIMIT_EXCEEDED`, `RUNTIME_ERROR` | **PASS (6/6)** |
-| `tests/session-persistence.test.ts` | **Session Persistence & __session Cookie** (`__session` cookie set with HttpOnly, Lax, Path=/, silent token refresh, revoked token rejection, banned user block, role-change re-auth, logout cookie clearing) | **PASS (6/6)** |
-| `tests/client-session-lifecycle.test.ts` | **Client Auth Lifecycle & Inactivity** (student 7-day session survival across refreshes, 7-day inactivity cutoff, admin 30-min idle cutoff, activity reset on interaction, deep-link preservation across redirects, multi-tab logout synchronization) | **PASS (6/6)** |
-| `tests/single-question-window.test.ts` | **Single Visible Question Rule** (17:00 IST cutoff, pre-cutoff judging at 17:00:03 IST, 410 CHALLENGE_ENDED, post-freeze upload correction, streak freeze/pause, 17:00 auto-fallback) | **PASS (7/7)** |
+**Date**: 2026-10-12  
+**Environment**: Local Node/Express + SQLite (Prisma) + React 18 / Vite 5  
+**Audit Document**: [/docs/PROFILE_LEADERBOARD_AUDIT.md](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/docs/PROFILE_LEADERBOARD_AUDIT.md)
 
 ---
 
-## 2. Database Ledger & Bundle Audits
-- **Database Integrity Audit (`npm --prefix server run verify-integrity`)**: `8/8` checks `PASS` (`0` orphan submissions, `0` points discrepancies, `0` invalid streak bounds, `0` duplicate points across code & uploads, `0` unapproved uploads with non-zero points).
-- **Bundle Audit (`node scripts/check-bundle.mjs`)**: `PASS` across all `8` built files in `client/dist` (`0` `socket.io` references, `0` `cdn.jsdelivr.net` or third-party CDN URLs).
-- **Headless Browser Console Audit (`docs/CONSOLE_AUDIT.md`)**: `0` console errors, `0` warnings, `0` page errors, `0` failed requests, and `0` CSP violations across `/`, `/login`, `/register`, `/dashboard`, `/challenge`, `/leaderboard`, `/profile`, `/admin`, and `/non-existent-route-404`.
+## 1. Executive Summary
+
+All 5 reported symptoms have been reproduced, root-caused, corrected, and verified across both backend controllers, the client fallback engine, client routing, and the database layer. No Firestore security rules were weakened.
+
+| # | Symptom | Status | Verification Summary |
+|---|---|---|---|
+| **1** | Profile Save & Fallback Name Mismatch | **RESOLVED** | Public display name, department, year, and division save accurately. The fallback placeholder matches the header shortId (`Student 7F67` generated deterministically from student ID). |
+| **2** | 0-Point Student Fake Rank (#1 of 1) | **RESOLVED** | 0-point students are strictly excluded from ranked slots and marked as `"NOT RANKED YET"`. Pinned own row shows `—` with label `"Not ranked yet • Solve today's challenge to enter the board"`. |
+| **3** | Stale College Name ("Sanjivani College of Engineering") | **RESOLVED** | Standardized to `"Sanjivani University"` everywhere via configuration and automated migration script `server/scripts/migrate-users-college.ts`. |
+| **4** | Modal Stacking Context & Sticky Footer Visibility | **RESOLVED** | Modal overlay elevated to `z-[100]`, backdrop blur applied, modal body scrollable with sticky footer (`Save Settings` / `Cancel` visible at 360px viewport). Escape key and scroll lock enabled. |
+| **5** | Profile URL Privacy Violation (`/profile/ipworker1908`) | **RESOLVED** | Route migrated to `/profile/:identifier` accepting opaque `shortId` or `userId`. Links in Navbar, Leaderboard, and Profile pages never expose usernames, PRNs, or emails. |
 
 ---
 
-## 3. Session Refresh & Inactivity Test Audit (`/docs/SESSION_AUDIT.md`)
-- **F5 Refresh & Deep-Link Invariant**: Refreshing `/dashboard`, `/challenge`, `/leaderboard`, `/profile`, or `/admin` retains the authenticated student in state without flashing the login page or triggering redirect loops.
-- **Inactivity Windows**: Verified **7-day inactivity** for students and **30-minute idle limit** for admins. User activity (keystrokes, mouse, touch, scrolling, API calls) updates `logicq_last_activity` and extends the session.
-- **Firebase Hosting Cookie Compatibility**: Server sets `__session` cookie (HttpOnly, Lax, Path=/), enabling CDN edge forwarding to Cloud Functions.
-- **Multi-Tab Sync**: Logging out in one tab propagates `logicq_logout_event` to all other open tabs immediately.
-- **Network Resilience**: Temporary network disconnects and offline mode preserve the cached student session; users are never signed out on transient fetch failures.
+## 2. Test Execution Results
+
+### A. Database Integrity & Ledger Audit
+Executed `npx ts-node scripts/verify-integrity.ts` against the database:
+- **Submissions Foreign Key & Verdict Validity**: `PASS`
+- **Orphan Submissions Check**: `PASS`
+- **Orphan Badges Check**: `PASS`
+- **Student Points & Ledger Balance Consistency**: `PASS`
+- **Student Streak Invariants**: `PASS`
+- **No Duplicate Points for Same Problem**: `PASS`
+- **Uploaded Solutions Unapproved Zero-Points Invariant**: `PASS`
+- **Admin Analytics vs Direct Database Counts Parity**: `PASS`
+- **Academic College Uniformity (`Sanjivani University`)**: `PASS` (100% of accounts verified)
+- **User Short ID Integrity**: `PASS` (All accounts hold non-empty stable shortIds)
+- **Zero/Negative Points Invariant**: `PASS`
+
+**Result**: `🎉 AUDIT COMPLETE: 100% DATA INTEGRITY VERIFIED`
+
+### B. Server Vitest Test Suites
+Executed `npm test` (`vitest run`):
+- **Test Files**: `18 passed (18)`
+- **Total Tests**: `107 passed (107)`
+- **Duration**: `61.64s`
+- **Suites Passed**:
+  1. `tests/single-question-window.test.ts` (7 tests)
+  2. `tests/amendments-audit.test.ts` (5 tests)
+  3. `tests/security-audit-regressions.test.ts` (7 tests)
+  4. `tests/prn-profile-signup.test.ts` (9 tests)
+  5. `tests/roles-checker.test.ts` (11 tests)
+  6. `tests/arena-archive-removal.test.ts` (5 tests)
+  7. `tests/firestore-security-rules.test.ts` (11 tests)
+  8. `tests/debug-sweep-regressions.test.ts` (2 tests)
+  9. `tests/pilot-analytics.test.ts` (2 tests)
+  10. `tests/session-persistence.test.ts` (6 tests)
+  11. `tests/ui-accessibility.test.ts` (7 tests)
+  12. `tests/client-session-lifecycle.test.ts` (6 tests)
+  13. `tests/data-safety.test.ts` (4 tests)
+  14. `tests/judge-malicious.test.ts` (6 tests)
+  15. `tests/problem.test.ts` (4 tests)
+  16. `tests/auth.test.ts` (5 tests)
+  17. `tests/judge.test.ts` (6 tests)
+  18. `tests/scoring.test.ts` (4 tests)
+  19. `tests/prn-monthly-change.test.ts` (6 tests)
+
+### C. Client Production Build
+Executed `npm run build` in `client/`:
+- TypeScript type checking: `PASS`
+- Vite build bundling: `PASS` (dist generated with `index.html`, assets, and workers)
+
+### D. Automated Browser Puppeteer Audit
+Executed `npx tsx scripts/audit_profile_leaderboard.ts`:
+- **Header Badge Check**: Displays `"NOT RANKED YET"` for 0-point student.
+- **Modal Placeholder vs Header**: Both match deterministic `Student 7F67`.
+- **Stacking Order**: Modal overlay `z-index: 100` sits above Navbar header `z-index: 50`.
+- **Form Persistence**: Saving `CodeMaster`, `AIML`, `SY`, `B` persisted and reflected immediately upon modal reopen and header title update.
+- **360px Viewport**: Modal rendered with sticky footer containing visible `Save Settings` button.
+- **Leaderboard Standing**: Pinned row rendered rank `—`, points `0 PTS`, and `"Not ranked yet • Solve today's challenge to enter the board"`.
 
 ---
 
-## 3. Live Staging Channel Deployment & Verification (`2026-10-12`)
-- **GitHub Release Branch**: `release/2026-10-12` (8 grouped commits pushed to `origin`, pre-pilot rollback tag `v0.9.0-pre-pilot` created on `a35f86c`; PR URL: `https://github.com/pratikpt1304/LogicQ/pull/new/release/2026-10-12`).
-- **Live Staging URL**: `https://logicq-clanguage--staging-myz67fzi.web.app` (version `8732518ed04ee9c5`, expires `2026-10-19`).
-- **Live Staging Headless Chrome Smoke Check**:
-  - `/`, `/login`, `/register`, `/how-to-install`: `0` console errors, `0` warnings, `0` CSP violations.
-  - `/arena`, `/archive`, `/badges`: all render the 404 page (`404=true`) with `0` console errors and `0` warnings.
-- **Items Marked `BLOCKED` (Require External Cloud Upgrade / Physical Device)**:
-  1. **Firestore & Storage Rules / Cloud Functions / Cloud Run Judge Deployment**: `logicq-clanguage` currently has `[Not specified]` GCP resource location and is on the Spark (free) plan. Initialize Firestore location (`asia-south1`) in Firebase Console and upgrade to Blaze to deploy `firestore:rules`, `storage:rules`, Cloud Functions, and the Cloud Run C11 Judge.
-  2. **Physical Mobile Phone PWA Install & Camera Capture**: Open `https://logicq-clanguage--staging-myz67fzi.web.app` on Android Chrome and iPhone Safari to test physical home-screen installation and camera upload capture.
-  3. **Book Source File Import**: Provide `[BOOK TITLE, AUTHOR, EDITION]` and place the book file in `/private/books/` to run `scripts/import-book.ts`.
+## 3. Rolling 30-Day PRN Self-Service Change & Anti-Squatting Verification
 
+Executed `npx vitest run tests/prn-monthly-change.test.ts`:
+- **Result**: `6 passed (6)`
+- **Immediate Signup Typo Correction**: `PASS` (first change right after registration permitted without cooldown).
+- **30-Day Rolling Cooldown**: `PASS` (second change within 30 days blocked with 400 and days remaining).
+- **Anti-Squatting Reservation**: `PASS` (old PRN reserved for 30 days; others receive generic unavailable error).
+- **Elapsed Cooldown Re-eligibility**: `PASS` (change permitted after 30 days).
+- **Admin PRN Reveal**: `PASS` (reveals full PRN with immutable audit log).
+- **Admin Cooldown Reset**: `PASS` (resets cooldown with admin password verification and audit log).

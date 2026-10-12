@@ -169,8 +169,14 @@ export const LeaderboardPage: React.FC = () => {
               </span>
             </div>
             <p className="text-xs font-mono text-[var(--text-main)]">
-              Weekly Rank <strong className="text-[var(--color-accent)]">#{weeklySummary.rank}</strong> of{' '}
-              {weeklySummary.totalParticipants} • Solved{' '}
+              Weekly Rank{' '}
+              <strong className="text-[var(--color-accent)]">
+                {weeklySummary.rank ? `#${weeklySummary.rank}` : 'Not ranked yet'}
+              </strong>{' '}
+              {weeklySummary.totalParticipants > 0
+                ? `of ${weeklySummary.totalParticipants} ranked`
+                : ''}{' '}
+              • Solved{' '}
               <strong className="text-[var(--color-success)]">{weeklySummary.solvedCount}/7</strong> challenges
             </p>
           </div>
@@ -185,16 +191,20 @@ export const LeaderboardPage: React.FC = () => {
             <div>
               <span className="text-[var(--text-muted)] block text-[11px]">PERCENTILE</span>
               <strong className="text-[var(--color-success)] text-sm">
-                {weeklySummary.percentile}%
+                {weeklySummary.percentile !== null && weeklySummary.percentile !== undefined
+                  ? `Top ${weeklySummary.percentile}%`
+                  : '—'}
               </strong>
             </div>
             <div>
               <span className="text-[var(--text-muted)] block text-[11px]">VS PREV WEEK</span>
               <strong className="text-[var(--text-main)] text-sm inline-flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5 text-[var(--color-success)]" />
-                {weeklySummary.previousWeekDelta >= 0
-                  ? `+${weeklySummary.previousWeekDelta} PTS`
-                  : `${weeklySummary.previousWeekDelta} PTS`}
+                {weeklySummary.previousWeekDelta !== null && weeklySummary.previousWeekDelta !== undefined
+                  ? (weeklySummary.previousWeekDelta >= 0
+                    ? `+${weeklySummary.previousWeekDelta} PTS`
+                    : `${weeklySummary.previousWeekDelta} PTS`)
+                  : '—'}
               </strong>
             </div>
           </div>
@@ -209,7 +219,7 @@ export const LeaderboardPage: React.FC = () => {
         >
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-[var(--bg-surface)] border border-[var(--color-accent)] flex items-center justify-center font-mono font-extrabold text-[var(--color-accent)] text-sm">
-              #{pinnedOwnRow.rank}
+              {pinnedOwnRow.rank ? `#${pinnedOwnRow.rank}` : '—'}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -222,9 +232,20 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs font-mono text-[var(--text-muted)] mt-0.5">
-                Top {100 - (pinnedOwnRow.percentile || 100) + 1}% • Percentile:{' '}
-                <strong className="text-[var(--color-success)]">{pinnedOwnRow.percentile ?? 100}%</strong> •{' '}
-                {pinnedOwnRow.studentsBeaten ?? 0} students beaten
+                {pinnedOwnRow.rank ? (
+                  <>
+                    {pinnedOwnRow.percentile !== null && pinnedOwnRow.percentile !== undefined ? (
+                      <>
+                        Top {pinnedOwnRow.percentile}% •{' '}
+                      </>
+                    ) : (
+                      <span>Needs 10 ranked students • </span>
+                    )}
+                    {pinnedOwnRow.studentsBeaten ?? 0} students beaten
+                  </>
+                ) : (
+                  <span>Not ranked yet • Solve today&apos;s challenge to enter the board</span>
+                )}
               </p>
             </div>
           </div>
@@ -285,7 +306,7 @@ export const LeaderboardPage: React.FC = () => {
                   2
                 </span>
                 <Link
-                  to={`/profile/${topThree[1].username}`}
+                  to={`/profile/${topThree[1].shortId || topThree[1].id}`}
                   className="font-bold text-[var(--text-main)] text-base hover:text-[var(--color-accent)] transition-colors"
                 >
                   {getDisplayLabel(topThree[1])}
@@ -320,7 +341,7 @@ export const LeaderboardPage: React.FC = () => {
                   1
                 </span>
                 <Link
-                  to={`/profile/${topThree[0].username}`}
+                  to={`/profile/${topThree[0].shortId || topThree[0].id}`}
                   className="font-extrabold text-[var(--text-main)] text-lg hover:text-[var(--color-accent)] transition-colors"
                 >
                   {getDisplayLabel(topThree[0])}
@@ -355,7 +376,7 @@ export const LeaderboardPage: React.FC = () => {
                   3
                 </span>
                 <Link
-                  to={`/profile/${topThree[2].username}`}
+                  to={`/profile/${topThree[2].shortId || topThree[2].id}`}
                   className="font-bold text-[var(--text-main)] text-base hover:text-[var(--color-accent)] transition-colors"
                 >
                   {getDisplayLabel(topThree[2])}
@@ -415,7 +436,7 @@ export const LeaderboardPage: React.FC = () => {
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <Link
-                            to={`/profile/${u.username}`}
+                            to={`/profile/${u.shortId || u.id}`}
                             className="font-bold text-[var(--text-main)] hover:text-[var(--color-accent)] transition-colors inline-block"
                           >
                             {getDisplayLabel(u)}

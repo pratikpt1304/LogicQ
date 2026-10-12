@@ -22,6 +22,36 @@ export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 export const DISPLAY_NAME_MIN = 3;
 export const DISPLAY_NAME_MAX = 20;
 
+export const PRN_CHANGE_COOLDOWN_DAYS = 30;
+export const PRN_RELEASE_RESERVATION_DAYS = 30;
+export const PRN_CHANGE_RATE_LIMIT_HOURLY = 5;
+
+/**
+ * Calculates whether student is currently under the 30-day PRN change cooldown.
+ */
+export function getPrnChangeCooldownStatus(prnChangedAt?: Date | string | null): {
+  isEligible: boolean;
+  nextAllowedDate: Date | null;
+  daysRemaining: number;
+} {
+  if (!prnChangedAt) {
+    return { isEligible: true, nextAllowedDate: null, daysRemaining: 0 };
+  }
+  const changedTime = new Date(prnChangedAt).getTime();
+  const cooldownMs = PRN_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+  const nextAllowedTime = changedTime + cooldownMs;
+  const now = Date.now();
+  if (now >= nextAllowedTime) {
+    return { isEligible: true, nextAllowedDate: null, daysRemaining: 0 };
+  }
+  const daysRemaining = Math.ceil((nextAllowedTime - now) / (24 * 60 * 60 * 1000));
+  return {
+    isEligible: false,
+    nextAllowedDate: new Date(nextAllowedTime),
+    daysRemaining,
+  };
+}
+
 const PROFANITY_LIST = [
   'fuck',
   'shit',

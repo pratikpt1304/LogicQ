@@ -182,7 +182,7 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <Link
-                      to={`/profile/${user.username}`}
+                      to="/profile"
                       onClick={() => setProfileDropdownOpen(false)}
                       className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
                     >
@@ -357,11 +357,11 @@ export const Navbar: React.FC = () => {
 
           <div className="border-t border-[var(--border-line)] pt-3 space-y-1">
             <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-[var(--text-muted)]">
-              <span>{user.maskedPrn || `@${user.username}`}</span>
+              <span>{user.maskedPrn || user.displayName || 'Student'}</span>
               <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
             </div>
             <Link
-              to={`/profile/${user.username}`}
+              to="/profile"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
             >

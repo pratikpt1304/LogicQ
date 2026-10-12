@@ -115,7 +115,8 @@ service cloud.firestore {
         ])
         && !changedKeys.hasAny([
           'prn', 'college', 'email', 'role', 'status', 'banReason',
-          'stats', 'points', 'totalPoints', 'streak', 'currentStreak'
+          'stats', 'points', 'totalPoints', 'streak', 'currentStreak',
+          'prnChangedAt', 'prnNextAllowedChangeDate'
         ])
         && isAllowedDepartment(data.department)
         && isAllowedYear(data.year)
@@ -145,6 +146,12 @@ service cloud.firestore {
       // Account deletion is handled strictly by the server account deletion
       // transaction that also frees prnIndex/{prn} and scrubs PII.
       allow delete: if false;
+
+      // PRN change audit trail: readable by the student owner or Admin; writes strictly by server
+      match /prnHistory/{historyId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if false;
+      }
 
       // Private fallback drafts (used only when Google Drive is unavailable/blocked)
       match /drafts/{draftId} {

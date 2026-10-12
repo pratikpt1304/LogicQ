@@ -44,6 +44,7 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
     const where: any = {
       isBanned: false,
       role: 'STUDENT',
+      totalPoints: { gt: 0 },
     };
 
     if (department && department !== 'ALL') {
@@ -137,11 +138,12 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
           })
         : undefined;
 
-      const studentsBeaten = Math.max(0, total - rank);
+      const MIN_RANKED_FOR_PERCENTILE = 10;
+      const studentsBeaten = rank ? Math.max(0, total - rank) : 0;
       const percentile =
-        total <= 1
-          ? 100
-          : Math.max(1, Math.min(100, Math.round(((total - rank + 1) / total) * 100)));
+        !rank || total < MIN_RANKED_FOR_PERCENTILE
+          ? null
+          : Math.ceil((rank / total) * 100);
 
       const displayPoints =
         weekOffset === 0
@@ -192,8 +194,9 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
     if (!pinnedOwnRow && currentUserId) {
       const meInScope = await prisma.user.findFirst({
         where: {
-          ...where,
           id: currentUserId,
+          isBanned: false,
+          role: 'STUDENT',
         },
         select: {
           id: true,
@@ -221,19 +224,29 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
       });
 
       if (meInScope) {
-        const higherCount = await prisma.user.count({
-          where: {
-            ...where,
-            OR: [
-              { totalPoints: { gt: meInScope.totalPoints } },
-              {
-                totalPoints: meInScope.totalPoints,
-                currentStreak: { gt: meInScope.currentStreak },
-              },
-            ],
-          },
-        });
-        pinnedOwnRow = formatRow(meInScope, higherCount + 1, higherCount + 1);
+        if ((meInScope.totalPoints || 0) === 0) {
+          const row = formatRow(meInScope, 0, 0);
+          pinnedOwnRow = {
+            ...row,
+            rank: null,
+            percentile: null,
+            studentsBeaten: 0,
+          };
+        } else {
+          const higherCount = await prisma.user.count({
+            where: {
+              ...where,
+              OR: [
+                { totalPoints: { gt: meInScope.totalPoints } },
+                {
+                  totalPoints: meInScope.totalPoints,
+                  currentStreak: { gt: meInScope.currentStreak },
+                },
+              ],
+            },
+          });
+          pinnedOwnRow = formatRow(meInScope, higherCount + 1, higherCount + 1);
+        }
       }
     }
 
