@@ -121,6 +121,18 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
   `{ } ( ) [ ] ; # " * & -> = == != < > \n Tab`
 - Dual WCAG AA compliant themes: Dark (`#0C0F1F`) and Light (`#F4F6FB`) with custom Monaco editor styling (`>= 4.5:1` contrast).
 
+### 🛠️ 8. Student Activity Inspector & Practice Curriculum Management
+- **Student Activity Inspector (`View Activity`)**: Replaces old table-level edit actions with an all-in-one student activity dossier modal:
+  - Full profile, PRN verification, department, year, points, and streaks.
+  - Complete code submissions history with live runtime, memory consumption, verdicts, points, and source code viewer.
+  - Uploaded assignments and handwritten solution audit log with suspicion flags and review comments.
+  - **Individual Student Dossier CSV**: One-click download of the student's complete historical transcript.
+  - Safe account moderation: **Ban / Unban** and audited **Edit PRN** actions nested securely within the inspector.
+- **Department-Wise CSV Exports**: Instant export of student rosters filtered by specific engineering department or across all university departments.
+- **Practice Curriculum & Question Authoring (`/practice`)**:
+  - 4 sequentially unlocking foundational syllabus modules (Control Structures, Pointers & Functions, Arrays & Applications, Advanced Data Types & Dynamic Memory).
+  - Admins can author new custom practice modules with custom unlock criteria and author questions directly into any module with starter code, sample test cases, and hidden grading test suites.
+
 ---
 
 ## 4. Role & Access Control Matrix
@@ -130,9 +142,13 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
 | View Active Daily Challenge | ✅ (Current only) | ❌ | ✅ (All challenges) |
 | Submit Code & Run C11 Judge | ✅ | ❌ | ✅ |
 | Upload Solution (Image/PDF) | ✅ | ❌ | ✅ |
+| Access Practice Curriculum (`/practice`) | ✅ (Unlocked modules) | ❌ | ✅ (Full pool) |
 | View Weekly Leaderboard | ✅ | ❌ | ✅ |
 | Access Checker Review Queue (`/checker/reviews`) | ❌ | ✅ | ✅ |
 | Grade Uploads & Apply Rubric | ❌ | ✅ | ✅ |
+| View Student Activity Inspector & Dossier | ❌ | ❌ | ✅ |
+| Export User Roster & Student Activity CSV | ❌ | ❌ | ✅ |
+| Author Practice Modules & Questions | ❌ | ❌ | ✅ |
 | Access Admin Dashboard & Reports | ❌ | ❌ | ✅ |
 | Manage Challenges & Test Suites | ❌ | ❌ | ✅ |
 | Manage User Roles & Checkers | ❌ | ❌ | ✅ (Audited, $\ge 2$ admins) |
