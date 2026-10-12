@@ -111,6 +111,24 @@ async function main() {
   });
   console.log('Primary Admin logicq1304@gmail.com seeded.');
 
+  await prisma.user.upsert({
+    where: { email: 'ipworker1908@gmail.com' },
+    update: {
+      role: 'ADMIN',
+      fullName: 'IP Worker Admin',
+    },
+    create: {
+      username: 'ipworker1908',
+      email: 'ipworker1908@gmail.com',
+      fullName: 'IP Worker Admin',
+      passwordHash: adminHash,
+      role: 'ADMIN',
+      bio: 'Platform Administrator',
+      college: 'Sanjivani University',
+    },
+  });
+  console.log('Admin ipworker1908@gmail.com seeded.');
+
   // 3. Date context for daily challenge scheduling
   const now = new Date();
   const istDateString = new Intl.DateTimeFormat('en-CA', {

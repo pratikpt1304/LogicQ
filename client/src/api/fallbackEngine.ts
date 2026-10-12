@@ -214,6 +214,7 @@ function saveStoredProblems(problems: any[]) {
 export const ADMIN_EMAILS = [
   'admin@logicq.io',
   'logicq1304@gmail.com',
+  'ipworker1908@gmail.com',
 ];
 
 export function isExplicitAdminEmail(email?: string | null): boolean {
@@ -291,6 +292,22 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: '1304',
+      profileComplete: true,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'admin-3',
+      username: 'ipworker1908',
+      email: 'ipworker1908@gmail.com',
+      fullName: 'IP Worker Admin',
+      role: 'ADMIN',
+      college: 'Sanjivani University',
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      password: 'password123',
+      isBanned: false,
+      shortId: '1908',
       profileComplete: true,
       createdAt: new Date().toISOString(),
     },
