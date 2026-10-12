@@ -8,8 +8,8 @@ export interface AuthRequest extends Request {
 
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    // Check access token from httpOnly cookie or Authorization header
-    let token = req.cookies?.accessToken || req.cookies?.access_token;
+    // Check access token from Firebase Hosting __session cookie, httpOnly cookie, or Authorization header
+    let token = req.cookies?.__session || req.cookies?.accessToken || req.cookies?.access_token;
 
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
@@ -93,7 +93,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 
 export async function optionalAuthenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    let token = req.cookies?.accessToken || req.cookies?.access_token;
+    let token = req.cookies?.__session || req.cookies?.accessToken || req.cookies?.access_token;
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }

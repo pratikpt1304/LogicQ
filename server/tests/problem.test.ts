@@ -2,16 +2,18 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
 
-describe('Problems API (/api/problems) with FEATURE_ARCHIVE=false', () => {
-  it('should fetch the daily challenge, include the 7-day current week strip, and never expose hidden test cases', async () => {
+describe('Problems API (/api/problems) — Single Visible Question Rule (17:00 IST to 17:00 IST)', () => {
+  it('should fetch only today’s single active daily challenge with private Cache-Control and never expose hidden test cases or a 7-day strip', async () => {
     const res = await request(app).get('/api/problems/daily');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.problem).toBeDefined();
     expect(res.body.data.todayIST).toBeDefined();
-    expect(Array.isArray(res.body.data.currentWeek)).toBe(true);
-    expect(res.body.data.currentWeek).toHaveLength(7);
+    expect(res.body.data.endsAt).toBeDefined();
+    expect(res.body.data.currentWeek).toBeUndefined();
+    expect(res.headers['cache-control']).toContain('private');
+    expect(res.headers['cache-control']).toContain('must-revalidate');
 
     // Verify security: no test cases with isHidden: true returned
     const testCases = res.body.data.problem.testCases;
@@ -20,19 +22,27 @@ describe('Problems API (/api/problems) with FEATURE_ARCHIVE=false', () => {
     }
   });
 
-  it('should reject full archive problem listing (/api/problems) with 404 Not Found when FEATURE_ARCHIVE=false', async () => {
-    const res = await request(app).get('/api/problems?difficulty=EASY&limit=5');
+  it('should reject problem listing (/api/problems) and student week strip (/api/problems/current-week) with 404 Not Found', async () => {
+    const [listRes, weekRes] = await Promise.all([
+      request(app).get('/api/problems?difficulty=EASY&limit=5'),
+      request(app).get('/api/problems/current-week'),
+    ]);
 
-    expect(res.status).toBe(404);
-    expect(res.body.success).toBe(false);
+    expect(listRes.status).toBe(404);
+    expect(listRes.body.success).toBe(false);
+    expect(weekRes.status).toBe(404);
+    expect(weekRes.body.success).toBe(false);
   });
 
-  it('should fetch an unlocked challenge of the current week (sum-of-multiples) by slug without hidden test cases', async () => {
-    const res = await request(app).get('/api/problems/sum-of-multiples');
+  it('should fetch today’s active challenge by slug without hidden test cases', async () => {
+    const dailyRes = await request(app).get('/api/problems/daily');
+    const activeSlug = dailyRes.body.data.problem.slug;
+
+    const res = await request(app).get(`/api/problems/${activeSlug}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.problem.slug).toBe('sum-of-multiples');
+    expect(res.body.data.problem.slug).toBe(activeSlug);
 
     const testCases = res.body.data.problem.testCases;
     for (const tc of testCases) {
@@ -40,15 +50,25 @@ describe('Problems API (/api/problems) with FEATURE_ARCHIVE=false', () => {
     }
   });
 
-  it('should reject locked future days of the current week and past-week challenges with 404 Not Found', async () => {
-    const [futureRes, pastWeekRes] = await Promise.all([
-      request(app).get('/api/problems/valid-parentheses-stack'),
+  it('should return 410 CHALLENGE_ENDED (without statement/samples/tests) for ended challenges and 404 for future challenges', async () => {
+    const [endedRes, pastWeekRes, futureRes] = await Promise.all([
+      request(app).get('/api/problems/sum-of-multiples'),
       request(app).get('/api/problems/circular-buffer-fifo'),
+      request(app).get('/api/problems/valid-parentheses-stack'),
     ]);
+
+    expect(endedRes.status).toBe(410);
+    expect(endedRes.body.code).toBe('CHALLENGE_ENDED');
+    expect(endedRes.body.ended).toBe(true);
+    expect(endedRes.body.data).toBeUndefined();
+
+    expect(pastWeekRes.status).toBe(410);
+    expect(pastWeekRes.body.code).toBe('CHALLENGE_ENDED');
+    expect(pastWeekRes.body.ended).toBe(true);
+    expect(pastWeekRes.body.data).toBeUndefined();
 
     expect(futureRes.status).toBe(404);
     expect(futureRes.body.success).toBe(false);
-    expect(pastWeekRes.status).toBe(404);
-    expect(pastWeekRes.body.success).toBe(false);
+    expect(futureRes.body.data).toBeUndefined();
   });
 });

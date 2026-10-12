@@ -15,7 +15,6 @@ import {
   Clock,
   Sparkles,
   Zap,
-  Lock,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -36,7 +35,6 @@ export const DashboardPage: React.FC = () => {
   });
 
   const dailyProblem = dailyData?.data?.problem;
-  const currentWeekDays: any[] = dailyData?.data?.currentWeek || [];
   const isDailySolved = dailyData?.data?.userStatus?.isSolved;
   const secondsLeft = dailyData?.data?.secondsUntilNextReset;
 
@@ -129,7 +127,7 @@ export const DashboardPage: React.FC = () => {
               {isDailySolved ? (
                 <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-success)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Solved Today (+{dailyProblem?.basePoints + 15} PTS)
+                  Solved Today (+{dailyProblem?.basePoints || 0} PTS)
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-warning)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
@@ -152,12 +150,12 @@ export const DashboardPage: React.FC = () => {
                 .replace(/\\times/g, '×')
                 .replace(/[`*$]/g, '')
                 .trim() ||
-                "Solving today's challenge earns base points + first-time solve and daily bonuses."}
+                "Solving today's challenge before 17:00 IST earns points by difficulty and extends your daily streak."}
             </p>
 
             <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[var(--text-muted)] pt-1">
               <span>
-                Points: <strong className="text-[var(--color-accent)]">{dailyProblem?.basePoints || 25} PTS</strong>
+                Points: <strong className="text-[var(--color-accent)]">{dailyProblem?.basePoints || 20} PTS</strong>
               </span>
               <span>•</span>
               <span>Time Limit: {dailyProblem?.timeLimitMs || 1000}ms</span>
@@ -170,7 +168,7 @@ export const DashboardPage: React.FC = () => {
             <CountdownClock initialSeconds={secondsLeft} label="Next Reset in" />
 
             <Link
-              to={dailyProblem ? `/challenge/${dailyProblem.slug}` : '/challenge'}
+              to="/challenge"
               className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-colors flex items-center justify-center gap-2"
             >
               <span>{isDailySolved ? 'Review Workspace' : 'Solve Daily Challenge'}</span>
@@ -178,51 +176,6 @@ export const DashboardPage: React.FC = () => {
             </Link>
           </div>
         </div>
-
-        {/* Current Week's 7 Challenges Catch-Up Strip */}
-        {currentWeekDays.length > 0 && (
-          <div
-            data-testid="dashboard-week-strip"
-            className="mt-6 pt-5 border-t border-[var(--border-line)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-          >
-            <span className="text-xs font-mono font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-              <span>This Week&apos;s Catch-Up (7 Challenges):</span>
-            </span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {currentWeekDays.map((day: any) => {
-                const isLocked = day.status === 'LOCKED' || !day.problem;
-                if (isLocked) {
-                  return (
-                    <span
-                      key={day.dayNumber}
-                      title={day.unlockLabel}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-muted)] opacity-80"
-                    >
-                      <Lock className="w-3 h-3" />
-                      <span>Day {day.dayNumber}</span>
-                    </span>
-                  );
-                }
-                return (
-                  <Link
-                    key={day.dayNumber}
-                    to={`/challenge/${day.problem.slug}`}
-                    title={`Day ${day.dayNumber}: ${day.problem.title}`}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors ${
-                      day.isSolved
-                        ? 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--color-success)]'
-                        : 'bg-[var(--bg-main)] border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)]'
-                    }`}
-                  >
-                    {day.isSolved && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />}
-                    <span>Day {day.dayNumber}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Weekly Result Summary & Past Weeks Selector Card */}
@@ -303,6 +256,42 @@ export const DashboardPage: React.FC = () => {
             </strong>
           </div>
         </div>
+
+        {/* Per-day results for the selected week (date, title, verdict, points — no problem statements) */}
+        {Array.isArray(activeWeeklySummary?.perDayResults) &&
+          activeWeeklySummary.perDayResults.length > 0 && (
+            <div
+              data-testid="weekly-per-day-results"
+              className="pt-3 border-t border-[var(--border-line)] space-y-2"
+            >
+              <span className="text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-wider block">
+                Per-Day Results (Date • Challenge • Verdict • Points)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs font-mono">
+                {activeWeeklySummary.perDayResults.map((dayRes: any, idx: number) => (
+                  <div
+                    key={`${dayRes.date}-${idx}`}
+                    className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-[var(--text-muted)] block">
+                        {dayRes.date}
+                      </span>
+                      <span className="font-semibold text-[var(--text-main)] truncate block">
+                        {dayRes.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <VerdictBadge verdict={dayRes.verdict} size="sm" />
+                      <span className="font-bold text-[var(--color-accent)]">
+                        +{dayRes.points || 0}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
       </div>
 
       {/* Metrics Grid */}
@@ -504,12 +493,16 @@ export const DashboardPage: React.FC = () => {
                 {recentSubmissions.map((sub: any) => (
                   <tr key={sub.id} className="hover:bg-[var(--bg-surface)] transition-colors">
                     <td className="px-6 py-3.5 font-bold text-[var(--text-main)]">
-                      <Link
-                        to={`/challenge/${sub.problem?.slug || sub.problemSlug}`}
-                        className="hover:text-[var(--color-accent)] transition-colors"
-                      >
-                        {sub.problem?.title || sub.problemTitle}
-                      </Link>
+                      {(sub.problem?.slug || sub.problemSlug) && !sub.problem?.isEnded ? (
+                        <Link
+                          to="/challenge"
+                          className="hover:text-[var(--color-accent)] transition-colors"
+                        >
+                          {sub.problem?.title || sub.problemTitle}
+                        </Link>
+                      ) : (
+                        <span>{sub.problem?.title || sub.problemTitle || 'Past Challenge'}</span>
+                      )}
                     </td>
                     <td className="px-6 py-3.5">
                       <DifficultyBadge difficulty={sub.problem?.difficulty || sub.difficulty} size="sm" />

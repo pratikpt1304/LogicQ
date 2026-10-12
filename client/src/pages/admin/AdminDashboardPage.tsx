@@ -33,7 +33,7 @@ import { Difficulty, Verdict } from '../../types/index.js';
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'users' | 'analytics'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics'
   >('analytics');
 
   // Filter States for Users & Submissions & Uploads
@@ -146,6 +146,12 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get(`/admin/users?${buildFilterQuery()}`),
   });
 
+  // Fetch Checkers
+  const { data: checkersData } = useQuery({
+    queryKey: ['admin-checkers'],
+    queryFn: () => api.get('/admin/checkers'),
+  });
+
   const overview = analyticsData?.data?.overview;
   const pilotAnalytics = analyticsData?.data?.pilotAnalytics;
   const departmentBreakdown = analyticsData?.data?.departmentBreakdown || [];
@@ -154,6 +160,7 @@ export const AdminDashboardPage: React.FC = () => {
   const submissions = submissionsData?.data?.submissions || [];
   const uploads = uploadsData?.data?.uploads || [];
   const users = usersData?.data?.users || [];
+  const checkers = checkersData?.data?.checkers || [];
 
   // Mutations
   const reviewUploadMutation = useMutation({
@@ -224,6 +231,37 @@ export const AdminDashboardPage: React.FC = () => {
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update student PRN');
     },
+  });
+
+  const togglePauseMutation = useMutation({
+    mutationFn: ({ id, isCheckerPaused }: { id: string; isCheckerPaused: boolean }) =>
+      api.patch(`/admin/checkers/${id}/pause`, { isCheckerPaused }),
+    onSuccess: () => {
+      toast.success('Checker status updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-checkers'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to update checker status'),
+  });
+
+  const autoAssignMutation = useMutation({
+    mutationFn: () => api.post('/admin/uploads/auto-assign'),
+    onSuccess: (res: any) => {
+      toast.success(res?.message || 'Auto-assignment completed');
+      queryClient.invalidateQueries({ queryKey: ['admin-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-checkers'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Auto-assignment failed'),
+  });
+
+  const assignUploadMutation = useMutation({
+    mutationFn: ({ uploadId, checkerId }: { uploadId: string; checkerId: string }) =>
+      api.post(`/admin/uploads/${uploadId}/assign`, { checkerId }),
+    onSuccess: () => {
+      toast.success('Upload assignment updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-checkers'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to assign upload'),
   });
 
   const handleDownloadCsv = async (type: 'users' | 'weekly-results') => {
@@ -306,6 +344,29 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Single-Admin Alert Warning (Enforces minimum 2 admins system safety) */}
+      {overview?.isSingleAdminAlert && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-300">
+          <div className="flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-lg">⚠️</span>
+            <div>
+              <h4 className="text-xs font-bold uppercase font-mono tracking-wider">
+                System Invariant Warning: Only 1 Active Administrator
+              </h4>
+              <p className="text-xs text-amber-200/80 mt-0.5 font-mono">
+                LogicQ policy mandates maintaining at least 2 active administrators to prevent administrative lockouts. Please appoint another administrator from the User Roster.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('users')}
+            className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 whitespace-nowrap"
+          >
+            Manage Admins
+          </button>
+        </div>
+      )}
+
       {/* Analytics Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
@@ -383,6 +444,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Upload className="w-3.5 h-3.5" />
           <span>Review Uploads ({uploads.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('checkers')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'checkers'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Checkers Workload ({checkers.length})</span>
         </button>
 
         <button
@@ -1303,6 +1376,25 @@ export const AdminDashboardPage: React.FC = () => {
                         {new Date(up.submittedAt).toLocaleString()}
                       </td>
                       <td className="px-4 py-4 text-right space-x-1.5 whitespace-nowrap">
+                        <select
+                          value={up.assignedCheckerId || ''}
+                          onChange={(e) =>
+                            assignUploadMutation.mutate({
+                              uploadId: up.id,
+                              checkerId: e.target.value,
+                            })
+                          }
+                          className="px-2 py-1 rounded bg-dark-900 border border-slate-700 text-[11px] text-slate-300 font-mono"
+                          title="Assign to checker"
+                        >
+                          <option value="">Unassigned</option>
+                          {checkers.map((c: any) => (
+                            <option key={c.id} value={c.id} disabled={c.id === up.userId}>
+                              {c.displayName || c.username} {c.id === up.userId ? '(Submitter)' : ''}
+                            </option>
+                          ))}
+                        </select>
+
                         <button
                           onClick={() => {
                             setReviewingUpload(up);
@@ -1562,6 +1654,103 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
+      {/* Tab: Checkers Workload Directory */}
+      {activeTab === 'checkers' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-2xl bg-dark-900 border border-emerald-500/20">
+            <div>
+              <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Solution Checkers Workload & SLA Monitoring</span>
+              </h3>
+              <p className="text-xs text-slate-400 font-mono mt-1">
+                Manage assigned checkers, pause workload queues, and balance pending uploads across active reviewers.
+              </p>
+            </div>
+            <button
+              onClick={() => autoAssignMutation.mutate()}
+              disabled={autoAssignMutation.isPending}
+              className="px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 disabled:opacity-50 transition-all flex items-center gap-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${autoAssignMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>Run Auto Round-Robin Balancing</span>
+            </button>
+          </div>
+
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-4 py-3.5">Checker Identity</th>
+                    <th className="px-4 py-3.5">Email</th>
+                    <th className="px-4 py-3.5">Active Workload</th>
+                    <th className="px-4 py-3.5">Completed Reviews</th>
+                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-4 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {checkers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                        No checkers registered. Change a student's role to CHECKER in the User Roster.
+                      </td>
+                    </tr>
+                  ) : (
+                    checkers.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-4">
+                          <span className="font-bold text-white block">{c.displayName}</span>
+                          <span className="text-slate-400 text-xs">@{c.username}</span>
+                        </td>
+                        <td className="px-4 py-4 text-slate-300">{c.email}</td>
+                        <td className="px-4 py-4">
+                          <span className={`font-bold ${c.activeWorkloadCount > 5 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {c.activeWorkloadCount} assigned
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-cyan-400 font-bold">
+                          {c.totalCompletedReviews}
+                        </td>
+                        <td className="px-4 py-4">
+                          {c.isCheckerPaused ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px]">
+                              PAUSED
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px]">
+                              ACTIVE
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-right space-x-2">
+                          <button
+                            onClick={() =>
+                              togglePauseMutation.mutate({
+                                id: c.id,
+                                isCheckerPaused: !c.isCheckerPaused,
+                              })
+                            }
+                            className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
+                              c.isCheckerPaused
+                                ? 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                            }`}
+                          >
+                            {c.isCheckerPaused ? 'Resume Assignments' : 'Pause Workload'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab: Users Roster */}
       {activeTab === 'users' && (
         <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
@@ -1635,17 +1824,21 @@ export const AdminDashboardPage: React.FC = () => {
                         Edit PRN
                       </button>
 
-                      <button
-                        onClick={() =>
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
                           roleMutation.mutate({
                             id: u.id,
-                            role: u.role === 'ADMIN' ? 'STUDENT' : 'ADMIN',
+                            role: e.target.value,
                           })
                         }
-                        className="px-2.5 py-1 rounded bg-dark-800 text-[11px] text-slate-300 hover:text-white"
+                        className="px-2 py-1 rounded bg-dark-850 border border-dark-700 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400"
+                        title="Change role (Admin, Checker, Student)"
                       >
-                        {u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
-                      </button>
+                        <option value="STUDENT">STUDENT</option>
+                        <option value="CHECKER">CHECKER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
 
                       <button
                         onClick={() => banMutation.mutate({ id: u.id, isBanned: !u.isBanned })}

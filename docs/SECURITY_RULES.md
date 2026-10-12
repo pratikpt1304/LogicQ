@@ -14,13 +14,13 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - PRN Uniqueness Index:      BLOCKED TO ALL CLIENTS (prnIndex/{prn} Server Transaction only)      |
 |  - PRN & College Immutability:BLOCKED ON CLIENT UPDATE (Audited Admin/Server action only)          |
 |  - Arena, Archive & Badges:   DISABLED & BLOCKED TO ALL ROLES (contests/archive/badges -> false)   |
-|  - Problem Catalog Access:    CURRENT-WEEK UNLOCKED ONLY (No past-week archive or pre-unlock read) |
+|  - Single Visible Question:   NO DIRECT STUDENT READ ON /problems (Served via GET /api/problems/daily)|
 |  - Problem Private Metadata:  ADMIN ONLY (Book sourceRef never readable by students)               |
 |  - Uploaded Solutions:        OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (uploaded_solutions)    |
 |  - Upload Reviews & Errors:   ADMIN READ ONLY / SERVER WRITE ONLY (upload_reviews, error_reports)  |
 |  - Verdict Creation:          BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
-|  - Hidden Test Cases:         BLOCKED TO ALL CLIENTS (allow read, write: if false;)                |
+|  - Hidden Test Cases:         ADMIN ONLY (Students have zero direct access to hidden_tests)        |
 |  - Peer Code Inspection:      BLOCKED (Students read only their own submissions)                   |
 |  - Role Elevation:            BLOCKED (request.auth.token.role == 'ADMIN' custom claim required)   |
 |  - Deletion of Submissions:   BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                 |
@@ -151,23 +151,19 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 2. PROBLEMS COLLECTION
+    // 2. PROBLEMS COLLECTION (SINGLE VISIBLE QUESTION AT A TIME — SERVER-SERVED ONLY)
     // -------------------------------------------------------------------------
     match /problems/{problemId} {
-      // Students can ONLY read published problems that belong to the current week and are unlocked;
-      // students cannot list/read arbitrary archived problems from past weeks or before unlock.
-      // Admins can read all problems (including drafts).
-      allow read: if isAuthenticated() && (
-        (resource.data.status == 'PUBLISHED' && resource.data.isCurrentWeekUnlocked == true) || isAdmin()
-      );
-
-      // Only Admins can create or update problem statements
+      // Students have NO direct client read access to the problems collection.
+      // Today's active challenge is served strictly via the server endpoint
+      // getCurrentChallenge (GET /api/problems/daily) with short TTL expiring at the next 17:00 IST.
+      allow read: if isAdmin();
       allow write: if isAdmin();
 
       // HIDDEN TEST CASES SUBCOLLECTION:
-      // STRICTLY FORBIDDEN TO ALL CLIENTS - NEVER READABLE OR WRITABLE FROM BROWSER
+      // Restricted strictly to Admin / Server SDK — never readable by students
       match /hidden_tests/{testId} {
-        allow read, write: if false;
+        allow read, write: if isAdmin();
       }
 
       // PRIVATE METADATA SUBCOLLECTION (e.g., book sourceRef: chapter, exerciseNumber, page):
@@ -354,7 +350,7 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ CHEAT ATTEMPT 14: Student attempts to read or write prnIndex/{prn} directly -> MUST FAIL
    ✓ CHEAT ATTEMPT 15: Student attempts to set an invalid department, year, or division -> MUST FAIL
    ✓ CHEAT ATTEMPT 16: Client (Student or Admin) attempts to read or write disabled Arena (/contests) or Archive (/archive) collections -> MUST FAIL
-   ✓ CHEAT ATTEMPT 17: Student attempts to read archived past-week problems or pre-unlock problems directly from /problems -> MUST FAIL
+   ✓ CHEAT ATTEMPT 17: Student attempts to read any problem directly from /problems/{problemId} (Single Visible Question at a Time) -> MUST FAIL
    ✓ CHEAT ATTEMPT 18: Client (Student or Admin) attempts to read or write disabled Badges (/badges, /user_badges, or user badge subcollections) -> MUST FAIL
    ✓ CHEAT ATTEMPT 19: Student attempts to read another student's uploaded solution or write directly to /uploaded_solutions -> MUST FAIL
    ✓ CHEAT ATTEMPT 20: Student attempts to read or write /upload_reviews or /error_reports -> MUST FAIL
@@ -362,5 +358,5 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ VALID OPERATION: Student updates allowed academic profile fields (department, year, division, displayName) -> MUST SUCCEED
    ✓ VALID OPERATION: Student reads their own private profile and publicProfiles/{uid} -> MUST SUCCEED
    ✓ VALID OPERATION: Student reads their own submission, own uploaded solution, own weekly summary, and own streak events -> MUST SUCCEED
-   ✓ VALID OPERATION: Admin reads any submission, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
+   ✓ VALID OPERATION: Admin reads any submission, problem, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
 ```

@@ -1,5 +1,4 @@
 import { prisma } from '../utils/prisma.js';
-import { getTodayIST, getChallengeDayIST } from '../utils/ist.js';
 
 export async function calculatePointsAndAward(
   userId: string,
@@ -22,7 +21,7 @@ export async function calculatePointsAndAward(
       return {
         pointsAwarded: currentSub.pointsAwarded,
         isFirstSolve: false,
-        isDailyBonus: currentSub.pointsAwarded > problem.basePoints + 5,
+        isDailyBonus: false,
       };
     }
   }
@@ -53,20 +52,8 @@ export async function calculatePointsAndAward(
     return { pointsAwarded: 0, isFirstSolve: false, isDailyBonus: false };
   }
 
-  let points = problem.basePoints;
-
-  // First-time solve bonus (+5)
-  points += 5;
-
-  // Daily challenge bonus (+10 if solved on active scheduled challenge day)
-  const todayIST = getTodayIST();
-  const challengeDayIST = getChallengeDayIST();
-  const isDailyBonus =
-    problem.isDaily &&
-    (problem.scheduledDate === challengeDayIST || problem.scheduledDate === todayIST);
-  if (isDailyBonus) {
-    points += 10;
-  }
+  // Single Visible Question Rule: Points are awarded strictly by difficulty (no same-day bonus, no 70% late catch-up points)
+  const points = problem.basePoints;
 
   // Update user's totalPoints
   await prisma.user.update({
@@ -81,6 +68,6 @@ export async function calculatePointsAndAward(
   return {
     pointsAwarded: points,
     isFirstSolve: true,
-    isDailyBonus,
+    isDailyBonus: false,
   };
 }

@@ -95,9 +95,7 @@ class RulesEvaluator {
 
   static evaluateProblemRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
-    if (ctx.auth.token.role === 'ADMIN') return true;
-    const data = ctx.resource?.data || {};
-    return data.status === 'published' && data.isCurrentWeekUnlocked === true;
+    return ctx.auth.token.role === 'ADMIN';
   }
 }
 
@@ -192,20 +190,24 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     }
   });
 
-  it('CHEAT ATTEMPT 8: Student attempts to read a locked future problem or past-week archive problem -> MUST FAIL', () => {
-    const lockedFutureProblem: FirestoreRuleContext = {
+  it('CHEAT ATTEMPT 8: Student attempts to read /problems/{problemId} directly in Firestore -> MUST FAIL (only Admin can read directly; students receive today’s challenge via server API)', () => {
+    const rulesFile = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    expect(rulesFile).toContain('match /problems/{problemId}');
+    expect(rulesFile).toContain('allow read: if isAdmin();');
+
+    const studentProblemRead: FirestoreRuleContext = {
       auth: studentAlice,
-      resource: { data: { status: 'published', isCurrentWeekUnlocked: false } },
+      resource: { data: { status: 'published' } },
       request: {},
     };
-    const unlockedCurrentWeekProblem: FirestoreRuleContext = {
-      auth: studentAlice,
-      resource: { data: { status: 'published', isCurrentWeekUnlocked: true } },
+    const adminProblemRead: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { status: 'published' } },
       request: {},
     };
 
-    expect(RulesEvaluator.evaluateProblemRead(lockedFutureProblem)).toBe(false);
-    expect(RulesEvaluator.evaluateProblemRead(unlockedCurrentWeekProblem)).toBe(true);
+    expect(RulesEvaluator.evaluateProblemRead(studentProblemRead)).toBe(false);
+    expect(RulesEvaluator.evaluateProblemRead(adminProblemRead)).toBe(true);
   });
 
   it('VALID OPERATION: Student reads their own submission -> MUST SUCCEED', () => {

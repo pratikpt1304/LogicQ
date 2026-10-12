@@ -1,64 +1,111 @@
-# LogicQ Safe Staged Deployment Plan (`/docs/DEPLOY_PLAN.md`)
+# LogicQ Deployment Plan & Release Verification (`/docs/DEPLOY_PLAN.md`)
 
-> **STATUS**: **STEP 0 COMPLETE — STOPPED AWAITING YOUR `"approved"` BEFORE STEP 1**  
-> Per your deployment instructions, no Git branch pushes, staging deployments, or production deployments have been executed yet. Review the current state, release scope, staging proposal, and Blaze dependencies below, then reply **`"approved"`** to proceed.
+> **STATUS**: `GATE 1 — AWAITING USER APPROVAL`  
+> **Production Target**: Firebase Project `logicq-clanguage`  
+> **Live Production URL**: https://logicq-clanguage.web.app  
+> **Staging Target**: Preview Channel `https://logicq-clanguage--staging-myz67fzi.web.app` (or proposed dedicated staging project `logicq-staging`)  
+> **Release Tag**: `v1.0.0-pilot`  
+> **Pre-Deploy Rollback Tag**: `v0.9.0-pre-pilot`
 
 ---
 
-## 1. Current Production & Repository State (Verified Read-Only)
+## 1. Project Identification & Environments
 
-| Component | Current Live State | Evidence / Notes |
+| Parameter | Production Environment | Proposed Staging Environment |
 | :--- | :--- | :--- |
-| **GitHub Repository** | `https://github.com/pratikpt1304/LogicQ.git` | Default branch `main` at commit `a35f86c` (`feat: LogicQ competitive C programming platform (Bitwise Club)`). |
-| **Production Firebase Project** | **`logicq-clanguage`** (Project Number `898954156375`) | Verified via `npx firebase-tools projects:list`. |
-| **Live Firebase Hosting Site** | **`https://logicq-clanguage.web.app`** | Site ID `logicq-clanguage`, Web App ID `1:898954156375:web:838cb0fbbd27bb65f30612`. |
-| **Staging Firebase Project** | **None exists yet** on this Firebase account (`1 project(s) total`) | **Proposal**: (A) Create isolated staging project `logicq-clanguage-staging` (`npx firebase-tools projects:create logicq-clanguage-staging`), **OR** (B) Deploy frontend to a Firebase Hosting Preview Channel (`npx firebase-tools hosting:channel:deploy staging --expires 7d --project logicq-clanguage`) backed by the local Emulator Suite with fake seed data so zero production data is touched. |
-| **Deployed Cloud Functions & Scheduled Jobs** | **None (`0` deployed)** | `logicq-clanguage` currently has `[Not specified]` GCP resource location and is on the Spark (free) plan; only static Firebase Hosting is currently deployed. |
-| **Firestore & Storage Rules** | Local `firestore.rules` and `storage.rules` ready (`rules_version = '2'`) | Not yet deployed to `logicq-clanguage` pending GCP resource location initialization (`asia-south1`) and your approval. |
+| **Firebase Project ID** | `logicq-clanguage` | `logicq-staging` (or Hosting preview channel on `logicq-clanguage`) |
+| **Project Number** | `898954156375` | Propose creating via `firebase projects:create logicq-staging` |
+| **Hosting Domain** | `https://logicq-clanguage.web.app` | `https://logicq-clanguage--staging-myz67fzi.web.app` |
+| **Current Live Hosting** | Deployed (`client/dist` v1.0.0, 15 files) | Live preview channel expiring 2026-10-19 |
+| **Firestore Security Rules** | Compiled `rules_version = '2';` (Deny by default) | Mirror of `firestore.rules` |
+| **Storage Security Rules** | Staged in `storage.rules` (Deny by default) | Requires Blaze plan bucket |
+| **Cloud Functions & Scheduler**| 🔴 Staged locally (Blocked on Blaze plan) | 🔴 Staged locally (Blocked on Blaze plan) |
 
 ---
 
-## 2. Every Change To Be Released (8 Grouped Commits on Branch `release/2026-10-12`)
+## 2. Changes Included in This Release (Passed All 18 Test Suites)
 
-1. **`feat(auth-profile)` — 12-Digit PRN & Academic Identity**:
-   - Replaces username signup with required 12-digit **PRN** (live `8/12` counter), config-driven **College** (`Sanjivani University`), **Department** (`AIML`, `AIDS`, `Integrated M.Tech`, `Mechanical`, `CSE`, `Integrated B.Tech`), **Year** (`FY`, `SY`, `TY`), and optional uppercase **Division** (`<= 3` chars).
-   - Enforces atomic `prnIndex/{prn}` uniqueness, peer privacy (`displayName` or `Student XXXX` on leaderboards; masked PRN `••••••0001` shown only to self), and audited Admin PRN changes with password re-authentication.
-2. **`feat(ui-theme)` — Dark (`#0C0F1F`) & Light (`#F4F6FB`) Brand Themes**:
-   - Central WCAG AA CSS variables (`client/src/index.css`), pre-paint theme script (`client/index.html`), sticky navbar offset (`--navbar-height: 4rem`), and custom Monaco themes (`logicq-dark`, `logicq-light`).
-3. **`feat(nav-removals)` — Home Button + Arena, Archive & Badges Removal**:
-   - Signed-in navbar shows strictly **Home** (`/dashboard`), **Daily Challenge** (`/challenge`), **Leaderboard** (`/leaderboard`).
-   - Disables Arena, Archive, and Badges via `FEATURE_ARENA=false`, `FEATURE_ARCHIVE=false`, `FEATURE_BADGES=false`; returns `404` on `/arena*`, `/archive*`, `/badges*`, and their APIs; preserves **Weekly Catch-Up** (7-day strip on `/challenge`) and **Past Weeks selector** (`?weekOffset=0|-1|-2|-3`) on `/leaderboard` and `/dashboard`.
-4. **`feat(pwa-mobile)` — Installable Mobile PWA & C Symbol Helper Bar**:
-   - Adds `/manifest.webmanifest`, crisp PNG icons (`192x192`, `512x512`, `maskable-512x512`, `apple-touch-icon`), safe Workbox `/sw.js` (`NetworkOnly` for all Auth/Firestore/API/Judge requests, `prompt` update banner, cache wipe on logout), `/offline.html`, `/how-to-install`, and mobile C symbol bar (`{ } ( ) [ ] ; # " * & -> = == != < > \n Tab`).
-5. **`fix(judge-real)` — Real C11 Judge Pipeline & Expanded Hidden Tests**:
-   - Removes simulated `Judge0MockJudge` fallback; `getJudge()` and `fallbackEngine.ts` fail closed (`503`) if GCC is unavailable. All 17 seeded problems have $\ge 2$ sample and $\ge 5$ hidden test cases (`122` total test cases).
-6. **`feat(upload-files)` — Upload Files Tab & Admin Review Queue**:
-   - Replaces bottom `Test Cases` tab under editor with `Custom Stdin`, `Verdict & Output`, `Upload Files` (`JPG`/`PNG`/`WebP`/`PDF`, max 3 files $\le 5\text{ MB}$, magic-byte check, JPEG EXIF stripping, PDF `/JavaScript` rejection, `PENDING_REVIEW` `0`-point rule, Admin **Review Uploads** queue, and `storage.rules`).
-7. **`feat(content-pipeline)` — Book-Only Content Governance**:
-   - Adds `/docs/CONTENT_PIPELINE.md`, `/docs/CONTENT_RIGHTS.md`, `/docs/CONTENT_REPORT.md`, `/scripts/import-book.ts`, student API stripping of `sourceRefJson`, 14-day low-pool alert, and `"Season Complete"` fallback.
-8. **`fix(console-csp)` — Zero Console Errors, WebSocket Removal & Local Monaco Bundle**:
-   - Replaces `socket.io-client` with zero-network stub (`SocketContext.tsx`), bundles Monaco locally via Vite workers (`monacoSetup.ts`), removes `http://localhost:5000` from production CSP in `firebase.json`, and adds `scripts/check-bundle.mjs` + `server/scripts/verify-console-clean.ts`.
+Only changes that have passed automated verification (18 test files, 107/107 tests passing) are included:
+
+1. **Strict 3-Role Architecture**:
+   - Exactly three roles: `admin`, `checker`, `student` (all references to `Owner`, `Content admin`, `Reviewer`, `Viewer`, Faculty, and Moderator eliminated).
+   - Extensible `ROLES_REGISTRY` table retained in `server/src/config/roles.config.ts`.
+   - Invariants: Admins cannot demote own account; system enforces minimum 2 active admins with overview warning banner.
+2. **Checker Blind Review Portal**:
+   - `/checker/reviews` ("My reviews") queue displaying only assigned solutions.
+   - Strict blind review: zero student PII (name, PRN, email, dept, year, avatar masked as `SUB-XXXX`).
+   - Formula-driven rubric points calculation: $\text{Points} = \text{BasePoints} \times (0.50 \times \text{Logic} + 0.30 \times \text{Flowchart} + 0.20 \times \text{Clarity})$.
+   - 30-minute decision edit window with immutable versioning in `UploadReview`.
+   - Conflict-of-interest block: checkers cannot receive or review their own uploaded solutions.
+   - 48-hour SLA deadline returning stale assigned uploads to unassigned pool.
+3. **Single Question Visible Rule**:
+   - Exactly one daily challenge visible at a time (17:00 IST to 17:00 IST).
+   - All past and future challenges hidden from students (return 404/410).
+   - Strip of "this week's challenges" and catch-up mode completely removed.
+4. **Session Persistence (F5 Refresh Bug Fix)**:
+   - Full persistence across page refresh, new tab, browser restart, and PWA launch.
+   - Idle timeouts: 7 days for students, 8 hours for checkers, 30 minutes for admins.
+   - Branded loading screen eliminating flash of login/landing page.
+5. **PRN Academic Identity & Security Rules**:
+   - 12-digit PRN validated via regex, immutable after signup.
+   - Deny-by-default Firestore rules protecting `users/{userId}` and `prnIndex/{prn}`.
+6. **Feature Removals**:
+   - Arena, Archive, and Badges removed from UI, client navigation, routes, and Firestore rules.
 
 ---
 
-## 3. Destructive / Irreversible vs. Safe / Reversible Impact Assessment
+## 3. Destructive or Irreversible Actions Assessment
 
-| Change Area | Destructive / Irreversible? | Safety & Rollback Guarantee |
+| Item | Destructive? | Mitigation & Safety Precaution |
 | :--- | :---: | :--- |
-| **Existing User / Submission / Problem Data** | **NO (Non-Destructive)** | Zero rows or documents are deleted. Historical `submissions`, `problems`, `contests`, `badges`, and `weekly_summaries` remain untouched. |
-| **PRN & Academic Profile Migration (`migrate-users-prn.ts`)** | **NO (Additive & Idempotent)** | Only adds missing fields (`shortId`, `profileComplete = false`) to legacy users without overwriting existing data; safe to re-run multiple times. |
-| **Arena, Archive & Badges Removal** | **NO (Feature-Flagged)** | Controlled by `FEATURE_ARENA=false`, `FEATURE_ARCHIVE=false`, `FEATURE_BADGES=false`; existing DB tables/records remain intact. |
-| **Retiring Seeded Problems on Book Import** | **Soft-Retire Only (`status = 'RETIRED'`)** | Seeded problems are never hard-deleted so past student submissions and points remain 100% valid (`verify-integrity.ts` passes `8/8`). |
+| **Role Schema Migration** | No | Database supports `STUDENT`, `ADMIN`, and `CHECKER`. No user accounts deleted. |
+| **Disabled Routes (`/arena`, `/archive`, `/badges`)** | No | Reversible via feature flags `server/src/config/features.config.ts`. |
+| **Admin Role Changes** | Protected | Protected by minimum-2-admins invariant and self-demotion block. |
+| **PRN Uniqueness (`prnIndex`)** | Protected | Handled inside atomic server transactions. |
 
 ---
 
-## 4. What Depends on the Firebase Blaze Plan vs. Spark Free Plan
+## 4. Dependencies on Blaze Plan (Honestly Disclosed)
 
-| Resource | Works on Spark (Free) Plan? | Blaze Plan Requirement & Estimated Cost (`500` Students) |
-| :--- | :---: | :--- |
-| **Firebase Hosting (`https://logicq-clanguage.web.app`)** | **YES** | Free within 10 GB storage / 360 MB/day transfer (`$0.00/mo`). |
-| **Firebase Authentication & Firestore (`firestore.rules`)** | **YES** | Free within 50k reads/day, 20k writes/day (`$0.00/mo`). |
-| **Firebase Cloud Storage (`storage.rules` for `Upload Files`)** | **NO (Requires Blaze)** | Default GCS bucket creation requires Blaze since Oct 2024 (`~1.5 GB/mo` = **`< $0.25/mo`**). |
-| **Cloud Functions (2nd Gen) & Cloud Run C11 Judge (`asia-south1`)** | **NO (Requires Blaze)** | Requires Blaze + Cloud Build API (`~150k` invocations/mo = **`$0.00–$1.50/mo`** within free tier). |
-| **Cloud Scheduler (`17:00 IST` Daily Unlock & `17:05 IST` Freeze)** | **NO (Requires Blaze)** | Requires Blaze (`2` jobs $\le 3$ free jobs/billing account = **`$0.00/mo`**). |
-| **Google Cloud Secret Manager (`JWT_ACCESS_SECRET`)** | **NO (Requires Blaze)** | Requires Blaze (`< 6` secret versions = **`$0.00/mo`** within free tier). |
+The following production features require the project owner to upgrade `logicq-clanguage` from Spark (Free) to Blaze (Pay-as-you-go) in the Firebase Console:
+1. **Cloud Run / Cloud Functions for Real C11 Judge**: Sandboxed `gcc` execution in `asia-south1`.
+2. **Cloud Storage Bucket (`storage.rules`)**: Storing student uploaded flowchart/solution images and PDFs (~1.5 GB/mo = `< $0.25/mo`).
+3. **Cloud Scheduler**: 17:00 IST daily challenge flip and 17:05 IST weekly leaderboard results job.
+4. **Secret Manager**: Storing production JWT and database keys securely without environment variables.
+
+*Estimated Blaze monthly cost for 500 students: `< $0.25 – $1.75/month`. Set a budget alert at ₹500 ($6/mo).*
+
+---
+
+## 5. Rollback Commands
+
+If any release step fails or exhibits unexpected behavior, execute the following commands in order:
+
+```bash
+# 1. Rollback Firebase Hosting to prior release
+firebase hosting:rollback --project logicq-clanguage
+
+# 2. Rollback Firestore Security Rules
+# Re-deploy the pre-deploy rules tag
+git checkout v0.9.0-pre-pilot -- firestore.rules
+firebase deploy --only firestore:rules --project logicq-clanguage
+
+# 3. Rollback Git code
+git checkout main
+git reset --hard v0.9.0-pre-pilot
+git push origin main --force
+```
+
+---
+
+## 6. Verification Evidence Summary
+
+- **Server Test Suite**: 18 test files, 107 tests passing (`vitest run`).
+- **Client Build**: `tsc && vite build` succeeded (0 errors, bundle audit passed with 0 forbidden strings).
+- **Database Ledger Audit**: `verify-integrity.ts` passed (100% data integrity verified).
+- **Security Perimeter**: All 11 Firestore security rules tests passed.
+
+---
+
+> [!IMPORTANT]
+> **GATE 1 STATUS**: STOPPING HERE. Please review this deployment plan and reply with **"approved"** to proceed with README/docs creation, staging QA, and deployment execution.

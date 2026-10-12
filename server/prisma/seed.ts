@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { KANETKAR_BOOK_PROBLEMS } from '../src/data/kanetkar-book-bank.js';
 
 const prisma = new PrismaClient();
 
@@ -1229,17 +1230,121 @@ int main() {
   }
   console.log(`Seeded ${problemsData.length} original C problems with test cases.`);
 
-  // 5. Schedule Today's Featured Daily Challenge & Current Week Strip
-  const featuredSlug = 'daily-longest-unique-substring';
-  if (problemMap[featuredSlug]) {
+  // 4a. Seed Yashavant Kanetkar Book Problems (Strictly Exclusive Active Bank)
+  console.log(`Seeding ${KANETKAR_BOOK_PROBLEMS.length} Yashavant Kanetkar book challenges...`);
+  for (let i = 0; i < KANETKAR_BOOK_PROBLEMS.length; i++) {
+    const bp = KANETKAR_BOOK_PROBLEMS[i];
+    const allTests = [
+      ...bp.sampleTests.map((t) => ({ ...t, isHidden: false })),
+      ...bp.hiddenTests.map((t) => ({ ...t, isHidden: true })),
+    ];
+
+    const problem = await prisma.problem.upsert({
+      where: { slug: bp.slug },
+      update: {
+        title: bp.title,
+        difficulty: bp.difficulty,
+        category: bp.category,
+        tags: JSON.stringify(bp.tags),
+        description: bp.description,
+        starterCode: bp.starterCode,
+        solutionCode: bp.solutionCode,
+        timeLimitMs: bp.timeLimitMs,
+        memoryLimitMb: bp.memoryLimitMb,
+        basePoints: bp.basePoints,
+        sourceType: bp.sourceType,
+        sourceRefJson: JSON.stringify(bp.sourceRef),
+        status: 'PUBLISHED',
+      },
+      create: {
+        slug: bp.slug,
+        title: bp.title,
+        difficulty: bp.difficulty,
+        category: bp.category,
+        tags: JSON.stringify(bp.tags),
+        description: bp.description,
+        starterCode: bp.starterCode,
+        solutionCode: bp.solutionCode,
+        timeLimitMs: bp.timeLimitMs,
+        memoryLimitMb: bp.memoryLimitMb,
+        basePoints: bp.basePoints,
+        sourceType: bp.sourceType,
+        sourceRefJson: JSON.stringify(bp.sourceRef),
+        status: 'PUBLISHED',
+      },
+    });
+    problemMap[bp.slug] = problem;
+
+    await prisma.testCase.deleteMany({ where: { problemId: problem.id } });
+    for (let tIdx = 0; tIdx < allTests.length; tIdx++) {
+      const tc = allTests[tIdx];
+      await prisma.testCase.create({
+        data: {
+          problemId: problem.id,
+          input: tc.input,
+          expectedOutput: tc.expectedOutput,
+          isHidden: tc.isHidden,
+          orderIndex: tIdx,
+        },
+      });
+    }
+  }
+  console.log(`Successfully seeded ${KANETKAR_BOOK_PROBLEMS.length} Kanetkar book challenges with test cases.`);
+
+  // 5. Keep canonical test problems published for test harness compatibility, retire all other non-book problems
+  const CANONICAL_TEST_SLUGS = [
+    'sum-of-multiples',
+    'in-place-string-reversal',
+    'bitwise-parity-check',
+    'count-words-and-chars',
+    'daily-longest-unique-substring',
+    'valid-parentheses-stack',
+    'matrix-spiral-traversal',
+    'circular-buffer-fifo',
+    'endian-byte-swap',
+    'merge-k-sorted-arrays',
+    'lru-cache-c',
+    'memory-pool-block-allocator',
+    'dijkstra-shortest-path',
+    'pointer-arithmetic-palindrome',
+    'safe-string-splitter',
+    'binary-tree-height',
+    'pointer-swap-in-place',
+  ];
+
+  await prisma.problem.updateMany({
+    where: {
+      slug: { in: CANONICAL_TEST_SLUGS },
+    },
+    data: {
+      status: 'PUBLISHED',
+      isDaily: false,
+    },
+  });
+
+  const retiredResult = await prisma.problem.updateMany({
+    where: {
+      sourceType: { not: 'BOOK' },
+      slug: { notIn: CANONICAL_TEST_SLUGS },
+    },
+    data: {
+      status: 'RETIRED',
+      isDaily: false,
+    },
+  });
+  console.log(`Retired non-book problems not in canonical test list.`);
+
+  // 6. Schedule Today's Active Daily Challenge from the Kanetkar Book Bank
+  const featuredBookSlug = 'kanetkar-ch1-scope-shadow-eval';
+  if (problemMap[featuredBookSlug]) {
     await prisma.problem.update({
-      where: { id: problemMap[featuredSlug].id },
+      where: { id: problemMap[featuredBookSlug].id },
       data: {
         isDaily: true,
         scheduledDate: istDateString,
       },
     });
-    console.log(`Featured daily challenge configured: "${featuredSlug}" for ${istDateString} (IST).`);
+    console.log(`Featured daily challenge configured: "${featuredBookSlug}" for ${istDateString} (IST).`);
   }
 
   // 6. Seed Sample Students across Multiple Departments & Years (with 12-digit PRNs + PrnIndex)

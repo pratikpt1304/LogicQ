@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext.js';
 import { Navbar } from './components/layout/Navbar.js';
 import { Footer } from './components/layout/Footer.js';
 import { PwaManager } from './components/common/PwaManager.js';
+import { Logo } from './components/common/Logo.js';
 
 // Pages
 import { LandingPage } from './pages/LandingPage.js';
@@ -19,22 +20,36 @@ import { LeaderboardPage } from './pages/LeaderboardPage.js';
 import { HistoryPage } from './pages/HistoryPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.js';
+import { CheckerReviewsPage } from './pages/checker/CheckerReviewsPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
+
+// Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
+const AuthLoadingScreen: React.FC<{ message?: string }> = ({
+  message = 'Authenticating LogicQ session...',
+}) => (
+  <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+    <div className="mb-4 animate-pulse">
+      <Logo size="lg" />
+    </div>
+    <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] tracking-wider">
+      <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-ping" />
+      <span>{message}</span>
+    </div>
+  </div>
+);
 
 // Route Guards
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
+  const { user, authState } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="h-[60vh] flex items-center justify-center font-mono text-cyan-400 text-xs">
-        Authenticating LogicQ session...
-      </div>
-    );
+  // Render branded loading state until session state is known (zero flash of login)
+  if (authState === 'loading') {
+    return <AuthLoadingScreen message="Restoring LogicQ session..." />;
   }
 
-  if (!user) {
+  // Redirect only when definitively signed out
+  if (authState === 'signedOut' || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -51,17 +66,38 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAdmin, isLoading } = useAuth();
+  const { user, isAdmin, authState } = useAuth();
+  const location = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="h-[60vh] flex items-center justify-center font-mono text-purple-400 text-xs">
-        Verifying administrator privileges...
-      </div>
-    );
+  if (authState === 'loading') {
+    return <AuthLoadingScreen message="Verifying administrator privileges..." />;
   }
 
-  if (!user || !isAdmin) {
+  if (authState === 'signedOut' || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAdmin, isChecker, authState } = useAuth();
+  const location = useLocation();
+
+  if (authState === 'loading') {
+    return <AuthLoadingScreen message="Verifying review privileges..." />;
+  }
+
+  if (authState === 'signedOut' || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Allowed for CHECKER or ADMIN (for supervisor review)
+  if (!isChecker && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -69,7 +105,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export const App: React.FC = () => {
-  const { user } = useAuth();
+  const { user, authState } = useAuth();
   const location = useLocation();
   const isWorkspaceRoute = location.pathname.startsWith('/challenge');
 
@@ -80,11 +116,13 @@ export const App: React.FC = () => {
 
       <main className="flex-1 w-full overflow-x-hidden">
         <Routes>
-          {/* Root: if authenticated go to dashboard, else landing */}
+          {/* Root: if loading show splash, if authenticated go to dashboard, else landing */}
           <Route
             path="/"
             element={
-              user ? (
+              authState === 'loading' ? (
+                <AuthLoadingScreen message="Restoring LogicQ session..." />
+              ) : user ? (
                 user.role === 'STUDENT' && user.profileComplete === false ? (
                   <Navigate to="/complete-profile" replace />
                 ) : (
@@ -175,6 +213,16 @@ export const App: React.FC = () => {
               <AdminRoute>
                 <AdminDashboardPage />
               </AdminRoute>
+            }
+          />
+
+          {/* Checker Protected Review Portal */}
+          <Route
+            path="/checker/reviews"
+            element={
+              <CheckerRoute>
+                <CheckerReviewsPage />
+              </CheckerRoute>
             }
           />
 

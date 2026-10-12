@@ -3,9 +3,11 @@ import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { FEATURES } from '../config/features.config.js';
 import {
+  getServerNow,
   getTodayIST,
   getChallengeDayIST,
   getSecondsUntilNext1700IST,
+  getNext1700ISTUTC,
   getCurrentWeekDayDatesIST,
   addDaysIST,
   CURRENT_WEEK_SLUGS,
@@ -13,13 +15,29 @@ import {
 } from '../utils/ist.js';
 
 let lastSyncedChallengeDay: string | null = null;
+let autoScheduleSyncEnabled = true;
+
+export function setAutoScheduleSyncEnabled(enabled: boolean): void {
+  autoScheduleSyncEnabled = enabled;
+  if (!enabled) {
+    lastSyncedChallengeDay = null;
+  }
+}
+
+export function resetScheduleSyncCache(): void {
+  lastSyncedChallengeDay = null;
+}
 
 /**
  * Ensures the canonical 7 challenges of the current week and the past-week
  * challenges have deterministic `scheduledDate` values aligned with the active
- * 17:00 IST challenge day (`getChallengeDayIST()`).
+ * 17:00 IST challenge day (`getChallengeDayIST()`), unless disabled by a simulated-time test.
  */
 export async function ensureCurrentWeekSchedule(): Promise<void> {
+  if (!autoScheduleSyncEnabled) {
+    return;
+  }
+
   const challengeDayIST = getChallengeDayIST();
   if (lastSyncedChallengeDay === challengeDayIST) {
     return;
@@ -32,7 +50,6 @@ export async function ensureCurrentWeekSchedule(): Promise<void> {
   });
 
   if (todayProblem && todayProblem.scheduledDate === challengeDayIST) {
-    // Also verify Day 4 ('sum-of-multiples') is scheduled so weekly catch-up is always ready
     const day4 = await prisma.problem.findUnique({
       where: { slug: 'sum-of-multiples' },
       select: { scheduledDate: true },
@@ -43,7 +60,7 @@ export async function ensureCurrentWeekSchedule(): Promise<void> {
     }
   }
 
-  // Align the 7 canonical current-week problems (Days 1..5 unlocked, Days 6..7 locked future)
+  // Align the 7 canonical current-week problems (Days 1..4 ended, Day 5 active today, Days 6..7 future locked)
   for (let i = 0; i < CURRENT_WEEK_SLUGS.length; i++) {
     const slug = CURRENT_WEEK_SLUGS[i];
     const scheduledDate = weekDates[i];
@@ -77,10 +94,139 @@ export async function ensureCurrentWeekSchedule(): Promise<void> {
   lastSyncedChallengeDay = challengeDayIST;
 }
 
+function parseBookOrder(sourceRefJson: string | null | undefined): {
+  chapterOrder: number;
+  exerciseOrder: number;
+} {
+  if (!sourceRefJson) {
+    return { chapterOrder: 999999, exerciseOrder: 999999 };
+  }
+  try {
+    const parsed = JSON.parse(sourceRefJson);
+    return {
+      chapterOrder: Number.isFinite(Number(parsed.chapterOrder))
+        ? Number(parsed.chapterOrder)
+        : 999999,
+      exerciseOrder: Number.isFinite(Number(parsed.exerciseOrder))
+        ? Number(parsed.exerciseOrder)
+        : 999999,
+    };
+  } catch {
+    return { chapterOrder: 999999, exerciseOrder: 999999 };
+  }
+}
+
+/**
+ * Resolves the single active daily challenge for `challengeDayIST`.
+ * If no PUBLISHED problem is scheduled for `challengeDayIST`, automatically picks
+ * the next APPROVED (`PUBLISHED`) unscheduled problem from the book pool in
+ * `(chapterOrder, exerciseOrder)` order and logs an admin alert.
+ * If none exist, returns `{ problem: null, seasonComplete: true }`.
+ */
+export async function resolveActiveDailyChallenge(now: Date = getServerNow()): Promise<{
+  problem: any | null;
+  seasonComplete: boolean;
+  autoAssigned: boolean;
+}> {
+  const challengeDayIST = getChallengeDayIST(now);
+
+  const scheduled = await prisma.problem.findFirst({
+    where: {
+      status: 'PUBLISHED',
+      scheduledDate: challengeDayIST,
+    },
+    include: {
+      testCases: {
+        where: { isHidden: false },
+        orderBy: { orderIndex: 'asc' },
+        select: { id: true, input: true, expectedOutput: true, isHidden: true, orderIndex: true },
+      },
+    },
+  });
+
+  if (scheduled) {
+    return { problem: scheduled, seasonComplete: false, autoAssigned: false };
+  }
+
+  // Missing-question fallback at 17:00 IST: find unscheduled PUBLISHED problems
+  const candidates = await prisma.problem.findMany({
+    where: {
+      status: 'PUBLISHED',
+      OR: [{ scheduledDate: null }, { scheduledDate: '' }],
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const adminUser = await prisma.user.findFirst({
+    where: { role: 'ADMIN' },
+    select: { id: true },
+  });
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => {
+      const orderA = parseBookOrder(a.sourceRefJson);
+      const orderB = parseBookOrder(b.sourceRefJson);
+      if (orderA.chapterOrder !== orderB.chapterOrder) {
+        return orderA.chapterOrder - orderB.chapterOrder;
+      }
+      if (orderA.exerciseOrder !== orderB.exerciseOrder) {
+        return orderA.exerciseOrder - orderB.exerciseOrder;
+      }
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+
+    const chosen = candidates[0];
+    const updated = await prisma.problem.update({
+      where: { id: chosen.id },
+      data: {
+        scheduledDate: challengeDayIST,
+        isDaily: true,
+      },
+      include: {
+        testCases: {
+          where: { isHidden: false },
+          orderBy: { orderIndex: 'asc' },
+          select: { id: true, input: true, expectedOutput: true, isHidden: true, orderIndex: true },
+        },
+      },
+    });
+
+    if (adminUser) {
+      await prisma.adminAuditLog
+        .create({
+          data: {
+            adminId: adminUser.id,
+            action: 'AUTO_FALLBACK_CHALLENGE_ASSIGNED',
+            newValue: `${updated.slug} (${challengeDayIST})`,
+            reason: `No question was scheduled at 17:00 IST for ${challengeDayIST}; auto-picked next APPROVED unscheduled question (${updated.slug}).`,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return { problem: updated, seasonComplete: false, autoAssigned: true };
+  }
+
+  if (adminUser) {
+    await prisma.adminAuditLog
+      .create({
+        data: {
+          adminId: adminUser.id,
+          action: 'SEASON_COMPLETE_ALERT',
+          newValue: challengeDayIST,
+          reason: `No scheduled or unscheduled APPROVED questions remain in the pool for ${challengeDayIST}.`,
+        },
+      })
+      .catch(() => {});
+  }
+
+  return { problem: null, seasonComplete: true, autoAssigned: false };
+}
+
 export interface CurrentWeekDayItem {
   dayNumber: number;
   scheduledDate: string;
-  status: 'UNLOCKED' | 'LOCKED';
+  status: 'UNLOCKED' | 'LOCKED' | 'ENDED';
   isToday: boolean;
   isSolved: boolean;
   unlocksAt: string;
@@ -151,13 +297,12 @@ export async function buildCurrentWeekStrip(userId?: string): Promise<CurrentWee
 
   return weekDates.map((dateStr, idx) => {
     const dayNumber = idx + 1;
-    const isUnlocked = dateStr <= challengeDayIST;
     const isToday = dateStr === challengeDayIST;
+    const isFuture = dateStr > challengeDayIST;
     const prob = byDate.get(dateStr) || null;
     const unlocksAt = `${dateStr}T17:00:00+05:30`;
 
-    if (!isUnlocked) {
-      // Locked future challenge: NEVER leak problem title, slug, or description
+    if (isFuture) {
       return {
         dayNumber,
         scheduledDate: dateStr,
@@ -173,11 +318,11 @@ export async function buildCurrentWeekStrip(userId?: string): Promise<CurrentWee
     return {
       dayNumber,
       scheduledDate: dateStr,
-      status: 'UNLOCKED',
+      status: isToday ? 'UNLOCKED' : 'ENDED',
       isToday,
       isSolved: prob ? solvedSet.has(prob.id) : false,
       unlocksAt,
-      unlockLabel: isToday ? 'Active Today (Unlocked 17:00 IST)' : `Unlocked ${dateStr} at 17:00 IST`,
+      unlockLabel: isToday ? 'Active Today (17:00 IST – 17:00 IST)' : `Ended (${dateStr})`,
       problem: prob
         ? {
             id: prob.id,
@@ -201,6 +346,16 @@ function sanitizeProblemForStudent(problem: any) {
 }
 
 export async function getCurrentWeekChallenges(req: AuthRequest, res: Response): Promise<void> {
+  // Single Visible Question Rule: Students cannot list or browse past/future questions or a 7-day strip.
+  if (req.user?.role !== 'ADMIN') {
+    res.status(404).json({
+      success: false,
+      code: 'CHALLENGE_LIST_DISABLED',
+      message: 'Not found',
+    });
+    return;
+  }
+
   try {
     const todayIST = getTodayIST();
     const challengeDayIST = getChallengeDayIST();
@@ -224,48 +379,28 @@ export async function getCurrentWeekChallenges(req: AuthRequest, res: Response):
 export async function getDailyChallenge(req: AuthRequest, res: Response): Promise<void> {
   try {
     await ensureCurrentWeekSchedule();
-    const todayIST = getTodayIST();
-    const challengeDayIST = getChallengeDayIST();
+    const now = getServerNow();
+    const todayIST = getTodayIST(now);
+    const challengeDayIST = getChallengeDayIST(now);
+    const secondsUntilNextReset = getSecondsUntilNext1700IST(now);
+    const nextSwitchUTC = getNext1700ISTUTC(now);
 
-    // Look for challenge scheduled for current 17:00 IST challenge day, or todayIST, or fallback to any isDaily problem
-    let problem = await prisma.problem.findFirst({
-      where: {
-        status: 'PUBLISHED',
-        OR: [{ scheduledDate: challengeDayIST }, { scheduledDate: todayIST }, { isDaily: true }],
-      },
-      include: {
-        testCases: {
-          where: { isHidden: false },
-          orderBy: { orderIndex: 'asc' },
-          select: { id: true, input: true, expectedOutput: true, isHidden: true, orderIndex: true },
-        },
-      },
-    });
+    res.setHeader('Cache-Control', `private, max-age=${secondsUntilNextReset}, must-revalidate`);
+    res.setHeader('Expires', nextSwitchUTC.toUTCString());
 
-    if (!problem) {
-      problem = await prisma.problem.findFirst({
-        where: { status: 'PUBLISHED' },
-        include: {
-          testCases: {
-            where: { isHidden: false },
-            orderBy: { orderIndex: 'asc' },
-            select: { id: true, input: true, expectedOutput: true, isHidden: true, orderIndex: true },
-          },
-        },
-      });
-    }
+    const { problem, seasonComplete, autoAssigned } = await resolveActiveDailyChallenge(now);
 
-    if (!problem) {
+    if (seasonComplete || !problem) {
       res.status(200).json({
         success: true,
         data: {
           seasonComplete: true,
           message: 'Season complete — all published challenges have been completed.',
           problem: null,
-          currentWeek: [],
           todayIST,
           challengeDayIST,
-          secondsUntilNextReset: getSecondsUntilNext1700IST(),
+          secondsUntilNextReset,
+          endsAt: nextSwitchUTC.toISOString(),
         },
       });
       return;
@@ -300,17 +435,16 @@ export async function getDailyChallenge(req: AuthRequest, res: Response): Promis
       }
     }
 
-    const currentWeek = await buildCurrentWeekStrip(req.user?.userId);
-
     res.status(200).json({
       success: true,
       data: {
         seasonComplete: false,
+        autoAssigned,
         problem: sanitizeProblemForStudent(problem),
-        currentWeek,
         todayIST,
         challengeDayIST,
-        secondsUntilNextReset: getSecondsUntilNext1700IST(),
+        secondsUntilNextReset,
+        endsAt: nextSwitchUTC.toISOString(),
         userStatus: {
           isSolved: isSolvedToday,
           attempts: userAttempts,
@@ -429,11 +563,14 @@ export async function getProblemBySlugOrId(req: AuthRequest, res: Response): Pro
   try {
     await ensureCurrentWeekSchedule();
     const { identifier } = req.params;
+    const now = getServerNow();
+    const challengeDayIST = getChallengeDayIST(now);
+    const isAdmin = req.user?.role === 'ADMIN';
 
     const problem = await prisma.problem.findFirst({
       where: {
         OR: [{ id: identifier }, { slug: identifier }],
-        status: 'PUBLISHED',
+        ...(isAdmin ? {} : { status: 'PUBLISHED' }),
       },
       include: {
         testCases: {
@@ -451,39 +588,42 @@ export async function getProblemBySlugOrId(req: AuthRequest, res: Response): Pro
     });
 
     if (!problem) {
-      res.status(404).json({ success: false, message: 'Problem not found' });
+      res.status(404).json({
+        success: false,
+        code: 'CHALLENGE_NOT_AVAILABLE',
+        message: 'Challenge not available.',
+      });
       return;
     }
 
-    const challengeDayIST = getChallengeDayIST();
-    const weekDates = getCurrentWeekDayDatesIST();
-    const weekStart = weekDates[0];
-
-    if (!FEATURES.ARCHIVE) {
-      // Locked future challenge check (even within current week)
-      if (problem.scheduledDate && problem.scheduledDate > challengeDayIST) {
+    if (!isAdmin) {
+      // 1. Future or unscheduled challenge -> 404 Not Found (never reveal title, statement, or samples)
+      if (!problem.scheduledDate || problem.scheduledDate > challengeDayIST) {
         res.status(404).json({
           success: false,
-          message: 'Challenge is locked until its scheduled 17:00 IST release time.',
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Challenge not available.',
         });
         return;
       }
 
-      // Past-week or unscheduled archive problem check
-      const isCurrentWeekUnlocked = Boolean(
-        problem.scheduledDate &&
-          problem.scheduledDate >= weekStart &&
-          problem.scheduledDate <= challengeDayIST
-      );
-
-      if (!isCurrentWeekUnlocked) {
-        res.status(404).json({
+      // 2. Past / Ended challenge -> 410 Gone ("This challenge has ended" with link to today's challenge; NEVER leak statement, samples, or test cases)
+      if (problem.scheduledDate < challengeDayIST) {
+        res.status(410).json({
           success: false,
-          message: 'Not found',
+          code: 'CHALLENGE_ENDED',
+          ended: true,
+          message: 'This challenge has ended.',
+          todayChallengeUrl: '/challenge',
         });
         return;
       }
     }
+
+    const secondsUntilNextReset = getSecondsUntilNext1700IST(now);
+    const nextSwitchUTC = getNext1700ISTUTC(now);
+    res.setHeader('Cache-Control', `private, max-age=${secondsUntilNextReset}, must-revalidate`);
+    res.setHeader('Expires', nextSwitchUTC.toUTCString());
 
     let isSolved = false;
     let userAttempts = 0;
@@ -515,16 +655,14 @@ export async function getProblemBySlugOrId(req: AuthRequest, res: Response): Pro
       }
     }
 
-    const currentWeek = await buildCurrentWeekStrip(req.user?.userId);
-
     res.status(200).json({
       success: true,
       data: {
-        problem: sanitizeProblemForStudent(problem),
-        currentWeek,
-        todayIST: getTodayIST(),
+        problem: isAdmin ? problem : sanitizeProblemForStudent(problem),
+        todayIST: getTodayIST(now),
         challengeDayIST,
-        secondsUntilNextReset: getSecondsUntilNext1700IST(),
+        secondsUntilNextReset,
+        endsAt: nextSwitchUTC.toISOString(),
         userStatus: {
           isSolved,
           attempts: userAttempts,

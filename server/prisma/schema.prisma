@@ -29,6 +29,7 @@ model User {
   longestStreak        Int            @default(0)
   lastSolvedDate       String?        // YYYY-MM-DD in IST
   isBanned             Boolean        @default(false)
+  isCheckerPaused      Boolean        @default(false)
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
   createdAt            DateTime       @default(now())
@@ -37,6 +38,7 @@ model User {
   prnIndex             PrnIndex?
   submissions          Submission[]
   uploadedSolutions    UploadedSolution[]
+  assignedReviews      UploadedSolution[] @relation("AssignedChecker")
   userBadges           UserBadge[]
   refreshTokens        RefreshToken[]
   contestParticipants  ContestParticipant[]
@@ -56,6 +58,7 @@ model AdminAuditLog {
   id           String   @id @default(uuid())
   adminId      String
   targetUserId String?
+  targetId     String?  // Generic target resource ID (e.g. uploadId, problemId)
   action       String
   oldValue     String?
   newValue     String?
@@ -64,6 +67,7 @@ model AdminAuditLog {
 
   @@index([adminId])
   @@index([targetUserId])
+  @@index([targetId])
   @@index([createdAt])
 }
 
@@ -213,42 +217,49 @@ model UserBadge {
 }
 
 model UploadedSolution {
-  id              String         @id @default(uuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problemId       String
-  problem         Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  weekId          String?
-  dayIndex        Int?
-  filesJson       String         // JSON array of FileItem { id, storageKey, mimeType, sizeBytes, sha256, width, height, pages, dataBase64 }
-  studentNote     String         @default("")
-  status          String         @default("PENDING_REVIEW") // "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
-  pointsAwarded   Int            @default(0)
-  reviewerId      String?
-  reviewerComment String?
-  suspicionFlag   Boolean        @default(false)
-  suspicionNote   String?
-  submittedAt     DateTime       @default(now())
-  reviewedAt      DateTime?
+  id                String         @id @default(uuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId         String
+  problem           Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  weekId            String?
+  dayIndex          Int?
+  filesJson         String         // JSON array of FileItem { id, storageKey, mimeType, sizeBytes, sha256, width, height, pages, dataBase64 }
+  studentNote       String         @default("")
+  status            String         @default("PENDING_REVIEW") // "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
+  pointsAwarded     Int            @default(0)
+  reviewerId        String?
+  reviewerComment   String?
+  assignedCheckerId String?
+  assignedChecker   User?          @relation("AssignedChecker", fields: [assignedCheckerId], references: [id], onDelete: SetNull)
+  assignedAt        DateTime?
+  suspicionFlag     Boolean        @default(false)
+  suspicionNote     String?
+  rubricScoresJson  String?        // JSON of rubric breakdown e.g. {"correctLogic": 1.0, "flowchart": 0.8, "clarity": 1.0}
+  submittedAt       DateTime       @default(now())
+  reviewedAt        DateTime?
 
-  reviews         UploadReview[]
+  reviews           UploadReview[]
 
   @@index([userId, problemId])
   @@index([status])
+  @@index([assignedCheckerId])
   @@index([submittedAt])
 }
 
 model UploadReview {
-  id            String           @id @default(uuid())
-  uploadId      String
-  upload        UploadedSolution @relation(fields: [uploadId], references: [id], onDelete: Cascade)
-  reviewerId    String
-  decision      String           // "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
-  pointsAwarded Int              @default(0)
-  comment       String           @default("")
-  createdAt     DateTime         @default(now())
+  id               String           @id @default(uuid())
+  uploadId         String
+  upload           UploadedSolution @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  reviewerId       String
+  decision         String           // "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
+  pointsAwarded    Int              @default(0)
+  rubricScoresJson String?          // JSON of rubric breakdown used for this decision
+  comment          String           @default("")
+  createdAt        DateTime         @default(now())
 
   @@index([uploadId])
+  @@index([reviewerId])
 }
 
 model ErrorReport {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '../src/utils/prisma.js';
 import { updateUserStreak } from '../src/services/streak.service.js';
-import { getTodayIST, getYesterdayIST } from '../src/utils/ist.js';
+import { getTodayIST, getYesterdayIST, getChallengeDayIST, addDaysIST } from '../src/utils/ist.js';
 
 describe('Scoring & Streak Engine', () => {
   let testUserId: string;
@@ -36,13 +36,13 @@ describe('Scoring & Streak Engine', () => {
   });
 
   it('should increment streak when solved on consecutive days', async () => {
-    // Manually set lastSolvedDate to yesterday
-    const yesterday = getYesterdayIST();
+    // Manually set lastSolvedDate to previous challenge day under 17:00 IST rule
+    const prevChallengeDay = addDaysIST(getChallengeDayIST(), -1);
     await prisma.user.update({
       where: { id: testUserId },
       data: {
         currentStreak: 3,
-        lastSolvedDate: yesterday,
+        lastSolvedDate: prevChallengeDay,
       },
     });
 

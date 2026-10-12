@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isChecker, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isStandalone = useIsStandalonePwa();
   const location = useLocation();
@@ -221,6 +221,17 @@ export const Navbar: React.FC = () => {
                       </Link>
                     )}
 
+                    {(isChecker || isAdmin) && (
+                      <Link
+                        to="/checker/reviews"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-xs text-emerald-400 hover:bg-[var(--bg-surface)]"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>My Reviews (Checker)</span>
+                      </Link>
+                    )}
+
                     <div className="border-t border-[var(--border-line)] my-1"></div>
 
                     <button
@@ -380,6 +391,15 @@ export const Navbar: React.FC = () => {
                 className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
               >
                 Admin Portal
+              </Link>
+            )}
+            {(isChecker || isAdmin) && (
+              <Link
+                to="/checker/reviews"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-emerald-400 hover:bg-[var(--bg-surface)]"
+              >
+                My Reviews (Checker)
               </Link>
             )}
             <button

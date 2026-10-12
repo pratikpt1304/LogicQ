@@ -188,9 +188,9 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
   });
 
   if (overallVerdict === Verdict.ACCEPTED) {
-    // Daily streak if problem is daily or a scheduled current-week challenge
+    // Daily streak if problem is daily or a scheduled challenge (attributed to submission.createdAt)
     if (submission.problem.isDaily || submission.problem.scheduledDate) {
-      await updateUserStreak(submission.userId);
+      await updateUserStreak(submission.userId, submission.createdAt);
     }
 
     // Badges evaluation (only when FEATURE_BADGES=true)

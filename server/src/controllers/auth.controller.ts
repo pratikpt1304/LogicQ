@@ -123,10 +123,21 @@ const googleSignInSchema = z.object({
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
   const isProd = process.env.NODE_ENV === 'production';
 
+  // Firebase Hosting CDN edge exclusively forwards cookies named '__session' to backend functions.
+  // We set __session with httpOnly, lax sameSite, and path: '/' without storing PII inside it.
+  res.cookie('__session', accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
+    path: '/',
     maxAge: 15 * 60 * 1000,
   });
 
@@ -134,6 +145,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
+    path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -647,8 +659,9 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       });
     }
 
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    res.clearCookie('__session', { path: '/' });
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
 
     res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (error) {

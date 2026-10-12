@@ -5,18 +5,33 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { UPLOAD_CONFIG, verifyMagicBytes, stripJpegExif } from '../config/upload.config.js';
-import { getTodayIST, getYesterdayIST } from '../utils/ist.js';
+import {
+  getServerNow,
+  getTodayIST,
+  getYesterdayIST,
+  getChallengeDayIST,
+  addDaysIST,
+  getCurrentWeekDayDatesIST,
+} from '../utils/ist.js';
+import { ensureCurrentWeekSchedule } from './problem.controller.js';
 
-function calculateNextStreak(lastSolvedDate: string | null, currentStreak: number): { newStreak: number } {
-  const today = getTodayIST();
-  const yesterday = getYesterdayIST();
-  if (lastSolvedDate === today) {
-    return { newStreak: Math.max(1, currentStreak) };
+function calculateNextStreak(
+  lastSolvedDate: string | null,
+  currentStreak: number,
+  solveTimestamp: Date = getServerNow()
+): { newStreak: number; solvedDateStr: string } {
+  const challengeDay = getChallengeDayIST(solveTimestamp);
+  const prevChallengeDay = addDaysIST(challengeDay, -1);
+  const today = getTodayIST(solveTimestamp);
+  const yesterday = getYesterdayIST(solveTimestamp);
+
+  if (lastSolvedDate === challengeDay || lastSolvedDate === today) {
+    return { newStreak: Math.max(1, currentStreak), solvedDateStr: challengeDay };
   }
-  if (lastSolvedDate === yesterday) {
-    return { newStreak: currentStreak + 1 };
+  if (lastSolvedDate === prevChallengeDay || lastSolvedDate === yesterday) {
+    return { newStreak: currentStreak + 1, solvedDateStr: challengeDay };
   }
-  return { newStreak: 1 };
+  return { newStreak: 1, solvedDateStr: challengeDay };
 }
 
 const fileInputSchema = z.object({
@@ -240,10 +255,29 @@ export class UploadController {
       const { problemId, weekId, dayIndex, studentNote, note, files } = parsed.data;
       const finalNote = (studentNote ?? note ?? '').trim();
 
+      const submittedAt = getServerNow();
+      const challengeDayIST = getChallengeDayIST(submittedAt);
+      await ensureCurrentWeekSchedule();
+
       const problem = await prisma.problem.findUnique({ where: { id: problemId } });
       if (!problem) {
         res.status(404).json({ success: false, message: 'Problem not found.' });
         return;
+      }
+
+      // Single Visible Question Rule: students can only upload solutions for today's active challenge before 17:00 IST
+      if (req.user!.role !== 'ADMIN') {
+        if (problem.status !== 'PUBLISHED' || problem.scheduledDate !== challengeDayIST) {
+          const isEnded = Boolean(problem.scheduledDate && problem.scheduledDate < challengeDayIST);
+          res.status(403).json({
+            success: false,
+            code: isEnded ? 'CHALLENGE_ENDED' : 'CHALLENGE_NOT_AVAILABLE',
+            message: isEnded
+              ? 'Challenge not available: this challenge ended at 17:00 IST.'
+              : 'Challenge not available.',
+          });
+          return;
+        }
       }
 
       // 1. Check if student already has an ACCEPTED code submission or APPROVED upload for this problem
@@ -279,7 +313,7 @@ export class UploadController {
       }
 
       // 3. Enforce daily upload quota (max 5 uploads per student per day)
-      const startOfToday = new Date();
+      const startOfToday = new Date(submittedAt);
       startOfToday.setUTCHours(0, 0, 0, 0);
       const todayCount = await prisma.uploadedSolution.count({
         where: {
@@ -317,6 +351,7 @@ export class UploadController {
           studentNote: finalNote,
           status: 'PENDING_REVIEW',
           pointsAwarded: 0,
+          submittedAt,
         },
         include: {
           problem: true,
@@ -844,6 +879,12 @@ export class UploadController {
           ? Math.min(Math.max(0, requestedPoints ?? maxPoints), maxPoints)
           : 0;
 
+      let weeklyCorrectionCreated = false;
+      const now = getServerNow();
+      const uploadDayStr = getChallengeDayIST(upload.submittedAt);
+      const currentWeekStart = getCurrentWeekDayDatesIST(now)[0];
+      const isPostFreezeWeek = uploadDayStr < currentWeekStart;
+
       const updated = await prisma.$transaction(async (tx) => {
         // Check if student already received points for this problem via code or another upload
         const [priorAcceptedCode, priorApprovedUpload] = await Promise.all([
@@ -879,7 +920,11 @@ export class UploadController {
         if (decision === 'APPROVED' && !alreadySolvedProblem) {
           const student = await tx.user.findUnique({ where: { id: upload.userId } });
           if (student) {
-            const streakInfo = calculateNextStreak(student.lastSolvedDate, student.currentStreak);
+            const streakInfo = calculateNextStreak(
+              student.lastSolvedDate,
+              student.currentStreak,
+              upload.submittedAt
+            );
             const newLongest = Math.max(student.longestStreak, streakInfo.newStreak);
             await tx.user.update({
               where: { id: student.id },
@@ -887,7 +932,7 @@ export class UploadController {
                 totalPoints: { increment: netPointsDelta },
                 currentStreak: streakInfo.newStreak,
                 longestStreak: newLongest,
-                lastSolvedDate: getTodayIST(),
+                lastSolvedDate: streakInfo.solvedDateStr,
               },
             });
           }
@@ -907,7 +952,7 @@ export class UploadController {
             pointsAwarded: effectivePointsAwarded,
             reviewerId: adminId,
             reviewerComment: comment || null,
-            reviewedAt: new Date(),
+            reviewedAt: now,
             ...(typeof suspicionFlag === 'boolean' ? { suspicionFlag } : {}),
           },
           include: {
@@ -938,6 +983,27 @@ export class UploadController {
           },
         });
 
+        if (decision === 'APPROVED' && isPostFreezeWeek && effectivePointsAwarded > 0) {
+          weeklyCorrectionCreated = true;
+          await tx.adminAuditLog.create({
+            data: {
+              adminId,
+              targetUserId: upload.userId,
+              targetId: upload.id,
+              action: 'WEEKLY_CORRECTION_CREATED',
+              oldValue: uploadDayStr,
+              newValue: JSON.stringify({
+                uploadId: upload.id,
+                problemId: upload.problemId,
+                submittedAt: upload.submittedAt.toISOString(),
+                challengeDayIST: uploadDayStr,
+                pointsAwarded: effectivePointsAwarded,
+              }),
+              reason: `Post-freeze WeeklyCorrection recorded for upload ${upload.id} submitted on ${uploadDayStr}.`,
+            },
+          });
+        }
+
         return updatedUpload;
       });
 
@@ -947,7 +1013,13 @@ export class UploadController {
         message: `Upload ${decision.toLowerCase().replace('_', ' ')}.`,
         data: {
           ...formatted,
-          upload: formatted,
+          weeklyCorrectionCreated,
+          postFreezeCorrection: weeklyCorrectionCreated,
+          upload: {
+            ...formatted,
+            weeklyCorrectionCreated,
+            postFreezeCorrection: weeklyCorrectionCreated,
+          },
         },
       });
     } catch (error) {

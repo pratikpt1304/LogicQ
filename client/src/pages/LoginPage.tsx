@@ -15,7 +15,10 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  const fromLocation = (location.state as any)?.from;
+  const from = fromLocation
+    ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
+    : '/dashboard';
 
   const handleGoogleSignIn = async () => {
     setError(null);

@@ -13,6 +13,7 @@ import { contestRouter } from './routes/contest.routes.js';
 import { leaderboardRouter } from './routes/leaderboard.routes.js';
 import { userRouter } from './routes/user.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { checkerRouter } from './routes/checker.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
 import { prisma } from './utils/prisma.js';
 
@@ -128,6 +129,7 @@ app.use('/api/contests', contestRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', userRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/checker', checkerRouter);
 
 // Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

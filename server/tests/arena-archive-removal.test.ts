@@ -117,39 +117,52 @@ describe('Arena & Archive Feature Removal, Weekly Catch-Up & Past Weeks Verifica
     }
   });
 
-  it('3. Weekly catch-up works end-to-end: open an earlier unlocked day of current week, submit C solution, update points/streak, and block future/past-week problems', async () => {
-    // 1. Fetch the 7-day current week strip
-    const weekRes = await request(app)
-      .get('/api/problems/current-week')
+  it('3. Single Visible Question rule works end-to-end: student cannot list current-week strip (404), solves today’s active challenge, and ended/future challenges are blocked (410 / 404)', async () => {
+    // 1. Student cannot fetch the removed 7-day current-week strip (404), while Admin can inspect schedule
+    const [stuWeekRes, admWeekRes] = await Promise.all([
+      request(app)
+        .get('/api/problems/current-week')
+        .set('Authorization', `Bearer ${studentToken}`),
+      request(app)
+        .get('/api/problems/current-week')
+        .set('Authorization', `Bearer ${adminToken}`),
+    ]);
+    expect(stuWeekRes.status).toBe(404);
+    expect(admWeekRes.status).toBe(200);
+
+    // 2. Open today's single active challenge (Day 5: reverse-linked-list-k-group or active scheduled problem)
+    const dailyRes = await request(app)
+      .get('/api/problems/daily')
       .set('Authorization', `Bearer ${studentToken}`);
+    expect(dailyRes.status).toBe(200);
+    const todayProblem = dailyRes.body.data.problem;
+    expect(todayProblem).toBeDefined();
+    expect(dailyRes.body.data.currentWeek).toBeUndefined();
 
-    expect(weekRes.status).toBe(200);
-    const days = weekRes.body.data.days;
-    expect(days).toHaveLength(7);
+    // Temporarily schedule sum-of-multiples as today's active challenge to verify C11 solve & points
+    const sumProb = await prisma.problem.findUnique({ where: { slug: 'sum-of-multiples' } });
+    expect(sumProb).not.toBeNull();
+    const origSumDate = sumProb!.scheduledDate;
+    const origTodayDate = todayProblem.scheduledDate;
 
-    const unlockedDays = days.filter((d: any) => d.status === 'UNLOCKED');
-    const lockedDays = days.filter((d: any) => d.status === 'LOCKED');
-    expect(unlockedDays).toHaveLength(5);
-    expect(lockedDays).toHaveLength(2);
+    await prisma.problem.update({
+      where: { id: todayProblem.id },
+      data: { scheduledDate: origSumDate },
+    });
+    await prisma.problem.update({
+      where: { id: sumProb!.id },
+      data: { scheduledDate: origTodayDate },
+    });
 
-    // Locked future days never expose problem metadata
-    for (const locked of lockedDays) {
-      expect(locked.problem).toBeNull();
-      expect(locked.unlockLabel).toContain('17:00 IST');
-    }
+    try {
+      const probRes = await request(app)
+        .get(`/api/problems/sum-of-multiples`)
+        .set('Authorization', `Bearer ${studentToken}`);
+      expect(probRes.status).toBe(200);
+      expect(probRes.body.data.problem.slug).toBe('sum-of-multiples');
 
-    // 2. Open an earlier unlocked day from the current week (Day 4: sum-of-multiples)
-    const earlierDay = unlockedDays.find((d: any) => !d.isToday && d.problem?.slug === 'sum-of-multiples');
-    expect(earlierDay).toBeDefined();
-
-    const probRes = await request(app)
-      .get(`/api/problems/${earlierDay.problem.slug}`)
-      .set('Authorization', `Bearer ${studentToken}`);
-    expect(probRes.status).toBe(200);
-    expect(probRes.body.data.problem.slug).toBe('sum-of-multiples');
-
-    // 3. Submit a valid C solution to that earlier unlocked day of the current week
-    const cSolution = `#include <stdio.h>
+      // 3. Submit a valid C solution to today's active challenge
+      const cSolution = `#include <stdio.h>
 int main() {
     long long n, sum = 0;
     if (scanf("%lld", &n) != 1) return 0;
@@ -160,38 +173,38 @@ int main() {
     return 0;
 }`;
 
-    const submitRes = await request(app)
-      .post('/api/submissions/submit')
-      .set('Authorization', `Bearer ${studentToken}`)
-      .send({
-        problemId: earlierDay.problem.id,
-        code: cSolution,
-      });
+      const submitRes = await request(app)
+        .post('/api/submissions/submit')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          problemId: sumProb!.id,
+          code: cSolution,
+        });
 
-    expect(submitRes.status).toBe(202);
-    const subId = submitRes.body.data.submissionId;
-    await evaluateSubmission(subId);
+      expect(submitRes.status).toBe(202);
+      const subId = submitRes.body.data.submissionId;
+      await evaluateSubmission(subId);
 
-    // 4. Verify points, streak, and current-week solved status updated
-    const [dashAfter, weekAfter] = await Promise.all([
-      request(app)
+      // 4. Verify points and streak updated
+      const dashAfter = await request(app)
         .get('/api/users/dashboard/stats')
-        .set('Authorization', `Bearer ${studentToken}`),
-      request(app)
-        .get('/api/problems/current-week')
-        .set('Authorization', `Bearer ${studentToken}`),
-    ]);
+        .set('Authorization', `Bearer ${studentToken}`);
 
-    expect(dashAfter.status).toBe(200);
-    expect(dashAfter.body.data.stats.totalPoints).toBeGreaterThan(40);
-    expect(dashAfter.body.data.stats.currentStreak).toBeGreaterThanOrEqual(1);
+      expect(dashAfter.status).toBe(200);
+      expect(dashAfter.body.data.stats.totalPoints).toBe(40 + sumProb!.basePoints);
+      expect(dashAfter.body.data.stats.currentStreak).toBeGreaterThanOrEqual(1);
+    } finally {
+      await prisma.problem.update({
+        where: { id: sumProb!.id },
+        data: { scheduledDate: origSumDate },
+      });
+      await prisma.problem.update({
+        where: { id: todayProblem.id },
+        data: { scheduledDate: origTodayDate },
+      });
+    }
 
-    const solvedDayInStrip = weekAfter.body.data.days.find(
-      (d: any) => d.problem?.slug === 'sum-of-multiples'
-    );
-    expect(solvedDayInStrip?.isSolved).toBe(true);
-
-    // 5. Verify locked future day cannot be fetched or submitted
+    // 5. Verify locked future day cannot be fetched (404) or submitted (403)
     const futureProb = await prisma.problem.findUnique({
       where: { slug: 'valid-parentheses-stack' },
     });
@@ -202,7 +215,7 @@ int main() {
       .set('Authorization', `Bearer ${studentToken}`);
     expect(futureFetch.status).toBe(404);
 
-    // 6. Verify past-week problem cannot be fetched or submitted
+    // 6. Verify ended past challenge returns 410 CHALLENGE_ENDED with no statement/samples/tests
     const pastProb = await prisma.problem.findUnique({
       where: { slug: 'circular-buffer-fifo' },
     });
@@ -211,7 +224,10 @@ int main() {
     const pastFetch = await request(app)
       .get('/api/problems/circular-buffer-fifo')
       .set('Authorization', `Bearer ${studentToken}`);
-    expect(pastFetch.status).toBe(404);
+    expect(pastFetch.status).toBe(410);
+    expect(pastFetch.body.code).toBe('CHALLENGE_ENDED');
+    expect(pastFetch.body.ended).toBe(true);
+    expect(pastFetch.body.data).toBeUndefined();
   }, 30000);
 
   it('4. Past weeks selector on Leaderboard and Dashboard loads past weeks rankings and student weekly summary', async () => {
