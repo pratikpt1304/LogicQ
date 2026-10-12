@@ -25,20 +25,91 @@ const STORAGE_KEYS = {
   PRN_INDEX: 'logicq_fallback_prn_index_v1',
   PRN_HISTORY: 'logicq_fallback_prn_history_v1',
   PRACTICE_PROGRESS: 'logicq_fallback_practice_progress_v1',
+  PRACTICE_MODULES: 'logicq_fallback_practice_modules_v1',
+  PRACTICE_CUSTOM_PROBLEMS: 'logicq_fallback_practice_custom_problems_v1',
 };
 
-import { PRACTICE_CONFIG } from '../config/practice.config.js';
-import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_CONFIG, PracticeModuleConfig } from '../config/practice.config.js';
+import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 
-const ALL_PRACTICE_PROBLEMS = [
+const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
   ...PRACTICE_MODULE_1_PROBLEMS,
   ...PRACTICE_MODULE_2_PROBLEMS,
   ...PRACTICE_MODULE_3_PROBLEMS,
   ...PRACTICE_MODULE_4_PROBLEMS,
 ];
+
+function getStoredPracticeModules(): PracticeModuleConfig[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_MODULES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return PRACTICE_CONFIG.MODULES;
+}
+
+function saveStoredPracticeModules(modules: PracticeModuleConfig[]) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_MODULES, JSON.stringify(modules));
+  } catch {
+    // ignore
+  }
+}
+
+function getStoredPracticeProblems(): PracticeProblemDef[] {
+  let custom: PracticeProblemDef[] = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_CUSTOM_PROBLEMS);
+    if (raw) custom = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [...STATIC_PRACTICE_PROBLEMS, ...custom];
+}
+
+function saveCustomPracticeProblem(prob: PracticeProblemDef) {
+  let custom: PracticeProblemDef[] = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_CUSTOM_PROBLEMS);
+    if (raw) custom = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  const existingIdx = custom.findIndex((p) => p.slug === prob.slug);
+  if (existingIdx >= 0) {
+    custom[existingIdx] = prob;
+  } else {
+    custom.push(prob);
+  }
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_CUSTOM_PROBLEMS, JSON.stringify(custom));
+  } catch {
+    // ignore
+  }
+}
+
+function deletePracticeProblem(slug: string) {
+  let custom: PracticeProblemDef[] = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_CUSTOM_PROBLEMS);
+    if (raw) custom = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  custom = custom.filter((p) => p.slug !== slug);
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_CUSTOM_PROBLEMS, JSON.stringify(custom));
+  } catch {
+    // ignore
+  }
+}
 
 const DEFAULT_PROBLEMS = [
   {
@@ -1458,6 +1529,54 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  // ADMIN PRACTICE MODULE & QUESTION CRUD ROUTES
+  if (path === '/admin/practice/modules' && method === 'POST') {
+    const modules = getStoredPracticeModules();
+    const newModule: PracticeModuleConfig = {
+      id: body.id || `module-${Date.now()}`,
+      slug: body.slug || `module-${Date.now()}`,
+      title: body.title,
+      order: Number(body.order) || modules.length + 1,
+      description: body.description || '',
+      requiredSolvedToUnlock: Number(body.requiredSolvedToUnlock) || 0,
+      totalQuestions: Number(body.totalQuestions) || 10,
+      distribution: body.distribution || { EASY: 4, MEDIUM: 4, HARD: 2 },
+    };
+    modules.push(newModule);
+    saveStoredPracticeModules(modules);
+    return { success: true, data: { module: newModule } };
+  }
+
+  if (path === '/admin/practice/problems' && method === 'POST') {
+    const newProblem: PracticeProblemDef = {
+      slug: body.slug || `practice-${Date.now()}`,
+      moduleSlug: body.moduleSlug,
+      moduleOrder: Number(body.moduleOrder) || 1,
+      title: body.title,
+      difficulty: body.difficulty || 'EASY',
+      category: body.category || 'Practice',
+      tags: Array.isArray(body.tags) ? body.tags : ['Practice'],
+      description: body.description || '',
+      starterCode: body.starterCode || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+      solutionCode: body.solutionCode || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+      wrongSolution1: body.wrongSolution1 || '',
+      wrongSolution2: body.wrongSolution2 || '',
+      timeLimitMs: Number(body.timeLimitMs) || 1000,
+      memoryLimitMb: Number(body.memoryLimitMb) || 64,
+      basePoints: Number(body.basePoints) || 20,
+      sampleTests: Array.isArray(body.sampleTests) ? body.sampleTests : [{ input: '1\n', expectedOutput: '1\n' }],
+      hiddenTests: Array.isArray(body.hiddenTests) ? body.hiddenTests : [],
+    };
+    saveCustomPracticeProblem(newProblem);
+    return { success: true, data: { problem: newProblem } };
+  }
+
+  if (path.startsWith('/admin/practice/problems/') && method === 'DELETE') {
+    const slug = path.replace('/admin/practice/problems/', '');
+    deletePracticeProblem(slug);
+    return { success: true };
+  }
+
   // PRACTICE MODULES
   if (path === '/practice/modules') {
     const current = getCurrentUser();
@@ -1470,20 +1589,23 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     const userPrefix = current?.id ? `${current.id}:` : 'anon:';
 
+    const practiceModules = getStoredPracticeModules();
+    const allPracticeProblems = getStoredPracticeProblems();
+
     let previousModuleSolved = 0;
-    const modulesResponse = PRACTICE_CONFIG.MODULES.map((m, idx) => {
-      const moduleProblems = ALL_PRACTICE_PROBLEMS.filter((p) => p.moduleSlug === m.slug);
+    const modulesResponse = practiceModules.map((m, idx) => {
+      const moduleProblems = allPracticeProblems.filter((p) => p.moduleSlug === m.slug);
       const solvedInModule = moduleProblems.filter(
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
       ).length;
 
-      const threshold = PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7;
+      const threshold = m.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
       const isUnlocked = idx === 0 || previousModuleSolved >= threshold;
-      const prevTitle = idx > 0 ? PRACTICE_CONFIG.MODULES[idx - 1].title : '';
+      const prevTitle = idx > 0 ? practiceModules[idx - 1].title : '';
       const requirementText =
         idx === 0
           ? 'Unlocked by default'
-          : `Solve ${threshold} of 10 in ${prevTitle} to unlock`;
+          : `Solve ${threshold} in ${prevTitle} to unlock`;
 
       previousModuleSolved = solvedInModule;
 
@@ -1495,9 +1617,11 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         description: m.description,
         isUnlocked,
         requirementText,
-        totalQuestions: m.totalQuestions,
+        totalQuestions: moduleProblems.length || m.totalQuestions,
         solvedCount: solvedInModule,
-        progressPercent: Math.round((solvedInModule / m.totalQuestions) * 100),
+        progressPercent: moduleProblems.length
+          ? Math.round((solvedInModule / moduleProblems.length) * 100)
+          : 0,
         distribution: m.distribution,
       };
     });
@@ -1523,18 +1647,21 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     const userPrefix = current?.id ? `${current.id}:` : 'anon:';
 
-    const moduleConfig = PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug);
+    const practiceModules = getStoredPracticeModules();
+    const allPracticeProblems = getStoredPracticeProblems();
+
+    const moduleConfig = practiceModules.find((m) => m.slug === moduleSlug);
     if (!moduleConfig) {
       const err = new Error('Practice module not found') as Error & { status?: number };
       err.status = 404;
       throw err;
     }
 
-    const modIdx = PRACTICE_CONFIG.MODULES.findIndex((m) => m.slug === moduleSlug);
-    const threshold = PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7;
+    const modIdx = practiceModules.findIndex((m) => m.slug === moduleSlug);
+    const threshold = moduleConfig.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
     if (modIdx > 0) {
-      const prevMod = PRACTICE_CONFIG.MODULES[modIdx - 1];
-      const prevProblems = ALL_PRACTICE_PROBLEMS.filter((p) => p.moduleSlug === prevMod.slug);
+      const prevMod = practiceModules[modIdx - 1];
+      const prevProblems = allPracticeProblems.filter((p) => p.moduleSlug === prevMod.slug);
       const prevSolved = prevProblems.filter(
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
       ).length;
@@ -1548,7 +1675,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    const moduleProblems = ALL_PRACTICE_PROBLEMS
+    const moduleProblems = allPracticeProblems
       .filter((p) => p.moduleSlug === moduleSlug)
       .sort((a, b) => a.moduleOrder - b.moduleOrder);
 
@@ -1590,7 +1717,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   // PRACTICE SINGLE PROBLEM
   if (path.startsWith('/practice/problems/')) {
     const problemSlug = path.replace('/practice/problems/', '');
-    const problem = ALL_PRACTICE_PROBLEMS.find((p) => p.slug === problemSlug);
+    const allPracticeProblems = getStoredPracticeProblems();
+    const problem = allPracticeProblems.find((p) => p.slug === problemSlug);
     if (!problem) {
       const err = new Error('Practice problem not found') as Error & { status?: number };
       err.status = 404;
@@ -1647,7 +1775,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path === '/practice/submit' && method === 'POST') {
     const current = getCurrentUser();
     const { problemSlug, code } = body;
-    const problem = ALL_PRACTICE_PROBLEMS.find((p) => p.slug === problemSlug);
+    const allPracticeProblems = getStoredPracticeProblems();
+    const problem = allPracticeProblems.find((p) => p.slug === problemSlug);
     if (!problem) {
       const err = new Error('Practice problem not found') as Error & { status?: number };
       err.status = 404;

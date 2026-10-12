@@ -88,6 +88,69 @@ export const AdminDashboardPage: React.FC = () => {
     ],
   });
 
+  // Practice Curriculum Management States
+  const [isCreatePracticeModuleOpen, setIsCreatePracticeModuleOpen] = useState(false);
+  const [isCreatePracticeProblemOpen, setIsCreatePracticeProblemOpen] = useState(false);
+  const [selectedPracticeModuleSlug, setSelectedPracticeModuleSlug] = useState<string | null>(null);
+
+  const [newPracticeModuleForm, setNewPracticeModuleForm] = useState({
+    title: '',
+    slug: '',
+    description: '',
+    order: 5,
+    requiredSolvedToUnlock: 7,
+  });
+
+  const [newPracticeProblemForm, setNewPracticeProblemForm] = useState({
+    title: '',
+    slug: '',
+    moduleSlug: 'control-structures',
+    difficulty: 'EASY' as 'EASY' | 'MEDIUM' | 'HARD',
+    category: 'Practice',
+    description: `### Problem Description\nExplain practice problem requirements here.\n\n### Input Format\nStandard input specifications.\n\n### Output Format\nExpected output specifications.`,
+    starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write solution\n    return 0;\n}`,
+    sampleInput: '10 20\n',
+    sampleOutput: '30\n',
+    hiddenInput: '100 200\n',
+    hiddenOutput: '300\n',
+  });
+
+  const { data: practiceModulesData } = useQuery({
+    queryKey: ['practice-modules'],
+    queryFn: () => api.get('/practice/modules'),
+  });
+
+  const { data: practiceProblemsData } = useQuery({
+    queryKey: ['practice-module-problems', selectedPracticeModuleSlug],
+    queryFn: () =>
+      selectedPracticeModuleSlug
+        ? api.get(`/practice/modules/${selectedPracticeModuleSlug}/problems`)
+        : Promise.resolve({ data: { problems: [] } }),
+    enabled: Boolean(selectedPracticeModuleSlug),
+  });
+
+  const createPracticeModuleMutation = useMutation({
+    mutationFn: (body: any) => api.post('/admin/practice/modules', body),
+    onSuccess: () => {
+      toast.success('Practice Module added successfully!');
+      setIsCreatePracticeModuleOpen(false);
+      setNewPracticeModuleForm({ title: '', slug: '', description: '', order: 5, requiredSolvedToUnlock: 7 });
+      queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to create practice module'),
+  });
+
+  const createPracticeProblemMutation = useMutation({
+    mutationFn: (body: any) => api.post('/admin/practice/problems', body),
+    onSuccess: () => {
+      toast.success('Practice Question added successfully!');
+      setIsCreatePracticeProblemOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['practice-module-problems'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to create practice question'),
+  });
+
   const buildFilterQuery = () => {
     const params = new URLSearchParams();
     params.set('limit', '50');
@@ -2044,39 +2107,185 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Practice Curriculum Management */}
       {activeTab === 'practice' && (
         <div className="space-y-6">
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-2">
-            <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
-              <Code2 className="w-5 h-5 text-cyan-400" />
-              <span>Syllabus Practice Modules & Question Pool</span>
-            </h3>
-            <p className="text-xs font-mono text-slate-400 max-w-3xl">
-              Overview of the 4 sequentially unlocking modules (10 problems each: 4 Easy, 4 Medium, 2 Hard).
-              All 40 reference C solutions and 80 incorrect solutions are verified with Local GCC.
-            </p>
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-cyan-400" />
+                <span>Syllabus Practice Modules & Question Pool</span>
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-2xl">
+                Configure curriculum practice modules and author custom C practice problems for each module.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsCreatePracticeModuleOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add New Module</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCreatePracticeProblemOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Question to Module</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { order: 1, title: 'Control Structures', slug: 'control-structures', req: 'Unlocked for all', count: 10 },
-              { order: 2, title: 'Pointers and functions', slug: 'pointers-and-functions', req: 'Solve 7 of 10 in Module 1', count: 10 },
-              { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', req: 'Solve 7 of 10 in Module 2', count: 10 },
-              { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', req: 'Solve 7 of 10 in Module 3', count: 10 },
-            ].map((m) => (
-              <div key={m.slug} className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                    MODULE {m.order}
+          {/* Module Cards Grid */}
+          {(() => {
+            const modulesList = practiceModulesData?.data?.modules || [
+              { order: 1, title: 'Control Structures', slug: 'control-structures', requirementText: 'Unlocked for all', totalQuestions: 10 },
+              { order: 2, title: 'Pointers and functions', slug: 'pointers-and-functions', requirementText: 'Solve 7 of 10 in Module 1', totalQuestions: 10 },
+              { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', requirementText: 'Solve 7 of 10 in Module 2', totalQuestions: 10 },
+              { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', requirementText: 'Solve 7 of 10 in Module 3', totalQuestions: 10 },
+            ];
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {modulesList.map((m: any) => (
+                  <div
+                    key={m.slug}
+                    className={`glass-card p-5 rounded-2xl border transition-all space-y-3 cursor-pointer ${
+                      selectedPracticeModuleSlug === m.slug
+                        ? 'border-cyan-400/50 bg-cyan-500/[0.04] shadow-lg shadow-cyan-500/10'
+                        : 'border-white/[0.08] hover:border-white/[0.2]'
+                    }`}
+                    onClick={() =>
+                      setSelectedPracticeModuleSlug(
+                        selectedPracticeModuleSlug === m.slug ? null : m.slug
+                      )
+                    }
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                        MODULE {m.order}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-slate-400">
+                          {m.totalQuestions || 0} Problems
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewPracticeProblemForm((prev) => ({
+                              ...prev,
+                              moduleSlug: m.slug,
+                            }));
+                            setIsCreatePracticeProblemOpen(true);
+                          }}
+                          className="px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20"
+                          title={`Add question to ${m.title}`}
+                        >
+                          + Add Question
+                        </button>
+                      </div>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white">{m.title}</h4>
+                    <p className="text-xs font-mono text-slate-400 line-clamp-2">
+                      {m.description || 'Module curriculum practice problems and reference solutions.'}
+                    </p>
+
+                    <div className="text-xs font-mono text-slate-400 flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-amber-400">Unlock:</span>
+                        <span>{m.requirementText || `Solve ${m.requiredSolvedToUnlock || 7} to unlock`}</span>
+                      </div>
+                      <span className="text-[11px] text-cyan-400 underline font-semibold">
+                        {selectedPracticeModuleSlug === m.slug ? 'Hide Questions ▲' : 'View Questions ▼'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Selected Module Questions Drawer */}
+          {selectedPracticeModuleSlug && (
+            <div className="glass-card rounded-2xl border border-cyan-500/20 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-cyan-400" />
+                  <span>
+                    Questions in module:{' '}
+                    <code className="text-cyan-300">{selectedPracticeModuleSlug}</code> (
+                    {practiceProblemsData?.data?.problems?.length || 0})
                   </span>
-                  <span className="text-xs font-mono text-slate-400">{m.count} Problems</span>
-                </div>
-                <h4 className="text-sm font-bold text-white">{m.title}</h4>
-                <div className="text-xs font-mono text-slate-400 flex items-center gap-2 pt-2 border-t border-white/[0.06]">
-                  <span className="text-amber-400">Unlock:</span>
-                  <span>{m.req}</span>
+                </h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPracticeProblemForm((prev) => ({
+                        ...prev,
+                        moduleSlug: selectedPracticeModuleSlug,
+                      }));
+                      setIsCreatePracticeProblemOpen(true);
+                    }}
+                    className="px-3 py-1 rounded-lg text-xs font-mono font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
+                  >
+                    + Add Question Here
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPracticeModuleSlug(null)}
+                    className="p-1 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {(!practiceProblemsData?.data?.problems ||
+                practiceProblemsData.data.problems.length === 0) ? (
+                <div className="p-6 text-center text-xs font-mono text-slate-500 border border-dashed border-white/[0.08] rounded-xl">
+                  No questions found in this module. Click "+ Add Question Here" to author one.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-dark-900/90 text-slate-400 text-[10px] uppercase border-b border-white/[0.06]">
+                      <tr>
+                        <th className="px-4 py-2.5">Order</th>
+                        <th className="px-4 py-2.5">Title & Slug</th>
+                        <th className="px-4 py-2.5">Difficulty</th>
+                        <th className="px-4 py-2.5">Category</th>
+                        <th className="px-4 py-2.5">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {practiceProblemsData.data.problems.map((prob: any) => (
+                        <tr key={prob.slug} className="hover:bg-white/[0.02]">
+                          <td className="px-4 py-2.5 font-bold text-cyan-400">
+                            #{prob.moduleOrder || 1}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="font-bold text-white block">{prob.title}</span>
+                            <span className="text-[11px] text-slate-500">{prob.slug}</span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-300">{prob.category}</td>
+                          <td className="px-4 py-2.5 text-amber-400 font-bold">
+                            {prob.basePoints || 20} PTS
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -2793,6 +3002,394 @@ export const AdminDashboardPage: React.FC = () => {
                   className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
                 >
                   {createProblemMutation.isPending ? 'Publishing...' : 'Publish Challenge'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Author New Practice Module Modal */}
+      {isCreatePracticeModuleOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2 font-mono">
+                <Code2 className="w-5 h-5 text-cyan-400" />
+                <span>Create New Practice Module</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreatePracticeModuleOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createPracticeModuleMutation.mutate(newPracticeModuleForm);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1">MODULE TITLE</label>
+                <input
+                  type="text"
+                  required
+                  value={newPracticeModuleForm.title}
+                  onChange={(e) => {
+                    const title = e.target.value;
+                    const slug = title
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/(^-|-$)+/g, '');
+                    setNewPracticeModuleForm({ ...newPracticeModuleForm, title, slug: newPracticeModuleForm.slug || slug });
+                  }}
+                  placeholder="e.g. File Handling & Streams"
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">MODULE SLUG</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPracticeModuleForm.slug}
+                    onChange={(e) =>
+                      setNewPracticeModuleForm({ ...newPracticeModuleForm, slug: e.target.value })
+                    }
+                    placeholder="e.g. file-handling-streams"
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">ORDER NUMBER</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={newPracticeModuleForm.order}
+                    onChange={(e) =>
+                      setNewPracticeModuleForm({
+                        ...newPracticeModuleForm,
+                        order: parseInt(e.target.value) || 5,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1">
+                  REQUIRED SOLVES TO UNLOCK (FROM PREVIOUS)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  required
+                  value={newPracticeModuleForm.requiredSolvedToUnlock}
+                  onChange={(e) =>
+                    setNewPracticeModuleForm({
+                      ...newPracticeModuleForm,
+                      requiredSolvedToUnlock: parseInt(e.target.value) || 7,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1">DESCRIPTION</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={newPracticeModuleForm.description}
+                  onChange={(e) =>
+                    setNewPracticeModuleForm({ ...newPracticeModuleForm, description: e.target.value })
+                  }
+                  placeholder="Explain the concepts covered in this module..."
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatePracticeModuleOpen(false)}
+                  className="px-4 py-2 rounded-lg font-mono text-xs text-slate-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createPracticeModuleMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
+                >
+                  {createPracticeModuleMutation.isPending ? 'Creating...' : 'Create Module'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Author New Practice Question Inside Module Modal */}
+      {isCreatePracticeProblemOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[92vh] space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2 font-mono">
+                <Code2 className="w-5 h-5 text-emerald-400" />
+                <span>Add Question to Practice Module</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreatePracticeProblemOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createPracticeProblemMutation.mutate({
+                  ...newPracticeProblemForm,
+                  sampleTests: [
+                    {
+                      input: newPracticeProblemForm.sampleInput,
+                      expectedOutput: newPracticeProblemForm.sampleOutput,
+                    },
+                  ],
+                  hiddenTests: [
+                    {
+                      input: newPracticeProblemForm.hiddenInput,
+                      expectedOutput: newPracticeProblemForm.hiddenOutput,
+                    },
+                  ],
+                });
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">TARGET MODULE</label>
+                  <select
+                    value={newPracticeProblemForm.moduleSlug}
+                    onChange={(e) =>
+                      setNewPracticeProblemForm({
+                        ...newPracticeProblemForm,
+                        moduleSlug: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"
+                  >
+                    {(practiceModulesData?.data?.modules || [
+                      { slug: 'control-structures', title: 'Control Structures' },
+                      { slug: 'pointers-and-functions', title: 'Pointers and functions' },
+                      { slug: 'array-and-its-applications', title: 'Array and its Applications' },
+                      { slug: 'advanced-data-types-dynamic-memory', title: 'Advanced Data Types' },
+                    ]).map((m: any) => (
+                      <option key={m.slug} value={m.slug}>
+                        {m.title} ({m.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">DIFFICULTY</label>
+                  <select
+                    value={newPracticeProblemForm.difficulty}
+                    onChange={(e) =>
+                      setNewPracticeProblemForm({
+                        ...newPracticeProblemForm,
+                        difficulty: e.target.value as any,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="EASY">EASY</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HARD">HARD</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">QUESTION TITLE</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPracticeProblemForm.title}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      const slug = title
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)+/g, '');
+                      setNewPracticeProblemForm({
+                        ...newPracticeProblemForm,
+                        title,
+                        slug: newPracticeProblemForm.slug || slug,
+                      });
+                    }}
+                    placeholder="e.g. Reverse an Array In-Place"
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1">SLUG (URL IDENTIFIER)</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPracticeProblemForm.slug}
+                    onChange={(e) =>
+                      setNewPracticeProblemForm({
+                        ...newPracticeProblemForm,
+                        slug: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. reverse-array-in-place"
+                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1">
+                  PROBLEM STATEMENT (MARKDOWN)
+                </label>
+                <textarea
+                  rows={5}
+                  required
+                  value={newPracticeProblemForm.description}
+                  onChange={(e) =>
+                    setNewPracticeProblemForm({
+                      ...newPracticeProblemForm,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1">
+                  STARTER C BOILERPLATE
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={newPracticeProblemForm.starterCode}
+                  onChange={(e) =>
+                    setNewPracticeProblemForm({
+                      ...newPracticeProblemForm,
+                      starterCode: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-cyan-200 resize-none"
+                />
+              </div>
+
+              {/* Sample Test Case */}
+              <div className="p-3 rounded-xl bg-dark-950 border border-white/[0.06] space-y-2">
+                <span className="text-[11px] font-mono text-emerald-400 font-bold block">
+                  SAMPLE TEST CASE (VISIBLE TO STUDENTS)
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-mono">STDIN INPUT</span>
+                    <textarea
+                      rows={2}
+                      value={newPracticeProblemForm.sampleInput}
+                      onChange={(e) =>
+                        setNewPracticeProblemForm({
+                          ...newPracticeProblemForm,
+                          sampleInput: e.target.value,
+                        })
+                      }
+                      className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-cyan-200 text-xs resize-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-mono">EXPECTED STDOUT</span>
+                    <textarea
+                      rows={2}
+                      value={newPracticeProblemForm.sampleOutput}
+                      onChange={(e) =>
+                        setNewPracticeProblemForm({
+                          ...newPracticeProblemForm,
+                          sampleOutput: e.target.value,
+                        })
+                      }
+                      className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-emerald-200 text-xs resize-none font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden Test Case */}
+              <div className="p-3 rounded-xl bg-dark-950 border border-white/[0.06] space-y-2">
+                <span className="text-[11px] font-mono text-amber-400 font-bold block">
+                  HIDDEN TEST CASE (GRADING VERIFICATION)
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-mono">STDIN INPUT</span>
+                    <textarea
+                      rows={2}
+                      value={newPracticeProblemForm.hiddenInput}
+                      onChange={(e) =>
+                        setNewPracticeProblemForm({
+                          ...newPracticeProblemForm,
+                          hiddenInput: e.target.value,
+                        })
+                      }
+                      className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-cyan-200 text-xs resize-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block font-mono">EXPECTED STDOUT</span>
+                    <textarea
+                      rows={2}
+                      value={newPracticeProblemForm.hiddenOutput}
+                      onChange={(e) =>
+                        setNewPracticeProblemForm({
+                          ...newPracticeProblemForm,
+                          hiddenOutput: e.target.value,
+                        })
+                      }
+                      className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-emerald-200 text-xs resize-none font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatePracticeProblemOpen(false)}
+                  className="px-4 py-2 rounded-lg font-mono text-xs text-slate-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createPracticeProblemMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
+                >
+                  {createPracticeProblemMutation.isPending ? 'Saving...' : 'Add Question to Module'}
                 </button>
               </div>
             </form>
