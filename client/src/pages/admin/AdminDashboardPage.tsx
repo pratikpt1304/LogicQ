@@ -35,7 +35,7 @@ export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
     'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice'
-  >('analytics');
+  >('users');
 
   // Filter States for Users & Submissions & Uploads
   const [filterSearch, setFilterSearch] = useState('');
@@ -546,15 +546,14 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Admin Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.08] pb-3 text-xs font-mono">
         <button
-          onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'analytics'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-xl transition-colors ${
+            activeTab === 'users'
+              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <TrendingUp className="w-3.5 h-3.5" />
-          <span>2-Week Pilot Analytics</span>
+          User Roster ({users.length})
         </button>
 
         <button
@@ -603,16 +602,6 @@ export const AdminDashboardPage: React.FC = () => {
           <span>Checkers Workload ({checkers.length})</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl transition-colors ${
-            activeTab === 'users'
-              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          User Roster ({users.length})
-        </button>
 
         <button
           onClick={() => setActiveTab('practice')}
