@@ -66,12 +66,18 @@ export const HistoryPage: React.FC = () => {
                 {uploadedSolutions.map((up: any) => (
                   <tr key={up.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-bold text-white">
-                      <Link
-                        to={`/challenge/${up.problem?.slug}`}
-                        className="hover:text-cyan-400 transition-colors"
-                      >
-                        {up.problem?.title || 'Daily Challenge'}
-                      </Link>
+                      {up.problem?.slug && !up.problem?.isEnded ? (
+                        <Link
+                          to="/challenge"
+                          className="hover:text-cyan-400 transition-colors"
+                        >
+                          {up.problem?.title || 'Daily Challenge'}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-200">
+                          {up.problem?.title || 'Past Challenge'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-slate-300">
                       <span className="inline-flex items-center gap-1 text-[11px]">
@@ -86,7 +92,7 @@ export const HistoryPage: React.FC = () => {
                             ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                             : up.status === 'REJECTED'
                               ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                              : up.status === 'CHANGES_REQUESTED'
+                              : up.status === 'CHANGES_REQUESTED' || up.status === 'NEEDS_CHANGES'
                                 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                                 : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
                         }`}
@@ -152,12 +158,18 @@ export const HistoryPage: React.FC = () => {
                 {submissions.map((sub: any) => (
                   <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-bold text-white">
-                      <Link
-                        to={`/challenge/${sub.problem?.slug}`}
-                        className="hover:text-cyan-400 transition-colors"
-                      >
-                        {sub.problem?.title}
-                      </Link>
+                      {sub.problem?.slug && !sub.problem?.isEnded ? (
+                        <Link
+                          to="/challenge"
+                          className="hover:text-cyan-400 transition-colors"
+                        >
+                          {sub.problem?.title}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-200">
+                          {sub.problem?.title || 'Past Challenge'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />

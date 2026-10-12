@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // LogicQ production Firebase configuration
@@ -18,6 +18,12 @@ export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Firebase Services
 export const auth = getAuth(app);
+
+// Enforce local persistence across refreshes, new tabs, and browser restarts
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn("Failed to set Firebase Auth browserLocalPersistence:", err);
+});
+
 export const db = getFirestore(app);
 
 // Google Sign-In Provider with account selection

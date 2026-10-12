@@ -65,38 +65,68 @@ export const ChallengePage: React.FC = () => {
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [isWindowExpired, setIsWindowExpired] = useState<boolean>(false);
 
   // Track online/offline state for mobile PWA resilience
   useEffect(() => {
     const onOnline = () => setIsOffline(false);
     const onOffline = () => setIsOffline(true);
+    const onSimulateSwitch = () => {
+      setRemainingSeconds(0);
+      setIsWindowExpired(true);
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
+    window.addEventListener('logicq:simulate-1700-switch', onSimulateSwitch);
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
+      window.removeEventListener('logicq:simulate-1700-switch', onSimulateSwitch);
     };
   }, []);
 
   // Fetch problem details (disable refetchOnWindowFocus so switching browser tabs never resets workspace)
   const endpoint = slug ? `/problems/${slug}` : '/problems/daily';
-  const { data: problemData, isLoading } = useQuery({
+  const {
+    data: problemData,
+    isLoading,
+    error: problemError,
+    refetch: refetchProblem,
+  } = useQuery({
     queryKey: ['problem', slug || 'daily'],
     queryFn: () => api.get(endpoint),
     refetchOnWindowFocus: false,
-  });
-
-  const { data: currentWeekData } = useQuery({
-    queryKey: ['current-week-strip'],
-    queryFn: () => api.get('/problems/current-week'),
-    refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const problem = problemData?.data?.problem;
   const seasonComplete = problemData?.data?.seasonComplete === true;
   const userStatus = problemData?.data?.userStatus;
-  const currentWeekDays: any[] =
-    problemData?.data?.currentWeek || currentWeekData?.data?.days || [];
+  const serverSecondsUntilReset = problemData?.data?.secondsUntilNextReset;
+
+  // Initialize & tick down the 17:00 IST challenge window timer while the page is open
+  useEffect(() => {
+    if (typeof serverSecondsUntilReset === 'number' && serverSecondsUntilReset > 0) {
+      setRemainingSeconds(serverSecondsUntilReset);
+      setIsWindowExpired(false);
+    }
+  }, [problem?.id, serverSecondsUntilReset]);
+
+  useEffect(() => {
+    if (remainingSeconds === null || remainingSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          setIsWindowExpired(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [remainingSeconds !== null && remainingSeconds > 0]);
 
   // Fetch current student's uploaded solutions for this problem
   const { data: myUploadsData, refetch: refetchMyUploads } = useQuery({
@@ -137,6 +167,7 @@ export const ChallengePage: React.FC = () => {
 
   // Persist draft to localStorage whenever code changes
   const handleCodeChange = (nextCode: string) => {
+    if (isWindowExpired) return;
     setCode(nextCode);
     if (problem?.slug) {
       try {
@@ -173,6 +204,9 @@ export const ChallengePage: React.FC = () => {
       setActiveMobileTab('results');
     },
     onError: (err: any) => {
+      if (err?.status === 403 || err?.status === 410 || /ended/i.test(String(err?.message || ''))) {
+        setIsWindowExpired(true);
+      }
       toast.error(err.message || 'Execution failed');
     },
   });
@@ -224,7 +258,6 @@ export const ChallengePage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         queryClient.invalidateQueries({ queryKey: ['problem'] });
         queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
-        queryClient.invalidateQueries({ queryKey: ['current-week-strip'] });
         return;
       }
 
@@ -278,7 +311,6 @@ export const ChallengePage: React.FC = () => {
               queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
               queryClient.invalidateQueries({ queryKey: ['problem'] });
               queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
-              queryClient.invalidateQueries({ queryKey: ['current-week-strip'] });
             }
           } catch {
             // Ignore transient poll error
@@ -291,13 +323,16 @@ export const ChallengePage: React.FC = () => {
       }
     },
     onError: (err: any) => {
+      if (err?.status === 403 || err?.status === 410 || /ended/i.test(String(err?.message || ''))) {
+        setIsWindowExpired(true);
+      }
       toast.error(err.message || 'Submission failed');
     },
   });
 
   // Upload Files handlers
   const handleSelectFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+    if (isWindowExpired || !fileList || fileList.length === 0) return;
     setUploadError(null);
 
     const incoming = Array.from(fileList);
@@ -382,6 +417,9 @@ export const ChallengePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
     },
     onError: (err: any) => {
+      if (err?.status === 403 || err?.status === 410 || /ended/i.test(String(err?.message || ''))) {
+        setIsWindowExpired(true);
+      }
       setUploadError(err.message || 'Failed to upload solution.');
       toast.error(err.message || 'Failed to upload solution.');
     },
@@ -399,7 +437,7 @@ export const ChallengePage: React.FC = () => {
   });
 
   const handleResetCode = () => {
-    if (problem) {
+    if (problem && !isWindowExpired) {
       setCode(problem.starterCode);
       try {
         localStorage.removeItem(`logicq_draft_${problem.slug}`);
@@ -410,6 +448,11 @@ export const ChallengePage: React.FC = () => {
     }
   };
 
+  const isChallengeEnded =
+    (problemError as any)?.status === 410 ||
+    (problemError as any)?.code === 'CHALLENGE_ENDED' ||
+    (problemError as any)?.ended === true;
+
   if (isLoading) {
     return (
       <div className="h-[80vh] flex items-center justify-center font-mono text-cyan-400 text-sm">
@@ -419,9 +462,33 @@ export const ChallengePage: React.FC = () => {
     );
   }
 
+  // Offline state when today's active challenge has not been loaded or has expired past 17:00 IST
+  if (isOffline && (!problem || isWindowExpired)) {
+    return (
+      <div
+        data-testid="offline-challenge-state"
+        className="max-w-2xl mx-auto py-20 px-4 text-center space-y-4 font-mono"
+      >
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-panel)] border border-[var(--color-error)] text-[var(--color-error)] text-xs font-bold">
+          <WifiOff className="w-4 h-4" />
+          <span>You Are Offline</span>
+        </div>
+        <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-[var(--text-main)]">
+          Reconnect to load today&apos;s 17:00 IST challenge
+        </h1>
+        <p className="text-xs sm:text-sm text-[var(--text-muted)] font-sans">
+          Past problem statements are never served from cache. Please connect to the internet so we can verify the server clock and load today&apos;s active challenge.
+        </p>
+      </div>
+    );
+  }
+
   if (seasonComplete) {
     return (
-      <div className="max-w-3xl mx-auto py-20 px-4 text-center space-y-4">
+      <div
+        data-testid="season-complete-page"
+        className="max-w-3xl mx-auto py-20 px-4 text-center space-y-4"
+      >
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-panel)] border border-[var(--color-success)] text-[var(--color-success)] text-xs font-mono font-bold">
           <CheckCircle2 className="w-4 h-4" />
           <span>Season Complete</span>
@@ -442,20 +509,52 @@ export const ChallengePage: React.FC = () => {
     );
   }
 
+  if (isChallengeEnded) {
+    return (
+      <div
+        data-testid="challenge-ended-page"
+        className="max-w-2xl mx-auto py-20 px-4 text-center space-y-5"
+      >
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-panel)] border border-[var(--border-line)] text-[var(--text-muted)] text-xs font-mono font-semibold">
+          <Calendar className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+          <span>17:00 IST Daily Window Closed</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-heading font-extrabold text-[var(--text-main)]">
+          This challenge has ended
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
+          Each LogicQ challenge is open for 24 hours from 17:00 IST to the next 17:00 IST. Past challenges are closed and their statements are no longer available.
+        </p>
+        <div className="pt-2">
+          <Link
+            to="/challenge"
+            data-testid="back-to-todays-challenge-link"
+            className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 rounded-xl bg-[var(--color-accent)] text-[#0C0F1F] text-xs font-mono font-bold shadow-md hover:opacity-95 transition-opacity"
+          >
+            Go to Today&apos;s Challenge &rarr;
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!problem) {
     return (
-      <div className="max-w-4xl mx-auto py-20 px-4 text-center font-mono space-y-4">
+      <div
+        data-testid="challenge-not-available-page"
+        className="max-w-2xl mx-auto py-20 px-4 text-center font-mono space-y-4"
+      >
         <h2 className="text-xl font-bold text-[var(--text-main)]">
-          Challenge not found or not unlocked in the current week
+          Challenge not available
         </h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Only unlocked challenges from the current 7-day week can be opened. Future challenges unlock at 17:00 IST.
+          Students can view and solve only today&apos;s active 17:00 IST challenge.
         </p>
         <Link
           to="/challenge"
           className="inline-block text-[var(--color-accent)] underline text-xs font-semibold"
         >
-          &larr; Return to Today&apos;s Daily Challenge
+          &larr; Go to Today&apos;s Challenge
         </Link>
       </div>
     );
@@ -468,72 +567,40 @@ export const ChallengePage: React.FC = () => {
       style={{ height: 'calc(100dvh - var(--navbar-height, 4rem))' }}
       className="flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden"
     >
-      {/* Current Week's 7 Challenges Strip (Weekly Catch-Up) */}
-      {currentWeekDays.length > 0 && (
+      {/* 17:00 IST Switch Banner when the page stays open across the daily cutoff */}
+      {isWindowExpired && (
         <div
-          data-testid="current-week-strip"
-          aria-label="Current Week Challenges"
-          className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2 border-b border-[var(--border-line)] bg-[var(--bg-panel)] shrink-0 overflow-x-auto"
+          data-testid="challenge-switch-banner"
+          role="status"
+          aria-live="polite"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-2.5 bg-[var(--bg-surface)] border-b border-[var(--color-warning)] text-xs shrink-0"
         >
-          <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-[var(--text-muted)] shrink-0 mr-1">
-            <Calendar className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
-            <span className="hidden sm:inline">This Week&apos;s 7 Challenges:</span>
-            <span className="sm:hidden">Week:</span>
+          <div className="flex items-center gap-2 text-[var(--text-main)]">
+            <AlertCircle className="w-4 h-4 text-[var(--color-warning)] shrink-0" />
+            <span>
+              <strong className="font-bold">A new challenge is live. Refresh to see it.</strong>{' '}
+              <span className="text-[var(--text-muted)]">
+                This challenge ended at 17:00 IST. Your unsaved code is preserved in local drafts (
+                <code className="font-mono">logicq_draft_{problem.slug}</code>) and the editor is now read-only.
+              </span>
+            </span>
           </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-            {currentWeekDays.map((day: any) => {
-              const isLocked = day.status === 'LOCKED' || !day.problem;
-              const isActive = Boolean(day.problem && problem.slug === day.problem.slug);
-
-              if (isLocked) {
-                return (
-                  <button
-                    key={day.dayNumber}
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    data-testid={`week-day-${day.dayNumber}`}
-                    data-status="LOCKED"
-                    title={day.unlockLabel || `Unlocks ${day.scheduledDate} at 17:00 IST`}
-                    className="flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-mono bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-muted)] cursor-not-allowed shrink-0"
-                  >
-                    <Lock className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
-                    <span>Day {day.dayNumber}</span>
-                    <span className="hidden md:inline text-[11px]">• 17:00 IST</span>
-                  </button>
-                );
+          <Link
+            to="/challenge"
+            data-testid="refresh-new-challenge-btn"
+            onClick={() => {
+              setIsWindowExpired(false);
+              initializedProblemIdRef.current = null;
+              queryClient.invalidateQueries({ queryKey: ['problem'] });
+              queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+              if (!slug) {
+                refetchProblem();
               }
-
-              return (
-                <Link
-                  key={day.dayNumber}
-                  to={`/challenge/${day.problem.slug}`}
-                  data-testid={`week-day-${day.dayNumber}`}
-                  data-status="UNLOCKED"
-                  data-solved={day.isSolved ? 'true' : 'false'}
-                  title={`Day ${day.dayNumber}: ${day.problem.title} (${day.problem.difficulty})`}
-                  className={`flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors shrink-0 ${
-                    isActive
-                      ? 'bg-[var(--bg-surface)] border-[var(--color-accent)] text-[var(--color-accent)] font-bold'
-                      : day.isSolved
-                      ? 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--color-success)] hover:border-[var(--color-accent)]'
-                      : 'bg-[var(--bg-main)] border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)]'
-                  }`}
-                >
-                  {day.isSolved ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)] shrink-0" />
-                  ) : null}
-                  <span>Day {day.dayNumber}</span>
-                  {day.isToday && (
-                    <span className="px-1.5 py-0.2 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent)] text-[10px] font-bold">
-                      TODAY
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+            }}
+            className="inline-flex items-center justify-center min-h-[36px] px-3.5 py-1.5 rounded-lg bg-[var(--color-accent)] text-[#0C0F1F] font-mono font-bold shrink-0"
+          >
+            Refresh to see today&apos;s challenge
+          </Link>
         </div>
       )}
 
@@ -695,20 +762,40 @@ export const ChallengePage: React.FC = () => {
               <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1.5">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    isOffline ? 'bg-[var(--color-error)]' : 'bg-[var(--color-success)]'
+                    isOffline
+                      ? 'bg-[var(--color-error)]'
+                      : isWindowExpired
+                      ? 'bg-[var(--color-warning)]'
+                      : 'bg-[var(--color-success)]'
                   }`}
                 ></span>
-                <span>{isOffline ? 'Offline — code saved on device' : 'C11 Compiler'}</span>
+                <span>
+                  {isOffline
+                    ? 'Offline — code saved on device'
+                    : isWindowExpired
+                    ? 'Challenge ended at 17:00 IST — Editor Read-Only'
+                    : 'C11 Compiler'}
+                </span>
               </span>
               {isOffline && <WifiOff className="w-3.5 h-3.5 text-[var(--color-error)]" />}
+              {isWindowExpired && !isOffline && (
+                <Lock className="w-3.5 h-3.5 text-[var(--color-warning)]" />
+              )}
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                data-testid="run-code-button"
                 onClick={() => runMutation.mutate()}
-                disabled={runMutation.isPending || isOffline}
-                title={isOffline ? 'Reconnect to run code' : 'Run code with custom stdin'}
+                disabled={runMutation.isPending || isOffline || isWindowExpired}
+                title={
+                  isWindowExpired
+                    ? 'This challenge ended at 17:00 IST. Refresh to solve the new challenge.'
+                    : isOffline
+                    ? 'Reconnect to run code'
+                    : 'Run code with custom stdin'
+                }
                 className="flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-colors"
               >
                 <Play className="w-3.5 h-3.5 text-[var(--color-accent)]" />
@@ -717,9 +804,16 @@ export const ChallengePage: React.FC = () => {
 
               <button
                 type="button"
+                data-testid="submit-solution-button"
                 onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || isOffline}
-                title={isOffline ? 'Reconnect to submit solution' : 'Submit solution to judge'}
+                disabled={submitMutation.isPending || isOffline || isWindowExpired}
+                title={
+                  isWindowExpired
+                    ? 'This challenge ended at 17:00 IST. Refresh to solve the new challenge.'
+                    : isOffline
+                    ? 'Reconnect to submit solution'
+                    : 'Submit solution to judge'
+                }
                 className="flex items-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-lg text-xs font-mono font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md disabled:opacity-50 transition-all"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -733,11 +827,12 @@ export const ChallengePage: React.FC = () => {
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
-              onRun={() => !isOffline && runMutation.mutate()}
-              onSubmit={() => !isOffline && submitMutation.mutate()}
+              onRun={() => !isOffline && !isWindowExpired && runMutation.mutate()}
+              onSubmit={() => !isOffline && !isWindowExpired && submitMutation.mutate()}
               onReset={handleResetCode}
               isSubmitting={submitMutation.isPending}
               isRunning={runMutation.isPending}
+              readOnly={isWindowExpired}
             />
           </div>
 
@@ -839,9 +934,10 @@ export const ChallengePage: React.FC = () => {
                     <textarea
                       id="custom-stdin-input"
                       value={customInput}
+                      disabled={isWindowExpired}
                       onChange={(e) => setCustomInput(e.target.value)}
                       rows={4}
-                      className="w-full flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] resize-none"
+                      className="w-full flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] resize-none disabled:opacity-60"
                       placeholder="Enter raw input here..."
                     />
                   </div>
@@ -992,7 +1088,7 @@ export const ChallengePage: React.FC = () => {
                           )}
                         </div>
 
-                        {latestUpload.status === 'PENDING_REVIEW' && (
+                        {latestUpload.status === 'PENDING_REVIEW' && !isWindowExpired && (
                           <button
                             type="button"
                             onClick={() => cancelUploadMutation.mutate(latestUpload.id)}
@@ -1005,7 +1101,17 @@ export const ChallengePage: React.FC = () => {
                       </div>
                     )}
 
-                    {userStatus?.isSolved ? (
+                    {isWindowExpired ? (
+                      <div
+                        data-testid="upload-ended-notice"
+                        className="p-4 rounded-xl bg-[var(--bg-main)] border border-[var(--color-warning)] text-xs text-[var(--color-warning)] flex items-center gap-2 font-semibold"
+                      >
+                        <Lock className="w-4 h-4 shrink-0" />
+                        <span>
+                          This challenge ended at 17:00 IST. Run, Submit, and File Upload are closed for ended challenges. Refresh to open today&apos;s new challenge.
+                        </span>
+                      </div>
+                    ) : userStatus?.isSolved ? (
                       <div className="p-4 rounded-xl bg-[var(--bg-main)] border border-[var(--color-success)] text-xs text-[var(--color-success)] flex items-center gap-2 font-semibold">
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
                         <span>
@@ -1139,7 +1245,10 @@ export const ChallengePage: React.FC = () => {
                             type="button"
                             data-testid="submit-upload-button"
                             disabled={
-                              stagedFiles.length === 0 || uploadMutation.isPending || isOffline
+                              stagedFiles.length === 0 ||
+                              uploadMutation.isPending ||
+                              isOffline ||
+                              isWindowExpired
                             }
                             onClick={() => uploadMutation.mutate()}
                             className="inline-flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[#0C0F1F] text-xs font-bold disabled:opacity-50 hover:opacity-95 transition-opacity"

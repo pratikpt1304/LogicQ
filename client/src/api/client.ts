@@ -75,7 +75,17 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
 
   if (!response.ok || !data) {
     const errorMsg = data?.message || `Request failed with status ${response.status}`;
-    throw new Error(errorMsg);
+    const err = new Error(errorMsg) as Error & {
+      status?: number;
+      code?: string;
+      ended?: boolean;
+      todayChallengeUrl?: string;
+    };
+    err.status = response.status;
+    err.code = data?.code;
+    err.ended = Boolean(data?.ended);
+    err.todayChallengeUrl = data?.todayChallengeUrl;
+    throw err;
   }
 
   if (data?.data?.accessToken) {
@@ -83,6 +93,12 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   }
   if (cleanEndpoint.includes('/auth/logout')) {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } else {
+    try {
+      localStorage.setItem('logicq_last_activity', String(Date.now()));
+    } catch {
+      // ignore
+    }
   }
 
   return data;
@@ -101,6 +117,12 @@ export const api = {
     apiRequest<T>(endpoint, {
       ...options,
       method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+  patch: <T = any>(endpoint: string, body?: any, options?: RequestOptions) =>
+    apiRequest<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
     }),
   delete: <T = any>(endpoint: string, options?: RequestOptions) =>

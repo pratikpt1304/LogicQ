@@ -9,187 +9,173 @@ const STORAGE_KEYS = {
 
 const DEFAULT_PROBLEMS = [
   {
-    id: 'prob-pointer-swap',
-    slug: 'pointer-swap-in-place',
-    title: 'In-Place Pointer Swap & Sum',
+    id: 'kanetkar-ch1-scope-shadow-eval',
+    slug: 'kanetkar-ch1-scope-shadow-eval',
+    title: 'Block Scope & Variable Shadowing Evaluator',
     difficulty: 'EASY',
-    category: 'Pointers',
+    category: 'Declarations and Initializations',
     basePoints: 20,
     timeLimitMs: 1000,
     memoryLimitMb: 64,
     isDaily: true,
-    tags: ['pointers', 'basics', 'memory'],
-    description: `### Problem Statement
-Write a C program that reads two integers \`a\` and \`b\` from standard input, swaps them using pointers, and prints the swapped values followed by their sum.
+    tags: ['Scope', 'Shadowing', 'Variables', 'Basics'],
+    description: `### Problem Description
+
+In C, variables declared in an inner block shadow variables of the same name declared in an enclosing outer block or at file scope (Yashavant Kanetkar, *Test Your C Skills*, Chapter 1: Declarations and Initializations).
+
+Given three integer inputs:
+- An outer global initial base value $G$
+- An enclosing function local value $L$
+- An innermost block value $B$
+- A sequence of $K$ block entry and exit operations (\`ENTER M\` or \`EXIT\`)
+
+Simulate the lexical scope resolution and print the resolved active value after each operation.
 
 ### Input Format
-A single line containing two space-separated integers \`a\` and \`b\`.
+- First line: Three space-separated integers $G$, $L$, and $B$.
+- Second line: Integer $K$.
+- Next $K$ lines: Either \`ENTER M\` or \`EXIT\`.
 
 ### Output Format
-Print three space-separated integers: \`b a (a+b)\`.
-
-### Example
-**Input:**
-\`\`\`
-10 25
-\`\`\`
-**Output:**
-\`\`\`
-25 10 35
-\`\`\``,
+Print the active scoped value after each operation.`,
     starterCode: `#include <stdio.h>
-
-void swap(int *x, int *y) {
-    int temp = *x;
-    *x = *y;
-    *y = temp;
-}
+#include <string.h>
 
 int main() {
-    int a, b;
-    if (scanf("%d %d", &a, &b) == 2) {
-        swap(&a, &b);
-        printf("%d %d %d\\n", a, b, a + b);
-    }
+    int g, l, b;
+    if (scanf("%d %d %d", &g, &l, &b) != 3) return 0;
+    
+    int k;
+    if (scanf("%d", &k) != 1) return 0;
+    
+    // TODO: Track nested scope stack and print resolved value after each operation
+    
     return 0;
 }`,
     testCases: [
-      { id: 'tc-1', input: '10 25', expectedOutput: '25 10 35', isSample: true, isHidden: false },
-      { id: 'tc-2', input: '-5 15', expectedOutput: '15 -5 10', isSample: true, isHidden: false },
+      { id: 'tc-1', input: '10 20 30\n3\nENTER 2\nEXIT\nENTER 5\n', expectedOutput: '60\n30\n150\n', isSample: true, isHidden: false },
+      { id: 'tc-2', input: '5 15 25\n2\nEXIT\nEXIT\n', expectedOutput: '15\n5\n', isSample: true, isHidden: false },
     ],
   },
   {
-    id: 'prob-set-bits',
-    slug: 'brian-kernighan-set-bits',
-    title: 'Count Set Bits (Brian Kernighan Algorithm)',
+    id: 'kanetkar-ch2-switch-fallthrough-calc',
+    slug: 'kanetkar-ch2-switch-fallthrough-calc',
+    title: 'Switch-Case Fallthrough State Machine',
     difficulty: 'EASY',
-    category: 'Bitwise',
+    category: 'Control Instructions',
     basePoints: 20,
     timeLimitMs: 1000,
     memoryLimitMb: 64,
     isDaily: false,
-    tags: ['bitwise', 'kernighan', 'integers'],
-    description: `### Problem Statement
-Given a non-negative integer \`n\`, count the number of set bits (\`1\`s) in its binary representation using bitwise operations.
+    tags: ['Switch Case', 'Fallthrough', 'Control Flow', 'Basics'],
+    description: `### Problem Description
 
-### Input Format
-A single integer \`n\` ($0 \\le n \\le 10^9$).
+In standard C, \`switch\` statements execute sequentially from the matched \`case\` label until an explicit \`break\` is encountered (Yashavant Kanetkar, *Test Your C Skills*, Chapter 2: Control Instructions).
 
-### Output Format
-A single integer representing the number of set bits in \`n\`.`,
+Given an initial accumulator value $V_0$, switch code $C$, and four operation modifiers $X_1, X_2, X_3, X_4$:
+- Case 1: Add $X_1$ to $A$ (falls through to Case 2)
+- Case 2: Multiply $A$ by $X_2$ (falls through to Case 3)
+- Case 3: Subtract $X_3$ from $A$ (has break)
+- Case 4: Set $A = A \\oplus X_4$ (has break)
+
+Compute the final accumulator value.`,
     starterCode: `#include <stdio.h>
 
-int countSetBits(unsigned int n) {
-    int count = 0;
-    while (n > 0) {
-        n &= (n - 1);
-        count++;
-    }
-    return count;
-}
-
 int main() {
-    unsigned int n;
-    if (scanf("%u", &n) == 1) {
-        printf("%d\\n", countSetBits(n));
-    }
+    long long v0;
+    int c;
+    if (scanf("%lld %d", &v0, &c) != 2) return 0;
+    
+    long long x1, x2, x3, x4;
+    if (scanf("%lld %lld %lld %lld", &x1, &x2, &x3, &x4) != 4) return 0;
+    
+    // TODO: Implement switch-case with fallthrough semantics
+    
     return 0;
 }`,
     testCases: [
-      { id: 'tc-3', input: '29', expectedOutput: '4', isSample: true, isHidden: false },
-      { id: 'tc-4', input: '64', expectedOutput: '1', isSample: true, isHidden: false },
+      { id: 'tc-3', input: '10 1\n5 2 7 9\n', expectedOutput: '23\n', isSample: true, isHidden: false },
+      { id: 'tc-4', input: '10 2\n5 2 7 9\n', expectedOutput: '13\n', isSample: true, isHidden: false },
     ],
   },
   {
-    id: 'prob-reverse-array',
-    slug: 'reverse-array-two-pointers',
-    title: 'Reverse Array Using Two Pointers',
+    id: 'kanetkar-ch7-multidim-pointer-arithmetic',
+    slug: 'kanetkar-ch7-multidim-pointer-arithmetic',
+    title: 'Multi-Dimensional Array Pointer Arithmetic & Offsets',
     difficulty: 'MEDIUM',
-    category: 'Arrays & Pointers',
-    basePoints: 40,
+    category: 'Pointers',
+    basePoints: 30,
     timeLimitMs: 1000,
     memoryLimitMb: 64,
     isDaily: false,
-    tags: ['arrays', 'pointers', 'in-place'],
-    description: `### Problem Statement
-Given an integer \`n\` and an array of \`n\` integers, reverse the array in-place using pointer arithmetic and print the reversed elements separated by spaces.
+    tags: ['Pointers', 'Arrays', 'Pointer Arithmetic', 'Address Calculations'],
+    description: `### Problem Description
 
-### Input Format
-First line: \`n\`
-Second line: \`n\` space-separated integers.`,
+In C pointer arithmetic, array indexing is identical to pointer dereferencing: \`a[i][j][k]\` is strictly defined as \`*(*(*(a + i) + j) + k)\` (Yashavant Kanetkar, *Test Your C Skills*, Chapter 7: Pointers).
+
+Compute the linear offset, element value, and byte address for 3D array coordinate queries, or decompose linear offsets back to coordinates.`,
     starterCode: `#include <stdio.h>
 
 int main() {
-    int n;
-    if (scanf("%d", &n) != 1) return 0;
-    int arr[1005];
-    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);
-    int *l = arr, *r = arr + n - 1;
-    while (l < r) {
-        int t = *l; *l = *r; *r = t;
-        l++; r--;
-    }
-    for (int i = 0; i < n; i++) {
-        printf("%d%s", arr[i], i + 1 == n ? "\\n" : " ");
-    }
+    int d1, d2, d3;
+    long long b0;
+    if (scanf("%d %d %d %lld", &d1, &d2, &d3, &b0) != 4) return 0;
+    
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    
+    // TODO: Process coordinate and linear pointer offset queries
+    
     return 0;
 }`,
     testCases: [
-      { id: 'tc-5', input: '5\n1 2 3 4 5', expectedOutput: '5 4 3 2 1', isSample: true, isHidden: false },
+      { id: 'tc-5', input: '2 3 4 1000\n2\nCOORD 1 2 3\nLINEAR 7\n', expectedOutput: 'VAL: 24 OFFSET: 23 ADDR: 1092\nI: 0 J: 1 K: 3\n', isSample: true, isHidden: false },
     ],
   },
   {
-    id: 'prob-cycle-detect',
-    slug: 'floyd-linked-list-cycle',
-    title: 'Detect Linked List Cycle (Floyd Tortoise & Hare)',
-    difficulty: 'HARD',
-    category: 'Linked Lists',
-    basePoints: 70,
+    id: 'kanetkar-ch14-bitwise-slot-masking',
+    slug: 'kanetkar-ch14-bitwise-slot-masking',
+    title: 'Bitwise Slot Array Masking & Parity Inspector',
+    difficulty: 'EASY',
+    category: 'Bitwise Operators',
+    basePoints: 20,
     timeLimitMs: 1000,
     memoryLimitMb: 64,
     isDaily: false,
-    tags: ['linked-list', 'pointers', 'floyd'],
-    description: `### Problem Statement
-Given \`n\` node values and a 0-indexed position \`pos\` where the tail connects (\`-1\` if no cycle), print \`CYCLE DETECTED\` if a cycle exists, otherwise print \`NO CYCLE\`.`,
+    tags: ['Bitwise', 'Bitmask', 'Shifting', 'Basics'],
+    description: `### Problem Description
+
+In systems C programming, bitwise operators allow compact manipulation of packed bitfields and hardware flag registers (Yashavant Kanetkar, *Test Your C Skills*, Chapter 14: Bitwise Operators).
+
+Implement a 32-bit register flag manager supporting SET, CLEAR, FLIP, TEST, COUNT, and HEX operations.`,
     starterCode: `#include <stdio.h>
 
 int main() {
-    int n, pos;
-    if (scanf("%d %d", &n, &pos) != 2) return 0;
-    for (int i = 0; i < n; i++) {
-        int val;
-        scanf("%d", &val);
-    }
-    if (pos >= 0 && pos < n) {
-        printf("CYCLE DETECTED\\n");
-    } else {
-        printf("NO CYCLE\\n");
-    }
+    unsigned int reg;
+    if (scanf("%u", &reg) != 1) return 0;
+    
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    
+    // TODO: Implement bitwise operations on reg
+    
     return 0;
 }`,
     testCases: [
-      { id: 'tc-6', input: '4 1\n3 2 0 -4', expectedOutput: 'CYCLE DETECTED', isSample: true, isHidden: false },
-      { id: 'tc-7', input: '3 -1\n1 2 3', expectedOutput: 'NO CYCLE', isSample: true, isHidden: false },
+      { id: 'tc-6', input: '0\n5\nSET 3\nTEST 3\nTEST 2\nCOUNT\nHEX\n', expectedOutput: '1\n0\n1\n00000008\n', isSample: true, isHidden: false },
+      { id: 'tc-7', input: '15\n3\nFLIP 0\nCOUNT\nHEX\n', expectedOutput: '3\n0000000E\n', isSample: true, isHidden: false },
     ],
   },
 ];
 
+let memoryProblems: any[] = DEFAULT_PROBLEMS.map((p) => ({ ...p }));
+
 function getStoredProblems(): any[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {
-    // ignore
-  }
-  localStorage.setItem(STORAGE_KEYS.PROBLEMS, JSON.stringify(DEFAULT_PROBLEMS));
-  return DEFAULT_PROBLEMS;
+  return memoryProblems;
 }
 
 function saveStoredProblems(problems: any[]) {
-  localStorage.setItem(STORAGE_KEYS.PROBLEMS, JSON.stringify(problems));
+  memoryProblems = problems;
 }
 
 function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> {
@@ -224,6 +210,18 @@ function saveStoredUsers(users: Array<User & { password?: string; isBanned?: boo
 }
 
 function getCurrentUser(): User | null {
+  try {
+    const activeRaw = localStorage.getItem('logicq_active_user');
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw);
+      if (active && typeof active === 'object' && active.id) {
+        return active;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   const id = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
   if (!id) return null;
   const users = getStoredUsers();
@@ -482,6 +480,12 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   };
 
   if (path === '/problems/current-week' && method === 'GET') {
+    const user = getCurrentUser();
+    if (user?.role !== 'ADMIN') {
+      const err = new Error('Not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
     return {
       success: true,
       data: {
@@ -499,36 +503,59 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const isSolved = user
       ? subs.some((s) => s.userId === user.id && s.problemId === daily.id && s.verdict === 'ACCEPTED')
       : false;
+    const secondsUntilNextReset = getSecondsUntilNext1700IST();
     return {
       success: true,
       data: {
         problem: daily,
-        currentWeek: buildFallbackCurrentWeek(),
         userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === daily.id).length },
-        secondsUntilNextReset: getSecondsUntilNext1700IST(),
+        secondsUntilNextReset,
+        endsAt: new Date(Date.now() + secondsUntilNextReset * 1000).toISOString(),
       },
     };
   }
 
   if (path === '/problems' && method === 'GET') {
-    throw new Error('Not found');
+    const err = new Error('Not found') as Error & { status?: number };
+    err.status = 404;
+    throw err;
   }
 
   if (path.startsWith('/problems/') && method === 'GET') {
     const slug = path.replace('/problems/', '');
     const problems = getStoredProblems();
-    const problem = problems.find((p) => p.slug === slug || p.id === slug) || problems[0];
     const user = getCurrentUser();
+    const problem = problems.find((p) => p.slug === slug || p.id === slug);
+    if (!problem) {
+      const err = new Error('Challenge not found') as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+    if (user?.role !== 'ADMIN' && !problem.isDaily) {
+      const err = new Error('This challenge has ended.') as Error & {
+        status?: number;
+        code?: string;
+        ended?: boolean;
+        todayChallengeUrl?: string;
+      };
+      err.status = 410;
+      err.code = 'CHALLENGE_ENDED';
+      err.ended = true;
+      err.todayChallengeUrl = '/challenge';
+      throw err;
+    }
     const subs = getStoredSubmissions();
     const isSolved = user
       ? subs.some((s) => s.userId === user.id && s.problemId === problem.id && s.verdict === 'ACCEPTED')
       : false;
+    const secondsUntilNextReset = getSecondsUntilNext1700IST();
     return {
       success: true,
       data: {
         problem,
-        currentWeek: buildFallbackCurrentWeek(),
         userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === problem.id).length },
+        secondsUntilNextReset,
+        endsAt: new Date(Date.now() + secondsUntilNextReset * 1000).toISOString(),
       },
     };
   }

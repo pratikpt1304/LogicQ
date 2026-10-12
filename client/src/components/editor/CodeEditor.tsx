@@ -11,6 +11,7 @@ interface CodeEditorProps {
   onReset?: () => void;
   isSubmitting?: boolean;
   isRunning?: boolean;
+  readOnly?: boolean;
 }
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
@@ -88,6 +89,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onReset,
   isSubmitting,
   isRunning,
+  readOnly = false,
 }) => {
   const { theme } = useTheme();
   const [copied, setCopied] = React.useState(false);
@@ -98,12 +100,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const onSubmitRef = React.useRef(onSubmit);
   const isSubmittingRef = React.useRef(isSubmitting);
   const isRunningRef = React.useRef(isRunning);
+  const readOnlyRef = React.useRef(readOnly);
 
   onChangeRef.current = onChange;
   onRunRef.current = onRun;
   onSubmitRef.current = onSubmit;
   isSubmittingRef.current = isSubmitting;
   isRunningRef.current = isRunning;
+  readOnlyRef.current = readOnly;
 
   const monacoThemeName = theme === 'dark' ? 'logicq-dark' : 'logicq-light';
 
@@ -128,6 +132,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       renderLineHighlight: 'all',
       cursorBlinking: 'smooth',
       smoothScrolling: true,
+      readOnly: Boolean(readOnly),
     });
 
     editorRef.current = editor;
@@ -135,16 +140,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     editor.revealLine(1);
 
     const sub = editor.onDidChangeModelContent(() => {
+      if (readOnlyRef.current) return;
       const val = editor.getValue();
       onChangeRef.current(val);
     });
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      if (onSubmitRef.current && !isSubmittingRef.current) onSubmitRef.current();
+      if (!readOnlyRef.current && onSubmitRef.current && !isSubmittingRef.current) {
+        onSubmitRef.current();
+      }
     });
 
     editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.Enter, () => {
-      if (onRunRef.current && !isRunningRef.current) onRunRef.current();
+      if (!readOnlyRef.current && onRunRef.current && !isRunningRef.current) {
+        onRunRef.current();
+      }
     });
 
     return () => {
@@ -153,6 +163,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       editorRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({ readOnly: Boolean(readOnly) });
+    }
+  }, [readOnly]);
 
   React.useEffect(() => {
     if (editorRef.current && editorRef.current.getValue() !== code) {
@@ -172,6 +188,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   const handleInsertSymbol = (insertText: string) => {
+    if (readOnly) return;
     const editor = editorRef.current;
     if (editor) {
       const selection = editor.getSelection();
@@ -191,7 +208,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-line)] overflow-hidden overscroll-contain">
+    <div
+      data-readonly={readOnly ? 'true' : 'false'}
+      className="flex flex-col h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-line)] overflow-hidden overscroll-contain"
+    >
       {/* Editor Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0">
         <div className="flex items-center gap-2">
@@ -203,11 +223,19 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             <span className="text-xs text-[var(--color-accent)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-bold">
               C
             </span>
+            {readOnly && (
+              <span
+                data-testid="editor-readonly-badge"
+                className="text-[11px] text-[var(--color-warning)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--color-warning)] font-semibold"
+              >
+                Read-only
+              </span>
+            )}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {onReset && (
+          {onReset && !readOnly && (
             <button
               type="button"
               onClick={onReset}
@@ -252,8 +280,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           <button
             key={sym.label}
             type="button"
+            disabled={readOnly}
             onClick={() => handleInsertSymbol(sym.insertText)}
-            className="min-w-[38px] min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-main)] active:border-[var(--color-accent)] shrink-0"
+            className="min-w-[38px] min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-main)] active:border-[var(--color-accent)] disabled:opacity-50 shrink-0"
           >
             {sym.label}
           </button>
