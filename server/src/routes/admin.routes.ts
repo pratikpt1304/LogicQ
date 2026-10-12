@@ -16,6 +16,10 @@ import {
   exportUsersCsv,
   exportWeeklyResultsCsv,
   problemAdminSchema,
+  getAdminCheckers,
+  toggleCheckerPause,
+  assignUploadToChecker,
+  autoAssignRoundRobin,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -45,6 +49,13 @@ adminRouter.get('/uploads/:id/compare/:otherId', UploadController.adminCompareUp
 adminRouter.post('/uploads/:id/flag', UploadController.adminFlagUpload);
 adminRouter.post('/uploads/:id/review', UploadController.adminReviewUpload);
 adminRouter.put('/uploads/:id/review', UploadController.adminReviewUpload);
+adminRouter.post('/uploads/:uploadId/assign', assignUploadToChecker);
+adminRouter.post('/uploads/auto-assign', autoAssignRoundRobin);
+
+// Checkers Workload & Directory Management
+adminRouter.get('/checkers', getAdminCheckers);
+adminRouter.patch('/checkers/:id/pause', toggleCheckerPause);
+
 adminRouter.get('/users', getAdminUsers);
 adminRouter.put('/users/:id/prn', adminUpdateUserPrnAndCollege);
 adminRouter.patch('/users/:id/prn', adminUpdateUserPrnAndCollege);

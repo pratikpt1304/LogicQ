@@ -415,8 +415,9 @@ export function computeTwoWeekPilotAnalytics(
 
 export async function getAnalytics(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const [totalUsers, totalProblems, totalSubmissions, acceptedSubmissions] = await Promise.all([
+    const [totalUsers, totalAdmins, totalProblems, totalSubmissions, acceptedSubmissions] = await Promise.all([
       prisma.user.count(),
+      prisma.user.count({ where: { role: 'ADMIN' } }),
       prisma.problem.count(),
       prisma.submission.count(),
       prisma.submission.count({ where: { verdict: 'ACCEPTED' } }),
@@ -540,6 +541,8 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
       data: {
         overview: {
           totalUsers,
+          totalAdmins,
+          isSingleAdminAlert: totalAdmins <= 1,
           totalProblems,
           totalSubmissions,
           acceptedSubmissions,
@@ -1252,26 +1255,65 @@ export async function exportWeeklyResultsCsv(req: AuthRequest, res: Response): P
 export async function updateUserRole(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const { role, reason } = req.body;
 
-    if (!['STUDENT', 'ADMIN'].includes(role)) {
-      res.status(400).json({ success: false, message: 'Invalid role' });
+    const normalizedNewRole = (role || '').toUpperCase();
+    if (!['STUDENT', 'ADMIN', 'CHECKER'].includes(normalizedNewRole)) {
+      res.status(400).json({ success: false, message: 'Invalid role. Allowed roles: STUDENT, ADMIN, CHECKER' });
       return;
     }
 
-    if (req.user?.userId === id && role !== 'ADMIN') {
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, username: true, role: true },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({ success: false, message: 'Target user not found' });
+      return;
+    }
+
+    const currentRole = targetUser.role.toUpperCase();
+
+    // Invariant: Admins cannot demote or remove their own admin role
+    if (req.user?.userId === id && currentRole === 'ADMIN' && normalizedNewRole !== 'ADMIN') {
       res.status(400).json({
         success: false,
-        message: 'Admins cannot demote their own account',
+        message: 'Admins cannot remove their own administrator role',
       });
       return;
+    }
+
+    // Invariant: The system must always maintain at least 2 admins
+    if (currentRole === 'ADMIN' && normalizedNewRole !== 'ADMIN') {
+      const adminCount = await prisma.user.count({
+        where: { role: 'ADMIN' },
+      });
+
+      if (adminCount <= 2) {
+        res.status(400).json({
+          success: false,
+          message: 'Cannot demote admin: The system must always maintain at least 2 active administrators',
+        });
+        return;
+      }
     }
 
     const [updated] = await prisma.$transaction([
       prisma.user.update({
         where: { id },
-        data: { role },
+        data: { role: normalizedNewRole },
         select: { id: true, username: true, role: true },
+      }),
+      prisma.adminAuditLog.create({
+        data: {
+          adminId: req.user!.userId,
+          targetUserId: id,
+          action: 'UPDATE_USER_ROLE',
+          oldValue: currentRole,
+          newValue: normalizedNewRole,
+          reason: reason || `Admin updated user role from ${currentRole} to ${normalizedNewRole}`,
+        },
       }),
       prisma.refreshToken.updateMany({
         where: { userId: id, revokedAt: null },
@@ -1281,7 +1323,7 @@ export async function updateUserRole(req: AuthRequest, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      message: `User role updated to ${role}`,
+      message: `User role updated to ${normalizedNewRole}`,
       data: { user: updated },
     });
   } catch (err: any) {
@@ -1326,4 +1368,223 @@ export async function updateUserBan(req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ success: false, message: 'Failed to update user status' });
   }
 }
+
+export async function getAdminCheckers(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const checkers = await prisma.user.findMany({
+      where: { role: 'CHECKER' },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        fullName: true,
+        isBanned: true,
+        isCheckerPaused: true,
+        createdAt: true,
+        assignedReviews: {
+          where: { status: 'PENDING_REVIEW' },
+          select: { id: true, assignedAt: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Compute telemetry for each checker
+    const telemetry = await Promise.all(
+      checkers.map(async (c) => {
+        const completedReviews = await prisma.uploadReview.findMany({
+          where: { reviewerId: c.id },
+          select: { id: true, createdAt: true },
+        });
+
+        return {
+          id: c.id,
+          email: c.email,
+          username: c.username,
+          displayName: c.displayName || c.fullName || c.username,
+          isBanned: c.isBanned,
+          isCheckerPaused: c.isCheckerPaused,
+          activeWorkloadCount: c.assignedReviews.length,
+          totalCompletedReviews: completedReviews.length,
+          createdAt: c.createdAt,
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { checkers: telemetry },
+    });
+  } catch (err: any) {
+    console.error('GetAdminCheckers error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch checkers directory' });
+  }
+}
+
+export async function toggleCheckerPause(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { isCheckerPaused } = req.body;
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isCheckerPaused: Boolean(isCheckerPaused) },
+      select: { id: true, username: true, email: true, isCheckerPaused: true },
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        targetUserId: id,
+        action: 'TOGGLE_CHECKER_PAUSE',
+        oldValue: (!isCheckerPaused).toString(),
+        newValue: Boolean(isCheckerPaused).toString(),
+        reason: `Admin toggled checker pause status to ${isCheckerPaused}`,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Checker ${updated.isCheckerPaused ? 'paused' : 'resumed'}`,
+      data: { checker: updated },
+    });
+  } catch (err: any) {
+    console.error('ToggleCheckerPause error:', err);
+    res.status(500).json({ success: false, message: 'Failed to toggle checker status' });
+  }
+}
+
+export async function assignUploadToChecker(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { uploadId } = req.params;
+    const { checkerId } = req.body;
+
+    const upload = await prisma.uploadedSolution.findUnique({
+      where: { id: uploadId },
+    });
+
+    if (!upload) {
+      res.status(404).json({ success: false, message: 'Upload not found' });
+      return;
+    }
+
+    if (checkerId) {
+      // Conflict check: cannot assign upload to its own submitter
+      if (upload.userId === checkerId) {
+        res.status(400).json({
+          success: false,
+          message: 'Conflict of interest: Cannot assign upload to the student who submitted it',
+        });
+        return;
+      }
+
+      const checker = await prisma.user.findUnique({
+        where: { id: checkerId },
+      });
+
+      if (!checker || (checker.role !== 'CHECKER' && checker.role !== 'ADMIN')) {
+        res.status(400).json({ success: false, message: 'Target user is not a valid checker' });
+        return;
+      }
+    }
+
+    const updated = await prisma.uploadedSolution.update({
+      where: { id: uploadId },
+      data: {
+        assignedCheckerId: checkerId || null,
+        assignedAt: checkerId ? new Date() : null,
+      },
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        targetUserId: upload.userId,
+        targetId: uploadId,
+        action: 'ASSIGN_UPLOAD_CHECKER',
+        oldValue: upload.assignedCheckerId || 'UNASSIGNED',
+        newValue: checkerId || 'UNASSIGNED',
+        reason: `Admin assigned upload to checker ${checkerId || 'NONE'}`,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Upload assignment updated',
+      data: { upload: updated },
+    });
+  } catch (err: any) {
+    console.error('AssignUploadToChecker error:', err);
+    res.status(500).json({ success: false, message: 'Failed to assign upload' });
+  }
+}
+
+export async function autoAssignRoundRobin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    // Active, unpaused, non-banned checkers
+    const availableCheckers = await prisma.user.findMany({
+      where: {
+        role: 'CHECKER',
+        isBanned: false,
+        isCheckerPaused: false,
+      },
+      select: {
+        id: true,
+        assignedReviews: {
+          where: { status: 'PENDING_REVIEW' },
+          select: { id: true },
+        },
+      },
+    });
+
+    if (availableCheckers.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'No active, unpaused checkers available for assignment',
+      });
+      return;
+    }
+
+    // Pending uploads with no assigned checker
+    const unassignedUploads = await prisma.uploadedSolution.findMany({
+      where: {
+        status: 'PENDING_REVIEW',
+        assignedCheckerId: null,
+      },
+      orderBy: { submittedAt: 'asc' },
+    });
+
+    let assignedCount = 0;
+    // Sort checkers by least active workload
+    availableCheckers.sort((a, b) => a.assignedReviews.length - b.assignedReviews.length);
+
+    for (const upload of unassignedUploads) {
+      // Pick first checker who is not the submitter of this upload
+      const candidate = availableCheckers.find((c) => c.id !== upload.userId);
+      if (candidate) {
+        await prisma.uploadedSolution.update({
+          where: { id: upload.id },
+          data: {
+            assignedCheckerId: candidate.id,
+            assignedAt: new Date(),
+          },
+        });
+        candidate.assignedReviews.push({ id: upload.id });
+        availableCheckers.sort((a, b) => a.assignedReviews.length - b.assignedReviews.length);
+        assignedCount++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Assigned ${assignedCount} uploads across ${availableCheckers.length} checkers`,
+      data: { assignedCount },
+    });
+  } catch (err: any) {
+    console.error('AutoAssignRoundRobin error:', err);
+    res.status(500).json({ success: false, message: 'Failed to execute round-robin assignment' });
+  }
+}
+
 

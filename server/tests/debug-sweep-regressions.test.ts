@@ -157,14 +157,14 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
 
     const judgedSub = await prisma.submission.findUnique({ where: { id: sub.id } });
     expect(judgedSub?.verdict).toBe('ACCEPTED');
-    expect(judgedSub?.pointsAwarded).toBe(25); // 20 base + 5 first-solve bonus
+    expect(judgedSub?.pointsAwarded).toBe(20); // Strictly by difficulty (basePoints = 20)
 
-    // User totalPoints is 25
+    // User totalPoints is 20
     const userAfterFirst = await prisma.user.findUnique({
       where: { id: studentId },
       include: { userBadges: { include: { badge: true } } },
     });
-    expect(userAfterFirst?.totalPoints).toBe(25);
+    expect(userAfterFirst?.totalPoints).toBe(20);
 
     // Badges feature removed (FEATURE_BADGES=false): badge evaluation is a no-op
     const badgeSlugs = userAfterFirst?.userBadges.map((ub) => ub.badge.slug) || [];
@@ -190,8 +190,8 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
       where: { contestId_userId: { contestId, userId: studentId } },
     });
 
-    expect(userAfterRejudge?.totalPoints).toBe(25);
-    expect(subAfterRejudge?.pointsAwarded).toBe(25);
+    expect(userAfterRejudge?.totalPoints).toBe(20);
+    expect(subAfterRejudge?.pointsAwarded).toBe(20);
     expect(participantAfterRejudge?.score).toBe(100);
   }, 30000);
 

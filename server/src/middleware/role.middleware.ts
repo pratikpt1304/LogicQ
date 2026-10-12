@@ -1,8 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware.js';
+import { normalizeRole, RoleName } from '../config/roles.config.js';
 
 export function requireRole(allowedRoles: string | string[]) {
-  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  const roles = (Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]).map((r) =>
+    r.toUpperCase()
+  );
 
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
@@ -10,7 +13,9 @@ export function requireRole(allowedRoles: string | string[]) {
       return;
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRole = normalizeRole(req.user.role);
+
+    if (!roles.includes(userRole)) {
       res.status(403).json({ success: false, message: 'Access denied: insufficient privileges' });
       return;
     }
@@ -18,3 +23,4 @@ export function requireRole(allowedRoles: string | string[]) {
     next();
   };
 }
+

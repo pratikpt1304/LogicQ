@@ -11,4 +11,9 @@ export const FEATURES = {
   ARENA: process.env.FEATURE_ARENA === 'true' ? true : false,
   ARCHIVE: process.env.FEATURE_ARCHIVE === 'true' ? true : false,
   BADGES: process.env.FEATURE_BADGES === 'true' ? true : false,
+  HIDE_ENDED_PROBLEM_TITLES: process.env.HIDE_ENDED_PROBLEM_TITLES === 'true' ? true : false,
 } as const;
+
+export function shouldHideEndedProblemTitles(): boolean {
+  return process.env.HIDE_ENDED_PROBLEM_TITLES === 'true' || FEATURES.HIDE_ENDED_PROBLEM_TITLES;
+}

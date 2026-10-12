@@ -4,13 +4,13 @@ import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getJudge } from '../judge/judge.factory.js';
 import { getQueue } from '../queue/queue.factory.js';
-import { evaluateSubmission } from '../services/submission-evaluator.js';
-import { getTodayIST, getChallengeDayIST, getCurrentWeekDayDatesIST } from '../utils/ist.js';
-import { FEATURES } from '../config/features.config.js';
+import { getServerNow, getChallengeDayIST } from '../utils/ist.js';
+import { shouldHideEndedProblemTitles } from '../config/features.config.js';
 import { ensureCurrentWeekSchedule } from './problem.controller.js';
 
 export const runCodeSchema = z.object({
   body: z.object({
+    problemId: z.string().uuid().optional().nullable(),
     code: z
       .string()
       .min(1, 'Source code cannot be empty')
@@ -31,11 +31,53 @@ export const submitSolutionSchema = z.object({
   }),
 });
 
+function formatSubmissionProblemForHistory(
+  problem: {
+    id: string;
+    title: string;
+    slug: string;
+    difficulty: string;
+    scheduledDate?: string | null;
+  } | null,
+  activeDay: string,
+  hideEndedTitles: boolean,
+  isAdmin: boolean
+) {
+  if (!problem) return null;
+  const isEnded = problem.scheduledDate !== activeDay;
+  const shouldMaskTitle = !isAdmin && isEnded && hideEndedTitles;
+  return {
+    id: problem.id,
+    title: shouldMaskTitle ? 'Past Challenge' : problem.title,
+    slug: isEnded && !isAdmin ? null : problem.slug,
+    difficulty: problem.difficulty,
+    scheduledDate: problem.scheduledDate ?? null,
+    isEnded,
+  };
+}
+
 export async function runCode(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { code, stdin, timeLimitMs } = req.body;
-    const judge = await getJudge();
+    await ensureCurrentWeekSchedule();
+    const { problemId, code, stdin, timeLimitMs } = req.body;
 
+    if (problemId && req.user?.role !== 'ADMIN') {
+      const activeDay = getChallengeDayIST(getServerNow());
+      const problem = await prisma.problem.findUnique({
+        where: { id: problemId },
+        select: { id: true, status: true, scheduledDate: true },
+      });
+      if (!problem || problem.status !== 'PUBLISHED' || problem.scheduledDate !== activeDay) {
+        res.status(403).json({
+          success: false,
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Challenge not available: this challenge has ended or is not active.',
+        });
+        return;
+      }
+    }
+
+    const judge = await getJudge();
     const result = await judge.compileAndRun(code, stdin || '', timeLimitMs || 1000, 64);
 
     res.status(200).json({
@@ -65,6 +107,10 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    // Capture authoritative server timestamp immediately on request arrival
+    const submittedAt = getServerNow();
+    const challengeDayIST = getChallengeDayIST(submittedAt);
+
     // Fail closed if real C compiler judge is unavailable
     try {
       await getJudge();
@@ -88,34 +134,25 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Security check: non-admins cannot submit to unpublished/retired, future-locked, or past-week archive challenges
+    // Single Visible Question Rule: non-admins can ONLY submit to today's active challenge (scheduledDate === challengeDayIST)
     if (req.user.role !== 'ADMIN') {
       if (problem.status !== 'PUBLISHED') {
         res.status(403).json({
           success: false,
-          message: 'Forbidden: This problem is not published for submissions.',
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Challenge not available.',
         });
         return;
       }
 
-      const todayIST = getTodayIST();
-      const challengeDayIST = getChallengeDayIST();
-      const weekStart = getCurrentWeekDayDatesIST()[0];
-      if (
-        problem.scheduledDate &&
-        (problem.scheduledDate > challengeDayIST || problem.scheduledDate > todayIST)
-      ) {
+      if (problem.scheduledDate !== challengeDayIST) {
+        const isEnded = Boolean(problem.scheduledDate && problem.scheduledDate < challengeDayIST);
         res.status(403).json({
           success: false,
-          message: 'Forbidden: This scheduled challenge has not unlocked yet.',
-        });
-        return;
-      }
-
-      if (!FEATURES.ARCHIVE && problem.scheduledDate && problem.scheduledDate < weekStart) {
-        res.status(403).json({
-          success: false,
-          message: 'Forbidden: Submissions to past-week archive problems are disabled.',
+          code: isEnded ? 'CHALLENGE_ENDED' : 'CHALLENGE_NOT_AVAILABLE',
+          message: isEnded
+            ? 'Challenge not available: this challenge ended at 17:00 IST.'
+            : 'Challenge not available.',
         });
         return;
       }
@@ -127,12 +164,15 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       orderBy: { createdAt: 'desc' },
     });
 
-    if (lastSub && Date.now() - new Date(lastSub.createdAt).getTime() < 5000) {
-      res.status(429).json({
-        success: false,
-        message: 'Submission cooldown active. Please wait 5 seconds between submissions.',
-      });
-      return;
+    if (lastSub) {
+      const deltaMs = submittedAt.getTime() - new Date(lastSub.createdAt).getTime();
+      if (deltaMs >= 0 && deltaMs < 5000) {
+        res.status(429).json({
+          success: false,
+          message: 'Submission cooldown active. Please wait 5 seconds between submissions.',
+        });
+        return;
+      }
     }
 
     // If contestId specified, verify contest is ONGOING
@@ -144,7 +184,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       }
     }
 
-    // Create submission record with PENDING status
+    // Create submission record with PENDING status and authoritative submittedAt (createdAt)
     const submission = await prisma.submission.create({
       data: {
         userId: req.user.userId,
@@ -152,6 +192,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
         contestId: contestId || null,
         code,
         verdict: 'PENDING',
+        createdAt: submittedAt,
       },
     });
 
@@ -164,6 +205,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       message: 'Submission received and queued for evaluation',
       data: {
         submissionId: submission.id,
+        submittedAt: submission.createdAt,
         status: 'PENDING',
       },
     });
@@ -180,6 +222,11 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
       return;
     }
 
+    await ensureCurrentWeekSchedule();
+    const activeDay = getChallengeDayIST(getServerNow());
+    const hideEndedTitles = shouldHideEndedProblemTitles();
+    const isAdmin = req.user.role === 'ADMIN';
+
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
@@ -192,7 +239,7 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
         take: limit,
         include: {
           problem: {
-            select: { id: true, title: true, slug: true, difficulty: true },
+            select: { id: true, title: true, slug: true, difficulty: true, scheduledDate: true },
           },
           testCaseResults: {
             select: { id: true, verdict: true, runtimeMs: true, orderIndex: true },
@@ -206,11 +253,16 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
         orderBy: { submittedAt: 'desc' },
         include: {
           problem: {
-            select: { id: true, title: true, slug: true, difficulty: true },
+            select: { id: true, title: true, slug: true, difficulty: true, scheduledDate: true },
           },
         },
       }),
     ]);
+
+    const formattedSubmissions = submissions.map((s) => ({
+      ...s,
+      problem: formatSubmissionProblemForHistory(s.problem, activeDay, hideEndedTitles, isAdmin),
+    }));
 
     const formattedUploads = uploadedSolutions.map((u) => {
       let files: any[] = [];
@@ -222,7 +274,7 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
       return {
         id: u.id,
         problemId: u.problemId,
-        problem: u.problem,
+        problem: formatSubmissionProblemForHistory(u.problem, activeDay, hideEndedTitles, isAdmin),
         studentNote: u.studentNote,
         status: u.status,
         pointsAwarded: u.pointsAwarded,
@@ -241,7 +293,7 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
     res.status(200).json({
       success: true,
       data: {
-        submissions,
+        submissions: formattedSubmissions,
         uploadedSolutions: formattedUploads,
         pagination: {
           page,
@@ -265,7 +317,7 @@ export async function getSubmissionById(req: AuthRequest, res: Response): Promis
       where: { id },
       include: {
         problem: {
-          select: { id: true, title: true, slug: true, difficulty: true },
+          select: { id: true, title: true, slug: true, difficulty: true, scheduledDate: true },
         },
         user: {
           select: { id: true, username: true, fullName: true, avatarUrl: true },
@@ -293,9 +345,22 @@ export async function getSubmissionById(req: AuthRequest, res: Response): Promis
       return;
     }
 
+    const activeDay = getChallengeDayIST(getServerNow());
+    const hideEndedTitles = shouldHideEndedProblemTitles();
+
     res.status(200).json({
       success: true,
-      data: { submission },
+      data: {
+        submission: {
+          ...submission,
+          problem: formatSubmissionProblemForHistory(
+            submission.problem,
+            activeDay,
+            hideEndedTitles,
+            isAdmin
+          ),
+        },
+      },
     });
   } catch (err: any) {
     console.error('Get submission by id error:', err);

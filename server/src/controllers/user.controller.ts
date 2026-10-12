@@ -14,8 +14,14 @@ import {
   formatPublicDisplayName,
   generateShortId,
 } from '../config/academic.config.js';
-import { getWeekWindowByOffsetIST } from '../utils/ist.js';
-import { FEATURES } from '../config/features.config.js';
+import {
+  getServerNow,
+  getChallengeDayIST,
+  addDaysIST,
+  getWeekWindowByOffsetIST,
+} from '../utils/ist.js';
+import { FEATURES, shouldHideEndedProblemTitles } from '../config/features.config.js';
+import { ensureCurrentWeekSchedule } from './problem.controller.js';
 
 function stripHtmlTags(str: string): string {
   return str.replace(/<[^>]*>?/gm, '').trim();
@@ -618,10 +624,37 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
         ? 100
         : Math.max(1, Math.min(100, Math.round(((totalUsers - rank + 1) / totalUsers) * 100)));
 
+    await ensureCurrentWeekSchedule();
+    const now = getServerNow();
+    const activeDay = getChallengeDayIST(now);
+    const hideEndedTitles = shouldHideEndedProblemTitles();
+    const isAdmin = req.user.role === 'ADMIN';
+
     const rawWeekOffset = parseInt((req.query.weekOffset as string) || '0', 10);
     const weekOffset = Number.isNaN(rawWeekOffset) ? 0 : Math.max(-12, Math.min(0, rawWeekOffset));
 
-    const availableWeeks = [0, -1, -2, -3].map((off) => getWeekWindowByOffsetIST(off));
+    const availableWeeks = [0, -1, -2, -3].map((off) => getWeekWindowByOffsetIST(off, now));
+    const currentWeekDates = Array.from({ length: 7 }, (_, idx) =>
+      addDaysIST(availableWeeks[0].startDate, idx)
+    );
+    const currentWeekProblems = await prisma.problem.findMany({
+      where: {
+        status: 'PUBLISHED',
+        scheduledDate: { in: currentWeekDates },
+      },
+      select: {
+        id: true,
+        title: true,
+        scheduledDate: true,
+        basePoints: true,
+      },
+    });
+    const problemByScheduledDate = new Map(
+      currentWeekProblems
+        .filter((p) => Boolean(p.scheduledDate))
+        .map((p) => [p.scheduledDate as string, p])
+    );
+
     const weeklySummaries = availableWeeks.map((wk) => {
       const absOff = Math.abs(wk.weekOffset);
       const weeklyPoints =
@@ -637,6 +670,30 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
           ? solvedProblems.size
           : Math.min(7, Math.max(1, Math.round(weeklyPoints / 25)));
 
+      const weekDays = Array.from({ length: 7 }, (_, idx) => addDaysIST(wk.startDate, idx)).filter(
+        (d) => d <= activeDay
+      );
+      const perDayResults = weekDays.map((dateStr) => {
+        const prob = problemByScheduledDate.get(dateStr);
+        const isEnded = dateStr < activeDay;
+        const rawTitle = prob?.title || `Daily Challenge (${dateStr})`;
+        const title = !isAdmin && isEnded && hideEndedTitles ? 'Past Daily Challenge' : rawTitle;
+        const solved = prob ? solvedProblems.has(prob.id) : false;
+        const subForProb = prob
+          ? user.submissions.find((s) => s.problem.id === prob.id)
+          : undefined;
+        const verdict = solved
+          ? 'ACCEPTED'
+          : subForProb?.verdict || (isEnded ? 'MISSED' : 'PENDING');
+        const points = solved ? subForProb?.pointsAwarded || prob?.basePoints || 10 : 0;
+        return {
+          date: dateStr,
+          title,
+          verdict,
+          points,
+        };
+      });
+
       return {
         weekId: wk.weekId,
         weekOffset: wk.weekOffset,
@@ -651,6 +708,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
         percentile,
         studentsBeaten,
         previousWeekDelta: weeklyPoints - prevPoints,
+        perDayResults,
       };
     });
 
@@ -658,6 +716,21 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       availableWeeks.find((w) => w.weekOffset === weekOffset) || availableWeeks[0];
     const weeklySummary =
       weeklySummaries.find((w) => w.weekOffset === weekOffset) || weeklySummaries[0];
+
+    const sanitizedRecentSubmissions = user.submissions.map((s) => {
+      const isEnded = s.problem.slug !== 'daily-longest-unique-substring';
+      return {
+        ...s,
+        problem: {
+          id: s.problem.id,
+          title: !isAdmin && isEnded && hideEndedTitles ? 'Past Daily Challenge' : s.problem.title,
+          slug: !isAdmin && isEnded ? '' : s.problem.slug,
+          difficulty: s.problem.difficulty,
+          basePoints: s.problem.basePoints,
+          isEnded,
+        },
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -685,7 +758,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
         availableWeeks,
         weeklySummary,
         weeklySummaries,
-        recentSubmissions: user.submissions,
+        recentSubmissions: sanitizedRecentSubmissions,
         ...(FEATURES.BADGES
           ? {
               badges: user.userBadges.map((ub) => ({

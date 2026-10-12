@@ -315,99 +315,113 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
   }, 40000);
 
   it('4. Upload Files Workflow & Security: magic-byte validation, EXIF stripping, PDF JS rejection, PENDING_REVIEW 0-point rule, IDOR block, and Admin review', async () => {
-    // 1. Disguised executable (.exe renamed to .png) -> rejected by magic bytes
-    const fakePngBase64 = Buffer.from('MZ\x90\x00This is an executable file').toString('base64');
-    const fakeRes = await request(app)
-      .post('/api/uploads')
-      .set('Authorization', `Bearer ${studentBToken}`)
-      .send({
-        problemId: pointerSwapProblemId,
-        files: [{ name: 'disguised.png', mimeType: 'image/png', dataBase64: fakePngBase64 }],
+    await ensureCurrentWeekSchedule();
+    const activeDay = getChallengeDayIST();
+    await prisma.problem.update({
+      where: { id: pointerSwapProblemId },
+      data: { scheduledDate: activeDay, status: 'PUBLISHED' },
+    });
+
+    try {
+      // 1. Disguised executable (.exe renamed to .png) -> rejected by magic bytes
+      const fakePngBase64 = Buffer.from('MZ\x90\x00This is an executable file').toString('base64');
+      const fakeRes = await request(app)
+        .post('/api/uploads')
+        .set('Authorization', `Bearer ${studentBToken}`)
+        .send({
+          problemId: pointerSwapProblemId,
+          files: [{ name: 'disguised.png', mimeType: 'image/png', dataBase64: fakePngBase64 }],
+        });
+      expect(fakeRes.status).toBe(400);
+      expect(fakeRes.body.message).toMatch(/disguised|signature/i);
+
+      // 2. PDF containing /JavaScript -> rejected
+      const jsPdfBase64 = Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>\n%%EOF').toString('base64');
+      const jsPdfRes = await request(app)
+        .post('/api/uploads')
+        .set('Authorization', `Bearer ${studentBToken}`)
+        .send({
+          problemId: pointerSwapProblemId,
+          files: [{ name: 'malicious.pdf', mimeType: 'application/pdf', dataBase64: jsPdfBase64 }],
+        });
+      expect(jsPdfRes.status).toBe(400);
+      expect(jsPdfRes.body.message).toMatch(/active scripts/i);
+
+      // 3. Valid PNG + JPEG with APP1 EXIF segment -> accepted, EXIF stripped, status PENDING_REVIEW, 0 points
+      const validPngBytes = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      ]);
+      const validJpgWithExif = Buffer.from([
+        0xff, 0xd8, // SOI
+        0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // APP1 EXIF (length 8)
+        0xff, 0xdb, 0x00, 0x04, 0x00, 0x00, // DQT
+        0xff, 0xd9, // EOI
+      ]);
+
+      const uploadRes = await request(app)
+        .post('/api/uploads')
+        .set('Authorization', `Bearer ${studentBToken}`)
+        .send({
+          problemId: pointerSwapProblemId,
+          note: 'Swapped pointers using a temporary variable on paper.',
+          files: [
+            { name: 'notebook_page1.png', mimeType: 'image/png', dataBase64: validPngBytes.toString('base64') },
+            { name: 'photo_with_exif.jpg', mimeType: 'image/jpeg', dataBase64: validJpgWithExif.toString('base64') },
+          ],
+        });
+
+      expect(uploadRes.status).toBe(201);
+      const uploaded = uploadRes.body.data.upload;
+      expect(uploaded.status).toBe('PENDING_REVIEW');
+      expect(uploaded.pointsAwarded).toBe(0);
+
+      const userBBeforeReview = await prisma.user.findUnique({ where: { id: studentBId } });
+      expect(userBBeforeReview?.totalPoints).toBe(0);
+      expect(userBBeforeReview?.currentStreak).toBe(0);
+
+      // 4. IDOR check: Student A cannot view or download Student B's uploaded file
+      const fileId = uploaded.files[0].id;
+      const idorRes = await request(app)
+        .get(`/api/uploads/${uploaded.id}/files/${fileId}`)
+        .set('Authorization', `Bearer ${studentAToken}`);
+      expect(idorRes.status).toBe(403);
+
+      // 5. Admin views file -> succeeds and writes AdminAuditLog
+      const adminFileRes = await request(app)
+        .get(`/api/uploads/${uploaded.id}/files/${fileId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(adminFileRes.status).toBe(200);
+
+      // Verify JPEG EXIF APP1 (0xFF 0xE1) was stripped on disk
+      const jpgFileId = uploaded.files[1].id;
+      const adminJpgRes = await request(app)
+        .get(`/api/uploads/${uploaded.id}/files/${jpgFileId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(adminJpgRes.status).toBe(200);
+      expect(adminJpgRes.body.includes(Buffer.from([0xff, 0xe1]))).toBe(false);
+
+      // 6. Admin approves upload with 10 points -> updates Student B's points & streak once
+      const reviewRes = await request(app)
+        .put(`/api/admin/uploads/${uploaded.id}/review`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          status: 'APPROVED',
+          pointsAwarded: 10,
+          reviewerComment: 'Clean pointer diagram and dry run!',
+        });
+      expect(reviewRes.status).toBe(200);
+      expect(reviewRes.body.data.upload.status).toBe('APPROVED');
+      expect(reviewRes.body.data.upload.pointsAwarded).toBe(10);
+
+      const userBAfterReview = await prisma.user.findUnique({ where: { id: studentBId } });
+      expect(userBAfterReview?.totalPoints).toBe(10);
+      expect(userBAfterReview?.currentStreak).toBe(1);
+    } finally {
+      await prisma.problem.update({
+        where: { id: pointerSwapProblemId },
+        data: { scheduledDate: pointerSwapOrigScheduledDate ?? addDaysIST(activeDay, -10) },
       });
-    expect(fakeRes.status).toBe(400);
-    expect(fakeRes.body.message).toMatch(/disguised|signature/i);
-
-    // 2. PDF containing /JavaScript -> rejected
-    const jsPdfBase64 = Buffer.from('%PDF-1.7\n1 0 obj << /Type /Catalog /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>\n%%EOF').toString('base64');
-    const jsPdfRes = await request(app)
-      .post('/api/uploads')
-      .set('Authorization', `Bearer ${studentBToken}`)
-      .send({
-        problemId: pointerSwapProblemId,
-        files: [{ name: 'malicious.pdf', mimeType: 'application/pdf', dataBase64: jsPdfBase64 }],
-      });
-    expect(jsPdfRes.status).toBe(400);
-    expect(jsPdfRes.body.message).toMatch(/active scripts/i);
-
-    // 3. Valid PNG + JPEG with APP1 EXIF segment -> accepted, EXIF stripped, status PENDING_REVIEW, 0 points
-    const validPngBytes = Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-    ]);
-    const validJpgWithExif = Buffer.from([
-      0xff, 0xd8, // SOI
-      0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // APP1 EXIF (length 8)
-      0xff, 0xdb, 0x00, 0x04, 0x00, 0x00, // DQT
-      0xff, 0xd9, // EOI
-    ]);
-
-    const uploadRes = await request(app)
-      .post('/api/uploads')
-      .set('Authorization', `Bearer ${studentBToken}`)
-      .send({
-        problemId: pointerSwapProblemId,
-        note: 'Swapped pointers using a temporary variable on paper.',
-        files: [
-          { name: 'notebook_page1.png', mimeType: 'image/png', dataBase64: validPngBytes.toString('base64') },
-          { name: 'photo_with_exif.jpg', mimeType: 'image/jpeg', dataBase64: validJpgWithExif.toString('base64') },
-        ],
-      });
-
-    expect(uploadRes.status).toBe(201);
-    const uploaded = uploadRes.body.data.upload;
-    expect(uploaded.status).toBe('PENDING_REVIEW');
-    expect(uploaded.pointsAwarded).toBe(0);
-
-    const userBBeforeReview = await prisma.user.findUnique({ where: { id: studentBId } });
-    expect(userBBeforeReview?.totalPoints).toBe(0);
-    expect(userBBeforeReview?.currentStreak).toBe(0);
-
-    // 4. IDOR check: Student A cannot view or download Student B's uploaded file
-    const fileId = uploaded.files[0].id;
-    const idorRes = await request(app)
-      .get(`/api/uploads/${uploaded.id}/files/${fileId}`)
-      .set('Authorization', `Bearer ${studentAToken}`);
-    expect(idorRes.status).toBe(403);
-
-    // 5. Admin views file -> succeeds and writes AdminAuditLog
-    const adminFileRes = await request(app)
-      .get(`/api/uploads/${uploaded.id}/files/${fileId}`)
-      .set('Authorization', `Bearer ${adminToken}`);
-    expect(adminFileRes.status).toBe(200);
-
-    // Verify JPEG EXIF APP1 (0xFF 0xE1) was stripped on disk
-    const jpgFileId = uploaded.files[1].id;
-    const adminJpgRes = await request(app)
-      .get(`/api/uploads/${uploaded.id}/files/${jpgFileId}`)
-      .set('Authorization', `Bearer ${adminToken}`);
-    expect(adminJpgRes.status).toBe(200);
-    expect(adminJpgRes.body.includes(Buffer.from([0xff, 0xe1]))).toBe(false);
-
-    // 6. Admin approves upload with 10 points -> updates Student B's points & streak once
-    const reviewRes = await request(app)
-      .put(`/api/admin/uploads/${uploaded.id}/review`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({
-        status: 'APPROVED',
-        pointsAwarded: 10,
-        reviewerComment: 'Clean pointer diagram and dry run!',
-      });
-    expect(reviewRes.status).toBe(200);
-    expect(reviewRes.body.data.upload.status).toBe('APPROVED');
-    expect(reviewRes.body.data.upload.pointsAwarded).toBe(10);
-
-    const userBAfterReview = await prisma.user.findUnique({ where: { id: studentBId } });
-    expect(userBAfterReview?.totalPoints).toBe(10);
-    expect(userBAfterReview?.currentStreak).toBe(1);
+    }
   });
 
   it('5. Book Content Governance & Error Report: student endpoints never leak sourceRefJson or solutionCode, and /api/support/error-report logs client errors', async () => {
