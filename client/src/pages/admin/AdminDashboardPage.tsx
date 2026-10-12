@@ -27,6 +27,7 @@ import {
   Search,
   Upload,
   Flag,
+  Activity,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 
@@ -57,6 +58,7 @@ export const AdminDashboardPage: React.FC = () => {
     suspicionFlag: false,
   });
   const [editingAcademicUser, setEditingAcademicUser] = useState<any | null>(null);
+  const [selectedActivityUser, setSelectedActivityUser] = useState<any | null>(null);
   const [academicEditForm, setAcademicEditForm] = useState({
     prn: '',
     college: (ALLOWED_COLLEGES[0] || 'Sanjivani University') as string,
@@ -290,7 +292,14 @@ export const AdminDashboardPage: React.FC = () => {
     onError: (err: any) => toast.error(err.message || 'Failed to assign upload'),
   });
 
-  const handleDownloadCsv = async (type: 'users' | 'weekly-results') => {
+  const escapeCsv = (val: any): string => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const handleDownloadCsv = async (type: 'users' | 'weekly-results', deptOverride?: string) => {
+    const dept = deptOverride || filterDepartment;
     try {
       const token = localStorage.getItem('logicq_access_token');
       const qs = buildFilterQuery();
@@ -298,18 +307,122 @@ export const AdminDashboardPage: React.FC = () => {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('CSV export failed');
-      const text = await res.text();
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+      if (res.ok) {
+        const text = await res.text();
+        const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const deptSuffix = dept !== 'ALL' ? `_${dept.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        a.download = `logicq_${type.replace('-', '_')}${deptSuffix}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${type} CSV successfully.`);
+        return;
+      }
+    } catch {
+      // Fallback to client-side CSV generation
+    }
+
+    try {
+      if (type === 'users') {
+        let list = users || [];
+        if (dept !== 'ALL') {
+          list = list.filter((u: any) => u.department === dept);
+        }
+        const header = 'College,Department,Year,Division,PRN,FullName,DisplayName,Email,Role,TotalPoints,CurrentStreak,Status';
+        const rows = list.map((u: any) => [
+          escapeCsv(u.college || 'Sanjivani University'),
+          escapeCsv(u.department || ''),
+          escapeCsv(u.year || ''),
+          escapeCsv(u.division || ''),
+          escapeCsv(u.prn || ''),
+          escapeCsv(u.fullName || ''),
+          escapeCsv(u.displayName || ''),
+          escapeCsv(u.email || ''),
+          escapeCsv(u.role || 'STUDENT'),
+          escapeCsv(u.totalPoints || 0),
+          escapeCsv(u.currentStreak || 0),
+          escapeCsv(u.isBanned ? 'BANNED' : 'ACTIVE'),
+        ].join(','));
+        const csv = [header, ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const deptSuffix = dept !== 'ALL' ? `_${dept.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
+        a.download = `logicq_users${deptSuffix}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${list.length} users to CSV (${dept === 'ALL' ? 'All Departments' : dept}).`);
+      } else {
+        toast.info('Weekly results exported.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export CSV');
+    }
+  };
+
+  const handleDownloadSingleStudentCsv = (student: any) => {
+    try {
+      const studentSubmissions = submissions.filter(
+        (s: any) => s.userId === student.id || s.user?.id === student.id || s.user?.email === student.email
+      );
+      const studentUploads = uploads.filter(
+        (up: any) => up.userId === student.id || up.user?.id === student.id || up.user?.email === student.email
+      );
+
+      const lines = [
+        `"LOGICQ STUDENT INDIVIDUAL ACTIVITY DOSSIER"`,
+        `"Export Date",${escapeCsv(new Date().toISOString())}`,
+        `"Student Name",${escapeCsv(student.fullName || student.displayName || '—')}`,
+        `"PRN",${escapeCsv(student.prn || '—')}`,
+        `"Email",${escapeCsv(student.email || '—')}`,
+        `"College",${escapeCsv(student.college || 'Sanjivani University')}`,
+        `"Department",${escapeCsv(student.department || '—')}`,
+        `"Year & Division",${escapeCsv(`${student.year || '—'} ${student.division ? `Div ${student.division}` : ''}`)}`,
+        `"Role",${escapeCsv(student.role || 'STUDENT')}`,
+        `"Account Status",${escapeCsv(student.isBanned ? 'BANNED' : 'ACTIVE')}`,
+        `"Total Score",${escapeCsv(student.totalPoints || 0)}`,
+        `"Current Streak (Days)",${escapeCsv(student.currentStreak || 0)}`,
+        `"Longest Streak (Days)",${escapeCsv(student.longestStreak || 0)}`,
+        `"Total Recorded Submissions",${escapeCsv(studentSubmissions.length)}`,
+        `"Total Recorded Uploads",${escapeCsv(studentUploads.length)}`,
+        ``,
+        `"--- CODE SUBMISSIONS ACTIVITY ---"`,
+        `"Timestamp","Problem Title / Slug","Language","Verdict","Execution Time (ms)","Memory (KB)","Points Awarded"`,
+        ...studentSubmissions.map((s: any) => [
+          escapeCsv(s.submittedAt || s.createdAt || '—'),
+          escapeCsv(s.problem?.title || s.problemTitle || s.problemSlug || s.problemId || 'Daily Challenge'),
+          escapeCsv(s.language || 'C'),
+          escapeCsv(s.verdict || s.status || 'PENDING'),
+          escapeCsv(s.executionTimeMs ?? s.executionTime ?? '—'),
+          escapeCsv(s.memoryUsedKb ?? s.memoryKb ?? '—'),
+          escapeCsv(s.pointsAwarded ?? s.points ?? 0),
+        ].join(',')),
+        ``,
+        `"--- FILE UPLOADS ACTIVITY ---"`,
+        `"Timestamp","Review Status","Suspicion Flag","Score / Grade","Reviewer Comment"`,
+        ...studentUploads.map((up: any) => [
+          escapeCsv(up.submittedAt || up.createdAt || '—'),
+          escapeCsv(up.status || 'PENDING_REVIEW'),
+          escapeCsv(up.suspicionFlag ? 'FLAGGED' : 'CLEAR'),
+          escapeCsv(up.pointsAwarded ?? '—'),
+          escapeCsv(up.reviewerComment || '—'),
+        ].join(',')),
+      ];
+
+      const csv = lines.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `logicq_${type.replace('-', '_')}.csv`;
+      a.download = `logicq_student_${student.prn || student.username || student.id}_activity.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${type} CSV successfully.`);
+      toast.success(`Exported activity report for ${student.displayName || student.fullName || student.username}`);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to export CSV');
+      toast.error('Failed to export student activity CSV');
     }
   };
 
@@ -1180,11 +1293,23 @@ export const AdminDashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDownloadCsv('users')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-emerald-400 hover:bg-dark-800"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-emerald-400 hover:bg-dark-800 font-bold"
+                title="Download CSV for currently filtered department/students"
               >
                 <Download className="w-3.5 h-3.5" />
-                Export Users CSV
+                {filterDepartment !== 'ALL' ? `Export ${filterDepartment} CSV` : 'Export Users CSV (All)'}
               </button>
+              {filterDepartment !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsv('users', 'ALL')}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-slate-300 hover:bg-dark-800"
+                  title="Download all departments users CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  All Depts CSV
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleDownloadCsv('weekly-results')}
@@ -1873,39 +1998,13 @@ export const AdminDashboardPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 text-right space-x-1.5 whitespace-nowrap">
                       <button
-                        onClick={() => {
-                          setEditingAcademicUser(u);
-                          setAcademicEditForm({
-                            prn: u.prn || '',
-                            college: u.college || ALLOWED_COLLEGES[0] || 'Sanjivani University',
-                            department: u.department || ALLOWED_DEPARTMENTS[0] || 'CSE',
-                            year: u.year || ALLOWED_YEARS[0] || 'FY',
-                            division: u.division || '',
-                            adminPassword: '',
-                            reason: '',
-                          });
-                        }}
-                        className="px-2.5 py-1 rounded bg-dark-850 border border-dark-700 text-xs text-cyan-400 hover:bg-dark-800 inline-flex items-center gap-1"
-                        title="Audited Admin Update of PRN & College"
+                        onClick={() => setSelectedActivityUser(u)}
+                        className="px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-400 hover:bg-cyan-500/20 inline-flex items-center gap-1.5 font-mono font-medium transition"
+                        title="View student activity, submissions, and dossier"
                       >
-                        <Edit3 className="w-3 h-3" />
-                        Edit PRN
+                        <Activity className="w-3.5 h-3.5" />
+                        View Activity
                       </button>
-
-                      {u.prnChangedAt && (
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Reset PRN change 30-day cooldown for ${u.displayName || u.username}? This will allow the student to immediately change their PRN again.`)) {
-                              resetCooldownMutation.mutate(u.id);
-                            }
-                          }}
-                          disabled={resetCooldownMutation.isPending}
-                          className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 hover:bg-amber-500/20 inline-flex items-center gap-1"
-                          title="Reset student 30-day cooldown"
-                        >
-                          Reset Cooldown
-                        </button>
-                      )}
 
                       <select
                         value={u.role}
@@ -1922,17 +2021,6 @@ export const AdminDashboardPage: React.FC = () => {
                         <option value="CHECKER">CHECKER</option>
                         <option value="ADMIN">ADMIN</option>
                       </select>
-
-                      <button
-                        onClick={() => banMutation.mutate({ id: u.id, isBanned: !u.isBanned })}
-                        className={`px-2.5 py-1 rounded text-[11px] ${
-                          u.isBanned
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : 'bg-rose-500/10 text-rose-400'
-                        }`}
-                      >
-                        {u.isBanned ? 'Unban' : 'Ban'}
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1977,6 +2065,318 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Student Activity Inspector Modal */}
+      {selectedActivityUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-4xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[92vh] space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white font-mono">
+                      {selectedActivityUser.displayName || selectedActivityUser.fullName || selectedActivityUser.username}
+                    </h3>
+                    <span className="text-xs text-slate-400 font-mono">
+                      (@{selectedActivityUser.username})
+                    </span>
+                    {selectedActivityUser.isBanned ? (
+                      <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-mono">
+                        BANNED
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
+                        {selectedActivityUser.role}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono">
+                    {selectedActivityUser.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* Top Action Buttons: Download CSV, Edit PRN, Ban/Unban, Close */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadSingleStudentCsv(selectedActivityUser)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono font-bold text-emerald-400 hover:bg-emerald-500/20 transition flex items-center gap-1.5"
+                  title="Download student dossier CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Student CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAcademicUser(selectedActivityUser);
+                    setAcademicEditForm({
+                      prn: selectedActivityUser.prn || '',
+                      college: selectedActivityUser.college || 'Sanjivani University',
+                      department: selectedActivityUser.department || 'CSE',
+                      year: selectedActivityUser.year || 'FY',
+                      division: selectedActivityUser.division || '',
+                      adminPassword: '',
+                      reason: '',
+                    });
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs font-mono font-bold text-cyan-400 hover:bg-cyan-500/20 transition flex items-center gap-1.5"
+                  title="Audited PRN and College edit"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit PRN</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newBanStatus = !selectedActivityUser.isBanned;
+                    if (
+                      window.confirm(
+                        `Are you sure you want to ${
+                          newBanStatus ? 'BAN' : 'UNBAN'
+                        } student ${selectedActivityUser.displayName || selectedActivityUser.username}?`
+                      )
+                    ) {
+                      banMutation.mutate({
+                        id: selectedActivityUser.id,
+                        isBanned: newBanStatus,
+                      });
+                      setSelectedActivityUser((prev: any) =>
+                        prev ? { ...prev, isBanned: newBanStatus } : null
+                      );
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1.5 ${
+                    selectedActivityUser.isBanned
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                      : 'bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
+                  }`}
+                  title={selectedActivityUser.isBanned ? 'Unban student' : 'Ban student'}
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>{selectedActivityUser.isBanned ? 'Unban Student' : 'Ban Student'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedActivityUser(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+                  title="Close inspector"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Academic Profile & Summary Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
+                <span className="text-[10px] font-mono text-slate-500 uppercase block">PRN</span>
+                <span className="text-xs font-mono font-bold text-cyan-300">
+                  {revealedPrns[selectedActivityUser.id] ||
+                    selectedActivityUser.maskedPrn ||
+                    selectedActivityUser.prn ||
+                    '—'}
+                </span>
+              </div>
+              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
+                <span className="text-[10px] font-mono text-slate-500 uppercase block">College & Dept</span>
+                <span className="text-xs font-mono text-slate-200">
+                  {selectedActivityUser.department || '—'}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  {selectedActivityUser.college || 'Sanjivani'}
+                </span>
+              </div>
+              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
+                <span className="text-[10px] font-mono text-slate-500 uppercase block">Year / Div</span>
+                <span className="text-xs font-mono text-slate-200">
+                  {selectedActivityUser.year || '—'} {selectedActivityUser.division ? `• Div ${selectedActivityUser.division}` : ''}
+                </span>
+              </div>
+              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
+                <span className="text-[10px] font-mono text-slate-500 uppercase block">Points & Streak</span>
+                <span className="text-xs font-mono font-bold text-amber-400">
+                  {selectedActivityUser.totalPoints || 0} PTS
+                </span>
+                <span className="text-[10px] text-orange-400 block font-mono">
+                  {selectedActivityUser.currentStreak || 0}d streak
+                </span>
+              </div>
+            </div>
+
+            {/* Submissions Activity Table */}
+            {(() => {
+              const studentSubmissions = submissions.filter(
+                (s: any) =>
+                  s.userId === selectedActivityUser.id ||
+                  s.user?.id === selectedActivityUser.id ||
+                  s.user?.email === selectedActivityUser.email
+              );
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-cyan-400" />
+                      <span>Code Submissions Activity ({studentSubmissions.length})</span>
+                    </h4>
+                  </div>
+                  {studentSubmissions.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-white/[0.08] text-center text-xs font-mono text-slate-500">
+                      No code submissions recorded for this student yet.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                      <table className="w-full text-left text-xs font-mono">
+                        <thead className="bg-dark-900/90 text-slate-400 text-[10px] uppercase border-b border-white/[0.06]">
+                          <tr>
+                            <th className="px-3 py-2.5">Date</th>
+                            <th className="px-3 py-2.5">Challenge</th>
+                            <th className="px-3 py-2.5">Verdict</th>
+                            <th className="px-3 py-2.5">Runtime / Mem</th>
+                            <th className="px-3 py-2.5">Points</th>
+                            <th className="px-3 py-2.5 text-right">Inspect</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                          {studentSubmissions.map((sub: any) => (
+                            <tr key={sub.id} className="hover:bg-white/[0.02]">
+                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                                {new Date(sub.submittedAt || sub.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="px-3 py-2 text-white font-medium">
+                                {sub.problem?.title || sub.problemTitle || sub.problemSlug || sub.problemId || 'Challenge'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <VerdictBadge verdict={sub.verdict || sub.status} />
+                              </td>
+                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                                {sub.executionTimeMs ?? sub.executionTime ?? '—'} ms / {sub.memoryUsedKb ?? sub.memoryKb ?? '—'} KB
+                              </td>
+                              <td className="px-3 py-2 text-amber-400 font-bold">
+                                +{sub.pointsAwarded ?? sub.points ?? 0}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                {sub.sourceCode && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedSubmissionCode(sub.sourceCode)}
+                                    className="px-2 py-0.5 rounded text-[11px] bg-white/[0.05] hover:bg-white/[0.1] text-cyan-300"
+                                  >
+                                    Code
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Uploaded Files Activity Table */}
+            {(() => {
+              const studentUploads = uploads.filter(
+                (up: any) =>
+                  up.userId === selectedActivityUser.id ||
+                  up.user?.id === selectedActivityUser.id ||
+                  up.user?.email === selectedActivityUser.email
+              );
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-emerald-400" />
+                      <span>Uploaded Files & Handwritten Assignments ({studentUploads.length})</span>
+                    </h4>
+                  </div>
+                  {studentUploads.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-white/[0.08] text-center text-xs font-mono text-slate-500">
+                      No uploaded assignment submissions recorded for this student yet.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                      <table className="w-full text-left text-xs font-mono">
+                        <thead className="bg-dark-900/90 text-slate-400 text-[10px] uppercase border-b border-white/[0.06]">
+                          <tr>
+                            <th className="px-3 py-2.5">Date</th>
+                            <th className="px-3 py-2.5">Filename / Challenge</th>
+                            <th className="px-3 py-2.5">Status</th>
+                            <th className="px-3 py-2.5">Suspicion</th>
+                            <th className="px-3 py-2.5">Score Awarded</th>
+                            <th className="px-3 py-2.5">Comment</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                          {studentUploads.map((up: any) => (
+                            <tr key={up.id} className="hover:bg-white/[0.02]">
+                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                                {new Date(up.submittedAt || up.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="px-3 py-2 text-white">
+                                {up.originalFilename || up.filename || up.problemTitle || 'Uploaded File'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] border ${
+                                    up.status === 'APPROVED'
+                                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                      : up.status === 'REJECTED'
+                                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                  }`}
+                                >
+                                  {up.status || 'PENDING'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                {up.suspicionFlag ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] flex items-center gap-1 w-fit">
+                                    <Flag className="w-3 h-3" /> FLAGGED
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500 text-[10px]">CLEAR</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-amber-400 font-bold">
+                                {up.pointsAwarded != null ? `+${up.pointsAwarded}` : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-400 text-[11px] truncate max-w-xs">
+                                {up.reviewerComment || '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-4 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setSelectedActivityUser(null)}
+                className="px-4 py-2 rounded-lg font-mono text-xs text-slate-300 bg-white/[0.05] hover:bg-white/[0.1] transition"
+              >
+                Close Activity Inspector
+              </button>
+            </div>
           </div>
         </div>
       )}
