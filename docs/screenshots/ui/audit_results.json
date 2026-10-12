@@ -1,0 +1,842 @@
+[
+  {
+    "page": "01_landing",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "01_landing",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "01_landing",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "01_landing",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "01_landing",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "01_landing",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "02_login",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "03_register",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "04_forgot_password",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "12_privacy",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "13_404",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "dark",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "dark",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "dark",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(20, 25, 50)",
+    "bodyBg": "rgb(12, 15, 31)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "light",
+    "viewport": "360px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "light",
+    "viewport": "768px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "05_dashboard",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "06_challenge_editor",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "07_archive",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "08_arena",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "09_leaderboard",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10_history",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "10b_achievements",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  },
+  {
+    "page": "11_profile",
+    "theme": "light",
+    "viewport": "1280px",
+    "horizontalOverflow": false,
+    "navbarBg": "rgb(255, 255, 255)",
+    "bodyBg": "rgb(244, 246, 251)",
+    "smallTextCount": 0,
+    "clippedUnderNavbar": false
+  }
+]
