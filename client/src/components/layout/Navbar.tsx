@@ -78,33 +78,34 @@ export const Navbar: React.FC = () => {
         {/* Brand (links to /dashboard when signed in, / when signed out) */}
         <Logo size="md" to={user ? '/dashboard' : '/'} />
 
-        {/* Desktop Navigation (Home, Daily Challenge, Practice, Leaderboard) */}
-        <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
-          {appNavLinks.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            const targetPath = item.path === '/dashboard' && !user ? '/' : item.path;
-            return (
-              <Link
-                key={item.path}
-                to={targetPath}
-                aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
+        {/* Desktop Navigation (Home, Daily Challenge, Practice, Leaderboard) - only for signed-in students */}
+        {user && (
+          <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
+            {appNavLinks.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    active
+                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
                   }`}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 ${
+                      active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
+                    }`}
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Right Section: Stats, Theme Toggle & User or Auth CTAs */}
         <div className="hidden md:flex items-center gap-2.5">
@@ -328,29 +329,30 @@ export const Navbar: React.FC = () => {
       {/* Mobile Drawer (Accessible to everyone) */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-4 pt-2 pb-6 space-y-3">
-          <nav aria-label="Mobile Navigation" className="space-y-1">
-            {appNavLinks.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              const targetPath = item.path === '/dashboard' && !user ? '/' : item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={targetPath}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-medium ${
-                    active
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
-                      : 'text-[var(--text-main)] hover:bg-[var(--bg-surface)]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          {user && (
+            <nav aria-label="Mobile Navigation" className="space-y-1">
+              {appNavLinks.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2.5 min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-medium ${
+                      active
+                        ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
+                        : 'text-[var(--text-main)] hover:bg-[var(--bg-surface)]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 text-[var(--color-accent)] shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
 
           <div className="border-t border-[var(--border-line)] pt-3 space-y-1">
             {user ? (

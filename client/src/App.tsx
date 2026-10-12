@@ -173,18 +173,30 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Practice Modules Track */}
+          {/* Practice Modules Track (Protected for authenticated students) */}
           <Route
             path="/practice"
-            element={<PracticeModulesPage />}
+            element={
+              <ProtectedRoute>
+                <PracticeModulesPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/practice/:moduleSlug"
-            element={<PracticeModuleProblemsPage />}
+            element={
+              <ProtectedRoute>
+                <PracticeModuleProblemsPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/practice/:moduleSlug/:problemSlug"
-            element={<PracticeWorkspacePage />}
+            element={
+              <ProtectedRoute>
+                <PracticeWorkspacePage />
+              </ProtectedRoute>
+            }
           />
 
           {/* Leaderboard & History */}
