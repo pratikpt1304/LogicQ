@@ -8,146 +8,585 @@ import {
   generateRefreshToken,
   verifyRefreshToken,
 } from '../utils/jwt.js';
-import { mailService } from '../services/mail.service.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { ENV } from '../config/env.js';
+import {
+  ALLOWED_COLLEGES,
+  ALLOWED_DEPARTMENTS,
+  ALLOWED_YEARS,
+  PRN_REGEX,
+  DIVISION_REGEX,
+  DISPLAY_NAME_MIN,
+  DISPLAY_NAME_MAX,
+  containsProfanity,
+  maskPrn,
+  formatOwnIdentityLabel,
+  formatPublicDisplayName,
+  generateShortId,
+  verifyAllowlistCsv,
+} from '../config/academic.config.js';
 
-// Cookie options helper
-const getCookieOptions = (maxAgeMs: number) => ({
-  httpOnly: true,
-  secure: ENV.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  maxAge: maxAgeMs,
+// Serialization lock for atomic PRN registration transactions under high concurrency
+let prnTransactionChain: Promise<unknown> = Promise.resolve();
+function runSerializedPrnTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  const next = prnTransactionChain.then(fn, fn);
+  prnTransactionChain = next.catch(() => {});
+  return next;
+}
+
+export const academicFieldsSchema = z.object({
+  prn: z
+    .preprocess((val) => (typeof val === 'string' ? val.trim() : ''), z.string())
+    .refine((val) => val.length > 0, { message: 'PRN is required. PRN must be exactly 12 digits.' })
+    .refine((val) => PRN_REGEX.test(val), {
+      message: 'PRN must be exactly 12 digits (0-9 only).',
+    }),
+  college: z.enum(ALLOWED_COLLEGES, {
+    errorMap: () => ({ message: 'Please select a valid college from the list.' }),
+  }),
+  department: z.enum(ALLOWED_DEPARTMENTS, {
+    errorMap: () => ({ message: 'Please select a valid department from the list.' }),
+  }),
+  year: z.enum(ALLOWED_YEARS, {
+    errorMap: () => ({ message: 'Please select a valid academic year (FY, SY, or TY).' }),
+  }),
+  division: z
+    .preprocess((val) => {
+      if (val === undefined || val === null) return null;
+      if (typeof val !== 'string') return String(val);
+      const trimmed = val.trim();
+      return trimmed === '' ? null : trimmed.toUpperCase();
+    }, z.string().nullable().optional())
+    .refine((val) => val === null || val === undefined || DIVISION_REGEX.test(val), {
+      message: 'Division must be up to 3 letters or digits (e.g., A, B, C1).',
+    }),
 });
 
-export const registerSchema = z.object({
-  body: z.object({
-    username: z
+const registerSchema = academicFieldsSchema
+  .extend({
+    email: z
+      .preprocess((val) => (typeof val === 'string' ? val.trim().toLowerCase() : ''), z.string())
+      .pipe(z.string().email('Please enter a valid college email address.')),
+    password: z
+      .string({ required_error: 'Password is required.' })
+      .min(8, 'Password must be at least 8 characters long.')
+      .max(100),
+    confirmPassword: z.string().optional(),
+    displayName: z
       .string()
-      .min(3, 'Username must be at least 3 characters')
-      .max(30, 'Username cannot exceed 30 characters')
-      .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-    email: z.string().email('Valid email is required'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    fullName: z.string().min(2, 'Full name is required'),
-    college: z.string().optional(),
-  }),
-});
+      .trim()
+      .min(DISPLAY_NAME_MIN, `Display name must be at least ${DISPLAY_NAME_MIN} characters.`)
+      .max(DISPLAY_NAME_MAX, `Display name must be at most ${DISPLAY_NAME_MAX} characters.`)
+      .refine((val) => !containsProfanity(val), {
+        message: 'Display name contains inappropriate language.',
+      })
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (data) => !data.confirmPassword || data.password === data.confirmPassword,
+    {
+      message: 'Passwords do not match.',
+      path: ['confirmPassword'],
+    }
+  );
 
-export const loginSchema = z.object({
-  body: z.object({
-    identifier: z.string().min(1, 'Username or email is required'),
+const loginSchema = z
+  .object({
+    identifier: z.string().optional(),
+    email: z.string().optional(),
     password: z.string().min(1, 'Password is required'),
-  }),
+  })
+  .transform((data) => ({
+    identifier: (data.identifier || data.email || '').trim(),
+    password: data.password,
+  }))
+  .refine((data) => data.identifier.length > 0, {
+    message: 'College email is required',
+    path: ['identifier'],
+  });
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
 });
 
-export const forgotPasswordSchema = z.object({
-  body: z.object({
-    email: z.string().email('Valid email is required'),
-  }),
+const resetPasswordSchema = z.object({
+  token: z.string().min(10),
+  newPassword: z.string().min(8).max(100),
 });
 
-export const resetPasswordSchema = z.object({
-  body: z.object({
-    token: z.string().min(1, 'Reset token is required'),
-    newPassword: z.string().min(6, 'Password must be at least 6 characters'),
-  }),
+const googleSignInSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Valid Google college email is required.'),
+  googleId: z.string().optional(),
+  avatarUrl: z.string().url().optional().nullable(),
 });
 
-export async function register(req: Request, res: Response): Promise<void> {
+function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 15 * 60 * 1000,
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
+function isEmailDomainAllowed(email: string): { allowed: boolean; allowedDomains: string[] } {
+  const authMode = (process.env.AUTH_MODE || 'OPEN').toUpperCase();
+  const rawDomains = process.env.ALLOWED_EMAIL_DOMAINS || 'sanjivani.org.in';
+  const allowedDomains = rawDomains
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (authMode !== 'DOMAIN_RESTRICTED' || allowedDomains.length === 0) {
+    return { allowed: true, allowedDomains };
+  }
+
+  const emailDomain = email.split('@')[1]?.toLowerCase() || '';
+  const allowed = allowedDomains.some(
+    (domain) => emailDomain === domain || emailDomain.endsWith(`.${domain}`)
+  );
+
+  return { allowed, allowedDomains };
+}
+
+export function formatSelfUserResponse(user: {
+  id: string;
+  username: string;
+  prn?: string | null;
+  email: string;
+  fullName?: string | null;
+  displayName?: string | null;
+  shortId?: string | null;
+  role: string;
+  totalPoints: number;
+  currentStreak: number;
+  longestStreak?: number;
+  avatarUrl?: string | null;
+  college?: string | null;
+  department?: string | null;
+  year?: string | null;
+  division?: string | null;
+  profileComplete?: boolean;
+  bio?: string | null;
+  createdAt?: Date;
+}) {
+  const shortId = user.shortId || generateShortId(user.id);
+  const publicDisplayName = formatPublicDisplayName({
+    displayName: user.displayName,
+    shortId,
+    id: user.id,
+  });
+  const maskedPrn = maskPrn(user.prn);
+  const ownIdentityLabel = formatOwnIdentityLabel({
+    department: user.department,
+    year: user.year,
+    prn: user.prn,
+  });
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    prn: user.prn || null,
+    maskedPrn,
+    ownIdentityLabel,
+    displayName: user.displayName || null,
+    publicDisplayName,
+    shortId,
+    fullName: user.displayName || ownIdentityLabel || publicDisplayName,
+    role: user.role,
+    totalPoints: user.totalPoints,
+    currentStreak: user.currentStreak,
+    longestStreak: user.longestStreak ?? 0,
+    avatarUrl: user.avatarUrl || null,
+    college: user.college || null,
+    department: user.department || null,
+    year: user.year || null,
+    division: user.division || null,
+    profileComplete: user.profileComplete ?? Boolean(user.prn && user.college && user.department && user.year),
+    bio: user.bio || null,
+    createdAt: user.createdAt,
+  };
+}
+
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, email, password, fullName, college } = req.body;
-
-    // Enforce institutional domain restrictions on email/password signup when enabled
-    if (process.env.AUTH_MODE === 'DOMAIN_RESTRICTED') {
-      const allowed = (process.env.ALLOWED_EMAIL_DOMAINS || '')
-        .split(',')
-        .map((d) => d.trim().toLowerCase())
-        .filter(Boolean);
-      const domain = email.split('@')[1]?.toLowerCase();
-      if (allowed.length > 0 && (!domain || !allowed.includes(domain))) {
-        res.status(403).json({
-          success: false,
-          message: `Registration restricted to institutional email domains: ${allowed.map((d) => '@' + d).join(', ')}`,
-        });
-        return;
-      }
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const firstError =
+        parsed.error.issues[0]?.message || 'Validation failed. Please check your inputs.';
+      res.status(400).json({
+        success: false,
+        message: firstError,
+        errors: fieldErrors,
+      });
+      return;
     }
 
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
-    });
+    const { prn, college, department, year, division, email, password, displayName } = parsed.data;
 
-    if (existingUser) {
-      if (existingUser.email === email) {
-        res.status(400).json({ success: false, message: 'Email is already registered' });
-        return;
-      }
-      res.status(400).json({ success: false, message: 'Username is already taken' });
+    // 1. Check institutional email domain policy
+    const domainCheck = isEmailDomainAllowed(email);
+    if (!domainCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: `Registration is restricted to institutional emails (${domainCheck.allowedDomains.join(', ')}).`,
+      });
+      return;
+    }
+
+    // 2. Check optional Admin Allowlist CSV (PRN + Email)
+    const allowlistCheck = verifyAllowlistCsv(prn, email);
+    if (!allowlistCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: allowlistCheck.reason || 'PRN and email are not on the institutional allowlist.',
+      });
       return;
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        passwordHash,
-        fullName,
-        college: college || null,
-        role: 'STUDENT',
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        fullName: true,
-        role: true,
-        college: true,
-        avatarUrl: true,
-        totalPoints: true,
-        currentStreak: true,
-      },
+
+    // 3. Atomic Serialized Transaction: Check & create PrnIndex + User together
+    const user = await runSerializedPrnTransaction(async () => {
+      return prisma.$transaction(async (tx) => {
+        const existingPrn = await tx.prnIndex.findUnique({
+          where: { prn },
+        });
+        if (existingPrn) {
+          const err = new Error('This PRN is already registered.');
+          (err as any).statusCode = 409;
+          (err as any).field = 'prn';
+          throw err;
+        }
+
+        const existingUserByPrn = await tx.user.findUnique({
+          where: { prn },
+        });
+        if (existingUserByPrn) {
+          const err = new Error('This PRN is already registered.');
+          (err as any).statusCode = 409;
+          (err as any).field = 'prn';
+          throw err;
+        }
+
+        const existingEmail = await tx.user.findUnique({
+          where: { email },
+        });
+        if (existingEmail) {
+          const err = new Error('An account with this college email already exists.');
+          (err as any).statusCode = 400;
+          (err as any).field = 'email';
+          throw err;
+        }
+
+        const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
+        const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+        const generatedUsername = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+
+        const createdUser = await tx.user.create({
+          data: {
+            username: generatedUsername,
+            prn,
+            email,
+            passwordHash,
+            college,
+            department,
+            year,
+            division: division ?? null,
+            displayName: displayName ?? null,
+            shortId,
+            fullName: displayName || `Student ${shortId}`,
+            profileComplete: true,
+            role: 'STUDENT',
+          },
+        });
+
+        await tx.prnIndex.create({
+          data: {
+            prn,
+            userId: createdUser.id,
+          },
+        });
+
+        return createdUser;
+      });
     });
 
-    const tokenPayload = { userId: user.id, role: user.role, username: user.username };
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
+    const payload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    // Save refresh token to db
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    // Set cookies
-    res.cookie('access_token', accessToken, getCookieOptions(15 * 60 * 1000));
-    res.cookie('refresh_token', refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    setTokenCookies(res, accessToken, refreshToken);
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully',
-      data: { user, accessToken },
+      message: 'Registration successful',
+      data: {
+        user: formatSelfUserResponse(user),
+        accessToken,
+      },
     });
-  } catch (err: any) {
-    console.error('Registration error:', err);
-    res.status(500).json({ success: false, message: 'Registration failed' });
+  } catch (error: any) {
+    if (error?.statusCode === 409 || error?.code === 'P2002') {
+      const isEmailConflict =
+        error?.field === 'email' ||
+        (Array.isArray(error?.meta?.target) && error.meta.target.includes('email'));
+      if (isEmailConflict) {
+        res.status(400).json({
+          success: false,
+          message: 'An account with this college email already exists.',
+          errors: { email: ['An account with this college email already exists.'] },
+        });
+        return;
+      }
+      res.status(409).json({
+        success: false,
+        message: 'This PRN is already registered.',
+        errors: { prn: ['This PRN is already registered.'] },
+      });
+      return;
+    }
+    if (error?.statusCode === 400) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+        errors: error.field ? { [error.field]: [error.message] } : undefined,
+      });
+      return;
+    }
+    console.error('Register error: Failed to register student account');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
+};
 
-export async function login(req: Request, res: Response): Promise<void> {
+/**
+ * Google Sign-In handler: creates an incomplete account on first sign-in (`profileComplete: false`)
+ * so the client immediately shows the required "Complete your profile" step and blocks dashboard access.
+ */
+export const googleSignIn = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { identifier, password } = req.body;
+    const parsed = googleSignInSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid Google sign-in payload.',
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { email, avatarUrl } = parsed.data;
+    const domainCheck = isEmailDomainAllowed(email);
+    if (!domainCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: `Google Sign-In is restricted to institutional emails (${domainCheck.allowedDomains.join(', ')}).`,
+      });
+      return;
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
+      const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+      const generatedUsername = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+      user = await prisma.user.create({
+        data: {
+          username: generatedUsername,
+          email,
+          passwordHash: randomPasswordHash,
+          shortId,
+          fullName: `Student ${shortId}`,
+          avatarUrl: avatarUrl || null,
+          profileComplete: false,
+          role: 'STUDENT',
+        },
+      });
+    } else if (user.isBanned) {
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended by an administrator.',
+      });
+      return;
+    }
+
+    const payload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    setTokenCookies(res, accessToken, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: user.profileComplete
+        ? 'Google Sign-In successful'
+        : 'Please complete your academic profile to continue.',
+      data: {
+        user: formatSelfUserResponse(user),
+        accessToken,
+        requiresProfileCompletion: !user.profileComplete,
+      },
+    });
+  } catch (error) {
+    console.error('Google Sign-In error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Complete Profile step for Google Sign-In or migrated incomplete accounts.
+ * Atomically sets PRN, College, Department, Year, Division and locks PrnIndex.
+ */
+export const completeProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const parsed = academicFieldsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const firstError =
+        parsed.error.issues[0]?.message || 'Validation failed. Please check your inputs.';
+      res.status(400).json({
+        success: false,
+        message: firstError,
+        errors: fieldErrors,
+      });
+      return;
+    }
+
+    const { prn, college, department, year, division } = parsed.data;
+    const userId = req.user.userId;
+
+    const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!currentUser) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    if (currentUser.profileComplete && currentUser.prn) {
+      res.status(403).json({
+        success: false,
+        message: 'Profile is already completed. PRN and college cannot be changed by students.',
+      });
+      return;
+    }
+
+    const allowlistCheck = verifyAllowlistCsv(prn, currentUser.email);
+    if (!allowlistCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: allowlistCheck.reason || 'PRN and email are not on the institutional allowlist.',
+      });
+      return;
+    }
+
+    const updatedUser = await runSerializedPrnTransaction(async () => {
+      return prisma.$transaction(async (tx) => {
+        const existingPrn = await tx.prnIndex.findUnique({ where: { prn } });
+        if (existingPrn && existingPrn.userId !== userId) {
+          const err = new Error('This PRN is already registered.');
+          (err as any).statusCode = 409;
+          throw err;
+        }
+
+        const shortId = currentUser.shortId || generateShortId(currentUser.id);
+
+        await tx.prnIndex.upsert({
+          where: { prn },
+          update: { userId },
+          create: { prn, userId },
+        });
+
+        return tx.user.update({
+          where: { id: userId },
+          data: {
+            prn,
+            college,
+            department,
+            year,
+            division: division ?? null,
+            shortId,
+            profileComplete: true,
+          },
+        });
+      });
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile completed successfully',
+      data: {
+        user: formatSelfUserResponse(updatedUser),
+      },
+    });
+  } catch (error: any) {
+    if (error?.statusCode === 409 || error?.code === 'P2002') {
+      res.status(409).json({
+        success: false,
+        message: 'This PRN is already registered.',
+        errors: { prn: ['This PRN is already registered.'] },
+      });
+      return;
+    }
+    console.error('Complete profile error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const login = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const identifier = parsed.data.identifier.trim();
+    const { password } = parsed.data;
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ email: identifier }, { username: identifier }],
+        OR: [
+          { email: identifier.toLowerCase() },
+          { prn: identifier },
+          { username: identifier },
+        ],
       },
     });
 
@@ -157,109 +596,50 @@ export async function login(req: Request, res: Response): Promise<void> {
     }
 
     if (user.isBanned) {
-      res.status(403).json({ success: false, message: 'Your account has been suspended by an administrator.' });
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended by an administrator.',
+      });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
       res.status(401).json({ success: false, message: 'Invalid credentials' });
       return;
     }
 
-    const tokenPayload = { userId: user.id, role: user.role, username: user.username };
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
+    const payload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    // Store refresh token
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.refreshToken.create({
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    res.cookie('access_token', accessToken, getCookieOptions(15 * 60 * 1000));
-    res.cookie('refresh_token', refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
-
-    const userData = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-      college: user.college,
-      avatarUrl: user.avatarUrl,
-      totalPoints: user.totalPoints,
-      currentStreak: user.currentStreak,
-      longestStreak: user.longestStreak,
-    };
+    setTokenCookies(res, accessToken, refreshToken);
 
     res.status(200).json({
       success: true,
-      message: 'Logged in successfully',
-      data: { user: userData, accessToken },
+      message: 'Login successful',
+      data: {
+        user: formatSelfUserResponse(user),
+        accessToken,
+      },
     });
-  } catch (err: any) {
-    console.error('Login error:', err);
-    res.status(500).json({ success: false, message: 'Login failed' });
+  } catch (error) {
+    console.error('Login error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
+};
 
-export async function refresh(req: Request, res: Response): Promise<void> {
+export const logout = async (req: Request, res: Response): Promise<void> => {
   try {
-    const refreshToken = req.cookies?.refresh_token;
-
-    if (!refreshToken) {
-      res.status(401).json({ success: false, message: 'No refresh token provided' });
-      return;
-    }
-
-    const payload = verifyRefreshToken(refreshToken);
-    if (!payload) {
-      res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
-      return;
-    }
-
-    // Check token in db
-    const dbToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
-
-    if (!dbToken || dbToken.revokedAt || dbToken.expiresAt < new Date()) {
-      res.status(401).json({ success: false, message: 'Refresh token revoked or expired' });
-      return;
-    }
-
-    if (dbToken.user.isBanned) {
-      res.status(403).json({ success: false, message: 'Account is banned' });
-      return;
-    }
-
-    const newAccessToken = generateAccessToken({
-      userId: dbToken.user.id,
-      role: dbToken.user.role,
-      username: dbToken.user.username,
-    });
-
-    res.cookie('access_token', newAccessToken, getCookieOptions(15 * 60 * 1000));
-
-    res.status(200).json({
-      success: true,
-      data: { accessToken: newAccessToken },
-    });
-  } catch (err: any) {
-    console.error('Refresh error:', err);
-    res.status(500).json({ success: false, message: 'Failed to refresh token' });
-  }
-}
-
-export async function logout(req: Request, res: Response): Promise<void> {
-  try {
-    const refreshToken = req.cookies?.refresh_token;
+    const refreshToken = req.cookies?.refreshToken;
     if (refreshToken) {
       await prisma.refreshToken.updateMany({
         where: { token: refreshToken },
@@ -267,42 +647,74 @@ export async function logout(req: Request, res: Response): Promise<void> {
       });
     }
 
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
 
     res.status(200).json({ success: true, message: 'Logged out successfully' });
-  } catch (err: any) {
-    console.error('Logout error:', err);
-    res.status(500).json({ success: false, message: 'Logout failed' });
+  } catch (error) {
+    console.error('Logout error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
+};
 
-export async function logoutAll(req: AuthRequest, res: Response): Promise<void> {
+export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user) {
-      res.status(401).json({ success: false, message: 'Not authenticated' });
+    const token = req.cookies?.refreshToken || req.body?.refreshToken;
+    if (!token) {
+      res.status(401).json({ success: false, message: 'Refresh token missing' });
       return;
     }
 
-    await prisma.refreshToken.updateMany({
-      where: { userId: req.user.userId, revokedAt: null },
+    const decoded = verifyRefreshToken(token);
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (
+      !storedToken ||
+      storedToken.revokedAt ||
+      storedToken.expiresAt < new Date() ||
+      storedToken.user.isBanned
+    ) {
+      res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    await prisma.refreshToken.update({
+      where: { id: storedToken.id },
       data: { revokedAt: new Date() },
     });
 
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    const payload = {
+      userId: storedToken.user.id,
+      role: storedToken.user.role,
+      username: storedToken.user.username,
+    };
+
+    const newAccessToken = generateAccessToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: newRefreshToken,
+        userId: storedToken.user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    setTokenCookies(res, newAccessToken, newRefreshToken);
 
     res.status(200).json({
       success: true,
-      message: 'Signed out from all devices successfully',
+      data: { accessToken: newAccessToken },
     });
-  } catch (err: any) {
-    console.error('LogoutAll error:', err);
-    res.status(500).json({ success: false, message: 'Failed to sign out from all devices' });
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Invalid refresh token' });
   }
-}
+};
 
-export async function getMe(req: AuthRequest, res: Response): Promise<void> {
+export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -311,24 +723,6 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        fullName: true,
-        role: true,
-        college: true,
-        bio: true,
-        avatarUrl: true,
-        totalPoints: true,
-        currentStreak: true,
-        longestStreak: true,
-        lastSolvedDate: true,
-        createdAt: true,
-        userBadges: {
-          include: { badge: true },
-        },
-      },
     });
 
     if (!user) {
@@ -336,71 +730,71 @@ export async function getMe(req: AuthRequest, res: Response): Promise<void> {
       return;
     }
 
-    res.status(200).json({ success: true, data: { user } });
-  } catch (err: any) {
-    console.error('GetMe error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch user' });
+    res.status(200).json({
+      success: true,
+      data: { user: formatSelfUserResponse(user) },
+    });
+  } catch (error) {
+    console.error('GetMe error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
+};
 
-export async function forgotPassword(req: Request, res: Response): Promise<void> {
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, message: 'Invalid email address' });
+      return;
+    }
 
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
     if (!user) {
-      // Return success for security, prevent email enumeration
       res.status(200).json({
         success: true,
-        message: 'If the email exists, a password reset link has been dispatched.',
+        message: 'If an account with that email exists, a password reset link has been generated.',
       });
       return;
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const rawResetToken = crypto.randomBytes(32).toString('hex');
+    const hashedResetToken = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetPasswordToken: hashedToken,
+        resetPasswordToken: hashedResetToken,
         resetPasswordExpires: expires,
       },
     });
 
-    const resetUrl = `${ENV.CLIENT_URL}/reset-password?token=${token}`;
-    await mailService.sendMail({
-      to: user.email,
-      subject: 'LogicQ — Password Reset Instructions',
-      html: `
-        <div style="font-family: sans-serif; background: #0B0F17; color: #FFF; padding: 24px; border-radius: 8px;">
-          <h2 style="color: #00F2FE;">LogicQ Password Reset</h2>
-          <p>Hello ${user.fullName},</p>
-          <p>A request was received to reset the password for your LogicQ account (@${user.username}).</p>
-          <p><a href="${resetUrl}" style="background: #00F2FE; color: #000; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Reset Password</a></p>
-          <p>Or use this token directly: <code>${token}</code></p>
-          <p style="color: #94A3B8; font-size: 12px;">This link will expire in 60 minutes. If you did not request this, ignore this email.</p>
-        </div>
-      `,
-      text: `Reset your LogicQ password by visiting: ${resetUrl} or use token: ${token}`,
-    });
+    const isDev = process.env.NODE_ENV === 'development';
 
     res.status(200).json({
       success: true,
-      message: 'If the email exists, a password reset link has been dispatched.',
-      // In development mode, return token in response for quick testing
-      ...(ENV.NODE_ENV === 'development' && { devResetToken: token }),
+      message: 'If an account with that email exists, a password reset link has been generated.',
+      ...(isDev ? { devResetToken: rawResetToken } : {}),
     });
-  } catch (err: any) {
-    console.error('Forgot password error:', err);
-    res.status(500).json({ success: false, message: 'Failed to process request' });
+  } catch (error) {
+    console.error('ForgotPassword error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
+};
 
-export async function resetPassword(req: Request, res: Response): Promise<void> {
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token, newPassword } = req.body;
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { token, newPassword } = parsed.data;
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const user = await prisma.user.findFirst({
@@ -416,136 +810,27 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: {
-          passwordHash,
-          resetPasswordToken: null,
-          resetPasswordExpires: null,
-        },
-      }),
-      prisma.refreshToken.updateMany({
-        where: { userId: user.id, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
-    ]);
 
-    res.status(200).json({ success: true, message: 'Password has been reset successfully. Please log in.' });
-  } catch (err: any) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ success: false, message: 'Failed to reset password' });
-  }
-}
-
-export const googleAuthSchema = z.object({
-  body: z.object({
-    idToken: z.string().optional(),
-    email: z.string().email('Valid email is required'),
-    fullName: z.string().min(1, 'Full name is required'),
-    avatarUrl: z.string().optional().nullable(),
-    googleUid: z.string().optional(),
-  }),
-});
-
-export async function googleAuth(req: Request, res: Response): Promise<void> {
-  try {
-    const { email, fullName, avatarUrl } = req.body;
-
-    // Check institutional domain restrictions if enabled
-    if (process.env.AUTH_MODE === 'DOMAIN_RESTRICTED') {
-      const allowed = (process.env.ALLOWED_EMAIL_DOMAINS || '')
-        .split(',')
-        .map((d) => d.trim().toLowerCase())
-        .filter(Boolean);
-      const domain = email.split('@')[1]?.toLowerCase();
-      if (allowed.length > 0 && (!domain || !allowed.includes(domain))) {
-        res.status(403).json({
-          success: false,
-          message: `Access restricted to institutional email domains: ${allowed.map((d) => '@' + d).join(', ')}`,
-        });
-        return;
-      }
-    }
-
-    let user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (user && user.isBanned) {
-      res.status(403).json({
-        success: false,
-        message: 'Your account has been suspended by an administrator.',
-      });
-      return;
-    }
-
-    if (!user) {
-      // Auto-provision student account for verified Google Sign-In
-      const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
-      let username = baseUsername;
-      const count = await prisma.user.count({ where: { username } });
-      if (count > 0) {
-        username = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
-      }
-
-      const randomPassword = crypto.randomBytes(32).toString('hex');
-      const passwordHash = await bcrypt.hash(randomPassword, 10);
-
-      user = await prisma.user.create({
-        data: {
-          username,
-          email,
-          passwordHash,
-          fullName,
-          avatarUrl: avatarUrl || null,
-          role: 'STUDENT',
-        },
-      });
-    } else if (avatarUrl && !user.avatarUrl) {
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { avatarUrl },
-      });
-    }
-
-    const tokenPayload = { userId: user.id, role: user.role, username: user.username };
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await prisma.refreshToken.create({
+    await prisma.user.update({
+      where: { id: user.id },
       data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt,
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
       },
     });
 
-    res.cookie('access_token', accessToken, getCookieOptions(15 * 60 * 1000));
-    res.cookie('refresh_token', refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+    await prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
 
     res.status(200).json({
       success: true,
-      message: 'Signed in successfully via Google',
-      data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.fullName,
-          role: user.role,
-          college: user.college,
-          avatarUrl: user.avatarUrl,
-          totalPoints: user.totalPoints,
-          currentStreak: user.currentStreak,
-        },
-        accessToken,
-      },
+      message: 'Password has been reset successfully. You can now log in.',
     });
-  } catch (err: any) {
-    console.error('Google auth error:', err);
-    res.status(500).json({ success: false, message: 'Google authentication failed' });
+  } catch (error) {
+    console.error('ResetPassword error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
-}
-
+};

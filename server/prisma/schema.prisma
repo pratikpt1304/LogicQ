@@ -9,12 +9,19 @@ generator client {
 
 model User {
   id                   String         @id @default(uuid())
-  username             String         @unique
+  username             String         @unique @default(cuid())
+  prn                  String?        @unique
   email                String         @unique
   passwordHash         String
   role                 String         @default("STUDENT") // "STUDENT" | "ADMIN"
-  fullName             String
+  fullName             String         @default("")
+  displayName          String?
+  shortId              String?
   college              String?
+  department           String?
+  year                 String?
+  division             String?
+  profileComplete      Boolean        @default(true)
   bio                  String?
   avatarUrl            String?
   totalPoints          Int            @default(0)
@@ -27,10 +34,37 @@ model User {
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
+  prnIndex             PrnIndex?
   submissions          Submission[]
+  uploadedSolutions    UploadedSolution[]
   userBadges           UserBadge[]
   refreshTokens        RefreshToken[]
-  contestParticipants ContestParticipant[]
+  contestParticipants  ContestParticipant[]
+}
+
+model PrnIndex {
+  prn       String   @id
+  userId    String   @unique
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminAuditLog {
+  id           String   @id @default(uuid())
+  adminId      String
+  targetUserId String?
+  action       String
+  oldValue     String?
+  newValue     String?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([adminId])
+  @@index([targetUserId])
+  @@index([createdAt])
 }
 
 model RefreshToken {
@@ -44,27 +78,30 @@ model RefreshToken {
 }
 
 model Problem {
-  id               String       @id @default(uuid())
-  slug             String       @unique
-  title            String
-  difficulty       String       @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
-  category         String       @default("Algorithms")
-  tags             String       // JSON string array e.g. '["Pointers","Strings"]'
-  description      String       // Markdown problem statement
-  starterCode      String
-  solutionCode     String?
-  timeLimitMs      Int          @default(1000)
-  memoryLimitMb    Int          @default(64)
-  basePoints       Int          @default(20)
-  isDaily          Boolean      @default(false)
-  scheduledDate    String?      // YYYY-MM-DD in IST
-  status           String       @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id                String             @id @default(uuid())
+  slug              String             @unique
+  title             String
+  difficulty        String             @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  category          String             @default("Algorithms")
+  tags              String             // JSON string array e.g. '["Pointers","Strings"]'
+  description       String             // Markdown problem statement
+  starterCode       String
+  solutionCode      String?
+  timeLimitMs       Int                @default(1000)
+  memoryLimitMb     Int                @default(64)
+  basePoints        Int                @default(20)
+  isDaily           Boolean            @default(false)
+  scheduledDate     String?            // YYYY-MM-DD in IST
+  status            String             @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
+  sourceType        String             @default("SEED") // "SEED" | "BOOK"
+  sourceRefJson     String?            // Admin-only JSON metadata (bookId, chapter, section, exerciseNumber, page, concept)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  testCases        TestCase[]
-  submissions      Submission[]
-  contestProblems  ContestProblem[]
+  testCases         TestCase[]
+  submissions       Submission[]
+  uploadedSolutions UploadedSolution[]
+  contestProblems   ContestProblem[]
 }
 
 model TestCase {
@@ -174,3 +211,55 @@ model UserBadge {
 
   @@unique([userId, badgeId])
 }
+
+model UploadedSolution {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId       String
+  problem         Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  weekId          String?
+  dayIndex        Int?
+  filesJson       String         // JSON array of FileItem { id, storageKey, mimeType, sizeBytes, sha256, width, height, pages, dataBase64 }
+  studentNote     String         @default("")
+  status          String         @default("PENDING_REVIEW") // "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
+  pointsAwarded   Int            @default(0)
+  reviewerId      String?
+  reviewerComment String?
+  suspicionFlag   Boolean        @default(false)
+  suspicionNote   String?
+  submittedAt     DateTime       @default(now())
+  reviewedAt      DateTime?
+
+  reviews         UploadReview[]
+
+  @@index([userId, problemId])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model UploadReview {
+  id            String           @id @default(uuid())
+  uploadId      String
+  upload        UploadedSolution @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  reviewerId    String
+  decision      String           // "APPROVED" | "REJECTED" | "NEEDS_CHANGES"
+  pointsAwarded Int              @default(0)
+  comment       String           @default("")
+  createdAt     DateTime         @default(now())
+
+  @@index([uploadId])
+}
+
+model ErrorReport {
+  id        String   @id @default(uuid())
+  userId    String?
+  route     String
+  message   String
+  stack     String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+

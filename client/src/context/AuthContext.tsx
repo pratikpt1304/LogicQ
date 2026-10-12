@@ -4,6 +4,24 @@ import { api } from '../api/client.js';
 import { signInWithPopup } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
 
+export interface RegisterPayload {
+  prn: string;
+  college: string;
+  department: string;
+  year: string;
+  division?: string;
+  email: string;
+  password: string;
+  confirmPassword?: string;
+}
+
+export interface CompleteProfilePayload {
+  prn: string;
+  college: string;
+  department: string;
+  year: string;
+  division?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -11,13 +29,8 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (identifier: string, password: string) => Promise<User>;
   loginWithGoogle: () => Promise<User>;
-  register: (data: {
-    username: string;
-    email: string;
-    password: string;
-    fullName: string;
-    college?: string;
-  }) => Promise<User>;
+  register: (data: RegisterPayload) => Promise<User>;
+  completeProfile: (data: CompleteProfilePayload) => Promise<User>;
   logout: () => Promise<void>;
   logoutAllDevices: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -32,6 +45,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchCurrentUser = async () => {
+    if (!localStorage.getItem('logicq_access_token') && !localStorage.getItem('logicq_active_user')) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
     try {
       const res = await api.get('/auth/me');
       if (res?.success && res?.data?.user) {
@@ -65,9 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.post('/auth/google', {
       idToken,
       email: cred.user.email,
-      fullName: cred.user.displayName || cred.user.email?.split('@')[0] || 'Challenger',
       avatarUrl: cred.user.photoURL,
-      googleUid: cred.user.uid,
+      googleId: cred.user.uid,
     });
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'Google sign-in failed');
@@ -76,16 +93,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.data.user;
   };
 
-  const register = async (data: {
-    username: string;
-    email: string;
-    password: string;
-    fullName: string;
-    college?: string;
-  }): Promise<User> => {
+  const register = async (data: RegisterPayload): Promise<User> => {
     const res = await api.post('/auth/register', data);
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'Registration failed');
+    }
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const completeProfile = async (data: CompleteProfilePayload): Promise<User> => {
+    const res = await api.post('/auth/complete-profile', data);
+    if (!res?.success || !res?.data?.user) {
+      throw new Error(res?.message || 'Failed to complete profile');
     }
     setUser(res.data.user);
     return res.data.user;
@@ -144,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         loginWithGoogle,
         register,
+        completeProfile,
         logout,
         logoutAllDevices,
         refreshUser,

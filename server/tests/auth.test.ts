@@ -1,37 +1,48 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 
 describe('Authentication API (/api/auth)', () => {
+  const uniqueSuffix = String(Date.now()).slice(-8).padStart(8, '0');
+  const testPrn = `9999${uniqueSuffix}`;
   const testUser = {
-    username: `testuser_${Date.now()}`,
-    email: `test_${Date.now()}@example.com`,
+    prn: testPrn,
+    college: 'Sanjivani University',
+    department: 'CSE',
+    year: 'SY',
+    division: 'A1',
+    email: `test_${Date.now()}@sanjivani.org.in`,
     password: 'Password123!',
-    fullName: 'Test User',
-    college: 'Test University',
   };
 
   afterAll(async () => {
-    // Cleanup
+    await prisma.prnIndex.deleteMany({
+      where: { prn: testPrn },
+    });
     await prisma.user.deleteMany({
       where: { email: { startsWith: 'test_' } },
     });
   });
 
-  it('should register a new student user and return cookies', async () => {
+  it('should register a new student user with PRN and return cookies', async () => {
     const res = await request(app).post('/api/auth/register').send(testUser);
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.email).toBe(testUser.email);
+    expect(res.body.data.user.prn).toBe(testUser.prn);
+    expect(res.body.data.user.maskedPrn).toBe(`••••••${testPrn.slice(-4)}`);
+    expect(res.body.data.user.department).toBe('CSE');
+    expect(res.body.data.user.year).toBe('SY');
+    expect(res.body.data.user.division).toBe('A1');
     expect(res.headers['set-cookie']).toBeDefined();
   });
 
-  it('should reject duplicate registration with same email', async () => {
+  it('should reject duplicate registration with same PRN or email', async () => {
     const res = await request(app).post('/api/auth/register').send(testUser);
 
-    expect(res.status).toBe(400);
+    expect([400, 409]).toContain(res.status);
     expect(res.body.success).toBe(false);
   });
 
@@ -43,7 +54,7 @@ describe('Authentication API (/api/auth)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.user.username).toBe(testUser.username);
+    expect(res.body.data.user.email).toBe(testUser.email);
     expect(res.body.data.accessToken).toBeDefined();
   });
 

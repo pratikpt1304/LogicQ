@@ -34,3 +34,16 @@ live_test*.png
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Private Book Content, Review Extracts, Exports & Credentials (NEVER COMMIT)
+private/
+/private/books/
+/private/review/
+exports/
+backups/
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+*.p12
+server/storage/uploads/

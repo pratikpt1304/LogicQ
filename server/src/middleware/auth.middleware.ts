@@ -9,7 +9,7 @@ export interface AuthRequest extends Request {
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     // Check access token from httpOnly cookie or Authorization header
-    let token = req.cookies?.access_token;
+    let token = req.cookies?.accessToken || req.cookies?.access_token;
 
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
@@ -29,7 +29,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     // Verify live account status and role to prevent token reuse after ban or role change
     const dbUser = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, role: true, isBanned: true },
+      select: { id: true, username: true, role: true, isBanned: true, profileComplete: true },
     });
 
     if (!dbUser) {
@@ -58,6 +58,28 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
+    // Block dashboard/protected APIs until Google Sign-In academic profile is completed
+    const fullPath = `${req.baseUrl || ''}${req.path || ''}`;
+    const allowedIncompletePaths = [
+      '/api/auth/complete-profile',
+      '/api/auth/me',
+      '/api/auth/logout',
+      '/api/users/me',
+    ];
+    if (
+      dbUser.role !== 'ADMIN' &&
+      dbUser.profileComplete === false &&
+      !allowedIncompletePaths.some((p) => fullPath.startsWith(p))
+    ) {
+      res.status(403).json({
+        success: false,
+        code: 'PROFILE_INCOMPLETE',
+        error: 'PROFILE_INCOMPLETE',
+        message: 'Please complete your academic profile before accessing the dashboard.',
+      });
+      return;
+    }
+
     req.user = {
       userId: dbUser.id,
       username: dbUser.username,
@@ -71,7 +93,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 
 export async function optionalAuthenticate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    let token = req.cookies?.access_token;
+    let token = req.cookies?.accessToken || req.cookies?.access_token;
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }
