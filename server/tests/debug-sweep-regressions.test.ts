@@ -166,9 +166,9 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
     });
     expect(userAfterFirst?.totalPoints).toBe(25);
 
-    // BUG-09 check 1: 'first-blood' badge unlocked immediately on 1st solve
+    // Badges feature removed (FEATURE_BADGES=false): badge evaluation is a no-op
     const badgeSlugs = userAfterFirst?.userBadges.map((ub) => ub.badge.slug) || [];
-    expect(badgeSlugs).toContain('first-blood');
+    expect(badgeSlugs).toHaveLength(0);
 
     // BUG-09 check 2: Contest participant score updated immediately on 1st solve (100 pts)
     const participantAfterFirst = await prisma.contestParticipant.findUnique({

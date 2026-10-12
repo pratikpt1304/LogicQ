@@ -239,13 +239,15 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
       .put('/api/users/profile')
       .set('Authorization', `Bearer ${studentAToken}`)
       .send({
-        fullName: 'Student <script>alert(1)</script>Alpha',
+        displayName: 'Alpha<b>Coder</b>',
         bio: 'Hello <img src=x onerror=alert(1)> World',
-        college: '<b>Sanjivani</b>',
+        department: 'CSE',
+        year: 'SY',
+        division: 'a1',
         avatarUrl: 'https://example.com/avatar.png',
       });
     expect(xssProfileRes.status).toBe(200);
-    expect(xssProfileRes.body.data.user.fullName).not.toContain('<script>');
+    expect(xssProfileRes.body.data.user.displayName).not.toContain('<b>');
     expect(xssProfileRes.body.data.user.bio).not.toContain('<img');
     expect(xssProfileRes.body.data.user.bio).not.toContain('onerror=');
 
@@ -269,10 +271,12 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
 
     try {
       const blockedReg = await request(app).post('/api/auth/register').send({
-        username: `outsider_${ts}`,
+        prn: '987654321099',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
         email: `outsider_${ts}@gmail.com`,
         password: 'Password123!',
-        fullName: 'Outsider User',
       });
       expect(blockedReg.status).toBe(403);
     } finally {

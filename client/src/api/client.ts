@@ -1,7 +1,6 @@
 import { handleFallbackRequest } from './fallbackEngine.js';
 
 const API_BASE = '/api';
-const LOCAL_BACKEND_BASE = 'http://localhost:5000/api';
 const TOKEN_STORAGE_KEY = 'logicq_access_token';
 
 interface RequestOptions extends RequestInit {
@@ -30,7 +29,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const config: RequestInit = {
     ...options,
     headers,
-    credentials: 'include', // Include httpOnly cookies
+    credentials: 'include',
   };
 
   let response: Response | null = null;
@@ -38,23 +37,15 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
 
   try {
     response = await fetch(url, config);
-    // On Firebase Static Hosting, /api/* gets rewritten to /index.html (200 OK text/html)
     if (!isJsonResponse(response)) {
-      try {
-        const localRes = await fetch(`${LOCAL_BACKEND_BASE}${cleanEndpoint}`, config);
-        if (isJsonResponse(localRes)) {
-          response = localRes;
-        } else {
-          useFallback = true;
-        }
-      } catch {
-        useFallback = true;
-      }
+      useFallback = true;
     }
   } catch {
     useFallback = true;
   }
 
+  // Code execution (/submissions/run and /submissions/submit) NEVER uses mock fallback in production
+  // and handleFallbackRequest fails closed on those endpoints.
   if (useFallback || !response) {
     return (await handleFallbackRequest(cleanEndpoint, options)) as T;
   }
@@ -62,8 +53,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // If 401 Unauthorized and not already retrying, attempt token refresh
   if (response.status === 401 && !options.skipAuthRefresh && !cleanEndpoint.includes('/auth/')) {
     try {
-      const refreshBase = response.url.startsWith(LOCAL_BACKEND_BASE) ? LOCAL_BACKEND_BASE : API_BASE;
-      const refreshRes = await fetch(`${refreshBase}/auth/refresh`, {
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -74,8 +64,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
           localStorage.setItem(TOKEN_STORAGE_KEY, refreshData.data.accessToken);
           headers.set('Authorization', `Bearer ${refreshData.data.accessToken}`);
         }
-        const retryUrl = `${refreshBase}${cleanEndpoint}`;
-        response = await fetch(retryUrl, { ...config, headers, skipAuthRefresh: true } as any);
+        response = await fetch(url, { ...config, headers, skipAuthRefresh: true } as any);
       }
     } catch {
       // Refresh failed, continue with original 401 response

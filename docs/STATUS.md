@@ -1,11 +1,14 @@
 # LogicQ Honest Implementation Status (`/docs/STATUS.md`)
 
-**Platform:** LogicQ — Daily C Programming Challenge & Weekly Competitive Arena (Sanjivani College)  
-**Last Updated:** October 10, 2026  
-**Current Phase:** **QA, FUNCTIONAL DEBUGGING & SECURITY AUDIT COMPLETE (PHASES 1–5) — AWAITING USER REVIEW**
+**Platform:** LogicQ — Daily C Programming Challenge & Weekly Competition (Sanjivani University)  
+**Last Updated:** October 12, 2026  
+**Live Production URL:** `https://logicq-clanguage.web.app`  
+**Live Staging URL:** `https://logicq-clanguage--staging-myz67fzi.web.app`  
+**Release Tag:** `v1.0.0-pilot` (Pre-deploy rollback tag: `v0.9.0-pre-pilot`)  
+**Current Phase:** **DEPLOYED TO GITHUB (`main` / `v1.0.0-pilot`) & FIREBASE (`firestore.rules` + `hosting`) — LIVE SMOKE TEST VERIFIED (`0` CONSOLE ERRORS)**
 
 > [!NOTE]
-> **Honesty & Security Disclaimer**: No component below is marked `WORKING` unless it has been executed and verified. Items requiring external cloud credentials or campus IT approval are explicitly marked `BLOCKED ON EXTERNAL SERVICE`. LogicQ enforces layered security controls, but **does not claim to be "fully secure" or "100% unbreakable"** (see [`/docs/SECURITY_AUDIT.md`](./SECURITY_AUDIT.md) and [`/docs/INSTITUTIONAL_SECURITY.md`](./INSTITUTIONAL_SECURITY.md) for residual risks and manual setup steps).
+> **Honesty & Security Disclaimer**: No component below is marked `WORKING` unless it has been executed and verified. Items requiring external cloud credentials, Blaze billing, or campus IT approval are explicitly marked `BLOCKED ON EXTERNAL SERVICE`. LogicQ enforces layered security controls, but **does not claim to be "fully secure" or "100% unbreakable"** (see [`/docs/SECURITY_AUDIT.md`](./SECURITY_AUDIT.md) and [`/docs/INSTITUTIONAL_SECURITY.md`](./INSTITUTIONAL_SECURITY.md) for residual risks and manual setup steps).
 
 ---
 
@@ -13,38 +16,24 @@
 
 | Phase / Area | Milestone | Status | Honest Summary & Verification Evidence |
 | :--- | :--- | :---: | :--- |
-| **Phase 0 Docs** | **All Specification & Audit Documents (`/docs/*`)** | 🟢 **WORKING (COMPLETE)** | All 18 specification docs plus [`/docs/AUDIT_INVENTORY.md`](./AUDIT_INVENTORY.md), [`/docs/BUGS.md`](./BUGS.md), and [`/docs/SECURITY_AUDIT.md`](./SECURITY_AUDIT.md) are complete and synchronized. |
-| **Phase 1 Audit** | **System Inventory & Trust Boundaries** | 🟢 **WORKING (COMPLETE)** | Mapped all 18 frontend routes, 28 backend endpoints, 10 database/Firestore collections, 6 trust boundaries, env vars, and dependencies in [`/docs/AUDIT_INVENTORY.md`](./AUDIT_INVENTORY.md). |
-| **Phase 2 Audit** | **Functional Diagnosis, Bug Fixes & Integrity Check** | 🟢 **WORKING (COMPLETE)** | Found and fixed 7 functional/security defects (`BUG-01`–`BUG-07` in [`/docs/BUGS.md`](./BUGS.md)); verified 6/6 database invariants in `/scripts/verify-integrity.ts` (`100% DATA INTEGRITY VERIFIED`). |
-| **Phase 3 & 4 Audit** | **12-Category Security Audit, Fixes & Retests** | 🟢 **WORKING (LOCAL) / 🔴 BLOCKED (GCP CONSOLE)** | Remediated and retested all 9 code-level findings (`2 Critical`, `4 High`, `3 Medium`) in [`/docs/SECURITY_AUDIT.md`](./SECURITY_AUDIT.md) (`45/45` automated tests passing across 9 suites). External GCP Console controls (`SA-10`) marked `BLOCKED`. |
-| **Sandboxed C Judge** | **Local GCC & Malicious C Payload Protection** | 🟢 **WORKING (LOCAL) / 🔴 BLOCKED (PROD CLOUD RUN)** | `LocalGccJudge` and `DockerJudge` enforce per-job isolation, CPU/wall timeouts, and `64KB` output caps (`6/6` in `judge.test.ts` and `6/6` in `judge-malicious.test.ts`). Cloud Run deployment awaits GCP billing. |
-| **Admin & Pilot Analytics** | **Admin Portal & 2-Week Pilot Analytics View** | 🟢 **WORKING (COMPLETE)** | Admin Problem CRUD (with soft-retire safety), Live Submissions, User Roster (with self-lockout protection), and **2-Week Pilot Analytics** (`DAU`, `>= 4/7` cohort, `drop-off by day`, `most-failed problems` — `2/2` passing). |
-| **Google Drive Sync** | **Optional Student Draft Backup (`drive.file`)** | 🟡 **PARTIAL / 🔴 BLOCKED (REAL CAMPUS DRIVE)** | LocalStorage draft fallback works (`logicq_draft_<slug>`); real `@sanjivani.org.in` Google Drive OAuth testing is blocked until the user configures a Google Cloud OAuth Client ID. |
+| **Live Production Deployment** | **GitHub (`main`, `v1.0.0-pilot`) & Firebase (`logicq-clanguage`)** | 🟢 **WORKING (DEPLOYED)** | Deployed `firestore.rules` and `client/dist` (`hosting`) to `https://logicq-clanguage.web.app` and staging channel `https://logicq-clanguage--staging-myz67fzi.web.app`. Verified `0` console errors, `0` warnings, `0` CSP violations, and `404` on `/arena`, `/archive`, `/badges`. |
+| **Navbar & Feature Flags** | **Home Button + Arena, Archive & Badges Removal** | 🟢 **WORKING (COMPLETE)** | Signed-in navbar shows strictly **Home** (`/dashboard`), **Daily Challenge** (`/challenge`), **Leaderboard** (`/leaderboard`) across `360px`, `768px`, and `1280px`. `/arena`, `/archive`, `/badges`, `/achievements`, and sub-routes render the 404 page; backend endpoints return `404 Not Found` for all roles; deployed `firestore.rules` denies all reads/writes to contest/archive/badge collections. |
+| **Mobile PWA & Editor** | **Installable PWA (`/manifest.webmanifest`, `/sw.js`, `/offline.html`) & Mobile C Bar** | 🟢 **WORKING (COMPLETE)** | Valid web app manifest, PNG icons (`192x192`, `512x512`, `maskable-512x512`, `apple-touch-icon`), safe service worker (never caches auth/API/submissions), offline fallback page, `/how-to-install` guide, and mobile C symbol quick-insert bar (`{ } ( ) [ ] ; # " * & -> = == != < > \n Tab`). |
+| **PRN Signup & Privacy** | **12-Digit PRN, `prnIndex` Transaction & Masked Display** | 🟢 **WORKING (COMPLETE)** | Enforces 12-digit PRN, config-driven College/Department/Year, optional uppercase Division, atomic `prnIndex` uniqueness, masked PRN (`••••••0001` only for self), idempotent migration (`migrate-users-prn.ts`), and audited Admin PRN updates with password re-authentication. |
+| **Dual-Theme UI & Contrast** | **Dark (`#0C0F1F`) & Light (`#F4F6FB`) WCAG AA Themes** | 🟢 **WORKING (COMPLETE)** | Central CSS tokens, pre-paint theme application, sticky navbar offset (`--navbar-height: 4rem`), and custom Monaco `logicq-dark`/`logicq-light` themes (`>= 4.5:1` line-number contrast). |
+| **Real C11 Judge Pipeline** | **Fail-Closed `LocalGccJudge` & $\ge 2$ Sample / $\ge 5$ Hidden Tests** | 🟢 **WORKING (LOCAL) / 🔴 BLOCKED (PROD CLOUD RUN)** | Removed simulated `Judge0MockJudge` fallback; `getJudge()` and `fallbackEngine.ts` fail closed (`503`) if GCC is unavailable. All 17 seeded problems have $\ge 2$ sample and $\ge 5$ hidden test cases. Deploying the Cloud Run `gcc:13.2.0` container awaits Blaze billing. |
+| **Upload Files Workflow** | **`Upload Files` Tab, Magic-Byte/EXIF/PDF Validation & Admin Review** | 🟢 **WORKING (LOCAL) / 🔴 BLOCKED (PROD STORAGE BUCKET)** | Replaced bottom `Test Cases` tab with `Custom Stdin`, `Verdict & Output`, `Upload Files`. Enforces magic-byte inspection, JPEG EXIF stripping, PDF `/JavaScript` rejection, `PENDING_REVIEW` (`0` points until Admin approval), and single-award idempotency. Deploying `storage.rules` awaits Blaze bucket provisioning. |
+| **Book-Only Content Governance** | **`/docs/CONTENT_PIPELINE.md`, `/docs/CONTENT_RIGHTS.md` & `/scripts/import-book.ts`** | 🟡 **READY / ⏸️ AWAITING BOOK FILE** | Schema (`bookId`, `chapterNumber`, `chapterTitle`, `topicTag`, `difficultyBand`, `sourceRefJson`), validator/importer (`/scripts/import-book.ts`), and `sourceRefJson` student-endpoint stripping are implemented and tested. Awaiting book file attachment. |
 
 ---
 
-## 2. Passing Automated Test Suites (`47 / 47 Passing` Across 10 Suites + `7 / 7` Integrity Checks)
+## 2. Manual Steps & External Services Marked `BLOCKED` (Checklist For Project Owner)
 
-Executed via `npm.cmd --prefix server run test` and `npx.cmd --prefix server tsx scripts/verify-integrity.ts`:
-- `tests/debug-sweep-regressions.test.ts`: **2/2 passing** (`BUG-03` rejudge idempotency, `BUG-04` first-solve badge & contest score ordering, `BUG-05` per-line trailing space normalization & MLE handling, `BUG-06` Dashboard/Profile/Leaderboard rank & distinct solvedCount parity).
-- `tests/security-audit-regressions.test.ts`: **7/7 passing** (`SA-01` IDOR fix, `SA-02` live ban/role token revocation, `SA-03` XSS & 64KB cap, `SA-04` domain restriction & SHA-256 reset token, `SA-05` draft/future submission block, `SA-06` curriculum soft-retire & admin self-ban block, `SA-07`/`SA-08` headers & `17:00 IST` rollover).
-- `tests/firestore-security-rules.test.ts`: **8/8 passing** (adversarial client cheating attempts blocked).
-- `tests/judge-malicious.test.ts`: **6/6 passing** (infinite loop, stack overflow, file read traversal, stdout flood, macro bomb, division by zero stopped).
-- `tests/judge.test.ts`: **6/6 passing** (C11 compilation, stdin/stdout, CE, TLE, RE).
-- `tests/auth.test.ts`: **5/5 passing** (registration, duplicate block, login, bad password, `/api/auth/me`).
-- `tests/data-safety.test.ts`: **4/4 passing** (append-only submission/verdict immutability & soft-delete).
-- `tests/scoring.test.ts`: **4/4 passing** (streak initialization, same-day idempotency, consecutive increment, missed-day reset).
-- `tests/problem.test.ts`: **3/3 passing** (daily challenge, hidden test case secrecy, pagination/filtering).
-- `tests/pilot-analytics.test.ts`: **2/2 passing** (`17:00 IST` boundary, DAU, `>= 4/7` weekly cohort, daily drop-off, most-failed problems).
-- `scripts/verify-integrity.ts`: **7/7 passing** (`100% DATA INTEGRITY VERIFIED`).
-
----
-
-## 3. External Services & Manual Steps Marked `BLOCKED` (Action Required From User)
-
-| Blocked Item | Why It Cannot Be Verified Locally | Action Required From Project Owner |
+| Manual Step / Blocked Item | Why It Requires Project Owner Action | Exact Steps To Complete |
 | :--- | :--- | :--- |
-| **1. Firebase App Check (reCAPTCHA Enterprise)** | Requires registering a domain-bound reCAPTCHA Enterprise site key in Google Cloud / Firebase Console. | Register `logicq-clanguage.web.app` in Firebase Console $\rightarrow$ App Check and enable enforcement on Firestore & Functions. |
-| **2. Admin Multi-Factor Authentication (MFA)** | Requires enrolling real administrator phone/TOTP devices in Firebase Authentication settings. | Enable mandatory MFA for all `ADMIN` accounts in Firebase Console $\rightarrow$ Authentication. |
-| **3. Google Drive OAuth Client ID (`@sanjivani.org.in`)** | Requires a GCP OAuth 2.0 Client ID authorized for `drive.file` / `drive.appdata` and a real campus account. | Configure OAuth Consent Screen in GCP Console (LocalStorage fallback works automatically without it). |
-| **4. Firebase Blaze Plan, Budget Alerts & 2nd Owner** | Cloud Scheduler (`17:00 IST` / `17:05 IST`) and Secret Manager require an active Blaze billing account. | Upgrade `logicq-clanguage` to Blaze Plan, set ₹500 ($6) budget alerts (`50%/80%/100%`), and add a 2nd Project Owner in GCP IAM. |
+| **1. Upgrade `logicq-clanguage` to Blaze Plan & Set Budget Alerts** | Cloud Functions (2nd Gen), Cloud Run C11 Judge (`asia-south1`), Cloud Storage (`storage.rules`), Cloud Scheduler (`17:00 IST` / `17:05 IST`), and Secret Manager require an active Blaze billing account. | Open Firebase Console $\rightarrow$ `logicq-clanguage` $\rightarrow$ **Upgrade to Blaze**, set a **₹500 ($6/mo)** budget alert at `50%`, `80%`, `100%`, then run `npx firebase-tools deploy --only storage:rules,functions --project logicq-clanguage`. |
+| **2. Restrict Firebase Web API Key (`AIza...`) by HTTP Referrer** | Prevents third-party sites from calling Firebase Auth/Identity Toolkit with the public web key. | Open Google Cloud Console $\rightarrow$ **APIs & Services $\rightarrow$ Credentials**, select the Browser key, set **Application restrictions $\rightarrow$ Websites**, and allow only `https://logicq-clanguage.web.app/*` and `https://logicq-clanguage.firebaseapp.com/*`. |
+| **3. Enroll Firebase App Check (reCAPTCHA Enterprise)** | Protects Firestore, Storage, and Functions from automated non-browser abuse. | Open Firebase Console $\rightarrow$ **App Check**, register the web app with a reCAPTCHA Enterprise site key, and set `VITE_FIREBASE_APPCHECK_SITE_KEY` before enforcing. |
+| **4. Enforce Admin Multi-Factor Authentication (MFA) & Add 2nd Project Owner** | Prevents single-point-of-failure account lockout or compromised admin credentials. | Enable MFA on all `ADMIN` accounts in Firebase Authentication and add a 2nd faculty/owner email under **GCP IAM & Admin $\rightarrow$ IAM** (`roles/owner`). |
+| **5. Physical Phone PWA Install & Backup Restore Drill** | Requires a physical Android/iPhone device and GCS export bucket (`gs://logicq-clanguage-backups`). | Install `https://logicq-clanguage.web.app` via Android Chrome (`Install LogicQ`) and iPhone Safari (`Share -> Add to Home Screen`), and run a test `gcloud firestore export` / `import` into a staging collection. |
+| **6. Book Source File Import** | Requires the designated syllabus textbook file and title/author/edition metadata. | Place the textbook file in `/private/books/<filename>` and run `npx tsx scripts/import-book.ts`. |

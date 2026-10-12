@@ -83,12 +83,15 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     count: orphanBadges,
   });
 
-  // 4. Points Sum Consistency: user.totalPoints equals sum of pointsAwarded from Accepted solves
+  // 4. Points Sum Consistency: user.totalPoints equals sum of pointsAwarded from Accepted solves & Approved uploads
   const users = await prisma.user.findMany({
     where: { role: 'STUDENT' },
     include: {
       submissions: {
         where: { verdict: 'ACCEPTED' },
+      },
+      uploadedSolutions: {
+        where: { status: 'APPROVED' },
       },
     },
   });
@@ -102,6 +105,14 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
         solvedProblemPoints.get(sub.problemId)! < sub.pointsAwarded
       ) {
         solvedProblemPoints.set(sub.problemId, sub.pointsAwarded);
+      }
+    }
+    for (const up of u.uploadedSolutions) {
+      if (
+        !solvedProblemPoints.has(up.problemId) ||
+        solvedProblemPoints.get(up.problemId)! < up.pointsAwarded
+      ) {
+        solvedProblemPoints.set(up.problemId, up.pointsAwarded);
       }
     }
     const computedPoints = Array.from(solvedProblemPoints.values()).reduce(
@@ -118,7 +129,7 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     passed: pointsMismatches === 0,
     details:
       pointsMismatches === 0
-        ? 'All student points match the exact sum of unique Accepted problem points.'
+        ? 'All student points match the exact sum of unique Accepted problem & Approved upload points.'
         : `Found ${pointsMismatches} users with points balance discrepancy.`,
     count: pointsMismatches,
   });
@@ -140,13 +151,18 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     count: streakInconsistencies,
   });
 
-  // 6. Duplicate Points per Problem Check
+  // 6. Duplicate Points per Problem Check (across code submissions and uploaded solutions)
   let duplicatePointsDetected = 0;
   for (const u of users) {
     const counts = new Map<string, number>();
     for (const sub of u.submissions) {
       if (sub.verdict === 'ACCEPTED' && sub.pointsAwarded > 0) {
         counts.set(sub.problemId, (counts.get(sub.problemId) || 0) + 1);
+      }
+    }
+    for (const up of u.uploadedSolutions) {
+      if (up.status === 'APPROVED' && up.pointsAwarded > 0) {
+        counts.set(up.problemId, (counts.get(up.problemId) || 0) + 1);
       }
     }
     for (const [, cnt] of counts.entries()) {
@@ -160,9 +176,26 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     passed: duplicatePointsDetected === 0,
     details:
       duplicatePointsDetected === 0
-        ? 'Zero duplicate points awarded for repeated solves.'
+        ? 'Zero duplicate points awarded for repeated solves across code and uploads.'
         : `Detected ${duplicatePointsDetected} instances of duplicate points.`,
     count: duplicatePointsDetected,
+  });
+
+  // 6b. Uploaded Solutions Integrity Check
+  const invalidUploads = await prisma.uploadedSolution.findMany({
+    where: {
+      status: { not: 'APPROVED' },
+      pointsAwarded: { gt: 0 },
+    },
+  });
+  results.push({
+    checkName: 'Uploaded Solutions Unapproved Zero-Points Invariant',
+    passed: invalidUploads.length === 0,
+    details:
+      invalidUploads.length === 0
+        ? 'All PENDING_REVIEW / REJECTED / NEEDS_CHANGES uploads have 0 pointsAwarded.'
+        : `Found ${invalidUploads.length} unapproved uploads with non-zero points.`,
+    count: invalidUploads.length,
   });
 
   // 7. Admin Analytics vs Direct Database Counts Parity
