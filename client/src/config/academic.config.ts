@@ -14,13 +14,47 @@ export type AllowedDepartment = (typeof ALLOWED_DEPARTMENTS)[number];
 export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
 export type AllowedYear = (typeof ALLOWED_YEARS)[number];
 
-export const PRN_REGEX = /^[0-9]{12}$/;
+export const PRN_REGEX = /^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/;
+export const PRN_ERROR_MESSAGE = 'Enter your 12-character PRN: 4 digits, 3 letters, M or F, then 4 digits.';
+
+/**
+ * Configurable list of allowed 3-letter program codes (e.g., ['AIM', 'CSE']).
+ * Default: empty list [] = any 3 letters are accepted.
+ */
+export let ALLOWED_PROGRAM_CODES: string[] = [];
+
+export function setAllowedProgramCodes(codes: string[]) {
+  ALLOWED_PROGRAM_CODES = codes.map((c) => c.trim().toUpperCase());
+}
+
 export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 export const DISPLAY_NAME_MIN = 3;
 export const DISPLAY_NAME_MAX = 20;
 
 export const PRN_CHANGE_COOLDOWN_DAYS = 30;
 export const PRN_RELEASE_RESERVATION_DAYS = 30;
+
+export function normalizePrn(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  return raw.trim().toUpperCase();
+}
+
+/**
+ * Validates a PRN against the 12-character pattern ^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$
+ * and checks the configurable 3-letter program code if allowedProgramCodes is non-empty.
+ */
+export function isValidPrn(raw: unknown, allowedProgramCodes: string[] = ALLOWED_PROGRAM_CODES): boolean {
+  if (typeof raw !== 'string') return false;
+  const prn = normalizePrn(raw);
+  if (!PRN_REGEX.test(prn)) return false;
+  if (allowedProgramCodes && allowedProgramCodes.length > 0) {
+    const programCode = prn.slice(4, 7);
+    if (!allowedProgramCodes.includes(programCode)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function getPrnChangeCooldownStatus(prnChangedAt?: Date | string | null): {
   isEligible: boolean;
@@ -70,10 +104,15 @@ export function containsProfanity(value: string): boolean {
   return PROFANITY_LIST.some((word) => normalized.includes(word));
 }
 
+/**
+ * Masks a 12-character PRN showing only the last 4 digits as "••••••••1039" (8 bullets + last 4 digits).
+ * Letters (including M/F) are never shown masked or unmasked to peers.
+ */
 export function maskPrn(prn?: string | null): string | null {
   if (!prn || prn.length < 4) return null;
-  if (prn.startsWith('••••••')) return prn;
-  return `••••••${prn.slice(-4)}`;
+  if (prn.startsWith('••••••••')) return prn;
+  if (prn.startsWith('••••••')) return `••••••••${prn.slice(-4)}`;
+  return `••••••••${prn.slice(-4)}`;
 }
 
 export function formatOwnIdentityLabel(user: {
@@ -105,4 +144,3 @@ export function formatPublicDisplayName(user: {
   const suffix = user.shortId || generateShortId(user.id);
   return `Student ${suffix}`;
 }
-

@@ -4,8 +4,8 @@ import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 
 describe('Authentication API (/api/auth)', () => {
-  const uniqueSuffix = String(Date.now()).slice(-8).padStart(8, '0');
-  const testPrn = `9999${uniqueSuffix}`;
+  const uniqueSuffix = String(Date.now()).slice(-4).padStart(4, '0');
+  const testPrn = `2199TESM${uniqueSuffix}`;
   const testUser = {
     prn: testPrn,
     college: 'Sanjivani University',
@@ -32,7 +32,7 @@ describe('Authentication API (/api/auth)', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.email).toBe(testUser.email);
     expect(res.body.data.user.prn).toBe(testUser.prn);
-    expect(res.body.data.user.maskedPrn).toBe(`••••••${testPrn.slice(-4)}`);
+    expect(res.body.data.user.maskedPrn).toBe(`••••••••${testPrn.slice(-4)}`);
     expect(res.body.data.user.department).toBe('CSE');
     expect(res.body.data.user.year).toBe('SY');
     expect(res.body.data.user.division).toBe('A1');

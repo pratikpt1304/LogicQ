@@ -10,10 +10,10 @@ describe('Rolling 30-Day PRN Self-Service Change & Anti-Squatting Invariants', (
   let adminToken = '';
   const adminPassword = 'AdminPassword123!';
 
-  const studentPrnInitial = '202688880001';
-  const studentPrnImmediate = '202688880002';
-  const studentPrnBlocked = '202688880003';
-  const student2Prn = '202688880099';
+  const studentPrnInitial = '2199TESM0001';
+  const studentPrnImmediate = '2199TESM0002';
+  const studentPrnBlocked = '2199TESM0003';
+  const student2Prn = '2199TESF0099';
 
   beforeAll(async () => {
     const testPrns = [
@@ -21,8 +21,8 @@ describe('Rolling 30-Day PRN Self-Service Change & Anti-Squatting Invariants', (
       studentPrnImmediate,
       studentPrnBlocked,
       student2Prn,
-      '202688880004',
-      '202688880005',
+      '2199TESM0004',
+      '2199TESF0005',
     ];
     await prisma.prnHistory.deleteMany({
       where: {

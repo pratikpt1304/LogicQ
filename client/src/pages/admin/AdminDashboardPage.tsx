@@ -33,7 +33,7 @@ import { Difficulty, Verdict } from '../../types/index.js';
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice'
   >('analytics');
 
   // Filter States for Users & Submissions & Uploads
@@ -397,6 +397,23 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
+      {/* Student Allowlist Warning (Recommends enabling allowlist before pilot) */}
+      {overview && !overview.isAllowlistEnabled && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-300">
+          <div className="flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-lg">🛡️</span>
+            <div>
+              <h4 className="text-xs font-bold uppercase font-mono tracking-wider">
+                Student Allowlist Warning: Verification Is Currently Off
+              </h4>
+              <p className="text-xs text-amber-200/80 mt-0.5 font-mono">
+                Anyone with a college email can register with any correctly shaped PRN. Strongly recommend enabling allowlist verification before the pilot.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Analytics Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
@@ -497,6 +514,18 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           User Roster ({users.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('practice')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'practice'
+              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Code2 className="w-3.5 h-3.5" />
+          <span>Practice Curriculum (4 Modules / 40 Problems)</span>
         </button>
       </div>
 
@@ -1928,6 +1957,45 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
+      {/* Tab: Practice Curriculum Management */}
+      {activeTab === 'practice' && (
+        <div className="space-y-6">
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-2">
+            <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
+              <Code2 className="w-5 h-5 text-cyan-400" />
+              <span>Syllabus Practice Modules & Question Pool</span>
+            </h3>
+            <p className="text-xs font-mono text-slate-400 max-w-3xl">
+              Overview of the 4 sequentially unlocking modules (10 problems each: 4 Easy, 4 Medium, 2 Hard).
+              All 40 reference C solutions and 80 incorrect solutions are verified with Local GCC.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { order: 1, title: 'Control Structures', slug: 'control-structures', req: 'Unlocked for all', count: 10 },
+              { order: 2, title: 'Pointers and functions', slug: 'pointers-and-functions', req: 'Solve 7 of 10 in Module 1', count: 10 },
+              { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', req: 'Solve 7 of 10 in Module 2', count: 10 },
+              { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', req: 'Solve 7 of 10 in Module 3', count: 10 },
+            ].map((m) => (
+              <div key={m.slug} className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                    MODULE {m.order}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">{m.count} Problems</span>
+                </div>
+                <h4 className="text-sm font-bold text-white">{m.title}</h4>
+                <div className="text-xs font-mono text-slate-400 flex items-center gap-2 pt-2 border-t border-white/[0.06]">
+                  <span className="text-amber-400">Unlock:</span>
+                  <span>{m.req}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Audited Admin PRN & College Edit Modal */}
       {editingAcademicUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -1962,21 +2030,25 @@ export const AdminDashboardPage: React.FC = () => {
             >
               <div>
                 <label htmlFor="audit-prn" className="block text-xs font-mono text-slate-300 mb-1">
-                  New 12-Digit PRN
+                  New 12-Character PRN
                 </label>
                 <input
                   id="audit-prn"
                   type="text"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
                   maxLength={12}
                   required
+                  placeholder="2199TESM0001"
                   value={academicEditForm.prn}
                   onChange={(e) =>
                     setAcademicEditForm({
                       ...academicEditForm,
-                      prn: e.target.value.replace(/\s+/g, ''),
+                      prn: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12),
                     })
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white tracking-wider"
                 />
               </div>
 

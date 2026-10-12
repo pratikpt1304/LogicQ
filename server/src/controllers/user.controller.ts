@@ -14,6 +14,9 @@ import {
   formatPublicDisplayName,
   generateShortId,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   PRN_CHANGE_COOLDOWN_DAYS,
   PRN_RELEASE_RESERVATION_DAYS,
   PRN_CHANGE_RATE_LIMIT_HOURLY,
@@ -75,7 +78,7 @@ const updateProfileSchema = z.object({
     .refine((val) => !val || !containsProfanity(val), {
       message: 'Display name contains inappropriate language.',
     })
-    .refine((val) => !val || !/\d{8,}/.test(val), {
+    .refine((val) => !val || (!/\d{8,}/.test(val) && !PRN_REGEX.test(val)), {
       message: 'Display name cannot contain a PRN or long numeric sequence.',
     }),
   fullName: z
@@ -383,12 +386,12 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
 const changePrnSchema = z
   .object({
     newPrn: z
-      .string()
-      .trim()
-      .refine((val) => PRN_REGEX.test(val), {
-        message: 'PRN must be exactly 12 digits (0-9 only).',
+      .preprocess((val) => normalizePrn(val), z.string())
+      .refine((val) => isValidPrn(val), {
+        message: PRN_ERROR_MESSAGE,
       }),
-    confirmPrn: z.string().trim(),
+    confirmPrn: z
+      .preprocess((val) => normalizePrn(val), z.string()),
     reauthConfirmed: z.boolean().refine((val) => val === true, {
       message: 'Sign-in confirmation is required before changing your PRN.',
     }),

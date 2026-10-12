@@ -15,6 +15,7 @@ import { userRouter } from './routes/user.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { checkerRouter } from './routes/checker.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
+import { practiceRouter } from './routes/practice.routes.js';
 import { prisma } from './utils/prisma.js';
 
 export const app = express();
@@ -130,6 +131,7 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/checker', checkerRouter);
+app.use('/api/practice', practiceRouter);
 
 // Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

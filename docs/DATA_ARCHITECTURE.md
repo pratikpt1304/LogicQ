@@ -35,15 +35,15 @@ LogicQ operates on a **Zero-Trust, User-Centric Data Partitioning Architecture**
 
 | Data Entity | Primary Storage Location | Access Protocol | Authoritative Source? | Rationale & Security Rules |
 | :--- | :--- | :--- | :---: | :--- |
-| **Private User Document (PII + PRN)** | Firebase Auth + Firestore (`users/{uid}`) | Owner / Admin Read; Validated Student Update (`department`, `year`, `division`, `displayName`) | **YES** | Stores private `prn` (`^[0-9]{12}$`), `email`, and `prnChangedAt` (timestamp). Never readable by other students. Direct client write to `prn`, `prnChangedAt`, or `college` is strictly denied in Firestore rules. Students can change their PRN at most once per rolling 30 days via Cloud Function transaction. |
-| **PRN Uniqueness Index** | Firestore (`prnIndex/{prn}`) / SQL (`PrnIndex`) | **Server Transaction Only** (`allow read, write: if false;`) | **YES** | Enforces 1-to-1 uniqueness and anti-squatting status (`ACTIVE`, `RELEASED_RESERVED`, `BANNED`). Tracks `userId`, `reservedUntil`, `status`. Atomic in server transaction. |
+| **Private User Document (PII + PRN)** | Firebase Auth + Firestore (`users/{uid}`) | Owner / Admin Read; Validated Student Update (`department`, `year`, `division`, `displayName`) | **YES** | Stores private `prn` (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`, 12 characters: 4 digits, 3 letters, M/F, 4 digits; canonical uppercase), `email`, and `prnChangedAt` (timestamp). Never readable by other students. Direct client write to `prn`, `prnChangedAt`, or `college` is strictly denied in Firestore rules. Students can change their PRN at most once per rolling 30 days via Cloud Function transaction. |
+| **PRN Uniqueness Index** | Firestore (`prnIndex/{prn}`) / SQL (`PrnIndex`) | **Server Transaction Only** (`allow read, write: if false;`) | **YES** | Enforces 1-to-1 uniqueness and anti-squatting status (`ACTIVE`, `RELEASED_RESERVED`, `BANNED`). Tracks `userId`, `reservedUntil`, `status`. Atomic in server transaction. Document ID is canonical uppercase PRN. |
 | **PRN Change Audit Ledger** | Firestore (`users/{uid}/prnHistory/{id}`) / SQL (`PrnHistory`) | **Server Write Only**; Owner & Admin Read | **YES** | Append-only ledger recording `oldPrn`, `newPrn`, `changedAt`, `source` (`STUDENT` \| `ADMIN`), and request telemetry. Never modified or deleted by client. |
 | **Public Profile Mirror (Non-PII)** | Firestore (`publicProfiles/{uid}`) | Authenticated Read / Server Write | **YES** | Exposes non-PII fields (`displayName` or `"Student <shortId>"`, `college`, `department`, `year`, `division`, `stats`). **Never** contains `prn` or `email`. |
 | **Problem Statements & Samples** | Firestore (`problems`) | Public Read (Published only) | **YES** | Problem catalog, constraints, and visible samples. Client read-only. |
 | **Hidden Test Cases** | Firestore (`problems/{id}/hidden_tests`) | **Server Only** (`allow: false`) | **YES** | Encrypted/hidden test cases. Clients have zero read access. Executed only by judge worker. |
 | **Evaluated Submissions & Verdicts**| Firestore (`submissions`) | Server Write / Owner or Admin Read | **YES** | Authoritative submission log, runtime (ms), memory (KB), and verdict. Client cannot create or edit. |
 | **Points & Streaks** | Firestore (`users/{uid}/stats`) | Server Write Only | **YES** | Progression metrics calculated strictly in Cloud Functions upon Accepted verdicts (`FEATURE_BADGES=false` disables badge awarding and client access). |
-| **Weekly Summaries & Leaderboards** | Firestore (`weeks/{id}/leaderboard`, `weekly_summaries`) | Server Write / Filtered Read | **YES** | Supports optional `department` and `year` filtering; own row displays masked PRN (`••••••5678`) only to the student themselves. |
+| **Weekly Summaries & Leaderboards** | Firestore (`weeks/{id}/leaderboard`, `weekly_summaries`) | Server Write / Filtered Read | **YES** | Supports optional `department` and `year` filtering; own row displays masked PRN (`••••••••1039`, 8 bullets + last 4 digits) only to the student themselves. Never derives or exposes gender. |
 | **Admin Audit Trail** | Firestore (`admin_audit_logs`) | Server-Admin SDK Only | **YES** | Immutable log of administrative actions (PRN/college edits with re-auth, bans, problem publishing, rejudges). |
 | **In-Progress Code Drafts** | **Student Google Drive** (`drive.appdata`) | Client via Google OAuth | **NO** | Draft code per problem (`drafts/{slug}.c`). Never read by server judge. |
 | **Draft Fallback (When Drive Blocked)**| Firestore (`users/{uid}/drafts`) or Local | Private Client / Per-User Rule | **NO** | Fallback when campus Google Workspace blocks third-party Drive access. |
@@ -68,7 +68,8 @@ export const ALLOWED_DEPARTMENTS = [
   'Integrated B.Tech',
 ] as const;
 export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
-export const PRN_REGEX = /^[0-9]{12}$/;
+export const PRN_REGEX = /^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/;
+export const ALLOWED_PROGRAM_CODES: string[] = []; // Empty = any 3 letters accepted; configurable per institution
 export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 ```
 
@@ -79,7 +80,7 @@ export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 // IMMUTABLE BY STUDENT: 'prn', 'college', 'email', 'role', 'status', 'stats'
 interface FirestoreUser {
   uid: string;
-  prn: string; // Exactly 12 digits (^[0-9]{12}$), private PII — NEVER exposed to other students
+  prn: string; // Exactly 12 chars (^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$), canonical uppercase, private PII — NEVER exposed to other students
   email: string; // College email
   college: 'Sanjivani University'; // Immutable after signup (admin-only audited change)
   department: 'AIML' | 'AIDS' | 'Integrated M.Tech' | 'Mechanical' | 'CSE' | 'Integrated B.Tech';
@@ -113,7 +114,7 @@ interface FirestoreUser {
 // Created atomically inside a transaction alongside users/{uid}.
 // Deleted or marked RELEASED_RESERVED when changed/deleted.
 interface FirestorePrnIndex {
-  prn: string; // Document ID: 12-digit PRN (^[0-9]{12}$)
+  prn: string; // Document ID: 12-char canonical uppercase PRN (^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$)
   userId: string; // Bound Firebase Auth UID / User ID (1 PRN per account)
   status: 'ACTIVE' | 'RELEASED_RESERVED' | 'BANNED';
   reservedUntil?: FirebaseFirestore.Timestamp | null; // Reserved for previous holder for 30 days

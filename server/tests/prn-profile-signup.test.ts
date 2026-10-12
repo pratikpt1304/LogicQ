@@ -11,12 +11,12 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
 
   beforeAll(async () => {
     const testPrns = [
-      '202699990001',
-      '202699990002',
-      '202699990003',
-      '202699990004',
-      '202699990005',
-      '202699990006',
+      '2199TESM0001',
+      '2199TESF0002',
+      '2199TESM0003',
+      '2199TESF0004',
+      '2199TESM0005',
+      '2199TESF0006',
     ];
     await prisma.prnIndex.deleteMany({ where: { prn: { in: testPrns } } });
     await prisma.user.deleteMany({
@@ -45,8 +45,8 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     adminToken = loginRes.body.data.accessToken;
   });
 
-  it('rejects signup when PRN is fewer or more than 12 digits or contains letters', async () => {
-    for (const badPrn of ['12345678901', '1234567890123', '2026ABCD0001', '']) {
+  it('rejects signup when PRN does not match 12-character format (4 digits, 3 letters, M/F, 4 digits)', async () => {
+    for (const badPrn of ['2199TESM001', '2199TESM00001', '202612345678', '2199TESX0001', '2199-ESM-001', '']) {
       const res = await request(app).post('/api/auth/register').send({
         prn: badPrn,
         college: 'Sanjivani University',
@@ -57,13 +57,13 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
         password: 'Password123!',
       });
       expect(res.status).toBe(400);
-      expect(JSON.stringify(res.body)).toContain('PRN must be exactly 12 digits');
+      expect(JSON.stringify(res.body)).toContain('Enter your 12-character PRN');
     }
   });
 
   it('rejects invalid college, department, year, or division on server side', async () => {
     const badCollege = await request(app).post('/api/auth/register').send({
-      prn: '202699990001',
+      prn: '2199TESM0001',
       college: 'Other College',
       department: 'AIML',
       year: 'FY',
@@ -73,7 +73,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(badCollege.status).toBe(400);
 
     const badDept = await request(app).post('/api/auth/register').send({
-      prn: '202699990001',
+      prn: '2199TESM0001',
       college: 'Sanjivani University',
       department: 'Civil',
       year: 'FY',
@@ -83,7 +83,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(badDept.status).toBe(400);
 
     const badYear = await request(app).post('/api/auth/register').send({
-      prn: '202699990001',
+      prn: '2199TESM0001',
       college: 'Sanjivani University',
       department: 'CSE',
       year: 'FinalYear',
@@ -93,7 +93,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(badYear.status).toBe(400);
 
     const badDiv = await request(app).post('/api/auth/register').send({
-      prn: '202699990001',
+      prn: '2199TESM0001',
       college: 'Sanjivani University',
       department: 'CSE',
       year: 'FY',
@@ -104,9 +104,9 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(badDiv.status).toBe(400);
   });
 
-  it('creates student profile with trimmed 12-digit PRN, uppercase division, and atomic prnIndex record', async () => {
+  it('creates student profile with trimmed 12-char PRN, uppercase division, and atomic prnIndex record', async () => {
     const res = await request(app).post('/api/auth/register').send({
-      prn: '  202699990001  ',
+      prn: '  2199tesm0001  ',
       college: 'Sanjivani University',
       department: 'Integrated M.Tech',
       year: 'SY',
@@ -116,22 +116,22 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.user.prn).toBe('202699990001');
-    expect(res.body.data.user.maskedPrn).toBe('••••••0001');
+    expect(res.body.data.user.prn).toBe('2199TESM0001');
+    expect(res.body.data.user.maskedPrn).toBe('••••••••0001');
     expect(res.body.data.user.college).toBe('Sanjivani University');
     expect(res.body.data.user.department).toBe('Integrated M.Tech');
     expect(res.body.data.user.year).toBe('SY');
     expect(res.body.data.user.division).toBe('C1');
     expect(res.body.data.user.profileComplete).toBe(true);
 
-    const indexRow = await prisma.prnIndex.findUnique({ where: { prn: '202699990001' } });
+    const indexRow = await prisma.prnIndex.findUnique({ where: { prn: '2199TESM0001' } });
     expect(indexRow).not.toBeNull();
     expect(indexRow?.userId).toBe(res.body.data.user.id);
   });
 
   it('enforces PRN uniqueness via prnIndex and rejects duplicate PRN registration', async () => {
     const dupRes = await request(app).post('/api/auth/register').send({
-      prn: '202699990001',
+      prn: '2199TESM0001',
       college: 'Sanjivani University',
       department: 'CSE',
       year: 'TY',
@@ -154,7 +154,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     const prnAttempt = await request(app)
       .patch('/api/users/me')
       .set('Authorization', `Bearer ${studentToken}`)
-      .send({ prn: '202699990009' });
+      .send({ prn: '2199TESM0009' });
     expect(prnAttempt.status).toBe(403);
 
     // Attempt to change College -> 403
@@ -168,7 +168,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     const prnLikeDisplay = await request(app)
       .patch('/api/users/me')
       .set('Authorization', `Bearer ${studentToken}`)
-      .send({ displayName: '202699990001' });
+      .send({ displayName: '2199TESM0001' });
     expect(prnLikeDisplay.status).toBe(400);
 
     // Allowed update: Department, Year, Division, DisplayName
@@ -186,11 +186,11 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(validUpdate.body.data.user.year).toBe('TY');
     expect(validUpdate.body.data.user.division).toBe('B2');
     expect(validUpdate.body.data.user.displayName).toBe('CodeNinja_TY');
-    expect(validUpdate.body.data.user.maskedPrn).toBe('••••••0001');
+    expect(validUpdate.body.data.user.maskedPrn).toBe('••••••••0001');
 
     // Register a second student to verify privacy rules between peers
     const peerReg = await request(app).post('/api/auth/register').send({
-      prn: '202699990002',
+      prn: '2199TESF0002',
       college: 'Sanjivani University',
       department: 'Mechanical',
       year: 'FY',
@@ -230,7 +230,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       expect(row.department).toBe('AIDS');
       expect(row.year).toBe('TY');
       if (row.id === studentId) {
-        expect(row.maskedPrn).toBe('••••••0001');
+        expect(row.maskedPrn).toBe('••••••••0001');
       } else {
         expect(row.maskedPrn).toBeUndefined();
       }
@@ -258,7 +258,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       .post('/api/auth/complete-profile')
       .set('Authorization', `Bearer ${tempToken}`)
       .send({
-        prn: '202699990003',
+        prn: '2199TESM0003',
         college: 'Sanjivani University',
         department: 'CSE',
         year: 'FY',
@@ -266,7 +266,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       });
     expect(completeRes.status).toBe(200);
     expect(completeRes.body.data.user.profileComplete).toBe(true);
-    expect(completeRes.body.data.user.prn).toBe('202699990003');
+    expect(completeRes.body.data.user.prn).toBe('2199TESM0003');
     expect(completeRes.body.data.user.division).toBe('A1');
 
     // Now allowed
@@ -277,7 +277,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
   });
 
   it('allows Admin to update PRN/academic identity with password re-authentication and updates prnIndex safely', async () => {
-    const targetUser = await prisma.user.findUnique({ where: { prn: '202699990003' } });
+    const targetUser = await prisma.user.findUnique({ where: { prn: '2199TESM0003' } });
     expect(targetUser).not.toBeNull();
 
     // Missing or wrong adminPassword -> 401
@@ -285,7 +285,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       .patch(`/api/admin/users/${targetUser!.id}/academic-identity`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        prn: '202699990004',
+        prn: '2199TESF0004',
         college: 'Sanjivani University',
         department: 'AIML',
         year: 'SY',
@@ -300,7 +300,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       .patch(`/api/admin/users/${targetUser!.id}/academic-identity`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
-        prn: '202699990004',
+        prn: '2199TESF0004',
         college: 'Sanjivani University',
         department: 'AIML',
         year: 'SY',
@@ -309,10 +309,10 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
         reason: 'Official Registrar PRN correction',
       });
     expect(validAdminUpdate.status).toBe(200);
-    expect(validAdminUpdate.body.data.user.prn).toBe('202699990004');
+    expect(validAdminUpdate.body.data.user.prn).toBe('2199TESF0004');
 
-    const oldIndex = await prisma.prnIndex.findUnique({ where: { prn: '202699990003' } });
-    const newIndex = await prisma.prnIndex.findUnique({ where: { prn: '202699990004' } });
+    const oldIndex = await prisma.prnIndex.findUnique({ where: { prn: '2199TESM0003' } });
+    const newIndex = await prisma.prnIndex.findUnique({ where: { prn: '2199TESF0004' } });
     expect(oldIndex).toBeNull();
     expect(newIndex?.userId).toBe(targetUser!.id);
   });
@@ -326,10 +326,10 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     const delRes = await request(app)
       .delete('/api/users/me')
       .set('Authorization', `Bearer ${token}`)
-      .send({ confirmPrn: '202699990002' });
+      .send({ confirmPrn: '2199TESF0002' });
     expect(delRes.status).toBe(200);
 
-    const freedIndex = await prisma.prnIndex.findUnique({ where: { prn: '202699990002' } });
+    const freedIndex = await prisma.prnIndex.findUnique({ where: { prn: '2199TESF0002' } });
     expect(freedIndex).toBeNull();
   });
 

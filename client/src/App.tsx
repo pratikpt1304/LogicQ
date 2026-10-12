@@ -21,6 +21,9 @@ import { HistoryPage } from './pages/HistoryPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.js';
 import { CheckerReviewsPage } from './pages/checker/CheckerReviewsPage.js';
+import { PracticeModulesPage } from './pages/PracticeModulesPage.js';
+import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.js';
+import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
@@ -166,6 +169,32 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ChallengePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Practice Modules Track */}
+          <Route
+            path="/practice"
+            element={
+              <ProtectedRoute>
+                <PracticeModulesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/practice/:moduleSlug"
+            element={
+              <ProtectedRoute>
+                <PracticeModuleProblemsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/practice/:moduleSlug/:problemSlug"
+            element={
+              <ProtectedRoute>
+                <PracticeWorkspacePage />
               </ProtectedRoute>
             }
           />

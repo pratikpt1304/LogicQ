@@ -14,6 +14,9 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   DIVISION_REGEX,
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
@@ -36,10 +39,10 @@ function runSerializedPrnTransaction<T>(fn: () => Promise<T>): Promise<T> {
 
 export const academicFieldsSchema = z.object({
   prn: z
-    .preprocess((val) => (typeof val === 'string' ? val.trim() : ''), z.string())
-    .refine((val) => val.length > 0, { message: 'PRN is required. PRN must be exactly 12 digits.' })
-    .refine((val) => PRN_REGEX.test(val), {
-      message: 'PRN must be exactly 12 digits (0-9 only).',
+    .preprocess((val) => normalizePrn(val), z.string())
+    .refine((val) => val.length > 0, { message: PRN_ERROR_MESSAGE })
+    .refine((val) => isValidPrn(val), {
+      message: PRN_ERROR_MESSAGE,
     }),
   college: z.enum(ALLOWED_COLLEGES, {
     errorMap: () => ({ message: 'Please select a valid college from the list.' }),
@@ -190,6 +193,7 @@ export function formatSelfUserResponse(user: {
   division?: string | null;
   profileComplete?: boolean;
   bio?: string | null;
+  prnChangedAt?: Date | null;
   createdAt?: Date;
 }) {
   const shortId = user.shortId || generateShortId(user.id);

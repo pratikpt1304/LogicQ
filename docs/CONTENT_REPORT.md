@@ -46,3 +46,24 @@
 1. **Strictly Book-Only**: All problems derive exclusively from Yashavant Kanetkar's *Test Your C Skills*. Zero external or website problems exist in the student pool.
 2. **Single Visible Question (17:00 IST Cutoff)**: Students see only the single active challenge for the current 17:00 IST challenge day. Ended challenges return 410 without statements, and future challenges return 404.
 3. **Data Integrity & Invariants**: 100% passing across all 17 automated test suites (96 tests) and database integrity ledger audit.
+
+---
+
+## 4. Practice Curriculum Content & 3-Way Solution Validation
+
+The Practice tab provides 4 sequentially unlocking modules derived from university C syllabus topics (distinct from the competitive Daily Challenge book pool).
+
+### A. Module Summary & Distribution
+
+| Module Order | Module Title | Slug | Total | Easy | Medium | Hard | Unlock Rule |
+| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **1** | Control Structures | `control-structures` | 10 | 4 | 4 | 2 | Unlocked for all students |
+| **2** | Pointers and functions | `pointers-and-functions` | 10 | 4 | 4 | 2 | Solve $\ge 7$ in Module 1 |
+| **3** | Array and its Applications | `array-and-its-applications` | 10 | 4 | 4 | 2 | Solve $\ge 7$ in Module 2 |
+| **4** | Advanced Data Types, Dynamic Memory | `advanced-data-types-dynamic-memory` | 10 | 4 | 4 | 2 | Solve $\ge 7$ in Module 3 |
+
+### B. GCC C11 3-Way Solution Verification
+- **Reference Solution**: 40 / 40 (100%) passed all sample and hidden test cases with `LocalGccJudge` (`gcc -O2 -std=c11 -Wall`).
+- **Wrong Solution 1**: 40 / 40 (100%) failed on expected test edge cases.
+- **Wrong Solution 2**: 40 / 40 (100%) failed on expected test edge cases.
+- **Test Case Density**: Exactly 2 visible sample test cases + 8 hidden test cases per problem (400 total test cases).

@@ -90,3 +90,31 @@ Executed `npx vitest run tests/prn-monthly-change.test.ts`:
 - **Elapsed Cooldown Re-eligibility**: `PASS` (change permitted after 30 days).
 - **Admin PRN Reveal**: `PASS` (reveals full PRN with immutable audit log).
 - **Admin Cooldown Reset**: `PASS` (resets cooldown with admin password verification and audit log).
+
+---
+
+## 4. Practice Curriculum & Sequential Unlock Verification
+
+Executed `npx vitest run tests/practice-modules.test.ts tests/firestore-security-rules.test.ts`:
+- **Result**: `20 passed (20)` across 2 test files.
+- **Module 1 Default Unlock**: `PASS` (Module 1 is unlocked for every student; Modules 2, 3, 4 are strictly locked).
+- **Hidden Test Protection**: `PASS` (Hidden test cases are stripped from all student problem queries).
+- **Sequential Gate Enforcement**: `PASS` (Attempting to fetch questions or details from locked modules returns HTTP 403 `MODULE_LOCKED`).
+- **Dynamic Unlock on 7 Solves**: `PASS` (Solving 7 questions in Module $N$ immediately unlocks Module $N+1$).
+- **Competition Points & Streak Isolation**: `PASS` (Submitting practice solutions records `submissionType: 'PRACTICE'` and awards 0 points with zero effect on streaks or competition leaderboards).
+- **Firestore Practice Progress Security Rules**: `PASS` (Verified client cannot write or forge practice progress records directly; read access restricted strictly to the student owner or Admins).
+
+---
+
+## 5. 12-Character Alphanumeric PRN Format & Identity Verification
+
+Executed `npx vitest run tests/prn-alphanumeric-format.test.ts tests/prn-profile-signup.test.ts tests/prn-monthly-change.test.ts tests/firestore-security-rules.test.ts`:
+- **Result**: `45 passed (45)` across 4 test files. Full suite: `22 test files passed, 143 passed (143)`.
+- **Regex & Format Conformance**: `PASS` (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$` strictly enforced. Rejects 11/13 chars, digits-only, wrong gender letter, symbols, internal spaces).
+- **Canonical Uppercase Normalization**: `PASS` (Trims whitespace and normalizes lowercase inputs like `2199tesm0001` to `2199TESM0001` in client and server before storage and comparison).
+- **Configurable Program Codes**: `PASS` (`allowedProgramCodes` defaults to `[]` accepting any 3 letters; filters accurately when populated).
+- **Privacy Masking**: `PASS` (`maskPrn` strictly produces `••••••••${prn.slice(-4)}` (8 bullets + last 4 digits); program codes and gender letter $M/F$ never leaked to peers, profiles, leaderboards, or public logs).
+- **Firestore Security Rules**: `PASS` (Enforces deny-by-default, private student access only, immutable PRN on student self-service updates, and server-only transactions for `prnIndex/{prn}`).
+- **Admin Allowlist Import & Warning**: `PASS` (Validates CSV format, rejects malformed rows, deduplicates PRN/email, and surfaces alert banner when allowlist is disabled).
+- **Idempotent Migration Script**: `PASS` (`server/scripts/migrate-prn-format.ts` scanned users, normalized cases, and cleanly verified all records idempotently without data loss).
+- **Integrity Audit**: `PASS` (`server/scripts/verify-integrity.ts` Check 11 verified 100% PRN format and `PrnIndex` parity).

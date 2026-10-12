@@ -119,7 +119,7 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
 
     const currentUserId = req.user?.userId;
 
-    const formatRow = (u: (typeof users)[number], rank: number, seedIdx: number = rank) => {
+    const formatRow = (u: (typeof users)[number], rank: number | null, seedIdx: number = typeof rank === 'number' ? rank : 0) => {
       const distinctSolvedCount = new Set(u.submissions.map((s) => s.problemId)).size;
       const isCurrentUser = Boolean(currentUserId && u.id === currentUserId);
       const shortId = u.shortId || generateShortId(u.id);

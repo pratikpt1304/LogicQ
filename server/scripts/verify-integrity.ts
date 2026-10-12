@@ -269,6 +269,40 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     count: zeroPointUsersWithPoints.length,
   });
 
+  // 11. PRN Alphanumeric Format & Index Parity
+  // Verify that all active users with PRNs match the 12-char pattern ^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$
+  // and have a corresponding PrnIndex entry with matching canonical uppercase key
+  const PRN_PATTERN = /^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/;
+  const usersWithPrn = await prisma.user.findMany({
+    where: { prn: { not: null } },
+    select: { id: true, prn: true, email: true },
+  });
+
+  let nonConformingPrns = 0;
+  let missingPrnIndices = 0;
+  for (const u of usersWithPrn) {
+    if (!u.prn || !PRN_PATTERN.test(u.prn)) {
+      nonConformingPrns++;
+    } else {
+      const idx = await prisma.prnIndex.findUnique({
+        where: { prn: u.prn },
+      });
+      if (!idx || idx.userId !== u.id) {
+        missingPrnIndices++;
+      }
+    }
+  }
+
+  results.push({
+    checkName: 'PRN Alphanumeric Format & Index Parity',
+    passed: nonConformingPrns === 0 && missingPrnIndices === 0,
+    details:
+      nonConformingPrns === 0 && missingPrnIndices === 0
+        ? 'All assigned PRNs strictly match 12-character format and have synchronized PrnIndex entries.'
+        : `Found ${nonConformingPrns} non-conforming PRNs and ${missingPrnIndices} missing or unsynchronized PrnIndex entries.`,
+    count: nonConformingPrns + missingPrnIndices,
+  });
+
   return results;
 }
 

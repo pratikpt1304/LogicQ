@@ -17,6 +17,7 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - Single Visible Question:   NO DIRECT STUDENT READ ON /problems (Served via GET /api/problems/daily)|
 |  - Problem Private Metadata:  ADMIN ONLY (Book sourceRef never readable by students)               |
 |  - Uploaded Solutions:        OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (uploaded_solutions)    |
+|  - Practice Progress:         OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (practice_progress)     |
 |  - Upload Reviews & Errors:   ADMIN READ ONLY / SERVER WRITE ONLY (upload_reviews, error_reports)  |
 |  - Verdict Creation:          BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
@@ -26,6 +27,20 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - Deletion of Submissions:   BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                 |
 +----------------------------------------------------------------------------------------------------+
 ```
+
+### PRN Data Architecture & Masking Invariants (Amended 12-Character Alphanumeric Format)
+
+- **PRN Format**: Exactly 12 characters matching `^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`:
+  - 4 digits (admission year / prefix)
+  - 3 uppercase letters (academic program code, e.g., `TES`, `AIM`, `CSE`)
+  - 1 character `M` or `F`
+  - 4 digits (unique student sequence)
+  - Canonical uppercase normalization; zero attribute or gender derivation from `[MF]`.
+  - Fake test fixtures: `2199TESM0001`, `2199TESF0002`.
+- **Document ID for `prnIndex/{prn}`**: The document ID is the canonical uppercase 12-character PRN (e.g., `prnIndex/2199TESM0001`).
+- **Privacy Masking**: Full PRN is strictly private PII stored only in `users/{userId}` and indexed in `prnIndex/{prn}`. In all client views, the PRN is masked as 8 bullets followed by the last 4 digits (`••••••••1039`). Peers and leaderboards view only `publicProfiles/{userId}`, which never exposes `prn` or `email`.
+- **Client Write Blocks**: Direct client writes to `prn`, `prnIndex`, `prnHistory`, and `practice_progress` are categorically prohibited in Firestore security rules (`allow write: if false;` or blocked in `isValidUserSelfUpdate()`).
+- **Immutability & Audit**: PRN updates can only occur through server-side transactions with a 30-day cooldown and are recorded in `users/{userId}/prnHistory/{historyId}`.
 
 ---
 
@@ -134,6 +149,12 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // Practice progress subcollection tracking: readable by student owner or Admin; writes strictly by server
+      match /practice_progress/{progressId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if false;
+      }
+
       // Badges subcollections are disabled (FEATURE_BADGES=false) and strictly denied
       match /badges/{badgeId=**} {
         allow read, write: if false;
@@ -145,6 +166,7 @@ service cloud.firestore {
     }
 
     match /prnIndex/{prn} {
+      // Document ID is the canonical uppercase 12-character PRN (^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$).
       // Clients can NEVER read, enumerate, create, or overwrite prnIndex;
       // managed strictly inside server transactions.
       allow read, write: if false;
@@ -192,6 +214,15 @@ service cloud.firestore {
       // CLIENTS CAN NEVER WRITE SUBMISSIONS OR FORGE VERDICTS!
       // Must be created strictly by backend Judge via Firebase Admin SDK.
       allow create, update, delete: if false;
+    }
+
+    match /practice_progress/{progressId} {
+      // Students can ONLY read their own practice progress; Admins can read all.
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      // Practice progress is updated strictly on the server by the judge evaluation service via Firebase Admin SDK
+      allow write: if false;
     }
 
     match /uploaded_solutions/{uploadId} {
@@ -362,8 +393,9 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ CHEAT ATTEMPT 19: Student attempts to read another student's uploaded solution or write directly to /uploaded_solutions -> MUST FAIL
    ✓ CHEAT ATTEMPT 20: Student attempts to read or write /upload_reviews or /error_reports -> MUST FAIL
    ✓ CHEAT ATTEMPT 21: Student attempts to read private problem metadata (/problems/{id}/private_metadata) containing book sourceRef -> MUST FAIL
+   ✓ CHEAT ATTEMPT 22: Student attempts to read peer practice progress or write directly to /practice_progress -> MUST FAIL
    ✓ VALID OPERATION: Student updates allowed academic profile fields (department, year, division, displayName) -> MUST SUCCEED
    ✓ VALID OPERATION: Student reads their own private profile and publicProfiles/{uid} -> MUST SUCCEED
-   ✓ VALID OPERATION: Student reads their own submission, own uploaded solution, own weekly summary, and own streak events -> MUST SUCCEED
-   ✓ VALID OPERATION: Admin reads any submission, problem, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
+   ✓ VALID OPERATION: Student reads their own submission, own practice progress, own uploaded solution, own weekly summary, and own streak events -> MUST SUCCEED
+   ✓ VALID OPERATION: Admin reads any submission, practice progress, problem, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
 ```

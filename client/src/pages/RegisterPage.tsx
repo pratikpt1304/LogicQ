@@ -7,6 +7,9 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   DIVISION_REGEX,
 } from '../config/academic.config.js';
 import {
@@ -51,14 +54,14 @@ export const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const trimmedPrn = formData.prn.trim();
+  const trimmedPrn = normalizePrn(formData.prn);
   const prnLength = trimmedPrn.length;
 
   const validateClientSide = (): boolean => {
     const nextErrors: FieldErrors = {};
 
-    if (!trimmedPrn || !PRN_REGEX.test(trimmedPrn)) {
-      nextErrors.prn = 'PRN must be exactly 12 digits.';
+    if (!trimmedPrn || !isValidPrn(trimmedPrn)) {
+      nextErrors.prn = PRN_ERROR_MESSAGE;
     }
     if (!formData.college || !ALLOWED_COLLEGES.includes(formData.college as any)) {
       nextErrors.college = 'Please select your college.';
@@ -226,18 +229,29 @@ export const RegisterPage: React.FC = () => {
                   id="prn-input"
                   name="prn"
                   type="text"
-                  inputMode="numeric"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  maxLength={12}
                   required
                   aria-invalid={Boolean(fieldErrors.prn)}
                   aria-describedby={fieldErrors.prn ? 'prn-error' : 'prn-hint'}
                   value={formData.prn}
                   onChange={(e) => {
-                    setFormData({ ...formData, prn: e.target.value });
+                    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                    setFormData({ ...formData, prn: val });
                     if (fieldErrors.prn) setFieldErrors({ ...fieldErrors, prn: undefined });
                   }}
-                  onBlur={() => setFormData((prev) => ({ ...prev, prn: prev.prn.trim() }))}
-                  placeholder="Enter your 12-digit University PRN"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono"
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                    setFormData({ ...formData, prn: val });
+                    if (fieldErrors.prn) setFieldErrors({ ...fieldErrors, prn: undefined });
+                  }}
+                  onBlur={() => setFormData((prev) => ({ ...prev, prn: normalizePrn(prev.prn) }))}
+                  placeholder="2199TESM0001"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                 />
                 <Hash className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3" />
               </div>
@@ -247,7 +261,7 @@ export const RegisterPage: React.FC = () => {
                 </p>
               ) : (
                 <p id="prn-hint" className="text-xs text-[#9AA1C4] mt-1">
-                  Exactly 12 digits. Kept private and never shown to other students.
+                  12 characters (4 digits, 3 letters, M or F, 4 digits). Kept private and never shown to other students.
                 </p>
               )}
             </div>

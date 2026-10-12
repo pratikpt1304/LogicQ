@@ -6,6 +6,9 @@ import {
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   getPrnChangeCooldownStatus,
   containsProfanity,
   maskPrn,
@@ -212,6 +215,10 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
           shortId = generateShortId(u.id);
           updated = true;
         }
+        if (u.role === 'ADMIN' && ((u.totalPoints || 0) > 0 || (u.currentStreak || 0) > 0)) {
+          updated = true;
+          return { ...u, college, shortId, totalPoints: 0, currentStreak: 0, longestStreak: 0 };
+        }
         if (updated) {
           migrated = true;
           return { ...u, college, shortId };
@@ -234,9 +241,9 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       fullName: 'Bitwise Club Admin',
       role: 'ADMIN',
       college: 'Sanjivani University',
-      totalPoints: 120,
-      currentStreak: 5,
-      longestStreak: 7,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
       password: 'password123',
       isBanned: false,
       shortId: 'ADM1',
@@ -316,9 +323,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
   if (path === '/auth/register' && method === 'POST') {
     const { prn, username, email, password, fullName, college, department, year, division } = body;
-    const cleanPrn = String(prn || '').trim();
-    if (!/^[0-9]{12}$/.test(cleanPrn)) {
-      throw new Error('PRN must be exactly 12 digits.');
+    const cleanPrn = normalizePrn(prn);
+    if (!isValidPrn(cleanPrn)) {
+      throw new Error(PRN_ERROR_MESSAGE);
     }
     const users = getStoredUsers();
     if (users.some((u) => u.prn === cleanPrn)) {
@@ -366,9 +373,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const current = getCurrentUser();
     if (!current) throw new Error('Not authenticated');
     const { prn, college, department, year, division } = body;
-    const cleanPrn = String(prn || '').trim();
-    if (!/^[0-9]{12}$/.test(cleanPrn)) {
-      throw new Error('PRN must be exactly 12 digits.');
+    const cleanPrn = normalizePrn(prn);
+    if (!isValidPrn(cleanPrn)) {
+      throw new Error(PRN_ERROR_MESSAGE);
     }
     const users = getStoredUsers();
     if (users.some((u) => u.prn === cleanPrn && u.id !== current.id)) {
@@ -768,8 +775,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const current = getCurrentUser();
     if (!current) throw new Error('Authentication required');
 
-    const newPrn = typeof body.newPrn === 'string' ? body.newPrn.trim() : '';
-    const confirmPrn = typeof body.confirmPrn === 'string' ? body.confirmPrn.trim() : '';
+    const newPrn = normalizePrn(body.newPrn);
+    const confirmPrn = normalizePrn(body.confirmPrn);
     const reauthConfirmed = Boolean(body.reauthConfirmed);
 
     if (!newPrn || !confirmPrn) {
@@ -778,8 +785,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (newPrn !== confirmPrn) {
       throw new Error('The confirmation PRN does not match the new PRN.');
     }
-    if (!PRN_REGEX.test(newPrn)) {
-      throw new Error('PRN must be exactly 12 digits (0-9).');
+    if (!isValidPrn(newPrn)) {
+      throw new Error(PRN_ERROR_MESSAGE);
     }
     if (!reauthConfirmed) {
       throw new Error('Please confirm your identity by checking the re-authentication confirmation box.');
@@ -1011,7 +1018,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   // LEADERBOARD
   if (path.startsWith('/leaderboard')) {
     const current = getCurrentUser();
-    const allUsers = getStoredUsers().filter((u) => !u.isBanned);
+    const allUsers = getStoredUsers().filter((u) => !u.isBanned && u.role === 'STUDENT');
     // Real rank: only students with totalPoints > 0 (or weekly points > 0) are ranked!
     const rankedEligible = allUsers
       .filter((u) => (u.totalPoints || 0) > 0)

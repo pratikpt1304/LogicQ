@@ -271,7 +271,7 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
 
     try {
       const blockedReg = await request(app).post('/api/auth/register').send({
-        prn: '987654321099',
+        prn: '2199TESM0099',
         college: 'Sanjivani University',
         department: 'CSE',
         year: 'FY',

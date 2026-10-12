@@ -46,6 +46,9 @@ class RulesEvaluator {
     const existingData = ctx.resource?.data || {};
 
     const forbiddenKeys = [
+      'prn',
+      'college',
+      'email',
       'role',
       'status',
       'banReason',
@@ -54,6 +57,8 @@ class RulesEvaluator {
       'totalPoints',
       'streak',
       'currentStreak',
+      'prnChangedAt',
+      'prnNextAllowedChangeDate',
     ];
     for (const key of forbiddenKeys) {
       if (key in incomingData && incomingData[key] !== existingData[key]) {
@@ -96,6 +101,39 @@ class RulesEvaluator {
   static evaluateProblemRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     return ctx.auth.token.role === 'ADMIN';
+  }
+
+  static evaluatePracticeProgressRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const ownerId = ctx.resource?.data?.userId;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === ownerId || isAdmin;
+  }
+
+  static evaluateUserPracticeProgressRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+    if (!ctx.auth) return false;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === targetUserId || isAdmin;
+  }
+
+  static evaluatePracticeProgressWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateUserRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+    if (!ctx.auth) return false;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === targetUserId || isAdmin;
+  }
+
+  static evaluatePrnIndexAccess(_ctx: FirestoreRuleContext): boolean {
+    // Rule: match /prnIndex/{prn} { allow read, write: if false; }
+    return false;
+  }
+
+  static evaluatePrnHistoryWrite(_ctx: FirestoreRuleContext): boolean {
+    // Rule: match /users/{userId}/prnHistory/{historyId} { allow write: if false; }
+    return false;
   }
 }
 
@@ -246,5 +284,181 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain('match /uploaded_solutions/{uploadId}');
     expect(firestoreRules).toContain('match /upload_reviews/{reviewId}');
     expect(firestoreRules).toContain('allow write: if false;');
+  });
+
+  it('CHEAT ATTEMPT 10: Practice Progress — Student cannot read peer practice progress or forge practice progress writes', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    // Verify rules file contains top-level practice_progress
+    expect(firestoreRules).toContain('match /practice_progress/{progressId}');
+    expect(firestoreRules).toContain('resource.data.userId == request.auth.uid || isAdmin()');
+
+    // Verify rules file contains subcollection under users/{userId}
+    expect(firestoreRules).toContain('match /practice_progress/{progressId}');
+    expect(firestoreRules).toContain('allow read: if isOwner(userId) || isAdmin();');
+
+    // Student Alice attempts to read Bob's top-level practice progress -> MUST FAIL
+    const peerReadTopLevel: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { userId: 'student_bob', problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePracticeProgressRead(peerReadTopLevel)).toBe(false);
+
+    // Unauthenticated attempts to read top-level practice progress -> MUST FAIL
+    const unauthReadTopLevel: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { userId: 'student_alice', problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePracticeProgressRead(unauthReadTopLevel)).toBe(false);
+
+    // Student Alice attempts to read Bob's subcollection practice progress -> MUST FAIL
+    const peerReadSubcollection: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserPracticeProgressRead(peerReadSubcollection, 'student_bob')).toBe(false);
+
+    // Any client attempts to write/modify practice progress -> MUST FAIL
+    const clientWrite: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { status: 'SOLVED', solvedAt: Date.now() } } },
+    };
+    expect(RulesEvaluator.evaluatePracticeProgressWrite(clientWrite)).toBe(false);
+  });
+
+  it('VALID OPERATION: Student reads own practice progress, Admin reads any practice progress', () => {
+    // Alice reads her own top-level practice progress -> MUST SUCCEED
+    const aliceOwnTopLevel: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { userId: 'student_alice', problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePracticeProgressRead(aliceOwnTopLevel)).toBe(true);
+
+    // Alice reads her own user subcollection practice progress -> MUST SUCCEED
+    const aliceOwnSubcollection: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserPracticeProgressRead(aliceOwnSubcollection, 'student_alice')).toBe(true);
+
+    // Admin Charlie reads Bob's top-level practice progress -> MUST SUCCEED
+    const adminReadTopLevel: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { userId: 'student_bob', problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePracticeProgressRead(adminReadTopLevel)).toBe(true);
+
+    // Admin Charlie reads Bob's subcollection practice progress -> MUST SUCCEED
+    const adminReadSubcollection: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { problemId: 'prob_1', status: 'SOLVED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserPracticeProgressRead(adminReadSubcollection, 'student_bob')).toBe(true);
+  });
+
+  it('CHEAT ATTEMPT 11: Student attempts to mutate their own immutable PRN (e.g. 2199TESM0001 -> 2199TESF0002) or college -> MUST FAIL', () => {
+    const prnMutationCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', prn: '2199TESM0001', college: 'Sanjivani University', department: 'AIML', year: 'TY' } },
+      request: { resource: { data: { uid: 'student_alice', prn: '2199TESF0002', college: 'Sanjivani University', department: 'AIML', year: 'TY' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(prnMutationCtx, 'student_alice')).toBe(false);
+
+    const collegeMutationCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', prn: '2199TESM0001', college: 'Sanjivani University', department: 'AIML', year: 'TY' } },
+      request: { resource: { data: { uid: 'student_alice', prn: '2199TESM0001', college: 'Other University', department: 'AIML', year: 'TY' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(collegeMutationCtx, 'student_alice')).toBe(false);
+  });
+
+  it('CHEAT ATTEMPT 12: Student attempts to read another student private users/{uid} document (PRN PII & email) -> MUST FAIL', () => {
+    const peerUserReadCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_bob', prn: '2199TESF0002', email: 'bob@college.edu' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserRead(peerUserReadCtx, 'student_bob')).toBe(false);
+
+    const unauthReadCtx: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { uid: 'student_alice', prn: '2199TESM0001', email: 'alice@college.edu' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserRead(unauthReadCtx, 'student_alice')).toBe(false);
+  });
+
+  it('CHEAT ATTEMPT 13: Client (Student or Admin) attempts to read or write prnIndex/{prn} directly (fake PRNs 2199TESM0001 / 2199TESF0002) -> MUST FAIL', () => {
+    for (const caller of [null, studentAlice, studentBob, adminCharlie]) {
+      const readCtx: FirestoreRuleContext = { auth: caller, request: {} };
+      expect(RulesEvaluator.evaluatePrnIndexAccess(readCtx)).toBe(false);
+
+      const writeCtx: FirestoreRuleContext = {
+        auth: caller,
+        request: { resource: { data: { prn: '2199TESM0001', userId: 'student_alice' } } },
+      };
+      expect(RulesEvaluator.evaluatePrnIndexAccess(writeCtx)).toBe(false);
+    }
+  });
+
+  it('CHEAT ATTEMPT 14: Client attempts to write directly to /users/{uid}/prnHistory -> MUST FAIL (Server Admin SDK only)', () => {
+    const clientHistoryWrite: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { oldPrn: '2199TESM0001', newPrn: '2199TESF0002' } } },
+    };
+    expect(RulesEvaluator.evaluatePrnHistoryWrite(clientHistoryWrite)).toBe(false);
+  });
+
+  it('VALID OPERATION: Student reads their own private profile (with masked PRN) and Admin reads any student private profile', () => {
+    const aliceOwnRead: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', prn: '2199TESM0001', maskedPrn: '••••••••0001' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserRead(aliceOwnRead, 'student_alice')).toBe(true);
+
+    const adminReadBob: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { uid: 'student_bob', prn: '2199TESF0002' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserRead(adminReadBob, 'student_bob')).toBe(true);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md enforce canonical 12-char PRN regex ^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$, prnIndex lock, and 8-bullet masking', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    // PRN regex matching exactly 12 characters: 4 digits, 3 letters, M or F, 4 digits
+    const expectedRegexPattern = '^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$';
+    const amendedPrnRegex = new RegExp(`^${expectedRegexPattern.slice(1, -1)}$`);
+
+    // Verify regex matches mock fixtures
+    expect(amendedPrnRegex.test('2199TESM0001')).toBe(true);
+    expect(amendedPrnRegex.test('2199TESF0002')).toBe(true);
+    expect(amendedPrnRegex.test('2026AIML1001')).toBe(false); // 4 letters in program instead of 3
+    expect(amendedPrnRegex.test('202612345678')).toBe(false); // digits only
+    expect(amendedPrnRegex.test('2199TESX0001')).toBe(false); // X instead of M or F
+
+    // Verify firestore.rules contains amended PRN format comments and rules
+    expect(firestoreRules).toContain(expectedRegexPattern);
+    expect(firestoreRules).toContain('match /prnIndex/{prn}');
+    expect(firestoreRules).toContain('match /users/{userId}');
+    expect(firestoreRules).toContain('match /prnHistory/{historyId}');
+    expect(firestoreRules).toContain('••••••••1039');
+
+    // Verify docs/SECURITY_RULES.md contains amended PRN format specs and masking
+    expect(securityRulesDoc).toContain(expectedRegexPattern);
+    expect(securityRulesDoc).toContain('2199TESM0001');
+    expect(securityRulesDoc).toContain('2199TESF0002');
+    expect(securityRulesDoc).toContain('••••••••1039');
+    expect(securityRulesDoc).toContain('prnIndex/{prn}');
   });
 });

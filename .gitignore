@@ -47,3 +47,5 @@ backups/
 *.key
 *.p12
 server/storage/uploads/
+server/audit-users.json
+audit-users.json

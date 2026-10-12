@@ -65,9 +65,17 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
       const activeDay = getChallengeDayIST(getServerNow());
       const problem = await prisma.problem.findUnique({
         where: { id: problemId },
-        select: { id: true, status: true, scheduledDate: true },
+        select: { id: true, status: true, scheduledDate: true, isPractice: true, moduleSlug: true },
       });
-      if (!problem || problem.status !== 'PUBLISHED' || problem.scheduledDate !== activeDay) {
+      if (!problem || problem.status !== 'PUBLISHED') {
+        res.status(403).json({
+          success: false,
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Challenge not available.',
+        });
+        return;
+      }
+      if (!problem.isPractice && problem.scheduledDate !== activeDay) {
         res.status(403).json({
           success: false,
           code: 'CHALLENGE_NOT_AVAILABLE',
@@ -134,7 +142,8 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Single Visible Question Rule: non-admins can ONLY submit to today's active challenge (scheduledDate === challengeDayIST)
+    // Single Visible Question Rule applies strictly to Daily Challenge.
+    // Practice problems can be submitted anytime if published and module unlocked.
     if (req.user.role !== 'ADMIN') {
       if (problem.status !== 'PUBLISHED') {
         res.status(403).json({
@@ -145,7 +154,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
         return;
       }
 
-      if (problem.scheduledDate !== challengeDayIST) {
+      if (!problem.isPractice && problem.scheduledDate !== challengeDayIST) {
         const isEnded = Boolean(problem.scheduledDate && problem.scheduledDate < challengeDayIST);
         res.status(403).json({
           success: false,
@@ -184,21 +193,26 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
       }
     }
 
-    // Create submission record with PENDING status and authoritative submittedAt (createdAt)
+    // Create submission record with PENDING status, authoritative submittedAt, and appropriate submissionType
+    const submissionType = problem.isPractice ? 'PRACTICE' : 'DAILY';
     const submission = await prisma.submission.create({
       data: {
         userId: req.user.userId,
         problemId,
         contestId: contestId || null,
+        submissionType,
         code,
         verdict: 'PENDING',
         createdAt: submittedAt,
       },
     });
 
-    // Add to submission queue
+    // Add to submission queue (Practice has lower priority 2, Daily has priority 1)
     const queue = getQueue();
-    await queue.addJob({ submissionId: submission.id });
+    await queue.addJob({
+      submissionId: submission.id,
+      priority: problem.isPractice ? 2 : 1,
+    } as any);
 
     res.status(202).json({
       success: true,
@@ -207,6 +221,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
         submissionId: submission.id,
         submittedAt: submission.createdAt,
         status: 'PENDING',
+        submissionType,
       },
     });
   } catch (err: any) {

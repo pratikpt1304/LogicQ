@@ -10,6 +10,9 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   DIVISION_REGEX,
   getPrnChangeCooldownStatus,
   PRN_RELEASE_RESERVATION_DAYS,
@@ -549,6 +552,8 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
           totalSubmissions,
           acceptedSubmissions,
           acceptanceRate,
+          isAllowlistEnabled:
+            process.env.ALLOWLIST_CSV_ENABLED === 'true' || process.env.AUTH_MODE === 'ALLOWLIST_CSV',
         },
         difficultyDistribution: difficultyCounts.map((d) => ({
           difficulty: d.difficulty,
@@ -966,10 +971,9 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
 
 const adminUpdatePrnCollegeSchema = z.object({
   prn: z
-    .string()
-    .trim()
-    .refine((val) => PRN_REGEX.test(val), {
-      message: 'PRN must be exactly 12 digits (0-9 only).',
+    .preprocess((val) => normalizePrn(val), z.string())
+    .refine((val) => isValidPrn(val), {
+      message: PRN_ERROR_MESSAGE,
     }),
   college: z.enum(ALLOWED_COLLEGES, {
     errorMap: () => ({ message: 'College must be one of the allowed colleges.' }),
@@ -1747,6 +1751,126 @@ export async function autoAssignRoundRobin(req: AuthRequest, res: Response): Pro
     console.error('AutoAssignRoundRobin error:', err);
     res.status(500).json({ success: false, message: 'Failed to execute round-robin assignment' });
   }
+}
+
+export async function importAllowlistCsv(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const csvContent = typeof req.body.csv === 'string' ? req.body.csv : '';
+    if (!csvContent.trim()) {
+      res.status(400).json({ success: false, message: 'CSV content is required.' });
+      return;
+    }
+
+    const lines = csvContent
+      .split(/\r?\n/)
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0);
+
+    const validRows: Array<{ prn: string; email: string; rowNumber: number }> = [];
+    const malformedRows: Array<{ rowNumber: number; raw: string; reason: string }> = [];
+    const duplicateRows: Array<{ rowNumber: number; prn: string; email: string }> = [];
+
+    const seenPrns = new Set<string>();
+    const seenEmails = new Set<string>();
+
+    let rowNumber = 0;
+    for (const line of lines) {
+      rowNumber++;
+      // Skip header lines
+      if (line.toLowerCase().startsWith('prn,') || line.toLowerCase().startsWith('roll,')) {
+        continue;
+      }
+
+      const parts = line.split(',').map((s: string) => s.trim());
+      if (parts.length < 2) {
+        malformedRows.push({
+          rowNumber,
+          raw: line,
+          reason: 'Expected 2 comma-separated columns (PRN, Email).',
+        });
+        continue;
+      }
+
+      const [rawPrn, rawEmail] = parts;
+      const normalizedPrn = normalizePrn(rawPrn);
+      const normalizedEmail = rawEmail.toLowerCase();
+
+      if (!isValidPrn(normalizedPrn)) {
+        malformedRows.push({
+          rowNumber,
+          raw: line,
+          reason: PRN_ERROR_MESSAGE,
+        });
+        continue;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        malformedRows.push({
+          rowNumber,
+          raw: line,
+          reason: 'Invalid email address format.',
+        });
+        continue;
+      }
+
+      if (seenPrns.has(normalizedPrn) || seenEmails.has(normalizedEmail)) {
+        duplicateRows.push({
+          rowNumber,
+          prn: normalizedPrn,
+          email: normalizedEmail,
+        });
+        continue;
+      }
+
+      seenPrns.add(normalizedPrn);
+      seenEmails.add(normalizedEmail);
+      validRows.push({
+        rowNumber,
+        prn: normalizedPrn,
+        email: normalizedEmail,
+      });
+    }
+
+    // Update in-memory allowlist content and enable flag
+    const compiledCsv = validRows.map((r) => `${r.prn},${r.email}`).join('\n');
+    process.env.ALLOWLIST_CSV_CONTENT = compiledCsv;
+    process.env.ALLOWLIST_CSV_ENABLED = 'true';
+
+    res.status(200).json({
+      success: true,
+      message: `Allowlist processed: ${validRows.length} valid entries imported, ${malformedRows.length} malformed rejected, ${duplicateRows.length} duplicates filtered.`,
+      data: {
+        totalProcessed: rowNumber,
+        validCount: validRows.length,
+        malformedCount: malformedRows.length,
+        duplicateCount: duplicateRows.length,
+        malformedRows,
+        duplicateRows,
+        isAllowlistEnabled: true,
+      },
+    });
+  } catch (err: any) {
+    console.error('Allowlist import error:', err);
+    res.status(500).json({ success: false, message: 'Failed to import allowlist CSV' });
+  }
+}
+
+export async function getAllowlistStatus(_req: AuthRequest, res: Response): Promise<void> {
+  const isEnabled = process.env.ALLOWLIST_CSV_ENABLED === 'true' || process.env.AUTH_MODE === 'ALLOWLIST_CSV';
+  const csvContent = process.env.ALLOWLIST_CSV_CONTENT || '';
+  const lines = csvContent
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.toLowerCase().startsWith('prn,'));
+
+  res.status(200).json({
+    success: true,
+    data: {
+      isAllowlistEnabled: isEnabled,
+      entriesCount: lines.length,
+      warning: !isEnabled ? 'Anyone with a college email can register with any correctly shaped PRN' : null,
+    },
+  });
 }
 
 

@@ -34,15 +34,21 @@ export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  const isActive = (path: string) =>
-    path === '/challenge'
-      ? location.pathname === '/challenge' || location.pathname.startsWith('/challenge/')
-      : location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/challenge') {
+      return location.pathname === '/challenge' || location.pathname.startsWith('/challenge/');
+    }
+    if (path === '/practice') {
+      return location.pathname === '/practice' || location.pathname.startsWith('/practice/');
+    }
+    return location.pathname === path;
+  };
 
-  // Signed-in navbar items in exact canonical order: Home, Daily Challenge, Leaderboard
+  // Signed-in navbar items in exact canonical order: Home, Daily Challenge, Practice, Leaderboard
   const appNavLinks = [
     { label: 'Home', path: '/dashboard', icon: Home },
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
+    { label: 'Practice', path: '/practice', icon: Code2 },
     { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];
 

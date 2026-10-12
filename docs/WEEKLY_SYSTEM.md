@@ -178,3 +178,65 @@ All tests use a deterministic injectable server clock (`setSimulatedServerTime` 
 > **Deploying `dailyUnlockAndStreakJob` (`0 17 * * *`) and `weeklyCloseAndSummarizeJob` (`5 17 * * 1`) as Firebase `onSchedule` Cloud Functions requires the Firebase Blaze (Pay-As-You-Go) Plan.**  
 > While actual monthly usage for 500 students is **$0.00/month** under Google Cloud's perpetual free tier, Cloud Scheduler cannot be provisioned on the no-card Spark plan. If deploying without a billing card, use the **GitHub Actions Cron + HMAC Webhook fallback** alongside the Admin Dashboard manual trigger.
 
+---
+
+## Part V — Daily Rank System & Today Tab Architecture (`/leaderboard?tab=today`)
+
+### 13. Daily Rank Scope & Eligibility
+1. **Window**: The Daily Rank applies strictly to the **CURRENT** daily challenge window (`17:00:00.000 IST` to the next day's `16:59:59.999 IST`, evaluated by server clock).
+2. **Eligibility**:
+   - Only students whose submission or approved upload for today's challenge was **Accepted** (`verdict === 'ACCEPTED'`) before the `17:00:00 IST` cutoff are ranked on the Today board.
+   - Students who have not solved today's challenge show `"Not solved yet"` with a motivating hint: *"Solve today's challenge to enter the board"*. They are never given a default rank or ranked #1.
+   - Zero solvers shows an empty state (*"No solvers yet for today's challenge. Be the first!"*). One solver is `#1`.
+
+### 14. 6-Tier Deterministic Tie-Breaker Order
+To prevent rank flickering and reward speed and clean code fairly, ties are resolved strictly in this order:
+1. **Earlier Accepted Submission Time (`submittedAt` ASC)**:
+   - Server-side `submittedAt` timestamp of the **first** accepted submission.
+   - **Crucial Invariant**: Judge queue latency or judging completion time (`judgedAt`) has zero impact on rank ordering.
+2. **Fewer Wrong Attempts before Accepted (`wrongAttempts` ASC)**:
+   - Count of unaccepted submissions (`WRONG_ANSWER`, `TIME_LIMIT_EXCEEDED`, `RUNTIME_ERROR`, `COMPILE_ERROR`) submitted by the student for today's challenge prior to their accepted solve.
+3. **Higher Current Streak (`currentStreak` DESC)**:
+   - Consecutive active challenge day streak.
+4. **Higher Points this Week (`weeklyPoints` DESC)**:
+   - Current competition week points total.
+5. **Higher Total Solved Count (`totalSolved` DESC)**:
+   - All-time accepted problem count.
+6. **Deterministic Final Tie-Breaker (`createdAt` ASC, then `uid` ASC)**:
+   - Earlier account registration timestamp, followed by lexicographical user ID sort. Guarantees that every rank is distinct and stable.
+
+### 15. Today Tab Columns & Pinned Standing
+- **Today Tab Columns**:
+  - `Rank` (e.g. `#1`, `#2`, `#3` with podium highlight)
+  - `Student` (Public display name fallback e.g. "Student 4F9A", never PRN, email, or M/F gender letter)
+  - `Department & Year` (Standardized format: `"AIML • FY"`, never college name)
+  - `Solved At` (Relative elapsed time from unlock, e.g. *"14m after unlock"*)
+  - `Attempts` (Wrong attempts count before accept)
+  - `Streak` (Flame icon + days)
+  - `Total Solved`
+  - `Points Today`
+- **Solvers Count & Percentile Gate**:
+  - Show `"#R of N solvers today"` and `"Top X%"` **only when $N \ge 10$** (`MIN_RANKED_STUDENTS_FOR_PERCENTILE = 10`).
+  - When $N < 10$, display `"Needs 10 solvers"` or `"—"`.
+- **Pinned Standing Card**:
+  - Displays logged-in student's personal standing for today: `"Today: #7 of 42"` or `"Not solved yet"`.
+
+### 16. "Yesterday's Final" Frozen Snapshot
+1. At the `17:00:00 IST` daily switch, the finalized Today leaderboard is frozen into an append-only collection (`daily_rank_snapshots`).
+2. Displays the top 20 solvers and the student's own final rank.
+3. Problem statement, test cases, and hidden details are strictly excluded from the frozen snapshot payload.
+4. Final daily ranks feed into the weekly summary analytics (*"Best daily rank this week: #4"*).
+
+### 17. Department & Year Display Formatting Invariant
+- Every student's academic standing must be formatted as:
+  $$\text{department} \bullet \text{year} \quad \text{(e.g., "AIML • FY", "CSE • TY")}$$
+- The college name ("Sanjivani University") appears once in the application header / settings card and **never** replaces or clutters the Department & Year column.
+- Enforced uniformly across Leaderboard (all tabs), Dashboard, Profile, Admin directories, and CSV exports.
+
+### 18. Prevention of Fake & Test Data in Production
+1. **Seed Script Environment Guard**: `prisma/seed.ts` enforces `if (process.env.NODE_ENV === 'production') throw new Error("Seed script cannot run against production database!");`.
+2. **Explicit Test Flag**: All test fixtures and seeded test accounts carry `isTest: true`.
+3. **Query Filtering**: All leaderboard endpoints and fallback engines strictly filter `role === 'STUDENT'` and exclude accounts where `isTest === true`.
+4. **Build-Time Assertion**: Production client build pipeline verifies zero mock leaderboard payloads bundled in `dist/`.
+
+

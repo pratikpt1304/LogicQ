@@ -10,6 +10,9 @@ import {
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   PRN_CHANGE_COOLDOWN_DAYS,
   getPrnChangeCooldownStatus,
   containsProfanity,
@@ -709,15 +712,15 @@ export const ProfilePage: React.FC = () => {
                 e.preventDefault();
                 setPrnError(null);
 
-                const newPrnTrim = prnForm.newPrn.trim();
-                const confirmPrnTrim = prnForm.confirmPrn.trim();
+                const newPrnTrim = normalizePrn(prnForm.newPrn);
+                const confirmPrnTrim = normalizePrn(prnForm.confirmPrn);
 
                 if (!newPrnTrim || !confirmPrnTrim) {
                   setPrnError('Please fill in both PRN fields.');
                   return;
                 }
-                if (!PRN_REGEX.test(newPrnTrim)) {
-                  setPrnError('New PRN must be exactly 12 digits (0-9).');
+                if (!isValidPrn(newPrnTrim)) {
+                  setPrnError(PRN_ERROR_MESSAGE);
                   return;
                 }
                 if (newPrnTrim !== confirmPrnTrim) {
@@ -761,7 +764,7 @@ export const ProfilePage: React.FC = () => {
 
                 {/* Current Masked PRN */}
                 <div className="text-xs font-mono text-[#9AA1C4]">
-                  Current PRN: <span className="text-[#E8EAF6] font-bold">{ownMaskedPrn || '••••••'}</span>
+                  Current PRN: <span className="text-[#E8EAF6] font-bold">{ownMaskedPrn || '••••••••'}</span>
                 </div>
 
                 {/* New PRN input */}
@@ -771,24 +774,31 @@ export const ProfilePage: React.FC = () => {
                       htmlFor="modal-new-prn"
                       className="block text-xs font-mono text-[#E8EAF6]"
                     >
-                      NEW 12-DIGIT PRN
+                      NEW 12-CHARACTER PRN
                     </label>
                     <span className="text-[10px] font-mono text-[#9AA1C4]">
-                      {prnForm.newPrn.replace(/\D/g, '').length}/12 digits
+                      {prnForm.newPrn.length}/12
                     </span>
                   </div>
                   <input
                     id="modal-new-prn"
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{12}"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
                     maxLength={12}
                     value={prnForm.newPrn}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
                       setPrnForm({ ...prnForm, newPrn: val });
                     }}
-                    placeholder="Enter 12-digit PRN"
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData('text');
+                      const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                      setPrnForm({ ...prnForm, newPrn: val });
+                    }}
+                    placeholder="2199TESM0001"
                     className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                     required
                   />
@@ -805,15 +815,22 @@ export const ProfilePage: React.FC = () => {
                   <input
                     id="modal-confirm-prn"
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{12}"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
                     maxLength={12}
                     value={prnForm.confirmPrn}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
                       setPrnForm({ ...prnForm, confirmPrn: val });
                     }}
-                    placeholder="Re-enter 12-digit PRN"
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasted = e.clipboardData.getData('text');
+                      const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                      setPrnForm({ ...prnForm, confirmPrn: val });
+                    }}
+                    placeholder="2199TESM0001"
                     className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                     required
                   />

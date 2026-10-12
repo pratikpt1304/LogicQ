@@ -17,7 +17,20 @@ export type AllowedDepartment = (typeof ALLOWED_DEPARTMENTS)[number];
 export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
 export type AllowedYear = (typeof ALLOWED_YEARS)[number];
 
-export const PRN_REGEX = /^[0-9]{12}$/;
+export const PRN_REGEX = /^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/;
+export const PRN_ERROR_MESSAGE = 'Enter your 12-character PRN: 4 digits, 3 letters, M or F, then 4 digits.';
+
+/**
+ * Config list of allowed 3-letter program codes (e.g., ['AIM', 'CSE']).
+ * Default: empty list [] = any 3 letters are accepted.
+ * If filled, only listed codes are accepted.
+ */
+export let ALLOWED_PROGRAM_CODES: string[] = [];
+
+export function setAllowedProgramCodes(codes: string[]) {
+  ALLOWED_PROGRAM_CODES = codes.map((c) => c.trim().toUpperCase());
+}
+
 export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 export const DISPLAY_NAME_MIN = 3;
 export const DISPLAY_NAME_MAX = 20;
@@ -79,7 +92,24 @@ export function containsProfanity(value: string): boolean {
 
 export function normalizePrn(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  return raw.trim();
+  return raw.trim().toUpperCase();
+}
+
+/**
+ * Validates a PRN against the 12-char pattern ^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$
+ * and checks the configurable 3-letter program code if allowedProgramCodes is non-empty.
+ */
+export function isValidPrn(raw: unknown, allowedProgramCodes: string[] = ALLOWED_PROGRAM_CODES): boolean {
+  if (typeof raw !== 'string') return false;
+  const prn = normalizePrn(raw);
+  if (!PRN_REGEX.test(prn)) return false;
+  if (allowedProgramCodes && allowedProgramCodes.length > 0) {
+    const programCode = prn.slice(4, 7);
+    if (!allowedProgramCodes.includes(programCode)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function normalizeDivision(raw: unknown): string | null {
@@ -90,12 +120,13 @@ export function normalizeDivision(raw: unknown): string | null {
 }
 
 /**
- * Masks a 12-digit PRN showing only the last 4 digits as "••••••5678"
- * Strictly for the student's own view. Never expose to other students.
+ * Masks a 12-character PRN showing only the last 4 digits as "••••••••1039" (8 bullets + last 4 digits).
+ * Letters (including M/F) are never shown masked or unmasked to anyone except the student themself.
+ * Never expose to other students.
  */
 export function maskPrn(prn?: string | null): string | null {
   if (!prn || prn.length < 4) return null;
-  return `••••••${prn.slice(-4)}`;
+  return `••••••••${prn.slice(-4)}`;
 }
 
 /**
@@ -173,7 +204,7 @@ export function verifyAllowlistCsv(
     };
   }
 
-  const normalizedPrn = prn.trim();
+  const normalizedPrn = normalizePrn(prn);
   const normalizedEmail = email.trim().toLowerCase();
 
   const lines = csvRaw
@@ -183,7 +214,7 @@ export function verifyAllowlistCsv(
 
   for (const line of lines) {
     const [rowPrn, rowEmail] = line.split(',').map((s) => s?.trim());
-    if (rowPrn === normalizedPrn && rowEmail?.toLowerCase() === normalizedEmail) {
+    if (normalizePrn(rowPrn) === normalizedPrn && rowEmail?.toLowerCase() === normalizedEmail) {
       return { allowed: true };
     }
   }
@@ -191,5 +222,76 @@ export function verifyAllowlistCsv(
   return {
     allowed: false,
     reason: 'Your PRN and college email do not match the official Sanjivani University allowlist.',
+  };
+}
+
+export interface AllowlistValidationReport {
+  validRows: Array<{ prn: string; email: string }>;
+  malformedRows: Array<{ rowNumber: number; raw: string; error: string }>;
+  duplicateRows: Array<{ rowNumber: number; prn: string; email: string }>;
+  duplicatePrns: string[];
+  errors: string[];
+}
+
+export function parseAndValidateAllowlistCsv(csvContent: string): AllowlistValidationReport {
+  const lines = csvContent.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const validRows: Array<{ prn: string; email: string }> = [];
+  const malformedRows: Array<{ rowNumber: number; raw: string; error: string }> = [];
+  const duplicateRows: Array<{ rowNumber: number; prn: string; email: string }> = [];
+  const duplicatePrns: string[] = [];
+  const errors: string[] = [];
+
+  const seenPrns = new Set<string>();
+  const seenEmails = new Set<string>();
+
+  let rowNumber = 0;
+  for (const line of lines) {
+    rowNumber++;
+    if (rowNumber === 1 && (line.toLowerCase().startsWith('prn') || line.toLowerCase().startsWith('roll'))) {
+      continue;
+    }
+
+    const parts = line.split(',').map((p) => p.trim());
+    if (parts.length < 2) {
+      malformedRows.push({ rowNumber, raw: line, error: 'Row must contain prn and email comma-separated' });
+      errors.push(`Row ${rowNumber}: Invalid format`);
+      continue;
+    }
+
+    const rawPrn = parts[0];
+    const rawEmail = parts[1];
+    const normalizedPrn = normalizePrn(rawPrn);
+    const normalizedEmail = rawEmail.toLowerCase();
+
+    if (!isValidPrn(normalizedPrn)) {
+      malformedRows.push({ rowNumber, raw: line, error: PRN_ERROR_MESSAGE });
+      errors.push(`Row ${rowNumber}: Invalid PRN format ${rawPrn}`);
+      continue;
+    }
+
+    if (!normalizedEmail.includes('@') || !normalizedEmail.endsWith('@sanjivani.org.in')) {
+      malformedRows.push({ rowNumber, raw: line, error: 'Email must be a valid @sanjivani.org.in address' });
+      errors.push(`Row ${rowNumber}: Invalid email domain`);
+      continue;
+    }
+
+    if (seenPrns.has(normalizedPrn) || seenEmails.has(normalizedEmail)) {
+      duplicateRows.push({ rowNumber, prn: normalizedPrn, email: normalizedEmail });
+      duplicatePrns.push(normalizedPrn);
+      errors.push(`Row ${rowNumber}: Duplicate PRN or Email (${normalizedPrn})`);
+      continue;
+    }
+
+    seenPrns.add(normalizedPrn);
+    seenEmails.add(normalizedEmail);
+    validRows.push({ prn: normalizedPrn, email: normalizedEmail });
+  }
+
+  return {
+    validRows,
+    malformedRows,
+    duplicateRows,
+    duplicatePrns,
+    errors,
   };
 }

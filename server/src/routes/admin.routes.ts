@@ -22,6 +22,8 @@ import {
   toggleCheckerPause,
   assignUploadToChecker,
   autoAssignRoundRobin,
+  importAllowlistCsv,
+  getAllowlistStatus,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -69,6 +71,9 @@ adminRouter.patch('/users/:id/role', updateUserRole);
 adminRouter.put('/users/:id/ban', updateUserBan);
 adminRouter.patch('/users/:id/ban', updateUserBan);
 adminRouter.get('/audit-logs', getAdminAuditLogs);
+adminRouter.get('/allowlist/status', getAllowlistStatus);
+adminRouter.post('/allowlist/import', importAllowlistCsv);
+
 adminRouter.get('/export/users.csv', exportUsersCsv);
 adminRouter.get('/export/weekly-results.csv', exportWeeklyResultsCsv);
 

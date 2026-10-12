@@ -44,6 +44,7 @@ model User {
   userBadges           UserBadge[]
   refreshTokens        RefreshToken[]
   contestParticipants  ContestParticipant[]
+  practiceProgress     PracticeProgress[]
 }
 
 model PrnIndex {
@@ -117,9 +118,12 @@ model Problem {
   memoryLimitMb     Int                @default(64)
   basePoints        Int                @default(20)
   isDaily           Boolean            @default(false)
+  isPractice        Boolean            @default(false)
+  moduleSlug        String?            // "control-structures", "pointers-functions", etc.
+  moduleOrder       Int?               // 1..10 within module
   scheduledDate     String?            // YYYY-MM-DD in IST
   status            String             @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
-  sourceType        String             @default("SEED") // "SEED" | "BOOK"
+  sourceType        String             @default("SEED") // "SEED" | "BOOK" | "PRACTICE"
   sourceRefJson     String?            // Admin-only JSON metadata (bookId, chapter, section, exerciseNumber, page, concept)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -128,6 +132,7 @@ model Problem {
   submissions       Submission[]
   uploadedSolutions UploadedSolution[]
   contestProblems   ContestProblem[]
+  practiceProgress  PracticeProgress[]
 }
 
 model TestCase {
@@ -148,6 +153,7 @@ model Submission {
   problem        Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
   contestId      String?
   contest        Contest?  @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  submissionType String    @default("DAILY") // "DAILY" | "PRACTICE"
   code           String
   language       String    @default("c")
   verdict        String    @default("PENDING") // ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, RUNTIME_ERROR, COMPILE_ERROR, MEMORY_LIMIT_EXCEEDED, PENDING, JUDGING
@@ -158,6 +164,22 @@ model Submission {
   createdAt      DateTime  @default(now())
 
   testCaseResults SubmissionTestCaseResult[]
+}
+
+model PracticeProgress {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId     String
+  problem       Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  moduleSlug    String
+  isSolved      Boolean   @default(false)
+  attemptsCount Int       @default(0)
+  solvedAt      DateTime?
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@unique([userId, problemId])
+  @@index([userId, moduleSlug])
 }
 
 model SubmissionTestCaseResult {

@@ -157,7 +157,9 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
   }
 
   let pointsAwarded = 0;
-  if (overallVerdict === Verdict.ACCEPTED) {
+  const isPractice = submission.submissionType === 'PRACTICE' || submission.problem.isPractice;
+
+  if (overallVerdict === Verdict.ACCEPTED && !isPractice) {
     // Scoring (pass submissionId so rejudging never double-awards points)
     const scoreResult = await calculatePointsAndAward(
       submission.userId,
@@ -165,6 +167,45 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
       submissionId
     );
     pointsAwarded = scoreResult.pointsAwarded;
+  }
+
+  // If this is a practice problem, update or create PracticeProgress
+  if (isPractice && submission.problem.moduleSlug) {
+    try {
+      const existingProg = await prisma.practiceProgress.findUnique({
+        where: {
+          userId_problemId: {
+            userId: submission.userId,
+            problemId: submission.problemId,
+          },
+        },
+      });
+
+      const isNowSolved = overallVerdict === Verdict.ACCEPTED || Boolean(existingProg?.isSolved);
+      await prisma.practiceProgress.upsert({
+        where: {
+          userId_problemId: {
+            userId: submission.userId,
+            problemId: submission.problemId,
+          },
+        },
+        update: {
+          attemptsCount: { increment: 1 },
+          isSolved: isNowSolved,
+          solvedAt: isNowSolved && !existingProg?.solvedAt ? new Date() : existingProg?.solvedAt,
+        },
+        create: {
+          userId: submission.userId,
+          problemId: submission.problemId,
+          moduleSlug: submission.problem.moduleSlug,
+          attemptsCount: 1,
+          isSolved: overallVerdict === Verdict.ACCEPTED,
+          solvedAt: overallVerdict === Verdict.ACCEPTED ? new Date() : null,
+        },
+      });
+    } catch (progErr) {
+      console.error('Failed to update PracticeProgress:', progErr);
+    }
   }
 
   // Persist final verdict and points BEFORE evaluating badges or contest scores
@@ -187,7 +228,7 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
     },
   });
 
-  if (overallVerdict === Verdict.ACCEPTED) {
+  if (overallVerdict === Verdict.ACCEPTED && !isPractice) {
     // Daily streak if problem is daily or a scheduled challenge (attributed to submission.createdAt)
     if (submission.problem.isDaily || submission.problem.scheduledDate) {
       await updateUserStreak(submission.userId, submission.createdAt);

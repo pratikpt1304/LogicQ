@@ -1347,11 +1347,11 @@ int main() {
     console.log(`Featured daily challenge configured: "${featuredBookSlug}" for ${istDateString} (IST).`);
   }
 
-  // 6. Seed Sample Students across Multiple Departments & Years (with 12-digit PRNs + PrnIndex)
+  // 6. Seed Sample Students across Multiple Departments & Years (with 12-character alphanumeric PRNs + PrnIndex)
   const studentPasswordHash = await bcrypt.hash('StudentPass123!', 10);
   const seedStudents = [
     {
-      prn: '202401040001',
+      prn: '2199AIMM0001',
       email: 'aiml.fy1@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'AIML',
@@ -1364,7 +1364,7 @@ int main() {
       longestStreak: 7,
     },
     {
-      prn: '202302040002',
+      prn: '2199AIDF0002',
       email: 'aids.sy2@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'AIDS',
@@ -1377,7 +1377,7 @@ int main() {
       longestStreak: 6,
     },
     {
-      prn: '202203040003',
+      prn: '2199CSEM0003',
       email: 'cse.ty3@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'CSE',
@@ -1390,7 +1390,7 @@ int main() {
       longestStreak: 12,
     },
     {
-      prn: '202404040004',
+      prn: '2199IMTF0004',
       email: 'mtech.fy4@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'Integrated M.Tech',
@@ -1403,7 +1403,7 @@ int main() {
       longestStreak: 4,
     },
     {
-      prn: '202305040005',
+      prn: '2199MECM0005',
       email: 'mech.sy5@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'Mechanical',
@@ -1416,7 +1416,7 @@ int main() {
       longestStreak: 3,
     },
     {
-      prn: '202206040006',
+      prn: '2199IBTF0006',
       email: 'btech.ty6@sanjivani.org.in',
       college: 'Sanjivani University',
       department: 'Integrated B.Tech',

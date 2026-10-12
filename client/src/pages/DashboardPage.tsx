@@ -15,6 +15,7 @@ import {
   Clock,
   Sparkles,
   Zap,
+  BookOpen,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -321,6 +322,32 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           )}
+      </div>
+
+      {/* Practice Modules Track Progress Card */}
+      <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="space-y-1.5 max-w-xl">
+          <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)]">
+            <BookOpen className="w-4 h-4" />
+            <span>SELF-PACED MASTERY</span>
+          </div>
+          <h3 className="text-lg font-bold text-[var(--text-main)]">
+            C Syllabus Practice Modules
+          </h3>
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            4 sequentially unlocking topic modules from Control Structures to Dynamic Memory. Solve 7 of 10 in each module to unlock the next.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
+          <Link
+            to="/practice"
+            className="w-full md:w-auto px-5 py-2.5 rounded-xl font-mono text-xs font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--accent)] transition-all flex items-center justify-center gap-2"
+          >
+            <span>Explore Practice Modules</span>
+            <ArrowRight className="w-4 h-4 text-[var(--accent)]" />
+          </Link>
+        </div>
       </div>
 
       {/* Metrics Grid */}
