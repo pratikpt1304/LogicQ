@@ -397,22 +397,7 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Student Allowlist Warning (Recommends enabling allowlist before pilot) */}
-      {overview && !overview.isAllowlistEnabled && (
-        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 flex items-center justify-between gap-3 text-amber-950 dark:text-amber-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-amber-200 dark:bg-amber-500/20 text-amber-900 dark:text-amber-400 font-bold text-lg">🛡️</span>
-            <div>
-              <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-950 dark:text-amber-300">
-                Student Allowlist Warning: Verification Is Currently Off
-              </h4>
-              <p className="text-xs text-amber-900/90 dark:text-amber-200/90 mt-0.5 font-mono">
-                Anyone with a college email can register with any correctly shaped PRN. Strongly recommend enabling allowlist verification before the pilot.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Analytics Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

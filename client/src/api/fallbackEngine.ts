@@ -215,6 +215,7 @@ export const ADMIN_EMAILS = [
   'admin@logicq.io',
   'logicq1304@gmail.com',
   'ipworker1908@gmail.com',
+  'ipverse1918@gmail.com',
 ];
 
 export function isExplicitAdminEmail(email?: string | null): boolean {
