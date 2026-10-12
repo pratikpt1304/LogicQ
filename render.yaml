@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: logicq-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npx prisma db push && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: https://logicq-clanguage.web.app
+      - key: DATABASE_URL
+        value: file:./prisma/prod.db
+      - key: JUDGE_TYPE
+        value: local_gcc
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
