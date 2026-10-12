@@ -259,85 +259,6 @@ function getSecondsUntilNext1700IST(): number {
   return Math.max(60, Math.floor((target.getTime() - istNow.getTime()) / 1000));
 }
 
-function simulateCRun(code: string, stdin: string, problem?: any) {
-  const trimmed = (code || '').trim();
-  if (!trimmed.includes('main')) {
-    return {
-      status: 'COMPILATION_ERROR',
-      compileOutput: "solution.c: error: undefined reference to `main'",
-      stdout: '',
-      stderr: '',
-      exitCode: 1,
-      runtimeMs: 0,
-      executionTimeMs: 0,
-    };
-  }
-  if (!trimmed.includes('#include')) {
-    return {
-      status: 'COMPILATION_ERROR',
-      compileOutput: 'solution.c:1:1: error: missing #include <stdio.h> header',
-      stdout: '',
-      stderr: '',
-      exitCode: 1,
-      runtimeMs: 0,
-      executionTimeMs: 0,
-    };
-  }
-
-  const inputClean = (stdin || '').trim();
-  if (problem?.slug === 'pointer-swap-in-place' || trimmed.includes('swap')) {
-    const parts = inputClean.split(/\s+/).map(Number);
-    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      const [a, b] = parts;
-      return {
-        status: 'ACCEPTED',
-        compileOutput: null,
-        stdout: `${b} ${a} ${a + b}\n`,
-        stderr: '',
-        exitCode: 0,
-        runtimeMs: 14,
-        executionTimeMs: 14,
-      };
-    }
-  }
-  if (problem?.slug === 'brian-kernighan-set-bits' || trimmed.includes('countSetBits')) {
-    const n = parseInt(inputClean || '29', 10);
-    if (!isNaN(n)) {
-      const bits = n.toString(2).split('1').length - 1;
-      return {
-        status: 'ACCEPTED',
-        compileOutput: null,
-        stdout: `${bits}\n`,
-        stderr: '',
-        exitCode: 0,
-        runtimeMs: 11,
-        executionTimeMs: 11,
-      };
-    }
-  }
-  if (problem?.testCases?.[0]?.expectedOutput) {
-    return {
-      status: 'ACCEPTED',
-      compileOutput: null,
-      stdout: `${problem.testCases[0].expectedOutput}\n`,
-      stderr: '',
-      exitCode: 0,
-      runtimeMs: 15,
-      executionTimeMs: 15,
-    };
-  }
-
-  return {
-    status: 'ACCEPTED',
-    compileOutput: null,
-    stdout: 'Program executed successfully (exit code 0)\n',
-    stderr: '',
-    exitCode: 0,
-    runtimeMs: 12,
-    executionTimeMs: 12,
-  };
-}
-
 export async function handleFallbackRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
   const method = (options.method || 'GET').toUpperCase();
   const body = options.body && typeof options.body === 'string' ? JSON.parse(options.body) : {};
@@ -354,21 +275,35 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/auth/register' && method === 'POST') {
-    const { username, email, password, fullName, college } = body;
+    const { prn, username, email, password, fullName, college, department, year, division } = body;
+    const cleanPrn = String(prn || '').trim();
+    if (!/^[0-9]{12}$/.test(cleanPrn)) {
+      throw new Error('PRN must be exactly 12 digits.');
+    }
     const users = getStoredUsers();
+    if (users.some((u) => u.prn === cleanPrn)) {
+      throw new Error('This PRN is already registered to an account.');
+    }
     if (users.some((u) => u.email.toLowerCase() === String(email).toLowerCase())) {
       throw new Error('Email is already registered');
     }
-    if (users.some((u) => u.username.toLowerCase() === String(username).toLowerCase())) {
-      throw new Error('Username is already taken');
-    }
+    const shortId = cleanPrn.slice(-4);
+    const cleanDivision = division ? String(division).trim().toUpperCase() : null;
     const newUser: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
       id: `usr-${Date.now()}`,
-      username: username || email.split('@')[0],
+      prn: cleanPrn,
+      maskedPrn: `••••••${shortId}`,
+      username: username || `stu_${shortId}`,
       email,
-      fullName: fullName || username,
+      fullName: fullName || `${department || 'CSE'} • ${year || 'FY'} • ••••••${shortId}`,
+      displayName: null,
+      shortId,
       role: 'STUDENT',
-      college: college || 'Sanjivani College of Engineering',
+      college: college || 'Sanjivani University',
+      department: department || 'CSE',
+      year: year || 'FY',
+      division: cleanDivision,
+      profileComplete: true,
       totalPoints: 0,
       currentStreak: 0,
       longestStreak: 0,
@@ -387,16 +322,51 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  if (path === '/auth/complete-profile' && method === 'POST') {
+    const current = getCurrentUser();
+    if (!current) throw new Error('Not authenticated');
+    const { prn, college, department, year, division } = body;
+    const cleanPrn = String(prn || '').trim();
+    if (!/^[0-9]{12}$/.test(cleanPrn)) {
+      throw new Error('PRN must be exactly 12 digits.');
+    }
+    const users = getStoredUsers();
+    if (users.some((u) => u.prn === cleanPrn && u.id !== current.id)) {
+      throw new Error('This PRN is already registered to an account.');
+    }
+    const idx = users.findIndex((u) => u.id === current.id);
+    const shortId = cleanPrn.slice(-4);
+    const updated = {
+      ...users[idx],
+      prn: cleanPrn,
+      maskedPrn: `••••••${shortId}`,
+      college: college || 'Sanjivani University',
+      department: department || 'CSE',
+      year: year || 'FY',
+      division: division ? String(division).trim().toUpperCase() : null,
+      profileComplete: true,
+    };
+    users[idx] = updated;
+    saveStoredUsers(users);
+    const { password: _, ...safeUser } = updated;
+    return {
+      success: true,
+      message: 'Academic profile completed successfully',
+      data: { user: safeUser },
+    };
+  }
+
   if (path === '/auth/login' && method === 'POST') {
     const { identifier, password } = body;
     const users = getStoredUsers();
     const found = users.find(
       (u) =>
         u.email.toLowerCase() === String(identifier).toLowerCase() ||
-        u.username.toLowerCase() === String(identifier).toLowerCase()
+        u.username.toLowerCase() === String(identifier).toLowerCase() ||
+        u.prn === String(identifier).trim()
     );
     if (!found || (found.password && found.password !== password)) {
-      throw new Error('Invalid username/email or password');
+      throw new Error('Invalid email/PRN or password');
     }
     if (found.isBanned) {
       throw new Error('Your account has been suspended by an administrator.');
@@ -426,7 +396,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         fullName: fullName || baseUsername,
         avatarUrl,
         role: 'STUDENT',
-        college: 'Sanjivani College of Engineering',
+        college: 'Sanjivani University',
+        profileComplete: false,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
@@ -468,6 +439,58 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   // PROBLEMS ROUTES
+  const buildFallbackCurrentWeek = () => {
+    const user = getCurrentUser();
+    const subs = getStoredSubmissions();
+    const problems = getStoredProblems();
+    return Array.from({ length: 7 }, (_, idx) => {
+      const dayNumber = idx + 1;
+      const isLocked = dayNumber > 5;
+      const prob = problems[idx % problems.length];
+      if (isLocked) {
+        return {
+          dayNumber,
+          scheduledDate: `2026-10-1${dayNumber}`,
+          status: 'LOCKED',
+          isToday: false,
+          isSolved: false,
+          unlocksAt: `2026-10-1${dayNumber}T17:00:00+05:30`,
+          unlockLabel: `Unlocks at 17:00 IST`,
+          problem: null,
+        };
+      }
+      return {
+        dayNumber,
+        scheduledDate: `2026-10-1${dayNumber}`,
+        status: 'UNLOCKED',
+        isToday: dayNumber === 5,
+        isSolved: user
+          ? subs.some((s) => s.userId === user.id && s.problemId === prob.id && s.verdict === 'ACCEPTED')
+          : false,
+        unlocksAt: `2026-10-1${dayNumber}T17:00:00+05:30`,
+        unlockLabel: 'Unlocked at 17:00 IST',
+        problem: {
+          id: prob.id,
+          slug: prob.slug,
+          title: prob.title,
+          difficulty: prob.difficulty,
+          category: prob.category,
+          basePoints: prob.basePoints,
+        },
+      };
+    });
+  };
+
+  if (path === '/problems/current-week' && method === 'GET') {
+    return {
+      success: true,
+      data: {
+        days: buildFallbackCurrentWeek(),
+        secondsUntilNextReset: getSecondsUntilNext1700IST(),
+      },
+    };
+  }
+
   if (path === '/problems/daily' && method === 'GET') {
     const user = getCurrentUser();
     const subs = getStoredSubmissions();
@@ -480,6 +503,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       success: true,
       data: {
         problem: daily,
+        currentWeek: buildFallbackCurrentWeek(),
         userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === daily.id).length },
         secondsUntilNextReset: getSecondsUntilNext1700IST(),
       },
@@ -487,27 +511,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/problems' && method === 'GET') {
-    const user = getCurrentUser();
-    const subs = getStoredSubmissions();
-    const diff = params.get('difficulty');
-    const search = (params.get('search') || '').toLowerCase();
-
-    const problems = getStoredProblems()
-      .filter((p) => {
-        if (diff && diff !== 'ALL' && p.difficulty !== diff) return false;
-        if (search) {
-          const hay = `${p.title} ${p.category || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
-          if (!hay.includes(search)) return false;
-        }
-        return true;
-      })
-      .map((p) => ({
-        ...p,
-        isSolved: user
-          ? subs.some((s) => s.userId === user.id && s.problemId === p.id && s.verdict === 'ACCEPTED')
-          : false,
-      }));
-    return { success: true, data: { problems } };
+    throw new Error('Not found');
   }
 
   if (path.startsWith('/problems/') && method === 'GET') {
@@ -523,94 +527,33 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       success: true,
       data: {
         problem,
+        currentWeek: buildFallbackCurrentWeek(),
         userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === problem.id).length },
       },
     };
   }
 
-  // SUBMISSIONS ROUTES
+  // SUBMISSIONS ROUTES — FAIL CLOSED WHEN REAL COMPILER SANDBOX IS UNREACHABLE
   if (path === '/submissions/run' && method === 'POST') {
-    const user = getCurrentUser();
-    if (!user) throw new Error('Authentication required');
-    const problems = getStoredProblems();
-    const problem = problems.find((p) => p.id === body.problemId) || problems[0];
-    const result = simulateCRun(body.code, body.stdin || problem.testCases?.[0]?.input || '', problem);
-    return { success: true, data: result };
+    throw new Error(
+      'Code execution service is temporarily unavailable. Your code is saved — please try again in a moment.'
+    );
   }
 
   if (path === '/submissions/submit' && method === 'POST') {
-    const user = getCurrentUser();
-    if (!user) throw new Error('Authentication required');
-    const problems = getStoredProblems();
-    const problem = problems.find((p) => p.id === body.problemId) || problems[0];
-    const runRes = simulateCRun(body.code, problem.testCases?.[0]?.input || '', problem);
-    const verdict =
-      runRes.status === 'COMPILATION_ERROR'
-        ? 'COMPILATION_ERROR'
-        : runRes.stdout.trim() === (problem.testCases?.[0]?.expectedOutput || '').trim()
-        ? 'ACCEPTED'
-        : 'WRONG_ANSWER';
-
-    const subs = getStoredSubmissions();
-    const alreadySolved = subs.some(
-      (s) => s.userId === user.id && s.problemId === problem.id && s.verdict === 'ACCEPTED'
+    throw new Error(
+      'Code execution service is temporarily unavailable. Your code is saved — please try again in a moment.'
     );
-    const pointsAwarded = verdict === 'ACCEPTED' && !alreadySolved ? problem.basePoints : 0;
+  }
 
-    const testCaseResults = (problem.testCases || []).map((tc: any, idx: number) => ({
-      id: tc.id || `tc-${idx}`,
-      verdict: verdict === 'ACCEPTED' ? 'ACCEPTED' : verdict,
-      runtimeMs: 14,
-    }));
-
-    const newSub = {
-      id: `sub-${Date.now()}`,
-      userId: user.id,
-      user: { username: user.username, fullName: user.fullName },
-      problemId: problem.id,
-      problem: { title: problem.title, slug: problem.slug, difficulty: problem.difficulty },
-      code: body.code,
-      verdict,
-      runtimeMs: runRes.runtimeMs || 14,
-      executionTimeMs: runRes.executionTimeMs || 14,
-      memoryUsedKb: 1420,
-      pointsAwarded,
-      passedCases: verdict === 'ACCEPTED' ? (problem.testCases || []).length : 0,
-      totalCases: (problem.testCases || []).length,
-      testCaseResults,
-      compileOutput: runRes.compileOutput,
-      createdAt: new Date().toISOString(),
-    };
-    subs.unshift(newSub);
-    saveStoredSubmissions(subs);
-
-    if (pointsAwarded > 0) {
-      const users = getStoredUsers();
-      const idx = users.findIndex((u) => u.id === user.id);
-      if (idx !== -1) {
-        users[idx].totalPoints = (users[idx].totalPoints || 0) + pointsAwarded;
-        users[idx].currentStreak = Math.max(1, (users[idx].currentStreak || 0) + 1);
-        users[idx].longestStreak = Math.max(users[idx].longestStreak || 0, users[idx].currentStreak);
-        saveStoredUsers(users);
-      }
-    }
-
-    return {
-      success: true,
-      data: {
-        submissionId: newSub.id,
-        submission: newSub,
-        pointsAwarded,
-        passedCases: newSub.passedCases,
-        totalCases: newSub.totalCases,
-      },
-    };
+  if (path === '/uploads/my' || path === '/admin/uploads') {
+    return { success: true, data: [] };
   }
 
   if (path === '/submissions/my' || path.startsWith('/submissions/problem/')) {
     const user = getCurrentUser();
     const subs = getStoredSubmissions().filter((s) => !user || s.userId === user.id);
-    return { success: true, data: { submissions: subs } };
+    return { success: true, data: { submissions: subs, uploadedSolutions: [] } };
   }
 
   if (path.startsWith('/submissions/') && method === 'GET') {
@@ -642,7 +585,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         },
         recentSubmissions: subs.slice(0, 8),
         activityMap,
-        badges: [],
       },
     };
   }
@@ -679,50 +621,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           totalSubmissions: subs.length,
         },
         recentSubmissions: subs.slice(0, 10),
-        badges: [],
       },
     };
   }
 
-  if ((path === '/users/badges' || path === '/users/achievements') && method === 'GET') {
-    const current = getCurrentUser();
-    const hasPoints = (current?.totalPoints || 0) > 0;
-    const badges = [
-      {
-        id: 'badge-first-solve',
-        code: 'FIRST_BLOOD',
-        name: 'First Compile',
-        description: 'Submit your first accepted C solution on LogicQ.',
-        iconName: 'Zap',
-        pointsReward: 10,
-        isUnlocked: hasPoints,
-        unlockedAt: hasPoints ? new Date().toISOString() : null,
-      },
-      {
-        id: 'badge-streak-3',
-        code: 'STREAK_3',
-        name: '3-Day Logic Spark',
-        description: 'Maintain a 3-day daily challenge streak.',
-        iconName: 'Flame',
-        pointsReward: 25,
-        isUnlocked: (current?.currentStreak || 0) >= 3,
-        unlockedAt: (current?.currentStreak || 0) >= 3 ? new Date().toISOString() : null,
-      },
-      {
-        id: 'badge-streak-7',
-        code: 'STREAK_7',
-        name: '7-Day Flame Master',
-        description: 'Complete a full 7-day competition week without breaking your streak.',
-        iconName: 'Trophy',
-        pointsReward: 50,
-        isUnlocked: (current?.currentStreak || 0) >= 7,
-        unlockedAt: (current?.currentStreak || 0) >= 7 ? new Date().toISOString() : null,
-      },
-    ];
-    return {
-      success: true,
-      data: { badges, achievements: badges },
-    };
+  if (
+    path.startsWith('/badges') ||
+    path.startsWith('/achievements') ||
+    path === '/users/badges' ||
+    path === '/users/achievements'
+  ) {
+    throw new Error('Not found');
   }
 
   // LEADERBOARD
@@ -745,76 +654,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return {
       success: true,
       data: { leaderboard },
-    };
-  }
-
-  // CONTESTS / ARENA
-  if (path === '/contests' && method === 'GET') {
-    const problems = getStoredProblems();
-    return {
-      success: true,
-      data: {
-        contests: [
-          {
-            id: 'contest-weekly-1',
-            slug: 'bitwise-weekly-arena-1',
-            title: 'Bitwise Club Weekly C Arena #1',
-            description: 'Weekly competitive C programming contest for Sanjivani students.',
-            startTime: new Date(Date.now() - 3600 * 1000).toISOString(),
-            endTime: new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString(),
-            status: 'ONGOING',
-            participantCount: getStoredUsers().length,
-            _count: { participants: getStoredUsers().length, problems: problems.length },
-          },
-        ],
-      },
-    };
-  }
-
-  if (path.endsWith('/scoreboard') && path.startsWith('/contests/')) {
-    const users = getStoredUsers();
-    return {
-      success: true,
-      data: {
-        standings: users.map((u, i) => ({
-          rank: i + 1,
-          userId: u.id,
-          username: u.username,
-          fullName: u.fullName,
-          score: u.totalPoints || 0,
-          penalty: 0,
-          solvedCount: Math.max(0, Math.floor((u.totalPoints || 0) / 20)),
-        })),
-      },
-    };
-  }
-
-  if (path.endsWith('/join') && path.startsWith('/contests/') && method === 'POST') {
-    return { success: true, message: 'Registered for contest' };
-  }
-
-  if (path.startsWith('/contests/') && method === 'GET') {
-    const problems = getStoredProblems();
-    return {
-      success: true,
-      data: {
-        contest: {
-          id: 'contest-weekly-1',
-          slug: 'bitwise-weekly-arena-1',
-          title: 'Bitwise Club Weekly C Arena #1',
-          description: 'Weekly competitive C programming contest for Sanjivani students.',
-          startTime: new Date(Date.now() - 3600 * 1000).toISOString(),
-          endTime: new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString(),
-          status: 'ONGOING',
-          isJoined: true,
-          problems: problems.map((p, idx) => ({
-            orderIndex: idx + 1,
-            points: p.basePoints,
-            problem: p,
-          })),
-        },
-        standings: [],
-      },
     };
   }
 

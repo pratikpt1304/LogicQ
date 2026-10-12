@@ -6,6 +6,7 @@ import { updateUserStreak } from './streak.service.js';
 import { evaluateAndAwardBadges } from './badge.service.js';
 import { emitSubmissionVerdict, emitContestScoreboardUpdate } from '../sockets/socket.manager.js';
 import { getContestScoreboardData } from './contest.service.js';
+import { FEATURES } from '../config/features.config.js';
 
 function normalizeOutput(str: string = ''): string {
   return str
@@ -187,13 +188,15 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
   });
 
   if (overallVerdict === Verdict.ACCEPTED) {
-    // Daily streak if problem is daily
-    if (submission.problem.isDaily) {
+    // Daily streak if problem is daily or a scheduled current-week challenge
+    if (submission.problem.isDaily || submission.problem.scheduledDate) {
       await updateUserStreak(submission.userId);
     }
 
-    // Badges evaluation (now sees updatedSubmission.verdict === 'ACCEPTED')
-    await evaluateAndAwardBadges(submission.userId);
+    // Badges evaluation (only when FEATURE_BADGES=true)
+    if (FEATURES.BADGES) {
+      await evaluateAndAwardBadges(submission.userId);
+    }
 
     // If contest submission, update contest participant score
     if (submission.contestId) {

@@ -31,9 +31,16 @@ export async function getJudge(): Promise<IJudge> {
     console.warn('⚠️ Docker configured but unavailable. Falling back to LocalGccJudge.');
   }
 
-  // Default fallback: LocalGccJudge
+  // Default fallback: LocalGccJudge (real GCC compiler)
   const localJudge = new LocalGccJudge();
-  activeJudgeInstance = localJudge;
-  console.log(`⚡ Active Judge: ${localJudge.name}`);
-  return activeJudgeInstance;
+  if (await localJudge.isAvailable()) {
+    activeJudgeInstance = localJudge;
+    console.log(`⚡ Active Judge: ${localJudge.name}`);
+    return activeJudgeInstance;
+  }
+
+  throw new Error(
+    'JUDGE_UNAVAILABLE: Code execution service is temporarily unavailable. No real C compiler sandbox could be reached.'
+  );
 }
+

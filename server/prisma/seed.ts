@@ -50,10 +50,10 @@ async function main() {
     },
     {
       slug: 'contest-finisher',
-      name: 'Arena Gladiator',
-      description: 'Participate and score points in an official timed Arena contest',
+      name: 'Weekly Champion',
+      description: 'Finish in the top tier of the Weekly Leaderboard with consistent C solutions',
       iconName: 'Trophy',
-      category: 'CONTEST',
+      category: 'WEEKLY',
       requirementCount: 1,
     },
   ];
@@ -912,7 +912,7 @@ int main() {
         { input: 'A man, a plan, a canal: Panama\n', expectedOutput: 'YES\n', isHidden: false },
         { input: 'race a car\n', expectedOutput: 'NO\n', isHidden: false },
         { input: 'Was it a car or a cat I saw?\n', expectedOutput: 'YES\n', isHidden: true },
-        { input: 'LogicQ Arena\n', expectedOutput: 'NO\n', isHidden: true },
+        { input: 'LogicQ C11\n', expectedOutput: 'NO\n', isHidden: true },
       ],
     },
     {
@@ -1024,14 +1024,187 @@ int main() {
           expectedOutput: 'HEIGHT: 2 LEAVES: 1\n',
           isHidden: true,
         },
+        {
+          input: '3\n1 -1 3\n',
+          expectedOutput: 'HEIGHT: 2 LEAVES: 1\n',
+          isHidden: true,
+        },
+        {
+          input: '3\n1 2 3\n',
+          expectedOutput: 'HEIGHT: 2 LEAVES: 2\n',
+          isHidden: true,
+        },
+        {
+          input: '5\n10 20 30 40 -1\n',
+          expectedOutput: 'HEIGHT: 3 LEAVES: 2\n',
+          isHidden: true,
+        },
+        {
+          input: '6\n5 4 8 11 -1 13\n',
+          expectedOutput: 'HEIGHT: 3 LEAVES: 2\n',
+          isHidden: true,
+        },
+      ],
+    },
+    {
+      slug: 'pointer-swap-in-place',
+      title: 'In-Place Pointer Swap & Sum',
+      difficulty: 'EASY',
+      category: 'Pointers',
+      tags: JSON.stringify(['Pointers', 'Memory', 'Basics']),
+      description: `### Problem Description
+
+Given two integers \`A\` and \`B\`, swap their values in-place using pointers and compute their sum.
+
+### Input Format
+A single line containing two space-separated integers \`A\` and \`B\` ($-10^9 \\le A, B \\le 10^9$).
+
+### Output Format
+- First line: The swapped values \`B A\` separated by a space.
+- Second line: The sum \`A + B\`.
+
+### Example 1
+**Input:**
+\`\`\`
+10 20
+\`\`\`
+**Output:**
+\`\`\`
+20 10
+30
+\`\`\`
+
+### Example 2
+**Input:**
+\`\`\`
+-5 15
+\`\`\`
+**Output:**
+\`\`\`
+15 -5
+10
+\`\`\``,
+      starterCode: `#include <stdio.h>
+
+void swapAndSum(long long *a, long long *b, long long *sum) {
+    // TODO: Swap *a and *b in-place and store their sum in *sum
+}
+
+int main() {
+    long long a, b, sum = 0;
+    if (scanf("%lld %lld", &a, &b) != 2) return 0;
+    swapAndSum(&a, &b, &sum);
+    printf("%lld %lld\\n%lld\\n", a, b, sum);
+    return 0;
+}`,
+      timeLimitMs: 1000,
+      memoryLimitMb: 64,
+      basePoints: 15,
+      isDaily: false,
+      scheduledDate: null,
+      status: 'PUBLISHED',
+      testCases: [
+        { input: '10 20\n', expectedOutput: '20 10\n30\n', isHidden: false },
+        { input: '-5 15\n', expectedOutput: '15 -5\n10\n', isHidden: false },
+        { input: '0 0\n', expectedOutput: '0 0\n0\n', isHidden: true },
+        { input: '-100 -200\n', expectedOutput: '-200 -100\n-300\n', isHidden: true },
+        { input: '100000 -100000\n', expectedOutput: '-100000 100000\n0\n', isHidden: true },
+        { input: '42 42\n', expectedOutput: '42 42\n84\n', isHidden: true },
+        { input: '999999 1\n', expectedOutput: '1 999999\n1000000\n', isHidden: true },
       ],
     },
   ];
+
+  // Additional hidden edge cases per problem slug to guarantee every problem has >= 2 sample and >= 5 hidden test cases
+  const extraHiddenCasesBySlug: Record<string, Array<{ input: string; expectedOutput: string }>> = {
+    'sum-of-multiples': [
+      { input: '3\n', expectedOutput: '3\n' },
+      { input: '20\n', expectedOutput: '98\n' },
+    ],
+    'in-place-string-reversal': [
+      { input: '12345\n', expectedOutput: '54321\n' },
+      { input: 'ab\n', expectedOutput: 'ba\n' },
+    ],
+    'bitwise-parity-check': [
+      { input: '2\n', expectedOutput: 'ODD\n' },
+      { input: '3\n', expectedOutput: 'EVEN\n' },
+    ],
+    'count-words-and-chars': [
+      { input: 'C11 pointers and memory\n', expectedOutput: 'WORDS: 4 CHARS: 20\n' },
+      { input: 'a b c d e\n', expectedOutput: 'WORDS: 5 CHARS: 5\n' },
+      { input: 'single\n', expectedOutput: 'WORDS: 1 CHARS: 6\n' },
+    ],
+    'daily-longest-unique-substring': [
+      { input: 'dvdf\n', expectedOutput: '3\n' },
+      { input: 'abba\n', expectedOutput: '2\n' },
+    ],
+    'valid-parentheses-stack': [
+      { input: ']\n', expectedOutput: 'INVALID\n' },
+      { input: '((([])))\n', expectedOutput: 'VALID\n' },
+    ],
+    'matrix-spiral-traversal': [
+      { input: '1 1\n42\n', expectedOutput: '42\n' },
+      { input: '2 2\n1 2\n3 4\n', expectedOutput: '1 2 4 3\n' },
+      { input: '2 1\n7\n8\n', expectedOutput: '7 8\n' },
+    ],
+    'circular-buffer-fifo': [
+      { input: '2 3\nPUSH 1\nPUSH 2\nPEEK\n', expectedOutput: '1\n' },
+      { input: '2 2\nPUSH 7\nPOP\n', expectedOutput: '7\n' },
+      { input: '1 2\nPEEK\nPOP\n', expectedOutput: 'EMPTY\nEMPTY\n' },
+      { input: '3 4\nPUSH 4\nPUSH 5\nPOP\nPEEK\n', expectedOutput: '4\n5\n' },
+    ],
+    'endian-byte-swap': [
+      { input: '00000000\n', expectedOutput: '0x00000000\n' },
+      { input: '01020304\n', expectedOutput: '0x04030201\n' },
+      { input: 'DEADBEEF\n', expectedOutput: '0xEFBEADDE\n' },
+    ],
+    'merge-k-sorted-arrays': [
+      { input: '2 1\n5\n2\n', expectedOutput: '2 5\n' },
+      { input: '1 2\n-10 10\n', expectedOutput: '-10 10\n' },
+      { input: '2 2\n0 0\n0 0\n', expectedOutput: '0 0 0 0\n' },
+      { input: '3 1\n9\n3\n6\n', expectedOutput: '3 6 9\n' },
+    ],
+    'lru-cache-c': [
+      { input: '1 2\nGET 1\nGET 2\n', expectedOutput: '-1\n-1\n' },
+      { input: '2 3\nSET 1 1\nSET 1 2\nGET 1\n', expectedOutput: '2\n' },
+      { input: '2 4\nSET 10 100\nSET 20 200\nGET 10\nGET 20\n', expectedOutput: '100\n200\n' },
+      { input: '1 3\nSET 1 5\nSET 2 6\nGET 2\n', expectedOutput: '6\n' },
+    ],
+    'memory-pool-block-allocator': [
+      { input: '1 2\nALLOC\nALLOC\n', expectedOutput: '0\nOUT_OF_MEMORY\n' },
+      { input: '1 1\nFREE 0\n', expectedOutput: 'DOUBLE_FREE\n' },
+      { input: '2 2\nALLOC\nALLOC\n', expectedOutput: '0\n1\n' },
+      { input: '3 3\nALLOC\nFREE 0\nFREE 0\n', expectedOutput: '0\nOK\nDOUBLE_FREE\n' },
+    ],
+    'dijkstra-shortest-path': [
+      { input: '1\n0\n', expectedOutput: '0\n' },
+      { input: '2\n0 5\n0 0\n', expectedOutput: '0 5\n' },
+      { input: '3\n0 1 10\n0 0 2\n0 0 0\n', expectedOutput: '0 1 3\n' },
+      { input: '3\n0 0 0\n0 0 0\n0 0 0\n', expectedOutput: '0 -1 -1\n' },
+    ],
+    'pointer-arithmetic-palindrome': [
+      { input: 'a\n', expectedOutput: 'YES\n' },
+      { input: 'ab\n', expectedOutput: 'NO\n' },
+      { input: 'Madam\n', expectedOutput: 'YES\n' },
+    ],
+    'safe-string-splitter': [
+      { input: '-\na-b-c\n', expectedOutput: '"a"\n"b"\n"c"\n' },
+      { input: ' \nhello world\n', expectedOutput: '"hello"\n"world"\n' },
+      { input: '/\n/usr/local/bin/\n', expectedOutput: '"usr"\n"local"\n"bin"\n' },
+      { input: ',\n,,,only,,,\n', expectedOutput: '"only"\n' },
+    ],
+  };
 
   const problemMap: Record<string, any> = {};
 
   for (const p of problemsData) {
     const { testCases, ...problemFields } = p;
+    const extraHidden = (extraHiddenCasesBySlug[p.slug] || []).map((tc) => ({
+      ...tc,
+      isHidden: true,
+    }));
+    const allTestCases = [...testCases, ...extraHidden];
+
     const problem = await prisma.problem.upsert({
       where: { slug: p.slug },
       update: problemFields,
@@ -1041,8 +1214,8 @@ int main() {
 
     // Delete existing test cases and re-create
     await prisma.testCase.deleteMany({ where: { problemId: problem.id } });
-    for (let i = 0; i < testCases.length; i++) {
-      const tc = testCases[i];
+    for (let i = 0; i < allTestCases.length; i++) {
+      const tc = allTestCases[i];
       await prisma.testCase.create({
         data: {
           problemId: problem.id,
@@ -1056,7 +1229,7 @@ int main() {
   }
   console.log(`Seeded ${problemsData.length} original C problems with test cases.`);
 
-  // 5. Schedule Today's Featured Daily Challenge
+  // 5. Schedule Today's Featured Daily Challenge & Current Week Strip
   const featuredSlug = 'daily-longest-unique-substring';
   if (problemMap[featuredSlug]) {
     await prisma.problem.update({
@@ -1069,7 +1242,170 @@ int main() {
     console.log(`Featured daily challenge configured: "${featuredSlug}" for ${istDateString} (IST).`);
   }
 
-  console.log('Production master seed completed successfully! Zero demo data injected.');
+  // 6. Seed Sample Students across Multiple Departments & Years (with 12-digit PRNs + PrnIndex)
+  const studentPasswordHash = await bcrypt.hash('StudentPass123!', 10);
+  const seedStudents = [
+    {
+      prn: '202401040001',
+      email: 'aiml.fy1@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'AIML',
+      year: 'FY',
+      division: 'A',
+      displayName: 'BitShifter_01',
+      shortId: '4F9A',
+      totalPoints: 140,
+      currentStreak: 5,
+      longestStreak: 7,
+    },
+    {
+      prn: '202302040002',
+      email: 'aids.sy2@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'AIDS',
+      year: 'SY',
+      division: 'B',
+      displayName: 'PointerAce',
+      shortId: '8B2C',
+      totalPoints: 120,
+      currentStreak: 4,
+      longestStreak: 6,
+    },
+    {
+      prn: '202203040003',
+      email: 'cse.ty3@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'CSE',
+      year: 'TY',
+      division: 'C1',
+      displayName: 'MallocMaster',
+      shortId: '9D1E',
+      totalPoints: 165,
+      currentStreak: 7,
+      longestStreak: 12,
+    },
+    {
+      prn: '202404040004',
+      email: 'mtech.fy4@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'Integrated M.Tech',
+      year: 'FY',
+      division: 'A',
+      displayName: null, // Uses fallback "Student 3A7F"
+      shortId: '3A7F',
+      totalPoints: 85,
+      currentStreak: 2,
+      longestStreak: 4,
+    },
+    {
+      prn: '202305040005',
+      email: 'mech.sy5@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'Mechanical',
+      year: 'SY',
+      division: null,
+      displayName: 'GearLogicC',
+      shortId: '5E4B',
+      totalPoints: 60,
+      currentStreak: 1,
+      longestStreak: 3,
+    },
+    {
+      prn: '202206040006',
+      email: 'btech.ty6@sanjivani.org.in',
+      college: 'Sanjivani University',
+      department: 'Integrated B.Tech',
+      year: 'TY',
+      division: 'B2',
+      displayName: 'KernelKnight',
+      shortId: '7C6D',
+      totalPoints: 110,
+      currentStreak: 3,
+      longestStreak: 5,
+    },
+  ];
+
+  for (const stu of seedStudents) {
+    const username = `student_${stu.shortId.toLowerCase()}`;
+    const user = await prisma.user.upsert({
+      where: { email: stu.email },
+      update: {
+        prn: stu.prn,
+        college: stu.college,
+        department: stu.department,
+        year: stu.year,
+        division: stu.division,
+        displayName: stu.displayName,
+        shortId: stu.shortId,
+        profileComplete: true,
+        totalPoints: stu.totalPoints,
+        currentStreak: stu.currentStreak,
+        longestStreak: stu.longestStreak,
+      },
+      create: {
+        username,
+        prn: stu.prn,
+        email: stu.email,
+        passwordHash: studentPasswordHash,
+        role: 'STUDENT',
+        fullName: stu.displayName || `Student ${stu.shortId}`,
+        displayName: stu.displayName,
+        shortId: stu.shortId,
+        college: stu.college,
+        department: stu.department,
+        year: stu.year,
+        division: stu.division,
+        profileComplete: true,
+        totalPoints: stu.totalPoints,
+        currentStreak: stu.currentStreak,
+        longestStreak: stu.longestStreak,
+      },
+    });
+
+    await prisma.prnIndex.upsert({
+      where: { prn: stu.prn },
+      update: { userId: user.id },
+      create: { prn: stu.prn, userId: user.id },
+    });
+  }
+  console.log(`Seeded ${seedStudents.length} students across all departments and years.`);
+
+  // 7. Reconcile student points & streak invariants against actual Submission / UploadedSolution ledger
+  const allStudents = await prisma.user.findMany({
+    where: { role: 'STUDENT' },
+    include: {
+      submissions: { where: { verdict: 'ACCEPTED' } },
+      uploadedSolutions: { where: { status: 'APPROVED' } },
+    },
+  });
+  for (const stu of allStudents) {
+    const solvedMap = new Map<string, number>();
+    for (const s of stu.submissions) {
+      if (!solvedMap.has(s.problemId) || solvedMap.get(s.problemId)! < s.pointsAwarded) {
+        solvedMap.set(s.problemId, s.pointsAwarded);
+      }
+    }
+    for (const u of stu.uploadedSolutions) {
+      if (!solvedMap.has(u.problemId) || solvedMap.get(u.problemId)! < u.pointsAwarded) {
+        solvedMap.set(u.problemId, u.pointsAwarded);
+      }
+    }
+    const ledgerPoints = Array.from(solvedMap.values()).reduce((sum, p) => sum + p, 0);
+    const safeCurrent = Math.max(0, stu.currentStreak);
+    const safeLongest = Math.max(safeCurrent, stu.longestStreak, 0);
+    if (stu.totalPoints !== ledgerPoints || stu.currentStreak !== safeCurrent || stu.longestStreak !== safeLongest) {
+      await prisma.user.update({
+        where: { id: stu.id },
+        data: {
+          totalPoints: ledgerPoints,
+          currentStreak: safeCurrent,
+          longestStreak: safeLongest,
+        },
+      });
+    }
+  }
+
+  console.log('Master seed completed successfully!');
 }
 
 main()
