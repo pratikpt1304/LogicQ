@@ -93,6 +93,24 @@ async function main() {
   });
   console.log(`Admin created: ${adminUser.username} (${adminUser.email})`);
 
+  await prisma.user.upsert({
+    where: { email: 'logicq1304@gmail.com' },
+    update: {
+      role: 'ADMIN',
+      fullName: 'LogicQ Admin',
+    },
+    create: {
+      username: 'logicq1304',
+      email: 'logicq1304@gmail.com',
+      fullName: 'LogicQ Admin',
+      passwordHash: adminHash,
+      role: 'ADMIN',
+      bio: 'Platform Owner & Administrator',
+      college: 'Sanjivani University',
+    },
+  });
+  console.log('Primary Admin logicq1304@gmail.com seeded.');
+
   // 3. Date context for daily challenge scheduling
   const now = new Date();
   const istDateString = new Intl.DateTimeFormat('en-CA', {

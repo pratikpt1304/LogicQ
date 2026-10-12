@@ -211,6 +211,16 @@ function saveStoredProblems(problems: any[]) {
   memoryProblems = problems;
 }
 
+export const ADMIN_EMAILS = [
+  'admin@logicq.io',
+  'logicq1304@gmail.com',
+];
+
+export function isExplicitAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
 function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -227,6 +237,11 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         let shortId = u.shortId;
         if (!shortId) {
           shortId = generateShortId(u.id);
+          updated = true;
+        }
+        if (isExplicitAdminEmail(u.email) && u.role !== 'ADMIN') {
+          u.role = 'ADMIN';
+          u.profileComplete = true;
           updated = true;
         }
         if (u.role === 'ADMIN' && ((u.totalPoints || 0) > 0 || (u.currentStreak || 0) > 0)) {
@@ -263,6 +278,22 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       shortId: 'ADM1',
       createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
     },
+    {
+      id: 'admin-2',
+      username: 'logicq1304',
+      email: 'logicq1304@gmail.com',
+      fullName: 'LogicQ Admin',
+      role: 'ADMIN',
+      college: 'Sanjivani University',
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      password: 'password123',
+      isBanned: false,
+      shortId: '1304',
+      profileComplete: true,
+      createdAt: new Date().toISOString(),
+    },
   ];
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(seeded));
   return seeded;
@@ -278,6 +309,13 @@ function getCurrentUser(): User | null {
     if (activeRaw) {
       const active = JSON.parse(activeRaw);
       if (active && typeof active === 'object' && active.id) {
+        if (isExplicitAdminEmail(active.email) && active.role !== 'ADMIN') {
+          active.role = 'ADMIN';
+          active.profileComplete = true;
+          try {
+            localStorage.setItem('logicq_active_user', JSON.stringify(active));
+          } catch {}
+        }
         return active;
       }
     }
@@ -465,6 +503,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path === '/auth/google' && method === 'POST') {
     const { email, fullName, avatarUrl } = body;
     const users = getStoredUsers();
+    const isAdmin = isExplicitAdminEmail(email);
     let found = users.find((u) => u.email.toLowerCase() === String(email).toLowerCase());
     if (!found) {
       const baseUsername = String(email || 'student')
@@ -475,11 +514,11 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         id: `usr-google-${Date.now()}`,
         username: baseUsername,
         email: email || `${baseUsername}@sanjivani.org.in`,
-        fullName: fullName || baseUsername,
+        fullName: fullName || (isAdmin ? 'LogicQ Admin' : baseUsername),
         avatarUrl,
-        role: 'STUDENT' as const,
+        role: isAdmin ? ('ADMIN' as const) : ('STUDENT' as const),
         college: 'Sanjivani University',
-        profileComplete: false,
+        profileComplete: isAdmin ? true : false,
         totalPoints: 0,
         currentStreak: 0,
         longestStreak: 0,
@@ -489,6 +528,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       users.push(newUser);
       saveStoredUsers(users);
       found = newUser;
+    } else if (isAdmin && found.role !== 'ADMIN') {
+      found.role = 'ADMIN';
+      found.profileComplete = true;
+      saveStoredUsers(users);
     }
     if (found.isBanned) {
       throw new Error('Your account has been suspended by an administrator.');

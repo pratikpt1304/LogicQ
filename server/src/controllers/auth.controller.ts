@@ -178,7 +178,21 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
   });
 }
 
+export const ADMIN_EMAILS = [
+  'admin@logicq.io',
+  'logicq1304@gmail.com',
+];
+
+export function isExplicitAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
 function isEmailDomainAllowed(email: string): { allowed: boolean; allowedDomains: string[] } {
+  if (isExplicitAdminEmail(email)) {
+    return { allowed: true, allowedDomains: [] };
+  }
+
   const authMode = (process.env.AUTH_MODE || 'OPEN').toUpperCase();
   const rawDomains = process.env.ALLOWED_EMAIL_DOMAINS || 'sanjivani.org.in';
   const allowedDomains = rawDomains
@@ -450,11 +464,12 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    const isExplicitAdmin = isExplicitAdminEmail(email);
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
       const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
-      const generatedUsername = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const generatedUsername = isExplicitAdmin ? 'admin_logicq1304' : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
       const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
 
       user = await prisma.user.create({
@@ -463,18 +478,26 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
           email,
           passwordHash: randomPasswordHash,
           shortId,
-          fullName: `Student ${shortId}`,
+          fullName: isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`,
           avatarUrl: avatarUrl || null,
-          profileComplete: false,
-          role: 'STUDENT',
+          profileComplete: isExplicitAdmin ? true : false,
+          role: isExplicitAdmin ? 'ADMIN' : 'STUDENT',
         },
       });
-    } else if (user.isBanned) {
-      res.status(403).json({
-        success: false,
-        message: 'Your account has been suspended by an administrator.',
-      });
-      return;
+    } else {
+      if (isExplicitAdmin && user.role !== 'ADMIN') {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'ADMIN' },
+        });
+      }
+      if (user.isBanned) {
+        res.status(403).json({
+          success: false,
+          message: 'Your account has been suspended by an administrator.',
+        });
+        return;
+      }
     }
 
     const payload = { userId: user.id, role: user.role, username: user.username };
