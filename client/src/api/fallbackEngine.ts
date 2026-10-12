@@ -400,7 +400,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path === '/auth/complete-profile' && method === 'POST') {
     const current = getCurrentUser();
     if (!current) throw new Error('Not authenticated');
-    const { prn, college, department, year, division } = body;
+    const { prn, college, department, year, division, fullName, displayName } = body;
     const cleanPrn = normalizePrn(prn);
     if (!isValidPrn(cleanPrn)) {
       throw new Error(PRN_ERROR_MESSAGE);
@@ -411,6 +411,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     const idx = users.findIndex((u) => u.id === current.id);
     const shortId = cleanPrn.slice(-4);
+    const studentName = (fullName || displayName || '').trim();
     const updated = {
       ...users[idx],
       prn: cleanPrn,
@@ -419,6 +420,12 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       department: department || 'CSE',
       year: year || 'FY',
       division: division ? String(division).trim().toUpperCase() : null,
+      ...(studentName
+        ? {
+            fullName: studentName,
+            displayName: studentName.slice(0, 20),
+          }
+        : {}),
       profileComplete: true,
     };
     users[idx] = updated;

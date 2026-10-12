@@ -63,6 +63,23 @@ export const academicFieldsSchema = z.object({
     .refine((val) => val === null || val === undefined || DIVISION_REGEX.test(val), {
       message: 'Division must be up to 3 letters or digits (e.g., A, B, C1).',
     }),
+  displayName: z
+    .string()
+    .trim()
+    .min(DISPLAY_NAME_MIN, `Display name must be at least ${DISPLAY_NAME_MIN} characters.`)
+    .max(DISPLAY_NAME_MAX, `Display name must be at most ${DISPLAY_NAME_MAX} characters.`)
+    .refine((val) => !containsProfanity(val), {
+      message: 'Display name contains inappropriate language.',
+    })
+    .optional()
+    .nullable(),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters.')
+    .max(50, 'Name must be at most 50 characters.')
+    .optional()
+    .nullable(),
 });
 
 const registerSchema = academicFieldsSchema
@@ -515,7 +532,7 @@ export const completeProfile = async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const { prn, college, department, year, division } = parsed.data;
+    const { prn, college, department, year, division, displayName, fullName } = parsed.data;
     const userId = req.user.userId;
 
     const currentUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -551,6 +568,7 @@ export const completeProfile = async (req: AuthRequest, res: Response): Promise<
         }
 
         const shortId = currentUser.shortId || generateShortId(currentUser.id);
+        const nameToSave = (fullName || displayName || '').trim();
 
         await tx.prnIndex.upsert({
           where: { prn },
@@ -567,6 +585,12 @@ export const completeProfile = async (req: AuthRequest, res: Response): Promise<
             year,
             division: division ?? null,
             shortId,
+            ...(nameToSave
+              ? {
+                  fullName: nameToSave,
+                  displayName: nameToSave.slice(0, 20),
+                }
+              : {}),
             profileComplete: true,
           },
         });

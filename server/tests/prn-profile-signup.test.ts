@@ -259,6 +259,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
       .set('Authorization', `Bearer ${tempToken}`)
       .send({
         prn: '2199TESM0003',
+        fullName: 'Rohan Sharma',
         college: 'Sanjivani University',
         department: 'CSE',
         year: 'FY',
@@ -267,6 +268,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     expect(completeRes.status).toBe(200);
     expect(completeRes.body.data.user.profileComplete).toBe(true);
     expect(completeRes.body.data.user.prn).toBe('2199TESM0003');
+    expect(completeRes.body.data.user.fullName).toBe('Rohan Sharma');
     expect(completeRes.body.data.user.division).toBe('A1');
 
     // Now allowed

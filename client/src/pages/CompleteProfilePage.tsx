@@ -21,10 +21,12 @@ import {
   ArrowRight,
   AlertCircle,
   ShieldCheck,
+  User,
 } from 'lucide-react';
 
 interface CompleteErrors {
   prn?: string;
+  fullName?: string;
   college?: string;
   department?: string;
   year?: string;
@@ -37,6 +39,7 @@ export const CompleteProfilePage: React.FC = () => {
 
   const [formData, setFormData] = useState({
     prn: user?.prn || '',
+    fullName: user?.fullName || user?.displayName || '',
     college: user?.college || ALLOWED_COLLEGES[0] || 'Sanjivani University',
     department: user?.department || '',
     year: user?.year || '',
@@ -62,6 +65,14 @@ export const CompleteProfilePage: React.FC = () => {
 
     if (!trimmedPrn || !isValidPrn(trimmedPrn)) {
       nextErrors.prn = PRN_ERROR_MESSAGE;
+    }
+    const trimmedFullName = formData.fullName.trim();
+    if (!trimmedFullName) {
+      nextErrors.fullName = 'Please enter your full name.';
+    } else if (trimmedFullName.length < 2) {
+      nextErrors.fullName = 'Full name must be at least 2 characters.';
+    } else if (trimmedFullName.length > 50) {
+      nextErrors.fullName = 'Full name cannot exceed 50 characters.';
     }
     if (!formData.college || !ALLOWED_COLLEGES.includes(formData.college as any)) {
       nextErrors.college = 'Please select your college.';
@@ -91,8 +102,11 @@ export const CompleteProfilePage: React.FC = () => {
 
     setLoading(true);
     try {
+      const trimmedFullName = formData.fullName.trim();
       await completeProfile({
         prn: trimmedPrn,
+        fullName: trimmedFullName,
+        displayName: trimmedFullName,
         college: formData.college,
         department: formData.department,
         year: formData.year,
@@ -186,13 +200,47 @@ export const CompleteProfilePage: React.FC = () => {
               )}
             </div>
 
-            {/* 2. College */}
+            {/* 2. Full Name (required) */}
+            <div>
+              <label
+                htmlFor="complete-fullname-input"
+                className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
+              >
+                2. STUDENT FULL NAME <span className="text-[#FF7A8A]">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="complete-fullname-input"
+                  name="fullName"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  aria-invalid={Boolean(fieldErrors.fullName)}
+                  aria-describedby={fieldErrors.fullName ? 'complete-fullname-error' : undefined}
+                  value={formData.fullName}
+                  onChange={(e) => {
+                    setFormData({ ...formData, fullName: e.target.value });
+                    if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: undefined });
+                  }}
+                  placeholder="e.g. Rohan Sharma"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF]"
+                />
+                <User className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3 pointer-events-none" />
+              </div>
+              {fieldErrors.fullName && (
+                <p id="complete-fullname-error" role="alert" className="text-xs text-[#FF7A8A] mt-1 font-mono">
+                  {fieldErrors.fullName}
+                </p>
+              )}
+            </div>
+
+            {/* 3. College */}
             <div>
               <label
                 htmlFor="complete-college-select"
                 className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
               >
-                2. COLLEGE <span className="text-[#FF7A8A]">*</span>
+                3. COLLEGE <span className="text-[#FF7A8A]">*</span>
               </label>
               <div className="relative">
                 <select
@@ -214,14 +262,14 @@ export const CompleteProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Department & 4. Year */}
+            {/* 4. Department & 5. Year */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="complete-department-select"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  3. DEPARTMENT <span className="text-[#FF7A8A]">*</span>
+                  4. DEPARTMENT <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -260,7 +308,7 @@ export const CompleteProfilePage: React.FC = () => {
                   htmlFor="complete-year-select"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  4. YEAR <span className="text-[#FF7A8A]">*</span>
+                  5. YEAR <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -294,13 +342,13 @@ export const CompleteProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* 5. Division */}
+            {/* 6. Division */}
             <div>
               <label
                 htmlFor="complete-division-input"
                 className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
               >
-                5. DIVISION <span className="text-[#9AA1C4] text-xs font-normal">(OPTIONAL)</span>
+                6. DIVISION <span className="text-[#9AA1C4] text-xs font-normal">(OPTIONAL)</span>
               </label>
               <div className="relative">
                 <input

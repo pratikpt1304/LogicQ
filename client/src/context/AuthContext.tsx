@@ -21,6 +21,8 @@ export interface RegisterPayload {
 
 export interface CompleteProfilePayload {
   prn: string;
+  fullName?: string;
+  displayName?: string;
   college: string;
   department: string;
   year: string;
