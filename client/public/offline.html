@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-IN" class="dark" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0C0F1F" />
+    <title>You're Offline — LogicQ</title>
+    <style>
+      :root {
+        --bg-main: #0C0F1F;
+        --bg-panel: #141932;
+        --border-line: #252C4F;
+        --text-main: #E8EAF6;
+        --text-muted: #9AA1C4;
+        --accent: #8B9BFF;
+        --success: #46D9A0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .card {
+        max-width: 28rem;
+        width: 100%;
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-line);
+        border-radius: 1rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        border: 1px solid var(--border-line);
+        color: var(--accent);
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+      p {
+        margin: 0 0 1.5rem;
+        color: var(--text-muted);
+        font-size: 0.925rem;
+        line-height: 1.6;
+      }
+      button {
+        min-height: 44px;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--accent);
+        background-color: var(--accent);
+        color: #0C0F1F;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="badge">LogicQ Offline Mode</div>
+      <h1>You are currently offline</h1>
+      <p>
+        Your unsaved C code drafts remain safely stored on your device. Reconnect to the internet to run or submit solutions to the LogicQ judge.
+      </p>
+      <button type="button" onclick="window.location.reload()">Try Reconnecting</button>
+    </main>
+  </body>
+</html>
