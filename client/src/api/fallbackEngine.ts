@@ -371,7 +371,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       username: username || `stu_${shortId}`,
       email,
       fullName: fullName || `${department || 'CSE'} • ${year || 'FY'} • ••••••${shortId}`,
-      displayName: null,
+      displayName: body.displayName || fullName || null,
       shortId,
       role: 'STUDENT',
       college: college || 'Sanjivani University',

@@ -7,6 +7,8 @@ import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js'
 export type AuthState = 'loading' | 'signedIn' | 'signedOut';
 
 export interface RegisterPayload {
+  fullName?: string;
+  displayName?: string;
   prn: string;
   college: string;
   department: string;

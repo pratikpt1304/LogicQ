@@ -85,6 +85,13 @@ const registerSchema = academicFieldsSchema
       })
       .optional()
       .nullable(),
+    fullName: z
+      .string()
+      .trim()
+      .min(2, 'Name must be at least 2 characters.')
+      .max(50, 'Name must be at most 50 characters.')
+      .optional()
+      .nullable(),
   })
   .refine(
     (data) => !data.confirmPassword || data.password === data.confirmPassword,
@@ -255,7 +262,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { prn, college, department, year, division, email, password, displayName } = parsed.data;
+    const { prn, college, department, year, division, email, password, displayName, fullName } = parsed.data;
 
     // 1. Check institutional email domain policy
     const domainCheck = isEmailDomainAllowed(email);
@@ -326,9 +333,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             department,
             year,
             division: division ?? null,
-            displayName: displayName ?? null,
+            displayName: displayName || (fullName ? fullName.slice(0, 20) : null),
             shortId,
-            fullName: displayName || `Student ${shortId}`,
+            fullName: fullName || displayName || `Student ${shortId}`,
             profileComplete: true,
             role: 'STUDENT',
           },

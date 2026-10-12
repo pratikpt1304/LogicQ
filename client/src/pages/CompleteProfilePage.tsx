@@ -7,6 +7,9 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
   PRN_REGEX,
+  PRN_ERROR_MESSAGE,
+  isValidPrn,
+  normalizePrn,
   DIVISION_REGEX,
 } from '../config/academic.config.js';
 import {
@@ -51,14 +54,14 @@ export const CompleteProfilePage: React.FC = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const trimmedPrn = formData.prn.trim();
+  const trimmedPrn = normalizePrn(formData.prn);
   const prnLength = trimmedPrn.length;
 
   const validateClientSide = (): boolean => {
     const nextErrors: CompleteErrors = {};
 
-    if (!trimmedPrn || !PRN_REGEX.test(trimmedPrn)) {
-      nextErrors.prn = 'PRN must be exactly 12 digits.';
+    if (!trimmedPrn || !isValidPrn(trimmedPrn)) {
+      nextErrors.prn = PRN_ERROR_MESSAGE;
     }
     if (!formData.college || !ALLOWED_COLLEGES.includes(formData.college as any)) {
       nextErrors.college = 'Please select your college.';

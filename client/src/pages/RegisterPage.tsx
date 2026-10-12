@@ -22,9 +22,11 @@ import {
   Layers,
   ArrowRight,
   AlertCircle,
+  User,
 } from 'lucide-react';
 
 interface FieldErrors {
+  fullName?: string;
   prn?: string;
   college?: string;
   department?: string;
@@ -40,6 +42,7 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    fullName: '',
     prn: '',
     college: (ALLOWED_COLLEGES[0] || 'Sanjivani University') as string,
     department: '',
@@ -59,6 +62,13 @@ export const RegisterPage: React.FC = () => {
 
   const validateClientSide = (): boolean => {
     const nextErrors: FieldErrors = {};
+
+    const trimmedFullName = formData.fullName.trim();
+    if (!trimmedFullName || trimmedFullName.length < 2) {
+      nextErrors.fullName = 'Please enter your full name (at least 2 characters).';
+    } else if (trimmedFullName.length > 50) {
+      nextErrors.fullName = 'Full name cannot exceed 50 characters.';
+    }
 
     if (!trimmedPrn || !isValidPrn(trimmedPrn)) {
       nextErrors.prn = PRN_ERROR_MESSAGE;
@@ -118,7 +128,10 @@ export const RegisterPage: React.FC = () => {
 
     setLoading(true);
     try {
+      const trimmedFullName = formData.fullName.trim();
       await register({
+        fullName: trimmedFullName,
+        displayName: trimmedFullName,
         prn: trimmedPrn,
         college: formData.college,
         department: formData.department,
@@ -266,13 +279,47 @@ export const RegisterPage: React.FC = () => {
               )}
             </div>
 
-            {/* 2. College (required) */}
+            {/* 2. Full Name (required) */}
+            <div>
+              <label
+                htmlFor="fullname-input"
+                className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
+              >
+                2. STUDENT FULL NAME <span className="text-[#FF7A8A]">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="fullname-input"
+                  name="fullName"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  aria-invalid={Boolean(fieldErrors.fullName)}
+                  aria-describedby={fieldErrors.fullName ? 'fullname-error' : undefined}
+                  value={formData.fullName}
+                  onChange={(e) => {
+                    setFormData({ ...formData, fullName: e.target.value });
+                    if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: undefined });
+                  }}
+                  placeholder="e.g. Pratik Thora"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF]"
+                />
+                <User className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3 pointer-events-none" />
+              </div>
+              {fieldErrors.fullName && (
+                <p id="fullname-error" role="alert" className="text-xs text-[#FF7A8A] mt-1 font-mono">
+                  {fieldErrors.fullName}
+                </p>
+              )}
+            </div>
+
+            {/* 3. College (required) */}
             <div>
               <label
                 htmlFor="college-select"
                 className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
               >
-                2. COLLEGE <span className="text-[#FF7A8A]">*</span>
+                3. COLLEGE <span className="text-[#FF7A8A]">*</span>
               </label>
               <div className="relative">
                 <select
@@ -303,14 +350,14 @@ export const RegisterPage: React.FC = () => {
               )}
             </div>
 
-            {/* 3. Department (required) & 4. Year (required) */}
+            {/* 4. Department (required) & 5. Year (required) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="department-select"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  3. DEPARTMENT <span className="text-[#FF7A8A]">*</span>
+                  4. DEPARTMENT <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -354,7 +401,7 @@ export const RegisterPage: React.FC = () => {
                   htmlFor="year-select"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  4. YEAR <span className="text-[#FF7A8A]">*</span>
+                  5. YEAR <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -389,13 +436,13 @@ export const RegisterPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 5. Division (optional) */}
+            {/* 6. Division (optional) */}
             <div>
               <label
                 htmlFor="division-input"
                 className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
               >
-                5. DIVISION <span className="text-[#9AA1C4] text-xs font-normal">(OPTIONAL)</span>
+                6. DIVISION <span className="text-[#9AA1C4] text-xs font-normal">(OPTIONAL)</span>
               </label>
               <div className="relative">
                 <input
@@ -422,13 +469,13 @@ export const RegisterPage: React.FC = () => {
               )}
             </div>
 
-            {/* 6. College email, password, confirm password */}
+            {/* 7. College email, password, confirm password */}
             <div>
               <label
                 htmlFor="email-input"
                 className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
               >
-                6. COLLEGE EMAIL <span className="text-[#FF7A8A]">*</span>
+                7. COLLEGE EMAIL <span className="text-[#FF7A8A]">*</span>
               </label>
               <div className="relative">
                 <input
@@ -461,7 +508,7 @@ export const RegisterPage: React.FC = () => {
                   htmlFor="password-input"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  PASSWORD <span className="text-[#FF7A8A]">*</span>
+                  8. PASSWORD <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -499,7 +546,7 @@ export const RegisterPage: React.FC = () => {
                   htmlFor="confirm-password-input"
                   className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
                 >
-                  CONFIRM PASSWORD <span className="text-[#FF7A8A]">*</span>
+                  9. CONFIRM PASSWORD <span className="text-[#FF7A8A]">*</span>
                 </label>
                 <div className="relative">
                   <input
