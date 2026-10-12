@@ -16,9 +16,19 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  prn?: string | null;
+  maskedPrn?: string | null;
+  ownIdentityLabel?: string | null;
+  displayName?: string | null;
+  publicDisplayName?: string | null;
+  shortId?: string | null;
   fullName: string;
   role: Role;
   college?: string | null;
+  department?: string | null;
+  year?: string | null;
+  division?: string | null;
+  profileComplete?: boolean;
   bio?: string | null;
   avatarUrl?: string | null;
   totalPoints: number;
@@ -26,7 +36,6 @@ export interface User {
   longestStreak: number;
   lastSolvedDate?: string | null;
   createdAt?: string;
-  userBadges?: Array<{ badge: Badge; unlockedAt: string }>;
 }
 
 export interface TestCase {
@@ -93,31 +102,4 @@ export interface Submission {
     avatarUrl?: string | null;
   };
   testCaseResults?: SubmissionTestCaseResult[];
-}
-
-export interface Contest {
-  id: string;
-  slug: string;
-  title: string;
-  description: string;
-  startTime: string;
-  endTime: string;
-  durationMinutes: number;
-  status: 'UPCOMING' | 'ONGOING' | 'ENDED';
-  participantCount?: number;
-  problemCount?: number;
-  isUserRegistered?: boolean;
-  problems?: Array<Problem & { points: number; orderIndex: number }>;
-}
-
-export interface Badge {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  iconName: string;
-  category: string;
-  requirementCount: number;
-  isUnlocked?: boolean;
-  unlockedAt?: string;
 }

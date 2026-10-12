@@ -1,6 +1,10 @@
 import { prisma } from '../utils/prisma.js';
+import { FEATURES } from '../config/features.config.js';
 
 export async function evaluateAndAwardBadges(userId: string): Promise<string[]> {
+  if (!FEATURES.BADGES) {
+    return [];
+  }
   const newlyUnlocked: string[] = [];
 
   const user = await prisma.user.findUnique({

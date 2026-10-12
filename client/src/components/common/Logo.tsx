@@ -1,26 +1,30 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.js';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showTagline?: boolean;
+  to?: string;
 }
 
-export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) => {
+export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false, to }) => {
+  const { user } = useAuth();
   const iconSize = size === 'sm' ? 28 : size === 'lg' ? 44 : 36;
   const textSize = size === 'sm' ? 'text-lg' : size === 'lg' ? 'text-2xl' : 'text-xl';
+  const targetPath = to ?? (user ? '/dashboard' : '/');
 
   return (
-    <Link to="/" className="flex items-center gap-2.5 group select-none">
+    <Link to={targetPath} className="flex items-center gap-2.5 group select-none">
       <div
-        className="relative flex items-center justify-center rounded-xl bg-slate-100 dark:bg-dark-850 border border-slate-200 dark:border-slate-700/60 p-1.5 transition-transform duration-200 group-hover:scale-105 group-hover:border-cyan-500/40"
+        className="relative flex items-center justify-center rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] p-1.5 transition-colors duration-200 group-hover:border-[var(--color-accent)]"
         style={{ width: iconSize, height: iconSize }}
       >
-        <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
+        <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" aria-hidden="true">
           <defs>
             <linearGradient id="logoQGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#00F2FE" />
-              <stop offset="100%" stopColor="#10B981" />
+              <stop offset="0%" stopColor="#8B9BFF" />
+              <stop offset="100%" stopColor="#46D9A0" />
             </linearGradient>
           </defs>
           <circle
@@ -31,10 +35,9 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
             strokeWidth="9"
             strokeLinecap="round"
           />
-          {/* Internal Command Prompt ">_" */}
           <path
             d="M 38 38 L 47 44 L 38 50"
-            stroke="#00F2FE"
+            stroke="#8B9BFF"
             strokeWidth="4.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -44,11 +47,10 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
             y1="50"
             x2="59"
             y2="50"
-            stroke="#10B981"
+            stroke="#46D9A0"
             strokeWidth="4.5"
             strokeLinecap="round"
           />
-          {/* Q Tail Prompt Arrow */}
           <path
             d="M 64 60 L 80 76 M 73 76 L 80 76 L 80 69"
             stroke="url(#logoQGrad)"
@@ -60,14 +62,14 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showTagline = false }) 
       </div>
 
       <div className="flex flex-col">
-        <div className={`font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center ${textSize}`}>
+        <div
+          className={`font-heading font-extrabold tracking-tight text-[var(--text-main)] flex items-center ${textSize}`}
+        >
           Logic
-          <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-            Q
-          </span>
+          <span className="text-[var(--color-success)]">Q</span>
         </div>
         {showTagline && (
-          <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 tracking-wider font-medium">
+          <span className="text-xs font-mono text-[var(--text-muted)] tracking-wider font-medium">
             Think in logic. Code in C.
           </span>
         )}

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
-import { Code2, Clock, Eye, X, Copy, Check } from 'lucide-react';
+import { Clock, Eye, X, Copy, Check, Upload, FileText } from 'lucide-react';
 import { Difficulty, Verdict } from '../types/index.js';
 
 export const HistoryPage: React.FC = () => {
@@ -16,6 +16,7 @@ export const HistoryPage: React.FC = () => {
   });
 
   const submissions = data?.data?.submissions || [];
+  const uploadedSolutions = data?.data?.uploadedSolutions || [];
 
   const handleCopyCode = () => {
     if (selectedSubmission?.code) {
@@ -34,11 +35,86 @@ export const HistoryPage: React.FC = () => {
           <span>Submission History</span>
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
-          Audit of all your C code evaluations, verdicts, and compiler outputs.
+          Audit of all your C code evaluations, uploaded solution reviews, verdicts, and compiler outputs.
         </p>
       </div>
 
-      {/* Submissions Table */}
+      {/* Uploaded Solutions Section (if any) */}
+      {uploadedSolutions.length > 0 && (
+        <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+              <Upload className="w-4 h-4 text-cyan-400" />
+              <span>Uploaded Solutions ({uploadedSolutions.length})</span>
+            </h2>
+            <span className="text-[11px] font-mono text-slate-400">Manual Teacher / Admin Review</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                <tr>
+                  <th className="px-6 py-3.5">Problem</th>
+                  <th className="px-6 py-3.5">Type</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Files</th>
+                  <th className="px-6 py-3.5">Points</th>
+                  <th className="px-6 py-3.5">Reviewer Feedback</th>
+                  <th className="px-6 py-3.5">Submitted</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {uploadedSolutions.map((up: any) => (
+                  <tr key={up.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-6 py-4 font-bold text-white">
+                      <Link
+                        to={`/challenge/${up.problem?.slug}`}
+                        className="hover:text-cyan-400 transition-colors"
+                      >
+                        {up.problem?.title || 'Daily Challenge'}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 text-slate-300">
+                      <span className="inline-flex items-center gap-1 text-[11px]">
+                        <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                        Uploaded solution
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          up.status === 'APPROVED'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : up.status === 'REJECTED'
+                              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                              : up.status === 'CHANGES_REQUESTED'
+                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+                        }`}
+                      >
+                        {up.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-400">
+                      {Array.isArray(up.files) ? `${up.files.length} file(s)` : '—'}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-cyan-400">
+                      +{up.pointsAwarded || 0} PTS
+                    </td>
+                    <td className="px-6 py-4 text-slate-300 max-w-xs truncate">
+                      {up.reviewerComment || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-slate-500">
+                      {new Date(up.submittedAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Code Submissions Table */}
       <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
         {isLoading ? (
           <div className="py-20 text-center font-mono text-cyan-400 text-xs">
@@ -47,7 +123,7 @@ export const HistoryPage: React.FC = () => {
         ) : submissions.length === 0 ? (
           <div className="py-20 text-center font-mono flex flex-col items-center justify-center space-y-3">
             <Clock className="w-8 h-8 text-slate-400 opacity-40 mb-1" />
-            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">No Submissions Recorded</span>
+            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">No Code Submissions Recorded</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
               Your C code evaluations and test verdicts will appear here once you run or submit code.
             </p>

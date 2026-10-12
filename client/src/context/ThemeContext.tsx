@@ -8,34 +8,81 @@ interface ThemeContextType {
   setTheme: (theme: Theme) => void;
 }
 
+function getSystemTheme(): Theme {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    const saved = localStorage.getItem('logicq_theme');
+    if (saved === 'dark' || saved === 'light') {
+      return saved;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return getSystemTheme();
+}
+
+function applyThemeToDocument(theme: Theme) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.remove('dark', 'light');
+  root.classList.add(theme);
+  root.setAttribute('data-theme', theme);
+  root.style.colorScheme = theme;
+  const meta = document.getElementById('meta-theme-color');
+  if (meta) {
+    meta.setAttribute('content', theme === 'dark' ? '#0C0F1F' : '#F4F6FB');
+  }
+}
+
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'light',
+  theme: 'dark',
   toggleTheme: () => {},
   setTheme: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Default to 'light' (white background) as requested
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('logicq_theme');
-    return (saved as Theme) || 'light';
-  });
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    localStorage.setItem('logicq_theme', theme);
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    applyThemeToDocument(theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      try {
+        const saved = localStorage.getItem('logicq_theme');
+        if (saved !== 'dark' && saved !== 'light') {
+          setThemeState(e.matches ? 'dark' : 'light');
+        }
+      } catch {
+        setThemeState(e.matches ? 'dark' : 'light');
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  const setTheme = (nextTheme: Theme) => {
+    try {
+      localStorage.setItem('logicq_theme', nextTheme);
+    } catch {
+      // Ignore storage quota/privacy errors
+    }
+    applyThemeToDocument(nextTheme);
+    setThemeState(nextTheme);
   };
 
-  const setTheme = (t: Theme) => setThemeState(t);
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>

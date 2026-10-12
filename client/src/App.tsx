@@ -3,20 +3,20 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.js';
 import { Navbar } from './components/layout/Navbar.js';
 import { Footer } from './components/layout/Footer.js';
+import { PwaManager } from './components/common/PwaManager.js';
 
 // Pages
 import { LandingPage } from './pages/LandingPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { RegisterPage } from './pages/RegisterPage.js';
+import { CompleteProfilePage } from './pages/CompleteProfilePage.js';
+import { PrivacyPage } from './pages/PrivacyPage.js';
+import { HowToInstallPage } from './pages/HowToInstallPage.js';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/ForgotPasswordPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { ChallengePage } from './pages/ChallengePage.js';
-import { ArchivePage } from './pages/ArchivePage.js';
-import { ArenaPage } from './pages/ArenaPage.js';
-import { ContestDetailPage } from './pages/ContestDetailPage.js';
 import { LeaderboardPage } from './pages/LeaderboardPage.js';
 import { HistoryPage } from './pages/HistoryPage.js';
-import { AchievementsPage } from './pages/AchievementsPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
@@ -36,6 +36,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Block dashboard/feature access if student has not completed PRN/College/Department/Year
+  if (
+    user.role === 'STUDENT' &&
+    user.profileComplete === false &&
+    location.pathname !== '/complete-profile'
+  ) {
+    return <Navigate to="/complete-profile" replace />;
   }
 
   return <>{children}</>;
@@ -61,24 +70,43 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 export const App: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const isWorkspaceRoute = location.pathname.startsWith('/challenge');
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-dark-950 text-slate-900 dark:text-slate-100 transition-colors overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors overflow-x-hidden">
       <Navbar />
+      <PwaManager />
 
       <main className="flex-1 w-full overflow-x-hidden">
         <Routes>
           {/* Root: if authenticated go to dashboard, else landing */}
-          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+          <Route
+            path="/"
+            element={
+              user ? (
+                user.role === 'STUDENT' && user.profileComplete === false ? (
+                  <Navigate to="/complete-profile" replace />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              ) : (
+                <LandingPage />
+              )
+            }
+          />
           <Route path="/landing" element={<LandingPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/how-to-install" element={<HowToInstallPage />} />
 
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/complete-profile" element={<CompleteProfilePage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Challenger Workspace & Catalog */}
+          {/* Daily Challenge Workspace & Dashboard */}
           <Route
             path="/dashboard"
             element={
@@ -103,47 +131,13 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/archive"
-            element={
-              <ProtectedRoute>
-                <ArchivePage />
-              </ProtectedRoute>
-            }
-          />
 
-          {/* Arena & Competitions */}
-          <Route
-            path="/arena"
-            element={
-              <ProtectedRoute>
-                <ArenaPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/arena/:slug"
-            element={
-              <ProtectedRoute>
-                <ContestDetailPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Leaderboard & Achievements */}
+          {/* Leaderboard & History */}
           <Route
             path="/leaderboard"
             element={
               <ProtectedRoute>
                 <LeaderboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/achievements"
-            element={
-              <ProtectedRoute>
-                <AchievementsPage />
               </ProtectedRoute>
             }
           />
@@ -184,12 +178,12 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Fallback */}
+          {/* Fallback (404 Page) */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
 
-      <Footer />
+      {!isWorkspaceRoute && <Footer />}
     </div>
   );
 };

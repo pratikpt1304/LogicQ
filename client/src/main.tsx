@@ -5,9 +5,49 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext.js';
 import { SocketProvider } from './context/SocketContext.js';
-import { ThemeProvider } from './context/ThemeContext.js';
+import { ThemeProvider, useTheme } from './context/ThemeContext.js';
 import { App } from './App.js';
 import './index.css';
+
+// Rate-limited, privacy-scrubbed client error reporter (posts to /api/support/error-report)
+let reportedCount = 0;
+function reportClientError(message: string, stack?: string) {
+  if (reportedCount >= 3) return;
+  reportedCount++;
+  try {
+    // Scrub any potential tokens, emails, or 12-digit PRNs before reporting
+    const scrub = (s: string) =>
+      s
+        .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+        .replace(/\b\d{12}\b/g, '[PRN_REDACTED]')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]');
+
+    fetch('/api/support/error-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        route: window.location.pathname,
+        message: scrub(String(message || 'Unknown error')).slice(0, 400),
+        stack: stack ? scrub(String(stack)).slice(0, 1500) : undefined,
+      }),
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    reportClientError(event.message || 'Window error', event.error?.stack);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    reportClientError(
+      reason?.message || String(reason || 'Unhandled promise rejection'),
+      reason?.stack
+    );
+  });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +59,25 @@ const queryClient = new QueryClient({
   },
 });
 
+const ThemedToaster: React.FC = () => {
+  const { theme } = useTheme();
+  return (
+    <Toaster
+      theme={theme}
+      position="top-right"
+      toastOptions={{
+        style: {
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '14px',
+          backgroundColor: 'var(--bg-panel)',
+          color: 'var(--text-main)',
+          border: '1px solid var(--border-line)',
+        },
+      }}
+    />
+  );
+};
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -27,15 +86,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <AuthProvider>
             <SocketProvider>
               <App />
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  style: {
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: '12px',
-                  },
-                }}
-              />
+              <ThemedToaster />
             </SocketProvider>
           </AuthProvider>
         </ThemeProvider>

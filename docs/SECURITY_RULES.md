@@ -10,12 +10,20 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |                                                                                                    |
 |  match /{document=**} { allow read, write: if false; }                                            |
 |                                                                                                    |
-|  - Verdict Creation:         BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
-|  - Points & Streak Mutation: BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
-|  - Hidden Test Cases:        BLOCKED TO ALL CLIENTS (allow read, write: if false;)                |
-|  - Peer Code Inspection:     BLOCKED (Students read only their own submissions)                   |
-|  - Role Elevation:           BLOCKED (request.auth.token.role == 'ADMIN' custom claim required)   |
-|  - Deletion of Submissions:  BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                |
+|  - Private User PII & PRN:    OWNER OR ADMIN READ ONLY (Peers cannot read users/{userId})         |
+|  - PRN Uniqueness Index:      BLOCKED TO ALL CLIENTS (prnIndex/{prn} Server Transaction only)      |
+|  - PRN & College Immutability:BLOCKED ON CLIENT UPDATE (Audited Admin/Server action only)          |
+|  - Arena, Archive & Badges:   DISABLED & BLOCKED TO ALL ROLES (contests/archive/badges -> false)   |
+|  - Problem Catalog Access:    CURRENT-WEEK UNLOCKED ONLY (No past-week archive or pre-unlock read) |
+|  - Problem Private Metadata:  ADMIN ONLY (Book sourceRef never readable by students)               |
+|  - Uploaded Solutions:        OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (uploaded_solutions)    |
+|  - Upload Reviews & Errors:   ADMIN READ ONLY / SERVER WRITE ONLY (upload_reviews, error_reports)  |
+|  - Verdict Creation:          BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
+|  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
+|  - Hidden Test Cases:         BLOCKED TO ALL CLIENTS (allow read, write: if false;)                |
+|  - Peer Code Inspection:      BLOCKED (Students read only their own submissions)                   |
+|  - Role Elevation:            BLOCKED (request.auth.token.role == 'ADMIN' custom claim required)   |
+|  - Deletion of Submissions:   BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                 |
 +----------------------------------------------------------------------------------------------------+
 ```
 
@@ -35,7 +43,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Security Helper Functions
+    // Security Helper Functions & Domain Validators
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -48,42 +56,109 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == 'ADMIN';
     }
 
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    function isAllowedDepartment(dept) {
+      return dept is string &&
+        dept in ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
+    }
+
+    function isAllowedYear(yr) {
+      return yr is string &&
+        yr in ['FY', 'SY', 'TY'];
+    }
+
+    function isValidDivision(div) {
+      return div == null ||
+        (div is string && div.size() <= 3 && div.matches('^[A-Z0-9]{0,3}$'));
+    }
+
+    function isValidDisplayName(name) {
+      return name == null ||
+        (name is string && name.size() >= 3 && name.size() <= 20);
+    }
+
+    function isValidUserSelfUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      let data = request.resource.data;
+      return uidNotModified()
+        && changedKeys.hasOnly([
+          'department', 'year', 'division', 'displayName',
+          'bio', 'photoURL', 'storagePreference', 'updatedAt'
+        ])
+        && !changedKeys.hasAny([
+          'prn', 'college', 'email', 'role', 'status', 'banReason',
+          'stats', 'points', 'totalPoints', 'streak', 'currentStreak'
+        ])
+        && isAllowedDepartment(data.department)
+        && isAllowedYear(data.year)
+        && (!('division' in data) || isValidDivision(data.division))
+        && (!('displayName' in data) || isValidDisplayName(data.displayName))
+        && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
+        && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
+        && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE']);
+    }
+
     // -------------------------------------------------------------------------
-    // 1. USERS COLLECTION
+    // 1. USERS, PRN INDEX & PUBLIC PROFILES COLLECTIONS
     // -------------------------------------------------------------------------
     match /users/{userId} {
-      // Authenticated users can read public user profile data for leaderboards
-      allow read: if isAuthenticated();
+      // Private student document (holds PII: prn & email).
+      // Strictly readable ONLY by the document owner or an Admin.
+      allow read: if isOwner(userId) || isAdmin();
 
-      // Users can only create their own base profile upon first login
-      allow create: if isOwner(userId)
-                    && request.resource.data.role == 'STUDENT'
-                    && request.resource.data.stats.points == 0
-                    && request.resource.data.stats.streak == 0;
+      // Profile creation happens strictly on the server inside an atomic
+      // transaction alongside prnIndex/{prn}.
+      allow create: if false;
 
-      // Users can update non-authoritative profile fields (college, graduationYear, bio)
-      // BUT CANNOT modify role, status, points, or streaks!
-      allow update: if isOwner(userId)
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-                         'role', 'status', 'banReason', 'stats', 'points', 'totalPoints', 'streak', 'currentStreak'
-                       ]);
+      // Students can ONLY update allowed self-service academic/profile fields.
+      // Cannot change prn, college, email, role, status, banReason, points, or streak.
+      allow update: if isOwner(userId) && isValidUserSelfUpdate();
 
-      // Submissions and user records cannot be deleted by clients
+      // Account deletion is handled strictly by the server account deletion
+      // transaction that also frees prnIndex/{prn} and scrubs PII.
       allow delete: if false;
 
       // Private fallback drafts (used only when Google Drive is unavailable/blocked)
       match /drafts/{draftId} {
         allow read, write: if isOwner(userId);
       }
+
+      // Badges subcollections are disabled (FEATURE_BADGES=false) and strictly denied
+      match /badges/{badgeId=**} {
+        allow read, write: if false;
+      }
+
+      match /user_badges/{docId=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /prnIndex/{prn} {
+      // Clients can NEVER read, enumerate, create, or overwrite prnIndex;
+      // managed strictly inside server transactions.
+      allow read, write: if false;
+    }
+
+    match /publicProfiles/{userId} {
+      // Non-PII public profile mirror for leaderboards and peer views
+      // (contains uid, publicLabel, college, department, year, division, stats; never contains prn or email)
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
 
     // -------------------------------------------------------------------------
     // 2. PROBLEMS COLLECTION
     // -------------------------------------------------------------------------
     match /problems/{problemId} {
-      // Students can read published problems; admins can read drafts
+      // Students can ONLY read published problems that belong to the current week and are unlocked;
+      // students cannot list/read arbitrary archived problems from past weeks or before unlock.
+      // Admins can read all problems (including drafts).
       allow read: if isAuthenticated() && (
-        resource.data.status == 'PUBLISHED' || isAdmin()
+        (resource.data.status == 'PUBLISHED' && resource.data.isCurrentWeekUnlocked == true) || isAdmin()
       );
 
       // Only Admins can create or update problem statements
@@ -94,10 +169,16 @@ service cloud.firestore {
       match /hidden_tests/{testId} {
         allow read, write: if false;
       }
+
+      // PRIVATE METADATA SUBCOLLECTION (e.g., book sourceRef: chapter, exerciseNumber, page):
+      // Strictly restricted to Admin only — never readable by students
+      match /private_metadata/{docId} {
+        allow read, write: if isAdmin();
+      }
     }
 
     // -------------------------------------------------------------------------
-    // 3. SUBMISSIONS COLLECTION (APPEND-ONLY & UNTOUCHABLE BY CLIENTS)
+    // 3. SUBMISSIONS & UPLOADED SOLUTIONS COLLECTIONS (SERVER-MANAGED WRITES)
     // -------------------------------------------------------------------------
     match /submissions/{submissionId} {
       // Students can ONLY read their own submissions. Admins can read all.
@@ -110,8 +191,25 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /uploaded_solutions/{uploadId} {
+      // Students can ONLY read their own uploaded solution; never another student's. Admins can read all.
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      // Creation, status changes, pointsAwarded, and reviewerComment happen strictly on the server
+      // via /api/uploads and /api/admin/uploads.
+      allow write: if false;
+    }
+
+    match /upload_reviews/{reviewId} {
+      // Upload review audit trail: readable by Admin only, written strictly on the server
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // -------------------------------------------------------------------------
-    // 4. WEEKLY COMPETITION, LEADERBOARDS, SUMMARIES & CONTESTS
+    // 4. WEEKLY COMPETITION, LEADERBOARDS & SUMMARIES (ARENA, ARCHIVE & BADGES DISABLED)
     // -------------------------------------------------------------------------
     match /weeks/{weekId} {
       allow read: if isAuthenticated();
@@ -175,13 +273,26 @@ service cloud.firestore {
       allow write: if false; // Server-updated only
     }
 
-    match /contests/{contestId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+    // Arena (contests), Archive, and Badges (FEATURE_BADGES=false) collections are disabled
+    // and strictly denied to all client roles (including Admin)
+    match /contests/{contestId=**} {
+      allow read, write: if false;
+    }
+
+    match /archive/{docId=**} {
+      allow read, write: if false;
+    }
+
+    match /badges/{badgeId=**} {
+      allow read, write: if false;
+    }
+
+    match /user_badges/{docId=**} {
+      allow read, write: if false;
     }
 
     // -------------------------------------------------------------------------
-    // 5. SUPPORT & DEBUG REPORTS
+    // 5. SUPPORT, DEBUG & CLIENT ERROR REPORTS
     // -------------------------------------------------------------------------
     match /support_reports/{reportId} {
       // Students can create a report, but must own the userId on the report
@@ -193,6 +304,13 @@ service cloud.firestore {
 
       // Reports are immutable once submitted
       allow update, delete: if false;
+    }
+
+    match /error_reports/{reportId} {
+      // Client error reports are written strictly on the server via /api/support/error-report
+      // and readable only by Admins.
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // -------------------------------------------------------------------------
@@ -219,7 +337,7 @@ service cloud.firestore {
 All cheating permutations and attack vectors in [`server/tests/firestore-security-rules.test.ts`](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/server/tests/firestore-security-rules.test.ts) cover:
 
 ```
- ✓ tests/firestore-security-rules.test.ts (13 tests)
+ ✓ tests/firestore-security-rules.test.ts (26 tests)
    ✓ CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL
    ✓ CHEAT ATTEMPT 2: Student attempts to elevate their own role to ADMIN -> MUST FAIL
    ✓ CHEAT ATTEMPT 3: Student attempts to read hidden test cases -> MUST FAIL
@@ -231,7 +349,18 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ CHEAT ATTEMPT 9: Student attempts to read another student's weekly summary or locked future challenge -> MUST FAIL
    ✓ CHEAT ATTEMPT 10: Student attempts to forge a streak freeze (/streak_events) -> MUST FAIL
    ✓ CHEAT ATTEMPT 11: Student attempts to declare an admin streak pause (/streak_pauses) -> MUST FAIL
-   ✓ VALID OPERATION: Student reads their own submission, own weekly summary, and own streak events -> MUST SUCCEED
-   ✓ VALID OPERATION: Admin reads any submission, weekly correction queue, and declares a streak pause -> MUST SUCCEED
+   ✓ CHEAT ATTEMPT 12: Student attempts to read another student's private users/{uid} document (PRN & email) -> MUST FAIL
+   ✓ CHEAT ATTEMPT 13: Student attempts to mutate their own immutable PRN or college after signup -> MUST FAIL
+   ✓ CHEAT ATTEMPT 14: Student attempts to read or write prnIndex/{prn} directly -> MUST FAIL
+   ✓ CHEAT ATTEMPT 15: Student attempts to set an invalid department, year, or division -> MUST FAIL
+   ✓ CHEAT ATTEMPT 16: Client (Student or Admin) attempts to read or write disabled Arena (/contests) or Archive (/archive) collections -> MUST FAIL
+   ✓ CHEAT ATTEMPT 17: Student attempts to read archived past-week problems or pre-unlock problems directly from /problems -> MUST FAIL
+   ✓ CHEAT ATTEMPT 18: Client (Student or Admin) attempts to read or write disabled Badges (/badges, /user_badges, or user badge subcollections) -> MUST FAIL
+   ✓ CHEAT ATTEMPT 19: Student attempts to read another student's uploaded solution or write directly to /uploaded_solutions -> MUST FAIL
+   ✓ CHEAT ATTEMPT 20: Student attempts to read or write /upload_reviews or /error_reports -> MUST FAIL
+   ✓ CHEAT ATTEMPT 21: Student attempts to read private problem metadata (/problems/{id}/private_metadata) containing book sourceRef -> MUST FAIL
+   ✓ VALID OPERATION: Student updates allowed academic profile fields (department, year, division, displayName) -> MUST SUCCEED
+   ✓ VALID OPERATION: Student reads their own private profile and publicProfiles/{uid} -> MUST SUCCEED
+   ✓ VALID OPERATION: Student reads their own submission, own uploaded solution, own weekly summary, and own streak events -> MUST SUCCEED
+   ✓ VALID OPERATION: Admin reads any submission, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
 ```
-

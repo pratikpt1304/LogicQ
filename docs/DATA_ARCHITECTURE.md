@@ -35,13 +35,15 @@ LogicQ operates on a **Zero-Trust, User-Centric Data Partitioning Architecture**
 
 | Data Entity | Primary Storage Location | Access Protocol | Authoritative Source? | Rationale & Security Rules |
 | :--- | :--- | :--- | :---: | :--- |
-| **User Account & Claims** | Firebase Auth + Firestore (`users`) | Server-Admin SDK / Auth Claims | **YES** | Identity, Google UID, and RBAC custom claims (`student`, `admin`). Client read-only. |
+| **Private User Document (PII + PRN)** | Firebase Auth + Firestore (`users/{uid}`) | Owner / Admin Read; Validated Student Update (`department`, `year`, `division`, `displayName`) | **YES** | Stores private `prn` (`^[0-9]{12}$`) and `email`. Never readable by other students. `prn` and `college` are immutable after signup except via audited Admin re-authenticated action. |
+| **PRN Uniqueness Index** | Firestore (`prnIndex/{prn}`) / SQL (`PrnIndex`) | **Server Transaction Only** (`allow read, write: if false;`) | **YES** | Enforces 1-to-1 uniqueness of 12-digit PRNs inside an atomic transaction on signup/profile completion. Freed upon account deletion. |
+| **Public Profile Mirror (Non-PII)** | Firestore (`publicProfiles/{uid}`) | Authenticated Read / Server Write | **YES** | Exposes non-PII fields (`displayName` or `"Student <shortId>"`, `college`, `department`, `year`, `division`, `stats`). **Never** contains `prn` or `email`. |
 | **Problem Statements & Samples** | Firestore (`problems`) | Public Read (Published only) | **YES** | Problem catalog, constraints, and visible samples. Client read-only. |
 | **Hidden Test Cases** | Firestore (`problems/{id}/hidden_tests`) | **Server Only** (`allow: false`) | **YES** | Encrypted/hidden test cases. Clients have zero read access. Executed only by judge worker. |
-| **Evaluated Submissions & Verdicts**| Firestore (`submissions`) | Server Write / User Read | **YES** | Authoritative submission log, runtime (ms), memory (KB), and verdict. Client cannot create or edit. |
-| **Points, Streaks & Badges** | Firestore (`users/{uid}/stats`, `badges`) | Server Write Only | **YES** | Gamification metrics calculated strictly in Cloud Functions upon Accepted verdicts. |
-| **Contests & Scoreboards** | Firestore (`contests`) | Server Write / Public Read | **YES** | Synchronized contest definitions and ICPC penalty scoreboards. |
-| **Admin Audit Trail** | Firestore (`admin_audit_logs`) | Server-Admin SDK Only | **YES** | Immutable log of administrative actions (bans, problem publishing, rejudges). |
+| **Evaluated Submissions & Verdicts**| Firestore (`submissions`) | Server Write / Owner or Admin Read | **YES** | Authoritative submission log, runtime (ms), memory (KB), and verdict. Client cannot create or edit. |
+| **Points & Streaks** | Firestore (`users/{uid}/stats`) | Server Write Only | **YES** | Progression metrics calculated strictly in Cloud Functions upon Accepted verdicts (`FEATURE_BADGES=false` disables badge awarding and client access). |
+| **Weekly Summaries & Leaderboards** | Firestore (`weeks/{id}/leaderboard`, `weekly_summaries`) | Server Write / Filtered Read | **YES** | Supports optional `department` and `year` filtering; own row displays masked PRN (`••••••5678`) only to the student themselves. |
+| **Admin Audit Trail** | Firestore (`admin_audit_logs`) | Server-Admin SDK Only | **YES** | Immutable log of administrative actions (PRN/college edits with re-auth, bans, problem publishing, rejudges). |
 | **In-Progress Code Drafts** | **Student Google Drive** (`drive.appdata`) | Client via Google OAuth | **NO** | Draft code per problem (`drafts/{slug}.c`). Never read by server judge. |
 | **Draft Fallback (When Drive Blocked)**| Firestore (`users/{uid}/drafts`) or Local | Private Client / Per-User Rule | **NO** | Fallback when campus Google Workspace blocks third-party Drive access. |
 | **Student Personal Notes** | **Student Google Drive** (`notes/{slug}.md`)| Client via Google OAuth | **NO** | Private scratchpads for algorithmic brainstorming. |
@@ -53,18 +55,42 @@ LogicQ operates on a **Zero-Trust, User-Centric Data Partitioning Architecture**
 
 ## 3. Firestore Entity Schemas & Collections
 
-### Collection: `users/{userId}`
+### Config-Driven Academic Constants
 ```typescript
+export const ALLOWED_COLLEGES = ['Sanjivani University'] as const;
+export const ALLOWED_DEPARTMENTS = [
+  'AIML',
+  'AIDS',
+  'Integrated M.Tech',
+  'Mechanical',
+  'CSE',
+  'Integrated B.Tech',
+] as const;
+export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
+export const PRN_REGEX = /^[0-9]{12}$/;
+export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
+```
+
+### Collection: `users/{userId}` (Private Student Document)
+```typescript
+// READABLE ONLY BY OWNER (request.auth.uid == userId) OR ADMIN
+// STUDENT UPDATE ALLOWED ONLY ON: ['department', 'year', 'division', 'displayName', 'bio', 'photoURL', 'storagePreference']
+// IMMUTABLE BY STUDENT: 'prn', 'college', 'email', 'role', 'status', 'stats'
 interface FirestoreUser {
   uid: string;
-  email: string;
-  displayName: string;
+  prn: string; // Exactly 12 digits (^[0-9]{12}$), private PII — NEVER exposed to other students
+  email: string; // College email
+  college: 'Sanjivani University'; // Immutable after signup (admin-only audited change)
+  department: 'AIML' | 'AIDS' | 'Integrated M.Tech' | 'Mechanical' | 'CSE' | 'Integrated B.Tech';
+  year: 'FY' | 'SY' | 'TY';
+  division?: string | null; // Optional, 0-3 alphanumeric characters stored UPPERCASE (e.g. "A", "B", "C1")
+  displayName?: string | null; // Optional student-chosen public label (3-20 chars, profanity-filtered)
+  shortId: string; // Short random non-PII suffix used for fallback public label ("Student 4F9A")
+  profileComplete: boolean; // False until PRN, college, department, year are completed (gates Google Sign-In)
   photoURL?: string;
   role: 'STUDENT' | 'ADMIN';
   status: 'ACTIVE' | 'BANNED';
   banReason?: string;
-  college?: string;
-  graduationYear?: number;
   stats: {
     points: number;
     streak: number;
@@ -77,6 +103,45 @@ interface FirestoreUser {
   updatedAt: FirebaseFirestore.Timestamp;
 }
 ```
+
+### Collection: `prnIndex/{prn}` (Transactional PRN Uniqueness Lock)
+```typescript
+// STRICTLY SERVER-ONLY (allow read, write: if false;)
+// Created atomically inside a transaction alongside users/{uid}.
+// Deleted when the user deletes their account, or re-keyed in a transaction when an Admin updates a PRN.
+interface FirestorePrnIndex {
+  prn: string; // Document ID: 12-digit PRN (^[0-9]{12}$)
+  userId: string; // Bound Firebase Auth UID / User ID (1 PRN per account)
+  createdAt: FirebaseFirestore.Timestamp;
+}
+```
+
+### Collection: `publicProfiles/{userId}` (Privacy-Safe Public View)
+```typescript
+// Readable by authenticated students for leaderboards and peer profiles.
+// NEVER contains `prn` or `email`.
+interface FirestorePublicProfile {
+  uid: string;
+  publicLabel: string; // displayName (3-20 chars) if set, otherwise "Student " + shortId
+  college: string;
+  department: string;
+  year: string;
+  division?: string | null;
+  stats: {
+    points: number;
+    streak: number;
+    solvedProblemsCount: number;
+  };
+  updatedAt: FirebaseFirestore.Timestamp;
+}
+```
+
+### Privacy, Masking, Data Export & Account Deletion Rules
+- **Own-View Masked PRN**: When a student views their own profile or their own pinned row on the weekly leaderboard, the server formats their identity label with `department`, `year`, and the last 4 digits of their PRN masked as `"••••••5678"` (e.g., `"AIML • FY • ••••••5678"`).
+- **Other Students' View**: Other students never receive the `prn` or `maskedPrn` of peers; they see `displayName` (if configured) or `"Student " + shortId`.
+- **Data Export (`GET /api/users/me/export`)**: Exports full personal record including `prn`, `college`, `department`, `year`, `division`, `displayName`, `email`, submissions, and points.
+- **Account Deletion (`DELETE /api/users/me`)**: Removes `prn` from `users/{uid}`, deletes `prnIndex/{prn}` so the PRN is freed, clears `publicProfiles/{uid}` and profile PII (`email`, `displayName`, `division`, `bio`, `avatarUrl`), and retains only anonymized submission/leaderboard aggregates with no link to the student's PRN or email.
+
 
 ### Collection: `problems/{problemId}`
 ```typescript

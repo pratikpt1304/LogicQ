@@ -2,32 +2,26 @@ import { Router } from 'express';
 import {
   register,
   login,
-  refresh,
   logout,
-  logoutAll,
+  refresh,
   getMe,
   forgotPassword,
   resetPassword,
-  registerSchema,
-  loginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  googleAuth,
-  googleAuthSchema,
+  googleSignIn,
+  completeProfile,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
-import { validate } from '../middleware/validate.middleware.js';
-import { authLimiter } from '../middleware/rate-limit.middleware.js';
 
 export const authRouter = Router();
 
-authRouter.post('/google', authLimiter, validate(googleAuthSchema), googleAuth);
-authRouter.post('/register', authLimiter, validate(registerSchema), register);
-authRouter.post('/login', authLimiter, validate(loginSchema), login);
-authRouter.post('/refresh', refresh);
+authRouter.post('/register', register);
+authRouter.post('/login', login);
+authRouter.post('/google', googleSignIn);
+authRouter.post('/complete-profile', authenticate, completeProfile);
 authRouter.post('/logout', logout);
-authRouter.post('/logout-all', authenticate, logoutAll);
+authRouter.post('/refresh', refresh);
 authRouter.get('/me', authenticate, getMe);
-authRouter.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), forgotPassword);
-authRouter.post('/reset-password', authLimiter, validate(resetPasswordSchema), resetPassword);
+authRouter.post('/forgot-password', forgotPassword);
+authRouter.post('/reset-password', resetPassword);
 
+export default authRouter;

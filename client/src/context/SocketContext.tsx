@@ -1,49 +1,35 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useAuth } from './AuthContext.js';
+import React, { createContext, useContext } from 'react';
+
+/**
+ * Lightweight event stub replacing Socket.IO WebSocket connections.
+ * Firebase Hosting + Cloud Functions are stateless and do not serve a WebSocket endpoint at `/socket.io`.
+ * Submission verdicts and weekly leaderboard updates use visibility-aware HTTP polling and manual refresh.
+ */
+export interface RealtimeClientStub {
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  off: (event: string, callback?: (...args: any[]) => void) => void;
+  emit: (event: string, ...args: any[]) => void;
+}
 
 interface SocketContextType {
-  socket: Socket | null;
+  socket: RealtimeClientStub | null;
   isConnected: boolean;
 }
 
+const noopSocket: RealtimeClientStub = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+};
+
 const SocketContext = createContext<SocketContextType>({
-  socket: null,
+  socket: noopSocket,
   isConnected: false,
 });
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    // Connect to WebSocket server via proxy or direct window.location
-    const newSocket = io({
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-    });
-
-    newSocket.on('connect', () => {
-      setIsConnected(true);
-      if (user?.id) {
-        newSocket.emit('subscribe_user', user.id);
-      }
-    });
-
-    newSocket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
-  }, [user?.id]);
-
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket: noopSocket, isConnected: false }}>
       {children}
     </SocketContext.Provider>
   );

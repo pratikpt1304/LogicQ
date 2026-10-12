@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { ENV } from './config/env.js';
+import { FEATURES } from './config/features.config.js';
 
 // Route imports
 import { authRouter } from './routes/auth.routes.js';
@@ -12,6 +13,8 @@ import { contestRouter } from './routes/contest.routes.js';
 import { leaderboardRouter } from './routes/leaderboard.routes.js';
 import { userRouter } from './routes/user.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { uploadRouter } from './routes/upload.routes.js';
+import { prisma } from './utils/prisma.js';
 
 export const app = express();
 
@@ -37,6 +40,8 @@ app.use(
 );
 
 app.use(cookieParser());
+// Allow larger JSON payloads specifically on /api/uploads (up to 3 x 5 MB base64 files)
+app.use('/api/uploads', express.json({ limit: '25mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -59,10 +64,66 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// Client Error Report Endpoint (rate-limited, scrubbed of tokens/code/personal data)
+app.post('/api/support/error-report', async (req: Request, res: Response) => {
+  try {
+    const route = typeof req.body?.route === 'string' ? req.body.route.slice(0, 200) : '/';
+    const message = typeof req.body?.message === 'string' ? req.body.message.slice(0, 500) : 'Unknown client error';
+    const stack = typeof req.body?.stack === 'string' ? req.body.stack.slice(0, 2000) : null;
+    const userAgent = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'].slice(0, 250) : null;
+
+    await prisma.errorReport.create({
+      data: {
+        route,
+        message,
+        stack,
+        userAgent,
+      },
+    });
+    res.status(201).json({ success: true });
+  } catch {
+    res.status(200).json({ success: true });
+  }
+});
+
+// Disabled Feature Route Guards (Arena, Archive & Badges return generic 404 Not Found for all callers)
+app.use('/api/archive', (_req: Request, res: Response) => {
+  if (!FEATURES.ARCHIVE) {
+    res.status(404).json({ success: false, message: 'Not found' });
+    return;
+  }
+  res.status(404).json({ success: false, message: 'Not found' });
+});
+
+app.use('/api/arena', (_req: Request, res: Response) => {
+  if (!FEATURES.ARENA) {
+    res.status(404).json({ success: false, message: 'Not found' });
+    return;
+  }
+  res.status(404).json({ success: false, message: 'Not found' });
+});
+
+app.use('/api/badges', (_req: Request, res: Response) => {
+  if (!FEATURES.BADGES) {
+    res.status(404).json({ success: false, message: 'Not found' });
+    return;
+  }
+  res.status(404).json({ success: false, message: 'Not found' });
+});
+
+app.use('/api/achievements', (_req: Request, res: Response) => {
+  if (!FEATURES.BADGES) {
+    res.status(404).json({ success: false, message: 'Not found' });
+    return;
+  }
+  res.status(404).json({ success: false, message: 'Not found' });
+});
+
 // Mount Routes
 app.use('/api/auth', authRouter);
 app.use('/api/problems', problemRouter);
 app.use('/api/submissions', submissionRouter);
+app.use('/api/uploads', uploadRouter);
 app.use('/api/contests', contestRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', userRouter);
@@ -83,3 +144,5 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     message: ENV.NODE_ENV === 'production' ? 'Internal server error' : (err.message || 'Internal server error'),
   });
 });
+
+export default app;

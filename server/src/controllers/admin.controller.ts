@@ -1,9 +1,17 @@
 import { Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getQueue } from '../queue/queue.factory.js';
 import { getChallengeDayIST, getChallengeDayWindowIST } from '../utils/ist.js';
+import {
+  ALLOWED_COLLEGES,
+  ALLOWED_DEPARTMENTS,
+  ALLOWED_YEARS,
+  PRN_REGEX,
+  DIVISION_REGEX,
+} from '../config/academic.config.js';
 
 export const problemAdminSchema = z.object({
   body: z.object({
@@ -442,7 +450,16 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
     const [students, problems, recentWindowSubmissions] = await Promise.all([
       prisma.user.findMany({
         where: { role: 'STUDENT' },
-        select: { id: true, username: true, fullName: true },
+        select: {
+          id: true,
+          username: true,
+          fullName: true,
+          department: true,
+          year: true,
+          division: true,
+          college: true,
+          totalPoints: true,
+        },
       }),
       prisma.problem.findMany({
         select: { id: true, title: true, slug: true, difficulty: true, category: true },
@@ -471,6 +488,46 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
       if (s.verdict === 'ACCEPTED') dailyTrends[dateStr].accepted++;
     }
 
+    // Weekly Result Summary & Analytics: Department and Year breakdowns for admins
+    const studentById = new Map(students.map((st) => [st.id, st]));
+
+    const departmentBreakdown = ALLOWED_DEPARTMENTS.map((dept) => {
+      const deptStudents = students.filter((s) => s.department === dept);
+      const deptStudentIds = new Set(deptStudents.map((s) => s.id));
+      const deptSubs = recentWindowSubmissions.filter((sub) => deptStudentIds.has(sub.userId));
+      const activeIds = new Set(deptSubs.map((sub) => sub.userId));
+      const acceptedSubs = deptSubs.filter((sub) => sub.verdict === 'ACCEPTED').length;
+      const totalPoints = deptStudents.reduce((acc, s) => acc + (s.totalPoints || 0), 0);
+      return {
+        department: dept,
+        totalStudents: deptStudents.length,
+        activeStudents: activeIds.size,
+        totalSubmissions: deptSubs.length,
+        acceptedSubmissions: acceptedSubs,
+        totalPoints,
+        averagePoints:
+          deptStudents.length > 0 ? Math.round(totalPoints / deptStudents.length) : 0,
+      };
+    });
+
+    const yearBreakdown = ALLOWED_YEARS.map((yr) => {
+      const yrStudents = students.filter((s) => s.year === yr);
+      const yrStudentIds = new Set(yrStudents.map((s) => s.id));
+      const yrSubs = recentWindowSubmissions.filter((sub) => yrStudentIds.has(sub.userId));
+      const activeIds = new Set(yrSubs.map((sub) => sub.userId));
+      const acceptedSubs = yrSubs.filter((sub) => sub.verdict === 'ACCEPTED').length;
+      const totalPoints = yrStudents.reduce((acc, s) => acc + (s.totalPoints || 0), 0);
+      return {
+        year: yr,
+        totalStudents: yrStudents.length,
+        activeStudents: activeIds.size,
+        totalSubmissions: yrSubs.length,
+        acceptedSubmissions: acceptedSubs,
+        totalPoints,
+        averagePoints: yrStudents.length > 0 ? Math.round(totalPoints / yrStudents.length) : 0,
+      };
+    });
+
     const pilotAnalytics = computeTwoWeekPilotAnalytics(
       pilotDays,
       students,
@@ -492,8 +549,11 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
           difficulty: d.difficulty,
           count: d._count.id,
         })),
+        departmentBreakdown,
+        yearBreakdown,
         dailyTrends,
         pilotAnalytics,
+        studentMetaCount: studentById.size,
       },
     });
   } catch (err: any) {
@@ -685,10 +745,31 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
     const verdict = req.query.verdict as string | undefined;
+    const department = (req.query.department as string | undefined)?.trim();
+    const year = (req.query.year as string | undefined)?.trim();
+    const division = (req.query.division as string | undefined)?.trim();
+    const search = (req.query.search as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (verdict) where.verdict = verdict;
+    if (verdict && verdict !== 'ALL') where.verdict = verdict;
+
+    const userFilter: any = {};
+    if (department && department !== 'ALL') userFilter.department = department;
+    if (year && year !== 'ALL') userFilter.year = year;
+    if (division && division !== 'ALL') userFilter.division = division.toUpperCase();
+    if (search) {
+      userFilter.OR = [
+        { prn: { contains: search } },
+        { email: { contains: search } },
+        { displayName: { contains: search } },
+        { fullName: { contains: search } },
+        { username: { contains: search } },
+      ];
+    }
+    if (Object.keys(userFilter).length > 0) {
+      where.user = userFilter;
+    }
 
     const [submissions, total] = await Promise.all([
       prisma.submission.findMany({
@@ -697,7 +778,20 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, username: true, fullName: true, email: true } },
+          user: {
+            select: {
+              id: true,
+              username: true,
+              prn: true,
+              displayName: true,
+              fullName: true,
+              email: true,
+              college: true,
+              department: true,
+              year: true,
+              division: true,
+            },
+          },
           problem: { select: { id: true, title: true, slug: true, difficulty: true } },
         },
       }),
@@ -754,15 +848,29 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
-    const search = req.query.search as string | undefined;
+    const search = (req.query.search as string | undefined)?.trim();
+    const department = (req.query.department as string | undefined)?.trim();
+    const year = (req.query.year as string | undefined)?.trim();
+    const division = (req.query.division as string | undefined)?.trim();
+    const college = (req.query.college as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    if (department && department !== 'ALL') where.department = department;
+    if (year && year !== 'ALL') where.year = year;
+    if (division && division !== 'ALL') where.division = division.toUpperCase();
+    if (college && college !== 'ALL') where.college = college;
+
     if (search) {
       where.OR = [
-        { username: { contains: search } },
+        { prn: { contains: search } },
         { email: { contains: search } },
+        { displayName: { contains: search } },
         { fullName: { contains: search } },
+        { username: { contains: search } },
+        { department: { contains: search } },
+        { year: { contains: search } },
+        { division: { contains: search } },
       ];
     }
 
@@ -775,10 +883,17 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
         select: {
           id: true,
           username: true,
+          prn: true,
           email: true,
+          displayName: true,
+          shortId: true,
           fullName: true,
           role: true,
           college: true,
+          department: true,
+          year: true,
+          division: true,
+          profileComplete: true,
           totalPoints: true,
           currentStreak: true,
           isBanned: true,
@@ -809,6 +924,328 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
   } catch (err: any) {
     console.error('Admin users error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch users' });
+  }
+}
+
+const adminUpdatePrnCollegeSchema = z.object({
+  prn: z
+    .string()
+    .trim()
+    .refine((val) => PRN_REGEX.test(val), {
+      message: 'PRN must be exactly 12 digits (0-9 only).',
+    }),
+  college: z.enum(ALLOWED_COLLEGES, {
+    errorMap: () => ({ message: 'College must be one of the allowed colleges.' }),
+  }),
+  department: z.enum(ALLOWED_DEPARTMENTS).optional(),
+  year: z.enum(ALLOWED_YEARS).optional(),
+  division: z
+    .preprocess((val) => {
+      if (val === undefined) return undefined;
+      if (val === null) return null;
+      const t = String(val).trim().toUpperCase();
+      return t === '' ? null : t;
+    }, z.string().nullable().optional())
+    .refine((val) => val === undefined || val === null || DIVISION_REGEX.test(val), {
+      message: 'Division must be up to 3 letters or digits.',
+    }),
+  adminPassword: z.string().min(1, 'Admin re-authentication password is required.'),
+  reason: z.string().trim().min(3, 'Audit reason is required (at least 3 characters).').max(300),
+});
+
+/**
+ * Audited Admin Action (with step-up password re-authentication):
+ * Updates a student's PRN and/or College and atomically updates PrnIndex + writes AdminAuditLog.
+ */
+export async function adminUpdateUserPrnAndCollege(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { id } = req.params;
+    const parsed = adminUpdatePrnCollegeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: parsed.error.issues[0]?.message || 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    const { prn, college, department, year, division, adminPassword, reason } = parsed.data;
+
+    // 1. Re-authenticate the calling admin
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Admin privileges required.' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+    if (!passwordValid) {
+      res.status(401).json({
+        success: false,
+        message: 'Admin re-authentication failed: incorrect password.',
+      });
+      return;
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      res.status(404).json({ success: false, message: 'Student user not found.' });
+      return;
+    }
+
+    // 2. Atomic transaction: update PrnIndex + User + AdminAuditLog
+    const result = await prisma.$transaction(async (tx) => {
+      const existingPrnOwner = await tx.prnIndex.findUnique({ where: { prn } });
+      if (existingPrnOwner && existingPrnOwner.userId !== id) {
+        const err = new Error('This PRN is already registered to another student.');
+        (err as any).statusCode = 409;
+        throw err;
+      }
+
+      if (targetUser.prn && targetUser.prn !== prn) {
+        await tx.prnIndex.deleteMany({
+          where: { prn: targetUser.prn, userId: id },
+        });
+      }
+
+      await tx.prnIndex.upsert({
+        where: { prn },
+        update: { userId: id },
+        create: { prn, userId: id },
+      });
+
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: {
+          prn,
+          college,
+          ...(department !== undefined ? { department } : {}),
+          ...(year !== undefined ? { year } : {}),
+          ...(division !== undefined ? { division } : {}),
+          profileComplete: true,
+        },
+        select: {
+          id: true,
+          username: true,
+          prn: true,
+          email: true,
+          college: true,
+          department: true,
+          year: true,
+          division: true,
+          displayName: true,
+        },
+      });
+
+      const auditEntry = await tx.adminAuditLog.create({
+        data: {
+          adminId: adminUser.id,
+          targetUserId: id,
+          action: 'ADMIN_UPDATE_PRN_COLLEGE',
+          oldValue: JSON.stringify({
+            prn: targetUser.prn,
+            college: targetUser.college,
+            department: targetUser.department,
+            year: targetUser.year,
+            division: targetUser.division,
+          }),
+          newValue: JSON.stringify({
+            prn: updatedUser.prn,
+            college: updatedUser.college,
+            department: updatedUser.department,
+            year: updatedUser.year,
+            division: updatedUser.division,
+          }),
+          reason,
+        },
+      });
+
+      return { updatedUser, auditEntry };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Student PRN and academic record updated and audited.',
+      data: {
+        user: result.updatedUser,
+        auditLogId: result.auditEntry.id,
+      },
+    });
+  } catch (err: any) {
+    if (err?.statusCode === 409 || err?.code === 'P2002') {
+      res.status(409).json({
+        success: false,
+        message: 'This PRN is already registered to another student.',
+      });
+      return;
+    }
+    console.error('Admin update PRN error');
+    res.status(500).json({ success: false, message: 'Failed to update student PRN' });
+  }
+}
+
+export async function getAdminAuditLogs(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const logs = await prisma.adminAuditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.status(200).json({
+      success: true,
+      data: { logs },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch audit logs' });
+  }
+}
+
+function escapeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export async function exportUsersCsv(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const department = (req.query.department as string | undefined)?.trim();
+    const year = (req.query.year as string | undefined)?.trim();
+    const division = (req.query.division as string | undefined)?.trim();
+    const college = (req.query.college as string | undefined)?.trim();
+
+    const where: any = { role: 'STUDENT' };
+    if (department && department !== 'ALL') where.department = department;
+    if (year && year !== 'ALL') where.year = year;
+    if (division && division !== 'ALL') where.division = division.toUpperCase();
+    if (college && college !== 'ALL') where.college = college;
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: [
+        { college: 'asc' },
+        { department: 'asc' },
+        { year: 'asc' },
+        { division: 'asc' },
+        { totalPoints: 'desc' },
+      ],
+      select: {
+        prn: true,
+        displayName: true,
+        email: true,
+        college: true,
+        department: true,
+        year: true,
+        division: true,
+        totalPoints: true,
+        currentStreak: true,
+        _count: { select: { submissions: true } },
+      },
+    });
+
+    const header =
+      'College,Department,Year,Division,PRN,DisplayName,Email,TotalPoints,CurrentStreak,SubmissionsCount';
+    const rows = users.map((u) =>
+      [
+        escapeCsvCell(u.college || 'Sanjivani University'),
+        escapeCsvCell(u.department || ''),
+        escapeCsvCell(u.year || ''),
+        escapeCsvCell(u.division || ''),
+        escapeCsvCell(u.prn || ''),
+        escapeCsvCell(u.displayName || ''),
+        escapeCsvCell(u.email),
+        escapeCsvCell(u.totalPoints),
+        escapeCsvCell(u.currentStreak),
+        escapeCsvCell(u._count.submissions),
+      ].join(',')
+    );
+
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="logicq_users.csv"');
+    res.status(200).send(csv);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to export users CSV' });
+  }
+}
+
+export async function exportWeeklyResultsCsv(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const department = (req.query.department as string | undefined)?.trim();
+    const year = (req.query.year as string | undefined)?.trim();
+    const division = (req.query.division as string | undefined)?.trim();
+    const college = (req.query.college as string | undefined)?.trim();
+
+    const where: any = { role: 'STUDENT', isBanned: false };
+    if (department && department !== 'ALL') where.department = department;
+    if (year && year !== 'ALL') where.year = year;
+    if (division && division !== 'ALL') where.division = division.toUpperCase();
+    if (college && college !== 'ALL') where.college = college;
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: [
+        { college: 'asc' },
+        { department: 'asc' },
+        { year: 'asc' },
+        { division: 'asc' },
+        { totalPoints: 'desc' },
+      ],
+      select: {
+        prn: true,
+        displayName: true,
+        email: true,
+        college: true,
+        department: true,
+        year: true,
+        division: true,
+        totalPoints: true,
+        currentStreak: true,
+        submissions: {
+          where: {
+            verdict: 'ACCEPTED',
+            createdAt: { gte: sevenDaysAgo },
+          },
+          select: { problemId: true, pointsAwarded: true },
+        },
+      },
+    });
+
+    const header =
+      'College,Department,Year,Division,PRN,DisplayName,Email,WeeklySolvedCount,WeeklyPoints,TotalPoints,CurrentStreak';
+    const rows = users.map((u) => {
+      const weeklySolved = new Set(u.submissions.map((s) => s.problemId)).size;
+      const weeklyPoints = u.submissions.reduce((sum, s) => sum + (s.pointsAwarded || 0), 0);
+      return [
+        escapeCsvCell(u.college || 'Sanjivani University'),
+        escapeCsvCell(u.department || ''),
+        escapeCsvCell(u.year || ''),
+        escapeCsvCell(u.division || ''),
+        escapeCsvCell(u.prn || ''),
+        escapeCsvCell(u.displayName || ''),
+        escapeCsvCell(u.email),
+        escapeCsvCell(weeklySolved),
+        escapeCsvCell(weeklyPoints),
+        escapeCsvCell(u.totalPoints),
+        escapeCsvCell(u.currentStreak),
+      ].join(',');
+    });
+
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="logicq_weekly_results.csv"');
+    res.status(200).send(csv);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to export weekly results CSV' });
   }
 }
 
@@ -889,3 +1326,4 @@ export async function updateUserBan(req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ success: false, message: 'Failed to update user status' });
   }
 }
+
