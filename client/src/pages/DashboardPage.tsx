@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -12,15 +12,14 @@ import {
   Calendar,
   ArrowRight,
   TrendingUp,
-  Clock,
   Sparkles,
   Zap,
   BookOpen,
+  HelpCircle,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const [selectedWeekOffset, setSelectedWeekOffset] = useState<number>(0);
 
   const { data: dailyData } = useQuery({
     queryKey: ['daily-challenge'],
@@ -28,11 +27,8 @@ export const DashboardPage: React.FC = () => {
   });
 
   const { data: statsData } = useQuery({
-    queryKey: ['dashboard-stats', selectedWeekOffset],
-    queryFn: () =>
-      api.get(
-        `/users/dashboard/stats${selectedWeekOffset !== 0 ? `?weekOffset=${selectedWeekOffset}` : ''}`
-      ),
+    queryKey: ['dashboard-stats'],
+    queryFn: () => api.get('/users/dashboard/stats'),
   });
 
   const dailyProblem = dailyData?.data?.problem;
@@ -40,15 +36,11 @@ export const DashboardPage: React.FC = () => {
   const secondsLeft = dailyData?.data?.secondsUntilNextReset;
 
   const stats = statsData?.data?.stats;
-  const weeklySummaries: any[] = statsData?.data?.weeklySummaries || [];
-  const activeWeeklySummary =
-    weeklySummaries.find((w: any) => w.weekOffset === selectedWeekOffset) ||
-    statsData?.data?.weeklySummary ||
-    null;
+  const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
   const recentSubmissions = statsData?.data?.recentSubmissions || [];
   const activityMap = statsData?.data?.activityMap || {};
 
-  // Generate 12-week heatmap grid
+  // Generate 90-day heatmap grid
   const renderHeatmap = () => {
     const days: Array<{ date: string; count: number }> = [];
     const now = new Date();
@@ -94,25 +86,20 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Global Standings Card */}
+        {/* Daily Standing Quick Card */}
         <div className="flex items-center gap-3">
           <div className="glass-card px-4 py-2 rounded-xl border border-[var(--border-line)] flex items-center gap-3">
             <Trophy className="w-5 h-5 text-[var(--color-warning)]" />
             <div>
               <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider block">
-                GLOBAL RANK
+                DAILY RANK
               </span>
               <span className="text-sm font-mono font-bold text-[var(--text-main)]">
-                {stats?.rank ? (
-                  <>
-                    #{stats.rank}{' '}
-                    <span className="text-[11px] text-[var(--text-muted)] font-normal">
-                      of {stats?.totalUsers || 1} ranked
-                    </span>
-                  </>
+                {stats?.dailyRank ? (
+                  <>#{stats.dailyRank}</>
                 ) : (
                   <span className="text-xs text-[var(--text-muted)] font-normal">
-                    NOT RANKED YET
+                    NOT SOLVED YET
                   </span>
                 )}
               </span>
@@ -122,206 +109,251 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Featured Daily Challenge Card */}
-      <div className="relative rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-8 shadow-sm overflow-hidden">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="px-2.5 py-1 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                FEATURED DAILY CHALLENGE
-              </span>
-
-              {dailyProblem && <DifficultyBadge difficulty={dailyProblem.difficulty} />}
-
-              {isDailySolved ? (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-success)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Solved Today (+{dailyProblem?.basePoints || 0} PTS)
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-warning)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
-                  <Zap className="w-3.5 h-3.5" />
-                  Active Today
-                </span>
-              )}
+      {dailyData?.data?.paused ? (
+        <div data-testid="dashboard-daily-paused-card" className="relative rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-8 shadow-sm overflow-hidden font-mono">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-cyan-400 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>DAILY COMPETITION</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">
+                Daily challenges are not live yet. We will announce the start.
+              </h2>
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed">
+                Practice C modules across control flow, pointers, arrays, and memory while the daily pool is prepared.
+              </p>
             </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">
-              {dailyProblem?.title || 'Loading Daily Challenge...'}
-            </h2>
-
-            <p className="text-xs sm:text-sm text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-              {dailyProblem?.description
-                ?.replace(/### Problem Description|### Input Format|### Output Format|###/g, '')
-                .replace(/\*\*Featured Daily Challenge:\*\*/g, '')
-                .replace(/\\le/g, '≤')
-                .replace(/\\ge/g, '≥')
-                .replace(/\\times/g, '×')
-                .replace(/[`*$]/g, '')
-                .trim() ||
-                "Solving today's challenge before 17:00 IST earns points by difficulty and extends your daily streak."}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[var(--text-muted)] pt-1">
-              <span>
-                Points: <strong className="text-[var(--color-accent)]">{dailyProblem?.basePoints || 20} PTS</strong>
-              </span>
-              <span>•</span>
-              <span>Time Limit: {dailyProblem?.timeLimitMs || 1000}ms</span>
-              <span>•</span>
-              <span>Memory Limit: {dailyProblem?.memoryLimitMb || 64}MB</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row lg:flex-col items-end gap-3 w-full lg:w-auto">
-            <CountdownClock initialSeconds={secondsLeft} label="Next Reset in" />
-
             <Link
-              to="/challenge"
-              className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-colors flex items-center justify-center gap-2"
+              to="/practice"
+              className="px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-[var(--color-accent)] hover:opacity-95 shadow-md transition-all flex items-center gap-2 shrink-0"
             >
-              <span>{isDailySolved ? 'Review Workspace' : 'Solve Daily Challenge'}</span>
+              <span>Explore Practice</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
+      ) : (
+        <div className="relative rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-8 shadow-sm overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-2.5 py-1 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                  FEATURED DAILY CHALLENGE
+                </span>
+
+                {dailyProblem && <DifficultyBadge difficulty={dailyProblem.difficulty} />}
+
+                {isDailySolved ? (
+                  <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-success)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Solved Today (+{dailyProblem?.basePoints || 0} PTS)
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs font-mono font-semibold text-[var(--color-warning)] bg-[var(--bg-surface)] border border-[var(--border-line)] px-2 py-0.5 rounded">
+                    <Zap className="w-3.5 h-3.5" />
+                    Active Today
+                  </span>
+                )}
+              </div>
+
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">
+                {dailyProblem?.title || 'Loading Daily Challenge...'}
+              </h2>
+
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                {dailyProblem?.description
+                  ?.replace(/### Problem Description|### Input Format|### Output Format|###/g, '')
+                  .replace(/\*\*Featured Daily Challenge:\*\*/g, '')
+                  .replace(/\\le/g, '≤')
+                  .replace(/\\ge/g, '≥')
+                  .replace(/\\times/g, '×')
+                  .replace(/[`*$]/g, '')
+                  .trim() ||
+                  "Solving today's challenge before 17:00 IST earns points by difficulty, secures your daily rank, and extends your daily streak."}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[var(--text-muted)] pt-1">
+                <span>
+                  Points: <strong className="text-[var(--color-accent)]">{dailyProblem?.basePoints || 20} PTS</strong>
+                </span>
+                <span>•</span>
+                <span>Time Limit: {dailyProblem?.timeLimitMs || 1000}ms</span>
+                <span>•</span>
+                <span>Memory Limit: {dailyProblem?.memoryLimitMb || 64}MB</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row lg:flex-col items-end gap-3 w-full lg:w-auto">
+              <CountdownClock initialSeconds={secondsLeft} label="Next Reset in" />
+
+              <Link
+                to="/challenge"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>{isDailySolved ? 'Review Workspace' : 'Solve Daily Challenge'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Four Daily Standings Cards: Daily rank, Points today, Percentile, vs yesterday */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Daily Rank Card */}
+        <div data-testid="card-daily-rank" className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[var(--text-muted)]">DAILY RANK</span>
+            <Trophy className="w-5 h-5 text-[var(--color-warning)]" />
+          </div>
+          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
+            {stats?.dailyRank ? (
+              <>#{stats.dailyRank}</>
+            ) : (
+              <span className="text-sm font-semibold text-[var(--text-muted)]">Not solved yet</span>
+            )}
+          </div>
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
+            {stats?.dailyRank ? 'Ranked among today\'s solvers' : 'Solve today to enter the board'}
+          </p>
+        </div>
+
+        {/* Points Today */}
+        <div data-testid="card-points-today" className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[var(--text-muted)]">POINTS TODAY</span>
+            <Sparkles className="w-5 h-5 text-[var(--color-accent)]" />
+          </div>
+          <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
+            {stats?.pointsToday ?? 0}
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">PTS</span>
+          </div>
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
+            {isDailySolved ? 'Earned from accepted solve' : '0 PTS until challenge solved'}
+          </p>
+        </div>
+
+        {/* Percentile Card */}
+        <div data-testid="card-percentile" className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[var(--text-muted)]">PERCENTILE</span>
+            <TrendingUp className="w-5 h-5 text-[var(--color-success)]" />
+          </div>
+          <div className="text-2xl font-extrabold text-[var(--color-success)] font-mono">
+            {stats?.percentile !== null && stats?.percentile !== undefined ? (
+              <>Top {stats.percentile}%</>
+            ) : (
+              <span className="text-[var(--text-muted)]">—</span>
+            )}
+          </div>
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
+            {stats?.percentile !== null && stats?.percentile !== undefined
+              ? 'Among ranked solvers today'
+              : 'Appears when ≥ 10 students solve'}
+          </p>
+        </div>
+
+        {/* vs Yesterday Card */}
+        <div data-testid="card-vs-yesterday" className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[var(--text-muted)]">VS YESTERDAY</span>
+            <Calendar className="w-5 h-5 text-[var(--color-accent)]" />
+          </div>
+          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
+            {stats?.vsYesterdayDelta !== null && stats?.vsYesterdayDelta !== undefined ? (
+              <span className={stats.vsYesterdayDelta >= 0 ? 'text-[var(--color-success)]' : 'text-rose-400'}>
+                {stats.vsYesterdayDelta >= 0 ? `+${stats.vsYesterdayDelta}` : stats.vsYesterdayDelta} PTS
+              </span>
+            ) : (
+              <span className="text-[var(--text-muted)]">—</span>
+            )}
+          </div>
+          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
+            {stats?.vsYesterdayDelta !== null && stats?.vsYesterdayDelta !== undefined
+              ? 'Points delta compared to yesterday'
+              : 'No yesterday result recorded'}
+          </p>
+        </div>
       </div>
 
-      {/* Weekly Result Summary & Past Weeks Selector Card */}
+      {/* Yesterday's Result Summary (Read-Only) */}
       <div
-        data-testid="dashboard-weekly-summary"
+        data-testid="dashboard-yesterday-summary"
         className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4"
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-mono font-bold text-[var(--text-main)] uppercase tracking-wide flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-[var(--color-accent)]" />
-              <span>Your Weekly Summary & Past Weeks Standings</span>
+              <Calendar className="w-4 h-4 text-[var(--color-accent)]" />
+              <span>Yesterday&apos;s Result</span>
             </h3>
             <p className="text-xs font-mono text-[var(--text-muted)] mt-0.5">
-              {activeWeeklySummary?.weekLabel || 'Current Week'}
+              {yesterdaySummary?.date || 'Previous day finalization'}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label htmlFor="dashboard-week-selector" className="text-xs font-mono text-[var(--text-muted)]">
-              Past Weeks:
-            </label>
-            <select
-              id="dashboard-week-selector"
-              data-testid="dashboard-week-selector"
-              value={selectedWeekOffset}
-              onChange={(e) => setSelectedWeekOffset(Number(e.target.value))}
-              className="px-3 py-1.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] focus:outline-none focus:border-[var(--color-accent)]"
-            >
-              {(weeklySummaries.length > 0
-                ? weeklySummaries
-                : [
-                    { weekOffset: 0, weekLabel: 'Current Week' },
-                    { weekOffset: -1, weekLabel: 'Last Week' },
-                    { weekOffset: -2, weekLabel: '2 Weeks Ago' },
-                    { weekOffset: -3, weekLabel: '3 Weeks Ago' },
-                  ]
-              ).map((wk: any) => (
-                <option key={wk.weekOffset} value={wk.weekOffset}>
-                  {wk.weekLabel}
-                </option>
-              ))}
-            </select>
-            <Link
-              to="/leaderboard"
-              className="px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono font-semibold text-[var(--color-accent)] hover:border-[var(--color-accent)]"
-            >
-              Full Leaderboard &rarr;
-            </Link>
-          </div>
+          <Link
+            to="/leaderboard"
+            className="px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono font-semibold text-[var(--color-accent)] hover:border-[var(--color-accent)]"
+          >
+            Daily Leaderboards &rarr;
+          </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-[var(--border-line)] text-xs font-mono">
-          <div>
-            <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY RANK</span>
-            {activeWeeklySummary?.rank || stats?.rank ? (
-              <strong className="text-[var(--text-main)] text-base">
-                #{activeWeeklySummary?.rank || stats?.rank}
-              </strong>
-            ) : (
+        {yesterdaySummary ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-2 border-t border-[var(--border-line)] text-xs font-mono">
               <div>
-                <strong className="text-[var(--text-muted)] text-sm block">Not ranked yet</strong>
-                <span className="text-[10px] text-[var(--color-accent)] block">Solve today&apos;s challenge</span>
+                <span className="text-[var(--text-muted)] block text-[11px]">CHALLENGE</span>
+                <strong className="text-[var(--text-main)] text-sm truncate block">
+                  {yesterdaySummary.challengeTitle || 'Daily Challenge'}
+                </strong>
               </div>
-            )}
-          </div>
-          <div>
-            <span className="text-[var(--text-muted)] block text-[11px]">WEEKLY POINTS</span>
-            <strong className="text-[var(--color-accent)] text-base">
-              {activeWeeklySummary?.weeklyPoints ?? stats?.totalPoints ?? 0} PTS
-            </strong>
-          </div>
-          <div>
-            <span className="text-[var(--text-muted)] block text-[11px]">PERCENTILE</span>
-            {(activeWeeklySummary?.percentile ?? stats?.percentile) !== null && (activeWeeklySummary?.percentile ?? stats?.percentile) !== undefined ? (
-              <strong className="text-[var(--color-success)] text-base">
-                Top {activeWeeklySummary?.percentile ?? stats?.percentile}%
-              </strong>
-            ) : (
               <div>
-                <strong className="text-[var(--text-muted)] text-base block">—</strong>
-                <span className="text-[10px] text-[var(--text-muted)] block">Needs 10 ranked students</span>
+                <span className="text-[var(--text-muted)] block text-[11px]">VERDICT</span>
+                <div className="mt-0.5">
+                  <VerdictBadge verdict={yesterdaySummary.verdict as any} size="sm" />
+                </div>
               </div>
-            )}
-          </div>
-          <div>
-            <span className="text-[var(--text-muted)] block text-[11px]">VS PREVIOUS WEEK</span>
-            {activeWeeklySummary?.previousWeekDelta !== null && activeWeeklySummary?.previousWeekDelta !== undefined ? (
-              <strong className="text-[var(--text-main)] text-base">
-                {activeWeeklySummary.previousWeekDelta >= 0
-                  ? `+${activeWeeklySummary.previousWeekDelta} PTS`
-                  : `${activeWeeklySummary.previousWeekDelta} PTS`}
-              </strong>
-            ) : (
               <div>
-                <strong className="text-[var(--text-muted)] text-base block">—</strong>
-                <span className="text-[10px] text-[var(--text-muted)] block">No previous week yet</span>
+                <span className="text-[var(--text-muted)] block text-[11px]">DAILY RANK</span>
+                <strong className="text-[var(--text-main)] text-sm block">
+                  {yesterdaySummary.dailyRank ? `#${yesterdaySummary.dailyRank}` : 'Not solved'}
+                </strong>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Per-day results for the selected week (date, title, verdict, points — no problem statements) */}
-        {Array.isArray(activeWeeklySummary?.perDayResults) &&
-          activeWeeklySummary.perDayResults.length > 0 && (
-            <div
-              data-testid="weekly-per-day-results"
-              className="pt-3 border-t border-[var(--border-line)] space-y-2"
-            >
-              <span className="text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-wider block">
-                Per-Day Results (Date • Challenge • Verdict • Points)
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs font-mono">
-                {activeWeeklySummary.perDayResults.map((dayRes: any, idx: number) => (
-                  <div
-                    key={`${dayRes.date}-${idx}`}
-                    className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0">
-                      <span className="text-[10px] text-[var(--text-muted)] block">
-                        {dayRes.date}
-                      </span>
-                      <span className="font-semibold text-[var(--text-main)] truncate block">
-                        {dayRes.title}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <VerdictBadge verdict={dayRes.verdict} size="sm" />
-                      <span className="font-bold text-[var(--color-accent)]">
-                        +{dayRes.points || 0}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <span className="text-[var(--text-muted)] block text-[11px]">POINTS &amp; ATTEMPTS</span>
+                <strong className="text-[var(--color-accent)] text-sm block">
+                  +{yesterdaySummary.points || 0} PTS ({yesterdaySummary.attempts || 0} attempts)
+                </strong>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block text-[11px]">STREAK</span>
+                <strong className="text-[var(--color-success)] text-sm block">
+                  {yesterdaySummary.streak || 0} days
+                </strong>
               </div>
             </div>
-          )}
+
+            {yesterdaySummary.improvementHint && (
+              <div className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-start gap-2.5 text-xs font-mono">
+                <HelpCircle className="w-4 h-4 text-[var(--color-accent)] shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[var(--text-muted)] font-semibold block text-[11px]">
+                    DAILY IMPROVEMENT HINT
+                  </span>
+                  <p className="text-[var(--text-main)] mt-0.5">{yesterdaySummary.improvementHint}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="pt-2 border-t border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
+            No finalized result recorded for yesterday. Solve today&apos;s challenge before 17:00 IST to see your summary tomorrow.
+          </div>
+        )}
       </div>
 
       {/* Practice Modules Track Progress Card */}
@@ -350,12 +382,12 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Metrics Grid */}
+      {/* Cumulative Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Streak Card */}
         <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">DAILY STREAK</span>
+            <span className="text-xs font-mono text-[var(--text-muted)]">CURRENT STREAK</span>
             <Flame className="w-5 h-5 text-[var(--color-warning)]" />
           </div>
           <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
@@ -370,7 +402,7 @@ export const DashboardPage: React.FC = () => {
         {/* Total Points */}
         <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL SCORE</span>
+            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL POINTS</span>
             <TrendingUp className="w-5 h-5 text-[var(--color-accent)]" />
           </div>
           <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
@@ -378,21 +410,22 @@ export const DashboardPage: React.FC = () => {
             <span className="text-xs text-[var(--text-muted)] font-normal ml-1">PTS</span>
           </div>
           <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            Earn points on Accepted submissions
+            Earned across all solved challenges
           </p>
         </div>
 
         {/* Problems Solved */}
         <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">PROBLEMS SOLVED</span>
+            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL SOLVED</span>
             <CheckCircle2 className="w-5 h-5 text-[var(--color-success)]" />
           </div>
           <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
             {stats?.totalSolved || 0}
+            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">problems</span>
           </div>
           <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            This week: {stats?.thisWeekSolved ?? stats?.totalSolved ?? 0} of 7 solved
+            Cumulative low-level challenges solved
           </p>
         </div>
 
@@ -414,7 +447,7 @@ export const DashboardPage: React.FC = () => {
           </div>
           <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
             {(stats?.totalSubmissions || 0) > 0
-              ? `${stats?.totalSubmissions} total submissions evaluated`
+              ? `${stats?.totalSubmissions} submissions evaluated`
               : 'No submissions yet'}
           </p>
         </div>
@@ -471,7 +504,7 @@ export const DashboardPage: React.FC = () => {
 
             <div>
               <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-[var(--color-error)] font-semibold">Hard</span>
+                <span className="text-rose-400 font-semibold">Hard</span>
                 <span className="text-[var(--text-main)] font-bold">
                   {stats?.solvedByDifficulty?.HARD ?? stats?.difficultyBreakdown?.hard ?? 0} solved
                 </span>
@@ -498,7 +531,7 @@ export const DashboardPage: React.FC = () => {
               <Calendar className="w-4 h-4 text-[var(--color-accent)]" />
               Submission Heatmap
             </h3>
-            <span className="text-[11px] font-mono text-[var(--text-muted)]">Last 12 Weeks</span>
+            <span className="text-[11px] font-mono text-[var(--text-muted)]">Last 90 Days</span>
           </div>
 
           <div className="pt-2">{renderHeatmap()}</div>
@@ -518,67 +551,49 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Recent Submissions Feed */}
-      <div className="glass-card rounded-2xl border border-[var(--border-line)] overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)]">
-          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[var(--color-accent)]" />
+      <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase">
             Recent Submissions
           </h3>
-          <Link
-            to="/history"
-            className="text-xs font-mono text-[var(--color-accent)] hover:underline font-semibold flex items-center gap-1"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <span className="text-xs font-mono text-[var(--text-muted)]">
+            Showing latest {recentSubmissions.length} executions
+          </span>
         </div>
 
         {recentSubmissions.length === 0 ? (
-          <div className="py-12 text-center text-xs font-mono text-[var(--text-muted)]">
-            No submissions recorded yet. Open today&apos;s challenge to make your first solve!
+          <div className="text-center py-8 font-mono text-xs text-[var(--text-muted)]">
+            No submissions recorded yet. Start solving today&apos;s challenge to populate your activity feed!
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-[var(--bg-main)] text-[var(--text-muted)] uppercase text-[10px] tracking-wider border-b border-[var(--border-line)]">
+              <thead className="text-[var(--text-muted)] uppercase text-[10px] tracking-wider border-b border-[var(--border-line)]">
                 <tr>
-                  <th className="px-6 py-3">Problem</th>
-                  <th className="px-6 py-3">Difficulty</th>
-                  <th className="px-6 py-3">Verdict</th>
-                  <th className="px-6 py-3">Runtime</th>
-                  <th className="px-6 py-3">Points</th>
-                  <th className="px-6 py-3 text-right">Submitted</th>
+                  <th className="pb-3">Problem</th>
+                  <th className="pb-3">Verdict</th>
+                  <th className="pb-3">Runtime</th>
+                  <th className="pb-3">Memory</th>
+                  <th className="pb-3">Submitted</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-line)]">
                 {recentSubmissions.map((sub: any) => (
                   <tr key={sub.id} className="hover:bg-[var(--bg-surface)] transition-colors">
-                    <td className="px-6 py-3.5 font-bold text-[var(--text-main)]">
-                      {(sub.problem?.slug || sub.problemSlug) && !sub.problem?.isEnded ? (
-                        <Link
-                          to="/challenge"
-                          className="hover:text-[var(--color-accent)] transition-colors"
-                        >
-                          {sub.problem?.title || sub.problemTitle}
-                        </Link>
-                      ) : (
-                        <span>{sub.problem?.title || sub.problemTitle || 'Past Challenge'}</span>
-                      )}
+                    <td className="py-3 font-semibold text-[var(--text-main)]">
+                      {sub.problem?.title || 'Daily Challenge'}
                     </td>
-                    <td className="px-6 py-3.5">
-                      <DifficultyBadge difficulty={sub.problem?.difficulty || sub.difficulty} size="sm" />
-                    </td>
-                    <td className="px-6 py-3.5">
+                    <td className="py-3">
                       <VerdictBadge verdict={sub.verdict} size="sm" />
                     </td>
-                    <td className="px-6 py-3.5 text-[var(--text-muted)]">
-                      {sub.runtimeMs !== null && sub.runtimeMs !== undefined ? `${sub.runtimeMs}ms` : '—'}
+                    <td className="py-3 text-[var(--text-muted)]">
+                      {sub.executionTimeMs ? `${sub.executionTimeMs}ms` : '—'}
                     </td>
-                    <td className="px-6 py-3.5 font-bold text-[var(--color-accent)]">
-                      +{sub.pointsAwarded} PTS
+                    <td className="py-3 text-[var(--text-muted)]">
+                      {sub.memoryUsedMb ? `${sub.memoryUsedMb}MB` : '—'}
                     </td>
-                    <td className="px-6 py-3.5 text-right text-[var(--text-muted)]">
-                      {new Date(sub.createdAt).toLocaleDateString()}
+                    <td className="py-3 text-[var(--text-muted)]">
+                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}
                     </td>
                   </tr>
                 ))}

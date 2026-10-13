@@ -28,13 +28,14 @@ import {
   Upload,
   Flag,
   Activity,
+  Trophy,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily'
   >('users');
 
   // Filter States for Users & Submissions & Uploads
@@ -113,6 +114,57 @@ export const AdminDashboardPage: React.FC = () => {
     sampleOutput: '30\n',
     hiddenInput: '100 200\n',
     hiddenOutput: '300\n',
+  });
+
+  // Daily Challenge System Control States
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
+  const [dailyResumeMode, setDailyResumeMode] = useState<'NEXT_1700' | 'START_NOW'>('NEXT_1700');
+  const [dailyAdminPassword, setDailyAdminPassword] = useState('');
+  const [dailyAdminReason, setDailyAdminReason] = useState('');
+
+  const { data: dailySystemData, refetch: refetchDailySystem } = useQuery({
+    queryKey: ['admin-daily-system-preview'],
+    queryFn: () => api.get('/admin/daily-system/preview'),
+  });
+
+  const pauseDailyMutation = useMutation({
+    mutationFn: () =>
+      api.post('/admin/daily-system/pause', {
+        adminPassword: dailyAdminPassword,
+        reason: dailyAdminReason,
+      }),
+    onSuccess: () => {
+      toast.success('Daily challenge system paused successfully.');
+      setIsPauseModalOpen(false);
+      setDailyAdminPassword('');
+      setDailyAdminReason('');
+      refetchDailySystem();
+      queryClient.invalidateQueries({ queryKey: ['admin-daily-system-preview'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to pause daily system.');
+    },
+  });
+
+  const resumeDailyMutation = useMutation({
+    mutationFn: () =>
+      api.post('/admin/daily-system/resume', {
+        adminPassword: dailyAdminPassword,
+        mode: dailyResumeMode,
+        reason: dailyAdminReason,
+      }),
+    onSuccess: () => {
+      toast.success('Daily challenge system resumed successfully.');
+      setIsResumeModalOpen(false);
+      setDailyAdminPassword('');
+      setDailyAdminReason('');
+      refetchDailySystem();
+      queryClient.invalidateQueries({ queryKey: ['admin-daily-system-preview'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to resume daily system.');
+    },
   });
 
   const { data: practiceModulesData } = useQuery({
@@ -361,12 +413,16 @@ export const AdminDashboardPage: React.FC = () => {
     return `"${str}"`;
   };
 
-  const handleDownloadCsv = async (type: 'users' | 'weekly-results', deptOverride?: string) => {
+  const handleDownloadCsv = async (type: 'users' | 'daily-results' | 'weekly-results', deptOverride?: string) => {
     const dept = deptOverride || filterDepartment;
+    const downloadType = type === 'weekly-results' ? 'daily-results' : type;
     try {
       const token = localStorage.getItem('logicq_access_token');
       const qs = buildFilterQuery();
-      const res = await fetch(`/api/admin/export/${type}.csv?${qs}`, {
+      const endpoint = downloadType === 'daily-results'
+        ? `/api/admin/reports/daily-results/export?${qs}`
+        : `/api/admin/export/${downloadType}.csv?${qs}`;
+      const res = await fetch(endpoint, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
       });
@@ -377,10 +433,10 @@ export const AdminDashboardPage: React.FC = () => {
         const a = document.createElement('a');
         a.href = url;
         const deptSuffix = dept !== 'ALL' ? `_${dept.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
-        a.download = `logicq_${type.replace('-', '_')}${deptSuffix}.csv`;
+        a.download = `logicq_${downloadType.replace('-', '_')}${deptSuffix}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success(`Exported ${type} CSV successfully.`);
+        toast.success(`Exported ${downloadType} CSV successfully.`);
         return;
       }
     } catch {
@@ -419,7 +475,7 @@ export const AdminDashboardPage: React.FC = () => {
         URL.revokeObjectURL(url);
         toast.success(`Exported ${list.length} users to CSV (${dept === 'ALL' ? 'All Departments' : dept}).`);
       } else {
-        toast.info('Weekly results exported.');
+        toast.info('Daily results exported.');
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to export CSV');
@@ -575,6 +631,59 @@ export const AdminDashboardPage: React.FC = () => {
 
 
 
+      {/* Daily Challenge System Pause Banner */}
+      {dailySystemData?.data?.dailyChallengePaused ? (
+        <div data-testid="admin-daily-paused-banner" className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-200 shadow-md">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xl">⏸️</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-300">
+                  Daily System is PAUSED
+                </h4>
+                {dailySystemData?.data?.pausedAt && (
+                  <span className="text-xs font-mono text-slate-400">
+                    (since {new Date(dailySystemData.data.pausedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-amber-200/90 mt-0.5 font-mono">
+                {dailySystemData?.data?.pauseReason || 'Daily challenge pool transitioning to book-only curriculum.'}
+              </p>
+            </div>
+          </div>
+          <button
+            data-testid="admin-resume-daily-button"
+            onClick={() => {
+              setDailyAdminPassword('');
+              setDailyAdminReason('');
+              setDailyResumeMode('NEXT_1700');
+              setIsResumeModalOpen(true);
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 shadow-md whitespace-nowrap transition-all"
+          >
+            Resume Daily System...
+          </button>
+        </div>
+      ) : (
+        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/[0.08] flex items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Daily System is LIVE ({dailySystemData?.data?.scheduledCount || 0} scheduled)</span>
+          </div>
+          <button
+            onClick={() => {
+              setDailyAdminPassword('');
+              setDailyAdminReason('');
+              setIsPauseModalOpen(true);
+            }}
+            className="px-3 py-1 rounded-lg text-xs font-mono text-amber-400 hover:bg-amber-500/10 border border-amber-500/30"
+          >
+            Pause System
+          </button>
+        </div>
+      )}
+
       {/* Analytics Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
@@ -676,6 +785,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Code2 className="w-3.5 h-3.5" />
           <span>Practice Curriculum (4 Modules / 40 Problems)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'daily'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5" />
+          <span>Daily Results &amp; Finalization</span>
         </button>
       </div>
 
@@ -1028,11 +1149,11 @@ export const AdminDashboardPage: React.FC = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleDownloadCsv('weekly-results')}
+                  onClick={() => handleDownloadCsv('daily-results')}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-cyan-400 hover:bg-dark-800"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Weekly Results CSV
+                  Daily Results CSV
                 </button>
               </div>
               <div className="overflow-x-auto">
@@ -1364,11 +1485,11 @@ export const AdminDashboardPage: React.FC = () => {
               )}
               <button
                 type="button"
-                onClick={() => handleDownloadCsv('weekly-results')}
+                onClick={() => handleDownloadCsv('daily-results')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-cyan-400 hover:bg-dark-800"
               >
                 <Download className="w-3.5 h-3.5" />
-                Export Weekly Results CSV
+                Export Daily Results CSV
               </button>
             </div>
           </div>
@@ -2286,6 +2407,119 @@ export const AdminDashboardPage: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Daily Results & Finalization Engine */}
+      {activeTab === 'daily' && (
+        <div className="space-y-6" data-testid="admin-daily-results-panel">
+          {/* Engine Header & Quick Controls */}
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <span>Daily Competition &amp; Finalization Engine</span>
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-2xl">
+                Daily challenge cycle runs 17:00 IST to 17:00 IST. Finalization job runs automatically at 17:05 IST with a 10-minute grace period.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleDownloadCsv('daily-results')}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Daily Results CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* KPI & Status Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-card p-5 rounded-2xl border border-amber-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                COMPETITION CYCLE
+              </span>
+              <span className="text-xl font-extrabold text-amber-400 font-mono">
+                17:00 - 17:00 IST
+              </span>
+              <p className="text-[11px] font-mono text-slate-500 mt-1">
+                1 featured challenge per cycle
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-cyan-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                DAILY FINALIZATION
+              </span>
+              <span className="text-xl font-extrabold text-cyan-400 font-mono">
+                17:05 IST Daily
+              </span>
+              <p className="text-[11px] font-mono text-slate-500 mt-1">
+                10-min grace wait until 17:10 IST
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-emerald-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                STREAK FREEZE POLICY
+              </span>
+              <span className="text-xl font-extrabold text-emerald-400 font-mono">
+                1 / Rolling 7 Days
+              </span>
+              <p className="text-[11px] font-mono text-slate-500 mt-1">
+                Replaces old weekly freeze
+              </p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-purple-500/20">
+              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+                PERCENTILE GATING
+              </span>
+              <span className="text-xl font-extrabold text-purple-400 font-mono">
+                ≥ 10 Solvers
+              </span>
+              <p className="text-[11px] font-mono text-slate-500 mt-1">
+                Shows &quot;—&quot; when under threshold
+              </p>
+            </div>
+          </div>
+
+          {/* 6-Tier Tie Break Specification */}
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-3">
+            <h4 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Daily Rank Tie-Break Order (Deterministic &amp; Flick-Free)</span>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs font-mono">
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 1: Server Accepted Time</span>
+                <span className="text-slate-400">Earlier accepted submission timestamp ASC</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 2: Wrong Attempts</span>
+                <span className="text-slate-400">Fewer wrong attempts before accepted ASC</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 3: Current Streak</span>
+                <span className="text-slate-400">Higher daily challenge streak DESC</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 4: Total Points</span>
+                <span className="text-slate-400">Cumulative points across all solves DESC</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 5: Total Solved</span>
+                <span className="text-slate-400">Higher cumulative challenges solved DESC</span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
+                <span className="text-amber-400 font-bold block mb-1">Tier 6: Stable Final Break</span>
+                <span className="text-slate-400">Earlier createdAt ASC, then stable uid ASC</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -3393,6 +3627,215 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Daily System Modal */}
+      {isResumeModalOpen && (
+        <div data-testid="resume-daily-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0d121f] border border-white/[0.1] p-6 text-white shadow-2xl space-y-5 font-mono">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold">▶️</span>
+                <h3 className="text-lg font-bold">Resume Daily Challenge System</h3>
+              </div>
+              <button
+                onClick={() => setIsResumeModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Invariant Check on Scheduled Questions */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-white/[0.08] space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Validated Scheduled Challenges:</span>
+                <span className={`font-bold ${dailySystemData?.data?.canResume ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {dailySystemData?.data?.scheduledCount || 0} / {dailySystemData?.data?.minRequired || 14} required
+                </span>
+              </div>
+              {!dailySystemData?.data?.canResume && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                  ⚠️ System invariant rule: At least {dailySystemData?.data?.minRequired || 14} validated challenges must be scheduled before resuming. Please schedule more validated problems first.
+                </div>
+              )}
+            </div>
+
+            {/* Mode selection */}
+            <div className="space-y-2">
+              <label className="text-xs text-slate-400 block">Resume Timing Mode:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <label className={`p-3 rounded-xl border cursor-pointer transition-all ${dailyResumeMode === 'NEXT_1700' ? 'bg-cyan-500/10 border-cyan-400 text-cyan-200' : 'bg-slate-900 border-white/[0.08] text-slate-400'}`}>
+                  <input
+                    type="radio"
+                    name="resumeMode"
+                    value="NEXT_1700"
+                    checked={dailyResumeMode === 'NEXT_1700'}
+                    onChange={() => setDailyResumeMode('NEXT_1700')}
+                    className="mr-2"
+                  />
+                  <strong>Day 1 starts at next 17:00 IST</strong>
+                  <span className="block text-[11px] text-slate-400 mt-1">Recommended. Smooth cutoff alignment.</span>
+                </label>
+                <label className={`p-3 rounded-xl border cursor-pointer transition-all ${dailyResumeMode === 'START_NOW' ? 'bg-cyan-500/10 border-cyan-400 text-cyan-200' : 'bg-slate-900 border-white/[0.08] text-slate-400'}`}>
+                  <input
+                    type="radio"
+                    name="resumeMode"
+                    value="START_NOW"
+                    checked={dailyResumeMode === 'START_NOW'}
+                    onChange={() => setDailyResumeMode('START_NOW')}
+                    className="mr-2"
+                  />
+                  <strong>Start now</strong>
+                  <span className="block text-[11px] text-slate-400 mt-1">Immediately unlocks active question today.</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Preview of first 7 challenges */}
+            {dailySystemData?.data?.first7Preview && dailySystemData.data.first7Preview.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs text-slate-400 block">Preview of First 7 Scheduled Challenges:</span>
+                <div className="rounded-xl border border-white/[0.08] overflow-hidden text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-900 text-slate-400 text-[11px]">
+                      <tr>
+                        <th className="p-2">Date</th>
+                        <th className="p-2">Title</th>
+                        <th className="p-2">Difficulty</th>
+                        <th className="p-2">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.05]">
+                      {dailySystemData.data.first7Preview.map((p: any) => (
+                        <tr key={p.id}>
+                          <td className="p-2 text-cyan-400">{p.scheduledDate}</td>
+                          <td className="p-2 font-medium text-slate-200">{p.title}</td>
+                          <td className="p-2">
+                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">
+                              {p.difficulty}
+                            </span>
+                          </td>
+                          <td className="p-2 text-slate-400">{p.basePoints} pts</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Re-authentication & Reason */}
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Audit Reason (Required):</label>
+                <input
+                  type="text"
+                  value={dailyAdminReason}
+                  onChange={(e) => setDailyAdminReason(e.target.value)}
+                  placeholder="e.g. Yashavant Kanetkar 14-day book pool validated and ready for competition"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Admin Password Re-authentication (Required):</label>
+                <input
+                  type="password"
+                  value={dailyAdminPassword}
+                  onChange={(e) => setDailyAdminPassword(e.target.value)}
+                  placeholder="Enter your administrator password"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setIsResumeModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                data-testid="admin-confirm-resume-button"
+                type="button"
+                disabled={!dailySystemData?.data?.canResume || !dailyAdminPassword || !dailyAdminReason || resumeDailyMutation.isPending}
+                onClick={() => resumeDailyMutation.mutate()}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {resumeDailyMutation.isPending ? 'Resuming...' : 'Confirm & Resume System'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pause Daily System Modal */}
+      {isPauseModalOpen && (
+        <div data-testid="pause-daily-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-2xl bg-[#0d121f] border border-white/[0.1] p-6 text-white shadow-2xl space-y-5 font-mono">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold">⏸️</span>
+                <h3 className="text-lg font-bold">Pause Daily Challenge System</h3>
+              </div>
+              <button
+                onClick={() => setIsPauseModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-white/[0.05] text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Pausing the daily system will hide active daily questions and timers, prevent streak resets and freezes, and set all daily schedulers to no-ops.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Reason for Pause (Required):</label>
+                <input
+                  type="text"
+                  value={dailyAdminReason}
+                  onChange={(e) => setDailyAdminReason(e.target.value)}
+                  placeholder="e.g. Transitioning pool to book curriculum"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">Admin Password Re-authentication (Required):</label>
+                <input
+                  type="password"
+                  value={dailyAdminPassword}
+                  onChange={(e) => setDailyAdminPassword(e.target.value)}
+                  placeholder="Enter your administrator password"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setIsPauseModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!dailyAdminPassword || !dailyAdminReason || pauseDailyMutation.isPending}
+                onClick={() => pauseDailyMutation.mutate()}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-40"
+              >
+                {pauseDailyMutation.isPending ? 'Pausing...' : 'Confirm & Pause System'}
+              </button>
+            </div>
           </div>
         </div>
       )}

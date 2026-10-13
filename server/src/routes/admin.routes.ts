@@ -17,6 +17,9 @@ import {
   getAdminAuditLogs,
   exportUsersCsv,
   exportWeeklyResultsCsv,
+  exportDailyResultsCsv,
+  runManualDailyFinalization,
+  getDailyFinalizationStatus,
   problemAdminSchema,
   getAdminCheckers,
   toggleCheckerPause,
@@ -24,6 +27,9 @@ import {
   autoAssignRoundRobin,
   importAllowlistCsv,
   getAllowlistStatus,
+  getAdminDailySystemPreview,
+  adminPauseDailySystem,
+  adminResumeDailySystem,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -76,5 +82,13 @@ adminRouter.post('/allowlist/import', importAllowlistCsv);
 
 adminRouter.get('/export/users.csv', exportUsersCsv);
 adminRouter.get('/export/weekly-results.csv', exportWeeklyResultsCsv);
+adminRouter.get('/export/daily-results.csv', exportDailyResultsCsv);
+adminRouter.post('/daily-finalization/run', runManualDailyFinalization);
+adminRouter.get('/daily-finalization/status', getDailyFinalizationStatus);
+
+// Daily Challenge System Control
+adminRouter.get('/daily-system/preview', getAdminDailySystemPreview);
+adminRouter.post('/daily-system/pause', adminPauseDailySystem);
+adminRouter.post('/daily-system/resume', adminResumeDailySystem);
 
 export default adminRouter;

@@ -1,36 +1,49 @@
 # LogicQ Content Rights, Copyright & Original-Wording Policy (`/docs/CONTENT_RIGHTS.md`)
 
-> **STATUS**: `DEFAULT STRICT ORIGINAL-WORDING MODE ACTIVE (NO VERBATIM COPYING)`  
-> Unless the project owner confirms in writing that written permission has been granted by the book's author or publisher (or that the material is authored by the owner/faculty), LogicQ enforces strict non-infringing transformation rules.
+> **STATUS**: `STRICT ORIGINAL-WORDING MODE ACTIVE (ZERO VERBATIM COPYING)`  
+> **Source Material**: *"Test Your C Skills"* by Yashavant Kanetkar.  
+> **Storage & Privacy Location**: `/private/book/` (local only, strictly excluded from Git, Hosting, Storage, client bundles, backups, and 3rd-party APIs).  
+> **Rights Default**: No written license from the author or publisher is confirmed. LogicQ strictly enforces non-infringing transformative authoring.
 
 ---
 
-## 1. What Is Used From the Designated Syllabus Book (Non-Copyrightable Ideas & Syllabus Sequence)
+## 1. Authoritative Rights Policy & Prohibitions
 
-1. **Curriculum & Pedagogical Sequence**:
-   - The order of C programming topics by chapter (e.g., Operators & Expressions $\rightarrow$ Control Flow $\rightarrow$ Functions & Recursion $\rightarrow$ Arrays $\rightarrow$ Pointers $\rightarrow$ Structures & File I/O).
-2. **Underlying Algorithmic / Programming Concept**:
-   - The mathematical or systems concept tested by an exercise (e.g., computing a greatest common divisor, reversing an array via pointers, checking matrix symmetry, or parsing a character buffer).
-3. **Difficulty Progression & Verification Checks**:
-   - Using the book's mathematical domain to verify that LogicQ's independent C11 reference implementation is algorithmically sound.
-4. **Admin-Only Provenance Pointer (`sourceRef`)**:
-   - Storing `{ bookTitle, edition, chapterNumber, exerciseNumber, pageNumber }` strictly as internal faculty/admin metadata so instructors know which syllabus concept each daily challenge covers.
-
----
-
-## 2. What Is NEVER Copied or Displayed (Strict Prohibitions)
-
-Unless explicit written license/permission is placed on file by the project owner:
-1. **No Verbatim Problem Statements**: Never copy sentences, paragraphs, or narrative framing from the book. Every problem statement is written from scratch in original wording with new domain context, new variable names, and new story framing.
-2. **No Verbatim Sample Numbers or Examples**: All visible sample inputs/outputs and all hidden test cases use freshly generated numerical values and edge cases.
-3. **No Book Figures, Scans, or Page Images**: Never extract, bundle, or display scans, diagrams, or page crops from the book to students.
-4. **No Verbatim Book Solutions**: All C11 reference solutions and starter code templates are written cleanly from scratch for the LogicQ C11 sandbox (`gcc -O2 -std=c11 -Wall`).
-5. **No Student Exposure of `sourceRef`**: Book title, chapter number, and exercise number are never sent to student client bundles or API responses.
+1. **Zero Verbatim Copying**:
+   - Never copy question text, code snippets, diagrams, figures, examples, answers, or explanations verbatim from the book.
+   - Every LogicQ problem statement is authored from scratch with original narrative context, original variable names, fresh data types, and freshly created input/output formats.
+2. **Book's Role**:
+   - The book serves solely as the source of:
+     - Core programming concepts (e.g., operator precedence, pointer arithmetic, recursion mechanics, struct padding).
+     - Chapter sequence and syllabus progression.
+     - Calibrated difficulty benchmarks.
+   - The book's printed answers are used strictly to verify the correctness of LogicQ's independent C11 reference solutions, and are never displayed or stored in student-accessible assets.
+3. **Admin-Only Metadata Boundary (`sourceRef`)**:
+   - Any provenance reference (`bookTitle: "Test Your C Skills"`, `author: "Yashavant Kanetkar"`, `chapterNumber`, `exerciseNumber`, `pageNumber`) must be stored strictly in private, admin-only metadata.
+   - **No student-facing field** (title, description, input format, output format, hints, error messages, client code, API responses, or notification templates) may ever contain the words "Kanetkar", "Test Your C Skills", "Chapter", "Exercise", or page numbers.
+   - Automated CI and test scripts search all problem payloads before publishing and block any problem containing source references.
 
 ---
 
-## 3. Private Storage & Git Exclusion Guarantees
+## 2. Classification & Problem Adaptation Standard
 
-- The source book file (`/private/books/*`) and intermediate extraction review files (`/private/review/*`) are listed in `.gitignore`.
-- They are never placed in `client/public/`, `client/dist/`, Firebase Hosting, or public Cloud Storage buckets.
-- Build-time verification (`scripts/check-bundle.mjs`) ensures no private book files are included in client build artifacts.
+Every problem extracted from the book is classified into one of three tiers:
+- **Class A (`JUDGEABLE_DIRECT`)**:
+  - The underlying concept can be directly formulated as a deterministic standard I/O (`stdin` $\rightarrow$ `stdout`) C program checkable by the automated judge.
+  - Converted with original wording, 2 visible samples, $\ge 8$ hidden test cases, a C reference solution, and 2 deliberately failing wrong solutions.
+- **Class B (`JUDGEABLE_REWRITE`)**:
+  - A programming exercise requiring adaptation into an input/output specification (e.g., converting a function specification into a complete deterministic program with bounds and edge cases).
+  - Converted with clear constraints and original test cases.
+- **Class C (`NON_JUDGEABLE_IN_ORIGINAL_FORM`)**:
+  - Output prediction snippets, syntax error puzzles, theory questions, and open-ended case discussions.
+  - Must NOT be published in their original form.
+  - For each Class C item, LogicQ drafts a proposed transformation into a judgeable program testing the same concept, or marks it "skip", subject to explicit project owner decision.
+
+---
+
+## 3. Storage, Git Exclusion & Leak Prevention
+
+1. **Local File Path**: `/private/book/` (and `/private/review/` for extraction logs).
+2. **Git Exclusion**: Covered by root `.gitignore` (`private/`).
+3. **No Network Transmission**: The raw book PDF and extracted snippets must never be committed to Git, uploaded to Firebase Hosting or Cloud Storage, bundled into the Vite client distribution, included in database backups, or passed to external AI APIs.
+4. **Automated Leak Scanning**: All client bundles, Firestore security rules, and API endpoints are verified via automated regression tests to guarantee zero source citations or unreleased problem data reach the student interface.

@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getQueue } from '../queue/queue.factory.js';
-import { getChallengeDayIST, getChallengeDayWindowIST } from '../utils/ist.js';
+import { getChallengeDayIST, getChallengeDayWindowIST, getServerNow, addDaysIST, getChallengeDayBoundsUTC } from '../utils/ist.js';
+import { runDailyFinalizationJob, getFrozenDailyBoard } from '../services/daily-finalization.service.js';
 import {
   ALLOWED_COLLEGES,
   ALLOWED_DEPARTMENTS,
@@ -1418,6 +1419,118 @@ export async function exportWeeklyResultsCsv(req: AuthRequest, res: Response): P
   }
 }
 
+export async function exportDailyResultsCsv(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const department = (req.query.department as string | undefined)?.trim();
+    const year = (req.query.year as string | undefined)?.trim();
+    const division = (req.query.division as string | undefined)?.trim();
+    const college = (req.query.college as string | undefined)?.trim();
+
+    const where: any = { role: 'STUDENT', isBanned: false };
+    if (department && department !== 'ALL') where.department = department;
+    if (year && year !== 'ALL') where.year = year;
+    if (division && division !== 'ALL') where.division = division.toUpperCase();
+    if (college && college !== 'ALL') where.college = college;
+
+    const now = getServerNow();
+    const activeDay = getChallengeDayIST(now);
+    const { startUTC, endUTC } = getChallengeDayBoundsUTC(activeDay);
+
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: [
+        { college: 'asc' },
+        { department: 'asc' },
+        { year: 'asc' },
+        { division: 'asc' },
+        { totalPoints: 'desc' },
+      ],
+      select: {
+        prn: true,
+        displayName: true,
+        email: true,
+        college: true,
+        department: true,
+        year: true,
+        division: true,
+        totalPoints: true,
+        currentStreak: true,
+        submissions: {
+          where: {
+            verdict: 'ACCEPTED',
+            createdAt: { gte: startUTC, lte: endUTC },
+          },
+          select: { problemId: true, pointsAwarded: true },
+        },
+      },
+    });
+
+    const header =
+      'College,Department,Year,Division,PRN,DisplayName,Email,SolvedToday,PointsToday,TotalPoints,CurrentStreak';
+    const rows = users.map((u) => {
+      const solvedToday = u.submissions.length > 0 ? 1 : 0;
+      const pointsToday = u.submissions.reduce((sum, s) => sum + (s.pointsAwarded || 0), 0);
+      return [
+        escapeCsvCell(u.college || 'Sanjivani University'),
+        escapeCsvCell(u.department || ''),
+        escapeCsvCell(u.year || ''),
+        escapeCsvCell(u.division || ''),
+        escapeCsvCell(u.prn || ''),
+        escapeCsvCell(u.displayName || ''),
+        escapeCsvCell(u.email),
+        escapeCsvCell(solvedToday),
+        escapeCsvCell(pointsToday),
+        escapeCsvCell(u.totalPoints),
+        escapeCsvCell(u.currentStreak),
+      ].join(',');
+    });
+
+    const csv = [header, ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="logicq_daily_results.csv"');
+    res.status(200).send(csv);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to export daily results CSV' });
+  }
+}
+
+export async function runManualDailyFinalization(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const dayId = (req.body?.dayId as string) || undefined;
+    const forceRerun = Boolean(req.body?.forceRerun);
+    const result = await runDailyFinalizationJob(dayId, { forceRerun });
+    res.status(200).json({ success: result.success, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Finalization error' });
+  }
+}
+
+export async function getDailyFinalizationStatus(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const now = getServerNow();
+    const yesterday = addDaysIST(getChallengeDayIST(now), -1);
+    const frozen = getFrozenDailyBoard(yesterday);
+    res.status(200).json({
+      success: true,
+      data: {
+        yesterdayDayId: yesterday,
+        isYesterdayFinalized: Boolean(frozen),
+        frozenBoard: frozen
+          ? {
+              dayId: frozen.dayId,
+              challengeTitle: frozen.challengeTitle,
+              totalSolvers: frozen.totalSolvers,
+              finalizedAt: frozen.finalizedAt,
+              top20Count: frozen.top20.length,
+            }
+          : null,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch status' });
+  }
+}
+
 export async function updateUserRole(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
@@ -1871,6 +1984,114 @@ export async function getAllowlistStatus(_req: AuthRequest, res: Response): Prom
       warning: !isEnabled ? 'Anyone with a college email can register with any correctly shaped PRN' : null,
     },
   });
+}
+
+/**
+ * Audited Admin Action: Get Daily Challenge System Preview & Status
+ */
+export async function getAdminDailySystemPreview(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { getDailySystemPreview } = await import('../services/system-config.service.js');
+    const preview = await getDailySystemPreview();
+    res.status(200).json({
+      success: true,
+      data: preview,
+    });
+  } catch (err: any) {
+    console.error('Get daily system preview error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch daily system status' });
+  }
+}
+
+/**
+ * Audited Admin Action: Pause Daily Challenge System
+ * Requires admin re-authentication password and audit reason.
+ */
+export async function adminPauseDailySystem(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { adminPassword, reason } = req.body;
+    if (!reason || String(reason).trim().length < 3) {
+      res.status(400).json({ success: false, message: 'Audit reason required (at least 3 characters).' });
+      return;
+    }
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Admin privileges required' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(adminPassword || '', adminUser.passwordHash);
+    if (!passwordValid) {
+      res.status(401).json({ success: false, message: 'Admin re-authentication failed: incorrect password.' });
+      return;
+    }
+
+    const { pauseDailySystem } = await import('../services/system-config.service.js');
+    const updated = await pauseDailySystem(adminUser.id, reason.trim());
+
+    res.status(200).json({
+      success: true,
+      message: 'Daily challenge system paused successfully and audited.',
+      data: updated,
+    });
+  } catch (err: any) {
+    console.error('Admin pause daily system error:', err);
+    res.status(500).json({ success: false, message: 'Failed to pause daily system' });
+  }
+}
+
+/**
+ * Audited Admin Action: Resume Daily Challenge System
+ * Requires admin re-authentication password, mode ('NEXT_1700' or 'START_NOW'),
+ * and checks that at least 14 validated problems are scheduled.
+ */
+export async function adminResumeDailySystem(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { adminPassword, mode, reason } = req.body;
+    const resumeMode = mode === 'START_NOW' ? 'START_NOW' : 'NEXT_1700';
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Admin privileges required' });
+      return;
+    }
+
+    const passwordValid = await bcrypt.compare(adminPassword || '', adminUser.passwordHash);
+    if (!passwordValid) {
+      res.status(401).json({ success: false, message: 'Admin re-authentication failed: incorrect password.' });
+      return;
+    }
+
+    const { resumeDailySystem } = await import('../services/system-config.service.js');
+    const result = await resumeDailySystem(adminUser.id, resumeMode, reason);
+
+    res.status(200).json({
+      success: true,
+      message: `Daily challenge system resumed successfully (${resumeMode}).`,
+      data: result,
+    });
+  } catch (err: any) {
+    if (String(err?.message || '').includes('Cannot resume')) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+      return;
+    }
+    console.error('Admin resume daily system error:', err);
+    res.status(500).json({ success: false, message: 'Failed to resume daily system' });
+  }
 }
 
 

@@ -428,8 +428,8 @@ export const ProfilePage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3 pt-2 text-xs font-mono">
             <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]">
-              <span className="text-[#9AA1C4] block mb-1">WEEKLY FREEZE</span>
-              <span className="text-sm font-bold text-[#46D9A0]">1 Auto Freeze / Week</span>
+              <span className="text-[#9AA1C4] block mb-1">STREAK FREEZE</span>
+              <span className="text-sm font-bold text-[#46D9A0]">1 Auto Freeze / 7 Days</span>
             </div>
             <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]">
               <span className="text-[#9AA1C4] block mb-1">RECENT SUBMISSIONS</span>

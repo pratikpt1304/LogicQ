@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
+import { useAuth } from '../context/AuthContext.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   ChevronRight,
   BookOpen,
   AlertCircle,
+  Eye,
 } from 'lucide-react';
 
 interface PracticeProblemRow {
@@ -28,6 +30,8 @@ interface PracticeProblemRow {
 
 export const PracticeModuleProblemsPage: React.FC = () => {
   const { moduleSlug } = useParams<{ moduleSlug: string }>();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['practice-module-problems', moduleSlug],
@@ -66,6 +70,21 @@ export const PracticeModuleProblemsPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      {/* Admin Preview Mode Notice */}
+      {isAdmin && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-mono text-amber-300">
+          <div className="flex items-center gap-2.5">
+            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Admin Preview Mode:</strong> You can review and test questions across all curriculum modules.
+            </span>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold shrink-0">
+            ADMIN
+          </span>
+        </div>
+      )}
+
       {/* Navigation & Header */}
       <div>
         <Link

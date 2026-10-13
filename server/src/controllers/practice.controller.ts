@@ -27,10 +27,45 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
       }
     }
 
+    // Query published practice problems aggregated by moduleSlug and difficulty
+    const publishedProblems = await prisma.problem.findMany({
+      where: {
+        isPractice: true,
+        status: 'PUBLISHED',
+      },
+      select: {
+        id: true,
+        slug: true,
+        moduleSlug: true,
+        difficulty: true,
+      },
+    });
+
+    const problemsByModule: Record<string, typeof publishedProblems> = {};
+    for (const p of publishedProblems) {
+      if (p.moduleSlug) {
+        if (!problemsByModule[p.moduleSlug]) problemsByModule[p.moduleSlug] = [];
+        problemsByModule[p.moduleSlug].push(p);
+      }
+    }
+
+    const isAdmin = req.user?.role === 'ADMIN';
+
     // Evaluate sequential module unlocking:
     // Module 1 is always unlocked.
-    // Module N+1 unlocks if module N has at least module[N].requiredSolvedToUnlock solved problems.
+    // Module N+1 unlocks if module N has at least module[N].requiredSolvedToUnlock solved problems
+    // and module N has at least 10 published questions (complete curriculum).
+    let previousModuleSolved = 0;
+    let previousModuleTotal = 10;
+
     const modulesWithStatus = PRACTICE_CONFIG.MODULES.map((mod: PracticeModuleConfig, idx: number) => {
+      const moduleProbs = problemsByModule[mod.slug] || [];
+      const totalPublished = moduleProbs.length;
+      const easyCount = moduleProbs.filter((p) => p.difficulty === 'EASY').length;
+      const mediumCount = moduleProbs.filter((p) => p.difficulty === 'MEDIUM').length;
+      const hardCount = moduleProbs.filter((p) => p.difficulty === 'HARD').length;
+      const isComingSoon = totalPublished < 10;
+
       let isUnlocked = false;
       let requirementText = '';
 
@@ -38,16 +73,25 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
         isUnlocked = true;
       } else {
         const prevModule = PRACTICE_CONFIG.MODULES[idx - 1];
-        const prevSolved = solvedByModule[prevModule.slug] || 0;
         const threshold = mod.requiredSolvedToUnlock || PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD;
-        isUnlocked = prevSolved >= threshold;
-        if (!isUnlocked) {
-          requirementText = `Solve ${threshold} of ${prevModule.totalQuestions} in ${prevModule.title} to unlock`;
+
+        // Incomplete curriculum: cannot unlock as complete
+        if (previousModuleTotal < 10) {
+          isUnlocked = false;
+          requirementText = `${prevModule.title} is coming soon (incomplete curriculum)`;
+        } else {
+          isUnlocked = previousModuleSolved >= threshold;
+          if (!isUnlocked) {
+            requirementText = `Solve ${threshold} of ${previousModuleTotal} in ${prevModule.title} to unlock`;
+          }
         }
       }
 
       const solvedCount = solvedByModule[mod.slug] || 0;
-      const progressPercent = Math.min(100, Math.round((solvedCount / mod.totalQuestions) * 100));
+      previousModuleSolved = solvedCount;
+      previousModuleTotal = totalPublished;
+
+      const progressPercent = totalPublished > 0 ? Math.min(100, Math.round((solvedCount / totalPublished) * 100)) : 0;
 
       return {
         id: mod.id,
@@ -56,11 +100,18 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
         order: mod.order,
         description: mod.description,
         isUnlocked,
+        isAdminUnlocked: isAdmin,
         requirementText,
-        totalQuestions: mod.totalQuestions,
+        totalQuestions: totalPublished,
         solvedCount,
         progressPercent,
-        distribution: mod.distribution,
+        isComingSoon,
+        canComplete: !isComingSoon,
+        distribution: {
+          EASY: easyCount,
+          MEDIUM: mediumCount,
+          HARD: hardCount,
+        },
       };
     });
 
@@ -88,15 +139,35 @@ export async function getPracticeModuleProblems(req: AuthRequest, res: Response)
     }
 
     const targetModule = PRACTICE_CONFIG.MODULES[targetModuleIndex];
+    const isAdmin = req.user?.role === 'ADMIN';
+    const isPreview = req.query.preview === 'true' || req.headers['x-admin-preview'] === 'true';
 
     // Check unlocking authorization for non-admin students
-    if (req.user?.role !== 'ADMIN' && targetModuleIndex > 0) {
+    if (!isAdmin && !isPreview && targetModuleIndex > 0) {
       if (!userId) {
         res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
 
       const prevModule = PRACTICE_CONFIG.MODULES[targetModuleIndex - 1];
+      const prevProblemsCount = await prisma.problem.count({
+        where: {
+          moduleSlug: prevModule.slug,
+          isPractice: true,
+          status: 'PUBLISHED',
+        },
+      });
+
+      if (prevProblemsCount < 10) {
+        res.status(403).json({
+          success: false,
+          code: 'MODULE_LOCKED',
+          message: `${prevModule.title} is coming soon and cannot be unlocked as complete.`,
+          error: `${prevModule.title} is coming soon and cannot be unlocked as complete.`,
+        });
+        return;
+      }
+
       const prevSolvedCount = await prisma.practiceProgress.count({
         where: {
           userId,
@@ -208,13 +279,34 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
     }
 
     // Verify module is unlocked for student
-    if (req.user?.role !== 'ADMIN' && targetModuleIndex > 0) {
+    const isAdmin = req.user?.role === 'ADMIN';
+    const isPreview = req.query.preview === 'true' || req.headers['x-admin-preview'] === 'true';
+
+    if (!isAdmin && !isPreview && targetModuleIndex > 0) {
       if (!userId) {
         res.status(401).json({ success: false, message: 'Authentication required' });
         return;
       }
 
       const prevModule = PRACTICE_CONFIG.MODULES[targetModuleIndex - 1];
+      const prevProblemsCount = await prisma.problem.count({
+        where: {
+          moduleSlug: prevModule.slug,
+          isPractice: true,
+          status: 'PUBLISHED',
+        },
+      });
+
+      if (prevProblemsCount < 10) {
+        res.status(403).json({
+          success: false,
+          code: 'MODULE_LOCKED',
+          message: `${prevModule.title} is coming soon and cannot be unlocked as complete.`,
+          error: `${prevModule.title} is coming soon and cannot be unlocked as complete.`,
+        });
+        return;
+      }
+
       const prevSolvedCount = await prisma.practiceProgress.count({
         where: {
           userId,

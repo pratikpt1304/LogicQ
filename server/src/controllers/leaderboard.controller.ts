@@ -9,43 +9,57 @@ import {
   formatPublicDisplayName,
   generateShortId,
 } from '../config/academic.config.js';
-import { getWeekWindowByOffsetIST } from '../utils/ist.js';
+import {
+  getServerNow,
+  getChallengeDayIST,
+  addDaysIST,
+  getPastDaysList,
+} from '../utils/ist.js';
 import { FEATURES } from '../config/features.config.js';
-
-function computePastWeekPoints(basePoints: number, weekOffset: number, indexSeed: number): number {
-  if (weekOffset === 0) return basePoints;
-  const absOff = Math.abs(weekOffset);
-  // Deterministic frozen snapshot for past weeks (-1, -2, -3)
-  const scale = Math.max(0.35, 1 - absOff * 0.18);
-  const jitter = ((indexSeed * 17 + absOff * 13) % 15) - 5;
-  return Math.max(10, Math.round((basePoints * scale + jitter) / 5) * 5);
-}
-
-function computePastWeekSolved(baseSolved: number, basePoints: number, weekOffset: number): number {
-  if (weekOffset === 0) return baseSolved;
-  const derivedFromPoints = Math.min(7, Math.max(1, Math.round(computePastWeekPoints(basePoints, weekOffset, 3) / 25)));
-  return baseSolved > 0 ? Math.min(7, Math.max(1, baseSolved)) : derivedFromPoints;
-}
+import {
+  computeDailyBoardForDay,
+  getFrozenDailyBoard,
+  MIN_RANKED_STUDENTS_FOR_PERCENTILE,
+  runDailyFinalizationJob,
+  getStudentDailySummary,
+  DailyRankEntry,
+} from '../services/daily-finalization.service.js';
+import { isDailyChallengePaused } from '../services/system-config.service.js';
 
 export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '50', 10)));
-    const skip = (page - 1) * limit;
-    const search = (req.query.search as string) || '';
+    const search = ((req.query.search as string) || '').trim().toLowerCase();
     const department = ((req.query.department as string) || '').trim();
     const year = ((req.query.year as string) || '').trim();
-    const rawWeekOffset = parseInt((req.query.weekOffset as string) || '0', 10);
-    const weekOffset = Number.isNaN(rawWeekOffset) ? 0 : Math.max(-12, Math.min(0, rawWeekOffset));
 
-    const selectedWeek = getWeekWindowByOffsetIST(weekOffset);
-    const availableWeeks = [0, -1, -2, -3].map((off) => getWeekWindowByOffsetIST(off));
+    // Tabs: "today" (default), "yesterday", "past_days"
+    const rawTab = ((req.query.tab as string) || 'today').trim().toLowerCase();
+    const weekOffsetParam = req.query.weekOffset !== undefined ? parseInt(req.query.weekOffset as string, 10) : undefined;
+    let tab: 'today' | 'yesterday' | 'past_days' =
+      rawTab === 'yesterday' ? 'yesterday' : rawTab === 'past_days' ? 'past_days' : 'today';
 
-    const where: any = {
-      isBanned: false,
-      role: 'STUDENT',
-      totalPoints: { gt: 0 },
-    };
+    if (weekOffsetParam !== undefined && weekOffsetParam < 0) {
+      tab = 'yesterday';
+    }
+
+    const now = getServerNow();
+    const todayStr = getChallengeDayIST(now);
+    const yesterdayStr = addDaysIST(todayStr, -1);
+
+    // Determine target challenge day
+    let targetDayStr = todayStr;
+    if (weekOffsetParam !== undefined && weekOffsetParam < 0) {
+      targetDayStr = addDaysIST(todayStr, weekOffsetParam);
+    } else if (tab === 'yesterday') {
+      targetDayStr = yesterdayStr;
+    } else if (tab === 'past_days') {
+      const requestedDate = ((req.query.date as string) || '').trim();
+      targetDayStr = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+        ? requestedDate
+        : yesterdayStr;
+    }
 
     if (department && department !== 'ALL') {
       if (!ALLOWED_DEPARTMENTS.includes(department as any)) {
@@ -55,7 +69,6 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
         });
         return;
       }
-      where.department = department;
     }
 
     if (year && year !== 'ALL') {
@@ -66,221 +79,348 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
         });
         return;
       }
-      where.year = year;
     }
 
-    if (search.trim()) {
-      const q = search.trim();
-      where.OR = [
-        { displayName: { contains: q } },
-        { shortId: { contains: q } },
-        { department: { contains: q } },
-        { year: { contains: q } },
-        { college: { contains: q } },
-      ];
-    }
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        orderBy: [
-          { totalPoints: 'desc' },
-          { currentStreak: 'desc' },
-          { createdAt: 'asc' },
-        ],
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          username: true,
-          prn: true, // Selected internally ONLY to mask last 4 digits for the requesting student's own row; NEVER serialized to other users
-          displayName: true,
-          shortId: true,
-          college: true,
-          department: true,
-          year: true,
-          division: true,
-          avatarUrl: true,
-          totalPoints: true,
-          currentStreak: true,
-          longestStreak: true,
-          submissions: {
-            where: { verdict: 'ACCEPTED' },
-            select: { problemId: true },
+    const isPaused = await isDailyChallengePaused();
+    if (isPaused && (tab === 'today' || tab === 'yesterday')) {
+      const availableDays = getPastDaysList(90, now);
+      res.status(200).json({
+        success: true,
+        data: {
+          leaderboard: [],
+          pinnedOwnRow: null,
+          activeTab: tab,
+          dailyChallengePaused: true,
+          paused: true,
+          message: 'Daily challenges are not live yet. We will announce the start.',
+          selectedDay: {
+            dayId: targetDayStr,
+            dayLabel: 'Daily challenges are not live yet. We will announce the start.',
+            isFrozen: false,
+            challengeTitle: 'Daily challenges are not live yet. We will announce the start.',
+            totalSolvers: 0,
+            pointsToday: 0,
           },
-          userBadges: {
-            include: { badge: true },
-            take: 3,
+          selectedWeek: null,
+          yesterdaySummary: null,
+          dailySummary: null,
+          weeklySummary: null,
+          availableDays,
+          availableWeeks: [],
+          filters: {
+            tab,
+            date: targetDayStr,
+            department: department || 'ALL',
+            year: year || 'ALL',
+            allowedDepartments: ALLOWED_DEPARTMENTS,
+            allowedYears: ALLOWED_YEARS,
+          },
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            totalPages: 1,
           },
         },
-      }),
-      prisma.user.count({ where }),
-    ]);
+      });
+      return;
+    }
+
+    // If viewing yesterday and not finalized yet, attempt idempotent finalization
+    if (targetDayStr <= yesterdayStr && !getFrozenDailyBoard(targetDayStr)) {
+      await runDailyFinalizationJob(targetDayStr);
+    }
+
+    // Get frozen board if available, otherwise compute live daily board
+    const frozenBoard = getFrozenDailyBoard(targetDayStr);
+    let rankedEntries: DailyRankEntry[] = [];
+    let problemTitle = `Daily Challenge (${targetDayStr})`;
+    let problemPoints = 100;
+    let isFrozen = false;
+
+    if (frozenBoard) {
+      rankedEntries = Array.from(frozenBoard.entries.values()).sort((a, b) => a.rank - b.rank);
+      problemTitle = frozenBoard.challengeTitle;
+      isFrozen = true;
+    } else {
+      const computed = await computeDailyBoardForDay(targetDayStr);
+      rankedEntries = computed.rankedList;
+      if (computed.problem) {
+        problemTitle = computed.problem.title;
+        problemPoints = computed.problem.basePoints;
+      }
+      isFrozen = targetDayStr < todayStr;
+    }
 
     const currentUserId = req.user?.userId;
 
-    const formatRow = (u: (typeof users)[number], rank: number | null, seedIdx: number = typeof rank === 'number' ? rank : 0) => {
-      const distinctSolvedCount = new Set(u.submissions.map((s) => s.problemId)).size;
-      const isCurrentUser = Boolean(currentUserId && u.id === currentUserId);
-      const shortId = u.shortId || generateShortId(u.id);
+    // Apply Department and Year filtering
+    let filteredList = rankedEntries;
+    if (department && department !== 'ALL') {
+      filteredList = filteredList.filter((e) => e.department === department);
+    }
+    if (year && year !== 'ALL') {
+      filteredList = filteredList.filter((e) => e.year === year);
+    }
+    if (search) {
+      filteredList = filteredList.filter(
+        (e) =>
+          e.displayName.toLowerCase().includes(search) ||
+          (e.department && e.department.toLowerCase().includes(search)) ||
+          (e.year && e.year.toLowerCase().includes(search))
+      );
+    }
+
+    const total = filteredList.length;
+    const skip = (page - 1) * limit;
+    const paginatedEntries = filteredList.slice(skip, skip + limit);
+
+    // Fetch user details for PRN masking & own label formatting
+    const entryUserIds = paginatedEntries.map((e) => e.userId);
+    if (currentUserId && !entryUserIds.includes(currentUserId)) {
+      entryUserIds.push(currentUserId);
+    }
+
+    const usersMap = new Map(
+      (
+        await prisma.user.findMany({
+          where: { id: { in: entryUserIds } },
+          select: {
+            id: true,
+            username: true,
+            prn: true,
+            displayName: true,
+            shortId: true,
+            avatarUrl: true,
+            userBadges: { include: { badge: true }, take: 3 },
+          },
+        })
+      ).map((u) => [u.id, u])
+    );
+
+    const formatRow = (entry: DailyRankEntry) => {
+      const u = usersMap.get(entry.userId);
+      const isCurrentUser = Boolean(currentUserId && entry.userId === currentUserId);
+      const shortId = u?.shortId || generateShortId(entry.userId);
       const publicDisplayName = formatPublicDisplayName({
-        displayName: u.displayName,
+        displayName: entry.displayName,
         shortId,
-        id: u.id,
+        id: entry.userId,
       });
 
-      const ownMaskedPrn = isCurrentUser ? maskPrn(u.prn) : undefined;
+      const ownMaskedPrn = isCurrentUser && u?.prn ? maskPrn(u.prn) : undefined;
       const ownIdentityLabel = isCurrentUser
         ? formatOwnIdentityLabel({
-            department: u.department,
-            year: u.year,
-            prn: u.prn,
+            department: entry.department,
+            year: entry.year,
+            prn: u?.prn || null,
           })
         : undefined;
 
-      const MIN_RANKED_FOR_PERCENTILE = 10;
-      const studentsBeaten = rank ? Math.max(0, total - rank) : 0;
-      const percentile =
-        !rank || total < MIN_RANKED_FOR_PERCENTILE
-          ? null
-          : Math.ceil((rank / total) * 100);
-
-      const displayPoints =
-        weekOffset === 0
-          ? u.totalPoints
-          : computePastWeekPoints(u.totalPoints, weekOffset, seedIdx);
-      const displaySolved =
-        weekOffset === 0
-          ? distinctSolvedCount
-          : computePastWeekSolved(distinctSolvedCount, u.totalPoints, weekOffset);
-      const prevWeekPoints = computePastWeekPoints(u.totalPoints, weekOffset - 1, seedIdx);
-      const previousWeekDelta = displayPoints - prevWeekPoints;
+      const studentsBeaten = Math.max(0, total - entry.rank);
 
       return {
-        id: u.id,
-        username: u.username,
-        displayName: u.displayName,
+        id: entry.userId,
+        userId: entry.userId,
+        username: u?.username || entry.displayName,
+        displayName: entry.displayName,
         publicDisplayName,
-        // Default display label: for the student themselves show department, year and masked PRN ("••••••5678");
-        // for other students show optional displayName or fallback "Student XXXX".
         fullName: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
         displayLabel: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
         ...(isCurrentUser
           ? { maskedPrn: ownMaskedPrn, ownIdentityLabel, isCurrentUser: true }
           : { isCurrentUser: false }),
         shortId,
-        college: u.college || 'Sanjivani University',
-        department: u.department || null,
-        year: u.year || null,
-        division: u.division || null,
-        avatarUrl: u.avatarUrl,
-        totalPoints: displayPoints,
-        weeklyPoints: displayPoints,
-        previousWeekDelta,
-        currentStreak: u.currentStreak,
-        longestStreak: u.longestStreak,
-        rank,
-        percentile,
+        college: 'Sanjivani University',
+        department: entry.department,
+        year: entry.year,
+        division: entry.division,
+        avatarUrl: u?.avatarUrl || null,
+        totalPoints: entry.totalPoints,
+        pointsToday: entry.pointsToday,
+        dailyPoints: entry.pointsToday,
+        weeklyPoints: entry.pointsToday, // backward-compatibility alias
+        currentStreak: entry.currentStreak,
+        rank: entry.rank,
+        dailyRank: entry.rank,
+        percentile: entry.percentile,
         studentsBeaten,
-        solvedCount: displaySolved,
-        ...(FEATURES.BADGES ? { badges: u.userBadges.map((ub) => ub.badge) } : {}),
+        wrongAttempts: entry.wrongAttempts,
+        solvedAt: entry.firstAcceptedSubmittedAt,
+        solvedCount: entry.totalSolved,
+        ...(FEATURES.BADGES && u?.userBadges ? { badges: u.userBadges.map((ub) => ub.badge) } : {}),
       };
     };
 
-    const leaderboard = users.map((u, idx) => formatRow(u, skip + idx + 1, skip + idx + 1));
+    const leaderboard = paginatedEntries.map(formatRow);
 
-    // Pinned own-row calculation (keeps own-row & percentile even if user is on another page or filtered)
-    let pinnedOwnRow = leaderboard.find((r) => r.isCurrentUser) || null;
-    if (!pinnedOwnRow && currentUserId) {
-      const meInScope = await prisma.user.findFirst({
-        where: {
-          id: currentUserId,
-          isBanned: false,
-          role: 'STUDENT',
-        },
-        select: {
-          id: true,
-          username: true,
-          prn: true,
-          displayName: true,
-          shortId: true,
-          college: true,
-          department: true,
-          year: true,
-          division: true,
-          avatarUrl: true,
-          totalPoints: true,
-          currentStreak: true,
-          longestStreak: true,
-          submissions: {
-            where: { verdict: 'ACCEPTED' },
-            select: { problemId: true },
+    // Calculate Pinned Own Row
+    let pinnedOwnRow = null;
+    if (currentUserId) {
+      const myRankEntry = rankedEntries.find((e) => e.userId === currentUserId);
+      if (myRankEntry) {
+        pinnedOwnRow = formatRow(myRankEntry);
+      } else {
+        // Current user has NOT solved today's challenge -> Unranked
+        const myUser = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: {
+            id: true,
+            username: true,
+            prn: true,
+            displayName: true,
+            shortId: true,
+            department: true,
+            year: true,
+            division: true,
+            avatarUrl: true,
+            totalPoints: true,
+            currentStreak: true,
           },
-          userBadges: {
-            include: { badge: true },
-            take: 3,
-          },
-        },
-      });
+        });
 
-      if (meInScope) {
-        if ((meInScope.totalPoints || 0) === 0) {
-          const row = formatRow(meInScope, 0, 0);
+        if (myUser) {
+          const shortId = myUser.shortId || generateShortId(myUser.id);
+          const publicDisplayName = formatPublicDisplayName({
+            displayName: myUser.displayName,
+            shortId,
+            id: myUser.id,
+          });
+          const ownMaskedPrn = myUser.prn ? maskPrn(myUser.prn) : undefined;
+          const ownIdentityLabel = formatOwnIdentityLabel({
+            department: myUser.department,
+            year: myUser.year,
+            prn: myUser.prn,
+          });
+
           pinnedOwnRow = {
-            ...row,
+            id: myUser.id,
+            userId: myUser.id,
+            username: myUser.username,
+            displayName: myUser.displayName,
+            publicDisplayName,
+            fullName: ownIdentityLabel || publicDisplayName,
+            displayLabel: ownIdentityLabel || publicDisplayName,
+            maskedPrn: ownMaskedPrn,
+            ownIdentityLabel,
+            isCurrentUser: true,
+            shortId,
+            college: 'Sanjivani University',
+            department: myUser.department,
+            year: myUser.year,
+            division: myUser.division,
+            avatarUrl: myUser.avatarUrl,
+            totalPoints: myUser.totalPoints,
+            pointsToday: 0,
+            dailyPoints: 0,
+            weeklyPoints: 0,
+            currentStreak: myUser.currentStreak,
             rank: null,
+            dailyRank: null,
             percentile: null,
             studentsBeaten: 0,
+            wrongAttempts: 0,
+            status: 'NOT_SOLVED_YET',
+            solvedCount: 0,
           };
-        } else {
-          const higherCount = await prisma.user.count({
-            where: {
-              ...where,
-              OR: [
-                { totalPoints: { gt: meInScope.totalPoints } },
-                {
-                  totalPoints: meInScope.totalPoints,
-                  currentStreak: { gt: meInScope.currentStreak },
-                },
-              ],
-            },
-          });
-          pinnedOwnRow = formatRow(meInScope, higherCount + 1, higherCount + 1);
         }
       }
     }
 
-    const summarySource = pinnedOwnRow || leaderboard[0] || null;
-    const weeklySummary = summarySource
-      ? {
-          weekId: selectedWeek.weekId,
-          weekOffset: selectedWeek.weekOffset,
-          weekLabel: selectedWeek.weekLabel,
-          startDate: selectedWeek.startDate,
-          endDate: selectedWeek.endDate,
-          isFrozen: selectedWeek.isFrozen,
-          rank: summarySource.rank,
-          totalParticipants: total,
-          weeklyPoints: summarySource.weeklyPoints,
-          solvedCount: summarySource.solvedCount,
-          percentile: summarySource.percentile,
-          studentsBeaten: summarySource.studentsBeaten,
-          previousWeekDelta: summarySource.previousWeekDelta,
-        }
-      : null;
+    // Yesterday's Result Summary ("Yesterday's result")
+    let yesterdaySummary = null;
+    if (currentUserId) {
+      yesterdaySummary = getStudentDailySummary(currentUserId, yesterdayStr);
+      if (!yesterdaySummary) {
+        // Fallback live check for yesterday
+        const yesterdayBoard = await computeDailyBoardForDay(yesterdayStr);
+        const myYesterdayEntry = yesterdayBoard.rankedList.find((e) => e.userId === currentUserId);
+        const yesterdayUser = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { currentStreak: true },
+        });
+
+        yesterdaySummary = {
+          userId: currentUserId,
+          dayId: yesterdayStr,
+          challengeTitle: yesterdayBoard.problem?.title || `Daily Challenge (${yesterdayStr})`,
+          challengeDate: yesterdayStr,
+          verdict: myYesterdayEntry ? 'ACCEPTED' : 'NOT_SOLVED',
+          points: myYesterdayEntry ? myYesterdayEntry.pointsToday : 0,
+          dailyRank: myYesterdayEntry ? myYesterdayEntry.rank : null,
+          dailyRankLabel: myYesterdayEntry
+            ? `#${myYesterdayEntry.rank} of ${yesterdayBoard.totalSolvers}`
+            : 'Not solved',
+          attempts: myYesterdayEntry ? myYesterdayEntry.wrongAttempts : 0,
+          currentStreak: yesterdayUser?.currentStreak || 0,
+          improvementHint: myYesterdayEntry
+            ? 'Great solve yesterday! Keep up your streak today.'
+            : 'Solve today\'s challenge before 17:00 IST to build your daily streak!',
+          totalSolvers: yesterdayBoard.totalSolvers,
+          percentile: myYesterdayEntry ? myYesterdayEntry.percentile : null,
+          finalizedAt: now,
+        };
+      }
+    }
+
+    const availableDays = getPastDaysList(90, now);
+    const dayLabel =
+      targetDayStr === todayStr
+        ? `Today (${todayStr})`
+        : targetDayStr === yesterdayStr
+        ? `Yesterday (${yesterdayStr})`
+        : `Challenge Day (${targetDayStr})`;
+
+    const selectedDay = {
+      dayId: targetDayStr,
+      dayLabel,
+      isFrozen,
+      challengeTitle: problemTitle,
+      totalSolvers: rankedEntries.length,
+      pointsToday: problemPoints,
+    };
+
+    // Backward-compatibility wrapper for any older component reading weekly fields
+    const computedWeekOffset = weekOffsetParam !== undefined ? weekOffsetParam : (tab === 'today' ? 0 : -1);
+    const legacyWeeklySummary = {
+      weekId: `daily_${targetDayStr}`,
+      weekOffset: computedWeekOffset,
+      weekLabel: computedWeekOffset === -1 ? `Last Week (${dayLabel})` : dayLabel,
+      startDate: targetDayStr,
+      endDate: targetDayStr,
+      isFrozen: targetDayStr < todayStr || isFrozen,
+      rank: pinnedOwnRow?.rank || null,
+      totalParticipants: total,
+      weeklyPoints: pinnedOwnRow?.pointsToday || 0,
+      solvedCount: pinnedOwnRow?.rank ? 1 : 0,
+      percentile: pinnedOwnRow?.percentile || null,
+      studentsBeaten: pinnedOwnRow?.studentsBeaten || 0,
+      previousWeekDelta: null,
+    };
 
     res.status(200).json({
       success: true,
       data: {
         leaderboard,
         pinnedOwnRow,
-        selectedWeek,
-        availableWeeks,
-        weeklySummary,
+        activeTab: tab,
+        selectedDay,
+        selectedWeek: legacyWeeklySummary, // legacy alias
+        yesterdaySummary,
+        dailySummary: yesterdaySummary,
+        weeklySummary: legacyWeeklySummary, // legacy alias
+        availableDays,
+        availableWeeks: [
+          { weekOffset: 0, weekLabel: "Today's Live Board", isFrozen: false },
+          { weekOffset: -1, weekLabel: "Yesterday's Final Board", isFrozen: true },
+          { weekOffset: -2, weekLabel: "2 Days Ago (Archive)", isFrozen: true },
+          { weekOffset: -3, weekLabel: "3 Days Ago (Archive)", isFrozen: true },
+        ],
         filters: {
+          tab,
+          date: targetDayStr,
           department: department || 'ALL',
           year: year || 'ALL',
-          weekOffset,
           allowedDepartments: ALLOWED_DEPARTMENTS,
           allowedYears: ALLOWED_YEARS,
         },
@@ -288,12 +428,14 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
           page,
           limit,
           total,
-          totalPages: Math.ceil(total / limit),
+          totalPages: Math.ceil(total / limit) || 1,
         },
       },
     });
   } catch (error) {
-    console.error('GetLeaderboard error');
+    console.error('GetLeaderboard error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+export default getLeaderboard;

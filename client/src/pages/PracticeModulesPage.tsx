@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.js';
 import {
   Lock,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   Code2,
   Sparkles,
   Layers,
+  Eye,
 } from 'lucide-react';
 
 interface PracticeModuleItem {
@@ -19,10 +21,13 @@ interface PracticeModuleItem {
   order: number;
   description: string;
   isUnlocked: boolean;
+  isAdminUnlocked?: boolean;
   requirementText: string;
   totalQuestions: number;
   solvedCount: number;
   progressPercent: number;
+  isComingSoon?: boolean;
+  canComplete?: boolean;
   distribution: {
     EASY: number;
     MEDIUM: number;
@@ -31,6 +36,9 @@ interface PracticeModuleItem {
 }
 
 export const PracticeModulesPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['practice-modules'],
     queryFn: () => api.get('/practice/modules'),
@@ -56,9 +64,17 @@ export const PracticeModulesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
-          <Code2 className="w-4 h-4 text-[var(--accent)]" />
-          <span>40 Total Practice Problems</span>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-400">
+              <Eye className="w-4 h-4" />
+              <span>Admin Preview Enabled</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
+            <Code2 className="w-4 h-4 text-[var(--accent)]" />
+            <span>40 Total Practice Problems</span>
+          </div>
         </div>
       </div>
 
@@ -82,12 +98,14 @@ export const PracticeModulesPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {modules.map((mod) => {
-            const isCompleted = mod.solvedCount >= mod.totalQuestions;
+            const isComingSoon = Boolean(mod.isComingSoon || mod.totalQuestions < 10);
+            const isCompleted = !isComingSoon && mod.totalQuestions >= 10 && mod.solvedCount >= mod.totalQuestions;
+            const isClickable = mod.isUnlocked || isAdmin;
 
             const cardContent = (
               <div
                 className={`relative h-full flex flex-col justify-between p-6 rounded-2xl border transition-all duration-200 ${
-                  mod.isUnlocked
+                  isClickable
                     ? 'glass-card border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:shadow-lg hover:shadow-[var(--accent)]/5 group cursor-pointer'
                     : 'bg-[var(--bg-surface)]/40 border-[var(--border-line)] opacity-75 cursor-not-allowed select-none'
                 }`}
@@ -111,6 +129,11 @@ export const PracticeModulesPage: React.FC = () => {
                           <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       )
+                    ) : isAdmin ? (
+                      <span className="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>PREVIEW (ADMIN)</span>
+                      </span>
                     ) : (
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
                         <Lock className="w-3.5 h-3.5" />
@@ -151,19 +174,30 @@ export const PracticeModulesPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Difficulty composition pill badges */}
-                  <div className="flex items-center gap-2 pt-1 text-[11px] font-mono text-[var(--text-muted)]">
-                    <span className="text-emerald-400">{mod.distribution.EASY} Easy</span>
-                    <span>•</span>
-                    <span className="text-amber-400">{mod.distribution.MEDIUM} Med</span>
-                    <span>•</span>
-                    <span className="text-rose-400">{mod.distribution.HARD} Hard</span>
-                  </div>
+                  {/* Difficulty composition pill badges or Coming Soon */}
+                  {isComingSoon ? (
+                    <div className="flex items-center gap-2 pt-1 text-[11px] font-mono">
+                      <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 font-semibold">
+                        Coming soon
+                      </span>
+                      <span className="text-[var(--text-muted)] text-[10px]">
+                        ({mod.totalQuestions}/10 questions published)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 pt-1 text-[11px] font-mono text-[var(--text-muted)]">
+                      <span className="text-emerald-400">{mod.distribution?.EASY ?? 0} Easy</span>
+                      <span>•</span>
+                      <span className="text-amber-400">{mod.distribution?.MEDIUM ?? 0} Med</span>
+                      <span>•</span>
+                      <span className="text-rose-400">{mod.distribution?.HARD ?? 0} Hard</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
 
-            if (mod.isUnlocked) {
+            if (isClickable) {
               return (
                 <Link key={mod.id} to={`/practice/${mod.slug}`}>
                   {cardContent}

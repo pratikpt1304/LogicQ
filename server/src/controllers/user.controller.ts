@@ -31,6 +31,12 @@ import {
 } from '../utils/ist.js';
 import { FEATURES, shouldHideEndedProblemTitles } from '../config/features.config.js';
 import { ensureCurrentWeekSchedule } from './problem.controller.js';
+import {
+  computeDailyBoardForDay,
+  getFrozenDailyBoard,
+  getStudentDailySummary,
+  runDailyFinalizationJob,
+} from '../services/daily-finalization.service.js';
 
 function stripHtmlTags(str: string): string {
   return str.replace(/<[^>]*>?/gm, '').trim();
@@ -1028,6 +1034,22 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
     const weeklySummary =
       weeklySummaries.find((w) => w.weekOffset === weekOffset) || weeklySummaries[0];
 
+    const yesterdayDayStr = addDaysIST(activeDay, -1);
+    const todayBoard = await computeDailyBoardForDay(activeDay);
+    const todayRankEntry = todayBoard.rankedList.find((e) => e.userId === user.id);
+    const dailyRank = todayRankEntry ? todayRankEntry.rank : null;
+    const pointsToday = todayRankEntry ? todayRankEntry.pointsToday : 0;
+    const todayPercentile = todayRankEntry ? todayRankEntry.percentile : null;
+
+    if (!getFrozenDailyBoard(yesterdayDayStr)) {
+      await runDailyFinalizationJob(yesterdayDayStr);
+    }
+    const yesterdaySummaryRecord = getStudentDailySummary(user.id, yesterdayDayStr);
+    const yesterdayPoints = yesterdaySummaryRecord ? yesterdaySummaryRecord.points : 0;
+    const vsYesterdayDelta = yesterdaySummaryRecord && (pointsToday > 0 || yesterdayPoints > 0)
+      ? pointsToday - yesterdayPoints
+      : null;
+
     const sanitizedRecentSubmissions = user.submissions.map((s) => {
       const isEnded = s.problem.slug !== 'daily-longest-unique-substring';
       return {
@@ -1051,10 +1073,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
           currentStreak: user.currentStreak,
           longestStreak: user.longestStreak,
           lastSolvedDate: user.lastSolvedDate,
-          rank,
-          percentile,
-          studentsBeaten,
-          totalUsers,
+          rank: dailyRank || rank,
+          dailyRank,
+          pointsToday,
+          percentile: todayPercentile,
+          vsYesterdayDelta,
+          studentsBeaten: todayRankEntry ? Math.max(0, todayBoard.totalSolvers - todayRankEntry.rank) : studentsBeaten,
+          totalUsers: todayBoard.totalSolvers || totalUsers,
           totalSolved: solvedProblems.size,
           thisWeekSolved: solvedProblems.size,
           thisWeekTotal: 7,
@@ -1066,9 +1091,21 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
             HARD: Array.from(solvedProblems.values()).filter((d) => d === 'HARD').length,
           },
         },
+        dailyRank,
+        pointsToday,
+        percentile: todayPercentile,
+        vsYesterdayDelta,
+        yesterdaySummary: yesterdaySummaryRecord,
+        dailySummary: yesterdaySummaryRecord,
         selectedWeek,
         availableWeeks,
-        weeklySummary,
+        weeklySummary: {
+          ...(weeklySummary || {}),
+          ...(yesterdaySummaryRecord || {}),
+          rank: weeklySummary?.rank ?? (yesterdaySummaryRecord?.dailyRank ?? null),
+          percentile: weeklySummary?.percentile ?? null,
+          previousWeekDelta: weeklySummary?.previousWeekDelta ?? null,
+        },
         weeklySummaries,
         recentSubmissions: sanitizedRecentSubmissions,
         ...(FEATURES.BADGES

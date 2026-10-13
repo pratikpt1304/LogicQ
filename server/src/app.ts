@@ -66,6 +66,28 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// System Configuration Endpoint (readable by clients)
+app.get('/api/config', async (_req: Request, res: Response) => {
+  try {
+    const { getSystemConfig } = await import('./services/system-config.service.js');
+    const config = await getSystemConfig();
+    res.status(200).json({
+      success: true,
+      dailyChallengePaused: config.dailyChallengePaused,
+      pausedAt: config.pausedAt,
+      resumedAt: config.resumedAt,
+      minScheduledForResume: config.minScheduledForResume,
+    });
+  } catch {
+    res.status(200).json({
+      success: true,
+      dailyChallengePaused: true, // Safe fail-closed default
+      pausedAt: null,
+      resumedAt: null,
+    });
+  }
+});
+
 // Client Error Report Endpoint (rate-limited, scrubbed of tokens/code/personal data)
 app.post('/api/support/error-report', async (req: Request, res: Response) => {
   try {

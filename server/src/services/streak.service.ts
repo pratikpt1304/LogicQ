@@ -6,9 +6,11 @@ import {
   getChallengeDayIST,
   addDaysIST,
 } from '../utils/ist.js';
+import { isDailyChallengePaused } from './system-config.service.js';
 
 const adminPauseDays = new Set<string>();
-const weeklyFreezeUsedByUserWeek = new Map<string, number>();
+export const STREAK_FREEZE_ROLLING_DAYS = 7;
+const userFreezeDates = new Map<string, Set<string>>();
 
 export function setAdminPauseDay(dayStr: string, paused: boolean = true): void {
   if (paused) {
@@ -26,28 +28,46 @@ export function isAdminPauseDay(dayStr: string): boolean {
   return adminPauseDays.has(dayStr);
 }
 
-export function resetWeeklyFreezesForWeek(weekKey?: string): void {
-  if (!weekKey) {
-    weeklyFreezeUsedByUserWeek.clear();
-    return;
+export function clearUserFreezes(): void {
+  userFreezeDates.clear();
+}
+
+export function resetWeeklyFreezesForWeek(_weekKey?: string): void {
+  // Clear freezes for backward compatibility
+  userFreezeDates.clear();
+}
+
+export function isRollingFreezeAvailable(
+  userId: string,
+  dayStr: string,
+  rollingDays: number = STREAK_FREEZE_ROLLING_DAYS
+): boolean {
+  const dates = userFreezeDates.get(userId);
+  if (!dates || dates.size === 0) return true;
+  for (let i = 1; i < rollingDays; i++) {
+    const priorDay = addDaysIST(dayStr, -i);
+    if (dates.has(priorDay)) return false;
   }
-  for (const key of weeklyFreezeUsedByUserWeek.keys()) {
-    if (key.endsWith(`::${weekKey}`)) {
-      weeklyFreezeUsedByUserWeek.delete(key);
-    }
+  return true;
+}
+
+export function recordFreezeUsed(userId: string, dayStr: string): void {
+  if (!userFreezeDates.has(userId)) {
+    userFreezeDates.set(userId, new Set());
   }
+  userFreezeDates.get(userId)!.add(dayStr);
 }
 
 /**
  * Evaluates a missed challenge day at the 17:00 IST daily boundary:
- * - If `dayStr` is an Admin Pause Day: streak is neither broken nor extended, and weekly freeze is not consumed.
- * - If the student has `currentStreak > 0` and has their 1 weekly freeze remaining for `weekKey`: consumes the freeze and preserves `currentStreak` (advances `lastSolvedDate` to `dayStr` so next day's solve continues the streak).
- * - If the student already used their weekly freeze in `weekKey`: resets `currentStreak` to `0`.
+ * - If `dayStr` is an Admin Pause Day: streak is neither broken nor extended, and freeze is not consumed.
+ * - If the student has `currentStreak > 0` and has 1 freeze available in rolling 7 days: consumes the freeze and preserves `currentStreak` (advances `lastSolvedDate` to `dayStr`).
+ * - If a freeze was already used within the rolling 7-day window: resets `currentStreak` to `0`.
  */
 export async function evaluateMissedChallengeDay(
   userId: string,
   dayStr: string,
-  weekKey: string = 'current_week'
+  _weekKeyOrRollingDays: string | number = STREAK_FREEZE_ROLLING_DAYS
 ): Promise<{
   eventType: 'ADMIN_PAUSE_PROTECTED' | 'FREEZE_USED' | 'STREAK_BROKEN' | 'NO_STREAK';
   streakBefore: number;
@@ -64,11 +84,15 @@ export async function evaluateMissedChallengeDay(
   });
   if (!user) throw new Error('User not found');
 
-  const mapKey = `${userId}::${weekKey}`;
-  const freezesUsed = weeklyFreezeUsedByUserWeek.get(mapKey) || 0;
-  const freezesRemainingBefore = Math.max(0, 1 - freezesUsed);
+  const rollingDays = typeof _weekKeyOrRollingDays === 'number'
+    ? _weekKeyOrRollingDays
+    : STREAK_FREEZE_ROLLING_DAYS;
 
-  if (isAdminPauseDay(dayStr)) {
+  const freezeAvailableBefore = isRollingFreezeAvailable(userId, dayStr, rollingDays);
+  const freezesRemainingBefore = freezeAvailableBefore ? 1 : 0;
+
+  const isPaused = (await isDailyChallengePaused()) || isAdminPauseDay(dayStr);
+  if (isPaused) {
     await prisma.user.update({
       where: { id: userId },
       data: { lastSolvedDate: dayStr },
@@ -98,8 +122,8 @@ export async function evaluateMissedChallengeDay(
     };
   }
 
-  if (freezesRemainingBefore > 0) {
-    weeklyFreezeUsedByUserWeek.set(mapKey, freezesUsed + 1);
+  if (freezeAvailableBefore) {
+    recordFreezeUsed(userId, dayStr);
     await prisma.user.update({
       where: { id: userId },
       data: { lastSolvedDate: dayStr },

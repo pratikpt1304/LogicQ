@@ -7,6 +7,7 @@ import { getQueue } from '../queue/queue.factory.js';
 import { getServerNow, getChallengeDayIST } from '../utils/ist.js';
 import { shouldHideEndedProblemTitles } from '../config/features.config.js';
 import { ensureCurrentWeekSchedule } from './problem.controller.js';
+import { isDailyChallengePaused } from '../services/system-config.service.js';
 
 export const runCodeSchema = z.object({
   body: z.object({
@@ -68,6 +69,14 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
         select: { id: true, status: true, scheduledDate: true, isPractice: true, moduleSlug: true },
       });
       if (!problem || problem.status !== 'PUBLISHED') {
+        res.status(403).json({
+          success: false,
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Challenge not available.',
+        });
+        return;
+      }
+      if (!problem.isPractice && (await isDailyChallengePaused())) {
         res.status(403).json({
           success: false,
           code: 'CHALLENGE_NOT_AVAILABLE',
@@ -150,6 +159,15 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
           success: false,
           code: 'CHALLENGE_NOT_AVAILABLE',
           message: 'Challenge not available.',
+        });
+        return;
+      }
+
+      if (!problem.isPractice && (await isDailyChallengePaused())) {
+        res.status(403).json({
+          success: false,
+          code: 'CHALLENGE_NOT_AVAILABLE',
+          message: 'Daily challenges are not available at this time.',
         });
         return;
       }

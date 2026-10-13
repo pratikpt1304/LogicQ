@@ -13,6 +13,7 @@ import {
   CURRENT_WEEK_SLUGS,
   PAST_WEEK_SLUGS,
 } from '../utils/ist.js';
+import { isDailyChallengePaused } from '../services/system-config.service.js';
 
 let lastSyncedChallengeDay: string | null = null;
 let autoScheduleSyncEnabled = true;
@@ -35,6 +36,10 @@ export function resetScheduleSyncCache(): void {
  */
 export async function ensureCurrentWeekSchedule(): Promise<void> {
   if (!autoScheduleSyncEnabled) {
+    return;
+  }
+
+  if (await isDailyChallengePaused()) {
     return;
   }
 
@@ -128,6 +133,10 @@ export async function resolveActiveDailyChallenge(now: Date = getServerNow()): P
   seasonComplete: boolean;
   autoAssigned: boolean;
 }> {
+  if (await isDailyChallengePaused()) {
+    return { problem: null, seasonComplete: false, autoAssigned: false };
+  }
+
   const challengeDayIST = getChallengeDayIST(now);
 
   const scheduled = await prisma.problem.findFirst({
@@ -382,6 +391,24 @@ export async function getDailyChallenge(req: AuthRequest, res: Response): Promis
     const now = getServerNow();
     const todayIST = getTodayIST(now);
     const challengeDayIST = getChallengeDayIST(now);
+
+    if (await isDailyChallengePaused()) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        success: true,
+        data: {
+          paused: true,
+          message: 'Daily challenges are not live yet. We will announce the start.',
+          problem: null,
+          todayIST,
+          challengeDayIST,
+          secondsUntilNextReset: null,
+          endsAt: null,
+        },
+      });
+      return;
+    }
+
     const secondsUntilNextReset = getSecondsUntilNext1700IST(now);
     const nextSwitchUTC = getNext1700ISTUTC(now);
 

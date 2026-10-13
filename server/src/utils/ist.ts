@@ -158,6 +158,20 @@ export function getWeekWindowByOffsetIST(weekOffset: number = 0, now: Date = get
 }
 
 /**
+ * Returns an array of past challenge day dates and labels for the archive (default 90 days).
+ */
+export function getPastDaysList(count: number = 90, now: Date = getServerNow()): { date: string; label: string }[] {
+  const currentDay = getChallengeDayIST(now);
+  const list: { date: string; label: string }[] = [];
+  for (let i = 1; i <= count; i++) {
+    const d = addDaysIST(currentDay, -i);
+    const label = i === 1 ? `Yesterday (${d})` : `${i} Days Ago (${d})`;
+    list.push({ date: d, label });
+  }
+  return list;
+}
+
+/**
  * Returns seconds remaining until the next 17:00:00 IST daily challenge unlock.
  */
 export function getSecondsUntilNext1700IST(now: Date = getServerNow()): number {

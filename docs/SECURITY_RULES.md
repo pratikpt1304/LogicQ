@@ -19,6 +19,10 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - Uploaded Solutions:        OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (uploaded_solutions)    |
 |  - Practice Progress:         OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (practice_progress)     |
 |  - Upload Reviews & Errors:   ADMIN READ ONLY / SERVER WRITE ONLY (upload_reviews, error_reports)  |
+|  - Daily Boards & Snapshots:  AUTHENTICATED READ ONLY / SERVER WRITE ONLY (daily_boards, snapshots) |
+|  - Daily Results & Summaries: OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (daily_results, summaries)|
+|  - Daily Corrections:         ADMIN READ ONLY / SERVER WRITE ONLY (daily_corrections)              |
+|  - Legacy Weeks & Summaries:  READ ONLY ARCHIVE (weeks, weekly_summaries, weekly_corrections)      |
 |  - Verdict Creation:          BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Hidden Test Cases:         ADMIN ONLY (Students have zero direct access to hidden_tests)        |
@@ -243,7 +247,50 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 4. WEEKLY COMPETITION, LEADERBOARDS & SUMMARIES (ARENA, ARCHIVE & BADGES DISABLED)
+    // 4. DAILY COMPETITION ARCHITECTURE & LEADERBOARDS
+    // -------------------------------------------------------------------------
+    match /daily_boards/{dayId} {
+      // Authoritative daily board storage: readable by authenticated students and admins
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      // Daily live & frozen leaderboard subcollection
+      match /leaderboard/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+    }
+
+    match /daily_results/{resultId} {
+      // Students can ONLY read their own daily result; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /daily_summaries/{summaryId} {
+      // Students can ONLY read their own daily summary; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /daily_corrections/{correctionId} {
+      // Post-finalization rejudge & late-upload corrections: Admin only
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /daily_rank_snapshots/{snapshotId} {
+      // Frozen top 20 and daily rank snapshots: readable by authenticated users
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 4.1 LEGACY COMPETITION ARCHIVE (HISTORICAL WEEKS & WEEKLY SUMMARIES)
     // -------------------------------------------------------------------------
     match /weeks/{weekId} {
       allow read: if isAuthenticated();

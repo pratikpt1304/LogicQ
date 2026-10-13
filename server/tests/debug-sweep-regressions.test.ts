@@ -4,6 +4,7 @@ import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
 import { evaluateSubmission } from '../src/services/submission-evaluator.js';
+import { getChallengeDayIST } from '../src/utils/ist.js';
 
 describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
   const ts = Date.now();
@@ -71,7 +72,8 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
         tags: '["arrays","debug"]',
         status: 'PUBLISHED',
         basePoints: 20,
-        isDaily: false,
+        isDaily: true,
+        scheduledDate: getChallengeDayIST(),
         starterCode: '#include <stdio.h>\nint main(){return 0;}',
         testCases: {
           create: [

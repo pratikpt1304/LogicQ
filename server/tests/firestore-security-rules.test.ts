@@ -135,6 +135,61 @@ class RulesEvaluator {
     // Rule: match /users/{userId}/prnHistory/{historyId} { allow write: if false; }
     return false;
   }
+
+  static evaluateDailyBoardRead(ctx: FirestoreRuleContext): boolean {
+    return ctx.auth !== null;
+  }
+
+  static evaluateDailyBoardWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateDailyLeaderboardRead(ctx: FirestoreRuleContext): boolean {
+    return ctx.auth !== null;
+  }
+
+  static evaluateDailyLeaderboardWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateDailyResultRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const ownerId = ctx.resource?.data?.userId;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === ownerId || isAdmin;
+  }
+
+  static evaluateDailyResultWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateDailySummaryRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const ownerId = ctx.resource?.data?.userId;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === ownerId || isAdmin;
+  }
+
+  static evaluateDailySummaryWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateDailyCorrectionRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    return ctx.auth.token.role === 'ADMIN';
+  }
+
+  static evaluateDailyCorrectionWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateDailyRankSnapshotRead(ctx: FirestoreRuleContext): boolean {
+    return ctx.auth !== null;
+  }
+
+  static evaluateDailyRankSnapshotWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
 }
 
 describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
@@ -460,5 +515,191 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(securityRulesDoc).toContain('2199TESF0002');
     expect(securityRulesDoc).toContain('••••••••1039');
     expect(securityRulesDoc).toContain('prnIndex/{prn}');
+  });
+
+  it('DAILY COMPETITION: Authenticated student can read their own daily_results and daily_summaries, but CANNOT read other students’ daily results or summaries', () => {
+    // Alice reads her own daily_results -> MUST SUCCEED
+    const aliceOwnDailyResult: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: '2026-10-13_student_alice', userId: 'student_alice', pointsAwarded: 200, verdict: 'ACCEPTED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyResultRead(aliceOwnDailyResult)).toBe(true);
+
+    // Alice reads her own daily_summaries -> MUST SUCCEED
+    const aliceOwnDailySummary: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: '2026-10-13_student_alice', userId: 'student_alice', pointsEarned: 200, streak: 5 } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailySummaryRead(aliceOwnDailySummary)).toBe(true);
+
+    // Alice attempts to read Bob's daily_results -> MUST FAIL
+    const aliceReadBobDailyResult: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: '2026-10-13_student_bob', userId: 'student_bob', pointsAwarded: 200, verdict: 'ACCEPTED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyResultRead(aliceReadBobDailyResult)).toBe(false);
+
+    // Alice attempts to read Bob's daily_summaries -> MUST FAIL
+    const aliceReadBobDailySummary: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: '2026-10-13_student_bob', userId: 'student_bob', pointsEarned: 200, streak: 3 } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailySummaryRead(aliceReadBobDailySummary)).toBe(false);
+
+    // Unauthenticated attempts to read Alice's daily_results -> MUST FAIL
+    const unauthDailyResult: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { id: '2026-10-13_student_alice', userId: 'student_alice' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyResultRead(unauthDailyResult)).toBe(false);
+
+    // Unauthenticated attempts to read Alice's daily_summaries -> MUST FAIL
+    const unauthDailySummary: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { id: '2026-10-13_student_alice', userId: 'student_alice' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailySummaryRead(unauthDailySummary)).toBe(false);
+
+    // Admin Charlie reads Bob's daily_results -> MUST SUCCEED
+    const adminReadBobDailyResult: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { id: '2026-10-13_student_bob', userId: 'student_bob', pointsAwarded: 200, verdict: 'ACCEPTED' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyResultRead(adminReadBobDailyResult)).toBe(true);
+
+    // Admin Charlie reads Bob's daily_summaries -> MUST SUCCEED
+    const adminReadBobDailySummary: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { id: '2026-10-13_student_bob', userId: 'student_bob', pointsEarned: 200, streak: 3 } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailySummaryRead(adminReadBobDailySummary)).toBe(true);
+  });
+
+  it('DAILY COMPETITION: Student cannot write, create, or update daily_boards, daily_results, daily_summaries, daily_corrections, or daily_rank_snapshots', () => {
+    const studentBoardWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { dayId: '2026-10-13', isFrozen: true } } },
+    };
+    expect(RulesEvaluator.evaluateDailyBoardWrite(studentBoardWriteCtx)).toBe(false);
+
+    const studentLeaderboardWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { userId: 'student_alice', rank: 1, score: 300 } } },
+    };
+    expect(RulesEvaluator.evaluateDailyLeaderboardWrite(studentLeaderboardWriteCtx)).toBe(false);
+
+    const studentResultWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { userId: 'student_alice', verdict: 'ACCEPTED', pointsAwarded: 300 } } },
+    };
+    expect(RulesEvaluator.evaluateDailyResultWrite(studentResultWriteCtx)).toBe(false);
+
+    const studentSummaryWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { userId: 'student_alice', pointsEarned: 300, dailyRank: 1 } } },
+    };
+    expect(RulesEvaluator.evaluateDailySummaryWrite(studentSummaryWriteCtx)).toBe(false);
+
+    const studentCorrectionWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { userId: 'student_alice', reason: 'Forged correction' } } },
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionWrite(studentCorrectionWriteCtx)).toBe(false);
+
+    const studentSnapshotWriteCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: { dayId: '2026-10-13', snapshotType: 'top20' } } },
+    };
+    expect(RulesEvaluator.evaluateDailyRankSnapshotWrite(studentSnapshotWriteCtx)).toBe(false);
+
+    // Also verify admin direct client writes are blocked (managed strictly by server Admin SDK)
+    expect(RulesEvaluator.evaluateDailyBoardWrite({ auth: adminCharlie, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyLeaderboardWrite({ auth: adminCharlie, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyResultWrite({ auth: adminCharlie, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateDailySummaryWrite({ auth: adminCharlie, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyCorrectionWrite({ auth: adminCharlie, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyRankSnapshotWrite({ auth: adminCharlie, request: {} })).toBe(false);
+  });
+
+  it('DAILY COMPETITION: Admin can read daily_corrections, while student cannot', () => {
+    // Admin reads daily_corrections -> MUST SUCCEED
+    const adminCorrectionRead: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { id: 'corr_1', dayId: '2026-10-13', userId: 'student_bob' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionRead(adminCorrectionRead)).toBe(true);
+
+    // Student Alice reads daily_corrections -> MUST FAIL
+    const studentAliceCorrectionRead: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: 'corr_1', dayId: '2026-10-13', userId: 'student_bob' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionRead(studentAliceCorrectionRead)).toBe(false);
+
+    // Student Bob reads daily_corrections (even for a correction regarding him) -> MUST FAIL (Admin only)
+    const studentBobCorrectionRead: FirestoreRuleContext = {
+      auth: studentBob,
+      resource: { data: { id: 'corr_1', dayId: '2026-10-13', userId: 'student_bob' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionRead(studentBobCorrectionRead)).toBe(false);
+
+    // Unauthenticated reads daily_corrections -> MUST FAIL
+    const unauthCorrectionRead: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: { id: 'corr_1', dayId: '2026-10-13', userId: 'student_bob' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionRead(unauthCorrectionRead)).toBe(false);
+  });
+
+  it('DAILY COMPETITION: Authenticated users can read daily_boards, leaderboard subcollection, and daily_rank_snapshots', () => {
+    // Student Alice reads daily_boards -> MUST SUCCEED
+    expect(RulesEvaluator.evaluateDailyBoardRead({ auth: studentAlice })).toBe(true);
+    // Student Alice reads daily_boards leaderboard subcollection -> MUST SUCCEED
+    expect(RulesEvaluator.evaluateDailyLeaderboardRead({ auth: studentAlice })).toBe(true);
+    // Student Alice reads daily_rank_snapshots -> MUST SUCCEED
+    expect(RulesEvaluator.evaluateDailyRankSnapshotRead({ auth: studentAlice })).toBe(true);
+
+    // Admin Charlie reads daily_boards and daily_rank_snapshots -> MUST SUCCEED
+    expect(RulesEvaluator.evaluateDailyBoardRead({ auth: adminCharlie })).toBe(true);
+    expect(RulesEvaluator.evaluateDailyLeaderboardRead({ auth: adminCharlie })).toBe(true);
+    expect(RulesEvaluator.evaluateDailyRankSnapshotRead({ auth: adminCharlie })).toBe(true);
+
+    // Unauthenticated user -> MUST FAIL
+    expect(RulesEvaluator.evaluateDailyBoardRead({ auth: null })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyLeaderboardRead({ auth: null })).toBe(false);
+    expect(RulesEvaluator.evaluateDailyRankSnapshotRead({ auth: null })).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md contain daily competition collections and legacy archives', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    const expectedCollections = [
+      'match /daily_boards/{dayId}',
+      'match /daily_results/{resultId}',
+      'match /daily_summaries/{summaryId}',
+      'match /daily_corrections/{correctionId}',
+      'match /daily_rank_snapshots/{snapshotId}',
+      'match /weeks/{weekId}',
+      'match /weekly_summaries/{summaryId}',
+      'match /weekly_corrections/{correctionId}',
+    ];
+
+    for (const pattern of expectedCollections) {
+      expect(firestoreRules).toContain(pattern);
+      expect(securityRulesDoc).toContain(pattern);
+    }
   });
 });

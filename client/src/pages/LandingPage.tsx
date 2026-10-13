@@ -35,7 +35,7 @@ export const LandingPage: React.FC = () => {
 
         <p className="mt-6 text-base sm:text-lg text-[var(--text-muted)] max-w-2xl mx-auto font-sans leading-relaxed">
           The daily campus platform for low-level mastery. Conquer daily memory, pointer, and algorithm
-          challenges in C. Maintain your streak and climb the weekly campus ranks.
+          challenges in C. Maintain your streak and compete in the daily campus rank.
         </p>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -231,7 +231,7 @@ export const LandingPage: React.FC = () => {
             <span className="text-xs font-mono text-[var(--color-accent)]">TIER 4</span>
             <h3 className="text-lg font-bold text-[var(--text-main)] mt-1">Kernel Virtuoso</h3>
             <p className="text-xs text-[var(--text-muted)] mt-2">
-              Top 1% campus solvers. Flawless memory safety, zero segfaults, and weekly leaderboard champions.
+              Top 1% campus solvers. Flawless memory safety, zero segfaults, and daily leaderboard champions.
             </p>
             <div className="mt-4 text-xs font-mono text-[var(--color-accent)]">700+ PTS</div>
           </div>
@@ -254,7 +254,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-bold text-[var(--text-main)]">Daily IST Drop</h3>
             <p className="text-xs text-[var(--text-muted)] mt-2">
-              Every day at 17:00 IST, one featured C challenge goes live. Solve it or catch up on any unlocked challenge from the current week.
+              Every day at 17:00 IST, one featured C challenge goes live. Solve it before the 17:00 IST cutoff to secure your daily rank and see yesterday's result.
             </p>
           </div>
 
@@ -274,7 +274,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <h3 className="text-lg font-bold text-[var(--text-main)]">Streaks & Leaderboard</h3>
             <p className="text-xs text-[var(--text-muted)] mt-2">
-              Earn base points, first-solve bonuses, maintain your daily solve streak, and compete with peers on the weekly campus leaderboard.
+              Earn points by difficulty, maintain your daily solve streak, and compete with peers on the daily campus leaderboard.
             </p>
           </div>
         </div>

@@ -1,3 +1,10 @@
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'file:./dev.db';
+}
+
 import { LocalGccJudge } from '../src/judge/local-gcc.judge';
 import { Verdict } from '../src/judge/judge.interface';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../src/data/practice-module1.data';

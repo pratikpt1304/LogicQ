@@ -5,14 +5,14 @@
 <h1 align="center">LogicQ</h1>
 
 <p align="center">
-  <strong>Daily C Language Challenge & Weekly Competitive Arena for Engineering Students</strong><br />
+  <strong>Daily C Language Challenge & Competitive Platform for Engineering Students</strong><br />
   <em>Engineered for Sanjivani University Undergraduate Engineering Programs</em>
 </p>
 
 <p align="center">
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Live_Site-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Live Site" /></a>
   <a href="https://github.com/pratikpt1304/LogicQ/releases/tag/v1.0.0-pilot"><img src="https://img.shields.io/badge/Release-v1.0.0--pilot-blue?style=for-the-badge&logo=github&logoColor=white" alt="Release Tag" /></a>
-  <img src="https://img.shields.io/badge/Tests-117%2F117_Passing-success?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-130%2B_Passing-success?style=for-the-badge&logo=vitest&logoColor=white" alt="Tests" />
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node" />
@@ -133,6 +133,15 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
   - 4 sequentially unlocking foundational syllabus modules (Control Structures, Pointers & Functions, Arrays & Applications, Advanced Data Types & Dynamic Memory).
   - Admins can author new custom practice modules with custom unlock criteria and author questions directly into any module with starter code, sample test cases, and hidden grading test suites.
 
+### ⏸️ 9. Daily Competition & Safe System Pause Architecture
+- **Pure Daily Competition Model**: Replaced legacy weekly concepts with a pure 24-hour daily cycle (17:00 IST to 17:00 IST). Leaderboard views: **Today (Live)**, **Yesterday (Final)**, and **Past Days (90-Day Archive)**.
+- **Rolling 7-Day Streak Freeze**: Missed days automatically consume at most 1 freeze per rolling 7-day window.
+- **Safe Daily Challenge Pause (`dailyChallengePaused`)**:
+  - Server-side flag defaulting to safe paused state.
+  - While paused: students see no daily questions or countdown timers, displaying a calm status message (*"Daily challenges are not live yet. We will announce the start."*).
+  - Paused days do not break streaks, do not consume freezes, and disable all daily background schedulers.
+  - Audited Admin Resume: Requires re-authentication, reason, and verified $\ge 14$ scheduled validated challenges.
+
 ---
 
 ## 4. Role & Access Control Matrix
@@ -143,12 +152,13 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
 | Submit Code & Run C11 Judge | ✅ | ❌ | ✅ |
 | Upload Solution (Image/PDF) | ✅ | ❌ | ✅ |
 | Access Practice Curriculum (`/practice`) | ✅ (Unlocked modules) | ❌ | ✅ (Full pool) |
-| View Weekly Leaderboard | ✅ | ❌ | ✅ |
+| View Daily Leaderboard & Archives | ✅ | ❌ | ✅ |
 | Access Checker Review Queue (`/checker/reviews`) | ❌ | ✅ | ✅ |
 | Grade Uploads & Apply Rubric | ❌ | ✅ | ✅ |
 | View Student Activity Inspector & Dossier | ❌ | ❌ | ✅ |
 | Export User Roster & Student Activity CSV | ❌ | ❌ | ✅ |
 | Author Practice Modules & Questions | ❌ | ❌ | ✅ |
+| Pause / Resume Daily Competition Pool | ❌ | ❌ | ✅ (Audited, Re-auth) |
 | Access Admin Dashboard & Reports | ❌ | ❌ | ✅ |
 | Manage Challenges & Test Suites | ❌ | ❌ | ✅ |
 | Manage User Roles & Checkers | ❌ | ❌ | ✅ (Audited, $\ge 2$ admins) |
@@ -156,7 +166,7 @@ To eliminate administrative confusion and prevent privilege escalation, LogicQ i
 
 ---
 
-## 5. Daily & Weekly Operational Timeline
+## 5. Daily Operational Timeline
 
 ```mermaid
 sequenceDiagram
@@ -167,8 +177,8 @@ sequenceDiagram
     actor Admin
 
     Note over System: Every Day at 17:00 IST
-    System->>System: Lock previous challenge & archive from students
-    System->>System: Activate today's challenge (Yashwant Kanetkar source)
+    System->>System: Cut off previous challenge day & freeze submissions
+    System->>System: Activate today's challenge (Yashavant Kanetkar source)
     
     Student->>System: Solve challenge (Code or Upload Flowchart)
     alt Code Submission
@@ -180,11 +190,10 @@ sequenceDiagram
         System->>Student: Rubric Feedback & Points Award
     end
 
-    Note over System: Every Monday at 17:00 IST
-    System->>System: Freeze weekly competition cutoff
-    Note over System: Every Monday at 17:05 IST
-    System->>System: Compute percentiles, finalize weekly rank & archive summary
-    Admin->>System: Audit results & publish official campus leaderboard
+    Note over System: Every Day at 17:05 IST
+    System->>System: Daily finalization job runs with 10-min grace period
+    System->>System: Compute daily percentiles, freeze yesterday's board & write student summaries
+    Admin->>System: Audit results & review daily archive
 ```
 
 ---

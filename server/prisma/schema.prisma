@@ -318,3 +318,10 @@ model ErrorReport {
   @@index([createdAt])
 }
 
+model SystemConfig {
+  key       String   @id
+  value     String   // Stringified JSON value
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?
+}
+

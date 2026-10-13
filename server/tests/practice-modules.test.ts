@@ -7,6 +7,8 @@ import { generateAccessToken } from '../src/utils/jwt.js';
 describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
   let studentToken: string;
   let studentId: string;
+  let adminToken: string;
+  let adminId: string;
   let createdProgressIds: string[] = [];
   let testSubmissionIds: string[] = [];
 
@@ -30,6 +32,26 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       role: student.role,
       username: student.username,
     });
+
+    // 2. Create a test admin
+    const admin = await prisma.user.create({
+      data: {
+        username: `practice_admin_${Date.now()}`,
+        email: `practice_admin_${Date.now()}@logicq.io`,
+        prn: `8888${String(Date.now()).slice(-8)}`,
+        role: 'ADMIN',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        passwordHash: 'hashed_password_placeholder',
+      },
+    });
+    adminId = admin.id;
+    adminToken = generateAccessToken({
+      userId: admin.id,
+      role: admin.role,
+      username: admin.username,
+    });
   });
 
   afterAll(async () => {
@@ -50,9 +72,12 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       }).catch(() => {});
       await prisma.user.delete({ where: { id: studentId } }).catch(() => {});
     }
+    if (adminId) {
+      await prisma.user.delete({ where: { id: adminId } }).catch(() => {});
+    }
   });
 
-  it('1. GET /api/practice/modules - Module 1 unlocked, Modules 2-4 strictly locked for fresh student', async () => {
+  it('1. GET /api/practice/modules - Computes real 4/4/2 distribution and locks Modules 2-4 for fresh student', async () => {
     const res = await request(app)
       .get('/api/practice/modules')
       .set('Authorization', `Bearer ${studentToken}`);
@@ -64,11 +89,19 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
 
     const [m1, m2, m3, m4] = res.body.data.modules;
 
+    // Verify all 4 modules have dynamic 4 Easy / 4 Medium / 2 Hard distribution computed from DB
+    for (const m of [m1, m2, m3, m4]) {
+      expect(m.totalQuestions).toBe(10);
+      expect(m.isComingSoon).toBe(false);
+      expect(m.distribution.EASY).toBe(4);
+      expect(m.distribution.MEDIUM).toBe(4);
+      expect(m.distribution.HARD).toBe(2);
+    }
+
     // Module 1: Control Structures
     expect(m1.slug).toBe('control-structures');
     expect(m1.isUnlocked).toBe(true);
     expect(m1.solvedCount).toBe(0);
-    expect(m1.totalQuestions).toBe(10);
 
     // Module 2: Pointers and functions
     expect(m2.slug).toBe('pointers-and-functions');
@@ -221,5 +254,161 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     const updatedUser = await prisma.user.findUnique({ where: { id: studentId } });
     expect(updatedUser?.totalPoints).toBe(initialPoints);
     expect(updatedUser?.currentStreak).toBe(initialStreak);
+  });
+
+  it('8. Admin Preview allows Admin to review locked Module 3 & 4 questions without unlocking student account', async () => {
+    // Module 3 is currently locked for student
+    const studentRes = await request(app)
+      .get('/api/practice/modules/array-and-its-applications/problems')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(studentRes.status).toBe(403);
+    expect(studentRes.body.code).toBe('MODULE_LOCKED');
+
+    // Admin can preview Module 3 problems directly!
+    const adminRes = await request(app)
+      .get('/api/practice/modules/array-and-its-applications/problems')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(adminRes.status).toBe(200);
+    expect(adminRes.body.data.problems.length).toBe(10);
+
+    // Admin can also preview locked problem details directly!
+    const adminProbRes = await request(app)
+      .get('/api/practice/problems/practice-m4-p1-struct-student-topper')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(adminProbRes.status).toBe(200);
+    expect(adminProbRes.body.data.problem.slug).toBe('practice-m4-p1-struct-student-topper');
+  });
+
+  it('9. Solving 6 questions does NOT unlock Module 3; solving the 7th question unlocks Module 3 immediately', async () => {
+    const m2Problems = await prisma.problem.findMany({
+      where: { moduleSlug: 'pointers-and-functions', isPractice: true },
+      take: 7,
+    });
+    expect(m2Problems.length).toBe(7);
+
+    // Solve 6 problems in Module 2
+    for (let i = 0; i < 6; i++) {
+      const p = await prisma.practiceProgress.create({
+        data: {
+          userId: studentId,
+          problemId: m2Problems[i].id,
+          moduleSlug: 'pointers-and-functions',
+          isSolved: true,
+          attemptsCount: 1,
+          solvedAt: new Date(),
+        },
+      });
+      createdProgressIds.push(p.id);
+    }
+
+    // With 6 solves, Module 3 MUST STILL BE LOCKED!
+    const lockedRes = await request(app)
+      .get('/api/practice/modules/array-and-its-applications/problems')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(lockedRes.status).toBe(403);
+    expect(lockedRes.body.code).toBe('MODULE_LOCKED');
+
+    // Solve the 7th problem
+    const p7 = await prisma.practiceProgress.create({
+      data: {
+        userId: studentId,
+        problemId: m2Problems[6].id,
+        moduleSlug: 'pointers-and-functions',
+        isSolved: true,
+        attemptsCount: 1,
+        solvedAt: new Date(),
+      },
+    });
+    createdProgressIds.push(p7.id);
+
+    // Now Module 3 unlocks immediately!
+    const unlockedRes = await request(app)
+      .get('/api/practice/modules/array-and-its-applications/problems')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(unlockedRes.status).toBe(200);
+    expect(unlockedRes.body.data.problems.length).toBe(10);
+  });
+
+  it('10. Solving 7 questions in Module 3 unlocks Module 4 immediately with all 10 questions readable', async () => {
+    const m3Problems = await prisma.problem.findMany({
+      where: { moduleSlug: 'array-and-its-applications', isPractice: true },
+      take: 7,
+    });
+    expect(m3Problems.length).toBe(7);
+
+    for (const prob of m3Problems) {
+      const p = await prisma.practiceProgress.create({
+        data: {
+          userId: studentId,
+          problemId: prob.id,
+          moduleSlug: 'array-and-its-applications',
+          isSolved: true,
+          attemptsCount: 1,
+          solvedAt: new Date(),
+        },
+      });
+      createdProgressIds.push(p.id);
+    }
+
+    // Module 4 unlocks immediately
+    const m4Res = await request(app)
+      .get('/api/practice/modules/advanced-data-types-dynamic-memory/problems')
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(m4Res.status).toBe(200);
+    expect(m4Res.body.data.problems.length).toBe(10);
+  });
+
+  it('11. Hidden tests and source references are never leaked to student in responses', async () => {
+    const res = await request(app)
+      .get('/api/practice/problems/practice-m4-p10-singly-linked-list')
+      .set('Authorization', `Bearer ${studentToken}`);
+
+    expect(res.status).toBe(200);
+    const prob = res.body.data.problem;
+    expect(prob.slug).toBe('practice-m4-p10-singly-linked-list');
+    expect(prob.hiddenTests).toBeUndefined();
+    expect(prob.testCases).toBeUndefined();
+    // Only sample tests returned
+    expect(Array.isArray(prob.sampleTests)).toBe(true);
+    expect(prob.sampleTests.length).toBe(2);
+
+    // Verify description contains no source citations or book references
+    expect(prob.description).not.toContain('chapter');
+    expect(prob.description).not.toContain('exercise');
+    expect(prob.description).not.toContain('page');
+  });
+
+  it('12. Incomplete module (< 10 questions) displays Coming soon and blocks unlocking as complete', async () => {
+    // Temporarily unpublish 2 problems of Module 4 to simulate incomplete curriculum
+    const m4Probs = await prisma.problem.findMany({
+      where: { moduleSlug: 'advanced-data-types-dynamic-memory', isPractice: true },
+      take: 2,
+    });
+    for (const p of m4Probs) {
+      await prisma.problem.update({
+        where: { id: p.id },
+        data: { status: 'DRAFT' },
+      });
+    }
+
+    try {
+      const res = await request(app)
+        .get('/api/practice/modules')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      const m4 = res.body.data.modules.find((m: any) => m.slug === 'advanced-data-types-dynamic-memory');
+      expect(m4.totalQuestions).toBe(8);
+      expect(m4.isComingSoon).toBe(true);
+      expect(m4.canComplete).toBe(false);
+    } finally {
+      // Restore status to PUBLISHED
+      for (const p of m4Probs) {
+        await prisma.problem.update({
+          where: { id: p.id },
+          data: { status: 'PUBLISHED' },
+        });
+      }
+    }
   });
 });

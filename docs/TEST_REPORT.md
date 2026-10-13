@@ -1,120 +1,69 @@
-# LogicQ Test & Verification Report: Profile Saving & Leaderboard Ranks
+# Practice Content & Curriculum Test Report
 
-**Date**: 2026-10-12  
-**Environment**: Local Node/Express + SQLite (Prisma) + React 18 / Vite 5  
-**Audit Document**: [/docs/PROFILE_LEADERBOARD_AUDIT.md](file:///c:/Users/thora/Documents/My%20Work/Extra/LogicQ/docs/PROFILE_LEADERBOARD_AUDIT.md)
-
----
-
-## 1. Executive Summary
-
-All 5 reported symptoms have been reproduced, root-caused, corrected, and verified across both backend controllers, the client fallback engine, client routing, and the database layer. No Firestore security rules were weakened.
-
-| # | Symptom | Status | Verification Summary |
-|---|---|---|---|
-| **1** | Profile Save & Fallback Name Mismatch | **RESOLVED** | Public display name, department, year, and division save accurately. The fallback placeholder matches the header shortId (`Student 7F67` generated deterministically from student ID). |
-| **2** | 0-Point Student Fake Rank (#1 of 1) | **RESOLVED** | 0-point students are strictly excluded from ranked slots and marked as `"NOT RANKED YET"`. Pinned own row shows `—` with label `"Not ranked yet • Solve today's challenge to enter the board"`. |
-| **3** | Stale College Name ("Sanjivani College of Engineering") | **RESOLVED** | Standardized to `"Sanjivani University"` everywhere via configuration and automated migration script `server/scripts/migrate-users-college.ts`. |
-| **4** | Modal Stacking Context & Sticky Footer Visibility | **RESOLVED** | Modal overlay elevated to `z-[100]`, backdrop blur applied, modal body scrollable with sticky footer (`Save Settings` / `Cancel` visible at 360px viewport). Escape key and scroll lock enabled. |
-| **5** | Profile URL Privacy Violation (`/profile/ipworker1908`) | **RESOLVED** | Route migrated to `/profile/:identifier` accepting opaque `shortId` or `userId`. Links in Navbar, Leaderboard, and Profile pages never expose usernames, PRNs, or emails. |
+**Document:** `/docs/TEST_REPORT.md`  
+**Date:** October 13, 2026  
+**Auditor:** Antigravity System Engineer  
+**Status:** 100% Passed (153 Tests across 22 Suites)  
+**Environment:** Local Sandbox (GCC C11, Node v22, SQLite dev.db, InMemoryQueue)
 
 ---
 
-## 2. Test Execution Results
+## 1. Test Suite Summary
 
-### A. Database Integrity & Ledger Audit
-Executed `npx ts-node scripts/verify-integrity.ts` against the database:
-- **Submissions Foreign Key & Verdict Validity**: `PASS`
-- **Orphan Submissions Check**: `PASS`
-- **Orphan Badges Check**: `PASS`
-- **Student Points & Ledger Balance Consistency**: `PASS`
-- **Student Streak Invariants**: `PASS`
-- **No Duplicate Points for Same Problem**: `PASS`
-- **Uploaded Solutions Unapproved Zero-Points Invariant**: `PASS`
-- **Admin Analytics vs Direct Database Counts Parity**: `PASS`
-- **Academic College Uniformity (`Sanjivani University`)**: `PASS` (100% of accounts verified)
-- **User Short ID Integrity**: `PASS` (All accounts hold non-empty stable shortIds)
-- **Zero/Negative Points Invariant**: `PASS`
+```
+ Test Files  22 passed (22)
+      Tests  153 passed (153)
+   Duration  55.71s
+```
 
-**Result**: `🎉 AUDIT COMPLETE: 100% DATA INTEGRITY VERIFIED`
-
-### B. Server Vitest Test Suites
-Executed `npm test` (`vitest run`):
-- **Test Files**: `18 passed (18)`
-- **Total Tests**: `107 passed (107)`
-- **Duration**: `61.64s`
-- **Suites Passed**:
-  1. `tests/single-question-window.test.ts` (7 tests)
-  2. `tests/amendments-audit.test.ts` (5 tests)
-  3. `tests/security-audit-regressions.test.ts` (7 tests)
-  4. `tests/prn-profile-signup.test.ts` (9 tests)
-  5. `tests/roles-checker.test.ts` (11 tests)
-  6. `tests/arena-archive-removal.test.ts` (5 tests)
-  7. `tests/firestore-security-rules.test.ts` (11 tests)
-  8. `tests/debug-sweep-regressions.test.ts` (2 tests)
-  9. `tests/pilot-analytics.test.ts` (2 tests)
-  10. `tests/session-persistence.test.ts` (6 tests)
-  11. `tests/ui-accessibility.test.ts` (7 tests)
-  12. `tests/client-session-lifecycle.test.ts` (6 tests)
-  13. `tests/data-safety.test.ts` (4 tests)
-  14. `tests/judge-malicious.test.ts` (6 tests)
-  15. `tests/problem.test.ts` (4 tests)
-  16. `tests/auth.test.ts` (5 tests)
-  17. `tests/judge.test.ts` (6 tests)
-  18. `tests/scoring.test.ts` (4 tests)
-  19. `tests/prn-monthly-change.test.ts` (6 tests)
-
-### C. Client Production Build
-Executed `npm run build` in `client/`:
-- TypeScript type checking: `PASS`
-- Vite build bundling: `PASS` (dist generated with `index.html`, assets, and workers)
-
-### D. Automated Browser Puppeteer Audit
-Executed `npx tsx scripts/audit_profile_leaderboard.ts`:
-- **Header Badge Check**: Displays `"NOT RANKED YET"` for 0-point student.
-- **Modal Placeholder vs Header**: Both match deterministic `Student 7F67`.
-- **Stacking Order**: Modal overlay `z-index: 100` sits above Navbar header `z-index: 50`.
-- **Form Persistence**: Saving `CodeMaster`, `AIML`, `SY`, `B` persisted and reflected immediately upon modal reopen and header title update.
-- **360px Viewport**: Modal rendered with sticky footer containing visible `Save Settings` button.
-- **Leaderboard Standing**: Pinned row rendered rank `—`, points `0 PTS`, and `"Not ranked yet • Solve today's challenge to enter the board"`.
+### Full Test Suites Pass List:
+1. `tests/practice-modules.test.ts` (12 tests) — **PASS**
+2. `tests/firestore-security-rules.test.ts` (24 tests) — **PASS**
+3. `tests/single-question-window.test.ts` (7 tests) — **PASS**
+4. `tests/amendments-audit.test.ts` (5 tests) — **PASS**
+5. `tests/security-audit-regressions.test.ts` (7 tests) — **PASS**
+6. `tests/prn-profile-signup.test.ts` (9 tests) — **PASS**
+7. `tests/roles-checker.test.ts` (11 tests) — **PASS**
+8. `tests/arena-archive-removal.test.ts` (5 tests) — **PASS**
+9. `tests/prn-alphanumeric-format.test.ts` (11 tests) — **PASS**
+10. `tests/debug-sweep-regressions.test.ts` (2 tests) — **PASS**
+11. `tests/prn-monthly-change.test.ts` (6 tests) — **PASS**
+12. `tests/pilot-analytics.test.ts` (2 tests) — **PASS**
+13. `tests/session-persistence.test.ts` (6 tests) — **PASS**
+14. `tests/ui-accessibility.test.ts` (7 tests) — **PASS**
+15. `tests/client-session-lifecycle.test.ts` (6 tests) — **PASS**
+16. `tests/dashboard-metrics.test.ts` (4 tests) — **PASS**
+17. `tests/data-safety.test.ts` (4 tests) — **PASS**
+18. `tests/judge-malicious.test.ts` (6 tests) — **PASS**
+19. `tests/problem.test.ts` (4 tests) — **PASS**
+20. `tests/auth.test.ts` (5 tests) — **PASS**
+21. `tests/judge.test.ts` (6 tests) — **PASS**
+22. `tests/scoring.test.ts` (4 tests) — **PASS**
 
 ---
 
-## 3. Rolling 30-Day PRN Self-Service Change & Anti-Squatting Verification
+## 2. Detailed Verification of Practice Curriculum (`practice-modules.test.ts`)
 
-Executed `npx vitest run tests/prn-monthly-change.test.ts`:
-- **Result**: `6 passed (6)`
-- **Immediate Signup Typo Correction**: `PASS` (first change right after registration permitted without cooldown).
-- **30-Day Rolling Cooldown**: `PASS` (second change within 30 days blocked with 400 and days remaining).
-- **Anti-Squatting Reservation**: `PASS` (old PRN reserved for 30 days; others receive generic unavailable error).
-- **Elapsed Cooldown Re-eligibility**: `PASS` (change permitted after 30 days).
-- **Admin PRN Reveal**: `PASS` (reveals full PRN with immutable audit log).
-- **Admin Cooldown Reset**: `PASS` (resets cooldown with admin password verification and audit log).
-
----
-
-## 4. Practice Curriculum & Sequential Unlock Verification
-
-Executed `npx vitest run tests/practice-modules.test.ts tests/firestore-security-rules.test.ts`:
-- **Result**: `20 passed (20)` across 2 test files.
-- **Module 1 Default Unlock**: `PASS` (Module 1 is unlocked for every student; Modules 2, 3, 4 are strictly locked).
-- **Hidden Test Protection**: `PASS` (Hidden test cases are stripped from all student problem queries).
-- **Sequential Gate Enforcement**: `PASS` (Attempting to fetch questions or details from locked modules returns HTTP 403 `MODULE_LOCKED`).
-- **Dynamic Unlock on 7 Solves**: `PASS` (Solving 7 questions in Module $N$ immediately unlocks Module $N+1$).
-- **Competition Points & Streak Isolation**: `PASS` (Submitting practice solutions records `submissionType: 'PRACTICE'` and awards 0 points with zero effect on streaks or competition leaderboards).
-- **Firestore Practice Progress Security Rules**: `PASS` (Verified client cannot write or forge practice progress records directly; read access restricted strictly to the student owner or Admins).
+| Test # | Test Name | Invariant Verified | Result |
+| :---: | :--- | :--- | :---: |
+| 1 | `GET /api/practice/modules` (Fresh Student) | Dynamically computes 4 Easy, 4 Med, 2 Hard badges per module from DB. Module 1 is unlocked, Modules 2–4 strictly locked. | **PASSED** |
+| 2 | `GET /api/practice/modules/control-structures/problems` | Returns exactly 10 problems ordered 1–10. Hidden tests are never exposed in listing. | **PASSED** |
+| 3 | `GET /api/practice/modules/pointers-and-functions/problems` (Locked) | Returns 403 `MODULE_LOCKED` for student with $< 7$ solves in Module 1. | **PASSED** |
+| 4 | `GET /api/practice/problems/practice-m2-p1-swap-pointers` (Locked) | Direct question URL returns 403 `MODULE_LOCKED`. Prevents URL guessing or ID bypass. | **PASSED** |
+| 5 | `GET /api/practice/problems/practice-c1-largest-of-three` (Unlocked) | Returns details with only visible sample tests. Hidden tests strictly omitted. | **PASSED** |
+| 6 | Solve 7 in Module 1 $\rightarrow$ Module 2 Unlocks | Student solves 7 problems in Module 1: Module 2 unlocks immediately and all 10 problems are readable. | **PASSED** |
+| 7 | Practice Submission Scoring Isolation | Submitting practice problem awards 0 competition points, sets `submissionType = PRACTICE`, priority 2, and does not alter daily rank or streaks. | **PASSED** |
+| 8 | Admin Preview for Locked Modules | Admin user (`role = ADMIN`) can inspect locked Modules 2, 3, and 4 questions without unlocking student account. | **PASSED** |
+| 9 | 6 Solves vs 7 Solves Invariant | Solving 6 problems in Module 2 does NOT unlock Module 3 (remains 403 `MODULE_LOCKED`). Solving 7th problem unlocks Module 3 immediately. | **PASSED** |
+| 10 | Module 3 $\rightarrow$ Module 4 Progression | Solving 7 problems in Module 3 unlocks Module 4 immediately with all 10 problems readable. | **PASSED** |
+| 11 | Anti-Leakage & No Source References | Validates no book citations, chapter titles, page numbers, or hidden tests appear in student-facing payloads. | **PASSED** |
+| 12 | Incomplete Module "Coming Soon" Guard | If a module has $< 10$ published questions, it flags `isComingSoon: true`, `canComplete: false`, and blocks subsequent module unlocks. | **PASSED** |
 
 ---
 
-## 5. 12-Character Alphanumeric PRN Format & Identity Verification
+## 3. Compiler & Sandbox Verification
 
-Executed `npx vitest run tests/prn-alphanumeric-format.test.ts tests/prn-profile-signup.test.ts tests/prn-monthly-change.test.ts tests/firestore-security-rules.test.ts`:
-- **Result**: `45 passed (45)` across 4 test files. Full suite: `22 test files passed, 143 passed (143)`.
-- **Regex & Format Conformance**: `PASS` (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$` strictly enforced. Rejects 11/13 chars, digits-only, wrong gender letter, symbols, internal spaces).
-- **Canonical Uppercase Normalization**: `PASS` (Trims whitespace and normalizes lowercase inputs like `2199tesm0001` to `2199TESM0001` in client and server before storage and comparison).
-- **Configurable Program Codes**: `PASS` (`allowedProgramCodes` defaults to `[]` accepting any 3 letters; filters accurately when populated).
-- **Privacy Masking**: `PASS` (`maskPrn` strictly produces `••••••••${prn.slice(-4)}` (8 bullets + last 4 digits); program codes and gender letter $M/F$ never leaked to peers, profiles, leaderboards, or public logs).
-- **Firestore Security Rules**: `PASS` (Enforces deny-by-default, private student access only, immutable PRN on student self-service updates, and server-only transactions for `prnIndex/{prn}`).
-- **Admin Allowlist Import & Warning**: `PASS` (Validates CSV format, rejects malformed rows, deduplicates PRN/email, and surfaces alert banner when allowlist is disabled).
-- **Idempotent Migration Script**: `PASS` (`server/scripts/migrate-prn-format.ts` scanned users, normalized cases, and cleanly verified all records idempotently without data loss).
-- **Integrity Audit**: `PASS` (`server/scripts/verify-integrity.ts` Check 11 verified 100% PRN format and `PrnIndex` parity).
+* **GCC Compiler:** C11 (`-std=c11 -O2 -Wall`)
+* **Reference Solutions:** 40 / 40 passed all sample and hidden tests.
+* **Wrong Solutions:** 80 / 80 deliberately wrong solutions failed tests as expected.
+* **Client Production Build:** `tsc && vite build` built in 27.69s with zero errors.

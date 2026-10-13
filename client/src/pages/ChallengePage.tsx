@@ -483,6 +483,38 @@ export const ChallengePage: React.FC = () => {
     );
   }
 
+  const isDailyPaused =
+    problemData?.data?.paused === true ||
+    (!slug && !problem && !seasonComplete && !isChallengeEnded);
+
+  if (isDailyPaused) {
+    return (
+      <div
+        data-testid="challenge-paused-page"
+        className="max-w-2xl mx-auto py-24 px-4 text-center space-y-5 font-mono"
+      >
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--bg-panel)] border border-[var(--border-line)] text-cyan-400 text-xs font-bold">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Daily Challenge</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-heading font-extrabold text-[var(--text-main)]">
+          Daily challenges are not live yet. We will announce the start.
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
+          While the daily challenge pool is being prepared, you can solve curated C problems across modules in the Practice section.
+        </p>
+        <div className="pt-2">
+          <Link
+            to="/practice"
+            className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 rounded-xl bg-[var(--color-accent)] text-[#0C0F1F] text-xs font-mono font-bold shadow-md hover:opacity-95 transition-opacity"
+          >
+            Go to Practice &rarr;
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (seasonComplete) {
     return (
       <div

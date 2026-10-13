@@ -653,6 +653,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return { success: true };
   }
 
+  if (path === '/config' && method === 'GET') {
+    return {
+      success: true,
+      dailyChallengePaused: true,
+      pausedAt: new Date().toISOString(),
+      resumedAt: null,
+    };
+  }
+
+  if (path === '/admin/daily-system/preview' && method === 'GET') {
+    return {
+      success: true,
+      data: {
+        dailyChallengePaused: true,
+        pausedAt: new Date().toISOString(),
+        pauseReason: 'Default safe state: Daily challenge pool transitioning to book-only curriculum',
+        scheduledCount: 0,
+        minRequired: 14,
+        canResume: false,
+        first7Preview: [],
+      },
+    };
+  }
+
   // PROBLEMS ROUTES
   const buildFallbackCurrentWeek = () => {
     const user = getCurrentUser();
@@ -713,21 +737,14 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/problems/daily' && method === 'GET') {
-    const user = getCurrentUser();
-    const subs = getStoredSubmissions();
-    const problems = getStoredProblems();
-    const daily = problems.find((p) => p.isDaily) || problems[0];
-    const isSolved = user
-      ? subs.some((s) => s.userId === user.id && s.problemId === daily.id && s.verdict === 'ACCEPTED')
-      : false;
-    const secondsUntilNextReset = getSecondsUntilNext1700IST();
     return {
       success: true,
       data: {
-        problem: daily,
-        userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === daily.id).length },
-        secondsUntilNextReset,
-        endsAt: new Date(Date.now() + secondsUntilNextReset * 1000).toISOString(),
+        paused: true,
+        message: 'Daily challenges are not live yet. We will announce the start.',
+        problem: null,
+        secondsUntilNextReset: null,
+        endsAt: null,
       },
     };
   }
@@ -904,9 +921,23 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           percentile,
           studentsBeaten: 0,
           totalUsers: totalPoints > 0 ? 1 : 0,
+          dailyRank: rank,
+          pointsToday: 0,
+          vsYesterdayDelta: null,
+          yesterdaySummary: null,
+        },
+        dailySummary: {
+          challengeTitle: 'Featured Challenge',
+          date: new Date().toISOString().split('T')[0],
+          verdict: 'NOT_SUBMITTED',
+          points: 0,
+          dailyRank: null,
+          attempts: 0,
+          streak: user?.currentStreak || 0,
+          improvementHint: 'Solve the daily challenge early to establish your daily campus rank.',
         },
         weeklySummary: {
-          weekLabel: 'Current Week',
+          weekLabel: 'Current Day',
           weeklyPoints: totalPoints,
           rank,
           percentile,
@@ -1249,6 +1280,25 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
   // LEADERBOARD
   if (path.startsWith('/leaderboard')) {
+    const rawTab = params.get('tab') || 'today';
+    if (rawTab === 'today' || rawTab === 'yesterday') {
+      return {
+        success: true,
+        data: {
+          tab: rawTab,
+          dailyChallengePaused: true,
+          paused: true,
+          message: 'Daily challenges are not live yet. We will announce the start.',
+          leaderboard: [],
+          pinnedOwnRow: null,
+          totalRanked: 0,
+          totalSolvers: 0,
+          availablePastDays: [],
+          availableWeeks: [],
+        },
+      };
+    }
+
     const current = getCurrentUser();
     const allUsers = getStoredUsers().filter((u) => !u.isBanned && u.role === 'STUDENT');
     // Real rank: only students with totalPoints > 0 (or weekly points > 0) are ranked!
@@ -1348,15 +1398,25 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       } as any;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const pastDays = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(Date.now() - (i + 1) * 86400000);
+      return d.toISOString().split('T')[0];
+    });
+
     return {
       success: true,
       data: {
+        tab: 'today',
+        dayId: todayStr,
         leaderboard,
         pinnedOwnRow,
         totalRanked,
+        totalSolvers: totalRanked,
+        availablePastDays: pastDays,
         availableWeeks: [
-          { weekOffset: 0, weekLabel: 'Current Week (Live)', isFrozen: false },
-          { weekOffset: -1, weekLabel: 'Last Week (Final Rankings)', isFrozen: true },
+          { weekOffset: 0, weekLabel: 'Today (Live)', isFrozen: false },
+          { weekOffset: -1, weekLabel: 'Yesterday (Final Rankings)', isFrozen: true },
         ],
       },
     };
@@ -1580,6 +1640,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   // PRACTICE MODULES
   if (path === '/practice/modules') {
     const current = getCurrentUser();
+    const isAdmin = current?.role === 'ADMIN';
     let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number }> = {};
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
@@ -1593,21 +1654,40 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const allPracticeProblems = getStoredPracticeProblems();
 
     let previousModuleSolved = 0;
+    let previousModuleTotal = 10;
     const modulesResponse = practiceModules.map((m, idx) => {
       const moduleProblems = allPracticeProblems.filter((p) => p.moduleSlug === m.slug);
+      const totalPublished = moduleProblems.length;
+      const easyCount = moduleProblems.filter((p) => p.difficulty === 'EASY').length;
+      const mediumCount = moduleProblems.filter((p) => p.difficulty === 'MEDIUM').length;
+      const hardCount = moduleProblems.filter((p) => p.difficulty === 'HARD').length;
+      const isComingSoon = totalPublished < 10;
+
       const solvedInModule = moduleProblems.filter(
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
       ).length;
 
       const threshold = m.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
-      const isUnlocked = idx === 0 || previousModuleSolved >= threshold;
       const prevTitle = idx > 0 ? practiceModules[idx - 1].title : '';
-      const requirementText =
-        idx === 0
-          ? 'Unlocked by default'
+      
+      let isUnlocked = false;
+      let requirementText = '';
+
+      if (idx === 0) {
+        isUnlocked = true;
+        requirementText = 'Unlocked by default';
+      } else if (previousModuleTotal < 10) {
+        isUnlocked = false;
+        requirementText = `${prevTitle} is coming soon (incomplete curriculum)`;
+      } else {
+        isUnlocked = previousModuleSolved >= threshold;
+        requirementText = isUnlocked
+          ? ''
           : `Solve ${threshold} in ${prevTitle} to unlock`;
+      }
 
       previousModuleSolved = solvedInModule;
+      previousModuleTotal = totalPublished;
 
       return {
         id: m.id,
@@ -1616,13 +1696,20 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         order: m.order,
         description: m.description,
         isUnlocked,
+        isAdminUnlocked: isAdmin,
         requirementText,
-        totalQuestions: moduleProblems.length || m.totalQuestions,
+        totalQuestions: totalPublished,
         solvedCount: solvedInModule,
-        progressPercent: moduleProblems.length
-          ? Math.round((solvedInModule / moduleProblems.length) * 100)
+        progressPercent: totalPublished
+          ? Math.round((solvedInModule / totalPublished) * 100)
           : 0,
-        distribution: m.distribution,
+        isComingSoon,
+        canComplete: !isComingSoon,
+        distribution: {
+          EASY: easyCount,
+          MEDIUM: mediumCount,
+          HARD: hardCount,
+        },
       };
     });
 
@@ -1638,6 +1725,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path.startsWith('/practice/modules/') && path.endsWith('/problems')) {
     const moduleSlug = path.replace('/practice/modules/', '').replace('/problems', '');
     const current = getCurrentUser();
+    const isAdmin = current?.role === 'ADMIN';
     let storedProgress: Record<string, { isSolved: boolean; attemptsCount: number; bestRuntimeMs: number }> = {};
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
@@ -1659,9 +1747,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
     const modIdx = practiceModules.findIndex((m) => m.slug === moduleSlug);
     const threshold = moduleConfig.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
-    if (modIdx > 0) {
+    if (!isAdmin && modIdx > 0) {
       const prevMod = practiceModules[modIdx - 1];
       const prevProblems = allPracticeProblems.filter((p) => p.moduleSlug === prevMod.slug);
+      if (prevProblems.length < 10) {
+        const err = new Error(
+          `${prevMod.title} is coming soon and cannot be unlocked as complete.`
+        ) as Error & { status?: number; code?: string };
+        err.status = 403;
+        err.code = 'MODULE_LOCKED';
+        throw err;
+      }
       const prevSolved = prevProblems.filter(
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
       ).length;

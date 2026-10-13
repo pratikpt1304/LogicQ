@@ -14,6 +14,7 @@ import {
   getCurrentWeekDayDatesIST,
 } from '../utils/ist.js';
 import { ensureCurrentWeekSchedule } from './problem.controller.js';
+import { isDailyChallengePaused } from '../services/system-config.service.js';
 
 function calculateNextStreak(
   lastSolvedDate: string | null,
@@ -267,6 +268,15 @@ export class UploadController {
 
       // Single Visible Question Rule: students can only upload solutions for today's active challenge before 17:00 IST
       if (req.user!.role !== 'ADMIN') {
+        if (await isDailyChallengePaused()) {
+          res.status(403).json({
+            success: false,
+            code: 'CHALLENGE_NOT_AVAILABLE',
+            message: 'Daily challenges are not available at this time.',
+          });
+          return;
+        }
+
         if (problem.status !== 'PUBLISHED' || problem.scheduledDate !== challengeDayIST) {
           const isEnded = Boolean(problem.scheduledDate && problem.scheduledDate < challengeDayIST);
           res.status(403).json({

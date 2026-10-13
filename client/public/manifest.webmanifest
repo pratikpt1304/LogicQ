@@ -1,7 +1,7 @@
 {
   "name": "LogicQ",
   "short_name": "LogicQ",
-  "description": "Daily C11 programming challenges and weekly competitive leaderboard for university students.",
+  "description": "Daily C11 programming challenges and daily competitive leaderboard for university students.",
   "lang": "en-IN",
   "id": "/dashboard",
   "start_url": "/dashboard",
@@ -47,7 +47,7 @@
     {
       "name": "Leaderboard",
       "short_name": "Leaderboard",
-      "description": "View the weekly student leaderboard",
+      "description": "View the daily student leaderboard",
       "url": "/leaderboard",
       "icons": [
         {

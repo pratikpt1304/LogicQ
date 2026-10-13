@@ -58,6 +58,70 @@ rules_version = '2';
 //   - solvedAt: timestamp (optional)
 //   - updatedAt: timestamp (required)
 //
+// Collection: daily_boards/{dayId} (Authoritative Daily Board)
+// Document ID: Canonical date string (YYYY-MM-DD)
+// Fields:
+//   - dayId: string (required, immutable)
+//   - challengeId: string (required, immutable)
+//   - scheduledDate: string (required, immutable)
+//   - isFrozen: bool (required)
+//   - totalSolvers: int (required)
+//   - createdAt: timestamp (required)
+//   - frozenAt: timestamp (optional)
+//
+// Subcollection: daily_boards/{dayId}/leaderboard/{docId}
+// Document ID: Student UID
+// Fields:
+//   - userId: string (required)
+//   - rank: int (required)
+//   - score: int (required)
+//   - wrongAttempts: int (required)
+//   - submittedAt: timestamp (required)
+//
+// Collection: daily_results/{resultId} (Student Daily Solved Record)
+// Document ID: Canonical format {dayId}_{userId}
+// Fields:
+//   - id: string (required)
+//   - dayId: string (required)
+//   - userId: string (required)
+//   - challengeId: string (required)
+//   - verdict: string (required)
+//   - pointsAwarded: int (required)
+//   - wrongAttempts: int (required)
+//   - submittedAt: timestamp (required)
+//   - rank: int (optional)
+//
+// Collection: daily_summaries/{summaryId} (Student Daily Summary Card)
+// Document ID: Canonical format {dayId}_{userId}
+// Fields:
+//   - id: string (required)
+//   - dayId: string (required)
+//   - userId: string (required)
+//   - verdict: string (required)
+//   - pointsEarned: int (required)
+//   - dailyRank: int (optional)
+//   - totalParticipants: int (optional)
+//   - streak: int (required)
+//   - improvementHint: string (optional)
+//
+// Collection: daily_corrections/{correctionId} (Post-Finalization Rejudge / Audit Record)
+// Document ID: Auto-generated UUID or timestamp-keyed ID
+// Fields:
+//   - id: string (required)
+//   - dayId: string (required)
+//   - userId: string (required)
+//   - reason: string (required)
+//   - adminId: string (required)
+//   - createdAt: timestamp (required)
+//
+// Collection: daily_rank_snapshots/{snapshotId} (Frozen Daily Top 20 & Rank Snapshots)
+// Document ID: Canonical snapshot identifier (e.g. {dayId}_top20)
+// Fields:
+//   - dayId: string (required)
+//   - snapshotType: string (required)
+//   - standings: list (required)
+//   - createdAt: timestamp (required)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -261,7 +325,50 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // 4. WEEKLY COMPETITION, LEADERBOARDS & SUMMARIES (ARENA, ARCHIVE & BADGES DISABLED)
+    // 4. DAILY COMPETITION ARCHITECTURE & LEADERBOARDS
+    // -------------------------------------------------------------------------
+    match /daily_boards/{dayId} {
+      // Authoritative daily board storage: readable by authenticated students and admins
+      allow read: if isAuthenticated();
+      allow write: if false;
+
+      // Daily live & frozen leaderboard subcollection
+      match /leaderboard/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if false;
+      }
+    }
+
+    match /daily_results/{resultId} {
+      // Students can ONLY read their own daily result; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /daily_summaries/{summaryId} {
+      // Students can ONLY read their own daily summary; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create, update, delete: if false;
+    }
+
+    match /daily_corrections/{correctionId} {
+      // Post-finalization rejudge & late-upload corrections: Admin only
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /daily_rank_snapshots/{snapshotId} {
+      // Frozen top 20 and daily rank snapshots: readable by authenticated users
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 4.1 LEGACY COMPETITION ARCHIVE (HISTORICAL WEEKS & WEEKLY SUMMARIES)
     // -------------------------------------------------------------------------
     match /weeks/{weekId} {
       allow read: if isAuthenticated();

@@ -1,61 +1,81 @@
 # LogicQ Book-Only Content Pipeline Specification (`/docs/CONTENT_PIPELINE.md`)
 
-> **STATUS**: `AWAITING USER APPROVAL & BOOK FILE ATTACHMENT`  
-> Per the authoritative directive: *"Update `/docs/MASTER_SPEC.md` and write `/docs/CONTENT_PIPELINE.md` first, then STOP for my review before importing or building anything. ... Do the import only after I approve `/docs/CONTENT_PIPELINE.md` and `/docs/CONTENT_RIGHTS.md`."*
+> **STATUS**: `BOOK PIPELINE ACTIVE — SYSTEM PAUSED`  
+> **Source**: *"Test Your C Skills"* by Yashavant Kanetkar  
+> **Storage**: `/private/book/` (git-ignored, strictly local)  
+> **Current Mode**: `dailyChallengePaused = true` (Schedule Empty)
 
 ---
 
-## 1. Authoritative Content Source Rule
+## 1. Authoritative Book Source Policy
 
-1. **Single Designated Book Source**:
-   - **Book Placeholder**: `[BOOK TITLE, AUTHOR, EDITION]` (to be supplied by the project owner in a private local folder `/private/books/<filename>`, excluded by `.gitignore`).
-   - **Zero External / AI-Invented Problems**: Once the book import is approved and executed, **no other question source is allowed**—no ungrounded AI-invented problems and no problems from external books or websites.
-   - **Existing Seeded Problems Policy**: By default, all earlier seeded/sample problems (such as `"In-Place Pointer Swap & Sum"`) will be transitioned to `status = 'RETIRED'` upon book import execution unless explicitly approved in writing by the project owner. Retired problems are **never deleted** (preserving all historical student submissions, points, streaks, and weekly summaries) and can never be scheduled or displayed as today's challenge.
-
----
-
-## 2. Six-Stage Import & Validation Pipeline (`/scripts/import-book.ts`)
-
-### Stage 1 — Private Extraction
-- Reads the private book file from `/private/books/` (never committed to Git, never placed in `client/public`, `client/dist`, or public Firebase Storage).
-- Extracts every programming exercise chapter by chapter into `/private/review/extracted-exercises.json` (excluded by `.gitignore`) with fields:
-  - `bookTitle`, `edition`, `chapterNumber`, `chapterTitle`, `exerciseNumber`, `pageNumber`, `rawExtractedText`.
-
-### Stage 2 — 3-Class Classification (`A`, `B`, `C`)
-Every extracted item is deterministically classified into one of three classes:
-- **Class A (`JUDGEABLE_DIRECT`)**: Already specifies deterministic `stdin` / `stdout` behavior checkable by the C11 judge.
-- **Class B (`JUDGEABLE_REWRITE`)**: Core C programming exercise that requires defining explicit `stdin` / `stdout` formatting and constraints so the automated C11 judge can evaluate it.
-- **Class C (`NON_JUDGEABLE`)**: Theory questions, definitions, MCQs, output-prediction snippets, diagrams, or open-ended case studies. **Class C items are never dropped silently**—they are exported into `/docs/CONTENT_REPORT.md` for human owner decision (e.g., whether to convert selected items into upload-based exercises later).
-
-### Stage 3 — Original-Wording Draft Conversion (Classes `A` & `B`)
-- Converts each Class A and Class B exercise into a LogicQ `DRAFT` problem:
-  - **Original Wording**: Rewritten from scratch with new narrative context, variable names, and sample numbers (see [`/docs/CONTENT_RIGHTS.md`](./CONTENT_RIGHTS.md)).
-  - **Structured Specification**: Markdown problem statement, input format, output format, constraints, difficulty (`EASY` = 20–25 PTS, `MEDIUM` = 40–50 PTS, `HARD` = 70–80 PTS), and topic tags derived from the chapter.
-  - **Test Suite**: $\ge 2$ visible sample test cases + $\ge 5$ hidden edge-case test cases (minimum/maximum bounds, zero/negative values, boundary conditions).
-  - **Reference & Wrong C Solutions**: 1 standard C11 reference solution (`gcc -O2 -std=c11 -Wall`) + 2 deliberately wrong C11 solutions (e.g., off-by-one and naive overflow/wrong-operator variants).
-  - **Admin-Only Source Metadata (`sourceRef`)**: `{ bookTitle, chapterNumber, chapterTitle, exerciseNumber, pageNumber }` stored strictly in admin-only fields and stripped from all student/public API responses.
-
-### Stage 4 — Automated 1-Pass / 2-Fail Judge Validation Gate
-- Runs every `DRAFT` problem through the real `LocalGccJudge` (`validateProblemGate`):
-  1. Reference C11 solution **must pass 100%** of visible and hidden test cases within time/memory limits.
-  2. Both deliberately wrong C11 solutions **must fail** at least one test case.
-- Any problem that fails this gate remains `DRAFT` and is flagged in `/docs/CONTENT_REPORT.md` for manual review.
-
-### Stage 5 — Human Admin Review & Approval Gate
-- In the Admin Dashboard (`Problems & Book Review`), administrators inspect each `DRAFT` alongside its admin-only `sourceRef` (`Chapter X, Exercise Y`), edit statement/tests if needed, and explicitly mark it **`VALIDATED` / `PUBLISHED`** or **`REJECTED`**.
-- Only problems explicitly approved by the project owner transition to `PUBLISHED`.
-
-### Stage 6 — Chapter-Ordered Weekly Scheduling & Pool Exhaustion Protection
-- **Chapter-Ordered Queue**: Daily challenges unlock at **`17:00 IST`** following the book's chapter sequence, rising from `EASY` to `MEDIUM`/`HARD` within each Monday-to-Monday week and assigning the chapter topic as the week's theme.
-- **Auto-Pick From Book Pool Only**: If a day has no manual schedule, the `17:00 IST` job auto-picks the next unused `PUBLISHED` problem where `sourceType === 'BOOK'` in chapter order and writes an `/admin_audit_logs` entry.
-- **14-Day Low-Pool Alert & `Season Complete` State**:
-  - When fewer than **14 unused approved book problems** remain, the Admin Dashboard displays a prominent low-pool warning banner.
-  - If the approved book pool reaches `0`, the Daily Challenge page displays a clean **"Season Complete"** state instead of repeating problems or falling back to non-book content.
+1. **Sole Source of Daily Pool**:
+   - The daily challenge pool is exclusively derived from *"Test Your C Skills"* by Yashavant Kanetkar.
+   - Zero AI-invented problems outside the book are permitted.
+   - The automated fallback auto-pick mechanism may select only approved problems from this verified pool.
+   - If the pool is ever exhausted, the platform displays the **"Season complete"** state—never external or unapproved content.
+   - The Admin dashboard displays a warning banner when fewer than **14 validated challenges** remain unscheduled.
+2. **Retirement of Legacy Daily Problems**:
+   - All pre-existing daily challenges are transitioned to `status = 'RETIRED'` (never deleted).
+   - Historical submissions, scores, daily summaries, and streaks attached to past dates remain intact.
+   - Retired problems are permanently excluded from future schedules and fallback pickers.
+3. **Daily System Pause State**:
+   - While `dailyChallengePaused = true`, the schedule remains completely empty.
+   - No challenge is unlocked or scheduled.
+   - Students see a neutral banner: *"Daily challenges are not live yet. We will announce the start."*
 
 ---
 
-## 3. Action Required From User Before Running Import
+## 2. Six-Stage Extraction & Validation Pipeline
 
-1. Attach or place the designated book file at `/private/books/<filename>` and specify `[BOOK TITLE, AUTHOR, EDITION]`.
-2. Confirm whether any currently seeded problems should be kept (`default: none — all 16 current problems will be marked RETIRED upon import`).
-3. Confirm approval of this pipeline (`/docs/CONTENT_PIPELINE.md`) and [`/docs/CONTENT_RIGHTS.md`](./CONTENT_RIGHTS.md).
+### Stage 1: Local PDF Extraction & OCR Audit
+- Reads the book PDF locally from `/private/book/`.
+- Extracts all programming exercises chapter by chapter from Chapter 1 to Chapter 14 (A through Z).
+- Outputs a private, git-ignored review extract `/private/review/extracted-book-exercises.json` with fields:
+  `{ chapterNumber, chapterTitle, exerciseNumber, pageNumber, rawPrompt, ocrQualityScore }`.
+- Logs OCR quality and flags any character ambiguities.
+
+### Stage 2: Three-Tier Classification (Classes A, B, C)
+Every item is categorized into:
+- **Class A (`JUDGEABLE_DIRECT`)**: Exercises that already imply a standard I/O algorithmic problem. Converted directly.
+- **Class B (`JUDGEABLE_REWRITE`)**: Conceptual exercises (e.g., function bodies or pointer manipulations) that can be formulated as a complete deterministic program with `stdin` and `stdout`. Converted with clear specifications.
+- **Class C (`NON_JUDGEABLE_IN_ORIGINAL_FORM`)**: Output-prediction snippets, find-the-bug puzzles, syntax oddities, and theoretical questions.
+  - *Rule*: For each Class C item, LogicQ drafts either:
+    1. A proposed rewrite into a judgeable program testing the same core concept (e.g., operator precedence or bitwise behavior), OR
+    2. A recommendation to "skip".
+  - *Gate*: No Class C item is published without explicit user decision.
+
+### Stage 3: Original-Wording Problem Authoring
+For every Class A and approved Class B/C problem:
+- **Original Wording**: Fresh narrative, new variable names, fresh story, and new context (zero verbatim text).
+- **Standard I/O Contract**: Explicit `stdin` and `stdout` formats with boundary constraints.
+- **Test Suites**:
+  - Exactly 2 visible sample test cases.
+  - At least 8 hidden test cases (minimum 10 total) covering zero values, negative numbers, maximum limits, and edge inputs.
+- **C11 Reference & Wrong Solutions**:
+  - 1 standard C11 reference solution (`gcc -std=c11 -O2 -Wall`).
+  - 2 deliberately wrong solutions (e.g., off-by-one bug, overflow bug, missing edge check).
+- **Admin-Only Source Reference (`sourceRef`)**:
+  - `{ book: "Test Your C Skills", author: "Yashavant Kanetkar", chapterNumber, exerciseNumber, pageNumber }`.
+  - Excluded from all student-facing endpoints and verified by CI tests.
+- **Points by Difficulty**: `EASY` = 20 PTS, `MEDIUM` = 30 PTS, `HARD` = 50 PTS.
+
+### Stage 4: Automated GCC 1-Pass / 2-Fail Validation Gate
+Every candidate problem undergoes automated compilation and execution using `LocalGccJudge`:
+1. Reference solution **passes 100%** of sample and hidden tests within time (1000ms) and memory (64MB) limits under sanitizers.
+2. Both wrong solutions **fail at least 1 test case**.
+3. Output is verified to be completely deterministic (no dependencies on memory addresses, uninitialized variables, timing, or random numbers).
+Any problem failing this gate remains `DRAFT` and is logged in `/docs/CONTENT_REPORT.md`.
+
+### Stage 5: Chapter-by-Chapter Batch Review & Reporting
+- Content is processed in batches by chapter.
+- After each batch, `/docs/CONTENT_REPORT.md` is updated with counts by difficulty, status, titles, Class C proposals, and duplicate checks against the 40 Practice problems.
+- All problems remain `DRAFT` or `VALIDATED` until explicit user approval for publishing.
+
+### Stage 6: Audited Production Import & Resuming
+- No seed scripts are run on production.
+- Production content is imported exclusively via an audited admin import artifact (`server/src/data/daily-book-problems-import.json`).
+- Resuming the daily system is a separate, manual admin action requiring:
+  1. System owner command to resume.
+  2. At least 14 validated book problems scheduled in chapter sequence.
+  3. Admin re-authentication and audit log entry.
