@@ -27,7 +27,15 @@ import {
   FileText,
   Trash2,
   Lock,
+  Cloud,
 } from 'lucide-react';
+import {
+  DraftSyncService,
+  DraftData,
+  ConflictInfo,
+  getDeviceLabel,
+} from '../services/draftSync.service.js';
+import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 
 interface StagedUploadFile {
   id: string;
@@ -59,6 +67,9 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch problem details
   const {
@@ -76,19 +87,18 @@ export const PracticeWorkspacePage: React.FC = () => {
   const problem = responseData?.data?.problem;
   const userProgress = responseData?.data?.userProgress;
 
-  // Restore local draft or starter code
+  // Restore local draft or starter code, then sync cloud draft
   useEffect(() => {
     if (problem && problem.id !== initializedProblemIdRef.current) {
       initializedProblemIdRef.current = problem.id;
-      let localDraft = '';
-      try {
-        localDraft = localStorage.getItem(`logicq_practice_draft_${problem.slug}`) || '';
-      } catch {
-        // Ignore storage errors
-      }
 
-      if (localDraft) {
-        setCode(localDraft);
+      // 1. Instant local cache restore
+      const localDraft = DraftSyncService.getLocalDraft(problem.slug, true);
+      let initialCode = problem.starterCode;
+
+      if (localDraft?.code) {
+        initialCode = localDraft.code;
+        setCode(localDraft.code);
       } else {
         setCode(problem.starterCode);
       }
@@ -96,17 +106,73 @@ export const PracticeWorkspacePage: React.FC = () => {
       if (problem.sampleTests && problem.sampleTests.length > 0) {
         setCustomInput(problem.sampleTests[0].input);
       }
+
+      // 2. Authoritative cloud draft sync
+      if (user?.id) {
+        DraftSyncService.fetchRemoteDraft(user.id, problem.slug, true).then((remoteDraft) => {
+          if (!remoteDraft) return;
+
+          const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
+          if (conflict) {
+            setConflictInfo(conflict);
+          } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
+            setCode(remoteDraft.code);
+            DraftSyncService.saveLocalDraft(remoteDraft, true);
+          }
+        }).catch(() => {});
+      }
     }
-  }, [problem]);
+  }, [problem, user?.id]);
 
   const handleCodeChange = (nextCode: string) => {
     setCode(nextCode);
     if (problem?.slug) {
-      try {
-        localStorage.setItem(`logicq_practice_draft_${problem.slug}`, nextCode);
-      } catch {
-        // Ignore quota exceeded
+      const draftObj: DraftData = {
+        problemId: problem.id,
+        problemSlug: problem.slug,
+        code: nextCode,
+        customInput,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+
+      DraftSyncService.saveLocalDraft(draftObj, true);
+
+      if (user?.id && navigator.onLine) {
+        setDraftSyncStatus('saving');
+        if (autosaveTimerRef.current) {
+          clearTimeout(autosaveTimerRef.current);
+        }
+        autosaveTimerRef.current = setTimeout(async () => {
+          const success = await DraftSyncService.saveRemoteDraft(user.id, draftObj, true);
+          setDraftSyncStatus(success ? 'saved' : 'offline');
+        }, 1500);
+      } else {
+        setDraftSyncStatus('offline');
       }
+    }
+  };
+
+  const handleKeepRemoteDraft = () => {
+    if (conflictInfo) {
+      setCode(conflictInfo.remoteDraft.code);
+      DraftSyncService.saveLocalDraft(conflictInfo.remoteDraft, true);
+      setConflictInfo(null);
+      toast.success('Restored newer draft from cloud');
+    }
+  };
+
+  const handleKeepLocalDraft = () => {
+    if (conflictInfo && user?.id) {
+      const updatedLocal: DraftData = {
+        ...conflictInfo.localDraft,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(updatedLocal, true);
+      DraftSyncService.saveRemoteDraft(user.id, updatedLocal, true);
+      setConflictInfo(null);
+      toast.success('Kept local code and updated cloud');
     }
   };
 
@@ -413,6 +479,12 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         {/* Action Buttons: Run & Submit */}
         <div className="flex items-center gap-2.5 shrink-0">
+          {user?.id && (
+            <span className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-[var(--text-muted)] pr-2 border-r border-[var(--border-line)]">
+              <Cloud className={`w-3.5 h-3.5 ${draftSyncStatus === 'saving' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
+              <span>{draftSyncStatus === 'saving' ? 'Saving...' : 'Synced'}</span>
+            </span>
+          )}
           <button
             onClick={() => runMutation.mutate()}
             disabled={runMutation.isPending || submitMutation.isPending}
@@ -804,6 +876,15 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* Draft Conflict Resolution Modal */}
+      {conflictInfo && (
+        <DraftConflictModal
+          localDraft={conflictInfo.localDraft}
+          remoteDraft={conflictInfo.remoteDraft}
+          onKeepLocal={handleKeepLocalDraft}
+          onKeepRemote={handleKeepRemoteDraft}
+        />
+      )}
     </div>
   );
 };

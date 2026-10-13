@@ -73,10 +73,52 @@ const systemAlerts: { type: string; message: string; timestamp: Date }[] = [];
 export const MIN_RANKED_STUDENTS_FOR_PERCENTILE = 10;
 export const ARCHIVE_RETENTION_DAYS = 90;
 
-export function clearDailyBoardsForTesting(): void {
-  frozenDailyBoards.clear();
-  dailyCorrectionsLedger.length = 0;
-  systemAlerts.length = 0;
+export interface FinalizationRunLog {
+  id: string;
+  dayId: string;
+  startedAt: Date;
+  finishedAt: Date;
+  durationMs: number;
+  success: boolean;
+  isRerun: boolean;
+  totalSolvers: number;
+  summariesWritten: number;
+  unjudgedFlaggedCount: number;
+  triggeredBy: string; // "CRON_1705" or admin userId
+  reason?: string;
+  error?: string;
+}
+
+const finalizationRunHistory: FinalizationRunLog[] = [];
+
+export function getFinalizationRunHistory(): FinalizationRunLog[] {
+  return [...finalizationRunHistory].sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+}
+
+export function getAllFrozenDailyBoards(): {
+  dayId: string;
+  challengeId: string;
+  challengeTitle: string;
+  totalSolvers: number;
+  finalizedAt: Date;
+}[] {
+  const list: {
+    dayId: string;
+    challengeId: string;
+    challengeTitle: string;
+    totalSolvers: number;
+    finalizedAt: Date;
+  }[] = [];
+  for (const [dayId, board] of frozenDailyBoards.entries()) {
+    list.push({
+      dayId,
+      challengeId: board.challengeId,
+      challengeTitle: board.challengeTitle,
+      totalSolvers: board.totalSolvers,
+      finalizedAt: board.finalizedAt,
+    });
+  }
+  return list.sort((a, b) => b.dayId.localeCompare(a.dayId));
 }
 
 export function getSystemAlerts() {
@@ -435,6 +477,22 @@ export async function runDailyFinalizationJob(
     };
 
     frozenDailyBoards.set(dayId, snapshot);
+
+    const finishedAt = getServerNow();
+    finalizationRunHistory.push({
+      id: `run_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      dayId,
+      startedAt: now,
+      finishedAt,
+      durationMs: Math.max(1, finishedAt.getTime() - now.getTime()),
+      success: true,
+      isRerun: Boolean(options.forceRerun),
+      totalSolvers,
+      summariesWritten: summariesMap.size,
+      unjudgedFlaggedCount,
+      triggeredBy: (options as any).triggeredBy || 'CRON_1705',
+      reason: (options as any).reason,
+    });
 
     // Prune archives older than ARCHIVE_RETENTION_DAYS (90 days)
     const cutoffDate = addDaysIST(dayId, -ARCHIVE_RETENTION_DAYS);

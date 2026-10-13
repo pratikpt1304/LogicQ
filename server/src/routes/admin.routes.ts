@@ -30,6 +30,8 @@ import {
   getAdminDailySystemPreview,
   adminPauseDailySystem,
   adminResumeDailySystem,
+  adminCreateDailyCorrection,
+  adminTogglePauseDay,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -85,6 +87,8 @@ adminRouter.get('/export/weekly-results.csv', exportWeeklyResultsCsv);
 adminRouter.get('/export/daily-results.csv', exportDailyResultsCsv);
 adminRouter.post('/daily-finalization/run', runManualDailyFinalization);
 adminRouter.get('/daily-finalization/status', getDailyFinalizationStatus);
+adminRouter.post('/daily-finalization/correction', adminCreateDailyCorrection);
+adminRouter.post('/daily-finalization/pause-day', adminTogglePauseDay);
 
 // Daily Challenge System Control
 adminRouter.get('/daily-system/preview', getAdminDailySystemPreview);

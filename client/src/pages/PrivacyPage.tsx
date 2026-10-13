@@ -62,7 +62,7 @@ export const PrivacyPage: React.FC = () => {
               <strong>Peer Display Label</strong>: Other students see your optional chosen Display Name (3–20 characters) or a non-identifying fallback label (<code className="font-mono text-[#8B9BFF]">Student 4F9A</code>).
             </li>
             <li>
-              <strong>Faculty / Admin Access</strong>: Authorized platform administrators can view PRN, college, department, year, and division for academic evaluation and weekly cohort reporting.
+              <strong>Faculty / Admin Access</strong>: Authorized platform administrators can view PRN, college, department, year, and division for academic evaluation and daily and cohort reporting.
             </li>
           </ul>
         </section>

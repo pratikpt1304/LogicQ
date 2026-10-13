@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../config/firebase.js';
 
 export type Theme = 'light' | 'dark';
 
@@ -52,6 +54,31 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     applyThemeToDocument(theme);
   }, [theme]);
 
+  // Synchronize with Firestore profile when user is authenticated
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((fbUser) => {
+      if (fbUser) {
+        // Read active user cache to see if theme preference is stored on account
+        try {
+          const raw = localStorage.getItem('logicq_active_user');
+          if (raw) {
+            const user = JSON.parse(raw);
+            if (user?.themePreference === 'light' || user?.themePreference === 'dark') {
+              if (user.themePreference !== theme) {
+                setThemeState(user.themePreference);
+                applyThemeToDocument(user.themePreference);
+                localStorage.setItem('logicq_theme', user.themePreference);
+              }
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -77,6 +104,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     applyThemeToDocument(nextTheme);
     setThemeState(nextTheme);
+
+    // Sync themePreference to Firestore users/{userId} if signed in
+    if (auth.currentUser) {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      updateDoc(userRef, {
+        themePreference: nextTheme,
+        updatedAt: serverTimestamp(),
+      }).catch(() => {
+        // Offline or rule update failed gracefully
+      });
+    }
   };
 
   const toggleTheme = () => {

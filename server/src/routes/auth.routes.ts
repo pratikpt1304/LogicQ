@@ -3,6 +3,7 @@ import {
   register,
   login,
   logout,
+  logoutAll,
   refresh,
   getMe,
   forgotPassword,
@@ -19,6 +20,7 @@ authRouter.post('/login', login);
 authRouter.post('/google', googleSignIn);
 authRouter.post('/complete-profile', authenticate, completeProfile);
 authRouter.post('/logout', logout);
+authRouter.post('/logout-all', authenticate, logoutAll);
 authRouter.post('/refresh', refresh);
 authRouter.get('/me', authenticate, getMe);
 authRouter.post('/forgot-password', forgotPassword);

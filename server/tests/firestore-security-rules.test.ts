@@ -45,6 +45,18 @@ class RulesEvaluator {
     const incomingData = ctx.request.resource?.data || {};
     const existingData = ctx.resource?.data || {};
 
+    const allowedUpdateKeys = [
+      'department',
+      'year',
+      'division',
+      'displayName',
+      'bio',
+      'photoURL',
+      'storagePreference',
+      'themePreference',
+      'updatedAt',
+    ];
+
     const forbiddenKeys = [
       'prn',
       'college',
@@ -60,11 +72,92 @@ class RulesEvaluator {
       'prnChangedAt',
       'prnNextAllowedChangeDate',
     ];
+
+    // Block any forbidden keys
     for (const key of forbiddenKeys) {
       if (key in incomingData && incomingData[key] !== existingData[key]) {
         return false; // CHEAT REJECTED
       }
     }
+
+    // UID immutability check
+    if ('uid' in incomingData && incomingData.uid !== existingData.uid && incomingData.uid !== ctx.auth.uid) {
+      return false;
+    }
+
+    // Determine changed keys
+    const changedKeys: string[] = [];
+    for (const key of Object.keys(incomingData)) {
+      if (incomingData[key] !== existingData[key]) {
+        changedKeys.push(key);
+      }
+    }
+
+    // Check that changed keys are strictly within allowed list
+    for (const key of changedKeys) {
+      if (!allowedUpdateKeys.includes(key)) {
+        return false;
+      }
+    }
+
+    // Validate themePreference enum
+    if ('themePreference' in incomingData && incomingData.themePreference !== undefined) {
+      if (!['light', 'dark', 'system'].includes(incomingData.themePreference)) {
+        return false;
+      }
+    }
+
+    // Validate storagePreference enum
+    if ('storagePreference' in incomingData && incomingData.storagePreference !== undefined) {
+      if (!['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'].includes(incomingData.storagePreference)) {
+        return false;
+      }
+    }
+
+    // Validate department enum
+    if ('department' in incomingData && incomingData.department !== undefined) {
+      const allowedDepts = ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
+      if (!allowedDepts.includes(incomingData.department)) {
+        return false;
+      }
+    }
+
+    // Validate year enum
+    if ('year' in incomingData && incomingData.year !== undefined) {
+      const allowedYears = ['FY', 'SY', 'TY'];
+      if (!allowedYears.includes(incomingData.year)) {
+        return false;
+      }
+    }
+
+    // Validate division
+    if ('division' in incomingData && incomingData.division !== null && incomingData.division !== undefined) {
+      if (typeof incomingData.division !== 'string' || incomingData.division.length > 3 || !/^[A-Z0-9]{0,3}$/.test(incomingData.division)) {
+        return false;
+      }
+    }
+
+    // Validate displayName
+    if ('displayName' in incomingData && incomingData.displayName !== null && incomingData.displayName !== undefined) {
+      if (typeof incomingData.displayName !== 'string' || incomingData.displayName.length < 3 || incomingData.displayName.length > 20) {
+        return false;
+      }
+    }
+
+    // Validate bio
+    if ('bio' in incomingData && incomingData.bio !== null && incomingData.bio !== undefined) {
+      if (typeof incomingData.bio !== 'string' || incomingData.bio.length > 500) {
+        return false;
+      }
+    }
+
+    // Validate photoURL
+    if ('photoURL' in incomingData && incomingData.photoURL !== null && incomingData.photoURL !== undefined) {
+      if (typeof incomingData.photoURL !== 'string' || incomingData.photoURL.length > 500) {
+        return false;
+      }
+    }
+
     return true;
   }
 
@@ -701,5 +794,109 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       expect(firestoreRules).toContain(pattern);
       expect(securityRulesDoc).toContain(pattern);
     }
+  });
+
+  it('THEME PREFERENCE: Student can update themePreference to dark, light, or system on their own profile, but cannot set invalid values or touch restricted fields', () => {
+    const existingProfile = {
+      uid: 'student_alice',
+      prn: '2199TESM0001',
+      college: 'Sanjivani University',
+      department: 'AIML',
+      year: 'TY',
+      division: 'A',
+      displayName: 'AliceDev',
+      role: 'STUDENT',
+      status: 'ACTIVE',
+      points: 100,
+      streak: 5,
+      themePreference: 'system',
+    };
+
+    // 1. Valid update to 'dark' -> MUST SUCCEED
+    const validDarkCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'dark', updatedAt: Date.now() } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(validDarkCtx, 'student_alice')).toBe(true);
+
+    // 2. Valid update to 'light' -> MUST SUCCEED
+    const validLightCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'light', updatedAt: Date.now() } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(validLightCtx, 'student_alice')).toBe(true);
+
+    // 3. Valid update to 'system' -> MUST SUCCEED
+    const validSystemCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { ...existingProfile, themePreference: 'dark' } },
+      request: { resource: { data: { ...existingProfile, themePreference: 'system', updatedAt: Date.now() } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(validSystemCtx, 'student_alice')).toBe(true);
+
+    // 4. Invalid themePreference ('neon' or 'high-contrast') -> MUST FAIL
+    const invalidThemeCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'neon' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(invalidThemeCtx, 'student_alice')).toBe(false);
+
+    // 5. Updating themePreference while tampering with points -> MUST FAIL
+    const tamperPointsCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'dark', points: 9999 } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(tamperPointsCtx, 'student_alice')).toBe(false);
+
+    // 6. Updating themePreference while tampering with role -> MUST FAIL
+    const tamperRoleCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'dark', role: 'ADMIN' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(tamperRoleCtx, 'student_alice')).toBe(false);
+
+    // 7. Updating themePreference while tampering with PRN -> MUST FAIL
+    const tamperPrnCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'dark', prn: '2199TESF0002' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(tamperPrnCtx, 'student_alice')).toBe(false);
+
+    // 8. Updating themePreference on another student's profile -> MUST FAIL
+    const peerThemeUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { ...existingProfile, uid: 'student_bob' } },
+      request: { resource: { data: { ...existingProfile, uid: 'student_bob', themePreference: 'dark' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(peerThemeUpdateCtx, 'student_bob')).toBe(false);
+
+    // 9. Unauthenticated update of themePreference -> MUST FAIL
+    const unauthThemeCtx: FirestoreRuleContext = {
+      auth: null,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, themePreference: 'dark' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(unauthThemeCtx, 'student_alice')).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md declare themePreference in users schema and isValidUserSelfUpdate', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    // Verify firestore.rules
+    expect(firestoreRules).toContain("'themePreference'");
+    expect(firestoreRules).toContain("data.themePreference in ['light', 'dark', 'system']");
+    expect(firestoreRules).toContain("- themePreference: string (optional, enum) - 'light' | 'dark' | 'system'");
+
+    // Verify docs/SECURITY_RULES.md
+    expect(securityRulesDoc).toContain("'themePreference'");
+    expect(securityRulesDoc).toContain("data.themePreference in ['light', 'dark', 'system']");
+    expect(securityRulesDoc).toContain("- `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)");
   });
 });

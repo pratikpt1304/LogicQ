@@ -736,6 +736,27 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const logoutAll = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.userId) {
+      await prisma.refreshToken.updateMany({
+        where: { userId: req.user.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+
+    res.clearCookie('__session', { path: '/' });
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
+
+    res.status(200).json({ success: true, message: 'Logged out from all devices successfully' });
+  } catch (error) {
+    console.error('LogoutAll error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
     const token = req.cookies?.refreshToken || req.body?.refreshToken;

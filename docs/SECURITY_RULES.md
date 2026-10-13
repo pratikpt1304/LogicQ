@@ -46,6 +46,20 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 - **Client Write Blocks**: Direct client writes to `prn`, `prnIndex`, `prnHistory`, and `practice_progress` are categorically prohibited in Firestore security rules (`allow write: if false;` or blocked in `isValidUserSelfUpdate()`).
 - **Immutability & Audit**: PRN updates can only occur through server-side transactions with a 30-day cooldown and are recorded in `users/{userId}/prnHistory/{historyId}`.
 
+### Student Profile Self-Service Update Invariants (`users/{userId}`)
+
+- **Allowed Self-Service Fields**: Authenticated students may update only their own profile fields via `isValidUserSelfUpdate()`:
+  - `department`: string (enum: `'AIML' | 'AIDS' | 'Integrated M.Tech' | 'Mechanical' | 'CSE' | 'Integrated B.Tech'`)
+  - `year`: string (enum: `'FY' | 'SY' | 'TY'`)
+  - `division`: string | null (optional, `^[A-Z0-9]{0,3}$`)
+  - `displayName`: string | null (optional, 3..20 chars)
+  - `bio`: string | null (optional, <= 500 chars)
+  - `photoURL`: string | null (optional, <= 500 chars)
+  - `storagePreference`: string (optional, enum: `'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE'`)
+  - `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)
+  - `updatedAt`: timestamp
+- **Strictly Blocked / Immutable Fields on Update**: `prn`, `college`, `email`, `role`, `status`, `banReason`, `stats`, `points`, `totalPoints`, `streak`, `currentStreak`, `prnChangedAt`, `prnNextAllowedChangeDate`. Any attempt to modify these fields or introduce unauthorized keys is categorically denied.
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -106,7 +120,7 @@ service cloud.firestore {
       return uidNotModified()
         && changedKeys.hasOnly([
           'department', 'year', 'division', 'displayName',
-          'bio', 'photoURL', 'storagePreference', 'updatedAt'
+          'bio', 'photoURL', 'storagePreference', 'themePreference', 'updatedAt'
         ])
         && !changedKeys.hasAny([
           'prn', 'college', 'email', 'role', 'status', 'banReason',
@@ -119,7 +133,8 @@ service cloud.firestore {
         && (!('displayName' in data) || isValidDisplayName(data.displayName))
         && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
-        && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE']);
+        && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'])
+        && (!('themePreference' in data) || data.themePreference in ['light', 'dark', 'system']);
     }
 
     // -------------------------------------------------------------------------

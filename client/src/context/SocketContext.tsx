@@ -3,7 +3,7 @@ import React, { createContext, useContext } from 'react';
 /**
  * Lightweight event stub replacing Socket.IO WebSocket connections.
  * Firebase Hosting + Cloud Functions are stateless and do not serve a WebSocket endpoint at `/socket.io`.
- * Submission verdicts and weekly leaderboard updates use visibility-aware HTTP polling and manual refresh.
+ * Submission verdicts and daily leaderboard updates use visibility-aware HTTP polling and manual refresh.
  */
 export interface RealtimeClientStub {
   on: (event: string, callback: (...args: any[]) => void) => void;

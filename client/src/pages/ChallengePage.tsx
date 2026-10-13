@@ -28,7 +28,15 @@ import {
   Trash2,
   WifiOff,
   AlertCircle,
+  Cloud,
 } from 'lucide-react';
+import {
+  DraftSyncService,
+  DraftData,
+  ConflictInfo,
+  getDeviceLabel,
+} from '../services/draftSync.service.js';
+import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 
 interface StagedUploadFile {
   id: string;
@@ -67,6 +75,9 @@ export const ChallengePage: React.FC = () => {
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isWindowExpired, setIsWindowExpired] = useState<boolean>(false);
+  const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track online/offline state for mobile PWA resilience
   useEffect(() => {
@@ -143,17 +154,16 @@ export const ChallengePage: React.FC = () => {
   useEffect(() => {
     if (problem && initializedProblemIdRef.current !== problem.id) {
       initializedProblemIdRef.current = problem.id;
-      const draftKey = `logicq_draft_${problem.slug}`;
-      let localDraft: string | null = null;
-      try {
-        localDraft = localStorage.getItem(draftKey);
-      } catch {
-        // Ignore storage errors
-      }
 
-      if (localDraft) {
-        setCode(localDraft);
+      // 1. Read local cache first for instantaneous rendering
+      const localDraft = DraftSyncService.getLocalDraft(problem.slug, false);
+      let initialCode = problem.starterCode;
+
+      if (localDraft?.code) {
+        initialCode = localDraft.code;
+        setCode(localDraft.code);
       } else if (userStatus?.savedCode) {
+        initialCode = userStatus.savedCode;
         setCode(userStatus.savedCode);
       } else {
         setCode(problem.starterCode);
@@ -162,19 +172,80 @@ export const ChallengePage: React.FC = () => {
       if (problem.testCases && problem.testCases.length > 0) {
         setCustomInput(problem.testCases[0].input);
       }
-    }
-  }, [problem, userStatus]);
 
-  // Persist draft to localStorage whenever code changes
+      // 2. Fetch authoritative cloud draft from Firestore if authenticated
+      if (user?.id) {
+        DraftSyncService.fetchRemoteDraft(user.id, problem.slug, false).then((remoteDraft) => {
+          if (!remoteDraft) return;
+
+          const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
+          if (conflict) {
+            setConflictInfo(conflict);
+          } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
+            setCode(remoteDraft.code);
+            DraftSyncService.saveLocalDraft(remoteDraft, false);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [problem, userStatus, user?.id]);
+
+  // Persist draft to local cache immediately and debounce Firestore cloud sync
   const handleCodeChange = (nextCode: string) => {
     if (isWindowExpired) return;
     setCode(nextCode);
+
     if (problem?.slug) {
-      try {
-        localStorage.setItem(`logicq_draft_${problem.slug}`, nextCode);
-      } catch {
-        // Ignore quota exceeded
+      const now = Date.now();
+      const draftObj: DraftData = {
+        problemId: problem.id,
+        problemSlug: problem.slug,
+        code: nextCode,
+        customInput,
+        updatedAt: now,
+        deviceLabel: getDeviceLabel(),
+      };
+
+      // Fast local save
+      DraftSyncService.saveLocalDraft(draftObj, false);
+
+      // Debounced cloud save
+      if (user?.id && !isOffline) {
+        setDraftSyncStatus('saving');
+        if (autosaveTimerRef.current) {
+          clearTimeout(autosaveTimerRef.current);
+        }
+        autosaveTimerRef.current = setTimeout(async () => {
+          const success = await DraftSyncService.saveRemoteDraft(user.id, draftObj, false);
+          setDraftSyncStatus(success ? 'saved' : 'offline');
+        }, 1500);
+      } else {
+        setDraftSyncStatus('offline');
       }
+    }
+  };
+
+  // Conflict resolution actions
+  const handleKeepRemoteDraft = () => {
+    if (conflictInfo) {
+      setCode(conflictInfo.remoteDraft.code);
+      DraftSyncService.saveLocalDraft(conflictInfo.remoteDraft, false);
+      setConflictInfo(null);
+      toast.success('Restored newer draft from cloud');
+    }
+  };
+
+  const handleKeepLocalDraft = () => {
+    if (conflictInfo && user?.id) {
+      const updatedLocal: DraftData = {
+        ...conflictInfo.localDraft,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(updatedLocal, false);
+      DraftSyncService.saveRemoteDraft(user.id, updatedLocal, false);
+      setConflictInfo(null);
+      toast.success('Kept local code and updated cloud');
     }
   };
 
@@ -529,13 +600,13 @@ export const ChallengePage: React.FC = () => {
           All syllabus challenges for this season are complete!
         </h1>
         <p className="text-sm text-[var(--text-muted)]">
-          Check the Weekly Leaderboard to see your final standing while the next chapter pool is prepared.
+          Check the Leaderboard to see your final standings while the next chapter pool is prepared.
         </p>
         <Link
           to="/leaderboard"
           className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-[var(--color-accent)] text-[#0C0F1F] text-sm font-bold"
         >
-          View Weekly Leaderboard
+          View Daily Leaderboard
         </Link>
       </div>
     );
@@ -812,6 +883,12 @@ export const ChallengePage: React.FC = () => {
               {isOffline && <WifiOff className="w-3.5 h-3.5 text-[var(--color-error)]" />}
               {isWindowExpired && !isOffline && (
                 <Lock className="w-3.5 h-3.5 text-[var(--color-warning)]" />
+              )}
+              {!isOffline && !isWindowExpired && user?.id && (
+                <span className="text-[11px] font-mono text-[var(--text-muted)] flex items-center gap-1 pl-2 border-l border-[var(--border-line)]">
+                  <Cloud className={`w-3.5 h-3.5 ${draftSyncStatus === 'saving' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
+                  <span>{draftSyncStatus === 'saving' ? 'Saving to cloud...' : 'Draft synced'}</span>
+                </span>
               )}
             </div>
 
@@ -1306,6 +1383,16 @@ export const ChallengePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Draft Conflict Resolution Modal */}
+      {conflictInfo && (
+        <DraftConflictModal
+          localDraft={conflictInfo.localDraft}
+          remoteDraft={conflictInfo.remoteDraft}
+          onKeepLocal={handleKeepLocalDraft}
+          onKeepRemote={handleKeepRemoteDraft}
+        />
+      )}
     </div>
   );
 };

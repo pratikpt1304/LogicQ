@@ -29,6 +29,13 @@ import {
   Flag,
   Activity,
   Trophy,
+  RotateCcw,
+  FileText,
+  Lock,
+  Play,
+  Pause,
+  AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 
@@ -164,6 +171,93 @@ export const AdminDashboardPage: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to resume daily system.');
+    },
+  });
+
+  // Daily Finalization & Results Data
+  const { data: dailyFinalizationData, refetch: refetchFinalization } = useQuery({
+    queryKey: ['admin-daily-finalization-status'],
+    queryFn: () => api.get('/admin/daily-finalization/status'),
+  });
+
+  const dailyFin = dailyFinalizationData?.data;
+
+  // Daily Results Modals State
+  const [isRerunModalOpen, setIsRerunModalOpen] = useState(false);
+  const [rerunDayId, setRerunDayId] = useState('');
+  const [rerunForce, setRerunForce] = useState(false);
+  const [rerunAdminPassword, setRerunAdminPassword] = useState('');
+  const [rerunReason, setRerunReason] = useState('');
+
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionForm, setCorrectionForm] = useState({
+    dayId: '',
+    studentPrnOrId: '',
+    reason: '',
+    newVerdict: 'ACCEPTED',
+    pointsAdjustment: 20,
+    adminPassword: '',
+  });
+
+  const [isPauseDayModalOpen, setIsPauseDayModalOpen] = useState(false);
+  const [pauseDayForm, setPauseDayForm] = useState({
+    dayStr: new Date().toISOString().slice(0, 10),
+    paused: true,
+    reason: '',
+    adminPassword: '',
+  });
+
+  const [selectedPastBoard, setSelectedPastBoard] = useState<any | null>(null);
+
+  const runFinalizationMutation = useMutation({
+    mutationFn: (body: any) => api.post('/admin/daily-finalization/run', body),
+    onSuccess: (res: any) => {
+      toast.success(res?.message || 'Daily finalization executed successfully');
+      setIsRerunModalOpen(false);
+      setRerunAdminPassword('');
+      setRerunReason('');
+      refetchFinalization();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Finalization run failed');
+    },
+  });
+
+  const createCorrectionMutation = useMutation({
+    mutationFn: (body: any) => api.post('/admin/daily-finalization/correction', body),
+    onSuccess: () => {
+      toast.success('Correction record created successfully');
+      setIsCorrectionModalOpen(false);
+      setCorrectionForm({
+        dayId: '',
+        studentPrnOrId: '',
+        reason: '',
+        newVerdict: 'ACCEPTED',
+        pointsAdjustment: 20,
+        adminPassword: '',
+      });
+      refetchFinalization();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to create correction');
+    },
+  });
+
+  const togglePauseDayMutation = useMutation({
+    mutationFn: (body: any) => api.post('/admin/daily-finalization/pause-day', body),
+    onSuccess: () => {
+      toast.success('Pause day updated successfully');
+      setIsPauseDayModalOpen(false);
+      setPauseDayForm({
+        dayStr: new Date().toISOString().slice(0, 10),
+        paused: true,
+        reason: '',
+        adminPassword: '',
+      });
+      refetchFinalization();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update pause day');
     },
   });
 
@@ -413,9 +507,9 @@ export const AdminDashboardPage: React.FC = () => {
     return `"${str}"`;
   };
 
-  const handleDownloadCsv = async (type: 'users' | 'daily-results' | 'weekly-results', deptOverride?: string) => {
+  const handleDownloadCsv = async (type: 'users' | 'daily-results', deptOverride?: string) => {
     const dept = deptOverride || filterDepartment;
-    const downloadType = type === 'weekly-results' ? 'daily-results' : type;
+    const downloadType = type;
     try {
       const token = localStorage.getItem('logicq_access_token');
       const qs = buildFilterQuery();
@@ -796,7 +890,7 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           <Trophy className="w-3.5 h-3.5" />
-          <span>Daily Results &amp; Finalization</span>
+          <span>Daily Results</span>
         </button>
       </div>
 
@@ -955,10 +1049,10 @@ export const AdminDashboardPage: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>2. Students Solving at Least 4 of 7 Challenges (Weekly Retention Cohort)</span>
+                <span>2. Students Solving at Least 4 of 7 Challenges (7-Day Rolling Retention Cohort)</span>
               </h2>
               <p className="text-xs font-mono text-slate-400 mt-0.5">
-                Tracks students who solved ≥ 4 distinct challenges within each 7-day competition week.
+                Tracks students who solved ≥ 4 distinct challenges within a 7-day rolling window.
               </p>
             </div>
 
@@ -2410,115 +2504,588 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Daily Results & Finalization Engine */}
+      {/* Tab: Daily Results & Operations */}
       {activeTab === 'daily' && (
         <div className="space-y-6" data-testid="admin-daily-results-panel">
-          {/* Engine Header & Quick Controls */}
+          {/* 1. Page Header & Primary Actions */}
           <div className="glass-card p-6 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />
-                <span>Daily Competition &amp; Finalization Engine</span>
+                <span>Daily Results</span>
               </h3>
               <p className="text-xs font-mono text-slate-400 max-w-2xl">
-                Daily challenge cycle runs 17:00 IST to 17:00 IST. Finalization job runs automatically at 17:05 IST with a 10-minute grace period.
+                Audit daily challenge cycles, live leaderboard, automated finalization runs, correction records, streak freezes, and historical archive.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setRerunDayId(dailyFin?.yesterdayDayId || '');
+                  setRerunForce(true);
+                  setRerunAdminPassword('');
+                  setRerunReason('');
+                  setIsRerunModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl font-mono text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-all"
+                title="Re-run daily finalization with admin re-auth"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Re-run Finalization</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRerunDayId(dailyFin?.yesterdayDayId || '');
+                  setRerunForce(false);
+                  setRerunAdminPassword('');
+                  setRerunReason('');
+                  setIsRerunModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
+                title="Publish / execute finalization for yesterday"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Publish Finalization</span>
+              </button>
               <button
                 type="button"
                 onClick={() => handleDownloadCsv('daily-results')}
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Export Daily Results CSV</span>
+                <span>Export Daily CSV</span>
               </button>
             </div>
           </div>
 
-          {/* KPI & Status Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-2xl border border-amber-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                COMPETITION CYCLE
-              </span>
-              <span className="text-xl font-extrabold text-amber-400 font-mono">
-                17:00 - 17:00 IST
-              </span>
-              <p className="text-[11px] font-mono text-slate-500 mt-1">
-                1 featured challenge per cycle
-              </p>
+          {/* 2. Clear PAUSED Banner (when daily system is paused) */}
+          {(dailyFin?.isDailyPaused || dailySystemData?.data?.dailyChallengePaused) && (
+            <div
+              data-testid="daily-results-paused-banner"
+              className="p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-200 shadow-lg"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xl flex items-center justify-center">
+                  <Pause className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-bold uppercase font-mono tracking-wider text-amber-300">
+                      DAILY CHALLENGE SYSTEM IS CURRENTLY PAUSED
+                    </h4>
+                    {dailySystemData?.data?.pausedAt && (
+                      <span className="text-xs font-mono text-slate-400">
+                        (Paused: {new Date(dailySystemData.data.pausedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-amber-200/90 mt-1 font-mono">
+                    {dailySystemData?.data?.pauseReason || 'Daily system paused by administrator. Schedulers and submissions are disabled.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDailyAdminPassword('');
+                  setDailyAdminReason('');
+                  setDailyResumeMode('NEXT_1700');
+                  setIsResumeModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 shadow-md whitespace-nowrap transition-all"
+              >
+                Resume Daily System...
+              </button>
+            </div>
+          )}
+
+          {/* 3. Compact Rules Section */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card p-4 rounded-xl border border-amber-500/20">
+                <span className="text-[10px] font-mono text-slate-400 uppercase block mb-1">
+                  COMPETITION CYCLE
+                </span>
+                <span className="text-lg font-extrabold text-amber-400 font-mono">
+                  17:00 - 17:00 IST
+                </span>
+                <p className="text-[10px] font-mono text-slate-500 mt-1">
+                  1 featured challenge per 24h cycle
+                </p>
+              </div>
+
+              <div className="glass-card p-4 rounded-xl border border-cyan-500/20">
+                <span className="text-[10px] font-mono text-slate-400 uppercase block mb-1">
+                  DAILY FINALIZATION
+                </span>
+                <span className="text-xs font-extrabold text-cyan-300 font-mono block">
+                  Job starts 17:05 IST. Final results are ready by 17:10 IST after a 10-minute grace for submissions made before 17:00.
+                </span>
+              </div>
+
+              <div className="glass-card p-4 rounded-xl border border-emerald-500/20">
+                <span className="text-[10px] font-mono text-slate-400 uppercase block mb-1">
+                  STREAK FREEZE POLICY
+                </span>
+                <span className="text-lg font-extrabold text-emerald-400 font-mono">
+                  1 / Rolling 7 Days
+                </span>
+                <p className="text-[10px] font-mono text-slate-500 mt-1">
+                  Auto-applied once per rolling 7-day window
+                </p>
+              </div>
+
+              <div className="glass-card p-4 rounded-xl border border-purple-500/20">
+                <span className="text-[10px] font-mono text-slate-400 uppercase block mb-1">
+                  PERCENTILE GATING
+                </span>
+                <span className="text-lg font-extrabold text-purple-400 font-mono">
+                  ≥ 10 Solvers
+                </span>
+                <p className="text-[10px] font-mono text-slate-500 mt-1">
+                  Displays &quot;—&quot; when under threshold
+                </p>
+              </div>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-cyan-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                DAILY FINALIZATION
+            {/* 6-Tier Tie Break Specification */}
+            <div className="glass-card p-4 rounded-xl border border-white/[0.06] space-y-2">
+              <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Deterministic Tie-Break Rules (Order 1 through 6)</span>
               </span>
-              <span className="text-xl font-extrabold text-cyan-400 font-mono">
-                17:05 IST Daily
-              </span>
-              <p className="text-[11px] font-mono text-slate-500 mt-1">
-                10-min grace wait until 17:10 IST
-              </p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-emerald-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                STREAK FREEZE POLICY
-              </span>
-              <span className="text-xl font-extrabold text-emerald-400 font-mono">
-                1 / Rolling 7 Days
-              </span>
-              <p className="text-[11px] font-mono text-slate-500 mt-1">
-                Replaces old weekly freeze
-              </p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-purple-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                PERCENTILE GATING
-              </span>
-              <span className="text-xl font-extrabold text-purple-400 font-mono">
-                ≥ 10 Solvers
-              </span>
-              <p className="text-[11px] font-mono text-slate-500 mt-1">
-                Shows &quot;—&quot; when under threshold
-              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-[11px] font-mono">
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">1. Accepted Time</span>
+                  <span className="text-slate-400 text-[10px]">Earliest server time</span>
+                </div>
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">2. Wrong Attempts</span>
+                  <span className="text-slate-400 text-[10px]">Fewer wrong tries</span>
+                </div>
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">3. Current Streak</span>
+                  <span className="text-slate-400 text-[10px]">Higher active streak</span>
+                </div>
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">4. Total Points</span>
+                  <span className="text-slate-400 text-[10px]">Higher cumulative pts</span>
+                </div>
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">5. Total Solved</span>
+                  <span className="text-slate-400 text-[10px]">More problems solved</span>
+                </div>
+                <div className="p-2 rounded bg-dark-900 border border-white/[0.04]">
+                  <span className="text-amber-400 font-bold block">6. Stable Tie-Break</span>
+                  <span className="text-slate-400 text-[10px]">createdAt ASC, uid ASC</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 6-Tier Tie Break Specification */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-3">
-            <h4 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Daily Rank Tie-Break Order (Deterministic &amp; Flick-Free)</span>
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs font-mono">
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 1: Server Accepted Time</span>
-                <span className="text-slate-400">Earlier accepted submission timestamp ASC</span>
+          {/* 4. Today's Live Board (Top 20 and counts) */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-5 border-b border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-cyan-400" />
+                  <span>Today&apos;s Live Board ({dailyFin?.todayDayId || 'Active Day'})</span>
+                </h4>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Challenge: <span className="text-cyan-300 font-semibold">{dailyFin?.liveToday?.challengeTitle || 'No challenge active'}</span> • Solvers: <span className="text-emerald-400 font-bold">{dailyFin?.liveToday?.totalSolvers || 0}</span>
+                </p>
               </div>
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 2: Wrong Attempts</span>
-                <span className="text-slate-400">Fewer wrong attempts before accepted ASC</span>
+              <button
+                type="button"
+                onClick={() => refetchFinalization()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08]"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Refresh Live Board</span>
+              </button>
+            </div>
+
+            {dailyFin?.isDailyPaused ? (
+              <div className="p-8 text-center text-xs font-mono text-amber-300/80 bg-amber-500/[0.03]">
+                Daily challenge system is paused. Live board is currently in neutral state with no active competition.
               </div>
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 3: Current Streak</span>
-                <span className="text-slate-400">Higher daily challenge streak DESC</span>
+            ) : !dailyFin?.liveToday?.top20?.length ? (
+              <div className="p-8 text-center text-xs font-mono text-slate-500">
+                No students have solved today&apos;s daily challenge yet. The leaderboard updates live as solutions are accepted.
               </div>
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 4: Total Points</span>
-                <span className="text-slate-400">Cumulative points across all solves DESC</span>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-4 py-3">Rank</th>
+                      <th className="px-4 py-3">Student</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Year &amp; Div</th>
+                      <th className="px-4 py-3">Accepted At (IST)</th>
+                      <th className="px-4 py-3">Wrong Attempts</th>
+                      <th className="px-4 py-3">Streak</th>
+                      <th className="px-4 py-3">Total Solved / Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {dailyFin.liveToday.top20.map((entry: any) => (
+                      <tr key={entry.userId} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-amber-400">
+                          #{entry.rank}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-white block">
+                            {entry.displayName || 'Student'}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {entry.maskedPrn || entry.email}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-cyan-400">
+                          {entry.department || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {entry.year || '—'} {entry.division ? `• Div ${entry.division}` : ''}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {entry.acceptedAt
+                            ? new Date(entry.acceptedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-rose-400 font-semibold">
+                          {entry.wrongAttemptsBeforeAc ?? 0}
+                        </td>
+                        <td className="px-4 py-3 text-orange-400 font-bold">
+                          {entry.currentStreak ?? 0}d
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {entry.totalSolved ?? 0} / <span className="text-cyan-300 font-bold">{entry.totalPoints ?? 0} PTS</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 5: Total Solved</span>
-                <span className="text-slate-400">Higher cumulative challenges solved DESC</span>
+            )}
+          </div>
+
+          {/* 5. Finalization Job Status & History */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-5 border-b border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Finalization Job Status &amp; Run History</span>
+                </h4>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Yesterday&apos;s Day: <span className="text-amber-300 font-semibold">{dailyFin?.yesterdayDayId || '—'}</span> • Status: <span className="text-emerald-400 font-semibold">{dailyFin?.yesterdayFrozen ? 'Finalized' : 'Pending 17:05 Run'}</span> • Solvers: <span className="text-white font-bold">{dailyFin?.yesterdayFrozen?.totalSolvers ?? '—'}</span>
+                </p>
               </div>
-              <div className="p-3.5 rounded-xl bg-dark-900 border border-white/[0.06]">
-                <span className="text-amber-400 font-bold block mb-1">Tier 6: Stable Final Break</span>
-                <span className="text-slate-400">Earlier createdAt ASC, then stable uid ASC</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRerunDayId(dailyFin?.yesterdayDayId || '');
+                    setRerunForce(true);
+                    setRerunAdminPassword('');
+                    setRerunReason('');
+                    setIsRerunModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Re-run</span>
+                </button>
               </div>
             </div>
+
+            {!dailyFin?.runHistory?.length ? (
+              <div className="p-6 text-center text-xs font-mono text-slate-500">
+                No finalization job runs recorded yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-4 py-3">Day ID</th>
+                      <th className="px-4 py-3">Triggered By</th>
+                      <th className="px-4 py-3">Reason</th>
+                      <th className="px-4 py-3">Run Time (IST)</th>
+                      <th className="px-4 py-3">Duration</th>
+                      <th className="px-4 py-3">Solvers</th>
+                      <th className="px-4 py-3">Summaries</th>
+                      <th className="px-4 py-3">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {dailyFin.runHistory.map((run: any) => (
+                      <tr key={run.id} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-white">{run.dayId}</td>
+                        <td className="px-4 py-3 text-cyan-300">{run.triggeredBy}</td>
+                        <td className="px-4 py-3 text-slate-400 max-w-xs truncate">{run.reason}</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {new Date(run.startedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{run.durationMs}ms</td>
+                        <td className="px-4 py-3 text-emerald-400 font-bold">{run.totalSolvers}</td>
+                        <td className="px-4 py-3 text-cyan-400 font-bold">{run.summariesWritten}</td>
+                        <td className="px-4 py-3">
+                          {run.success ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                              SUCCESS
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
+                              FAILED
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 6. Correction Records (Append-Only Audit Ledger) */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-5 border-b border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-400" />
+                  <span>Correction Records ({dailyFin?.corrections?.length || 0})</span>
+                </h4>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Append-only administrative correction records for grade disputes and daily rank adjustments.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCorrectionForm({
+                    dayId: dailyFin?.yesterdayDayId || '',
+                    studentPrnOrId: '',
+                    reason: '',
+                    newVerdict: 'ACCEPTED',
+                    pointsAdjustment: 20,
+                    adminPassword: '',
+                  });
+                  setIsCorrectionModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create Correction</span>
+              </button>
+            </div>
+
+            {!dailyFin?.corrections?.length ? (
+              <div className="p-6 text-center text-xs font-mono text-slate-500">
+                No correction records logged. All daily boards match raw automated verdicts.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-4 py-3">Day ID</th>
+                      <th className="px-4 py-3">Student</th>
+                      <th className="px-4 py-3">Adjustment</th>
+                      <th className="px-4 py-3">New Verdict</th>
+                      <th className="px-4 py-3">Reason</th>
+                      <th className="px-4 py-3">Admin</th>
+                      <th className="px-4 py-3">Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {dailyFin.corrections.map((corr: any) => (
+                      <tr key={corr.id} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-white">{corr.dayId}</td>
+                        <td className="px-4 py-3 text-cyan-300">{corr.userId}</td>
+                        <td className="px-4 py-3 font-bold text-amber-400">
+                          {corr.pointsAdjustment >= 0 ? `+${corr.pointsAdjustment}` : corr.pointsAdjustment} PTS
+                        </td>
+                        <td className="px-4 py-3 text-emerald-400 font-semibold">{corr.newVerdict}</td>
+                        <td className="px-4 py-3 text-slate-300 max-w-xs truncate">{corr.reason}</td>
+                        <td className="px-4 py-3 text-slate-400">{corr.adminId}</td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {new Date(corr.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 7. Pause Days Calendar & Streak Freezes */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pause Days Calendar */}
+            <div className="glass-card rounded-2xl border border-white/[0.08] p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-400" />
+                    <span>Admin Pause Days Calendar</span>
+                  </h4>
+                  <p className="text-xs font-mono text-slate-400 mt-0.5">
+                    Institution holidays or exam days where streaks are protected without using freezes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPauseDayForm({
+                      dayStr: new Date().toISOString().slice(0, 10),
+                      paused: true,
+                      reason: '',
+                      adminPassword: '',
+                    });
+                    setIsPauseDayModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20"
+                >
+                  + Toggle Day
+                </button>
+              </div>
+
+              {!dailyFin?.pauseDays?.length ? (
+                <div className="p-4 text-center text-xs font-mono text-slate-500">
+                  No pause days configured. All days operate on the normal daily cycle.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {dailyFin.pauseDays.map((pDay: string) => (
+                    <div
+                      key={pDay}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono flex items-center gap-2"
+                    >
+                      <span>{pDay}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPauseDayForm({
+                            dayStr: pDay,
+                            paused: false,
+                            reason: 'Removing pause day',
+                            adminPassword: '',
+                          });
+                          setIsPauseDayModalOpen(true);
+                        }}
+                        className="text-amber-400/80 hover:text-white"
+                        title="Remove pause day"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Streak Freeze Usage List */}
+            <div className="glass-card rounded-2xl border border-white/[0.08] p-5 space-y-4">
+              <div className="border-b border-white/[0.06] pb-3">
+                <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Streak Freeze Usage ({dailyFin?.freezeUsage?.length || 0})</span>
+                </h4>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Recent student streak freezes consumed (1 freeze per rolling 7 days policy).
+                </p>
+              </div>
+
+              {!dailyFin?.freezeUsage?.length ? (
+                <div className="p-4 text-center text-xs font-mono text-slate-500">
+                  No streak freezes consumed recently.
+                </div>
+              ) : (
+                <div className="max-h-56 overflow-y-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                      <tr>
+                        <th className="px-3 py-2">Student</th>
+                        <th className="px-3 py-2">Protected Day</th>
+                        <th className="px-3 py-2">Consumed At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {dailyFin.freezeUsage.map((fr: any, idx: number) => (
+                        <tr key={`${fr.userId}-${fr.dayStr}-${idx}`} className="hover:bg-white/[0.02]">
+                          <td className="px-3 py-2 text-cyan-300 font-bold truncate max-w-[120px]">
+                            {fr.userId}
+                          </td>
+                          <td className="px-3 py-2 text-amber-400">{fr.dayStr}</td>
+                          <td className="px-3 py-2 text-slate-400 text-[11px]">
+                            {new Date(fr.usedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 8. Archive of Past Daily Boards */}
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+            <div className="p-5 border-b border-white/[0.06]">
+              <h4 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span>Archive of Past Daily Boards ({dailyFin?.pastBoards?.length || 0})</span>
+              </h4>
+              <p className="text-xs font-mono text-slate-400 mt-0.5">
+                Permanently frozen historical competition results and winner standings.
+              </p>
+            </div>
+
+            {!dailyFin?.pastBoards?.length ? (
+              <div className="p-6 text-center text-xs font-mono text-slate-500">
+                No past daily boards archived yet. Past boards are recorded every day at 17:10 IST finalization.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-4 py-3">Day ID</th>
+                      <th className="px-4 py-3">Challenge Title</th>
+                      <th className="px-4 py-3">Solvers</th>
+                      <th className="px-4 py-3">Finalized Timestamp</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {dailyFin.pastBoards.map((b: any) => (
+                      <tr key={b.dayId} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-white">{b.dayId}</td>
+                        <td className="px-4 py-3 text-cyan-300 font-semibold">{b.challengeTitle}</td>
+                        <td className="px-4 py-3 text-emerald-400 font-bold">{b.totalSolvers} Solvers</td>
+                        <td className="px-4 py-3 text-slate-400">
+                          {new Date(b.finalizedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPastBoard(b)}
+                            className="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-mono font-bold"
+                          >
+                            View Standings
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3834,6 +4401,388 @@ export const AdminDashboardPage: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-40"
               >
                 {pauseDailyMutation.isPending ? 'Pausing...' : 'Confirm & Pause System'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Daily Finalization Run / Re-run */}
+      {isRerunModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-amber-400" />
+                <span>{rerunForce ? 'Re-run Daily Finalization' : 'Publish / Run Daily Finalization'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsRerunModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-slate-300 leading-relaxed">
+              Finalization calculates 6-tier deterministic ranks, updates student streak freezes, writes daily results &amp; summaries, and freezes the daily board.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-400 block mb-1">Target Challenge Day (YYYY-MM-DD):</label>
+                <input
+                  type="text"
+                  value={rerunDayId}
+                  onChange={(e) => setRerunDayId(e.target.value)}
+                  placeholder="e.g. 2026-10-12"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="force-rerun-cb"
+                  checked={rerunForce}
+                  onChange={(e) => setRerunForce(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900 text-amber-500"
+                />
+                <label htmlFor="force-rerun-cb" className="text-slate-300 cursor-pointer">
+                  Force re-run (overwrites existing frozen board idempotently)
+                </label>
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Audit Reason (Required):</label>
+                <input
+                  type="text"
+                  value={rerunReason}
+                  onChange={(e) => setRerunReason(e.target.value)}
+                  placeholder="e.g. Manual verification of pre-17:00 grace submissions"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Admin Password Re-authentication (Required):</label>
+                <input
+                  type="password"
+                  value={rerunAdminPassword}
+                  onChange={(e) => setRerunAdminPassword(e.target.value)}
+                  placeholder="Enter administrator password"
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.08] font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setIsRerunModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!rerunAdminPassword || !rerunReason || runFinalizationMutation.isPending}
+                onClick={() =>
+                  runFinalizationMutation.mutate({
+                    dayId: rerunDayId || undefined,
+                    forceRerun: rerunForce,
+                    adminPassword: rerunAdminPassword,
+                    reason: rerunReason,
+                  })
+                }
+                className="px-5 py-2.5 rounded-xl font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-40"
+              >
+                {runFinalizationMutation.isPending ? 'Executing...' : 'Confirm & Run Finalization'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Create Daily Correction Record */}
+      {isCorrectionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <FileText className="w-4 h-4 text-purple-400" />
+                <span>Create Daily Correction Record</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCorrectionModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-slate-300 leading-relaxed">
+              Creates an append-only correction record in the administrative ledger to adjust a student&apos;s daily result or verdict.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-400 block mb-1">Target Day ID (YYYY-MM-DD):</label>
+                <input
+                  type="text"
+                  value={correctionForm.dayId}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, dayId: e.target.value })}
+                  placeholder="2026-10-12"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Student PRN / Username / ID:</label>
+                <input
+                  type="text"
+                  value={correctionForm.studentPrnOrId}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, studentPrnOrId: e.target.value })}
+                  placeholder="e.g. 2199TESM0001 or student username"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 block mb-1">New Verdict:</label>
+                  <select
+                    value={correctionForm.newVerdict}
+                    onChange={(e) => setCorrectionForm({ ...correctionForm, newVerdict: e.target.value })}
+                    className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                  >
+                    <option value="ACCEPTED">ACCEPTED</option>
+                    <option value="WRONG_ANSWER">WRONG_ANSWER</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-1">Points Adjustment:</label>
+                  <input
+                    type="number"
+                    value={correctionForm.pointsAdjustment}
+                    onChange={(e) => setCorrectionForm({ ...correctionForm, pointsAdjustment: Number(e.target.value) })}
+                    className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Correction Reason (Mandatory):</label>
+                <input
+                  type="text"
+                  value={correctionForm.reason}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, reason: e.target.value })}
+                  placeholder="e.g. Test case specification dispute approved"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Admin Password Re-authentication (Required):</label>
+                <input
+                  type="password"
+                  value={correctionForm.adminPassword}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, adminPassword: e.target.value })}
+                  placeholder="Enter administrator password"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.08] font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setIsCorrectionModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!correctionForm.adminPassword || !correctionForm.reason || !correctionForm.studentPrnOrId || createCorrectionMutation.isPending}
+                onClick={() => createCorrectionMutation.mutate(correctionForm)}
+                className="px-5 py-2.5 rounded-xl font-bold bg-purple-500 text-white hover:bg-purple-400 disabled:opacity-40"
+              >
+                {createCorrectionMutation.isPending ? 'Saving...' : 'Save Correction Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Toggle Pause Day */}
+      {isPauseDayModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-400" />
+                <span>Configure Admin Pause Day</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsPauseDayModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-slate-300 leading-relaxed">
+              Designate institutional holiday or exam days. Streaks do not break and streak freezes are not consumed on pause days.
+            </p>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-slate-400 block mb-1">Date (YYYY-MM-DD):</label>
+                <input
+                  type="date"
+                  value={pauseDayForm.dayStr}
+                  onChange={(e) => setPauseDayForm({ ...pauseDayForm, dayStr: e.target.value })}
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="pause-active-cb"
+                  checked={pauseDayForm.paused}
+                  onChange={(e) => setPauseDayForm({ ...pauseDayForm, paused: e.target.checked })}
+                  className="rounded border-slate-700 bg-slate-900 text-amber-500"
+                />
+                <label htmlFor="pause-active-cb" className="text-slate-300 cursor-pointer">
+                  Activate pause for this day
+                </label>
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Reason / Notes:</label>
+                <input
+                  type="text"
+                  value={pauseDayForm.reason}
+                  onChange={(e) => setPauseDayForm({ ...pauseDayForm, reason: e.target.value })}
+                  placeholder="e.g. University Semester Examination"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-400 block mb-1">Admin Password Re-authentication (Required):</label>
+                <input
+                  type="password"
+                  value={pauseDayForm.adminPassword}
+                  onChange={(e) => setPauseDayForm({ ...pauseDayForm, adminPassword: e.target.value })}
+                  placeholder="Enter administrator password"
+                  className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.08] font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setIsPauseDayModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!pauseDayForm.adminPassword || !pauseDayForm.dayStr || togglePauseDayMutation.isPending}
+                onClick={() => togglePauseDayMutation.mutate(pauseDayForm)}
+                className="px-5 py-2.5 rounded-xl font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-40"
+              >
+                {togglePauseDayMutation.isPending ? 'Updating...' : 'Save Pause Day'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View Frozen Past Daily Board Standings */}
+      {selectedPastBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-4xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <div>
+                <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span>Frozen Daily Board — {selectedPastBoard.dayId}</span>
+                </h3>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Challenge: <span className="text-cyan-300 font-semibold">{selectedPastBoard.challengeTitle}</span> • Solvers: <span className="text-emerald-400 font-bold">{selectedPastBoard.totalSolvers}</span> • Finalized: <span className="text-slate-300">{new Date(selectedPastBoard.finalizedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPastBoard(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!selectedPastBoard.top20?.length ? (
+              <div className="p-8 text-center text-xs font-mono text-slate-500">
+                No solvers recorded for this challenge day.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-dark-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-4 py-3">Rank</th>
+                      <th className="px-4 py-3">Student</th>
+                      <th className="px-4 py-3">Dept &amp; Year</th>
+                      <th className="px-4 py-3">Accepted Time (IST)</th>
+                      <th className="px-4 py-3">Wrong Attempts</th>
+                      <th className="px-4 py-3">Streak</th>
+                      <th className="px-4 py-3">Total Solved / Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {selectedPastBoard.top20.map((entry: any) => (
+                      <tr key={entry.userId} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3 font-bold text-amber-400">#{entry.rank}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-white block">{entry.displayName || 'Student'}</span>
+                          <span className="text-[10px] text-slate-400">{entry.maskedPrn || entry.email}</span>
+                        </td>
+                        <td className="px-4 py-3 text-cyan-300">
+                          {entry.department || '—'} {entry.year ? `(${entry.year})` : ''}
+                        </td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {entry.acceptedAt ? new Date(entry.acceptedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-rose-400 font-semibold">{entry.wrongAttemptsBeforeAc ?? 0}</td>
+                        <td className="px-4 py-3 text-orange-400 font-bold">{entry.currentStreak ?? 0}d</td>
+                        <td className="px-4 py-3 text-slate-300">
+                          {entry.totalSolved ?? 0} / <span className="text-cyan-300 font-bold">{entry.totalPoints ?? 0} PTS</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-3 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setSelectedPastBoard(null)}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1]"
+              >
+                Close
               </button>
             </div>
           </div>

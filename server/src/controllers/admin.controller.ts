@@ -5,7 +5,21 @@ import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getQueue } from '../queue/queue.factory.js';
 import { getChallengeDayIST, getChallengeDayWindowIST, getServerNow, addDaysIST, getChallengeDayBoundsUTC } from '../utils/ist.js';
-import { runDailyFinalizationJob, getFrozenDailyBoard } from '../services/daily-finalization.service.js';
+import {
+  runDailyFinalizationJob,
+  getFrozenDailyBoard,
+  getFinalizationRunHistory,
+  getAllFrozenDailyBoards,
+  createDailyCorrection,
+  getDailyCorrections,
+  computeDailyBoardForDay,
+} from '../services/daily-finalization.service.js';
+import {
+  getAdminPauseDays,
+  setAdminPauseDay,
+  getAllUserFreezes,
+} from '../services/streak.service.js';
+import { isDailyChallengePaused } from '../services/system-config.service.js';
 import {
   ALLOWED_COLLEGES,
   ALLOWED_DEPARTMENTS,
@@ -1496,10 +1510,59 @@ export async function exportDailyResultsCsv(req: AuthRequest, res: Response): Pr
 
 export async function runManualDailyFinalization(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const dayId = (req.body?.dayId as string) || undefined;
-    const forceRerun = Boolean(req.body?.forceRerun);
-    const result = await runDailyFinalizationJob(dayId, { forceRerun });
-    res.status(200).json({ success: result.success, data: result });
+    const { dayId, forceRerun, adminPassword, reason } = req.body || {};
+
+    // 1. Mandatory Re-Authentication for Admin action
+    const adminUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+    });
+    if (!adminUser) {
+      res.status(401).json({ success: false, message: 'Admin account not found' });
+      return;
+    }
+
+    if (!adminPassword) {
+      res.status(400).json({ success: false, message: 'Admin password re-authentication is required' });
+      return;
+    }
+
+    const isValidPassword = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+    if (!isValidPassword) {
+      res.status(403).json({ success: false, message: 'Invalid admin credentials' });
+      return;
+    }
+
+    const targetDayId = (dayId as string) || undefined;
+    const isRerun = Boolean(forceRerun);
+
+    const result = await runDailyFinalizationJob(targetDayId, {
+      forceRerun: isRerun,
+      reason: reason || 'Manual admin execution',
+      triggeredBy: req.user!.userId,
+    } as any);
+
+    // Audit log
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        targetId: result.dayId,
+        action: isRerun ? 'DAILY_FINALIZATION_RERUN' : 'DAILY_FINALIZATION_RUN',
+        newValue: JSON.stringify({
+          dayId: result.dayId,
+          totalSolvers: result.totalSolvers,
+          summariesWritten: result.summariesWritten,
+        }),
+        reason: reason || 'Admin executed daily finalization',
+      },
+    });
+
+    res.status(200).json({
+      success: result.success,
+      message: isRerun
+        ? `Daily finalization re-run completed for ${result.dayId}`
+        : `Daily finalization completed for ${result.dayId}`,
+      data: result,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err?.message || 'Finalization error' });
   }
@@ -1508,26 +1571,182 @@ export async function runManualDailyFinalization(req: AuthRequest, res: Response
 export async function getDailyFinalizationStatus(req: AuthRequest, res: Response): Promise<void> {
   try {
     const now = getServerNow();
-    const yesterday = addDaysIST(getChallengeDayIST(now), -1);
-    const frozen = getFrozenDailyBoard(yesterday);
+    const today = getChallengeDayIST(now);
+    const yesterday = addDaysIST(today, -1);
+    const isPaused = await isDailyChallengePaused();
+
+    // 1. Live today board computation (top 20 & counts)
+    const liveTodayData = await computeDailyBoardForDay(today);
+
+    // 2. Yesterday's frozen board (if finalized)
+    const yesterdayFrozen = getFrozenDailyBoard(yesterday);
+
+    // 3. Finalization run history
+    const runHistory = getFinalizationRunHistory();
+
+    // 4. Archive of all past frozen daily boards
+    const pastBoards = getAllFrozenDailyBoards();
+
+    // 5. Corrections ledger
+    const corrections = getDailyCorrections();
+
+    // 6. Admin pause days & user streak freeze usage
+    const pauseDays = getAdminPauseDays();
+    const freezeUsage = getAllUserFreezes();
+
     res.status(200).json({
       success: true,
       data: {
+        todayDayId: today,
         yesterdayDayId: yesterday,
-        isYesterdayFinalized: Boolean(frozen),
-        frozenBoard: frozen
+        isDailyPaused: isPaused,
+        liveToday: {
+          dayId: today,
+          challengeId: liveTodayData.problem?.id || null,
+          challengeTitle: liveTodayData.problem?.title || 'No Challenge Active',
+          totalSolvers: liveTodayData.totalSolvers,
+          top20: liveTodayData.rankedList.slice(0, 20),
+        },
+        yesterdayFrozen: yesterdayFrozen
           ? {
-              dayId: frozen.dayId,
-              challengeTitle: frozen.challengeTitle,
-              totalSolvers: frozen.totalSolvers,
-              finalizedAt: frozen.finalizedAt,
-              top20Count: frozen.top20.length,
+              dayId: yesterdayFrozen.dayId,
+              challengeTitle: yesterdayFrozen.challengeTitle,
+              totalSolvers: yesterdayFrozen.totalSolvers,
+              finalizedAt: yesterdayFrozen.finalizedAt,
+              top20: yesterdayFrozen.top20,
             }
           : null,
+        runHistory: runHistory.slice(0, 20),
+        pastBoards,
+        corrections,
+        pauseDays,
+        freezeUsage: freezeUsage.slice(0, 50),
       },
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, message: 'Failed to fetch status' });
+    console.error('getDailyFinalizationStatus error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch status', error: err?.message, stack: err?.stack });
+  }
+}
+
+export async function adminCreateDailyCorrection(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { dayId, studentPrnOrId, reason, newVerdict, pointsAdjustment, adminPassword } = req.body || {};
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    if (!adminUser) {
+      res.status(401).json({ success: false, message: 'Admin account not found' });
+      return;
+    }
+
+    if (!adminPassword) {
+      res.status(400).json({ success: false, message: 'Admin password re-authentication is required' });
+      return;
+    }
+
+    const isValidPassword = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+    if (!isValidPassword) {
+      res.status(403).json({ success: false, message: 'Invalid admin credentials' });
+      return;
+    }
+
+    if (!dayId || !studentPrnOrId || !reason || !newVerdict) {
+      res.status(400).json({ success: false, message: 'Missing required correction fields' });
+      return;
+    }
+
+    // Resolve student by PRN, username or ID
+    const student = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: studentPrnOrId },
+          { prn: studentPrnOrId.toUpperCase() },
+          { username: studentPrnOrId },
+        ],
+      },
+    });
+
+    if (!student) {
+      res.status(404).json({ success: false, message: 'Student not found by given identifier' });
+      return;
+    }
+
+    const record = await createDailyCorrection({
+      dayId,
+      userId: student.id,
+      adminId: req.user!.userId,
+      reason,
+      oldVerdict: 'NOT_SOLVED',
+      newVerdict,
+      pointsAdjustment: Number(pointsAdjustment || 0),
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        targetUserId: student.id,
+        targetId: record.id,
+        action: 'DAILY_CORRECTION_CREATED',
+        newValue: JSON.stringify(record),
+        reason,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Correction record created successfully',
+      data: record,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Failed to create correction' });
+  }
+}
+
+export async function adminTogglePauseDay(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { dayStr, paused, adminPassword, reason } = req.body || {};
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+    if (!adminUser) {
+      res.status(401).json({ success: false, message: 'Admin account not found' });
+      return;
+    }
+
+    if (!adminPassword) {
+      res.status(400).json({ success: false, message: 'Admin password re-authentication is required' });
+      return;
+    }
+
+    const isValidPassword = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+    if (!isValidPassword) {
+      res.status(403).json({ success: false, message: 'Invalid admin credentials' });
+      return;
+    }
+
+    if (!dayStr) {
+      res.status(400).json({ success: false, message: 'dayStr (YYYY-MM-DD) is required' });
+      return;
+    }
+
+    setAdminPauseDay(dayStr, paused !== false);
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user!.userId,
+        targetId: dayStr,
+        action: paused !== false ? 'ADMIN_PAUSE_DAY_SET' : 'ADMIN_PAUSE_DAY_REMOVED',
+        newValue: JSON.stringify({ dayStr, paused: paused !== false }),
+        reason: reason || 'Admin updated pause day calendar',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: paused !== false ? `Admin pause day set for ${dayStr}` : `Pause day removed for ${dayStr}`,
+      data: { pauseDays: getAdminPauseDays() },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Failed to toggle pause day' });
   }
 }
 

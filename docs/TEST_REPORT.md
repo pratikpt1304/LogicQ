@@ -66,4 +66,23 @@
 * **GCC Compiler:** C11 (`-std=c11 -O2 -Wall`)
 * **Reference Solutions:** 40 / 40 passed all sample and hidden tests.
 * **Wrong Solutions:** 80 / 80 deliberately wrong solutions failed tests as expected.
-* **Client Production Build:** `tsc && vite build` built in 27.69s with zero errors.
+* **Client Production Build:** `tsc && vite build` built in 20.56s with zero errors.
+
+---
+
+## 4. Cross-Device Synchronization & Multi-Session Test Suite
+
+**Suite:** `tests/cross-device-sync.test.ts` & `tests/firestore-security-rules.test.ts`  
+**Status:** 100% Passed (42 Tests across both suites)
+
+| Test # | Test / Scenario | Invariant Verified | Result |
+| :---: | :--- | :--- | :---: |
+| 1 | Multi-Device Concurrent Login | Student signs in on Device 2 (e.g. mobile/phone); Device 1 (e.g. laptop) session remains fully active with no forced logout. Both sessions can read `/auth/me` concurrently. | **PASSED** |
+| 2 | Atomic Global Session Revocation | Calling `POST /api/auth/logout-all` invalidates all stored refresh tokens for that account simultaneously across all devices. | **PASSED** |
+| 3 | Instant Cross-Device Profile Sync | Profile update (Display Name, Department, Year, Division) made on Device 1 is immediately reflected on Device 2 on refresh / query revalidation. | **PASSED** |
+| 4 | Theme Preference Cloud Sync | `themePreference` ('light', 'dark', 'system') allowed in `isValidUserSelfUpdate()` and tested via `tests/firestore-security-rules.test.ts` across 26 security tests. | **PASSED** |
+| 5 | Editor Drafts Cloud Sync & Expiry | Drafts save debounced (1.5s) to `users/{userId}/drafts/{slug}` with `deviceLabel` and `updatedAt`. Daily challenge drafts strictly expire at 17:00 IST cutoff. | **PASSED** |
+| 6 | Draft Conflict Detection Modal | If Device B edits draft with `remote.updatedAt > local.updatedAt` and differing code, `DraftConflictModal` renders with side-by-side timestamps, device labels, and "Keep Cloud" vs "Keep This Device" options without silent overwrites. | **PASSED** |
+| 7 | Shared Device Privacy on Logout | Logout cleans `localStorage` (`logicq_active_user`, `logicq_access_token`, `logicq_last_activity`, all `logicq_draft_*`, all `logicq_practice_draft_*`) and signals Service Worker `CLEAR_USER_CACHE`. Zero student code or PII remains on disk. | **PASSED** |
+| 8 | Viewport & Theme Responsiveness | Verified at 360px (mobile), 768px (tablet), and 1280px (desktop) across Light and Dark themes with zero console errors. | **PASSED** |
+

@@ -28,6 +28,20 @@ export function isAdminPauseDay(dayStr: string): boolean {
   return adminPauseDays.has(dayStr);
 }
 
+export function getAdminPauseDays(): string[] {
+  return Array.from(adminPauseDays).sort();
+}
+
+export function getAllUserFreezes(): { userId: string; dayId: string }[] {
+  const list: { userId: string; dayId: string }[] = [];
+  for (const [userId, days] of userFreezeDates.entries()) {
+    for (const dayId of days) {
+      list.push({ userId, dayId });
+    }
+  }
+  return list.sort((a, b) => b.dayId.localeCompare(a.dayId));
+}
+
 export function clearUserFreezes(): void {
   userFreezeDates.clear();
 }

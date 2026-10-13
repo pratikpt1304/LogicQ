@@ -26,6 +26,7 @@ rules_version = '2';
 //   - banReason: string (optional, immutable) - Reason if banned
 //   - stats: map (required, immutable by client) - Server-computed points, streak, solved counts
 //   - storagePreference: string (optional, enum) - 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE'
+//   - themePreference: string (optional, enum) - 'light' | 'dark' | 'system'
 //   - createdAt: timestamp (required, immutable)
 //   - updatedAt: timestamp (required)
 //
@@ -185,7 +186,7 @@ service cloud.firestore {
       return uidNotModified()
         && changedKeys.hasOnly([
           'department', 'year', 'division', 'displayName',
-          'bio', 'photoURL', 'storagePreference', 'updatedAt'
+          'bio', 'photoURL', 'storagePreference', 'themePreference', 'updatedAt'
         ])
         && !changedKeys.hasAny([
           'prn', 'college', 'email', 'role', 'status', 'banReason',
@@ -198,7 +199,8 @@ service cloud.firestore {
         && (!('displayName' in data) || isValidDisplayName(data.displayName))
         && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
-        && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE']);
+        && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'])
+        && (!('themePreference' in data) || data.themePreference in ['light', 'dark', 'system']);
     }
 
     // -------------------------------------------------------------------------

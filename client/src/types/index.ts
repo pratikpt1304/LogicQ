@@ -38,6 +38,8 @@ export interface User {
   prnChangedAt?: string | null;
   prnNextAllowedDate?: string | null;
   isPrnChangeEligible?: boolean;
+  themePreference?: 'light' | 'dark' | 'system' | null;
+  storagePreference?: 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE' | null;
   createdAt?: string;
 }
 
