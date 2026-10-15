@@ -22,6 +22,7 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - Daily Boards & Snapshots:  AUTHENTICATED READ ONLY / SERVER WRITE ONLY (daily_boards, snapshots) |
 |  - Daily Results & Summaries: OWNER OR ADMIN READ ONLY / SERVER WRITE ONLY (daily_results, summaries)|
 |  - Daily Corrections:         ADMIN READ ONLY / SERVER WRITE ONLY (daily_corrections)              |
+|  - Session Events:            OWNER OR ADMIN READ ONLY / OWNER CREATE ONLY (session_events)         |
 |  - Legacy Weeks & Summaries:  READ ONLY ARCHIVE (weeks, weekly_summaries, weekly_corrections)      |
 |  - Verdict Creation:          BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
@@ -59,6 +60,30 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
   - `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)
   - `updatedAt`: timestamp
 - **Strictly Blocked / Immutable Fields on Update**: `prn`, `college`, `email`, `role`, `status`, `banReason`, `stats`, `points`, `totalPoints`, `streak`, `currentStreak`, `prnChangedAt`, `prnNextAllowedChangeDate`. Any attempt to modify these fields or introduce unauthorized keys is categorically denied.
+
+### Session Events Telemetry & Audit Invariants (`session_events` & `users/{userId}/session_events`)
+
+- **Collection Architecture**: Top-level collection `session_events/{eventId}` and user subcollection `users/{userId}/session_events/{eventId}` record user session state changes, lifecycle events, and disconnect telemetry.
+- **Permitted Reason Codes**: Creation is strictly restricted to the following 12 validated reason codes:
+  - `'manual'` (explicit user sign-out)
+  - `'idle-timeout'` (role-based inactivity timeout)
+  - `'token-refresh-failed'` (STS token refresh failure)
+  - `'revoked-by-user'` (remote session revocation from settings)
+  - `'revoked-by-admin'` (admin session revocation or force-logout)
+  - `'role-changed'` (privilege update force-logout)
+  - `'banned'` (account suspension enforcement)
+  - `'app-check-failed'` (App Check attestation failure)
+  - `'unusual-login-flag'` (anomalous concurrent login detection)
+  - `'multi-tab-sync'` (browser tab logout synchronization)
+  - `'service-worker-update'` (PWA service worker reload invalidation)
+  - `'unknown'` (fallback disconnect reason)
+- **Read Permissions**: Readable strictly by the account owner and admins:
+  - Top-level: `allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());`
+  - Subcollection: `allow read: if isOwner(userId) || isAdmin();`
+- **Create Permissions**: Allowed strictly by the authenticated account owner:
+  - Top-level: `allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];`
+  - Subcollection: `allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];`
+- **Immutability Invariant**: Append-only security ledger. Document updates and deletions are categorically prohibited (`allow update, delete: if false;`).
 
 ---
 
@@ -172,6 +197,15 @@ service cloud.firestore {
       match /practice_progress/{progressId} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if false;
+      }
+
+      // Session events audit subcollection
+      match /session_events/{eventId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];
+        allow update, delete: if false;
       }
 
       // Badges subcollections are disabled (FEATURE_BADGES=false) and strictly denied
@@ -410,6 +444,22 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // 5.1 SESSION EVENTS (LIFECYCLE AUDIT & SECURITY TELEMETRY)
+    // -------------------------------------------------------------------------
+    match /session_events/{eventId} {
+      // Readable strictly by the account owner and admins:
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Create allowed by the authenticated owner:
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];
+
+      // Immutable once written:
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // 6. ADMIN AUDIT LOGS & SYSTEM ALERTS
     // -------------------------------------------------------------------------
     match /admin_audit_logs/{logId} {
@@ -460,4 +510,8 @@ All cheating permutations and attack vectors in [`server/tests/firestore-securit
    ✓ VALID OPERATION: Student reads their own private profile and publicProfiles/{uid} -> MUST SUCCEED
    ✓ VALID OPERATION: Student reads their own submission, own practice progress, own uploaded solution, own weekly summary, and own streak events -> MUST SUCCEED
    ✓ VALID OPERATION: Admin reads any submission, practice progress, problem, uploaded solution, upload review, error report, private problem metadata, and declares a streak pause -> MUST SUCCEED
+   ✓ SESSION EVENTS: Student creates and reads own session events with valid reason codes, but cannot forge events for other users or invalid reason codes -> MUST SUCCEED / FAIL
+   ✓ SESSION EVENTS: Admin reads all session events, while students cannot read other students' session events -> MUST SUCCEED / FAIL
+   ✓ SESSION EVENTS: Updates and deletions are blocked for all users (immutable append-only) -> MUST FAIL
 ```
+

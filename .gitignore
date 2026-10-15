@@ -30,6 +30,8 @@ yarn-error.log*
 temp/
 scratch/
 live_test*.png
+test-results/
+playwright-report/
 
 # OS Files
 .DS_Store
