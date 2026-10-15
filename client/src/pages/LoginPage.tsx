@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/common/Logo.js';
-import { KeyRound, Mail, ArrowRight, AlertCircle } from 'lucide-react';
+import { KeyRound, Mail, ArrowRight, AlertCircle, Info } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login, loginWithGoogle } = useAuth();
@@ -14,6 +14,18 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [logoutNotice] = useState<{ reason: string; message: string } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('logicq_logout_notice');
+      if (raw) {
+        sessionStorage.removeItem('logicq_logout_notice');
+        return JSON.parse(raw);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
 
   const fromLocation = (location.state as any)?.from;
   const from = fromLocation
@@ -62,9 +74,29 @@ export const LoginPage: React.FC = () => {
         </div>
 
         <div className="glass-card p-6 sm:p-8 rounded-2xl border border-white/[0.08] shadow-2xl">
+          {logoutNotice && (
+            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
+              <Info className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-300 font-mono">Session Notice</p>
+                <p className="text-amber-200/90 mt-0.5 font-sans leading-relaxed">{logoutNotice.message}</p>
+              </div>
+            </div>
+          )}
+
           {error && (
-            <div className="mb-5 flex items-center gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <div
+              className={`mb-5 flex items-center gap-2 p-3 rounded-lg text-xs ${
+                error.toLowerCase().includes('cancelled')
+                  ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
+                  : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+              }`}
+            >
+              {error.toLowerCase().includes('cancelled') ? (
+                <Info className="w-4 h-4 shrink-0 text-amber-400" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              )}
               <span>{error}</span>
             </div>
           )}
