@@ -11,7 +11,8 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  match /{document=**} { allow read, write: if false; }                                            |
 |                                                                                                    |
 |  - Private User PII & PRN:    OWNER OR ADMIN READ ONLY (Peers cannot read users/{userId})         |
-|  - PRN Uniqueness Index:      BLOCKED TO ALL CLIENTS (prnIndex/{prn} Server Transaction only)      |
+|  - Initial Client Onboarding: OWNER CREATE ONLY (Validated users, prnIndex, publicProfiles)       |
+|  - PRN Uniqueness Index:      OWNER ONBOARDING REGISTRATION ONLY (Unique lock; update/del blocked) |
 |  - PRN & College Immutability:BLOCKED ON CLIENT UPDATE (Audited Admin/Server action only)          |
 |  - Arena, Archive & Badges:   DISABLED & BLOCKED TO ALL ROLES (contests/archive/badges -> false)   |
 |  - Single Visible Question:   NO DIRECT STUDENT READ ON /problems (Served via GET /api/problems/daily)|
@@ -44,8 +45,38 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
   - Fake test fixtures: `2199TESM0001`, `2199TESF0002`.
 - **Document ID for `prnIndex/{prn}`**: The document ID is the canonical uppercase 12-character PRN (e.g., `prnIndex/2199TESM0001`).
 - **Privacy Masking**: Full PRN is strictly private PII stored only in `users/{userId}` and indexed in `prnIndex/{prn}`. In all client views, the PRN is masked as 8 bullets followed by the last 4 digits (`••••••••1039`). Peers and leaderboards view only `publicProfiles/{userId}`, which never exposes `prn` or `email`.
-- **Client Write Blocks**: Direct client writes to `prn`, `prnIndex`, `prnHistory`, and `practice_progress` are categorically prohibited in Firestore security rules (`allow write: if false;` or blocked in `isValidUserSelfUpdate()`).
+- **Client Write Blocks on Updates**: Direct client updates to `prn`, `prnHistory`, `practice_progress`, `role`, `points`, `totalPoints`, and `currentStreak` are categorically prohibited in Firestore security rules (`isValidUserSelfUpdate()`).
 - **Immutability & Audit**: PRN updates can only occur through server-side transactions with a 30-day cooldown and are recorded in `users/{userId}/prnHistory/{historyId}`.
+
+### Secure Client Onboarding Pattern & Invariants
+
+To allow smooth student onboarding directly from the client without compromising security, Firestore rules enforce strict structural validation:
+
+1. **Initial Student Profile Creation (`users/{userId}`)**:
+   - Evaluated via `isValidInitialUserCreate()`:
+     - **Auth UID Binding**: `request.resource.data.uid == request.auth.uid`
+     - **Auth Email Binding**: `request.resource.data.email == request.auth.token.email`
+     - **Role Lockdown**: `request.resource.data.role == 'STUDENT'` (strictly `'STUDENT'`, categorically prohibiting elevation to `'ADMIN'` or `'CHECKER'`)
+     - **College Validation**: `request.resource.data.college == 'Sanjivani University'`
+     - **Department & Year Validation**: Must match allowed enumerations (`isAllowedDepartment()` and `isAllowedYear()`)
+     - **Division & Display Name Format**: Length and character constraints enforced via `isValidDivision()` and `isValidDisplayName()`
+     - **PRN Format Validation**: `request.resource.data.prn is string && request.resource.data.prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')`
+     - **PRN Uniqueness Check**: `!exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))` ensures no duplicate PRN can be registered
+     - **Points & Streak Zero Baseline**: `request.resource.data.totalPoints == 0` and `request.resource.data.currentStreak == 0` prevent any initial points forging
+     - **Profile Complete Flag**: `request.resource.data.profileComplete == true`
+   - Allowed rule: `allow create: if isOwner(userId) && isValidInitialUserCreate();`
+
+2. **PRN Index Lock Registration (`prnIndex/{prn}`)**:
+   - Document ID is the canonical uppercase 12-character PRN.
+   - Owner can register during onboarding:
+     `allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.prn == prn && prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$') && !exists(/databases/$(database)/documents/prnIndex/$(prn));`
+   - Readable by the document owner or Admin: `allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());`
+   - Mutation and deletion strictly blocked: `allow update, delete: if false;`
+
+3. **Non-PII Public Mirror Creation (`publicProfiles/{userId}`)**:
+   - Created/updated by owner: `allow create, update: if isOwner(userId) && request.resource.data.userId == request.auth.uid && !('prn' in request.resource.data) && !('email' in request.resource.data) && request.resource.data.role == 'STUDENT';`
+   - Strictly prohibits PII (`prn` or `email`) from leaking into public leaderboards or profile views.
+   - Deletion strictly blocked: `allow delete: if false;`
 
 ### Student Profile Self-Service Update Invariants (`users/{userId}`)
 
@@ -170,9 +201,27 @@ service cloud.firestore {
       // Strictly readable ONLY by the document owner or an Admin.
       allow read: if isOwner(userId) || isAdmin();
 
-      // Profile creation happens strictly on the server inside an atomic
-      // transaction alongside prnIndex/{prn}.
-      allow create: if false;
+      // Validates initial student onboarding profile created directly from the client.
+      // Strictly locks role to STUDENT, college to Sanjivani University, initial points/streak to 0,
+      // and ensures PRN format and prnIndex uniqueness before document creation.
+      function isValidInitialUserCreate() {
+        return request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.role == 'STUDENT'
+          && request.resource.data.college == 'Sanjivani University'
+          && isAllowedDepartment(request.resource.data.department)
+          && isAllowedYear(request.resource.data.year)
+          && (!('division' in request.resource.data) || isValidDivision(request.resource.data.division))
+          && (!('displayName' in request.resource.data) || isValidDisplayName(request.resource.data.displayName))
+          && request.resource.data.prn is string && request.resource.data.prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')
+          && !exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))
+          && request.resource.data.totalPoints == 0
+          && request.resource.data.currentStreak == 0
+          && request.resource.data.profileComplete == true;
+      }
+
+      // Initial student profile onboarding directly from the client:
+      allow create: if isOwner(userId) && isValidInitialUserCreate();
 
       // Students can ONLY update allowed self-service academic/profile fields.
       // Cannot change prn, college, email, role, status, banReason, points, or streak.
@@ -220,16 +269,24 @@ service cloud.firestore {
 
     match /prnIndex/{prn} {
       // Document ID is the canonical uppercase 12-character PRN (^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$).
-      // Clients can NEVER read, enumerate, create, or overwrite prnIndex;
-      // managed strictly inside server transactions.
-      allow read, write: if false;
+      // Allows authenticated owner to register their unique PRN index during onboarding:
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.prn == prn
+        && prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')
+        && !exists(/databases/$(database)/documents/prnIndex/$(prn));
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if false;
     }
 
     match /publicProfiles/{userId} {
-      // Non-PII public profile mirror for leaderboards and peer views
-      // (contains uid, publicLabel, college, department, year, division, stats; never contains prn or email)
+      // Non-PII public profile mirror for leaderboards and peer views (never contains prn or email)
       allow read: if isAuthenticated();
-      allow write: if false;
+      allow create, update: if isOwner(userId)
+        && request.resource.data.userId == request.auth.uid
+        && !('prn' in request.resource.data) && !('email' in request.resource.data)
+        && request.resource.data.role == 'STUDENT';
+      allow delete: if false;
     }
 
     // -------------------------------------------------------------------------

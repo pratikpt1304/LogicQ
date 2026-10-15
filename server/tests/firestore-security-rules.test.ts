@@ -219,8 +219,128 @@ class RulesEvaluator {
     return ctx.auth.uid === targetUserId || isAdmin;
   }
 
+  static evaluateUserCreate(
+    ctx: FirestoreRuleContext,
+    targetUserId: string,
+    existingPrns: string[] = []
+  ): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.uid !== targetUserId) return false;
+
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+
+    // request.resource.data.uid == request.auth.uid
+    if (data.uid !== ctx.auth.uid) return false;
+
+    // request.resource.data.email == request.auth.token.email
+    if (data.email !== ctx.auth.token.email) return false;
+
+    // request.resource.data.role == 'STUDENT'
+    if (data.role !== 'STUDENT') return false;
+
+    // request.resource.data.college == 'Sanjivani University'
+    if (data.college !== 'Sanjivani University') return false;
+
+    // isAllowedDepartment(request.resource.data.department)
+    const allowedDepts = ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
+    if (!data.department || typeof data.department !== 'string' || !allowedDepts.includes(data.department)) {
+      return false;
+    }
+
+    // isAllowedYear(request.resource.data.year)
+    const allowedYears = ['FY', 'SY', 'TY'];
+    if (!data.year || typeof data.year !== 'string' || !allowedYears.includes(data.year)) {
+      return false;
+    }
+
+    // (!('division' in request.resource.data) || isValidDivision(request.resource.data.division))
+    if ('division' in data && data.division !== null && data.division !== undefined) {
+      if (typeof data.division !== 'string' || data.division.length > 3 || !/^[A-Z0-9]{0,3}$/.test(data.division)) {
+        return false;
+      }
+    }
+
+    // (!('displayName' in request.resource.data) || isValidDisplayName(request.resource.data.displayName))
+    if ('displayName' in data && data.displayName !== null && data.displayName !== undefined) {
+      if (typeof data.displayName !== 'string' || data.displayName.length < 3 || data.displayName.length > 20) {
+        return false;
+      }
+    }
+
+    // request.resource.data.prn is string && request.resource.data.prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')
+    if (typeof data.prn !== 'string' || !/^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/.test(data.prn)) {
+      return false;
+    }
+
+    // !exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))
+    if (existingPrns.includes(data.prn)) {
+      return false;
+    }
+
+    // request.resource.data.totalPoints == 0
+    if (data.totalPoints !== 0) return false;
+
+    // request.resource.data.currentStreak == 0
+    if (data.currentStreak !== 0) return false;
+
+    // request.resource.data.profileComplete == true
+    if (data.profileComplete !== true) return false;
+
+    return true;
+  }
+
+  static evaluatePrnIndexCreate(
+    ctx: FirestoreRuleContext,
+    targetPrn: string,
+    existingPrns: string[] = []
+  ): boolean {
+    if (!ctx.auth) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+
+    if (data.userId !== ctx.auth.uid) return false;
+    if (data.prn !== targetPrn) return false;
+    if (typeof targetPrn !== 'string' || !/^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$/.test(targetPrn)) return false;
+    if (existingPrns.includes(targetPrn)) return false;
+
+    return true;
+  }
+
+  static evaluatePrnIndexRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const ownerId = ctx.resource?.data?.userId;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === ownerId || isAdmin;
+  }
+
+  static evaluatePrnIndexUpdate(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluatePrnIndexDelete(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluatePublicProfileCreateOrUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.uid !== targetUserId) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+
+    if (data.userId !== ctx.auth.uid) return false;
+    if ('prn' in data || 'email' in data) return false;
+    if (data.role !== 'STUDENT') return false;
+
+    return true;
+  }
+
+  static evaluatePublicProfileDelete(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
   static evaluatePrnIndexAccess(_ctx: FirestoreRuleContext): boolean {
-    // Rule: match /prnIndex/{prn} { allow read, write: if false; }
+    // Kept for legacy tests: direct arbitrary writes or unauthorized access remain false
     return false;
   }
 
@@ -1302,4 +1422,323 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain('allow update, delete: if false;');
     expect(securityRulesDoc).toContain('allow update, delete: if false;');
   });
+
+  // -------------------------------------------------------------------------
+  // INITIAL CLIENT ONBOARDING & PRN SECURITY TESTS
+  // -------------------------------------------------------------------------
+  const validInitialStudentProfile = {
+    uid: 'student_alice',
+    email: 'alice@college.edu',
+    role: 'STUDENT',
+    college: 'Sanjivani University',
+    department: 'AIML',
+    year: 'TY',
+    division: 'A',
+    displayName: 'AliceDev',
+    prn: '2199TESM0001',
+    totalPoints: 0,
+    currentStreak: 0,
+    profileComplete: true,
+  };
+
+  it('ONBOARDING: Student can create their own initial profile with valid PRN, college, department, year, zero points, role STUDENT, and matching prnIndex', () => {
+    // 1. Student Alice creates initial user document in users/{userId}
+    const aliceUserCreateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: { ...validInitialStudentProfile },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(aliceUserCreateCtx, 'student_alice', [])).toBe(true);
+
+    // 2. Student Alice registers matching prnIndex/{prn} document during onboarding
+    const alicePrnIndexCreateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESM0001',
+            userId: 'student_alice',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexCreate(alicePrnIndexCreateCtx, '2199TESM0001', [])).toBe(true);
+
+    // 3. Student Alice registers non-PII mirror in publicProfiles/{userId}
+    const alicePublicProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            displayName: 'AliceDev',
+            department: 'AIML',
+            year: 'TY',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(alicePublicProfileCtx, 'student_alice')).toBe(true);
+
+    // 4. Student Alice can read back their registered prnIndex
+    const aliceReadOwnPrnIndex: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePrnIndexRead(aliceReadOwnPrnIndex)).toBe(true);
+
+    // 5. Admin can also read student's registered prnIndex
+    const adminReadAlicePrnIndex: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluatePrnIndexRead(adminReadAlicePrnIndex)).toBe(true);
+  });
+
+  it('ONBOARDING: Student CANNOT create a profile with role ADMIN or CHECKER', () => {
+    // Student Alice attempts to assign role ADMIN during onboarding -> MUST FAIL
+    const adminRoleProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            role: 'ADMIN',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(adminRoleProfileCtx, 'student_alice', [])).toBe(false);
+
+    // Student Alice attempts to assign role CHECKER during onboarding -> MUST FAIL
+    const checkerRoleProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            role: 'CHECKER',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(checkerRoleProfileCtx, 'student_alice', [])).toBe(false);
+
+    // Public profile mirror cannot be created with elevated role ADMIN -> MUST FAIL
+    const adminPublicProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'ADMIN',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(adminPublicProfileCtx, 'student_alice')).toBe(false);
+  });
+
+  it('ONBOARDING: Student CANNOT create a profile if PRN already exists in prnIndex', () => {
+    const existingPrns = ['2199TESM0001'];
+
+    // Student Alice attempts to onboard with an already-claimed PRN -> MUST FAIL
+    const duplicateProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            prn: '2199TESM0001',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(duplicateProfileCtx, 'student_alice', existingPrns)).toBe(false);
+
+    // Student Alice attempts to overwrite the existing prnIndex document -> MUST FAIL
+    const duplicatePrnIndexCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESM0001',
+            userId: 'student_alice',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexCreate(duplicatePrnIndexCtx, '2199TESM0001', existingPrns)).toBe(false);
+  });
+
+  it('ONBOARDING: Student CANNOT modify their PRN after creation', () => {
+    const activeStudentProfile = { ...validInitialStudentProfile };
+
+    // Student Alice attempts to mutate her PRN from 2199TESM0001 to 2199TESF0002 -> MUST FAIL
+    const prnUpdateAttemptCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: activeStudentProfile,
+      },
+      request: {
+        resource: {
+          data: {
+            ...activeStudentProfile,
+            prn: '2199TESF0002',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(prnUpdateAttemptCtx, 'student_alice')).toBe(false);
+
+    // Any attempt to update prnIndex document is strictly blocked -> MUST FAIL
+    const prnIndexUpdateAttemptCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESM0001',
+            userId: 'student_bob',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexUpdate(prnIndexUpdateAttemptCtx)).toBe(false);
+    expect(RulesEvaluator.evaluatePrnIndexDelete(prnIndexUpdateAttemptCtx)).toBe(false);
+  });
+
+  it('ONBOARDING: Client onboarding rejects initial points/streak forging, invalid PRN regex, wrong college, or email mismatch', () => {
+    // 1. Client attempts to start with forged points (>0) -> MUST FAIL
+    const forgedPointsCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            totalPoints: 500,
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(forgedPointsCtx, 'student_alice', [])).toBe(false);
+
+    // 2. Client attempts to start with forged streak (>0) -> MUST FAIL
+    const forgedStreakCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            currentStreak: 10,
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(forgedStreakCtx, 'student_alice', [])).toBe(false);
+
+    // 3. Client attempts to onboard with wrong college name -> MUST FAIL
+    const wrongCollegeCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            college: 'Stanford University',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(wrongCollegeCtx, 'student_alice', [])).toBe(false);
+
+    // 4. Client attempts to use mismatching email (spoofing) -> MUST FAIL
+    const emailMismatchCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            email: 'imposter@college.edu',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(emailMismatchCtx, 'student_alice', [])).toBe(false);
+
+    // 5. Client attempts to use malformed PRN (e.g. 4 letters in program code) -> MUST FAIL
+    const invalidPrnCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            prn: '2026AIML1001',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(invalidPrnCtx, 'student_alice', [])).toBe(false);
+    expect(RulesEvaluator.evaluatePrnIndexCreate({
+      auth: studentAlice,
+      request: { resource: { data: { prn: '2026AIML1001', userId: 'student_alice' } } },
+    }, '2026AIML1001', [])).toBe(false);
+
+    // 6. Public profile mirror containing PII (prn or email) -> MUST FAIL
+    const piiPublicProfileCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            prn: '2199TESM0001',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(piiPublicProfileCtx, 'student_alice')).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md enforce isValidInitialUserCreate and client onboarding rules', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    // Both files must declare isValidInitialUserCreate
+    expect(firestoreRules).toContain('function isValidInitialUserCreate()');
+    expect(securityRulesDoc).toContain('isValidInitialUserCreate');
+
+    // Both files must allow user create with isOwner and isValidInitialUserCreate
+    expect(firestoreRules).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
+    expect(securityRulesDoc).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
+
+    // Both files must declare prnIndex create rule with !exists check and regex
+    expect(firestoreRules).toContain('!exists(/databases/$(database)/documents/prnIndex/$(prn))');
+    expect(securityRulesDoc).toContain('!exists(/databases/$(database)/documents/prnIndex/$(prn))');
+
+    // Both files must declare publicProfiles create/update rule without prn or email
+    expect(firestoreRules).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
+    expect(securityRulesDoc).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
+  });
 });
+

@@ -2,6 +2,8 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
+  writeBatch,
   collection,
   query,
   where,
@@ -22,6 +24,108 @@ export interface StudentPracticeProgress {
 }
 
 export class FirestoreDataService {
+  /**
+   * Completes initial profile onboarding for a student atomically in Firestore:
+   * 1. Checks prnIndex/{prn} to ensure PRN is unique
+   * 2. Writes users/{uid} document with profile fields, role: 'STUDENT', profileComplete: true
+   * 3. Creates prnIndex/{prn} document
+   * 4. Creates publicProfiles/{uid} document
+   */
+  public static async completeUserProfile(
+    uid: string,
+    email: string,
+    data: {
+      prn: string;
+      fullName?: string;
+      displayName?: string;
+      college: string;
+      department: string;
+      year: string;
+      division?: string;
+    }
+  ): Promise<User> {
+    if (!uid) throw new Error('Unauthenticated');
+    const normalizedPrn = data.prn.trim().toUpperCase();
+    const shortId = normalizedPrn.slice(-4);
+    const resolvedName = (data.fullName || data.displayName || 'Student').trim();
+    const resolvedDisplayName = (data.displayName || resolvedName).slice(0, 20);
+
+    // Pre-check if PRN is already registered to another user
+    const prnRef = doc(db, 'prnIndex', normalizedPrn);
+    const prnSnap = await getDoc(prnRef);
+    if (prnSnap.exists() && prnSnap.data()?.userId !== uid) {
+      throw new Error('This PRN is already registered to another account.');
+    }
+
+    const batch = writeBatch(db);
+
+    const userDocRef = doc(db, 'users', uid);
+    const userData: Record<string, any> = {
+      uid,
+      id: uid,
+      email,
+      username: email.split('@')[0],
+      fullName: resolvedName,
+      displayName: resolvedDisplayName,
+      shortId,
+      prn: normalizedPrn,
+      college: data.college,
+      department: data.department,
+      year: data.year,
+      division: data.division || null,
+      role: 'STUDENT',
+      profileComplete: true,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    batch.set(userDocRef, userData, { merge: true });
+
+    // Set prnIndex
+    batch.set(prnRef, {
+      prn: normalizedPrn,
+      userId: uid,
+      createdAt: serverTimestamp(),
+    });
+
+    // Set non-PII publicProfiles mirror
+    const publicRef = doc(db, 'publicProfiles', uid);
+    batch.set(publicRef, {
+      userId: uid,
+      shortId,
+      displayName: resolvedDisplayName,
+      department: data.department,
+      year: data.year,
+      division: data.division || null,
+      role: 'STUDENT',
+      totalPoints: 0,
+      currentStreak: 0,
+      updatedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    return {
+      id: uid,
+      username: email.split('@')[0],
+      email,
+      fullName: resolvedName,
+      displayName: resolvedDisplayName,
+      shortId,
+      prn: normalizedPrn,
+      college: data.college,
+      department: data.department,
+      year: data.year,
+      division: data.division || null,
+      role: 'STUDENT',
+      profileComplete: true,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+    };
+  }
   /**
    * Reads the authoritative private student profile from users/{uid}
    */

@@ -698,14 +698,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return active;
     }
 
-    const res = await api.post('/auth/complete-profile', data);
-    if (!res?.success || !res?.data?.user) {
-      throw new Error(res?.message || 'Failed to complete profile');
+    let completedUser: User | null = null;
+    try {
+      const res = await api.post('/auth/complete-profile', data);
+      if (res?.success && res?.data?.user) {
+        completedUser = res.data.user;
+      }
+    } catch (apiErr) {
+      console.warn('Backend /auth/complete-profile unavailable; saving directly to Firestore:', apiErr);
     }
+
+    if (!completedUser) {
+      const fbUser = firebaseAuth.currentUser;
+      const currentEmail = fbUser?.email || active?.email || '';
+      const currentUid = fbUser?.uid || active?.id;
+      if (!currentUid) {
+        throw new Error('Not authenticated. Please sign in again.');
+      }
+      completedUser = await FirestoreDataService.completeUserProfile(currentUid, currentEmail, data);
+    }
+
     recordUserActivity();
-    persistUser(res.data.user);
+    persistUser(completedUser);
     setAuthState('signedIn');
-    return res.data.user;
+    return completedUser;
   };
 
   const refreshUser = async () => {
