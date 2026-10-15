@@ -435,12 +435,20 @@ export function computeTwoWeekPilotAnalytics(
 
 export async function getAnalytics(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const [totalUsers, totalAdmins, totalProblems, totalSubmissions, acceptedSubmissions] = await Promise.all([
+    const [
+      totalUsers,
+      totalAdmins,
+      totalProblems,
+      totalSubmissions,
+      acceptedSubmissions,
+      driveConnectedCount,
+    ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: 'ADMIN' } }),
       prisma.problem.count(),
       prisma.submission.count(),
       prisma.submission.count({ where: { verdict: 'ACCEPTED' } }),
+      (prisma.user as any).count({ where: { storagePreference: 'GOOGLE_DRIVE' } }),
     ]);
 
     const acceptanceRate =
@@ -567,6 +575,7 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
           totalSubmissions,
           acceptedSubmissions,
           acceptanceRate,
+          driveConnectedCount: driveConnectedCount || 0,
           isAllowlistEnabled:
             process.env.ALLOWLIST_CSV_ENABLED === 'true' || process.env.AUTH_MODE === 'ALLOWLIST_CSV',
         },

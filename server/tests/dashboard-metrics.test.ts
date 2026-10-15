@@ -3,6 +3,7 @@ import request from 'supertest';
 import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Dashboard Metrics & Content Integrity Regression Suite', () => {
   let unrankedStudentToken: string;
@@ -11,6 +12,7 @@ describe('Dashboard Metrics & Content Integrity Regression Suite', () => {
   let adminId: string;
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     // 1. Create a zero-point student with 0 submissions
     const unrankedStudent = await prisma.user.create({
       data: {
@@ -59,6 +61,7 @@ describe('Dashboard Metrics & Content Integrity Regression Suite', () => {
     if (adminId) {
       await prisma.user.delete({ where: { id: adminId } }).catch(() => {});
     }
+    setDailyChallengePausedForTesting(true);
   });
 
   it('1. Zero-point student receives rank: null, percentile: null, and accuracy: null (never rank #1 or 100% accuracy default)', async () => {

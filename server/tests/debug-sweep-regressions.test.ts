@@ -5,6 +5,7 @@ import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
 import { evaluateSubmission } from '../src/services/submission-evaluator.js';
 import { getChallengeDayIST } from '../src/utils/ist.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
   const ts = Date.now();
@@ -16,6 +17,7 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
   let contestId: string;
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     // Ensure 'first-blood' badge exists in DB
     await prisma.badge.upsert({
       where: { slug: 'first-blood' },
@@ -139,6 +141,7 @@ describe('Mode B Full Debugging Sweep Regressions (BUG-08 .. BUG-11)', () => {
       await prisma.userBadge.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
+    setDailyChallengePausedForTesting(true);
   });
 
   it('BUG-08, BUG-09 & BUG-10: normalizes per-line trailing spaces, awards first-blood & contest score on 1st solve, and prevents duplicate points on rejudge', async () => {

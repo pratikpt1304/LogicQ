@@ -10,6 +10,7 @@ import { FEATURES } from '../src/config/features.config.js';
 import { LocalGccJudge } from '../src/judge/local-gcc.judge.js';
 import { ensureCurrentWeekSchedule } from '../src/controllers/problem.controller.js';
 import { getChallengeDayIST, addDaysIST } from '../src/utils/ist.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Judge Audit, Upload Files, Home Nav, Book Governance & Console Audit)', () => {
   const ts = Date.now();
@@ -26,6 +27,7 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
   let pointerSwapOrigScheduledDate: string | null = null;
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     await ensureCurrentWeekSchedule();
     const pointerProb = await prisma.problem.findUnique({
       where: { slug: 'pointer-swap-in-place' },
@@ -124,6 +126,7 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
       await prisma.userBadge.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
+    setDailyChallengePausedForTesting(true);
   });
 
   it('1. Badges Removal: FEATURE_BADGES is false, all badge endpoints return 404 for all roles, and API responses omit badges', async () => {

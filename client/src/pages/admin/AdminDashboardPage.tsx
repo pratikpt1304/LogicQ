@@ -7,6 +7,7 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
 } from '../../config/academic.config.js';
+import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -106,7 +107,7 @@ export const AdminDashboardPage: React.FC = () => {
     slug: '',
     description: '',
     order: 5,
-    requiredSolvedToUnlock: 7,
+    requiredSolvedToUnlock: PRACTICE_CONFIG.practiceUnlockThreshold,
   });
 
   const [newPracticeProblemForm, setNewPracticeProblemForm] = useState({
@@ -280,7 +281,7 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Practice Module added successfully!');
       setIsCreatePracticeModuleOpen(false);
-      setNewPracticeModuleForm({ title: '', slug: '', description: '', order: 5, requiredSolvedToUnlock: 7 });
+      setNewPracticeModuleForm({ title: '', slug: '', description: '', order: 5, requiredSolvedToUnlock: PRACTICE_CONFIG.practiceUnlockThreshold });
       queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create practice module'),
@@ -779,7 +780,7 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Analytics Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
           <span className="text-[11px] font-mono text-slate-400 block mb-1">REGISTERED USERS</span>
           <span className="text-2xl font-extrabold text-white font-mono">
@@ -805,6 +806,13 @@ export const AdminDashboardPage: React.FC = () => {
           <span className="text-[11px] font-mono text-slate-400 block mb-1">ACCEPTANCE RATE</span>
           <span className="text-2xl font-extrabold text-emerald-400 font-mono">
             {overview?.acceptanceRate || 0}%
+          </span>
+        </div>
+
+        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]" data-testid="admin-drive-connected-stat">
+          <span className="text-[11px] font-mono text-slate-400 block mb-1">DRIVE CONNECTED</span>
+          <span className="text-2xl font-extrabold text-blue-400 font-mono">
+            {overview?.driveConnectedCount || 0}
           </span>
         </div>
       </div>
@@ -3899,7 +3907,7 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) =>
                     setNewPracticeModuleForm({
                       ...newPracticeModuleForm,
-                      requiredSolvedToUnlock: parseInt(e.target.value) || 7,
+                      requiredSolvedToUnlock: parseInt(e.target.value) || PRACTICE_CONFIG.practiceUnlockThreshold,
                     })
                   }
                   className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs text-white font-mono"

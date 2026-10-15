@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import {
   Lock,
   CheckCircle2,
@@ -39,7 +40,7 @@ export const PracticeModulesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-modules'],
     queryFn: () => api.get('/practice/modules'),
   });
@@ -60,7 +61,7 @@ export const PracticeModulesPage: React.FC = () => {
           </h1>
           <p className="text-sm text-[var(--text-muted)] mt-1.5 max-w-2xl">
             Sharpen your core C programming competencies with 4 sequentially unlocking curriculum modules.
-            Solve at least 7 questions in each module to unlock the next one.
+            Solve all {PRACTICE_CONFIG.practiceUnlockThreshold} questions in each module to unlock the next one.
           </p>
         </div>
 
@@ -92,8 +93,14 @@ export const PracticeModulesPage: React.FC = () => {
           ))}
         </div>
       ) : error ? (
-        <div className="p-8 text-center glass-card rounded-2xl border border-red-500/20 text-red-400">
-          Failed to load practice modules. Please refresh or try again later.
+        <div className="p-8 text-center glass-card rounded-2xl border border-red-500/20 text-red-400 space-y-3 font-mono">
+          <p>Failed to load practice modules. Please check your connection.</p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-emerald-400 text-[#0C0F1F] font-bold text-xs rounded-lg hover:opacity-95"
+          >
+            Retry Connection
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

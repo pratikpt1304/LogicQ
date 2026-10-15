@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
 import { useAuth } from '../context/AuthContext.js';
+import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -52,7 +53,7 @@ export const PracticeModuleProblemsPage: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-[var(--text-main)]">Module Locked</h2>
           <p className="text-sm text-[var(--text-muted)]">
-            {errObj.message || 'You must solve at least 7 questions in the previous module to unlock this module.'}
+            {errObj.message || `You must solve all ${PRACTICE_CONFIG.practiceUnlockThreshold} questions in the previous module to unlock this module.`}
           </p>
           <div className="pt-2">
             <Link

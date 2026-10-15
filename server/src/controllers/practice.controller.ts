@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
-import { PRACTICE_CONFIG, PracticeModuleConfig } from '../config/practice.config.js';
+import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
 
 export async function getPracticeModules(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -82,7 +82,7 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
         } else {
           isUnlocked = previousModuleSolved >= threshold;
           if (!isUnlocked) {
-            requirementText = `Solve ${threshold} of ${previousModuleTotal} in ${prevModule.title} to unlock`;
+            requirementText = getModuleRequirementText(prevModule.title, threshold, previousModuleSolved, previousModuleTotal);
           }
         }
       }
@@ -178,11 +178,12 @@ export async function getPracticeModuleProblems(req: AuthRequest, res: Response)
 
       const threshold = targetModule.requiredSolvedToUnlock || PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD;
       if (prevSolvedCount < threshold) {
+        const errorMsg = getModuleRequirementText(prevModule.title, threshold, prevSolvedCount, prevProblemsCount);
         res.status(403).json({
           success: false,
           code: 'MODULE_LOCKED',
-          message: `Module locked. Solve at least ${threshold} problems in ${prevModule.title} to unlock.`,
-          error: `Module locked. Solve at least ${threshold} problems in ${prevModule.title} to unlock.`,
+          message: errorMsg,
+          error: errorMsg,
         });
         return;
       }
@@ -317,11 +318,12 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
 
       const threshold = PRACTICE_CONFIG.MODULES[targetModuleIndex].requiredSolvedToUnlock || PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD;
       if (prevSolvedCount < threshold) {
+        const errorMsg = getModuleRequirementText(prevModule.title, threshold, prevSolvedCount, prevProblemsCount);
         res.status(403).json({
           success: false,
           code: 'MODULE_LOCKED',
-          message: 'Module locked. Solve required questions in previous module to unlock.',
-          error: 'Module locked. Solve required questions in previous module to unlock.',
+          message: errorMsg,
+          error: errorMsg,
         });
         return;
       }

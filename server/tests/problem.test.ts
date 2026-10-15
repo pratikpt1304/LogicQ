@@ -1,8 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Problems API (/api/problems) — Single Visible Question Rule (17:00 IST to 17:00 IST)', () => {
+  beforeAll(() => {
+    setDailyChallengePausedForTesting(false);
+  });
+
+  afterAll(() => {
+    setDailyChallengePausedForTesting(true);
+  });
   it('should fetch only today’s single active daily challenge with private Cache-Control and never expose hidden test cases or a 7-day strip', async () => {
     const res = await request(app).get('/api/problems/daily');
 

@@ -226,3 +226,11 @@ export async function getDailySystemPreview() {
     first7Preview: first7,
   };
 }
+
+export function setDailyChallengePausedForTesting(paused: boolean): void {
+  initialized = true;
+  memoryConfigCache = {
+    ...memoryConfigCache,
+    dailyChallengePaused: paused,
+  };
+}

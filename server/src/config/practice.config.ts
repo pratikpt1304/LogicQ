@@ -14,7 +14,12 @@ export interface PracticeModuleConfig {
 }
 
 export const PRACTICE_CONFIG = {
-  DEFAULT_UNLOCK_THRESHOLD: 7,
+  practiceUnlockThreshold: 10,
+  DEFAULT_UNLOCK_THRESHOLD: 10,
+  practiceHintUnlockAssist: false, // default OFF
+  hintUnlockAssistAttemptThreshold: 6, // default 6 failed attempts
+  allowSkipOneQuestionAfterDays: false, // default OFF
+  skipQuestionAfterDaysThreshold: 3, // default 3 days
   MODULES: [
     {
       id: 'module-1',
@@ -32,7 +37,7 @@ export const PRACTICE_CONFIG = {
       title: 'Pointers and functions',
       order: 2,
       description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
-      requiredSolvedToUnlock: 7,
+      requiredSolvedToUnlock: 10,
       totalQuestions: 10,
       distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
     },
@@ -42,7 +47,7 @@ export const PRACTICE_CONFIG = {
       title: 'Array and its Applications',
       order: 3,
       description: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
-      requiredSolvedToUnlock: 7,
+      requiredSolvedToUnlock: 10,
       totalQuestions: 10,
       distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
     },
@@ -52,9 +57,19 @@ export const PRACTICE_CONFIG = {
       title: 'Advanced Data Types, Dynamic Memory',
       order: 4,
       description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
-      requiredSolvedToUnlock: 7,
+      requiredSolvedToUnlock: 10,
       totalQuestions: 10,
       distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
     },
   ] as PracticeModuleConfig[],
 };
+
+export function getModuleRequirementText(
+  prevModuleTitle: string,
+  threshold: number = PRACTICE_CONFIG.practiceUnlockThreshold,
+  prevSolved: number = 0,
+  prevTotal: number = 10
+): string {
+  const solvePrefix = threshold >= prevTotal ? `Solve all ${threshold}` : `Solve ${threshold} of ${prevTotal}`;
+  return `${solvePrefix} in ${prevModuleTitle} to unlock (${prevSolved} of ${prevTotal} solved)`;
+}

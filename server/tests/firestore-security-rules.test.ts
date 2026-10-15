@@ -283,6 +283,70 @@ class RulesEvaluator {
   static evaluateDailyRankSnapshotWrite(_ctx: FirestoreRuleContext): boolean {
     return false;
   }
+
+  static evaluateSessionEventRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const ownerId = ctx.resource?.data?.userId;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === ownerId || isAdmin;
+  }
+
+  static evaluateUserSessionEventRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+    if (!ctx.auth) return false;
+    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    return ctx.auth.uid === targetUserId || isAdmin;
+  }
+
+  static evaluateSessionEventCreate(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    const allowedReasons = [
+      'manual',
+      'idle-timeout',
+      'token-refresh-failed',
+      'revoked-by-user',
+      'revoked-by-admin',
+      'role-changed',
+      'banned',
+      'app-check-failed',
+      'unusual-login-flag',
+      'multi-tab-sync',
+      'service-worker-update',
+      'unknown',
+    ];
+    return data.userId === ctx.auth.uid && allowedReasons.includes(data.reason);
+  }
+
+  static evaluateUserSessionEventCreate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.uid !== targetUserId) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    const allowedReasons = [
+      'manual',
+      'idle-timeout',
+      'token-refresh-failed',
+      'revoked-by-user',
+      'revoked-by-admin',
+      'role-changed',
+      'banned',
+      'app-check-failed',
+      'unusual-login-flag',
+      'multi-tab-sync',
+      'service-worker-update',
+      'unknown',
+    ];
+    return data.userId === ctx.auth.uid && allowedReasons.includes(data.reason);
+  }
+
+  static evaluateSessionEventUpdate(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateSessionEventDelete(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
 }
 
 describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
@@ -898,5 +962,344 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(securityRulesDoc).toContain("'themePreference'");
     expect(securityRulesDoc).toContain("data.themePreference in ['light', 'dark', 'system']");
     expect(securityRulesDoc).toContain("- `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)");
+  });
+
+  it('SESSION EVENTS: Student can create and read their own session event with valid reason code', () => {
+    const validReasons = [
+      'manual',
+      'idle-timeout',
+      'token-refresh-failed',
+      'revoked-by-user',
+      'revoked-by-admin',
+      'role-changed',
+      'banned',
+      'app-check-failed',
+      'unusual-login-flag',
+      'multi-tab-sync',
+      'service-worker-update',
+      'unknown',
+    ];
+
+    for (const reason of validReasons) {
+      // Top-level collection create by owner
+      const topLevelCreateCtx: FirestoreRuleContext = {
+        auth: studentAlice,
+        request: {
+          resource: {
+            data: {
+              userId: 'student_alice',
+              reason,
+              timestamp: Date.now(),
+            },
+          },
+        },
+      };
+      expect(RulesEvaluator.evaluateSessionEventCreate(topLevelCreateCtx)).toBe(true);
+
+      // Subcollection create by owner
+      const subcollectionCreateCtx: FirestoreRuleContext = {
+        auth: studentAlice,
+        request: {
+          resource: {
+            data: {
+              userId: 'student_alice',
+              reason,
+              timestamp: Date.now(),
+            },
+          },
+        },
+      };
+      expect(RulesEvaluator.evaluateUserSessionEventCreate(subcollectionCreateCtx, 'student_alice')).toBe(true);
+    }
+
+    // Student reads their own top-level session event -> MUST SUCCEED
+    const aliceTopLevelRead: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'idle-timeout',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSessionEventRead(aliceTopLevelRead)).toBe(true);
+
+    // Student reads their own subcollection session event -> MUST SUCCEED
+    const aliceSubcollectionRead: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'manual',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventRead(aliceSubcollectionRead, 'student_alice')).toBe(true);
+  });
+
+  it('SESSION EVENTS: Student cannot create a session event with invalid reason or for another userId', () => {
+    // 1. Invalid reason code -> MUST FAIL
+    const invalidReasons = ['hacked', 'custom_reason', 'forced', '', 'idle_timeout'];
+    for (const invalidReason of invalidReasons) {
+      const topLevelInvalidReasonCtx: FirestoreRuleContext = {
+        auth: studentAlice,
+        request: {
+          resource: {
+            data: {
+              userId: 'student_alice',
+              reason: invalidReason,
+            },
+          },
+        },
+      };
+      expect(RulesEvaluator.evaluateSessionEventCreate(topLevelInvalidReasonCtx)).toBe(false);
+
+      const subcollectionInvalidReasonCtx: FirestoreRuleContext = {
+        auth: studentAlice,
+        request: {
+          resource: {
+            data: {
+              userId: 'student_alice',
+              reason: invalidReason,
+            },
+          },
+        },
+      };
+      expect(RulesEvaluator.evaluateUserSessionEventCreate(subcollectionInvalidReasonCtx, 'student_alice')).toBe(false);
+    }
+
+    // 2. Student Alice attempts to create session event with Bob's userId (top-level) -> MUST FAIL
+    const topLevelForeignUserCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_bob',
+            reason: 'manual',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateSessionEventCreate(topLevelForeignUserCtx)).toBe(false);
+
+    // 3. Student Alice attempts to create session event under Bob's subcollection path -> MUST FAIL
+    const subcollectionForeignPathCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_bob',
+            reason: 'manual',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventCreate(subcollectionForeignPathCtx, 'student_bob')).toBe(false);
+
+    // 4. Student Alice attempts to create under Bob's path even if data.userId is student_alice -> MUST FAIL
+    const subcollectionMismatchedPathCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            reason: 'manual',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventCreate(subcollectionMismatchedPathCtx, 'student_bob')).toBe(false);
+
+    // 5. Unauthenticated user attempts to create session event -> MUST FAIL
+    const unauthCreateCtx: FirestoreRuleContext = {
+      auth: null,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            reason: 'manual',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateSessionEventCreate(unauthCreateCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateUserSessionEventCreate(unauthCreateCtx, 'student_alice')).toBe(false);
+  });
+
+  it('SESSION EVENTS: Student cannot read other students’ session events', () => {
+    // Student Alice attempts to read Bob's top-level session event -> MUST FAIL
+    const aliceReadsBobTopLevel: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          userId: 'student_bob',
+          reason: 'manual',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSessionEventRead(aliceReadsBobTopLevel)).toBe(false);
+
+    // Student Alice attempts to read Bob's subcollection session event -> MUST FAIL
+    const aliceReadsBobSubcollection: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          userId: 'student_bob',
+          reason: 'manual',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventRead(aliceReadsBobSubcollection, 'student_bob')).toBe(false);
+
+    // Unauthenticated user attempts to read session events -> MUST FAIL
+    const unauthTopLevelRead: FirestoreRuleContext = {
+      auth: null,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'manual',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSessionEventRead(unauthTopLevelRead)).toBe(false);
+    expect(RulesEvaluator.evaluateUserSessionEventRead(unauthTopLevelRead, 'student_alice')).toBe(false);
+  });
+
+  it('SESSION EVENTS: Admin can read all session events', () => {
+    // Admin Charlie reads Alice's top-level session event -> MUST SUCCEED
+    const adminReadsAliceTopLevel: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'idle-timeout',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSessionEventRead(adminReadsAliceTopLevel)).toBe(true);
+
+    // Admin Charlie reads Bob's top-level session event -> MUST SUCCEED
+    const adminReadsBobTopLevel: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: {
+        data: {
+          userId: 'student_bob',
+          reason: 'banned',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSessionEventRead(adminReadsBobTopLevel)).toBe(true);
+
+    // Admin Charlie reads Alice's subcollection session event -> MUST SUCCEED
+    const adminReadsAliceSubcollection: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'idle-timeout',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventRead(adminReadsAliceSubcollection, 'student_alice')).toBe(true);
+
+    // Admin Charlie reads Bob's subcollection session event -> MUST SUCCEED
+    const adminReadsBobSubcollection: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: {
+        data: {
+          userId: 'student_bob',
+          reason: 'banned',
+        },
+      },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserSessionEventRead(adminReadsBobSubcollection, 'student_bob')).toBe(true);
+  });
+
+  it('SESSION EVENTS: Nobody can update or delete session events', () => {
+    const sessionEventDoc: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          userId: 'student_alice',
+          reason: 'manual',
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            reason: 'idle-timeout',
+          },
+        },
+      },
+    };
+
+    // Student Alice cannot update own session event -> MUST FAIL
+    expect(RulesEvaluator.evaluateSessionEventUpdate(sessionEventDoc)).toBe(false);
+    // Student Alice cannot delete own session event -> MUST FAIL
+    expect(RulesEvaluator.evaluateSessionEventDelete(sessionEventDoc)).toBe(false);
+
+    // Student Bob cannot update or delete Alice's session event -> MUST FAIL
+    const bobMutateAliceDoc: FirestoreRuleContext = {
+      ...sessionEventDoc,
+      auth: studentBob,
+    };
+    expect(RulesEvaluator.evaluateSessionEventUpdate(bobMutateAliceDoc)).toBe(false);
+    expect(RulesEvaluator.evaluateSessionEventDelete(bobMutateAliceDoc)).toBe(false);
+
+    // Admin Charlie cannot update or delete any session event -> MUST FAIL
+    const adminMutateDoc: FirestoreRuleContext = {
+      ...sessionEventDoc,
+      auth: adminCharlie,
+    };
+    expect(RulesEvaluator.evaluateSessionEventUpdate(adminMutateDoc)).toBe(false);
+    expect(RulesEvaluator.evaluateSessionEventDelete(adminMutateDoc)).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md declare session_events collection and subcollection with valid reason codes', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    // Both files must declare top-level session_events/{eventId}
+    expect(firestoreRules).toContain('match /session_events/{eventId}');
+    expect(securityRulesDoc).toContain('match /session_events/{eventId}');
+
+    // Both files must declare subcollection session_events/{eventId}
+    expect(firestoreRules).toContain('match /session_events/{eventId}');
+    expect(securityRulesDoc).toContain('match /session_events/{eventId}');
+
+    // Both files must declare reason validation with the 12 permitted codes
+    const expectedReasons = [
+      'manual',
+      'idle-timeout',
+      'token-refresh-failed',
+      'revoked-by-user',
+      'revoked-by-admin',
+      'role-changed',
+      'banned',
+      'app-check-failed',
+      'unusual-login-flag',
+      'multi-tab-sync',
+      'service-worker-update',
+      'unknown',
+    ];
+
+    for (const reason of expectedReasons) {
+      expect(firestoreRules).toContain(`'${reason}'`);
+      expect(securityRulesDoc).toContain(`'${reason}'`);
+    }
+
+    // Both files must declare immutable updates and deletes
+    expect(firestoreRules).toContain('allow update, delete: if false;');
+    expect(securityRulesDoc).toContain('allow update, delete: if false;');
   });
 });

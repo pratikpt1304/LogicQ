@@ -7,6 +7,7 @@ import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
 import { evaluateSubmission } from '../src/services/submission-evaluator.js';
 import { FEATURES } from '../src/config/features.config.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Arena & Archive Feature Removal, Weekly Catch-Up & Past Weeks Verification', () => {
   const ts = Date.now();
@@ -19,6 +20,7 @@ describe('Arena & Archive Feature Removal, Weekly Catch-Up & Past Weeks Verifica
   let adminToken: string;
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     const [student, admin] = await Promise.all([
       prisma.user.create({
         data: {
@@ -77,6 +79,7 @@ describe('Arena & Archive Feature Removal, Weekly Catch-Up & Past Weeks Verifica
       await prisma.userBadge.deleteMany({ where: { userId: { in: userIds } } });
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
+    setDailyChallengePausedForTesting(true);
   });
 
   it('1. Feature flags FEATURE_ARENA and FEATURE_ARCHIVE are disabled by default', () => {

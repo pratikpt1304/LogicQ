@@ -5,6 +5,7 @@ import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
 import { getChallengeDayIST } from '../src/utils/ist.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
   const ts = Date.now();
@@ -21,6 +22,7 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
   let studentASubmissionId: string;
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     const [studentA, studentB, admin] = await Promise.all([
       prisma.user.create({
         data: {
@@ -145,6 +147,7 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
     await prisma.problem.deleteMany({ where: { id: { in: problemIds } } });
     await prisma.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    setDailyChallengePausedForTesting(true);
   });
 
   it('SA-01 (Critical IDOR): blocks Student B from reading Student A submission details with 403 Forbidden', async () => {
@@ -362,6 +365,7 @@ describe('Security Audit & Functional Bug Regressions (SA-01 .. SA-08)', () => {
     expect(dailyRes.headers['x-content-type-options']).toBe('nosniff');
     expect(dailyRes.headers['x-frame-options']).toBe('DENY');
     expect(dailyRes.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    expect(dailyRes.headers['cross-origin-opener-policy']).toBe('same-origin-allow-popups');
     expect(dailyRes.body.data.challengeDayIST).toBeDefined();
     expect(dailyRes.body.data.secondsUntilNextReset).toBeGreaterThan(0);
     expect(dailyRes.body.data.secondsUntilNextReset).toBeLessThanOrEqual(86400);

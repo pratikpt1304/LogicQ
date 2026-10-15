@@ -16,6 +16,7 @@ import {
   evaluateMissedChallengeDay,
   setAdminPauseDay,
 } from '../src/services/streak.service.js';
+import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
 
 describe('Single Visible Question Rule (17:00 IST Cutoff, Pre-Cutoff Judging, Upload Post-Freeze Correction, Streaks & Auto-Fallback)', () => {
   const ts = Date.now();
@@ -46,6 +47,7 @@ describe('Single Visible Question Rule (17:00 IST Cutoff, Pre-Cutoff Judging, Up
   const TIME_17_00_03_IST = new Date('2026-10-11T17:00:03+05:30');
 
   beforeAll(async () => {
+    setDailyChallengePausedForTesting(false);
     await ensureCurrentWeekSchedule();
 
     const allProbs = await prisma.problem.findMany({
@@ -180,6 +182,8 @@ describe('Single Visible Question Rule (17:00 IST Cutoff, Pre-Cutoff Judging, Up
         where: { id: { in: userIds } },
       });
     }
+
+    setDailyChallengePausedForTesting(true);
   });
 
   it('1. At 16:59:59 IST: Student sees ONLY Challenge A, can Run code on Challenge A, and Challenge B returns 404 without statement/samples/tests', async () => {
