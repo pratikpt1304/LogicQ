@@ -29,7 +29,7 @@ const STORAGE_KEYS = {
   PRACTICE_CUSTOM_PROBLEMS: 'logicq_fallback_practice_custom_problems_v1',
 };
 
-import { PRACTICE_CONFIG, PracticeModuleConfig } from '../config/practice.config.js';
+import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
@@ -912,6 +912,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           totalPoints,
           currentStreak: user?.currentStreak || 0,
           longestStreak: user?.longestStreak || user?.currentStreak || 0,
+          streakFreezeStatus: '1 Auto Freeze / 7 Days',
           totalSolved: solvedIds.size,
           thisWeekSolved: solvedIds.size,
           thisWeekTotal: 7,
@@ -1245,8 +1246,18 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           totalPoints: target.totalPoints || 0,
           currentStreak: target.currentStreak || 0,
           longestStreak: target.longestStreak || 0,
+          streakFreezeStatus: '1 Auto Freeze / 7 Days',
           rank, // null if 0 points
+          bestDailyRank: rank,
+          accuracy: subs.length > 0 ? Math.round((subs.filter((s) => s.verdict === 'ACCEPTED').length / subs.length) * 100) : null,
           totalSolved: new Set(subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)).size,
+          solvedByDifficulty: {
+            EASY: new Set(subs.filter((s) => s.verdict === 'ACCEPTED' && s.problem?.difficulty === 'EASY').map((s) => s.problemId)).size,
+            MEDIUM: new Set(subs.filter((s) => s.verdict === 'ACCEPTED' && s.problem?.difficulty === 'MEDIUM').map((s) => s.problemId)).size,
+            HARD: new Set(subs.filter((s) => s.verdict === 'ACCEPTED' && s.problem?.difficulty === 'HARD').map((s) => s.problemId)).size,
+          },
+          streakHeatmap90d: [],
+          rankHistory30d: [],
           // Privacy protection: Never expose PRN or email to other students!
           ...(isOwner
             ? {
@@ -1264,7 +1275,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           totalSolved: new Set(subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)).size,
           totalSubmissions: subs.length,
         },
-        recentSubmissions: subs.slice(0, 10),
+        recentSubmissions: subs.slice(0, 10).map((s) => ({
+          ...s,
+          code: isOwner ? s.code || '#include <stdio.h>\n\nint main() {\n    printf("Accepted");\n    return 0;\n}' : undefined,
+        })),
       },
     };
   }
@@ -1667,7 +1681,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
       ).length;
 
-      const threshold = m.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
+      const threshold = m.requiredSolvedToUnlock ?? PRACTICE_CONFIG.practiceUnlockThreshold;
       const prevTitle = idx > 0 ? practiceModules[idx - 1].title : '';
       
       let isUnlocked = false;
@@ -1683,7 +1697,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         isUnlocked = previousModuleSolved >= threshold;
         requirementText = isUnlocked
           ? ''
-          : `Solve ${threshold} in ${prevTitle} to unlock`;
+          : getModuleRequirementText(prevTitle, threshold, previousModuleSolved, previousModuleTotal);
       }
 
       previousModuleSolved = solvedInModule;
@@ -1746,7 +1760,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
 
     const modIdx = practiceModules.findIndex((m) => m.slug === moduleSlug);
-    const threshold = moduleConfig.requiredSolvedToUnlock ?? (PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD || 7);
+    const threshold = moduleConfig.requiredSolvedToUnlock ?? PRACTICE_CONFIG.practiceUnlockThreshold;
     if (!isAdmin && modIdx > 0) {
       const prevMod = practiceModules[modIdx - 1];
       const prevProblems = allPracticeProblems.filter((p) => p.moduleSlug === prevMod.slug);
@@ -1763,7 +1777,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       ).length;
       if (prevSolved < threshold) {
         const err = new Error(
-          `Solve at least ${threshold} questions in ${prevMod.title} to unlock this module.`
+          getModuleRequirementText(prevMod.title, threshold, prevSolved, prevProblems.length)
         ) as Error & { status?: number; code?: string };
         err.status = 403;
         err.code = 'MODULE_LOCKED';

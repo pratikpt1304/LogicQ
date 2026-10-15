@@ -33,6 +33,7 @@ model User {
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
   prnChangedAt         DateTime?      // Last student PRN change timestamp (cooldown gate)
+  storagePreference    String?        @default("FIRESTORE_FALLBACK")
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 

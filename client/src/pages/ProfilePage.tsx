@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -21,6 +22,8 @@ import {
   generateShortId,
 } from '../config/academic.config.js';
 import { toast } from 'sonner';
+import { VerdictBadge } from '../components/common/Badge.js';
+import { GoogleDriveService } from '../services/googleDrive.service.js';
 import {
   Flame,
   Building2,
@@ -36,6 +39,17 @@ import {
   AlertCircle,
   CheckCircle2,
   KeyRound,
+  Trophy,
+  Target,
+  Code2,
+  Copy,
+  Check,
+  Eye,
+  TrendingUp,
+  HelpCircle,
+  Folder,
+  Loader2,
+  Cloud,
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
@@ -55,12 +69,15 @@ export const ProfilePage: React.FC = () => {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [isDriveBackingUp, setIsDriveBackingUp] = useState(false);
+  const [profileWorkspaceBlockMsg, setProfileWorkspaceBlockMsg] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     displayName: '',
     department: '',
     year: '',
     division: '',
     bio: '',
+    storagePreference: 'FIRESTORE_FALLBACK',
   });
 
   // PRN Change Modal State
@@ -72,15 +89,21 @@ export const ProfilePage: React.FC = () => {
   });
   const [prnError, setPrnError] = useState<string | null>(null);
 
+  const [viewCodeSubmission, setViewCodeSubmission] = useState<any | null>(null);
+  const [hasCopiedCode, setHasCopiedCode] = useState(false);
+  const [hoveredTrendDay, setHoveredTrendDay] = useState<{ date: string; rank: number | null; points: number } | null>(null);
+
   // Modal accessibility: lock body scroll and bind Escape key
   useEffect(() => {
-    if (!isEditOpen && !isPrnModalOpen) return;
+    if (!isEditOpen && !isPrnModalOpen && !viewCodeSubmission) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (isPrnModalOpen) {
+        if (viewCodeSubmission) {
+          setViewCodeSubmission(null);
+        } else if (isPrnModalOpen) {
           setIsPrnModalOpen(false);
         } else {
           setIsEditOpen(false);
@@ -93,11 +116,23 @@ export const ProfilePage: React.FC = () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isEditOpen, isPrnModalOpen]);
+  }, [isEditOpen, isPrnModalOpen, viewCodeSubmission]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['profile', targetIdentifier],
-    queryFn: () => api.get(`/users/profile/${targetIdentifier}`),
+    queryFn: async () => {
+      try {
+        return await api.get(`/users/profile/${targetIdentifier}`);
+      } catch (err) {
+        if (isOwnProfile && currentUser?.id) {
+          const fsUser = await FirestoreDataService.getUserProfile(currentUser.id);
+          if (fsUser) {
+            return { success: true, data: { user: fsUser } };
+          }
+        }
+        throw err;
+      }
+    },
     enabled: !!targetIdentifier,
   });
 
@@ -140,12 +175,14 @@ export const ProfilePage: React.FC = () => {
   const handleOpenEdit = () => {
     if (profile) {
       setEditError(null);
+      setProfileWorkspaceBlockMsg(null);
       setEditForm({
         displayName: profile.displayName || '',
         department: profile.department || ALLOWED_DEPARTMENTS[0],
         year: profile.year || ALLOWED_YEARS[0],
         division: profile.division || '',
         bio: profile.bio || '',
+        storagePreference: profile.storagePreference || 'FIRESTORE_FALLBACK',
       });
       setIsEditOpen(true);
     }
@@ -182,7 +219,53 @@ export const ProfilePage: React.FC = () => {
       year: editForm.year,
       division: trimmedDiv || null,
       bio: editForm.bio.trim() || null,
+      storagePreference: editForm.storagePreference,
     });
+  };
+
+  const handleBackupToGoogleDrive = async () => {
+    setProfileWorkspaceBlockMsg(null);
+    setIsDriveBackingUp(true);
+    try {
+      const authResult = await GoogleDriveService.requestAccessToken();
+      if (!authResult.success) {
+        if (authResult.error === 'COLLEGE_WORKSPACE_BLOCKED') {
+          const msg =
+            'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.';
+          setProfileWorkspaceBlockMsg(msg);
+          toast.error(msg);
+        } else if (authResult.error === 'USER_CANCELLED') {
+          toast.info('Google Drive authorization was cancelled.');
+        } else {
+          toast.error(authResult.message || 'Could not connect Google Drive.');
+        }
+        return;
+      }
+
+      toast.loading('Exporting history to Google Drive...', { id: 'profile-drive-export' });
+      const exportRes = await api.get('/users/me/export');
+      const backupResult = await GoogleDriveService.backupHistoryToDrive(
+        authResult.accessToken!,
+        exportRes.data,
+        currentUser?.id || 'anonymous'
+      );
+
+      if (!backupResult.success) {
+        toast.error(backupResult.message || 'Failed to upload backup to Drive.', { id: 'profile-drive-export' });
+        return;
+      }
+
+      await api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' });
+      if (refreshUser) {
+        await refreshUser();
+      }
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('History backed up to Google Drive successfully!', { id: 'profile-drive-export' });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to backup to Google Drive', { id: 'profile-drive-export' });
+    } finally {
+      setIsDriveBackingUp(false);
+    }
   };
 
   const handleExportData = async () => {
@@ -221,19 +304,42 @@ export const ProfilePage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="py-20 text-center font-mono text-[#8B9BFF] text-sm">
-        Loading challenger profile...
+      <div data-testid="profile-loading-skeleton" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-pulse font-mono">
+        <div className="h-40 bg-[#141932] border border-[#252C4F] rounded-2xl mb-8"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="h-28 bg-[#141932] border border-[#252C4F] rounded-2xl"></div>
+          <div className="h-28 bg-[#141932] border border-[#252C4F] rounded-2xl"></div>
+          <div className="h-28 bg-[#141932] border border-[#252C4F] rounded-2xl"></div>
+          <div className="h-28 bg-[#141932] border border-[#252C4F] rounded-2xl"></div>
+        </div>
       </div>
     );
   }
 
-  if (!profile) {
+  if (error || !profile) {
     return (
-      <div className="max-w-4xl mx-auto py-20 text-center font-mono space-y-4">
-        <h2 className="text-xl font-bold text-[#E8EAF6]">Challenger not found</h2>
-        <Link to="/leaderboard" className="text-[#8B9BFF] underline">
-          &larr; View competitive leaderboard
-        </Link>
+      <div data-testid="profile-error-boundary" className="max-w-4xl mx-auto py-20 px-4 text-center font-mono space-y-4">
+        <h2 className="text-xl font-bold text-[#E8EAF6]">
+          {error ? 'Failed to load challenger profile' : 'Challenger not found'}
+        </h2>
+        {error && (
+          <p className="text-xs text-rose-400 font-mono">
+            {(error as any)?.message || 'Please check your connection and try again.'}
+          </p>
+        )}
+        <div className="flex items-center justify-center gap-3 pt-2">
+          {error && (
+            <button
+              onClick={() => refetch()}
+              className="px-5 py-2.5 rounded-xl font-bold bg-[#8B9BFF] text-[#0C0F1F] text-xs hover:opacity-95"
+            >
+              Retry Connection
+            </button>
+          )}
+          <Link to="/leaderboard" className="text-xs text-[#8B9BFF] underline py-2.5">
+            &larr; View competitive leaderboard
+          </Link>
+        </div>
       </div>
     );
   }
@@ -343,6 +449,21 @@ export const ProfilePage: React.FC = () => {
               </button>
               <button
                 type="button"
+                onClick={handleBackupToGoogleDrive}
+                disabled={isDriveBackingUp}
+                data-testid="drive-backup-btn"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#8B9BFF] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors disabled:opacity-50"
+                title="Back up history to personal Google Drive"
+              >
+                {isDriveBackingUp ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Folder className="w-3.5 h-3.5" />
+                )}
+                <span>Drive Backup</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleDeleteAccount}
                 data-testid="delete-account-btn"
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#FF7A8A] bg-[#FF7A8A]/10 hover:bg-[#FF7A8A]/20 border border-[#FF7A8A]/30 transition-colors"
@@ -355,7 +476,7 @@ export const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* Primary Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
           <span className="text-xs font-mono text-[#9AA1C4] block mb-1">TOTAL SCORE</span>
@@ -387,59 +508,427 @@ export const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Two Column: Solved Breakdown & Streak / Standing Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-          <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
-            Solved by Difficulty
-          </h2>
-
-          <div className="grid grid-cols-3 gap-3 pt-2 text-center">
-            <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#46D9A0]/30">
-              <span className="text-xs font-mono text-[#46D9A0] font-bold block mb-1">EASY</span>
-              <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-                {solvedByDiff.EASY ?? solvedByDiff.easy ?? 0}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#8B9BFF]/30">
-              <span className="text-xs font-mono text-[#8B9BFF] font-bold block mb-1">MEDIUM</span>
-              <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-                {solvedByDiff.MEDIUM ?? solvedByDiff.medium ?? 0}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#FF7A8A]/30">
-              <span className="text-xs font-mono text-[#FF7A8A] font-bold block mb-1">HARD</span>
-              <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-                {solvedByDiff.HARD ?? solvedByDiff.hard ?? 0}
-              </span>
-            </div>
+      {/* Secondary Standing & Mastery Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div data-testid="profile-best-daily-rank" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[#9AA1C4]">BEST DAILY RANK</span>
+            <Trophy className="w-5 h-5 text-[var(--color-warning)]" />
           </div>
+          <div className="text-2xl font-extrabold text-[#E8EAF6] font-mono">
+            {profile.bestDailyRank ? `#${profile.bestDailyRank}` : (profile.rank ? `#${profile.rank}` : '—')}
+          </div>
+          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
+            Personal record across daily challenge finalizations
+          </p>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-          <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center justify-between">
-            <span>Streak &amp; Cohort Standing</span>
-            <span className="text-xs text-[#46D9A0] font-normal">
-              {profile.rank ? `Rank #${profile.rank}` : 'Not ranked yet'}
-            </span>
-          </h2>
+        <div data-testid="profile-accuracy-rate" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[#9AA1C4]">ACCURACY RATE</span>
+            <Target className="w-5 h-5 text-[#8B9BFF]" />
+          </div>
+          <div className="text-2xl font-extrabold text-[#8B9BFF] font-mono">
+            {profile.accuracy !== null && profile.accuracy !== undefined ? (
+              <>
+                {profile.accuracy}%
+                <span className="text-xs text-[#9AA1C4] font-normal ml-1">accepted</span>
+              </>
+            ) : (
+              <span className="text-[#9AA1C4]">—</span>
+            )}
+          </div>
+          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
+            {profile.accuracy !== null ? 'Evaluated accepted solve rate' : 'No submissions recorded yet'}
+          </p>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2 text-xs font-mono">
-            <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]">
-              <span className="text-[#9AA1C4] block mb-1">STREAK FREEZE</span>
-              <span className="text-sm font-bold text-[#46D9A0]">1 Auto Freeze / 7 Days</span>
-            </div>
-            <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]">
-              <span className="text-[#9AA1C4] block mb-1">RECENT SUBMISSIONS</span>
-              <span className="text-sm font-bold text-[#E8EAF6]">
-                {profile.recentSubmissions?.length || 0} Recorded
-              </span>
-            </div>
+        <div data-testid="profile-streak-freeze" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-mono text-[#9AA1C4]">STREAK FREEZE</span>
+            <ShieldCheck className="w-5 h-5 text-[#46D9A0]" />
+          </div>
+          <div className="text-xl font-extrabold text-[#46D9A0] font-mono">
+            {profile.streakFreezeStatus || '1 Auto Freeze / 7 Days'}
+          </div>
+          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
+            Automatic protection for 1 missed challenge day per 7-day rolling window
+          </p>
+        </div>
+      </div>
+
+      {/* Solved by Difficulty Breakdown */}
+      <div className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
+        <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
+          Solved by Difficulty
+        </h2>
+
+        <div className="grid grid-cols-3 gap-3 pt-2 text-center">
+          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#46D9A0]/30">
+            <span className="text-xs font-mono text-[#46D9A0] font-bold block mb-1">EASY</span>
+            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
+              {solvedByDiff.EASY ?? solvedByDiff.easy ?? 0}
+            </span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#8B9BFF]/30">
+            <span className="text-xs font-mono text-[#8B9BFF] font-bold block mb-1">MEDIUM</span>
+            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
+              {solvedByDiff.MEDIUM ?? solvedByDiff.medium ?? 0}
+            </span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#FF7A8A]/30">
+            <span className="text-xs font-mono text-[#FF7A8A] font-bold block mb-1">HARD</span>
+            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
+              {solvedByDiff.HARD ?? solvedByDiff.hard ?? 0}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* Student Charts Section: 90-Day Challenge Streak Heatmap & 30-Day Daily Rank Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart A: Challenge Streak Heatmap (90 Days) */}
+        <div data-testid="profile-streak-heatmap" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#8B9BFF]" />
+                <span>Challenge Streak Heatmap</span>
+              </h3>
+              <p className="text-[11px] font-mono text-[#9AA1C4] mt-0.5">
+                Past 90 challenge days cadence
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-[#46D9A0] font-semibold">90 Days</span>
+          </div>
+
+          {/* 90-Day Grid */}
+          <div className="py-2 overflow-x-auto">
+            {(() => {
+              const heatmapList = profile.streakHeatmap90d && profile.streakHeatmap90d.length > 0
+                ? profile.streakHeatmap90d
+                : Array.from({ length: 90 }, (_, i) => {
+                    const d = new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10);
+                    return { date: d, status: 'missed', points: 0 };
+                  });
+
+              return (
+                <div className="grid grid-flow-col grid-rows-7 gap-1.5 min-w-[500px] py-1">
+                  {heatmapList.map((day: any) => {
+                    let tileClass = 'bg-[#0C0F1F] border-[#252C4F]/60';
+                    let label = `${day.date}: Missed`;
+                    if (day.status === 'solved') {
+                      tileClass = 'bg-emerald-500 border-emerald-400 shadow-sm shadow-emerald-500/30';
+                      label = `${day.date}: Solved (+${day.points || 20} PTS)`;
+                    } else if (day.status === 'frozen') {
+                      tileClass = 'bg-cyan-400 border-cyan-300 shadow-sm shadow-cyan-400/30';
+                      label = `${day.date}: Streak Freeze Used`;
+                    } else if (day.status === 'paused') {
+                      tileClass = 'bg-amber-400 border-amber-300 shadow-sm shadow-amber-400/30';
+                      label = `${day.date}: Admin Paused Day`;
+                    }
+
+                    return (
+                      <div
+                        key={day.date}
+                        title={label}
+                        className={`w-3.5 h-3.5 rounded-sm border ${tileClass} transition-transform hover:scale-125 cursor-pointer`}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 border border-emerald-400" />
+              <span>Solved</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-cyan-400 border border-cyan-300" />
+              <span>Streak Freeze</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-300" />
+              <span>Admin Paused</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#0C0F1F] border border-[#252C4F]" />
+              <span>Missed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart B: Daily Rank Trend (30 Days) */}
+        <div data-testid="profile-rank-trend-chart" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#46D9A0]" />
+                <span>Daily Rank Trend</span>
+              </h3>
+              <p className="text-[11px] font-mono text-[#9AA1C4] mt-0.5">
+                Trajectory over the last 30 challenge days (#1 at top)
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-[#8B9BFF] font-semibold">30 Days</span>
+          </div>
+
+          {/* SVG Trend Line */}
+          {(() => {
+            const raw30 = profile.rankHistory30d && profile.rankHistory30d.length > 0
+              ? profile.rankHistory30d
+              : Array.from({ length: 30 }, (_, i) => {
+                  const d = new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10);
+                  return { date: d, rank: null, points: 0 };
+                });
+
+            const pointsCoords = raw30.map((entry: any, idx: number) => {
+              const x = 35 + (idx * (550 / 29));
+              let y = 135; // unranked baseline
+              if (entry.rank !== null && entry.rank > 0) {
+                const clampedRank = Math.min(25, entry.rank);
+                y = 20 + ((clampedRank - 1) / 24) * 95;
+              }
+              return { ...entry, x, y };
+            });
+
+            const pathD = pointsCoords
+              .map((p: any, idx: number) => (idx === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
+              .join(' ');
+
+            const areaD = `${pathD} L ${pointsCoords[pointsCoords.length - 1].x} 140 L ${pointsCoords[0].x} 140 Z`;
+
+            return (
+              <div className="relative pt-1">
+                {hoveredTrendDay && (
+                  <div className="absolute top-0 right-0 bg-[#0C0F1F] border border-[#252C4F] px-2.5 py-1 rounded-lg text-[11px] font-mono text-[#E8EAF6] shadow-lg pointer-events-none z-10">
+                    <span className="text-[#8B9BFF] font-bold">{hoveredTrendDay.date}</span>: {hoveredTrendDay.rank ? `Rank #${hoveredTrendDay.rank}` : 'Unranked'} ({hoveredTrendDay.points ? `+${hoveredTrendDay.points} PTS` : '0 PTS'})
+                  </div>
+                )}
+                <svg viewBox="0 0 600 150" className="w-full h-36 overflow-visible">
+                  <defs>
+                    <linearGradient id="rankTrendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8B9BFF" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#8B9BFF" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal Guide Lines */}
+                  <line x1="30" y1="20" x2="590" y2="20" stroke="#252C4F" strokeDasharray="3 3" />
+                  <text x="25" y="24" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#1</text>
+
+                  <line x1="30" y1="67" x2="590" y2="67" stroke="#252C4F" strokeDasharray="3 3" />
+                  <text x="25" y="71" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#10</text>
+
+                  <line x1="30" y1="115" x2="590" y2="115" stroke="#252C4F" strokeDasharray="3 3" />
+                  <text x="25" y="119" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#25</text>
+
+                  <line x1="30" y1="135" x2="590" y2="135" stroke="#252C4F" strokeWidth="1" />
+                  <text x="25" y="138" fill="#9AA1C4" fontSize="8" textAnchor="end" fontFamily="monospace">—</text>
+
+                  {/* Gradient Area */}
+                  <path d={areaD} fill="url(#rankTrendGrad)" />
+
+                  {/* Trend Polyline */}
+                  <path d={pathD} fill="none" stroke="#8B9BFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                  {/* Nodes */}
+                  {pointsCoords.map((p: any, idx: number) => {
+                    const isRanked = p.rank !== null && p.rank > 0;
+                    return (
+                      <circle
+                        key={idx}
+                        cx={p.x}
+                        cy={p.y}
+                        r={isRanked ? 4 : 2.5}
+                        fill={isRanked ? '#46D9A0' : '#252C4F'}
+                        stroke={isRanked ? '#0C0F1F' : '#9AA1C4'}
+                        strokeWidth="1.5"
+                        className="cursor-pointer transition-all hover:r-6"
+                        onMouseEnter={() => setHoveredTrendDay(p)}
+                        onMouseLeave={() => setHoveredTrendDay(null)}
+                      />
+                    );
+                  })}
+                </svg>
+
+                <div className="flex justify-between text-[10px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]">
+                  <span>30 days ago</span>
+                  <span>15 days ago</span>
+                  <span>Today</span>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Real Recent Submissions Table & Code Modal */}
+      <div data-testid="profile-recent-submissions-card" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
+              <Code2 className="w-4 h-4 text-[#8B9BFF]" />
+              <span>Recent Submissions</span>
+            </h2>
+            <p className="text-xs font-mono text-[#9AA1C4] mt-0.5">
+              Verified problem-solving evaluations and submitted code
+            </p>
+          </div>
+          <span className="text-xs font-mono text-[#9AA1C4]">
+            {profile.recentSubmissions?.length || 0} Evaluated
+          </span>
+        </div>
+
+        {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
+          <div className="text-center py-10 font-mono text-xs text-[#9AA1C4] space-y-2 border border-dashed border-[#252C4F] rounded-xl p-6">
+            <p>No evaluated submissions recorded yet.</p>
+            <p className="text-[#8B9BFF]">
+              Solve today&apos;s daily challenge or practice problems to establish your personal code record!
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="text-[#9AA1C4] uppercase text-[10px] tracking-wider border-b border-[#252C4F]">
+                <tr>
+                  <th className="pb-3">Challenge Title</th>
+                  <th className="pb-3">Verdict</th>
+                  <th className="pb-3">Points</th>
+                  <th className="pb-3">Runtime</th>
+                  <th className="pb-3">Submitted</th>
+                  <th className="pb-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#252C4F]">
+                {profile.recentSubmissions.map((sub: any) => (
+                  <tr key={sub.id} className="hover:bg-[#0C0F1F]/40 transition-colors">
+                    <td className="py-3 font-semibold text-[#E8EAF6]">
+                      {sub.problem?.title || 'Daily Challenge'}
+                    </td>
+                    <td className="py-3">
+                      <VerdictBadge verdict={sub.verdict} size="sm" />
+                    </td>
+                    <td className="py-3 text-[#46D9A0] font-bold">
+                      +{sub.pointsAwarded || 0} PTS
+                    </td>
+                    <td className="py-3 text-[#9AA1C4]">
+                      {sub.runtimeMs ? `${sub.runtimeMs}ms` : '—'}
+                    </td>
+                    <td className="py-3 text-[#9AA1C4]">
+                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}
+                    </td>
+                    <td className="py-3 text-right">
+                      {sub.code ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewCodeSubmission(sub);
+                            setHasCopiedCode(false);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] text-[#8B9BFF] hover:text-[#E8EAF6] text-xs font-mono font-semibold transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Code</span>
+                        </button>
+                      ) : (
+                        <span className="text-[#9AA1C4] text-[11px]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* View Submitted Code Modal */}
+      {viewCodeSubmission && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="view-code-modal-title"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md"
+        >
+          <div className="w-full max-w-2xl glass-card rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#252C4F] bg-[#141932] shrink-0">
+              <div className="space-y-0.5">
+                <h3 id="view-code-modal-title" className="text-base font-bold text-[#E8EAF6] flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-[#8B9BFF]" />
+                  <span>{viewCodeSubmission.problem?.title || 'Daily Challenge'} Solution</span>
+                </h3>
+                <p className="text-xs font-mono text-[#9AA1C4]">
+                  Submitted on {new Date(viewCodeSubmission.createdAt).toLocaleString()} • {viewCodeSubmission.pointsAwarded || 0} PTS
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setViewCodeSubmission(null)}
+                aria-label="Close code modal"
+                className="p-1.5 text-[#9AA1C4] hover:text-[#E8EAF6] rounded-lg hover:bg-[#252C4F]/50 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Code Body */}
+            <div className="p-5 overflow-y-auto space-y-3 flex-1 bg-[#0C0F1F]">
+              <div className="flex items-center justify-between text-xs font-mono text-[#9AA1C4]">
+                <div className="flex items-center gap-2">
+                  <VerdictBadge verdict={viewCodeSubmission.verdict} size="sm" />
+                  <span>Language: C (C11)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(viewCodeSubmission.code || '');
+                    setHasCopiedCode(true);
+                    toast.success('Code copied to clipboard');
+                    setTimeout(() => setHasCopiedCode(false), 2000);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#141932] hover:bg-[#252C4F] border border-[#252C4F] text-xs font-mono text-[#E8EAF6] transition-colors"
+                >
+                  {hasCopiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-[#46D9A0]" />
+                      <span className="text-[#46D9A0]">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Code</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <pre className="p-4 rounded-xl bg-[#090C18] border border-[#252C4F] overflow-x-auto text-xs font-mono text-[#E8EAF6] leading-relaxed">
+                <code>{viewCodeSubmission.code}</code>
+              </pre>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-[#252C4F] bg-[#141932] flex items-center justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewCodeSubmission(null)}
+                className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] transition-colors"
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Profile Settings Modal */}
       {isEditOpen && (
@@ -643,6 +1132,83 @@ export const ProfilePage: React.FC = () => {
                     placeholder="Tell fellow competitors about your C programming journey..."
                     className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] resize-none font-sans"
                   />
+                </div>
+
+                {/* Storage & Google Drive Backup Preference */}
+                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[#E8EAF6] font-bold">
+                      <Folder className="w-4 h-4 text-[#8B9BFF]" />
+                      <span>STORAGE &amp; DRIVE BACKUP PREFERENCE</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20">
+                      OPTIONAL
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#9AA1C4] leading-relaxed">
+                    All LogicQ features function 100% with secure cloud storage. Connecting Google Drive creates an optional backup copy of your solved code in a visible <code className="text-[#8B9BFF]">LogicQ/</code> folder in your personal Drive.
+                  </p>
+
+                  {profileWorkspaceBlockMsg && (
+                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{profileWorkspaceBlockMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="storagePreference"
+                        value="FIRESTORE_FALLBACK"
+                        checked={editForm.storagePreference !== 'GOOGLE_DRIVE'}
+                        onChange={() => setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' })}
+                        className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"
+                      />
+                      <div>
+                        <span className="text-xs text-[#E8EAF6] font-semibold block">
+                          LogicQ Secure Cloud Vault (Default)
+                        </span>
+                        <span className="text-[11px] text-[#9AA1C4] block">
+                          Fastest, zero-setup storage managed securely by the platform.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="storagePreference"
+                        value="GOOGLE_DRIVE"
+                        checked={editForm.storagePreference === 'GOOGLE_DRIVE'}
+                        onChange={async () => {
+                          setProfileWorkspaceBlockMsg(null);
+                          const auth = await GoogleDriveService.requestAccessToken();
+                          if (auth.success) {
+                            setEditForm({ ...editForm, storagePreference: 'GOOGLE_DRIVE' });
+                            toast.success('Connected Google Drive!');
+                          } else if (auth.error === 'COLLEGE_WORKSPACE_BLOCKED') {
+                            setProfileWorkspaceBlockMsg(
+                              'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
+                            );
+                            setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' });
+                          } else {
+                            setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' });
+                          }
+                        }}
+                        className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"
+                      />
+                      <div>
+                        <span className="text-xs text-[#E8EAF6] font-semibold block">
+                          Google Drive Personal Workspace
+                        </span>
+                        <span className="text-[11px] text-[#9AA1C4] block">
+                          Exports and syncs backup snapshots to your Google Drive.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               </div>
 

@@ -108,6 +108,10 @@ const updateProfileSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal('')),
+  storagePreference: z
+    .enum(['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'])
+    .optional()
+    .nullable(),
 });
 
 export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -226,6 +230,67 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           })
         : undefined;
 
+    const totalSubmissionsCount = await prisma.submission.count({ where: { userId: user.id } });
+    const accuracy = totalSubmissionsCount > 0
+      ? Math.round((acceptedSubmissions.length / totalSubmissionsCount) * 100)
+      : null;
+
+    const now = getServerNow();
+    const activeDay = getChallengeDayIST(now);
+
+    // Compute 90-day streak heatmap (solved, missed, frozen, paused)
+    const streakHeatmap90d: Array<{ date: string; status: 'solved' | 'missed' | 'frozen' | 'paused'; points: number }> = [];
+    for (let i = 89; i >= 0; i--) {
+      const dayStr = addDaysIST(activeDay, -i);
+      const summary = getStudentDailySummary(user.id, dayStr);
+      let status: 'solved' | 'missed' | 'frozen' | 'paused' = 'missed';
+      let points = 0;
+      if (summary && summary.verdict === 'ACCEPTED') {
+        status = 'solved';
+        points = summary.points || 20;
+      } else if (heatmap[dayStr] && heatmap[dayStr] > 0) {
+        const solvedOnDay = allYearSubmissions.some((sub) => {
+          const d = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(sub.createdAt);
+          return d === dayStr && sub.verdict === 'ACCEPTED';
+        });
+        if (solvedOnDay) {
+          status = 'solved';
+          points = 20;
+        }
+      }
+      streakHeatmap90d.push({ date: dayStr, status, points });
+    }
+
+    // Compute 30-day daily rank trend
+    const rankHistory30d: Array<{ date: string; rank: number | null; points: number }> = [];
+    let bestDailyRank: number | null = null;
+    for (let i = 29; i >= 0; i--) {
+      const dayStr = addDaysIST(activeDay, -i);
+      const summary = getStudentDailySummary(user.id, dayStr);
+      const rankVal = summary?.dailyRank || null;
+      const pointsVal = summary?.points || 0;
+      if (rankVal !== null) {
+        if (bestDailyRank === null || rankVal < bestDailyRank) {
+          bestDailyRank = rankVal;
+        }
+      }
+      rankHistory30d.push({ date: dayStr, rank: rankVal, points: pointsVal });
+    }
+
+    const todayBoard = await computeDailyBoardForDay(activeDay);
+    const todayRankEntry = todayBoard.rankedList.find((e) => e.userId === user.id);
+    const dailyRank = todayRankEntry ? todayRankEntry.rank : null;
+    const finalRank = dailyRank || rank;
+
+    if (bestDailyRank === null && (user.totalPoints > 0 || finalRank !== null)) {
+      bestDailyRank = finalRank;
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -258,7 +323,10 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           totalPoints: user.totalPoints,
           currentStreak: user.currentStreak,
           longestStreak: user.longestStreak,
-          rank,
+          streakFreezeStatus: '1 Auto Freeze / 7 Days',
+          bestDailyRank,
+          accuracy,
+          rank: finalRank,
           createdAt: user.createdAt,
           totalSolved: uniqueSolvedMap.size,
           solvedByDifficulty: {
@@ -276,15 +344,23 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
             : {}),
           recentSubmissions: user.submissions.map((s) => ({
             id: s.id,
-            problem: s.problem,
+            problem: {
+              id: s.problem.id,
+              title: s.problem.title,
+              slug: s.problem.slug,
+              difficulty: s.problem.difficulty,
+            },
             verdict: s.verdict,
             runtimeMs: s.runtimeMs,
             memoryKb: s.memoryKb,
             language: s.language,
             pointsAwarded: s.pointsAwarded,
             createdAt: s.createdAt,
+            code: isOwner || isAdmin ? s.code : undefined,
           })),
           heatmap,
+          streakHeatmap90d,
+          rankHistory30d,
         },
       },
     });
@@ -338,6 +414,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     }
     if (parsed.data.bio !== undefined) updateData.bio = parsed.data.bio;
     if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl || null;
+    if (parsed.data.storagePreference !== undefined) updateData.storagePreference = parsed.data.storagePreference;
 
     const updated = await prisma.user.update({
       where: { id: req.user.userId },
@@ -1073,6 +1150,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
           currentStreak: user.currentStreak,
           longestStreak: user.longestStreak,
           lastSolvedDate: user.lastSolvedDate,
+          streakFreezeStatus: '1 Auto Freeze / 7 Days',
           rank: dailyRank || rank,
           dailyRank,
           pointsToday,

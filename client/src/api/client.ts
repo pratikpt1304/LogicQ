@@ -1,6 +1,6 @@
 import { handleFallbackRequest } from './fallbackEngine.js';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
 const TOKEN_STORAGE_KEY = 'logicq_access_token';
 
 interface RequestOptions extends RequestInit {
@@ -44,9 +44,12 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     useFallback = true;
   }
 
-  // Code execution (/submissions/run and /submissions/submit) NEVER uses mock fallback in production
-  // and handleFallbackRequest fails closed on those endpoints.
+  // Primary student data (auth, submissions, practice progress, profile) must never silently decay
+  // into browser localStorage fallback in production.
   if (useFallback || !response) {
+    if (import.meta.env.PROD && (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/submissions'))) {
+      throw new Error('LogicQ server connection unavailable. Please check your network connection.');
+    }
     return (await handleFallbackRequest(cleanEndpoint, options)) as T;
   }
 

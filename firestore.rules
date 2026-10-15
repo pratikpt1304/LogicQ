@@ -123,6 +123,13 @@ rules_version = '2';
 //   - standings: list (required)
 //   - createdAt: timestamp (required)
 //
+// Collection: session_events/{eventId} & users/{userId}/session_events/{eventId} (Session Lifecycle & Audit Ledger)
+// Document ID: Unique session event identifier (UUID or timestamp-keyed)
+// Fields:
+//   - userId: string (required, immutable) - Firebase Auth UID
+//   - reason: string (required, enum) - 'manual' | 'idle-timeout' | 'token-refresh-failed' | 'revoked-by-user' | 'revoked-by-admin' | 'role-changed' | 'banned' | 'app-check-failed' | 'unusual-login-flag' | 'multi-tab-sync' | 'service-worker-update' | 'unknown'
+//   - timestamp: timestamp (optional)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -238,6 +245,15 @@ service cloud.firestore {
       match /practice_progress/{progressId} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if false;
+      }
+
+      // Session events audit subcollection
+      match /session_events/{eventId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];
+        allow update, delete: if false;
       }
 
       // Badges subcollections are disabled (FEATURE_BADGES=false) and strictly denied
@@ -472,6 +488,22 @@ service cloud.firestore {
       // and readable only by Admins.
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 5.1 SESSION EVENTS (LIFECYCLE AUDIT & SECURITY TELEMETRY)
+    // -------------------------------------------------------------------------
+    match /session_events/{eventId} {
+      // Readable strictly by the account owner and admins:
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Create allowed by the authenticated owner:
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];
+
+      // Immutable once written:
+      allow update, delete: if false;
     }
 
     // -------------------------------------------------------------------------

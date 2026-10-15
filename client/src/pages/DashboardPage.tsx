@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
+import { GoogleDriveService } from '../services/googleDrive.service.js';
+import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { toast } from 'sonner';
 import {
   Flame,
   Trophy,
@@ -16,17 +19,41 @@ import {
   Zap,
   BookOpen,
   HelpCircle,
+  Folder,
+  Loader2,
+  X,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const [isDriveConnecting, setIsDriveConnecting] = useState(false);
+  const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
+  const [isDriveCardDismissed, setIsDriveCardDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('logicq_drive_backup_card_dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
-  const { data: dailyData } = useQuery({
+  const {
+    data: dailyData,
+    isLoading: isDailyLoading,
+    error: dailyError,
+    refetch: refetchDaily,
+  } = useQuery({
     queryKey: ['daily-challenge'],
     queryFn: () => api.get('/problems/daily'),
   });
 
-  const { data: statsData } = useQuery({
+  const {
+    data: statsData,
+    isLoading: isStatsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => api.get('/users/dashboard/stats'),
   });
@@ -37,38 +64,105 @@ export const DashboardPage: React.FC = () => {
 
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
-  const recentSubmissions = statsData?.data?.recentSubmissions || [];
-  const activityMap = statsData?.data?.activityMap || {};
 
-  // Generate 90-day heatmap grid
-  const renderHeatmap = () => {
-    const days: Array<{ date: string; count: number }> = [];
-    const now = new Date();
-    for (let i = 83; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const str = d.toISOString().split('T')[0];
-      days.push({ date: str, count: activityMap[str] || 0 });
+  const hasSolvedFirstChallenge = Boolean(
+    (stats?.problemsSolved && stats.problemsSolved >= 1) ||
+      isDailySolved ||
+      (user?.totalPoints && user.totalPoints > 0)
+  );
+
+  const showDrivePromptCard =
+    hasSolvedFirstChallenge &&
+    !isDriveCardDismissed &&
+    user?.storagePreference !== 'GOOGLE_DRIVE';
+
+  const handleDismissDriveCard = () => {
+    try {
+      localStorage.setItem('logicq_drive_backup_card_dismissed', 'true');
+    } catch {
+      // Ignore
     }
+    setIsDriveCardDismissed(true);
+  };
 
-    return (
-      <div className="grid grid-flow-col grid-rows-7 gap-1.5 overflow-x-auto py-2">
-        {days.map((day) => {
-          let bg = 'bg-[var(--bg-surface)] border-[var(--border-line)]';
-          if (day.count === 1) bg = 'bg-cyan-500/40 border-cyan-500/50';
-          else if (day.count === 2) bg = 'bg-cyan-400 border-cyan-400';
-          else if (day.count >= 3) bg = 'bg-emerald-400 border-emerald-400 shadow-sm shadow-emerald-400/50';
-
-          return (
-            <div
-              key={day.date}
-              title={`${day.date}: ${day.count} submissions`}
-              className={`w-3.5 h-3.5 rounded-sm border ${bg} transition-colors cursor-pointer`}
-            />
+  const handleConnectDrive = async () => {
+    setWorkspaceBlockMessage(null);
+    setIsDriveConnecting(true);
+    try {
+      const authResult = await GoogleDriveService.requestAccessToken();
+      if (!authResult.success) {
+        if (authResult.error === 'COLLEGE_WORKSPACE_BLOCKED') {
+          setWorkspaceBlockMessage(
+            'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
           );
-        })}
+        } else if (authResult.error === 'USER_CANCELLED') {
+          toast.info('Google Drive authorization was cancelled.');
+        } else {
+          toast.error(authResult.message || 'Could not connect Google Drive.');
+        }
+        return;
+      }
+
+      toast.loading('Exporting history to Google Drive...', { id: 'drive-export' });
+      const exportRes = await api.get('/users/me/export');
+      const backupResult = await GoogleDriveService.backupHistoryToDrive(
+        authResult.accessToken!,
+        exportRes.data,
+        user?.id || 'anonymous'
+      );
+
+      if (!backupResult.success) {
+        toast.error(backupResult.message || 'Failed to upload backup to Drive.', { id: 'drive-export' });
+        return;
+      }
+
+      await api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' });
+      if (refreshUser) {
+        await refreshUser();
+      }
+
+      toast.success('Your challenge history has been backed up to your Google Drive!', { id: 'drive-export' });
+      handleDismissDriveCard();
+    } catch (err: any) {
+      toast.error(err?.message || 'Error connecting to Google Drive.', { id: 'drive-export' });
+    } finally {
+      setIsDriveConnecting(false);
+    }
+  };
+
+  if (isDailyLoading && isStatsLoading) {
+    return (
+      <div data-testid="dashboard-loading-skeleton" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-pulse font-mono">
+        <div className="h-8 bg-[var(--bg-surface)] rounded w-1/3 mb-4"></div>
+        <div className="h-44 bg-[var(--bg-surface)] rounded-2xl mb-8"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="h-28 bg-[var(--bg-surface)] rounded-2xl"></div>
+          <div className="h-28 bg-[var(--bg-surface)] rounded-2xl"></div>
+          <div className="h-28 bg-[var(--bg-surface)] rounded-2xl"></div>
+          <div className="h-28 bg-[var(--bg-surface)] rounded-2xl"></div>
+        </div>
       </div>
     );
-  };
+  }
+
+  if (dailyError && statsError) {
+    return (
+      <div data-testid="dashboard-error-boundary" className="max-w-2xl mx-auto py-20 px-4 text-center font-mono space-y-4">
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
+          Failed to load dashboard data. Please check your network connection.
+        </div>
+        <button
+          onClick={() => {
+            refetchDaily();
+            refetchStats();
+          }}
+          className="px-5 py-2.5 rounded-xl font-bold bg-[var(--color-accent)] text-[#0C0F1F] text-xs hover:opacity-95"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -195,6 +289,97 @@ export const DashboardPage: React.FC = () => {
                 <span>{isDailySolved ? 'Review Workspace' : 'Solve Daily Challenge'}</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional Google Drive Backup Prompt Card (One-Time, Dismissible, Shown Only After First Solve) */}
+      {showDrivePromptCard && (
+        <div
+          data-testid="drive-backup-prompt-card"
+          className="relative rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/30 to-blue-950/20 p-5 sm:p-6 shadow-sm overflow-hidden font-mono"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 mt-0.5">
+                <Folder className="w-5 h-5" />
+              </div>
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                    Optional Personal Backup
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                    Never Required
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)]">
+                  Back up your history to your Google Drive
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  Congratulations on your progress! You can optionally back up copies of your solved code, submission history, and problem notes into a visible <code className="text-cyan-400">LogicQ/</code> folder in your personal Google Drive. LogicQ functions 100% with secure cloud storage regardless.
+                </p>
+
+                {workspaceBlockMessage && (
+                  <div
+                    data-testid="workspace-blocked-alert"
+                    className="p-3 mt-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Institutional Workspace Notice:</span>
+                      <span>{workspaceBlockMessage}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDismissDriveCard}
+              data-testid="dismiss-drive-prompt-btn"
+              aria-label="Dismiss Google Drive backup prompt"
+              className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] rounded-lg hover:bg-[var(--bg-surface)] transition-colors shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-cyan-500/15 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span>LogicQ only accesses files it creates. We never inspect your personal Drive files.</span>
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDismissDriveCard}
+                className="px-3.5 py-1.5 rounded-xl text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-colors"
+              >
+                Skip for now
+              </button>
+              <button
+                type="button"
+                onClick={handleConnectDrive}
+                disabled={isDriveConnecting}
+                data-testid="connect-drive-prompt-btn"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#0C0F1F] bg-cyan-400 hover:bg-cyan-300 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isDriveConnecting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Connecting Drive...</span>
+                  </>
+                ) : (
+                  <>
+                    <Folder className="w-3.5 h-3.5" />
+                    <span>Back up to Google Drive</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -367,7 +552,7 @@ export const DashboardPage: React.FC = () => {
             C Syllabus Practice Modules
           </h3>
           <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-            4 sequentially unlocking topic modules from Control Structures to Dynamic Memory. Solve 7 of 10 in each module to unlock the next.
+            4 sequentially unlocking topic modules from Control Structures to Dynamic Memory. Solve all {PRACTICE_CONFIG.practiceUnlockThreshold} in each module to unlock the next.
           </p>
         </div>
 
@@ -382,225 +567,32 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Cumulative Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Streak Card */}
-        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">CURRENT STREAK</span>
-            <Flame className="w-5 h-5 text-[var(--color-warning)]" />
+      {/* Active Daily Streak & Freeze Status Card */}
+      <div data-testid="dashboard-streak-freeze-card" className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--color-warning)]/15 border border-[var(--color-warning)]/30 flex items-center justify-center text-[var(--color-warning)] shrink-0 shadow-lg">
+            <Flame className="w-6 h-6" />
           </div>
-          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
-            {stats?.currentStreak || user?.currentStreak || 0}
-            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">days</span>
-          </div>
-          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            Personal best: {stats?.longestStreak || user?.longestStreak || 0} days
-          </p>
-        </div>
-
-        {/* Total Points */}
-        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL POINTS</span>
-            <TrendingUp className="w-5 h-5 text-[var(--color-accent)]" />
-          </div>
-          <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
-            {stats?.totalPoints || user?.totalPoints || 0}
-            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">PTS</span>
-          </div>
-          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            Earned across all solved challenges
-          </p>
-        </div>
-
-        {/* Problems Solved */}
-        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">TOTAL SOLVED</span>
-            <CheckCircle2 className="w-5 h-5 text-[var(--color-success)]" />
-          </div>
-          <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
-            {stats?.totalSolved || 0}
-            <span className="text-xs text-[var(--text-muted)] font-normal ml-1">problems</span>
-          </div>
-          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            Cumulative low-level challenges solved
-          </p>
-        </div>
-
-        {/* Accuracy Rate */}
-        <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">ACCURACY RATE</span>
-            <Trophy className="w-5 h-5 text-[var(--color-accent)]" />
-          </div>
-          <div className="text-2xl font-extrabold text-[var(--color-accent)] font-mono">
-            {stats?.accuracy !== null && stats?.accuracy !== undefined ? (
-              <>
-                {stats.accuracy}%
-                <span className="text-xs text-[var(--text-muted)] font-normal ml-1">accepted</span>
-              </>
-            ) : (
-              <span className="text-[var(--text-muted)]">—</span>
-            )}
-          </div>
-          <p className="text-[11px] font-mono text-[var(--text-muted)] mt-1">
-            {(stats?.totalSubmissions || 0) > 0
-              ? `${stats?.totalSubmissions} submissions evaluated`
-              : 'No submissions yet'}
-          </p>
-        </div>
-      </div>
-
-      {/* Two Column Layout: Solved Breakdown & Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Difficulty Breakdown */}
-        <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] space-y-4">
-          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase">
-            Solve Breakdown by Difficulty
-          </h3>
-
-          <div className="space-y-4 pt-2">
-            <div>
-              <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-[var(--color-success)] font-semibold">Easy</span>
-                <span className="text-[var(--text-main)] font-bold">
-                  {stats?.solvedByDifficulty?.EASY ?? stats?.difficultyBreakdown?.easy ?? 0} solved
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (((stats?.solvedByDifficulty?.EASY ?? 0) as number) / 6) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+                CURRENT STREAK
+              </span>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                {stats?.streakFreezeStatus || '1 Auto Freeze / 7 Days'}
+              </span>
             </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-[var(--color-warning)] font-semibold">Medium</span>
-                <span className="text-[var(--text-main)] font-bold">
-                  {stats?.solvedByDifficulty?.MEDIUM ?? stats?.difficultyBreakdown?.medium ?? 0} solved
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
-                <div
-                  className="h-full bg-amber-500 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (((stats?.solvedByDifficulty?.MEDIUM ?? 0) as number) / 6) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-mono mb-1.5">
-                <span className="text-rose-400 font-semibold">Hard</span>
-                <span className="text-[var(--text-main)] font-bold">
-                  {stats?.solvedByDifficulty?.HARD ?? stats?.difficultyBreakdown?.hard ?? 0} solved
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-[var(--bg-main)] overflow-hidden">
-                <div
-                  className="h-full bg-rose-500 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (((stats?.solvedByDifficulty?.HARD ?? 0) as number) / 4) * 100
-                    )}%`,
-                  }}
-                />
-              </div>
+            <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
+              {stats?.currentStreak || user?.currentStreak || 0}{' '}
+              <span className="text-xs text-[var(--text-muted)] font-normal">days active</span>
             </div>
           </div>
         </div>
 
-        {/* Activity Heatmap */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-2xl border border-[var(--border-line)] space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[var(--color-accent)]" />
-              Submission Heatmap
-            </h3>
-            <span className="text-[11px] font-mono text-[var(--text-muted)]">Last 90 Days</span>
-          </div>
-
-          <div className="pt-2">{renderHeatmap()}</div>
-
-          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)]">
-            <span>Daily challenge counts towards streak</span>
-            <div className="flex items-center gap-1.5">
-              <span>Less</span>
-              <div className="w-2.5 h-2.5 rounded bg-[var(--bg-surface)]" />
-              <div className="w-2.5 h-2.5 rounded bg-cyan-500/40" />
-              <div className="w-2.5 h-2.5 rounded bg-cyan-400" />
-              <div className="w-2.5 h-2.5 rounded bg-emerald-400" />
-              <span>More</span>
-            </div>
-          </div>
+        <div className="text-xs font-mono text-[var(--text-muted)] sm:text-right">
+          <div>Personal best: <strong className="text-[var(--text-main)]">{stats?.longestStreak || user?.longestStreak || 0} days</strong></div>
+          <div className="text-[11px] text-[var(--text-muted)] mt-1">Automatic freeze protects 1 missed challenge day per 7-day rolling window</div>
         </div>
-      </div>
-
-      {/* Recent Submissions Feed */}
-      <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-mono font-bold text-[var(--text-main)] tracking-wide uppercase">
-            Recent Submissions
-          </h3>
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Showing latest {recentSubmissions.length} executions
-          </span>
-        </div>
-
-        {recentSubmissions.length === 0 ? (
-          <div className="text-center py-8 font-mono text-xs text-[var(--text-muted)]">
-            No submissions recorded yet. Start solving today&apos;s challenge to populate your activity feed!
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="text-[var(--text-muted)] uppercase text-[10px] tracking-wider border-b border-[var(--border-line)]">
-                <tr>
-                  <th className="pb-3">Problem</th>
-                  <th className="pb-3">Verdict</th>
-                  <th className="pb-3">Runtime</th>
-                  <th className="pb-3">Memory</th>
-                  <th className="pb-3">Submitted</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-line)]">
-                {recentSubmissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-[var(--bg-surface)] transition-colors">
-                    <td className="py-3 font-semibold text-[var(--text-main)]">
-                      {sub.problem?.title || 'Daily Challenge'}
-                    </td>
-                    <td className="py-3">
-                      <VerdictBadge verdict={sub.verdict} size="sm" />
-                    </td>
-                    <td className="py-3 text-[var(--text-muted)]">
-                      {sub.executionTimeMs ? `${sub.executionTimeMs}ms` : '—'}
-                    </td>
-                    <td className="py-3 text-[var(--text-muted)]">
-                      {sub.memoryUsedMb ? `${sub.memoryUsedMb}MB` : '—'}
-                    </td>
-                    <td className="py-3 text-[var(--text-muted)]">
-                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

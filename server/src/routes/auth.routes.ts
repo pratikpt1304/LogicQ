@@ -10,6 +10,8 @@ import {
   resetPassword,
   googleSignIn,
   completeProfile,
+  logSessionEvent,
+  getSessionEvents,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
@@ -21,6 +23,8 @@ authRouter.post('/google', googleSignIn);
 authRouter.post('/complete-profile', authenticate, completeProfile);
 authRouter.post('/logout', logout);
 authRouter.post('/logout-all', authenticate, logoutAll);
+authRouter.post('/session-events', authenticate, logSessionEvent);
+authRouter.get('/session-events', authenticate, getSessionEvents);
 authRouter.post('/refresh', refresh);
 authRouter.get('/me', authenticate, getMe);
 authRouter.post('/forgot-password', forgotPassword);

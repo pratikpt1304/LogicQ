@@ -934,3 +934,120 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+export const VALID_SESSION_LOGOUT_REASONS = [
+  'manual',
+  'idle-timeout',
+  'token-refresh-failed',
+  'revoked-by-user',
+  'revoked-by-admin',
+  'role-changed',
+  'banned',
+  'app-check-failed',
+  'unusual-login-flag',
+  'multi-tab-sync',
+  'service-worker-update',
+  'unknown',
+] as const;
+
+export type SessionLogoutReason = (typeof VALID_SESSION_LOGOUT_REASONS)[number];
+
+export interface SessionEventRecord {
+  id: string;
+  userId: string;
+  reason: SessionLogoutReason;
+  deviceType?: string;
+  userAgent?: string;
+  ipAddress?: string;
+  timestamp: string;
+}
+
+// In-memory append-only session events store with fast lookup
+const sessionEventsStore: SessionEventRecord[] = [];
+
+export const recordSessionEvent = (
+  userId: string,
+  reason: SessionLogoutReason,
+  deviceType?: string,
+  userAgent?: string,
+  ipAddress?: string
+): SessionEventRecord => {
+  const event: SessionEventRecord = {
+    id: crypto.randomUUID(),
+    userId,
+    reason,
+    deviceType: deviceType?.slice(0, 50),
+    userAgent: userAgent?.slice(0, 200),
+    ipAddress: ipAddress?.slice(0, 50),
+    timestamp: new Date().toISOString(),
+  };
+  sessionEventsStore.push(event);
+  if (sessionEventsStore.length > 5000) {
+    sessionEventsStore.shift();
+  }
+  return event;
+};
+
+export const logSessionEvent = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const { reason, deviceType } = req.body || {};
+    const validReason = (VALID_SESSION_LOGOUT_REASONS as readonly string[]).includes(reason)
+      ? (reason as SessionLogoutReason)
+      : 'unknown';
+
+    const event = recordSessionEvent(
+      userId,
+      validReason,
+      deviceType || req.headers['x-device-type'] as string,
+      req.headers['user-agent'],
+      req.ip
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Session event recorded successfully',
+      data: { event },
+    });
+  } catch (error) {
+    console.error('LogSessionEvent error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const getSessionEvents = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
+
+    const isAdmin = req.user?.role === 'ADMIN';
+    const targetUserId = (req.query.userId as string) || userId;
+
+    if (targetUserId !== userId && !isAdmin) {
+      res.status(403).json({ success: false, message: 'Cannot access session events of other users' });
+      return;
+    }
+
+    const events = sessionEventsStore
+      .filter((e) => (isAdmin && !req.query.userId ? true : e.userId === targetUserId))
+      .slice(-50)
+      .reverse();
+
+    res.status(200).json({
+      success: true,
+      data: { events },
+    });
+  } catch (error) {
+    console.error('GetSessionEvents error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
