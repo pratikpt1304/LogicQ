@@ -728,21 +728,21 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Daily Challenge System Pause Banner */}
       {dailySystemData?.data?.dailyChallengePaused ? (
-        <div data-testid="admin-daily-paused-banner" className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-200 shadow-md">
+        <div data-testid="admin-daily-paused-banner" className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xl">⏸️</span>
+            <span className="p-2.5 rounded-xl bg-amber-200/60 dark:bg-amber-500/25 text-amber-800 dark:text-amber-400 font-bold text-xl">⏸️</span>
             <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-300">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-950 dark:text-amber-300">
                   Daily System is PAUSED
                 </h4>
                 {dailySystemData?.data?.pausedAt && (
-                  <span className="text-xs font-mono text-slate-400">
+                  <span className="text-xs font-mono font-medium text-amber-850 dark:text-slate-300">
                     (since {new Date(dailySystemData.data.pausedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST)
                   </span>
                 )}
               </div>
-              <p className="text-xs text-amber-200/90 mt-0.5 font-mono">
+              <p className="text-xs text-amber-900 dark:text-amber-100/90 mt-1 font-mono font-medium leading-relaxed">
                 {dailySystemData?.data?.pauseReason || 'Daily challenge pool transitioning to book-only curriculum.'}
               </p>
             </div>
@@ -2572,24 +2572,24 @@ export const AdminDashboardPage: React.FC = () => {
           {(dailyFin?.isDailyPaused || dailySystemData?.data?.dailyChallengePaused) && (
             <div
               data-testid="daily-results-paused-banner"
-              className="p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-200 shadow-lg"
+              className="p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
             >
               <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-xl flex items-center justify-center">
+                <div className="p-3 rounded-xl bg-amber-200/60 dark:bg-amber-500/25 text-amber-800 dark:text-amber-400 font-bold text-xl flex items-center justify-center">
                   <Pause className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-bold uppercase font-mono tracking-wider text-amber-300">
+                    <h4 className="text-sm font-bold uppercase font-mono tracking-wider text-amber-950 dark:text-amber-300">
                       DAILY CHALLENGE SYSTEM IS CURRENTLY PAUSED
                     </h4>
                     {dailySystemData?.data?.pausedAt && (
-                      <span className="text-xs font-mono text-slate-400">
+                      <span className="text-xs font-mono font-medium text-amber-850 dark:text-slate-300">
                         (Paused: {new Date(dailySystemData.data.pausedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST)
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-amber-200/90 mt-1 font-mono">
+                  <p className="text-xs text-amber-900 dark:text-amber-100/90 mt-1 font-mono font-medium leading-relaxed">
                     {dailySystemData?.data?.pauseReason || 'Daily system paused by administrator. Schedulers and submissions are disabled.'}
                   </p>
                 </div>
