@@ -75,27 +75,27 @@ export const LoginPage: React.FC = () => {
 
         <div className="glass-card p-6 sm:p-8 rounded-2xl border border-white/[0.08] shadow-2xl">
           {logoutNotice && (
-            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-              <Info className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 text-xs shadow-sm">
+              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-300 font-mono">Session Notice</p>
-                <p className="text-amber-200/90 mt-0.5 font-sans leading-relaxed">{logoutNotice.message}</p>
+                <p className="font-bold text-amber-950 dark:text-amber-300 font-mono tracking-wide">Session Notice</p>
+                <p className="text-amber-900 dark:text-amber-100/90 mt-1 font-sans font-medium leading-relaxed">{logoutNotice.message}</p>
               </div>
             </div>
           )}
 
           {error && (
             <div
-              className={`mb-5 flex items-center gap-2 p-3 rounded-lg text-xs ${
+              className={`mb-5 flex items-center gap-2.5 p-3.5 rounded-xl text-xs font-medium shadow-sm ${
                 error.toLowerCase().includes('cancelled')
-                  ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
-                  : 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+                  ? 'bg-amber-50 border border-amber-300 text-amber-900 dark:bg-amber-500/15 dark:border-amber-500/40 dark:text-amber-200'
+                  : 'bg-rose-50 border border-rose-300 text-rose-900 dark:bg-rose-500/15 dark:border-rose-500/40 dark:text-rose-200'
               }`}
             >
               {error.toLowerCase().includes('cancelled') ? (
-                <Info className="w-4 h-4 shrink-0 text-amber-400" />
+                <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
               ) : (
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
               )}
               <span>{error}</span>
             </div>
