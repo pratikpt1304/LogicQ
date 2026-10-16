@@ -181,7 +181,40 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
         },
       });
 
+      const nextAttemptCount = (existingProg?.attemptsCount || 0) + 1;
       const isNowSolved = overallVerdict === Verdict.ACCEPTED || Boolean(existingProg?.isSolved);
+      const activeSec = existingProg?.activeSeconds || 0;
+
+      let history: Array<{ attemptNumber: number; verdict: string; timestamp: string; activeSeconds: number }> = [];
+      try {
+        if (existingProg?.attemptsHistoryJson) {
+          history = JSON.parse(existingProg.attemptsHistoryJson);
+        }
+      } catch {
+        history = [];
+      }
+      history.push({
+        attemptNumber: nextAttemptCount,
+        verdict: overallVerdict,
+        timestamp: new Date().toISOString(),
+        activeSeconds: activeSec,
+      });
+      if (history.length > 50) {
+        history = history.slice(-50);
+      }
+
+      const firstAttemptAccepted = nextAttemptCount === 1
+        ? overallVerdict === Verdict.ACCEPTED
+        : Boolean(existingProg?.firstAttemptAccepted);
+
+      const timeToFirstAttemptSeconds = existingProg?.timeToFirstAttemptSeconds != null
+        ? existingProg.timeToFirstAttemptSeconds
+        : activeSec;
+
+      const timeToSolveSeconds = isNowSolved
+        ? (existingProg?.timeToSolveSeconds ?? activeSec)
+        : null;
+
       await prisma.practiceProgress.upsert({
         where: {
           userId_problemId: {
@@ -193,14 +226,26 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
           attemptsCount: { increment: 1 },
           isSolved: isNowSolved,
           solvedAt: isNowSolved && !existingProg?.solvedAt ? new Date() : existingProg?.solvedAt,
+          timeToSolveSeconds,
+          timeToFirstAttemptSeconds,
+          firstAttemptAccepted,
+          attemptsHistoryJson: JSON.stringify(history),
         },
         create: {
           userId: submission.userId,
           problemId: submission.problemId,
           moduleSlug: submission.problem.moduleSlug,
           attemptsCount: 1,
+          runsCount: 0,
+          activeSeconds: 0,
           isSolved: overallVerdict === Verdict.ACCEPTED,
           solvedAt: overallVerdict === Verdict.ACCEPTED ? new Date() : null,
+          timeToSolveSeconds: overallVerdict === Verdict.ACCEPTED ? 0 : null,
+          timeToFirstAttemptSeconds: 0,
+          firstAttemptAccepted: overallVerdict === Verdict.ACCEPTED,
+          firstOpenedAt: new Date(),
+          lastSyncedAt: new Date(),
+          attemptsHistoryJson: JSON.stringify(history),
         },
       });
     } catch (progErr) {

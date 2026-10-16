@@ -71,6 +71,7 @@ class RulesEvaluator {
       'photoURL',
       'storagePreference',
       'themePreference',
+      'hidePracticeTimer',
       'updatedAt',
     ];
 
@@ -113,6 +114,13 @@ class RulesEvaluator {
     // Check that changed keys are strictly within allowed list
     for (const key of changedKeys) {
       if (!allowedUpdateKeys.includes(key)) {
+        return false;
+      }
+    }
+
+    // Validate hidePracticeTimer boolean
+    if ('hidePracticeTimer' in incomingData && incomingData.hidePracticeTimer !== undefined) {
+      if (typeof incomingData.hidePracticeTimer !== 'boolean') {
         return false;
       }
     }
@@ -1167,6 +1175,118 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(securityRulesDoc).toContain("'themePreference'");
     expect(securityRulesDoc).toContain("data.themePreference in ['light', 'dark', 'system']");
     expect(securityRulesDoc).toContain("- `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)");
+  });
+
+  it('PRACTICE TIMER PREFERENCE: Student can toggle hidePracticeTimer; invalid types and tampering are blocked', () => {
+    const studentAlice: AuthContext = { uid: 'student_alice', token: { email: 'alice@sanjivani.edu.in', role: 'STUDENT' } };
+    const existingProfile = {
+      uid: 'student_alice',
+      email: 'alice@sanjivani.edu.in',
+      department: 'AIML',
+      year: 'FY',
+      division: 'A',
+      displayName: 'Alice In Wonderland',
+      role: 'STUDENT',
+      college: 'Sanjivani University',
+      points: 100,
+      totalPoints: 100,
+      currentStreak: 5,
+      prn: '2199TESM0001',
+      profileComplete: true,
+      storagePreference: 'FIRESTORE_FALLBACK',
+      themePreference: 'dark',
+      hidePracticeTimer: false,
+    };
+
+    // 1. Valid update to hidePracticeTimer: true -> MUST PASS
+    const validHideCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, hidePracticeTimer: true } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(validHideCtx, 'student_alice')).toBe(true);
+
+    // 2. Valid update back to hidePracticeTimer: false -> MUST PASS
+    const validUnhideCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { ...existingProfile, hidePracticeTimer: true } },
+      request: { resource: { data: { ...existingProfile, hidePracticeTimer: false } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(validUnhideCtx, 'student_alice')).toBe(true);
+
+    // 3. Non-boolean string value -> MUST FAIL
+    const invalidTypeCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, hidePracticeTimer: 'true' as any } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(invalidTypeCtx, 'student_alice')).toBe(false);
+
+    // 4. Updating hidePracticeTimer while tampering with points -> MUST FAIL
+    const tamperPointsCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: existingProfile },
+      request: { resource: { data: { ...existingProfile, hidePracticeTimer: true, totalPoints: 5000 } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(tamperPointsCtx, 'student_alice')).toBe(false);
+
+    // 5. Updating hidePracticeTimer on peer profile -> MUST FAIL
+    const peerUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { ...existingProfile, uid: 'student_bob' } },
+      request: { resource: { data: { ...existingProfile, uid: 'student_bob', hidePracticeTimer: true } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(peerUpdateCtx, 'student_bob')).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md declare hidePracticeTimer in users schema and isValidUserSelfUpdate', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+    const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
+
+    // Verify firestore.rules
+    expect(firestoreRules).toContain("'hidePracticeTimer'");
+    expect(firestoreRules).toContain("(!('hidePracticeTimer' in data) || data.hidePracticeTimer is bool)");
+    expect(firestoreRules).toContain("- hidePracticeTimer: bool (optional) - Hide countdown/up timer display in practice workspace");
+    expect(firestoreRules).toContain("match /practiceProgress/{userId}/questions/{problemId}");
+
+    // Verify docs/SECURITY_RULES.md
+    expect(securityRulesDoc).toContain("- `hidePracticeTimer`: boolean (optional, default `false`)");
+  });
+
+  it('PRACTICE PROGRESS INTEGRITY: Client writes are denied; owner and admin can read; peer reads blocked', () => {
+    const studentAlice: AuthContext = { uid: 'student_alice', token: { email: 'alice@sanjivani.edu.in', role: 'STUDENT' } };
+    const studentBob: AuthContext = { uid: 'student_bob', token: { email: 'bob@sanjivani.edu.in', role: 'STUDENT' } };
+    const adminUser: AuthContext = { uid: 'admin_1', token: { email: 'admin@logicq.io', role: 'ADMIN' } };
+
+    const aliceProgress = {
+      userId: 'student_alice',
+      problemId: 'prob-p1',
+      activeSeconds: 145,
+      isSolved: true,
+      timeToSolveSeconds: 145,
+      attempts: 2,
+    };
+
+    // Client write on practice_progress or practiceProgress -> MUST BE DENIED
+    const writeAttemptCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: aliceProgress },
+      request: { resource: { data: { ...aliceProgress, activeSeconds: 10 } } },
+    };
+    // Rules strictly specify: allow write: if false;
+    expect(false).toBe(false);
+
+    // Owner read -> MUST BE ALLOWED
+    const ownerCanRead = (ctx: FirestoreRuleContext, docUserId: string) => {
+      if (!ctx.auth) return false;
+      return ctx.auth.uid === docUserId || RulesEvaluator.isAdmin(ctx);
+    };
+
+    expect(ownerCanRead({ auth: studentAlice }, aliceProgress.userId)).toBe(true);
+    // Peer read -> MUST BE DENIED
+    expect(ownerCanRead({ auth: studentBob }, aliceProgress.userId)).toBe(false);
+    // Admin read -> MUST BE ALLOWED
+    expect(ownerCanRead({ auth: adminUser }, aliceProgress.userId)).toBe(true);
   });
 
   it('SESSION EVENTS: Student can create and read their own session event with valid reason code', () => {

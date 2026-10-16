@@ -34,6 +34,7 @@ model User {
   resetPasswordExpires DateTime?
   prnChangedAt         DateTime?      // Last student PRN change timestamp (cooldown gate)
   storagePreference    String?        @default("FIRESTORE_FALLBACK")
+  hidePracticeTimer    Boolean        @default(false)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -168,16 +169,26 @@ model Submission {
 }
 
 model PracticeProgress {
-  id            String    @id @default(uuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problemId     String
-  problem       Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  moduleSlug    String
-  isSolved      Boolean   @default(false)
-  attemptsCount Int       @default(0)
-  solvedAt      DateTime?
-  updatedAt     DateTime  @default(now()) @updatedAt
+  id                        String    @id @default(uuid())
+  userId                    String
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId                 String
+  problem                   Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  moduleSlug                String
+  isSolved                  Boolean   @default(false)
+  attemptsCount             Int       @default(0)
+  runsCount                 Int       @default(0)
+  activeSeconds             Int       @default(0)
+  timeToSolveSeconds        Int?
+  timeToFirstAttemptSeconds Int?
+  firstAttemptAccepted      Boolean   @default(false)
+  firstOpenedAt             DateTime?
+  solvedAt                  DateTime?
+  lastSyncedAt              DateTime?
+  lastDeviceLabel           String?
+  attemptsHistoryJson       String    @default("[]")
+  hintsUsed                 Int       @default(0)
+  updatedAt                 DateTime  @default(now()) @updatedAt
 
   @@unique([userId, problemId])
   @@index([userId, moduleSlug])

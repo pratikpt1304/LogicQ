@@ -42,8 +42,9 @@ All screenshots are captured using **clean test environments with fake data only
 
 ---
 
-## ✨ Features Matching Reality
-
+- **⏱️ Per-Question Active Practice Timers**: Each Practice problem features an active timer tracking real engagement (runs only while the page is open, the browser tab is visible, and the student is active within 2 minutes; pauses on tab hide or idle; resumes continuously across devices; permanently freezes at first `ACCEPTED` verdict as "Solved in mm:ss"). A profile setting ("Hide practice timer") allows distraction-free coding without stopping background telemetry.
+- **📊 Verified Practice Performance Reports**: Comprehensive audit reports available per-module (unlocked upon completing all 10 problems in a module) and final (unlocked upon completing all 4 modules, 40/40). Displays active times, attempts, first-attempt accuracy, hardest questions, and exportable as printable PDF and CSV. Strictly protects institutional privacy by omitting student PRN and M/F indicators from student-facing views.
+- **📱 Alphanumeric PRN Keyboard & Format Guide**: PRN inputs on mobile open full alphanumeric keyboards (`type="text"`, `inputmode="text"`, `autocapitalize="characters"`), uppercase dynamically as students type, trim whitespace on paste/blur, and provide visual format grouping (`0000 AAA M 0000`) with live counters (`8/12`).
 - **⚡ Serverless Student Onboarding (Spark Plan)**: Students signing in via Google OAuth can seamlessly complete their academic onboarding (PRN, College, Department, Year, Division) directly against Cloud Firestore using atomic batch writes with zero dependency on an external backend server.
 - **🛡️ Automatic Admin Recognition**: Pre-configured institutional administrator accounts (`admin@logicq.io`, `logicq1304@gmail.com`, `ipworker1908@gmail.com`, `ipverse1918@gmail.com`) automatically receive `ADMIN` privileges and immediate access to the Administration Center without student PRN requirements.
 - **🎨 High-Contrast Light & Dark Themes**: Fully accessible WCAG AA compliant text and container styling for Session Notices, Auth Error Banners, Daily System Paused Alerts, and Locked Module Requirements across both Light (`#F4F6FB`) and Dark (`#0C0F1F`) modes.
@@ -55,7 +56,7 @@ All screenshots are captured using **clean test environments with fake data only
 - **🏆 Consistency Daily Rank & Daily Results**: Daily leaderboard ordered by Current Streak $\rightarrow$ Total Solved $\rightarrow$ Stable UID. Speed and attempt penalties are eliminated. Percentile ranking appears only with at least 10 solvers.
 - **🔥 Streaks with Freeze & Pause Days**: 1 automated freeze per rolling 7-day window protects student streaks against accidental misses. Institutional holidays are designated as Admin Pause Days.
 - **📊 Performance Charts**: Visual breakdown of solve distribution by difficulty (Easy, Medium, Hard) and submission accuracy trends over time.
-- **🛡️ Admin Operations Dashboard**: 11 operational control centers for managing student records, checker workloads, daily challenge pause states, practice modules, and security audit logs.
+- **🛡️ Admin Operations Dashboard**: Centralized management for student records, checker workloads, daily challenge pause states, practice modules, cohort question telemetry, and security audit logs.
 - **☁️ Optional Google Drive Backup**: Purely optional history backup export via narrow `drive.file` scope. Login, daily challenges, practice, and code judging function 100% on Firebase alone without Google Drive permissions.
 - **📱 Installable Progressive Web App (PWA)**: Web App Manifest, offline shell precaching, and a dedicated mobile C programming keyboard strip (`{`, `}`, `(`, `)`, `->`, `*`, `&`, `;`, `Tab`).
 - **🚫 Removed Legacy Features**: Arena contests, Archive browsing, and Badges were permanently removed from routes, UI, and database rules to keep students focused entirely on syllabus learning.
@@ -329,6 +330,8 @@ Deployment must proceed sequentially through staging verification before product
 The following authoritative specifications in `/docs` define the platform standards:
 
 - [MASTER_SPEC.md](docs/MASTER_SPEC.md): Complete consolidated platform specifications, role definitions, and daily cycle rules.
+- [PRACTICE_TIMER_REPORT.md](docs/PRACTICE_TIMER_REPORT.md): Practice active timers, attempt tracking, anti-tamper sync, and verification report architecture with Blaze cost estimates.
+- [TEST_REPORT.md](docs/TEST_REPORT.md): Full automated testing report, verification matrix, and simulation records across 23 test suites.
 - [DATA_ARCHITECTURE.md](docs/DATA_ARCHITECTURE.md): Authoritative architectural division between Firebase and optional Google Drive.
 - [DRIVE_INTEGRATION.md](docs/DRIVE_INTEGRATION.md): Technical specification for optional Google Drive backup export and failure mode handling.
 - [LEARNING_FIRST.md](docs/LEARNING_FIRST.md): Pedagogical scaffolding, consistency-first daily ranking, and compiler error guidance.

@@ -39,6 +39,7 @@ export interface User {
   prnNextAllowedDate?: string | null;
   isPrnChangeEligible?: boolean;
   themePreference?: 'light' | 'dark' | 'system' | null;
+  hidePracticeTimer?: boolean | null;
   storagePreference?: 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE' | null;
   createdAt?: string;
 }

@@ -36,6 +36,7 @@ import {
   getDeviceLabel,
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
+import { PracticeTimer, PracticeTimerHandle } from '../components/practice/PracticeTimer.js';
 
 interface StagedUploadFile {
   id: string;
@@ -67,6 +68,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const practiceTimerRef = useRef<PracticeTimerHandle | null>(null);
   const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,13 +188,17 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   // Run Code Mutation
   const runMutation = useMutation({
-    mutationFn: () =>
-      api.post('/submissions/run', {
+    mutationFn: () => {
+      if (problem?.id) {
+        api.post('/practice/track-run', { problemId: problem.id }).catch(() => {});
+      }
+      return api.post('/submissions/run', {
         problemId: problem?.id,
         code,
         stdin: customInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
-      }),
+      });
+    },
     onSuccess: (res) => {
       setSubmissionResult(null);
       setRunResult(res.data);
@@ -207,11 +213,15 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   // Submit Solution Mutation (Practice submission)
   const submitMutation = useMutation({
-    mutationFn: () =>
-      api.post('/submissions/submit', {
+    mutationFn: async () => {
+      if (practiceTimerRef.current) {
+        await practiceTimerRef.current.syncNow('submit');
+      }
+      return api.post('/submissions/submit', {
         problemId: problem.id,
         code,
-      }),
+      });
+    },
     onSuccess: (res) => {
       setRunResult(null);
       setIsDrawerOpen(true);
@@ -477,8 +487,18 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Buttons: Run & Submit */}
+        {/* Action Buttons & Timer: Timer, Run & Submit */}
         <div className="flex items-center gap-2.5 shrink-0">
+          {problem && (
+            <PracticeTimer
+              ref={practiceTimerRef}
+              problemId={problem.id}
+              initialActiveSeconds={userProgress?.activeSeconds || 0}
+              isSolved={Boolean(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED')}
+              timeToSolveSeconds={userProgress?.timeToSolveSeconds}
+              hideTimerPreference={Boolean(user?.hidePracticeTimer)}
+            />
+          )}
           {user?.id && (
             <span className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-[var(--text-muted)] pr-2 border-r border-[var(--border-line)]">
               <Cloud className={`w-3.5 h-3.5 ${draftSyncStatus === 'saving' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />

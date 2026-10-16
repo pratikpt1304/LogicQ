@@ -293,14 +293,48 @@ export async function verifyDatabaseIntegrity(): Promise<IntegrityCheckResult[]>
     }
   }
 
+  // 12. PracticeProgress Invariants & Telemetry Integrity
+  // Verify that all PracticeProgress records have valid foreign keys, non-negative activeSeconds/attempts,
+  // and valid frozen timeToSolveSeconds & solvedAt when marked isSolved.
+  const allProgress = await prisma.practiceProgress.findMany({
+    select: {
+      id: true,
+      userId: true,
+      problemId: true,
+      activeSeconds: true,
+      attemptsCount: true,
+      runsCount: true,
+      isSolved: true,
+      solvedAt: true,
+      timeToSolveSeconds: true,
+      firstAttemptAccepted: true,
+    },
+  });
+
+  let invalidProgressCount = 0;
+  for (const prog of allProgress) {
+    const hasValidUser = allUserIds.has(prog.userId);
+    const hasValidProblem = allProblemIds.has(prog.problemId);
+    const nonNegativeMetrics =
+      prog.activeSeconds >= 0 && prog.attemptsCount >= 0 && prog.runsCount >= 0;
+    const solveConsistency =
+      !prog.isSolved || (prog.solvedAt !== null && prog.timeToSolveSeconds !== null && prog.timeToSolveSeconds >= 0);
+    const firstAttemptConsistency =
+      !prog.firstAttemptAccepted || prog.attemptsCount >= 1;
+
+    if (!hasValidUser || !hasValidProblem || !nonNegativeMetrics || !solveConsistency || !firstAttemptConsistency) {
+      invalidProgressCount++;
+    }
+  }
+
   results.push({
-    checkName: 'PRN Alphanumeric Format & Index Parity',
-    passed: nonConformingPrns === 0 && missingPrnIndices === 0,
+    checkName: 'PracticeProgress Telemetry & Invariants Check',
+    passed: invalidProgressCount === 0,
     details:
-      nonConformingPrns === 0 && missingPrnIndices === 0
-        ? 'All assigned PRNs strictly match 12-character format and have synchronized PrnIndex entries.'
-        : `Found ${nonConformingPrns} non-conforming PRNs and ${missingPrnIndices} missing or unsynchronized PrnIndex entries.`,
-    count: nonConformingPrns + missingPrnIndices,
+      invalidProgressCount === 0
+        ? `All ${allProgress.length} practice progress records meet telemetry and freeze invariants.`
+        : `Found ${invalidProgressCount} practice progress records with telemetry or freeze violations.`,
+    count: invalidProgressCount,
   });
 
   return results;

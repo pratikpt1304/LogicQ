@@ -28,6 +28,7 @@
 | **18** | **PRN Format Specification (Amendment to 12-Digit Rule)** | Exactly 12 digits (`^[0-9]{12}$`) | **12-Character Alphanumeric PRN (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`)**: Overrides earlier digits-only rule. Structure: 4 digits, 3 program letters, 1 M/F letter, 4 digits. Canonical uppercase normalization; configurable `allowedProgramCodes: string[]` (empty = any 3 letters accepted); zero attribute/gender derivation; privacy-preserved 8-bullet masking (`••••••••1039`); fake test fixtures only (`2199TESM0001`). |
 | **19** | **Book-Only Daily Pool & Daily System Pause Architecture** | AI-generated / multi-source pool with continuously running 17:00 IST cycle | **Exclusive Book Source & Safe System Pause (`/docs/CONTENT_PIPELINE.md` & `/docs/CONTENT_RIGHTS.md`)**:<br/>• **Exclusive Source**: *"Test Your C Skills"* by Yashavant Kanetkar (`/private/book/`, strictly local and git-ignored). All legacy daily problems are retired (`status = 'RETIRED'`). Zero external AI-invented problems.<br/>• **Strict Transformative Authoring**: Zero verbatim copying of questions, code, or examples. Original wording, fresh variables, names, data, and context. Zero student-facing mentions of the book, author, chapter, exercise, or page.<br/>• **Daily System Pause Flag (`dailyChallengePaused`)**: Set to `true` while the new pool is being prepared. While paused: students see no question, no countdown, and no "Next Reset" timer; Daily Challenge, dashboard card, and 17:00 banner show calm message: *"Daily challenges are not live yet. We will announce the start."*; Leaderboard Today/Yesterday tabs show neutral paused state; no ranks, no daily points, no streak changes (paused days do not break streak, do not consume freezes, and are excluded from stats); schedulers (17:00 unlock, 17:05 finalization, auto-pick) are no-ops; `getCurrentChallenge`, Run, and Submit reject daily challenge calls with a generic "not available" response; Practice, profile, uploads, and admin remain fully operational.<br/>• **Audited Manual Resume**: Resuming is strictly a manual admin action requiring re-auth, reason, 7-day preview, and $\ge 14$ validated scheduled challenges. Admin overview displays a prominent pause banner with pause timestamp and resume control. |
 | **20** | **Data Architecture Decision: Firebase Source of Truth & Optional Student Drive** | Requiring Google Drive for draft storage / unclear data allocation | **Authoritative Decision Rule (`/docs/DATA_ARCHITECTURE.md` & `/docs/DRIVE_INTEGRATION.md`)**: Data goes to Firebase if it affects points, rank, streak or verdict; if anyone other than the student (admin, checker, other students) needs it; or if the student altering or deleting it would harm the platform. Only personal convenience data lives in the student's own Google Drive.<br/>• **Firebase (Source of Truth)**: Accounts, PRN, roles, profile fields, preferences; questions, hidden tests, reference solutions, schedule; submissions, verdicts, points, streak, daily rank, daily results (append-only); practice progress and unlocks; uploaded solutions in Firebase Storage (copied at submission time, immutable, short-lived signed URLs); audit logs, support/error reports; drafts by default (private per student/problem, 64 KB size limit, 2s debounced autosave, daily drafts expire after the challenge day).<br/>• **Student's Google Drive (Optional, Never Required)**: Holds only personal convenience data: copies of drafts, personal notes, editor settings, and exportable backup of the student's own history. Scopes restricted to `drive.file` and/or `drive.appdata`, requested as an optional step with clear explanation. Drive access runs strictly in student's browser with short-lived tokens; backend never stores Drive refresh tokens; zero backdoor (admins/checkers/developers can never read student Drive data). If Drive is unavailable, declined, or blocked by campus Workspace, the app works 100% fully with Firebase only.<br/>• **Release 1 Scope**: Build Drive export and backup only; keep drafts in Firebase by default. Drive as primary draft store is described for future vision, but deliberately not built in Release 1. |
+| **21** | **Practice Per-Question Timers, Attempt Tracking & Module/Final Reports** | Untimed practice problems or global module timers | **Per-Question Active Timers, Anti-Tamper Delta Sync, Server Attempt Tracking & Practice Reports (`/docs/PRACTICE_TIMER_REPORT.md`)**: Each Practice question has an independent active timer that begins strictly upon opening that specific question workspace (statement + editor), accumulating time only during active tab visibility and user engagement (pauses after 2 minutes idle or tab hide). Continuous cross-device resume; permanently freezes upon first Accepted verdict (`Solved in mm:ss`). Optional "Hide timer" preference. All time deltas, attempts, runs, and attempt histories are synchronized with strict server-side wall-clock anti-tamper caps. Module reports unlock upon completing that module (10/10 solves); Final report unlocks upon completing all 4 modules (40/40 solves), exportable as PDF/CSV with zero PRN or M/F gender indicator leakage. |
 
 ---
 
@@ -266,36 +267,113 @@
    - **`student`**: Student portal only. Zero access to `/admin/*` or `/checker/*`.
 ---
 
-## 8. Practice Module System Specification
+## 8. Practice Module System, Per-Question Timers & Progress Reports Specification
 
 1. **Information Architecture & Navigation**:
    - Primary Navigation (signed-in): **Home** (`/dashboard`), **Daily Challenge** (`/challenge`), **Practice** (`/practice`), **Leaderboard** (`/leaderboard`).
    - The Practice area lives at `/practice` (module overview & selection) and `/practice/:moduleSlug/:problemSlug` (practice workspace).
+   - Dedicated **Practice Reports** portal lives on the student's Profile (`/profile#practice-report`) with per-module and final comprehensive breakdown views, printable PDF generation, and CSV export.
+
 2. **Modules & Structure (Config-Driven)**:
-   - Exactly 4 modules:
-     1. `control-structures`: **Control Structures** (10 questions: 4 Easy, 4 Medium, 2 Hard)
-     2. `pointers-functions`: **Pointers and functions** (10 questions: 4 Easy, 4 Medium, 2 Hard)
-     3. `arrays-applications`: **Array and its Applications** (10 questions: 4 Easy, 4 Medium, 2 Hard)
-     4. `advanced-types-memory`: **Advanced Data Types, Dynamic Memory** (10 questions: 4 Easy, 4 Medium, 2 Hard)
-   - Config defined in `server/src/config/practice.config.ts` and `client/src/config/practice.config.ts`.
-3. **Sequential Unlocking Rule**:
-   - Module 1 is unlocked for every registered student.
-   - Module $N+1$ unlocks if and only if the student has solved all `UNLOCK_THRESHOLD = 10` questions in Module $N$ (`verdict === 'ACCEPTED'`).
-   - Solved status is permanent: once unlocked, a module stays unlocked.
-   - Locked modules show a lock icon with the exact requirement (e.g. *"Solve all 10 in Module 1 to unlock"*).
-   - Server strictly enforces access: `GET /api/practice/modules/:moduleSlug/problems` returns `403 FORBIDDEN` (`MODULE_LOCKED`) if the student has not met the threshold for the prior module. Guessing problem IDs returns 403/404 without statements.
-4. **Separation from Competition**:
+   - Exactly 4 sequential curriculum modules (10 problems each, 40 problems total: 4 Easy, 4 Medium, 2 Hard per module):
+     1. `control-structures`: **Control Structures** (10 questions)
+     2. `pointers-functions`: **Pointers and functions** (10 questions)
+     3. `arrays-applications`: **Array and its Applications** (10 questions)
+     4. `advanced-types-memory`: **Advanced Data Types, Dynamic Memory** (10 questions)
+   - Configuration defined in `server/src/config/practice.config.ts` and `client/src/config/practice.config.ts`.
+
+3. **Sequential Unlocking Rule (10 of 10 Rule)**:
+   - Module 1 is unlocked by default for every student.
+   - Module $N+1$ unlocks if and only if the student has solved all 10 questions (`UNLOCK_THRESHOLD = 10`) in Module $N$ with an `ACCEPTED` verdict.
+   - Solved status is permanent: once unlocked, a module stays unlocked forever.
+   - Locked modules show a lock badge with explicit requirement text (e.g. *"Solve all 10 in Module 1 to unlock"*).
+   - Server strictly enforces authorization: `GET /api/practice/modules/:moduleSlug/problems` returns `403 FORBIDDEN` (`MODULE_LOCKED`) if the student has not solved all 10 problems of the preceding module. Guessing problem IDs returns 403 without statements or test cases.
+
+4. **Separation from Daily Competition**:
    - Practice submissions are tagged with `type: 'PRACTICE'`.
    - Practice submissions **do not** award competition points, do not affect daily rank, do not impact percentile, and do not extend or break daily streaks.
-   - Practice progress is tracked in dedicated records (`PracticeProgress`: `userId`, `problemId`, `moduleSlug`, `isSolved`, `attemptsCount`, `solvedAt`).
-   - Dashboard features a compact **"Practice Progress"** widget showing current module progress (e.g. *"Module 1: 5/10 solved"*).
-5. **Workspace & Sandbox**:
-   - Reuses the standard Monaco editor, Run Code, Custom Stdin, and Verdict & Output.
-   - Code-only track: No `Upload Files` tab in Practice.
-   - Queue priority: Practice jobs run at priority 2, ensuring Daily Challenge submissions (priority 1) are never delayed during the 17:00 rush.
-   - Answer shielding: Solutions and hints are never readable by student clients.
-6. **Problem Validation & Admin Controls**:
-   - Admin Practice Management: View all modules, problems, validation runner (1-pass reference, 2-fail wrong solutions), edit, publish, unlock threshold override, and module completion analytics.
+   - Queue priority: Practice code executions run at priority 2, ensuring Daily Challenge submissions (priority 1) are never delayed during peak periods.
+
+5. **Per-Question Timers (Practice Only; Not Daily Challenge)**:
+   - **Per-Question Independence**: Each Practice question has its own separate timer that starts the first time the student opens that question's workspace (statement and editor), never when the module is opened.
+   - **Active Time Accumulation**:
+     * The timer accumulates strictly **ACTIVE** time: it increments while the question page is open, the browser tab is visible (`document.visibilityState === 'visible'`), and the student is actively engaged.
+     * Active engagement requires user interaction (keyboard press, mouse move/click, touch event, or editor code change) within the last 2 minutes (`IDLE_TIMEOUT_MS = 120000`).
+     * The timer automatically pauses when the browser tab is hidden, minimized, switched, or when the user remains idle for $>2$ minutes. It resumes automatically when the student returns and interacts.
+     * Closing the browser tab, refreshing, browser restarts, or opening on another device **CONTINUES** from the saved accumulated active seconds; it never restarts from 0 and never counts while the page is closed.
+   - **Stop & Freeze on First Accepted Solve**:
+     * When the first `ACCEPTED` verdict arrives, the timer stops permanently and the question workspace displays `"Solved in mm:ss"` (or `"Solved in hh:mm:ss"`).
+     * Reopening a solved question does not restart the timer. Subsequent retries/runs are untimed and do not alter the recorded solve time. Unsuccessful attempts do not stop the timer.
+   - **Display, Accessibility & Preference**:
+     * Displayed as a compact count-up (`mm:ss`, and `hh:mm:ss` after 60 minutes) near the Monaco editor toolbar.
+     * Zero layout shift (`min-w-[70px]`, tabular numbers `font-mono`).
+     * High-contrast styling readable in both Dark (`#0C0F1F`) and Light (`#F4F6FB`) themes; works seamlessly on 360px mobile viewports.
+     * Accessibility: Timer display is hidden from noisy continuous screen-reader announcements; announced to assistive tech only on request (e.g., status check button / tooltip).
+     * **"Hide timer" Preference**: Toggleable preference stored in student profile (`hidePracticeTimer: boolean`, default `false`). When enabled, the visual count-up is hidden to prevent exam/solve anxiety, but active time continues to be accurately recorded on the server.
+
+6. **Data Model, Delta Synchronization & Anti-Tamper Engine**:
+   - **Private Firestore Document (`users/{userId}/practice_progress/{problemId}`)**:
+     * `problemId`: string (unique problem identifier)
+     * `moduleSlug`: string (slug of the parent module)
+     * `firstOpenedAt`: server timestamp (recorded on first open)
+     * `activeSeconds`: integer (authoritative accumulated active time in seconds)
+     * `lastSyncedAt`: server timestamp (timestamp of the last successful delta sync)
+     * `attempts`: integer (number of judged Submit attempts, incremented server-side only)
+     * `runs`: integer (number of Run code invocations)
+     * `attemptList`: append-only array of up to 50 attempt logs: `[{ attemptNumber: number, verdict: string, timestamp: string, activeSeconds: number }]`
+     * `solvedAt`: server timestamp (recorded on first `ACCEPTED` solve)
+     * `timeToSolveSeconds`: integer or null (frozen permanently at first `ACCEPTED` solve)
+     * `timeToFirstAttemptSeconds`: integer or null (activeSeconds at attempt #1)
+     * `firstAttemptAccepted`: boolean (true if attempt #1 had verdict `ACCEPTED`)
+     * `deviceLabel`: string (client user-agent / OS descriptor of the last sync)
+     * `hintsUsed`: integer (counter for hints accessed, default 0)
+   - **Client Delta Sync Protocol**:
+     * Client tracks local uncommitted seconds (`unsyncedSeconds`).
+     * Sync triggers:
+       1. Periodic background sync every 120 seconds (`TIMER_SYNC_INTERVAL_MS = 120000`).
+       2. On user inactivity / idle pause.
+       3. On tab visibility change (`document.visibilityState === 'hidden'`).
+       4. On page hide / unload (using `navigator.sendBeacon` or `fetch(..., { keepalive: true })`).
+       5. Immediately preceding any Submit call.
+   - **Server-Side Anti-Tamper Verification**:
+     * Client cannot write to `practice_progress` directly (`firestore.rules` deny all client writes).
+     * Sync endpoint (`POST /api/practice/timer-sync`) runs server-side validation:
+       - Delta must be non-negative ($\Delta \ge 0$).
+       - Delta is bounded by the real wall-clock elapsed time since `lastSyncedAt` plus a small 5-second network grace ($\Delta \le \text{serverNow} - \text{lastSyncedAt} + 5\text{s}$), capped at a maximum of 150 seconds per sync.
+       - If two tabs or devices are opened simultaneously on the same problem, they share the single wall-clock window through atomic transactions, preventing double-counting (each physical second is counted at most once).
+     * Replayed, negative, or artificially inflated deltas are rejected.
+     * Admin corrections are permitted only through audited administrative actions with documented justification.
+
+7. **Practice Progress Reports (Per-Module & Final Curriculum)**:
+   - **Per-Module Report**: Unlocked immediately upon solving all 10 questions in that module.
+   - **Final Curriculum Report**: Unlocked immediately upon solving all 40 questions across all 4 modules.
+   - **Student Profile View (`/profile#practice-report`)**:
+     * Clean tabbed / accordion interface displaying unlocked Module Reports and Final Report.
+     * Per-question breakdown: title, difficulty, status, attempts count, first-attempt accepted indicator, time to solve (`mm:ss` or capped `3h+` display while preserving raw seconds), time to first attempt, hints used. Unopened or unsolved questions show `"—"`.
+     * Per-module aggregates: total solved (e.g. 10/10), total attempts, total active time, difficulty-wise breakdown (Easy, Medium, Hard average attempts and time).
+     * Overall curriculum aggregates: 40/40 completion badge, cumulative active coding time, average attempts per problem.
+     * "Hardest Questions" Highlight: Student's top 3 problems by most attempts and top 3 problems by longest time to solve.
+     * Visual charts: CSS/SVG horizontal bar charts of time-per-question and attempts-per-question with accessible semantic `<table>` alternative for screen readers.
+     * Constructive Educational Diagnostic: Neutral, automated assessment of strengths and recommended practice topics based on attempt counts and time metrics (e.g., *"Strong iteration logic; focus on pointer arithmetic edge cases"*).
+   - **Export Formats & Institutional Privacy**:
+     * **PDF Export**: Print-optimized stylesheet (`@media print`) and clean standalone download rendering student Display Name, Department, and Year (e.g., *"Student ••••••••1039 | AIML • FY"*).
+     * **CSV Export**: Clean downloadable tabular data for personal tracking.
+     * **Privacy Invariant**: Neither the PDF nor CSV export ever prints the student's raw 12-character PRN or the M/F gender indicator; zero problem statements, zero hidden test inputs/outputs, and zero peer data are exposed.
+
+8. **Admin Aggregate Analytics & Content Health**:
+   - Admin view (`/admin/reports` & `/admin/practice`):
+     * Aggregate per-question curriculum analytics: solve rate, average & median active time, average & median attempts, most-failed questions (highest attempt-to-solve ratio).
+     * Feeds pilot curriculum refinement and identifies ambiguous problem statements or edge-case test suite gaps.
+     * Audited institutional CSV export: grouped by department, year, and division; student PRN remains masked unless explicitly unmasked via the audited admin reveal control.
+
+9. **Cost, Quota & Data Lifecycle Invariants**:
+   - **Firestore Read/Write Budget for 500 Students**:
+     * 2-minute sync interval + event-based triggers generate $\le 30$ sync writes per active student per hour.
+     * For 500 students practicing 1 hour daily, total writes $\approx 15,000/\text{day}$ (well within the Firebase Blaze free tier of 20,000 writes/day and institutional budget).
+   - **Data Lifecycle**:
+     * Subcollection included in automated Firestore backup snapshots.
+     * Included in DPDP Student Data Export (`GET /api/user/export-data`).
+     * Cascading deletion enforced on student account deletion (`DELETE /api/user/delete-account`).
 
 
 

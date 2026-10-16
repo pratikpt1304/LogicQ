@@ -8,6 +8,7 @@ import {
   ALLOWED_YEARS,
 } from '../../config/academic.config.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
+import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -39,6 +40,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
+import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -1434,6 +1436,10 @@ export const AdminDashboardPage: React.FC = () => {
                 <input
                   id="admin-search"
                   type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
                   placeholder="PRN, email, display name..."
@@ -2509,6 +2515,9 @@ export const AdminDashboardPage: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Practice Performance Analytics & Telemetry */}
+          <AdminPracticeAnalytics />
         </div>
       )}
 
@@ -3443,27 +3452,50 @@ export const AdminDashboardPage: React.FC = () => {
               className="space-y-3"
             >
               <div>
-                <label htmlFor="audit-prn" className="block text-xs font-mono text-slate-300 mb-1">
-                  New 12-Character PRN
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="audit-prn" className="block text-xs font-mono text-slate-300">
+                    New 12-Character PRN
+                  </label>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {academicEditForm.prn.length}/12
+                  </span>
+                </div>
                 <input
                   id="audit-prn"
                   type="text"
+                  inputMode="text"
                   autoCapitalize="characters"
+                  autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
                   maxLength={12}
+                  enterKeyHint="next"
                   required
                   placeholder="2199TESM0001"
                   value={academicEditForm.prn}
                   onChange={(e) =>
                     setAcademicEditForm({
                       ...academicEditForm,
-                      prn: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12),
+                      prn: e.target.value.toUpperCase().slice(0, 12),
                     })
+                  }
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    setAcademicEditForm((prev) => ({
+                      ...prev,
+                      prn: pasted.trim().replace(/\s+/g, '').toUpperCase().slice(0, 12),
+                    }));
+                  }}
+                  onBlur={() =>
+                    setAcademicEditForm((prev) => ({
+                      ...prev,
+                      prn: prev.prn.trim().replace(/\s+/g, '').toUpperCase(),
+                    }))
                   }
                   className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white tracking-wider"
                 />
+                <PrnFormatGuide value={academicEditForm.prn} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -4548,11 +4580,31 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1">Student PRN / Username / ID:</label>
+                <label htmlFor="correction-student-prn" className="text-slate-400 block mb-1">
+                  Student PRN / Username / ID:
+                </label>
                 <input
+                  id="correction-student-prn"
                   type="text"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   value={correctionForm.studentPrnOrId}
-                  onChange={(e) => setCorrectionForm({ ...correctionForm, studentPrnOrId: e.target.value })}
+                  onChange={(e) => setCorrectionForm({ ...correctionForm, studentPrnOrId: e.target.value.toUpperCase() })}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    setCorrectionForm((prev) => ({ ...prev, studentPrnOrId: pasted.trim().toUpperCase() }));
+                  }}
+                  onBlur={() =>
+                    setCorrectionForm((prev) => ({
+                      ...prev,
+                      studentPrnOrId: prev.studentPrnOrId.trim().toUpperCase(),
+                    }))
+                  }
                   placeholder="e.g. 2199TESM0001 or student username"
                   className="w-full p-2 rounded-xl bg-slate-900 border border-white/[0.1] text-white"
                 />

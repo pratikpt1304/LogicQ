@@ -86,3 +86,24 @@
 | 7 | Shared Device Privacy on Logout | Logout cleans `localStorage` (`logicq_active_user`, `logicq_access_token`, `logicq_last_activity`, all `logicq_draft_*`, all `logicq_practice_draft_*`) and signals Service Worker `CLEAR_USER_CACHE`. Zero student code or PII remains on disk. | **PASSED** |
 | 8 | Viewport & Theme Responsiveness | Verified at 360px (mobile), 768px (tablet), and 1280px (desktop) across Light and Dark themes with zero console errors. | **PASSED** |
 
+---
+
+## 5. Practice Timers, Telemetry Tracking & Verification Reports Suite
+
+**Document:** `/docs/PRACTICE_TIMER_REPORT.md` & `/docs/MASTER_SPEC.md`  
+**Suite:** `server/tests/practice-timer-report.test.ts`  
+**Status:** 100% Passed (10 of 10 Tests Passed)
+
+| Test # | Invariant / Scenario | Verification Details | Result |
+| :---: | :--- | :--- | :---: |
+| 1 | Timer Initialization on First Open | Problem details request (`GET /api/practice/problems/:slug`) initializes `firstOpenedAt`, `activeSeconds: 0`, and returns telemetry record. | **PASSED** |
+| 2 | Active Timer Accumulation & Device Tagging | Client synchronizes active delta seconds; server verifies and increments `activeSeconds`, recording device label and sync timestamp. | **PASSED** |
+| 3 | Anti-Tamper Delta Clamp & Replay Defense | Rejects negative deltas (`deltaSeconds < 0` $\rightarrow$ 400); clamps inflated deltas to wall-clock elapsed seconds + 5s tolerance. | **PASSED** |
+| 4 | Run & Submit Telemetry Idempotency | Interactive `POST /api/practice/track-run` increments `runsCount` exactly once per run call without polluting problem submissions. | **PASSED** |
+| 5 | Solved Freeze & Untimed Retries Invariant | Once a problem is marked `ACCEPTED`, `timeToSolveSeconds` is permanently frozen at active seconds. Reopening or retrying does not increment timer. | **PASSED** |
+| 6 | Module Report Completion Gate | Student attempting to view module report with $< 10$ solved questions receives `403 MODULE_INCOMPLETE` with helpful progress details. | **PASSED** |
+| 7 | Institutional Privacy & Zero PRN Leakage | Module audit report verifies all 10 problems, active timings, first-attempt accuracy, hardest problems, and strictly omits PRN and M/F indicators. | **PASSED** |
+| 8 | Final Comprehensive Report (40/40) Gate | Final practice report is strictly locked until all 4 modules (40 questions) are solved. | **PASSED** |
+| 9 | Admin Cohort Analytics & Audited CSV | Admin receives aggregated cohort statistics, question bottlenecks, and CSV export (default masks PRNs; reveals require audited password). | **PASSED** |
+| 10 | Audited Student Progress Correction | Admin correction endpoint updates student metrics with mandatory audited reason logging to `adminAuditLog`. | **PASSED** |
+

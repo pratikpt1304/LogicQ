@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   User,
 } from 'lucide-react';
+import { PrnFormatGuide } from '../components/common/PrnFormatGuide.js';
 
 interface CompleteErrors {
   prn?: string;
@@ -34,7 +35,7 @@ interface CompleteErrors {
 }
 
 export const CompleteProfilePage: React.FC = () => {
-  const { user, completeProfile } = useAuth();
+  const { user, authState, completeProfile } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -48,6 +49,20 @@ export const CompleteProfilePage: React.FC = () => {
   const [fieldErrors, setFieldErrors] = useState<CompleteErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (authState === 'loading') {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="mb-4 animate-pulse">
+          <Logo size="lg" />
+        </div>
+        <div className="flex items-center gap-2 text-xs font-mono text-[#8B9BFF] tracking-wider">
+          <span className="w-2 h-2 rounded-full bg-[#8B9BFF] animate-ping" />
+          <span>Restoring LogicQ session...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -179,20 +194,41 @@ export const CompleteProfilePage: React.FC = () => {
                   id="complete-prn-input"
                   name="prn"
                   type="text"
-                  inputMode="numeric"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  maxLength={12}
+                  enterKeyHint="next"
                   required
                   aria-invalid={Boolean(fieldErrors.prn)}
-                  aria-describedby={fieldErrors.prn ? 'complete-prn-error' : undefined}
+                  aria-describedby={fieldErrors.prn ? 'complete-prn-error' : 'complete-prn-hint'}
                   value={formData.prn}
                   onChange={(e) => {
-                    setFormData({ ...formData, prn: e.target.value });
+                    const val = e.target.value.toUpperCase().slice(0, 12);
+                    setFormData({ ...formData, prn: val });
                     if (fieldErrors.prn) setFieldErrors({ ...fieldErrors, prn: undefined });
                   }}
-                  placeholder="Enter your 12-digit University PRN"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono"
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    const val = pasted.trim().replace(/\s+/g, '').toUpperCase().slice(0, 12);
+                    setFormData((prev) => ({ ...prev, prn: val }));
+                    if (fieldErrors.prn) setFieldErrors((prev) => ({ ...prev, prn: undefined }));
+                  }}
+                  onBlur={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      prn: prev.prn.trim().replace(/\s+/g, '').toUpperCase(),
+                    }));
+                  }}
+                  placeholder="2199TESM0001"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                 />
                 <Hash className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3" />
               </div>
+              <PrnFormatGuide value={formData.prn} />
               {fieldErrors.prn && (
                 <p id="complete-prn-error" role="alert" className="text-xs text-[#FF7A8A] mt-1 font-mono">
                   {fieldErrors.prn}

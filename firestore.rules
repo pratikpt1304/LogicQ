@@ -27,6 +27,7 @@ rules_version = '2';
 //   - stats: map (required, immutable by client) - Server-computed points, streak, solved counts
 //   - storagePreference: string (optional, enum) - 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE'
 //   - themePreference: string (optional, enum) - 'light' | 'dark' | 'system'
+//   - hidePracticeTimer: bool (optional) - Hide countdown/up timer display in practice workspace
 //   - createdAt: timestamp (required, immutable)
 //   - updatedAt: timestamp (required)
 //
@@ -196,7 +197,7 @@ service cloud.firestore {
       return uidNotModified()
         && changedKeys.hasOnly([
           'department', 'year', 'division', 'displayName',
-          'bio', 'photoURL', 'storagePreference', 'themePreference', 'updatedAt'
+          'bio', 'photoURL', 'storagePreference', 'themePreference', 'hidePracticeTimer', 'updatedAt'
         ])
         && !changedKeys.hasAny([
           'prn', 'college', 'email', 'role', 'status', 'banReason',
@@ -210,7 +211,8 @@ service cloud.firestore {
         && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
         && (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 500))
         && (!('storagePreference' in data) || data.storagePreference in ['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'])
-        && (!('themePreference' in data) || data.themePreference in ['light', 'dark', 'system']);
+        && (!('themePreference' in data) || data.themePreference in ['light', 'dark', 'system'])
+        && (!('hidePracticeTimer' in data) || data.hidePracticeTimer is bool);
     }
 
     // -------------------------------------------------------------------------
@@ -363,6 +365,12 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid || isAdmin()
       );
       // Practice progress is updated strictly on the server by the judge evaluation service via Firebase Admin SDK
+      allow write: if false;
+    }
+
+    match /practiceProgress/{userId}/questions/{problemId} {
+      // Per-student question timer & attempt records: readable by student owner or Admin; writes strictly by server
+      allow read: if isOwner(userId) || isAdmin();
       allow write: if false;
     }
 

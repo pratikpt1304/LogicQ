@@ -97,6 +97,40 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
     const judge = await getJudge();
     const result = await judge.compileAndRun(code, stdin || '', timeLimitMs || 1000, 64);
 
+    if (problemId && req.user?.userId) {
+      try {
+        const prob = await prisma.problem.findUnique({
+          where: { id: problemId },
+          select: { id: true, isPractice: true, moduleSlug: true },
+        });
+        if (prob?.isPractice && prob.moduleSlug) {
+          await prisma.practiceProgress.upsert({
+            where: {
+              userId_problemId: {
+                userId: req.user.userId,
+                problemId: prob.id,
+              },
+            },
+            update: {
+              runsCount: { increment: 1 },
+            },
+            create: {
+              userId: req.user.userId,
+              problemId: prob.id,
+              moduleSlug: prob.moduleSlug,
+              runsCount: 1,
+              attemptsCount: 0,
+              activeSeconds: 0,
+              firstOpenedAt: new Date(),
+              lastSyncedAt: new Date(),
+            },
+          });
+        }
+      } catch {
+        // Non-blocking telemetry
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: result,

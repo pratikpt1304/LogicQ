@@ -24,6 +24,7 @@ import {
   AlertCircle,
   User,
 } from 'lucide-react';
+import { PrnFormatGuide } from '../components/common/PrnFormatGuide.js';
 
 interface FieldErrors {
   fullName?: string;
@@ -242,32 +243,41 @@ export const RegisterPage: React.FC = () => {
                   id="prn-input"
                   name="prn"
                   type="text"
+                  inputMode="text"
                   autoCapitalize="characters"
+                  autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
                   maxLength={12}
+                  enterKeyHint="next"
                   required
                   aria-invalid={Boolean(fieldErrors.prn)}
                   aria-describedby={fieldErrors.prn ? 'prn-error' : 'prn-hint'}
                   value={formData.prn}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                    const val = e.target.value.toUpperCase().slice(0, 12);
                     setFormData({ ...formData, prn: val });
                     if (fieldErrors.prn) setFieldErrors({ ...fieldErrors, prn: undefined });
                   }}
                   onPaste={(e) => {
                     e.preventDefault();
                     const pasted = e.clipboardData.getData('text');
-                    const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                    const val = pasted.trim().replace(/\s+/g, '').toUpperCase().slice(0, 12);
                     setFormData({ ...formData, prn: val });
                     if (fieldErrors.prn) setFieldErrors({ ...fieldErrors, prn: undefined });
                   }}
-                  onBlur={() => setFormData((prev) => ({ ...prev, prn: normalizePrn(prev.prn) }))}
+                  onBlur={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      prn: prev.prn.trim().replace(/\s+/g, '').toUpperCase(),
+                    }))
+                  }
                   placeholder="2199TESM0001"
                   className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                 />
                 <Hash className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3" />
               </div>
+              <PrnFormatGuide value={formData.prn} showHint={false} />
               {fieldErrors.prn ? (
                 <p id="prn-error" role="alert" className="text-xs text-[#FF7A8A] mt-1 font-mono">
                   {fieldErrors.prn}

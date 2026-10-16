@@ -112,6 +112,7 @@ const updateProfileSchema = z.object({
     .enum(['GOOGLE_DRIVE', 'FIRESTORE_FALLBACK', 'LOCAL_STORAGE'])
     .optional()
     .nullable(),
+  hidePracticeTimer: z.boolean().optional(),
 });
 
 export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -415,6 +416,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     if (parsed.data.bio !== undefined) updateData.bio = parsed.data.bio;
     if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl || null;
     if (parsed.data.storagePreference !== undefined) updateData.storagePreference = parsed.data.storagePreference;
+    if (parsed.data.hidePracticeTimer !== undefined) updateData.hidePracticeTimer = parsed.data.hidePracticeTimer;
 
     const updated = await prisma.user.update({
       where: { id: req.user.userId },
@@ -453,6 +455,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
           profileComplete: updated.profileComplete,
           bio: updated.bio,
           avatarUrl: updated.avatarUrl,
+          storagePreference: updated.storagePreference,
+          hidePracticeTimer: updated.hidePracticeTimer,
           role: updated.role,
           totalPoints: updated.totalPoints,
           currentStreak: updated.currentStreak,
@@ -752,6 +756,11 @@ export const exportMyData = async (req: AuthRequest, res: Response): Promise<voi
         prnHistories: {
           orderBy: { createdAt: 'desc' },
         },
+        practiceProgress: {
+          include: {
+            problem: { select: { slug: true, title: true, difficulty: true } },
+          },
+        },
       },
     });
 
@@ -838,6 +847,20 @@ export const exportMyData = async (req: AuthRequest, res: Response): Promise<voi
             })),
           };
         }),
+        practiceProgress: (user.practiceProgress || []).map((p) => ({
+          problemSlug: p.problem.slug,
+          problemTitle: p.problem.title,
+          moduleSlug: p.moduleSlug,
+          isSolved: p.isSolved,
+          attemptsCount: p.attemptsCount,
+          runsCount: p.runsCount,
+          activeSeconds: p.activeSeconds,
+          timeToSolveSeconds: p.timeToSolveSeconds,
+          timeToFirstAttemptSeconds: p.timeToFirstAttemptSeconds,
+          firstAttemptAccepted: p.firstAttemptAccepted,
+          firstOpenedAt: p.firstOpenedAt,
+          solvedAt: p.solvedAt,
+        })),
       },
     });
   } catch (error) {
@@ -851,6 +874,7 @@ export const exportMyData = async (req: AuthRequest, res: Response): Promise<voi
  * - Removes PRN from user document
  * - Frees prnIndex/{prn} so the PRN can be registered again
  * - Deletes all uploadedSolutions and their stored files
+ * - Deletes practiceProgress records
  * - Clears profile fields (college, department, year, division, displayName, email, bio, avatarUrl)
  * - Revokes all sessions
  * - Retains only anonymized submission records for historical problem solve statistics
@@ -880,6 +904,7 @@ export const deleteMyAccount = async (req: AuthRequest, res: Response): Promise<
 
       await tx.refreshToken.deleteMany({ where: { userId } });
       await tx.uploadedSolution.deleteMany({ where: { userId } });
+      await tx.practiceProgress.deleteMany({ where: { userId } });
 
       await tx.user.update({
         where: { id: userId },

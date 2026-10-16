@@ -24,12 +24,15 @@ import {
 import { toast } from 'sonner';
 import { VerdictBadge } from '../components/common/Badge.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
+import { PrnFormatGuide } from '../components/common/PrnFormatGuide.js';
+import { PracticeReportView } from '../components/practice/PracticeReportView.js';
 import {
   Flame,
   Building2,
   GraduationCap,
   Calendar,
   Layers,
+  Clock,
   Edit3,
   X,
   Lock,
@@ -78,6 +81,7 @@ export const ProfilePage: React.FC = () => {
     division: '',
     bio: '',
     storagePreference: 'FIRESTORE_FALLBACK',
+    hidePracticeTimer: false,
   });
 
   // PRN Change Modal State
@@ -183,6 +187,7 @@ export const ProfilePage: React.FC = () => {
         division: profile.division || '',
         bio: profile.bio || '',
         storagePreference: profile.storagePreference || 'FIRESTORE_FALLBACK',
+        hidePracticeTimer: Boolean(profile.hidePracticeTimer),
       });
       setIsEditOpen(true);
     }
@@ -220,6 +225,7 @@ export const ProfilePage: React.FC = () => {
       division: trimmedDiv || null,
       bio: editForm.bio.trim() || null,
       storagePreference: editForm.storagePreference,
+      hidePracticeTimer: editForm.hidePracticeTimer,
     });
   };
 
@@ -849,6 +855,11 @@ export const ProfilePage: React.FC = () => {
         )}
       </div>
 
+      {/* Practice Verification & Performance Audit Report */}
+      {(isOwnProfile || currentUser?.role === 'ADMIN') && profile && (
+        <PracticeReportView user={profile} />
+      )}
+
       {/* View Submitted Code Modal */}
       {viewCodeSubmission && (
         <div
@@ -1210,6 +1221,30 @@ export const ProfilePage: React.FC = () => {
                     </label>
                   </div>
                 </div>
+
+                {/* Practice Timer Display Preference */}
+                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[#E8EAF6] font-bold">
+                      <Clock className="w-4 h-4 text-[#8B9BFF]" />
+                      <span>PRACTICE TIMER PREFERENCE</span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#9AA1C4] leading-relaxed">
+                    Practice questions accumulate active time while coding. You can choose to hide the count-up display to code without distraction (time will continue to be safely logged in the background).
+                  </p>
+                  <label className="flex items-center gap-2.5 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={editForm.hidePracticeTimer}
+                      onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
+                      className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF]"
+                    />
+                    <span className="text-xs text-[#E8EAF6]">
+                      Hide active timer count-up on practice screens
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {/* Sticky Footer: Always visible on 360px and with mobile keyboard */}
@@ -1349,52 +1384,76 @@ export const ProfilePage: React.FC = () => {
                   <input
                     id="modal-new-prn"
                     type="text"
+                    inputMode="text"
                     autoCapitalize="characters"
+                    autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
                     maxLength={12}
+                    enterKeyHint="next"
                     value={prnForm.newPrn}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                      const val = e.target.value.toUpperCase().slice(0, 12);
                       setPrnForm({ ...prnForm, newPrn: val });
                     }}
                     onPaste={(e) => {
                       e.preventDefault();
                       const pasted = e.clipboardData.getData('text');
-                      const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
-                      setPrnForm({ ...prnForm, newPrn: val });
+                      const val = pasted.trim().replace(/\s+/g, '').toUpperCase().slice(0, 12);
+                      setPrnForm((prev) => ({ ...prev, newPrn: val }));
+                    }}
+                    onBlur={() => {
+                      setPrnForm((prev) => ({
+                        ...prev,
+                        newPrn: prev.newPrn.trim().replace(/\s+/g, '').toUpperCase(),
+                      }));
                     }}
                     placeholder="2199TESM0001"
                     className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"
                     required
                   />
+                  <PrnFormatGuide value={prnForm.newPrn} />
                 </div>
 
                 {/* Confirm New PRN input */}
                 <div>
-                  <label
-                    htmlFor="modal-confirm-prn"
-                    className="block text-xs font-mono text-[#E8EAF6] mb-1"
-                  >
-                    CONFIRM NEW PRN
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="modal-confirm-prn"
+                      className="block text-xs font-mono text-[#E8EAF6]"
+                    >
+                      CONFIRM NEW PRN
+                    </label>
+                    <span className="text-[10px] font-mono text-[#9AA1C4]">
+                      {prnForm.confirmPrn.length}/12
+                    </span>
+                  </div>
                   <input
                     id="modal-confirm-prn"
                     type="text"
+                    inputMode="text"
                     autoCapitalize="characters"
+                    autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
                     maxLength={12}
+                    enterKeyHint="done"
                     value={prnForm.confirmPrn}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+                      const val = e.target.value.toUpperCase().slice(0, 12);
                       setPrnForm({ ...prnForm, confirmPrn: val });
                     }}
                     onPaste={(e) => {
                       e.preventDefault();
                       const pasted = e.clipboardData.getData('text');
-                      const val = pasted.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
-                      setPrnForm({ ...prnForm, confirmPrn: val });
+                      const val = pasted.trim().replace(/\s+/g, '').toUpperCase().slice(0, 12);
+                      setPrnForm((prev) => ({ ...prev, confirmPrn: val }));
+                    }}
+                    onBlur={() => {
+                      setPrnForm((prev) => ({
+                        ...prev,
+                        confirmPrn: prev.confirmPrn.trim().replace(/\s+/g, '').toUpperCase(),
+                      }));
                     }}
                     placeholder="2199TESM0001"
                     className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono tracking-wider"

@@ -160,25 +160,25 @@ export function recordUserActivity(): void {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Read initial user from persistent storage to eliminate screen flash
+const getCachedUser = (): User | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>('loading');
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(getCachedUser);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
 
   const lastActivityRecordedRef = useRef<number>(Date.now());
   const isMountedRef = useRef(true);
   const firestoreUnsubRef = useRef<(() => void) | null>(null);
-
-  // Read initial user from persistent storage to eliminate screen flash
-  const getCachedUser = (): User | null => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
 
   const persistUser = (userData: User | null) => {
     let finalUser = userData;
@@ -455,6 +455,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Primary Session Initialization on Boot / Refresh
   useEffect(() => {
     isMountedRef.current = true;
+
+    // E2E test mock session bypass
+    if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_USER__) {
+      setUser((window as any).__E2E_MOCK_USER__);
+      setAuthState('signedIn');
+      return;
+    }
 
     // 1. Check local session cache immediately
     const cached = getCachedUser();

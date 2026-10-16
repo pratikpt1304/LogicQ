@@ -1,7 +1,9 @@
 import { Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
+import { maskPrn } from '../config/academic.config.js';
 
 export async function getPracticeModules(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -329,7 +331,7 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
       }
     }
 
-    // Fetch student's progress on this problem
+    // Fetch or initialize student's progress on this problem
     let userProgress = null;
     if (userId) {
       userProgress = await prisma.practiceProgress.findUnique({
@@ -340,6 +342,28 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
           },
         },
       });
+
+      const now = new Date();
+      if (!userProgress) {
+        userProgress = await prisma.practiceProgress.create({
+          data: {
+            userId,
+            problemId: problem.id,
+            moduleSlug: problem.moduleSlug || 'control-structures',
+            firstOpenedAt: now,
+            lastSyncedAt: now,
+            activeSeconds: 0,
+            attemptsCount: 0,
+            runsCount: 0,
+            isSolved: false,
+          },
+        });
+      } else if (!userProgress.firstOpenedAt) {
+        userProgress = await prisma.practiceProgress.update({
+          where: { id: userProgress.id },
+          data: { firstOpenedAt: now, lastSyncedAt: userProgress.lastSyncedAt || now },
+        });
+      }
     }
 
     res.status(200).json({
@@ -368,6 +392,12 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
         userProgress: {
           isSolved: userProgress?.isSolved || false,
           attemptsCount: userProgress?.attemptsCount || 0,
+          runsCount: userProgress?.runsCount || 0,
+          activeSeconds: userProgress?.activeSeconds || 0,
+          timeToSolveSeconds: userProgress?.timeToSolveSeconds || null,
+          timeToFirstAttemptSeconds: userProgress?.timeToFirstAttemptSeconds || null,
+          firstAttemptAccepted: userProgress?.firstAttemptAccepted || false,
+          firstOpenedAt: userProgress?.firstOpenedAt || null,
           solvedAt: userProgress?.solvedAt || null,
         },
       },
@@ -377,3 +407,956 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
     res.status(500).json({ success: false, message: 'Failed to retrieve practice problem' });
   }
 }
+
+/**
+ * Synchronizes client active seconds delta to the server with anti-tamper wall-clock verification.
+ */
+export async function syncPracticeTimer(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const { problemId, deltaSeconds, deviceLabel } = req.body;
+
+    if (typeof deltaSeconds !== 'number' || isNaN(deltaSeconds) || deltaSeconds < 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid deltaSeconds: must be a non-negative number',
+      });
+      return;
+    }
+
+    const problem = await prisma.problem.findFirst({
+      where: {
+        OR: [{ id: problemId }, { slug: problemId }],
+        isPractice: true,
+        status: 'PUBLISHED',
+      },
+    });
+
+    if (!problem) {
+      res.status(404).json({ success: false, message: 'Practice problem not found' });
+      return;
+    }
+
+    const userId = req.user.userId;
+    const now = new Date();
+
+    let progress = await prisma.practiceProgress.findUnique({
+      where: {
+        userId_problemId: {
+          userId,
+          problemId: problem.id,
+        },
+      },
+    });
+
+    if (!progress) {
+      // First open and sync simultaneously
+      const initialDelta = Math.max(0, Math.min(Math.floor(deltaSeconds), 150));
+      progress = await prisma.practiceProgress.create({
+        data: {
+          userId,
+          problemId: problem.id,
+          moduleSlug: problem.moduleSlug || 'control-structures',
+          firstOpenedAt: now,
+          lastSyncedAt: now,
+          activeSeconds: initialDelta,
+          attemptsCount: 0,
+          runsCount: 0,
+          lastDeviceLabel: typeof deviceLabel === 'string' ? deviceLabel.slice(0, 100) : null,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          activeSeconds: progress.activeSeconds,
+          isSolved: progress.isSolved,
+          timeToSolveSeconds: progress.timeToSolveSeconds,
+          lastSyncedAt: progress.lastSyncedAt,
+        },
+      });
+      return;
+    }
+
+    // If problem is already solved, the timer is permanently FROZEN! Retries are untimed.
+    if (progress.isSolved) {
+      res.status(200).json({
+        success: true,
+        data: {
+          activeSeconds: progress.activeSeconds,
+          isSolved: true,
+          timeToSolveSeconds: progress.timeToSolveSeconds,
+          lastSyncedAt: progress.lastSyncedAt,
+        },
+      });
+      return;
+    }
+
+    // Anti-tamper wall clock validation:
+    // Delta cannot exceed the wall clock elapsed time since last sync (+ 5s network grace)
+    // and is capped at 150 seconds maximum.
+    const lastSync = progress.lastSyncedAt || progress.firstOpenedAt || now;
+    const wallClockElapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastSync.getTime()) / 1000));
+    const maxAllowedDelta = Math.min(150, wallClockElapsedSeconds + 5);
+    const validatedDelta = Math.max(0, Math.min(Math.floor(deltaSeconds), maxAllowedDelta));
+
+    const updated = await prisma.practiceProgress.update({
+      where: { id: progress.id },
+      data: {
+        activeSeconds: { increment: validatedDelta },
+        lastSyncedAt: now,
+        lastDeviceLabel: typeof deviceLabel === 'string' ? deviceLabel.slice(0, 100) : progress.lastDeviceLabel,
+        firstOpenedAt: progress.firstOpenedAt || now,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        activeSeconds: updated.activeSeconds,
+        isSolved: updated.isSolved,
+        timeToSolveSeconds: updated.timeToSolveSeconds,
+        lastSyncedAt: updated.lastSyncedAt,
+        lastDeviceLabel: updated.lastDeviceLabel,
+      },
+    });
+  } catch (err) {
+    console.error('Error in syncPracticeTimer:', err);
+    res.status(500).json({ success: false, message: 'Failed to synchronize practice timer' });
+  }
+}
+
+/**
+ * Tracks a Run Code invocation on a practice problem.
+ */
+export async function trackPracticeRun(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const { problemId } = req.body;
+    const problem = await prisma.problem.findFirst({
+      where: {
+        OR: [{ id: problemId }, { slug: problemId }],
+        isPractice: true,
+      },
+    });
+
+    if (!problem) {
+      res.status(404).json({ success: false, message: 'Practice problem not found' });
+      return;
+    }
+
+    const now = new Date();
+    const updated = await prisma.practiceProgress.upsert({
+      where: {
+        userId_problemId: {
+          userId: req.user.userId,
+          problemId: problem.id,
+        },
+      },
+      update: {
+        runsCount: { increment: 1 },
+      },
+      create: {
+        userId: req.user.userId,
+        problemId: problem.id,
+        moduleSlug: problem.moduleSlug || 'control-structures',
+        runsCount: 1,
+        attemptsCount: 0,
+        activeSeconds: 0,
+        firstOpenedAt: now,
+        lastSyncedAt: now,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: { runsCount: updated.runsCount },
+    });
+  } catch (err) {
+    console.error('Error tracking practice run:', err);
+    res.status(500).json({ success: false, message: 'Failed to track practice run' });
+  }
+}
+
+/**
+ * Formats seconds into mm:ss or hh:mm:ss, capping extreme displays at "3h+".
+ */
+export function formatTimeDisplay(seconds: number | null | undefined, capAt3h: boolean = true): string {
+  if (seconds === null || seconds === undefined || seconds < 0) return '—';
+  if (capAt3h && seconds >= 10800) {
+    return '3h+';
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+function generateDiagnosticFeedback(questions: any[], moduleSlug?: string): string {
+  const solved = questions.filter((q) => q.status === 'SOLVED');
+  if (solved.length === 0) {
+    return 'Solve problems in this module to build your personal practice analytics and diagnostic recommendations.';
+  }
+
+  const firstAttemptSolves = solved.filter((q) => q.firstAttemptAccepted).length;
+  const firstAttemptRate = Math.round((firstAttemptSolves / solved.length) * 100);
+  const highAttemptProblems = solved.filter((q) => (q.attempts || 0) >= 4);
+
+  let feedback = '';
+
+  if (firstAttemptRate >= 70) {
+    feedback += 'Outstanding first-attempt accuracy! Your algorithmic reasoning and upfront planning before code execution are exceptional. ';
+  } else if (firstAttemptRate >= 40) {
+    feedback += 'Solid, consistent progress across problem sets. You demonstrate steady persistence in resolving compiler and test edge cases. ';
+  } else {
+    feedback += 'Commendable determination. You iteratively refine your solutions until passing all tests. Consider dry-running sample inputs with pen and paper before clicking submit. ';
+  }
+
+  if (highAttemptProblems.length > 0) {
+    const titles = highAttemptProblems.slice(0, 2).map((p) => `"${p.title}"`).join(' and ');
+    feedback += `Review your logic on ${titles} to identify recurring loop bounds or corner-case patterns. `;
+  } else {
+    feedback += 'Low debugging overhead across the problem sets indicates clean, maintainable code construction. ';
+  }
+
+  if (moduleSlug === 'pointers-and-functions' || moduleSlug === 'pointers-functions') {
+    feedback += 'For pointers, continue prioritizing memory boundary safety, null-pointer defensive checks, and pointer arithmetic step sizes.';
+  } else if (moduleSlug === 'control-structures') {
+    feedback += 'Core control flow logic is well established. Ready for advanced modular function decomposition.';
+  } else if (moduleSlug === 'array-and-its-applications' || moduleSlug === 'arrays-applications') {
+    feedback += 'Continue paying close attention to 0-indexed bounds, buffer overflows, and multi-dimensional coordinate mapping.';
+  } else if (moduleSlug === 'advanced-data-types-dynamic-memory') {
+    feedback += 'Always ensure every heap allocation via malloc/calloc has a corresponding free() to prevent memory leakage.';
+  }
+
+  return feedback.trim();
+}
+
+/**
+ * Returns the student's Practice Module Report (available once all 10 questions in the module are solved).
+ */
+export async function getPracticeModuleReport(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const { moduleSlug } = req.params;
+    const targetModule = PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug);
+    if (!targetModule) {
+      res.status(404).json({ success: false, message: 'Practice module not found' });
+      return;
+    }
+
+    const moduleProblems = await prisma.problem.findMany({
+      where: {
+        isPractice: true,
+        moduleSlug,
+        status: 'PUBLISHED',
+      },
+      orderBy: [{ moduleOrder: 'asc' }, { difficulty: 'asc' }],
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        difficulty: true,
+        moduleOrder: true,
+      },
+    });
+
+    const totalProblems = moduleProblems.length;
+    const userId = req.user.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        displayName: true,
+        department: true,
+        year: true,
+        division: true,
+        shortId: true,
+      },
+    });
+
+    const progressRecords = await prisma.practiceProgress.findMany({
+      where: {
+        userId,
+        moduleSlug,
+      },
+    });
+
+    const progressMap = new Map<string, (typeof progressRecords)[0]>();
+    for (const prog of progressRecords) {
+      progressMap.set(prog.problemId, prog);
+    }
+
+    const solvedCount = progressRecords.filter((p) => p.isSolved).length;
+    const isCompleted = totalProblems > 0 && solvedCount >= totalProblems;
+
+    if (!isCompleted) {
+      res.status(403).json({
+        success: false,
+        code: 'MODULE_INCOMPLETE',
+        message: `Module report unlocks when all ${totalProblems} questions in ${targetModule.title} are solved. (${solvedCount}/${totalProblems} solved)`,
+        data: {
+          moduleSlug,
+          moduleTitle: targetModule.title,
+          solvedCount,
+          totalQuestions: totalProblems,
+          progressPercent: totalProblems > 0 ? Math.round((solvedCount / totalProblems) * 100) : 0,
+        },
+      });
+      return;
+    }
+
+    // Build question list
+    const questions = moduleProblems.map((prob, idx) => {
+      const prog = progressMap.get(prob.id);
+      const isSolved = Boolean(prog?.isSolved);
+      const solveSec = prog?.timeToSolveSeconds != null ? prog.timeToSolveSeconds : (isSolved ? prog?.activeSeconds : null);
+
+      return {
+        problemId: prob.id,
+        slug: prob.slug,
+        orderIndex: idx + 1,
+        title: prob.title,
+        difficulty: prob.difficulty,
+        status: isSolved ? 'SOLVED' : (prog ? 'ATTEMPTED' : 'UNOPENED'),
+        attempts: prog?.attemptsCount || 0,
+        runs: prog?.runsCount || 0,
+        firstAttemptAccepted: Boolean(prog?.firstAttemptAccepted),
+        timeToSolveSeconds: solveSec,
+        timeToSolveFormatted: formatTimeDisplay(solveSec),
+        timeToFirstAttemptSeconds: prog?.timeToFirstAttemptSeconds ?? null,
+        timeToFirstAttemptFormatted: formatTimeDisplay(prog?.timeToFirstAttemptSeconds),
+        hintsUsed: prog?.hintsUsed || 0,
+      };
+    });
+
+    // Compute totals and difficulty breakdown
+    const totalAttempts = questions.reduce((acc, q) => acc + q.attempts, 0);
+    const totalRuns = questions.reduce((acc, q) => acc + q.runs, 0);
+    const totalActiveSeconds = questions.reduce((acc, q) => acc + (q.timeToSolveSeconds || 0), 0);
+    const firstAttemptSolves = questions.filter((q) => q.firstAttemptAccepted).length;
+
+    const diffStats: Record<string, { count: number; totalSeconds: number; avgSeconds: number; avgAttempts: number }> = {
+      EASY: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+      MEDIUM: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+      HARD: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+    };
+
+    for (const diff of ['EASY', 'MEDIUM', 'HARD']) {
+      const diffQuestions = questions.filter((q) => q.difficulty === diff);
+      const count = diffQuestions.length;
+      const totalSec = diffQuestions.reduce((acc, q) => acc + (q.timeToSolveSeconds || 0), 0);
+      const totalAtt = diffQuestions.reduce((acc, q) => acc + q.attempts, 0);
+      diffStats[diff] = {
+        count,
+        totalSeconds: totalSec,
+        avgSeconds: count > 0 ? Math.round(totalSec / count) : 0,
+        avgAttempts: count > 0 ? Number((totalAtt / count).toFixed(1)) : 0,
+      };
+    }
+
+    // Hardest questions
+    const hardestByAttempts = [...questions]
+      .filter((q) => q.attempts > 0)
+      .sort((a, b) => b.attempts - a.attempts)
+      .slice(0, 3);
+
+    const hardestByTime = [...questions]
+      .filter((q) => (q.timeToSolveSeconds || 0) > 0)
+      .sort((a, b) => (b.timeToSolveSeconds || 0) - (a.timeToSolveSeconds || 0))
+      .slice(0, 3);
+
+    const diagnosticSummary = generateDiagnosticFeedback(questions, moduleSlug);
+
+    // Student identity: NO PRN, NO M/F letter!
+    const studentInfo = {
+      displayName: user?.displayName || `Student ${user?.shortId || ''}`.trim(),
+      department: user?.department || 'Engineering',
+      year: user?.year || 'FY',
+      division: user?.division || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        report: {
+          type: 'MODULE_REPORT',
+          moduleSlug,
+          moduleTitle: targetModule.title,
+          student: studentInfo,
+          totalSolved: solvedCount,
+          totalQuestions: totalProblems,
+          totals: {
+            solvedCount,
+            totalQuestions: totalProblems,
+            totalAttempts,
+            totalRuns,
+            totalActiveSeconds,
+            totalActiveFormatted: formatTimeDisplay(totalActiveSeconds, false),
+            averageActiveSeconds: totalProblems > 0 ? Math.round(totalActiveSeconds / totalProblems) : 0,
+            averageActiveFormatted: formatTimeDisplay(totalProblems > 0 ? Math.round(totalActiveSeconds / totalProblems) : 0),
+            firstAttemptSolves,
+            firstAttemptRate: totalProblems > 0 ? Math.round((firstAttemptSolves / totalProblems) * 100) : 0,
+          },
+          difficultyBreakdown: diffStats,
+          hardestQuestions: {
+            byAttempts: hardestByAttempts,
+            byTime: hardestByTime,
+          },
+          diagnosticSummary,
+          questions,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+    });
+  } catch (err) {
+    console.error('Error in getPracticeModuleReport:', err);
+    res.status(500).json({ success: false, message: 'Failed to generate module report' });
+  }
+}
+
+/**
+ * Returns the student's Final Curriculum Report (available once all 4 modules / 40 questions are solved).
+ */
+export async function getPracticeFinalReport(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const userId = req.user.userId;
+
+    const allProblems = await prisma.problem.findMany({
+      where: {
+        isPractice: true,
+        status: 'PUBLISHED',
+      },
+      orderBy: [{ moduleSlug: 'asc' }, { moduleOrder: 'asc' }, { difficulty: 'asc' }],
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        difficulty: true,
+        moduleSlug: true,
+        moduleOrder: true,
+      },
+    });
+
+    const totalCurriculumQuestions = allProblems.length;
+    const progressRecords = await prisma.practiceProgress.findMany({
+      where: { userId },
+    });
+
+    const progressMap = new Map<string, (typeof progressRecords)[0]>();
+    for (const prog of progressRecords) {
+      progressMap.set(prog.problemId, prog);
+    }
+
+    const solvedCount = progressRecords.filter((p) => p.isSolved).length;
+    const isCompleted = totalCurriculumQuestions >= 40 && solvedCount >= totalCurriculumQuestions;
+
+    if (!isCompleted) {
+      res.status(403).json({
+        success: false,
+        code: 'CURRICULUM_INCOMPLETE',
+        message: `Final practice report unlocks when all 4 modules (40 questions) are completed. (${solvedCount}/${totalCurriculumQuestions} solved)`,
+        data: {
+          solvedCount,
+          totalQuestions: totalCurriculumQuestions,
+          progressPercent: totalCurriculumQuestions > 0 ? Math.round((solvedCount / totalCurriculumQuestions) * 100) : 0,
+        },
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        displayName: true,
+        department: true,
+        year: true,
+        division: true,
+        shortId: true,
+      },
+    });
+
+    const allQuestions = allProblems.map((prob, idx) => {
+      const prog = progressMap.get(prob.id);
+      const isSolved = Boolean(prog?.isSolved);
+      const solveSec = prog?.timeToSolveSeconds != null ? prog.timeToSolveSeconds : (isSolved ? prog?.activeSeconds : null);
+
+      return {
+        problemId: prob.id,
+        slug: prob.slug,
+        orderIndex: idx + 1,
+        title: prob.title,
+        moduleSlug: prob.moduleSlug,
+        difficulty: prob.difficulty,
+        status: isSolved ? 'SOLVED' : (prog ? 'ATTEMPTED' : 'UNOPENED'),
+        attempts: prog?.attemptsCount || 0,
+        runs: prog?.runsCount || 0,
+        firstAttemptAccepted: Boolean(prog?.firstAttemptAccepted),
+        timeToSolveSeconds: solveSec,
+        timeToSolveFormatted: formatTimeDisplay(solveSec),
+        timeToFirstAttemptSeconds: prog?.timeToFirstAttemptSeconds ?? null,
+        hintsUsed: prog?.hintsUsed || 0,
+      };
+    });
+
+    const totalAttempts = allQuestions.reduce((acc, q) => acc + q.attempts, 0);
+    const totalRuns = allQuestions.reduce((acc, q) => acc + q.runs, 0);
+    const totalActiveSeconds = allQuestions.reduce((acc, q) => acc + (q.timeToSolveSeconds || 0), 0);
+    const firstAttemptSolves = allQuestions.filter((q) => q.firstAttemptAccepted).length;
+
+    // Per-module breakdown
+    const moduleSummaries = PRACTICE_CONFIG.MODULES.map((mod) => {
+      const modQuestions = allQuestions.filter((q) => q.moduleSlug === mod.slug);
+      const modSolved = modQuestions.filter((q) => q.status === 'SOLVED').length;
+      const modAttempts = modQuestions.reduce((acc, q) => acc + q.attempts, 0);
+      const modSeconds = modQuestions.reduce((acc, q) => acc + (q.timeToSolveSeconds || 0), 0);
+
+      return {
+        moduleSlug: mod.slug,
+        title: mod.title,
+        order: mod.order,
+        solvedCount: modSolved,
+        totalQuestions: modQuestions.length,
+        totalAttempts: modAttempts,
+        totalActiveSeconds: modSeconds,
+        totalActiveFormatted: formatTimeDisplay(modSeconds, false),
+      };
+    });
+
+    // Difficulty breakdown
+    const diffStats: Record<string, { count: number; totalSeconds: number; avgSeconds: number; avgAttempts: number }> = {
+      EASY: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+      MEDIUM: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+      HARD: { count: 0, totalSeconds: 0, avgSeconds: 0, avgAttempts: 0 },
+    };
+
+    for (const diff of ['EASY', 'MEDIUM', 'HARD']) {
+      const diffQuestions = allQuestions.filter((q) => q.difficulty === diff);
+      const count = diffQuestions.length;
+      const totalSec = diffQuestions.reduce((acc, q) => acc + (q.timeToSolveSeconds || 0), 0);
+      const totalAtt = diffQuestions.reduce((acc, q) => acc + q.attempts, 0);
+      diffStats[diff] = {
+        count,
+        totalSeconds: totalSec,
+        avgSeconds: count > 0 ? Math.round(totalSec / count) : 0,
+        avgAttempts: count > 0 ? Number((totalAtt / count).toFixed(1)) : 0,
+      };
+    }
+
+    const hardestByAttempts = [...allQuestions]
+      .filter((q) => q.attempts > 0)
+      .sort((a, b) => b.attempts - a.attempts)
+      .slice(0, 3);
+
+    const hardestByTime = [...allQuestions]
+      .filter((q) => (q.timeToSolveSeconds || 0) > 0)
+      .sort((a, b) => (b.timeToSolveSeconds || 0) - (a.timeToSolveSeconds || 0))
+      .slice(0, 3);
+
+    const diagnosticSummary = generateDiagnosticFeedback(allQuestions);
+
+    const studentInfo = {
+      displayName: user?.displayName || `Student ${user?.shortId || ''}`.trim(),
+      department: user?.department || 'Engineering',
+      year: user?.year || 'FY',
+      division: user?.division || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        report: {
+          type: 'FINAL_CURRICULUM_REPORT',
+          title: 'LogicQ Practice Curriculum Final Report',
+          student: studentInfo,
+          totals: {
+            solvedCount,
+            totalQuestions: totalCurriculumQuestions,
+            totalAttempts,
+            totalRuns,
+            totalActiveSeconds,
+            totalActiveFormatted: formatTimeDisplay(totalActiveSeconds, false),
+            averageActiveSeconds: totalCurriculumQuestions > 0 ? Math.round(totalActiveSeconds / totalCurriculumQuestions) : 0,
+            averageActiveFormatted: formatTimeDisplay(totalCurriculumQuestions > 0 ? Math.round(totalActiveSeconds / totalCurriculumQuestions) : 0),
+            firstAttemptSolves,
+            firstAttemptRate: totalCurriculumQuestions > 0 ? Math.round((firstAttemptSolves / totalCurriculumQuestions) * 100) : 0,
+          },
+          moduleSummaries,
+          difficultyBreakdown: diffStats,
+          hardestQuestions: {
+            byAttempts: hardestByAttempts,
+            byTime: hardestByTime,
+          },
+          diagnosticSummary,
+          allQuestions,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+    });
+  } catch (err) {
+    console.error('Error in getPracticeFinalReport:', err);
+    res.status(500).json({ success: false, message: 'Failed to generate final report' });
+  }
+}
+
+/**
+ * Returns curriculum-wide aggregate analytics per problem for administrators.
+ */
+export async function getAdminPracticeReports(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user || req.user.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Administrator authorization required' });
+      return;
+    }
+
+    const practiceProblems = await prisma.problem.findMany({
+      where: {
+        isPractice: true,
+        status: 'PUBLISHED',
+      },
+      orderBy: [{ moduleSlug: 'asc' }, { moduleOrder: 'asc' }, { difficulty: 'asc' }],
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        difficulty: true,
+        moduleSlug: true,
+        moduleOrder: true,
+      },
+    });
+
+    const allProgress = await prisma.practiceProgress.findMany({
+      include: {
+        user: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    // Filter to student progress only
+    const studentProgress = allProgress.filter((p) => p.user.role === 'STUDENT');
+
+    const totalStudents = await prisma.user.count({
+      where: { role: 'STUDENT', profileComplete: true },
+    });
+
+    const problemsAnalytics = practiceProblems.map((prob) => {
+      const records = studentProgress.filter((p) => p.problemId === prob.id);
+      const totalAttempted = records.filter((p) => p.attemptsCount > 0 || p.activeSeconds > 0).length;
+      const totalSolved = records.filter((p) => p.isSolved).length;
+      const solveRate = totalAttempted > 0 ? Math.round((totalSolved / totalAttempted) * 100) : 0;
+
+      const attemptsList = records.map((p) => p.attemptsCount).filter((a) => a > 0);
+      const timesList = records.filter((p) => p.isSolved).map((p) => p.timeToSolveSeconds || p.activeSeconds).filter((t) => t > 0);
+
+      const avgAttempts = attemptsList.length > 0
+        ? Number((attemptsList.reduce((a, b) => a + b, 0) / attemptsList.length).toFixed(1))
+        : 0;
+      const medianAttempts = calculateMedian(attemptsList);
+
+      const avgSeconds = timesList.length > 0
+        ? Math.round(timesList.reduce((a, b) => a + b, 0) / timesList.length)
+        : 0;
+      const medianSeconds = calculateMedian(timesList);
+
+      const isBottleneck = (avgAttempts >= 3.5 && totalAttempted >= 5) || (solveRate < 40 && totalAttempted >= 5);
+
+      return {
+        problemId: prob.id,
+        slug: prob.slug,
+        title: prob.title,
+        moduleSlug: prob.moduleSlug,
+        moduleOrder: prob.moduleOrder,
+        difficulty: prob.difficulty,
+        totalAttempted,
+        totalSolved,
+        solvesCount: totalSolved,
+        solveRate,
+        averageAttempts: avgAttempts,
+        avgAttempts,
+        medianAttempts,
+        averageActiveSeconds: avgSeconds,
+        avgActiveSeconds: avgSeconds,
+        averageActiveFormatted: formatTimeDisplay(avgSeconds),
+        medianActiveSeconds: medianSeconds,
+        medianActiveFormatted: formatTimeDisplay(medianSeconds),
+        firstAttemptPassCount: records.filter((p) => p.firstAttemptAccepted).length,
+        isBottleneck,
+      };
+    });
+
+    const totalSolvedSum = problemsAnalytics.reduce((acc, p) => acc + p.totalSolved, 0);
+    const avgTimeSum = Math.round(
+      problemsAnalytics.reduce((acc, p) => acc + p.averageActiveSeconds, 0) /
+        Math.max(1, problemsAnalytics.length)
+    );
+    const avgAttemptsSum = Number(
+      (
+        problemsAnalytics.reduce((acc, p) => acc + p.averageAttempts, 0) /
+        Math.max(1, problemsAnalytics.length)
+      ).toFixed(1)
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalStudents,
+          totalProblems: practiceProblems.length,
+          totalSolved: totalSolvedSum,
+          avgTimeToSolveSeconds: avgTimeSum,
+          avgAttemptsPerSolve: avgAttemptsSum,
+        },
+        totalStudents,
+        totalProblems: practiceProblems.length,
+        problems: problemsAnalytics,
+        questions: problemsAnalytics,
+      },
+    });
+  } catch (err) {
+    console.error('Error in getAdminPracticeReports:', err);
+    res.status(500).json({ success: false, message: 'Failed to retrieve admin practice reports' });
+  }
+}
+
+/**
+ * Exports practice progress across students grouped by department, year, and division as CSV.
+ * PRN is masked by default unless explicit audited reveal is confirmed.
+ */
+export async function exportAdminPracticeCsv(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user || req.user.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Administrator authorization required' });
+      return;
+    }
+
+    const { revealPrn, adminPassword } = req.query as { revealPrn?: string; adminPassword?: string };
+    let unmaskAuthorized = false;
+
+    if (revealPrn === 'true') {
+      const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+      if (!adminUser || !adminPassword) {
+        res.status(401).json({ success: false, message: 'Admin password required for unmasked PRN export' });
+        return;
+      }
+      const isMatch = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+      if (!isMatch) {
+        res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+        return;
+      }
+      unmaskAuthorized = true;
+    }
+
+    // Log audited action
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user.userId,
+        action: 'PRACTICE_REPORT_CSV_EXPORT',
+        reason: unmaskAuthorized ? 'Audited CSV export with unmasked PRNs' : 'Standard institutional CSV export (masked PRNs)',
+      },
+    });
+
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', profileComplete: true },
+      orderBy: [{ department: 'asc' }, { year: 'asc' }, { division: 'asc' }, { fullName: 'asc' }],
+      include: {
+        practiceProgress: true,
+      },
+    });
+
+    const headers = [
+      'Department',
+      'Year',
+      'Division',
+      'Student Name',
+      'PRN',
+      'Total Solved',
+      'Total Attempts',
+      'Total Active Seconds',
+      'Module 1 Solved',
+      'Module 2 Solved',
+      'Module 3 Solved',
+      'Module 4 Solved',
+    ];
+
+    const rows = students.map((s) => {
+      const progressList = s.practiceProgress || [];
+      const solvedCount = progressList.filter((p) => p.isSolved).length;
+      const totalAttempts = progressList.reduce((acc, p) => acc + (p.attemptsCount || 0), 0);
+      const totalSeconds = progressList.reduce((acc, p) => acc + (p.timeToSolveSeconds || p.activeSeconds || 0), 0);
+
+      const m1 = progressList.filter((p) => p.moduleSlug === 'control-structures' && p.isSolved).length;
+      const m2 = progressList.filter((p) => (p.moduleSlug === 'pointers-and-functions' || p.moduleSlug === 'pointers-functions') && p.isSolved).length;
+      const m3 = progressList.filter((p) => (p.moduleSlug === 'array-and-its-applications' || p.moduleSlug === 'arrays-applications') && p.isSolved).length;
+      const m4 = progressList.filter((p) => p.moduleSlug === 'advanced-data-types-dynamic-memory' && p.isSolved).length;
+
+      const renderedPrn = unmaskAuthorized ? (s.prn || '—') : maskPrn(s.prn);
+
+      return [
+        `"${(s.department || 'AIML').replace(/"/g, '""')}"`,
+        `"${(s.year || 'FY').replace(/"/g, '""')}"`,
+        `"${(s.division || '—').replace(/"/g, '""')}"`,
+        `"${(s.displayName || s.fullName || 'Student').replace(/"/g, '""')}"`,
+        `"${renderedPrn}"`,
+        solvedCount,
+        totalAttempts,
+        totalSeconds,
+        m1,
+        m2,
+        m3,
+        m4,
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="logicq-practice-progress.csv"');
+    res.status(200).send(csvContent);
+  } catch (err) {
+    console.error('Error in exportAdminPracticeCsv:', err);
+    res.status(500).json({ success: false, message: 'Failed to export practice CSV' });
+  }
+}
+
+/**
+ * Allows an administrator to correct a student's practice record through an audited action with a reason.
+ */
+export async function correctStudentPracticeProgress(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user || req.user.role !== 'ADMIN') {
+      res.status(403).json({ success: false, message: 'Administrator authorization required' });
+      return;
+    }
+
+    const { studentId, problemId, activeSeconds, attemptsCount, isSolved, reason, adminPassword } = req.body;
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
+      res.status(400).json({
+        success: false,
+        message: 'A substantive reason (at least 10 characters) is required for audit logs',
+      });
+      return;
+    }
+
+    const adminUser = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!adminUser || !adminPassword) {
+      res.status(401).json({ success: false, message: 'Admin password required for record correction' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(adminPassword, adminUser.passwordHash);
+    if (!isMatch) {
+      res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+      return;
+    }
+
+    const problem = await prisma.problem.findFirst({
+      where: { OR: [{ id: problemId }, { slug: problemId }] },
+    });
+
+    if (!problem) {
+      res.status(404).json({ success: false, message: 'Practice problem not found' });
+      return;
+    }
+
+    const currentProg = await prisma.practiceProgress.findUnique({
+      where: {
+        userId_problemId: {
+          userId: studentId,
+          problemId: problem.id,
+        },
+      },
+    });
+
+    const updateData: Record<string, any> = {};
+    if (activeSeconds !== undefined && typeof activeSeconds === 'number' && activeSeconds >= 0) {
+      updateData.activeSeconds = Math.floor(activeSeconds);
+    }
+    if (attemptsCount !== undefined && typeof attemptsCount === 'number' && attemptsCount >= 0) {
+      updateData.attemptsCount = Math.floor(attemptsCount);
+    }
+    if (isSolved !== undefined && typeof isSolved === 'boolean') {
+      updateData.isSolved = isSolved;
+      if (isSolved && !currentProg?.solvedAt) {
+        updateData.solvedAt = new Date();
+        updateData.timeToSolveSeconds = updateData.activeSeconds ?? currentProg?.activeSeconds ?? 0;
+      }
+    }
+
+    const updated = await prisma.practiceProgress.upsert({
+      where: {
+        userId_problemId: {
+          userId: studentId,
+          problemId: problem.id,
+        },
+      },
+      update: updateData,
+      create: {
+        userId: studentId,
+        problemId: problem.id,
+        moduleSlug: problem.moduleSlug || 'control-structures',
+        activeSeconds: updateData.activeSeconds || 0,
+        attemptsCount: updateData.attemptsCount || 0,
+        runsCount: 0,
+        isSolved: Boolean(updateData.isSolved),
+        solvedAt: updateData.isSolved ? new Date() : null,
+        timeToSolveSeconds: updateData.isSolved ? (updateData.activeSeconds || 0) : null,
+        firstOpenedAt: new Date(),
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminId: req.user.userId,
+        targetUserId: studentId,
+        targetId: problem.id,
+        action: 'PRACTICE_RECORD_CORRECTED',
+        oldValue: JSON.stringify(currentProg || {}),
+        newValue: JSON.stringify(updated),
+        reason: reason.trim(),
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Practice record corrected and logged to audit trail',
+      data: updated,
+    });
+  } catch (err) {
+    console.error('Error in correctStudentPracticeProgress:', err);
+    res.status(500).json({ success: false, message: 'Failed to correct practice record' });
+  }
+}
+

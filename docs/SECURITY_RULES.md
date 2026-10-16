@@ -100,6 +100,7 @@ To allow smooth student onboarding directly from the client without compromising
   - `photoURL`: string | null (optional, <= 500 chars)
   - `storagePreference`: string (optional, enum: `'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE'`)
   - `themePreference`: string (optional, enum: `'light' | 'dark' | 'system'`)
+  - `hidePracticeTimer`: boolean (optional, default `false`)
   - `updatedAt`: timestamp
 - **Strictly Blocked / Immutable Fields on Update**: `prn`, `college`, `email`, `role`, `status`, `banReason`, `stats`, `points`, `totalPoints`, `streak`, `currentStreak`, `prnChangedAt`, `prnNextAllowedChangeDate`. Any attempt to modify these fields or introduce unauthorized keys is categorically denied.
 
