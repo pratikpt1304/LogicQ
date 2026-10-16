@@ -232,7 +232,7 @@ Speed races and penalty deductions discourage deliberate experimentation, promot
 - **Daily Challenge Topic Alignment**:
   - Daily challenges are organized in instructional thematic blocks aligning with the active practice module wherever the approved book pool allows (e.g. Week 1 daily challenges focus on control flow and expressions).
 - **Configurable Module Unlock Threshold**:
-  - Unlock threshold is configurable per module (default: 7 of 10 solved). Admin can adjust to 6 or 8 based on pilot difficulty data.
+  - Unlock threshold is configurable per module (default: all 10 of 10 solved). Admin can adjust based on pilot difficulty data.
 
 #### Data Model & Schema Modifications:
 - Practice Module Config / Table:

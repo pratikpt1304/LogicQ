@@ -2364,9 +2364,9 @@ export const AdminDashboardPage: React.FC = () => {
           {(() => {
             const modulesList = practiceModulesData?.data?.modules || [
               { order: 1, title: 'Control Structures', slug: 'control-structures', requirementText: 'Unlocked for all', totalQuestions: 10 },
-              { order: 2, title: 'Pointers and functions', slug: 'pointers-and-functions', requirementText: 'Solve 7 of 10 in Module 1', totalQuestions: 10 },
-              { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', requirementText: 'Solve 7 of 10 in Module 2', totalQuestions: 10 },
-              { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', requirementText: 'Solve 7 of 10 in Module 3', totalQuestions: 10 },
+              { order: 2, title: 'Pointers and functions', slug: 'pointers-and-functions', requirementText: 'Solve all 10 in Module 1', totalQuestions: 10 },
+              { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', requirementText: 'Solve all 10 in Module 2', totalQuestions: 10 },
+              { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', requirementText: 'Solve all 10 in Module 3', totalQuestions: 10 },
             ];
 
             return (

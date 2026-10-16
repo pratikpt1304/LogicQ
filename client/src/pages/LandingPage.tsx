@@ -79,7 +79,7 @@ export const LandingPage: React.FC = () => {
               Self-Paced C Practice Track
             </h2>
             <p className="text-sm text-[var(--text-muted)] mt-1.5 max-w-2xl">
-              10 curated problems per module across Easy, Medium, and Hard. Solve 7 of 10 in each module to unlock the next one.
+              10 curated problems per module across Easy, Medium, and Hard. Solve all 10 in each module to unlock the next one.
             </p>
           </div>
 
@@ -99,10 +99,10 @@ export const LandingPage: React.FC = () => {
             className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                 MODULE 1 • UNLOCKED
               </span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
               Control Structures
@@ -122,10 +122,10 @@ export const LandingPage: React.FC = () => {
             className="glass-card p-5 rounded-2xl border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-all space-y-3 group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                MODULE 2 • GATE 7/10
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40">
+                MODULE 2 • GATE 10/10
               </span>
-              <Lock className="w-4 h-4 text-amber-400" />
+              <Lock className="w-4 h-4 text-amber-800 dark:text-amber-300" />
             </div>
             <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
               Pointers and functions
@@ -135,7 +135,7 @@ export const LandingPage: React.FC = () => {
             </p>
             <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
               <span>10 Problems</span>
-              <span className="text-amber-400 font-semibold">Solve 7 to Unlock</span>
+              <span className="text-amber-800 dark:text-amber-300 font-semibold">Solve all 10 to Unlock</span>
             </div>
           </Link>
 
@@ -146,7 +146,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
-                MODULE 3 • GATE 7/10
+                MODULE 3 • GATE 10/10
               </span>
               <Lock className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
@@ -169,7 +169,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
-                MODULE 4 • GATE 7/10
+                MODULE 4 • GATE 10/10
               </span>
               <Lock className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
