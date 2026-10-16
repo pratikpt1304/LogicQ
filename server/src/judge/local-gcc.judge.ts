@@ -1,4 +1,10 @@
-import { IJudge, ExecutionResult, Verdict } from './judge.interface.js';
+import {
+  IJudge,
+  ITwoPhaseJudge,
+  ExecutionResult,
+  CompilationResult,
+  Verdict,
+} from './judge.interface.js';
 import { spawn, execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -10,12 +16,67 @@ import { ENV } from '../config/env.js';
 const execFileAsync = promisify(execFile);
 
 const EXIT_CODE_MLE = 99;
-const EXIT_CODE_SECURITY = 98;
+const EXIT_CODE_TIMEOUT = 124;
 const WINDOWS_STACK_OVERFLOW = 3221225725; // 0xC00000FD
 
-export class LocalGccJudge implements IJudge {
+// Global registry of active temporary directories for zero dangling files guarantee
+const activeTempDirs = new Set<string>();
+
+function registerTempDir(dir: string): void {
+  activeTempDirs.add(dir);
+}
+
+function unregisterTempDir(dir: string): void {
+  activeTempDirs.delete(dir);
+}
+
+const cleanAllActiveDirs = () => {
+  for (const dir of activeTempDirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    } catch {}
+  }
+  activeTempDirs.clear();
+};
+
+if (typeof process !== 'undefined') {
+  process.once('exit', cleanAllActiveDirs);
+  process.once('SIGINT', () => {
+    cleanAllActiveDirs();
+    process.exit(130);
+  });
+  process.once('SIGTERM', () => {
+    cleanAllActiveDirs();
+    process.exit(143);
+  });
+}
+
+function cleanStaleTempDirs(): void {
+  try {
+    const tmp = os.tmpdir();
+    const entries = fs.readdirSync(tmp);
+    const now = Date.now();
+    for (const entry of entries) {
+      if (entry.startsWith('logicq_judge_')) {
+        const fullPath = path.join(tmp, entry);
+        try {
+          const stats = fs.statSync(fullPath);
+          if (now - stats.mtimeMs > 10 * 60 * 1000) {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+}
+
+export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
   readonly name = 'LocalGccJudge';
   private resolvedGccPath: string = '';
+  private runnerExecutablePath: string = '';
+  private static runnerBuildPromise: Promise<string> | null = null;
 
   private getGccExecutable(): string {
     if (this.resolvedGccPath) return this.resolvedGccPath;
@@ -40,6 +101,10 @@ export class LocalGccJudge implements IJudge {
     try {
       const gcc = this.getGccExecutable();
       await execFileAsync(gcc, ['--version']);
+      cleanStaleTempDirs();
+      if (process.platform === 'win32') {
+        await this.ensureSandboxRunner();
+      }
       return true;
     } catch {
       return false;
@@ -47,10 +112,95 @@ export class LocalGccJudge implements IJudge {
   }
 
   /**
-   * Static source guard against host-escape headers and forbidden syscalls before invoking GCC.
+   * Ensures the Win32 Job Object native C sandbox runner is compiled on startup or on demand.
+   */
+  async ensureSandboxRunner(): Promise<string> {
+    if (process.platform !== 'win32') return '';
+    if (this.runnerExecutablePath && fs.existsSync(this.runnerExecutablePath)) {
+      return this.runnerExecutablePath;
+    }
+
+    if (LocalGccJudge.runnerBuildPromise) {
+      return LocalGccJudge.runnerBuildPromise;
+    }
+
+    LocalGccJudge.runnerBuildPromise = (async () => {
+      try {
+        const currentDir = typeof __dirname !== 'undefined' ? __dirname : path.resolve('.');
+        let runnerSource = path.join(currentDir, 'win-sandbox-runner.c');
+        if (!fs.existsSync(runnerSource)) {
+          const srcCandidate = path.resolve(currentDir, '../../src/judge/win-sandbox-runner.c');
+          if (fs.existsSync(srcCandidate)) {
+            runnerSource = srcCandidate;
+          }
+        }
+
+        const runnerExe = path.join(path.dirname(runnerSource), 'win-sandbox-runner.exe');
+
+        // Check if existing binary is newer than source
+        if (fs.existsSync(runnerExe) && fs.existsSync(runnerSource)) {
+          const cMtime = fs.statSync(runnerSource).mtimeMs;
+          const exeMtime = fs.statSync(runnerExe).mtimeMs;
+          if (exeMtime >= cMtime) {
+            this.runnerExecutablePath = runnerExe;
+            return runnerExe;
+          }
+        }
+
+        if (!fs.existsSync(runnerSource)) {
+          console.warn('[LocalGccJudge] win-sandbox-runner.c not found, falling back to Node runner');
+          return '';
+        }
+
+        const gcc = this.getGccExecutable();
+        await execFileAsync(gcc, ['-O2', '-Wall', '-s', runnerSource, '-o', runnerExe], {
+          timeout: 10000,
+        });
+
+        this.runnerExecutablePath = runnerExe;
+        return runnerExe;
+      } catch (err: any) {
+        console.warn('[LocalGccJudge] Failed to build win-sandbox-runner.exe:', err.message);
+        return '';
+      } finally {
+        LocalGccJudge.runnerBuildPromise = null;
+      }
+    })();
+
+    return LocalGccJudge.runnerBuildPromise;
+  }
+
+  /**
+   * Neutralizes comments and string literals to prevent false positive pattern matches.
+   */
+  private stripNonCode(code: string): string {
+    return code.replace(
+      /\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g,
+      (match) => {
+        if (match.startsWith('"') || match.startsWith("'")) {
+          return '""';
+        }
+        return ' ';
+      }
+    );
+  }
+
+  /**
+   * Hardened Static Source Security Guard
+   * Blocks #undef, macro hijacking, dangerous headers, and forbidden syscalls before compiling.
    */
   private validateSourceSecurity(code: string): string | null {
-    // 1. Block arbitrary path #include directives (e.g., #include "/etc/passwd", #include "../...", #include "C:\...")
+    // 1. Block #undef preprocessor directives (anti-macro-bypass)
+    if (/^\s*#\s*undef\b/m.test(code)) {
+      return 'Security violation: #undef preprocessor directive is forbidden in the sandbox';
+    }
+
+    // 2. Block redefining internal sandbox symbols
+    if (/^\s*#\s*define\s+(__lq_|LOGICQ_)/m.test(code)) {
+      return 'Security violation: redefining reserved sandbox identifiers is forbidden';
+    }
+
+    // 3. Block arbitrary path #include directives and restricted system headers
     const includeRegex = /^\s*#\s*include\s*[<"]([^>"]+)[>"]/gm;
     let match: RegExpExecArray | null;
     const forbiddenHeaders = new Set([
@@ -66,6 +216,15 @@ export class LocalGccJudge implements IJudge {
       'sys/wait.h',
       'pthread.h',
       'dlfcn.h',
+      'sys/mman.h',
+      'sys/syscall.h',
+      'sys/ptrace.h',
+      'sys/resource.h',
+      'process.h',
+      'io.h',
+      'direct.h',
+      'winternl.h',
+      'tlhelp32.h',
     ]);
 
     while ((match = includeRegex.exec(code)) !== null) {
@@ -76,7 +235,8 @@ export class LocalGccJudge implements IJudge {
         /^[a-zA-Z]:/.test(header) ||
         header.includes('passwd') ||
         header.includes('shadow') ||
-        header.includes('proc/')
+        header.includes('proc/') ||
+        header.includes('hosts')
       ) {
         return `Security violation: forbidden file path in #include "${match[1]}"`;
       }
@@ -85,19 +245,30 @@ export class LocalGccJudge implements IJudge {
       }
     }
 
-    // 2. Block process creation, shell execution, and raw socket creation
+    // 4. Block forbidden process creation, shell execution, raw socket creation, and inline assembly
+    const strippedCode = this.stripNonCode(code);
     const forbiddenCallPatterns: Array<{ pattern: RegExp; reason: string }> = [
       { pattern: /\bfork\s*\(/, reason: 'Process creation (fork) is disabled in the sandbox' },
       { pattern: /\bvfork\s*\(/, reason: 'Process creation (vfork) is disabled in the sandbox' },
+      { pattern: /\bclone\s*\(/, reason: 'Process cloning (clone) is disabled in the sandbox' },
       { pattern: /\bsystem\s*\(/, reason: 'Shell execution (system) is disabled in the sandbox' },
+      { pattern: /\b_?wsystem\s*\(/, reason: 'Shell execution (wsystem) is disabled in the sandbox' },
       { pattern: /\bpopen\s*\(/, reason: 'Pipe execution (popen) is disabled in the sandbox' },
-      { pattern: /\bexec(?:l|le|lp|v|ve|vp|vpe)\s*\(/, reason: 'Process exec family is disabled in the sandbox' },
+      { pattern: /\b_?wpopen\s*\(/, reason: 'Pipe execution (wpopen) is disabled in the sandbox' },
+      { pattern: /\bexec(?:l|le|lp|lpe|v|ve|vp|vpe)\s*\(/, reason: 'Process exec family is disabled in the sandbox' },
+      { pattern: /\b_?spawn(?:l|le|lp|lpe|v|ve|vp|vpe)?\s*\(/, reason: 'Process spawn family is disabled in the sandbox' },
+      { pattern: /\bCreateProcess(?:A|W)?\s*\(/, reason: 'Windows process creation is disabled in the sandbox' },
+      { pattern: /\bCreateThread\s*\(/, reason: 'Thread creation is disabled in the sandbox' },
       { pattern: /\bsocket\s*\(/, reason: 'Network socket creation is disabled in the sandbox' },
       { pattern: /\bWSAStartup\s*\(/, reason: 'Network Winsock initialization is disabled in the sandbox' },
+      { pattern: /\bconnect\s*\(/, reason: 'Network connection is disabled in the sandbox' },
+      { pattern: /\bptrace\s*\(/, reason: 'Process debugging/tracing is disabled in the sandbox' },
+      { pattern: /\bkill\s*\(/, reason: 'Signal transmission (kill) is disabled in the sandbox' },
+      { pattern: /\b(?:__asm__|asm)\s*(?:volatile)?\s*\(/, reason: 'Inline assembly is disabled in the sandbox' },
     ];
 
     for (const rule of forbiddenCallPatterns) {
-      if (rule.pattern.test(code)) {
+      if (rule.pattern.test(strippedCode)) {
         return `Security violation: ${rule.reason}`;
       }
     }
@@ -105,13 +276,7 @@ export class LocalGccJudge implements IJudge {
     return null;
   }
 
-  /**
-   * Builds a C11 sandbox prelude header injected via `-include` to enforce:
-   * - Strict heap allocation cap (`memoryLimitMb` MB) -> exits with EXIT_CODE_MLE (99)
-   * - Environment variable isolation (`getenv` always returns NULL)
-   * - Filesystem isolation (`fopen`/`freopen`/`remove`/`rename` blocked -> returns NULL or exits with EXIT_CODE_SECURITY)
-   */
-  private buildSandboxPrelude(memoryLimitMb: number): string {
+  private buildSandboxPrelude(memoryLimitMb: number = 128): string {
     const limitBytes = Math.max(1, memoryLimitMb) * 1024 * 1024;
     return `
 #ifndef LOGICQ_SANDBOX_PRELUDE_H
@@ -209,24 +374,26 @@ static inline int __lq_deny_path(const char *path) {
 `;
   }
 
-  async compileAndRun(
-    code: string,
-    stdin: string,
-    timeLimitMs: number = 1000,
-    memoryLimitMb: number = 64
-  ): Promise<ExecutionResult> {
+  /**
+   * Phase 1: Compile code once using GCC C11 standard.
+   * Returns binary path and cleanup handle for subsequent multi-test executions.
+   */
+  async compile(code: string, options?: { timeLimitMs?: number }): Promise<CompilationResult> {
     const securityError = this.validateSourceSecurity(code);
     if (securityError) {
       return {
+        success: false,
         verdict: Verdict.COMPILE_ERROR,
-        runtimeMs: 0,
         compileOutput: securityError,
+        diagnostics: [],
+        primaryHint: securityError,
       };
     }
 
     const tempId = uuidv4();
     const tempDir = path.join(os.tmpdir(), `logicq_judge_${tempId}`);
     fs.mkdirSync(tempDir, { recursive: true });
+    registerTempDir(tempDir);
 
     const preludeFile = path.join(tempDir, 'sandbox_prelude.h');
     const sourceFile = path.join(tempDir, 'solution.c');
@@ -234,78 +401,283 @@ static inline int __lq_deny_path(const char *path) {
     const binaryFile = path.join(tempDir, isWindows ? 'solution.exe' : 'solution');
 
     try {
-      fs.writeFileSync(preludeFile, this.buildSandboxPrelude(memoryLimitMb), 'utf8');
+      fs.writeFileSync(preludeFile, this.buildSandboxPrelude(128), 'utf8');
       fs.writeFileSync(sourceFile, code, 'utf8');
 
       const gcc = this.getGccExecutable();
       const gccDir = path.dirname(gcc);
 
-      // 1. Compile Phase
-      try {
-        const compileArgs = [
-          '-O2',
-          '-Wall',
-          '-std=c11',
-          '-include',
-          preludeFile,
-          '-o',
-          binaryFile,
-          sourceFile,
-          '-lm',
-        ];
-        await execFileAsync(gcc, compileArgs, {
-          timeout: 10000,
-          cwd: tempDir,
-          env: {
-            PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : process.env.PATH,
-            SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-            TEMP: tempDir,
-            TMP: tempDir,
-          },
-        });
-      } catch (compileErr: any) {
-        return {
-          verdict: Verdict.COMPILE_ERROR,
-          runtimeMs: 0,
-          compileOutput: (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString(),
-        };
-      }
+      const compileArgs = [
+        '-O2',
+        '-Wall',
+        '-std=c11',
+        '-fno-asm',
+        '-include',
+        preludeFile,
+        '-o',
+        binaryFile,
+        sourceFile,
+        '-lm',
+      ];
 
-      // 2. Execution Phase (isolated cwd, zero secret env vars)
-      const startTime = performance.now();
-      const runResult = await this.executeBinary(binaryFile, stdin, timeLimitMs, tempDir);
-      const runtimeMs = Math.round(performance.now() - startTime);
+      const { stdout, stderr } = await execFileAsync(gcc, compileArgs, {
+        timeout: options?.timeLimitMs || 10000,
+        cwd: tempDir,
+        env: {
+          PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : process.env.PATH,
+          SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
+          TEMP: tempDir,
+          TMP: tempDir,
+        },
+      });
+
+      const cleanup = async () => {
+        try {
+          if (fs.existsSync(tempDir)) {
+            await fs.promises.rm(tempDir, { recursive: true, force: true });
+          }
+        } catch {
+          // Ignore transient lock cleanup races
+        } finally {
+          unregisterTempDir(tempDir);
+        }
+      };
 
       return {
-        verdict: runResult.verdict,
-        runtimeMs,
-        stdout: runResult.stdout,
-        stderr: runResult.stderr,
+        success: true,
+        binaryPath: binaryFile,
+        cleanup,
+        compileOutput: (stdout || '') + (stderr || ''),
+        diagnostics: [],
       };
-    } finally {
-      // 3. Cleanup temp directory and files
+    } catch (compileErr: any) {
       try {
         if (fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
         }
       } catch {
-        // Silently handle temp cleanup race condition
+        // Silent cleanup
+      } finally {
+        unregisterTempDir(tempDir);
       }
+
+      const compileOutput = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
+      return {
+        success: false,
+        verdict: Verdict.COMPILE_ERROR,
+        compileOutput,
+        diagnostics: [],
+        primaryHint: compileOutput.slice(0, 200),
+      };
     }
   }
 
-  private executeBinary(
+  /**
+   * Phase 2: Execute pre-compiled binary under the Win32 Job Object sandbox (or POSIX runner).
+   */
+  async execute(
+    binaryPath: string,
+    stdin: string,
+    timeLimitMs: number = 1000,
+    memoryLimitMb: number = 128
+  ): Promise<ExecutionResult> {
+    const isWindows = process.platform === 'win32';
+    const workDir = path.dirname(binaryPath);
+
+    if (isWindows) {
+      const runnerExe = await this.ensureSandboxRunner();
+      if (runnerExe && fs.existsSync(runnerExe)) {
+        return this.executeWithWinSandbox(runnerExe, binaryPath, stdin, timeLimitMs, memoryLimitMb, workDir);
+      }
+    }
+
+    // Fallback runner (POSIX or fallback if runnerExe not compiled)
+    return this.executeFallback(binaryPath, stdin, timeLimitMs, memoryLimitMb, workDir);
+  }
+
+  /**
+   * Executes binary via native Win32 Job Object runner helper (win-sandbox-runner.exe).
+   */
+  private executeWithWinSandbox(
+    runnerExe: string,
     binaryPath: string,
     stdin: string,
     timeLimitMs: number,
+    memoryLimitMb: number,
     workDir: string
-  ): Promise<{ verdict: Verdict; stdout: string; stderr: string }> {
+  ): Promise<ExecutionResult> {
     return new Promise((resolve) => {
-      const maxBuffer = 1024 * 1024; // 1 MB output limit
+      const runToken = uuidv4().replace(/-/g, '').slice(0, 16);
+      const startTime = performance.now();
+      const MAX_STDOUT_CAPTURE = 1024 * 1024; // 1 MB payload buffer cap
+
+      const runnerArgs = [
+        String(timeLimitMs),
+        String(memoryLimitMb),
+        workDir,
+        binaryPath,
+        runToken,
+      ];
+
+      const child = spawn(runnerExe, runnerArgs, {
+        cwd: workDir,
+        shell: false,
+        env: {
+          PATH: '',
+          SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
+        },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
       let stdout = '';
       let stderr = '';
+
+      child.stdout.on('data', (chunk) => {
+        if (stdout.length < MAX_STDOUT_CAPTURE) {
+          const remaining = MAX_STDOUT_CAPTURE - stdout.length;
+          stdout += chunk.toString().slice(0, remaining);
+        }
+      });
+
+      child.stderr.on('data', (chunk) => {
+        if (stderr.length < 2 * 1024 * 1024) {
+          stderr += chunk.toString();
+        }
+      });
+
+      child.on('error', (err) => {
+        const runtimeMs = Math.round(performance.now() - startTime);
+        resolve({
+          verdict: Verdict.RUNTIME_ERROR,
+          runtimeMs,
+          stdout,
+          stderr: err.message,
+        });
+      });
+
+      child.on('close', (runnerExitCode) => {
+        const runtimeMs = Math.round(performance.now() - startTime);
+
+        // Parse structured sentinel from stderr:
+        // __LQ_META_<runToken>__|exitCode|timedOut|ole|userTimeMs|kernelTimeMs|peakMemKb
+        const sentinelPattern = new RegExp(
+          `__LQ_META_${runToken}__\\|(\\d+)\\|([01])\\|([01])\\|(\\d+)\\|(\\d+)\\|(\\d+)`
+        );
+        const match = sentinelPattern.exec(stderr);
+
+        // Strip sentinel line from stderr
+        const cleanStderr = stderr.replace(sentinelPattern, '').trim();
+
+        if (!match) {
+          if (runnerExitCode !== 0) {
+            resolve({
+              verdict: Verdict.RUNTIME_ERROR,
+              runtimeMs,
+              stdout,
+              stderr: cleanStderr || `Sandbox runner failed with exit code ${runnerExitCode}`,
+            });
+            return;
+          }
+          resolve({
+            verdict: Verdict.ACCEPTED,
+            runtimeMs,
+            stdout,
+            stderr: cleanStderr,
+          });
+          return;
+        }
+
+        const exitCode = parseInt(match[1], 10);
+        const timedOut = match[2] === '1';
+        const ole = match[3] === '1';
+        const userTimeMs = parseInt(match[4], 10);
+        const kernelTimeMs = parseInt(match[5], 10);
+        const peakMemKb = parseInt(match[6], 10);
+
+        if (timedOut || userTimeMs >= timeLimitMs) {
+          resolve({
+            verdict: Verdict.TIME_LIMIT_EXCEEDED,
+            runtimeMs: Math.max(runtimeMs, userTimeMs),
+            userTimeMs,
+            kernelTimeMs,
+            memoryKb: peakMemKb,
+            stdout,
+            stderr: 'Execution timed out',
+            exitCode: EXIT_CODE_TIMEOUT,
+          });
+          return;
+        }
+
+        if (ole || peakMemKb > memoryLimitMb * 1024 || exitCode === EXIT_CODE_MLE || exitCode === WINDOWS_STACK_OVERFLOW) {
+          resolve({
+            verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+            runtimeMs: userTimeMs || runtimeMs,
+            userTimeMs,
+            kernelTimeMs,
+            memoryKb: peakMemKb,
+            stdout,
+            stderr: ole ? 'Output buffer size limit exceeded (10MB)' : cleanStderr || 'Memory limit exceeded',
+            exitCode,
+          });
+          return;
+        }
+
+        if (exitCode !== 0) {
+          resolve({
+            verdict: Verdict.RUNTIME_ERROR,
+            runtimeMs: userTimeMs || runtimeMs,
+            userTimeMs,
+            kernelTimeMs,
+            memoryKb: peakMemKb,
+            stdout,
+            stderr: cleanStderr || `Process exited with code ${exitCode}`,
+            exitCode,
+          });
+          return;
+        }
+
+        resolve({
+          verdict: Verdict.ACCEPTED,
+          runtimeMs: userTimeMs || runtimeMs,
+          userTimeMs,
+          kernelTimeMs,
+          memoryKb: peakMemKb,
+          stdout,
+          stderr: cleanStderr,
+          exitCode: 0,
+        });
+      });
+
+      try {
+        if (stdin) {
+          child.stdin.write(stdin);
+        }
+        child.stdin.end();
+      } catch {
+        // Child terminated early
+      }
+    });
+  }
+
+  /**
+   * Fallback streaming execution for POSIX environments.
+   */
+  private executeFallback(
+    binaryPath: string,
+    stdin: string,
+    timeLimitMs: number,
+    memoryLimitMb: number,
+    workDir: string
+  ): Promise<ExecutionResult> {
+    return new Promise((resolve) => {
+      const maxPipeBytes = 10 * 1024 * 1024; // 10 MB cap
+      const maxRetained = 1024 * 1024;       // 1 MB retained payload cap
+      let stdout = '';
+      let stderr = '';
+      let totalStdoutBytes = 0;
       let timedOut = false;
       let killed = false;
+      const startTime = performance.now();
 
       const child = spawn(binaryPath, [], {
         cwd: workDir,
@@ -324,22 +696,26 @@ static inline int __lq_deny_path(const char *path) {
       }, timeLimitMs);
 
       child.stdout.on('data', (data) => {
-        if (stdout.length < maxBuffer) {
-          stdout += data.toString();
-        } else if (!killed) {
+        totalStdoutBytes += data.length;
+        if (stdout.length < maxRetained) {
+          const remaining = maxRetained - stdout.length;
+          stdout += data.toString().slice(0, remaining);
+        }
+        if (totalStdoutBytes >= maxPipeBytes && !killed) {
           killed = true;
           child.kill('SIGKILL');
           clearTimeout(timer);
           resolve({
             verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+            runtimeMs: Math.round(performance.now() - startTime),
             stdout,
-            stderr: 'Output buffer size limit exceeded (1MB)',
+            stderr: 'Output buffer size limit exceeded (10MB)',
           });
         }
       });
 
       child.stderr.on('data', (data) => {
-        if (stderr.length < maxBuffer) {
+        if (stderr.length < 2 * 1024 * 1024) {
           stderr += data.toString();
         }
       });
@@ -348,6 +724,7 @@ static inline int __lq_deny_path(const char *path) {
         clearTimeout(timer);
         resolve({
           verdict: Verdict.RUNTIME_ERROR,
+          runtimeMs: Math.round(performance.now() - startTime),
           stdout,
           stderr: err.message,
         });
@@ -355,12 +732,15 @@ static inline int __lq_deny_path(const char *path) {
 
       child.on('close', (code, signal) => {
         clearTimeout(timer);
+        const runtimeMs = Math.round(performance.now() - startTime);
 
         if (timedOut || signal === 'SIGKILL' || signal === 'SIGTERM') {
           resolve({
             verdict: Verdict.TIME_LIMIT_EXCEEDED,
+            runtimeMs,
             stdout,
             stderr: 'Execution timed out',
+            exitCode: EXIT_CODE_TIMEOUT,
           });
           return;
         }
@@ -369,8 +749,10 @@ static inline int __lq_deny_path(const char *path) {
         if (code === EXIT_CODE_MLE || unsignedCode === WINDOWS_STACK_OVERFLOW) {
           resolve({
             verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+            runtimeMs,
             stdout,
             stderr: stderr || 'Memory limit exceeded',
+            exitCode: code || undefined,
           });
           return;
         }
@@ -378,25 +760,66 @@ static inline int __lq_deny_path(const char *path) {
         if (code !== 0) {
           resolve({
             verdict: Verdict.RUNTIME_ERROR,
+            runtimeMs,
             stdout,
             stderr: stderr || `Process exited with code ${code}`,
+            exitCode: code || undefined,
           });
           return;
         }
 
         resolve({
           verdict: Verdict.ACCEPTED,
+          runtimeMs,
           stdout,
           stderr,
+          exitCode: 0,
         });
       });
 
       try {
-        child.stdin.write(stdin);
+        if (stdin) {
+          child.stdin.write(stdin);
+        }
         child.stdin.end();
       } catch {
-        // Ignore if child already terminated
+        // Child exited
       }
     });
+  }
+
+  /**
+   * Backward-compatible compileAndRun wrapper.
+   */
+  async compileAndRun(
+    code: string,
+    stdin: string,
+    timeLimitMs: number = 1000,
+    memoryLimitMb: number = 64
+  ): Promise<ExecutionResult> {
+    const compilation = await this.compile(code, { timeLimitMs: 10000 });
+    if (!compilation.success) {
+      return {
+        verdict: Verdict.COMPILE_ERROR,
+        runtimeMs: 0,
+        compileOutput: compilation.compileOutput,
+        diagnostics: compilation.diagnostics,
+      };
+    }
+
+    try {
+      const execResult = await this.execute(
+        compilation.binaryPath,
+        stdin,
+        timeLimitMs,
+        memoryLimitMb
+      );
+      return {
+        ...execResult,
+        compileOutput: compilation.compileOutput,
+      };
+    } finally {
+      await compilation.cleanup();
+    }
   }
 }
