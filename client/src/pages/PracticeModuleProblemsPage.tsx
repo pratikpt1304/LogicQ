@@ -73,14 +73,14 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Admin Preview Mode Notice */}
       {isAdmin && (
-        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-mono text-amber-300">
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 text-xs font-mono text-amber-950 dark:text-amber-200 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <Eye className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
             <span>
-              <strong>Admin Preview Mode:</strong> You can review and test questions across all curriculum modules.
+              <strong className="text-amber-950 dark:text-amber-100 font-bold">Admin Preview Mode:</strong> You can review and test questions across all curriculum modules.
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold shrink-0">
+          <span className="px-2 py-0.5 rounded bg-amber-200 text-amber-950 dark:bg-amber-400/20 dark:text-amber-300 font-bold shrink-0">
             ADMIN
           </span>
         </div>
