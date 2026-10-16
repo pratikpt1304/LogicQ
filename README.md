@@ -7,10 +7,10 @@
 > **Daily C programming challenge and practice platform for engineering students**  
 > *Engineered for Sanjivani University Undergraduate Engineering Programs*
 
-[![Release Status](https://img.shields.io/badge/Release_Status-Pilot_Ready_%2F_Pre--Release-46D9A0?style=for-the-badge&logo=rocket&logoColor=white)](https://logicq-clanguage.web.app)
+[![Release Status](https://img.shields.io/badge/Release_Status-Production_Live-46D9A0?style=for-the-badge&logo=rocket&logoColor=white)](https://logicq-clanguage.web.app)
 [![Live Deployment](https://img.shields.io/badge/Live_Hosting-logicq--clanguage.web.app-blue?style=for-the-badge&logo=google-chrome&logoColor=white)](https://logicq-clanguage.web.app)
-[![Tests Passing](https://img.shields.io/badge/Automated_Tests-193%2F193_Passing-success?style=for-the-badge&logo=vitest&logoColor=white)](#testing-and-scripts)
-[![Playwright E2E](https://img.shields.io/badge/Playwright_E2E-12%2F12_Passing-success?style=for-the-badge&logo=playwright&logoColor=white)](#testing-and-scripts)
+[![Security Rules](https://img.shields.io/badge/Firestore_Rules-44%2F44_Verified-success?style=for-the-badge&logo=firebase&logoColor=white)](docs/SECURITY_RULES.md)
+[![Build Guard](https://img.shields.io/badge/Build_Guard-Zero_Storage_Violations-success?style=for-the-badge&logo=typescript&logoColor=white)](#testing-and-scripts)
 [![Security Policy](https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white)](SECURITY.md)
 
 ---
@@ -44,6 +44,9 @@ All screenshots are captured using **clean test environments with fake data only
 
 ## ✨ Features Matching Reality
 
+- **⚡ Serverless Student Onboarding (Spark Plan)**: Students signing in via Google OAuth can seamlessly complete their academic onboarding (PRN, College, Department, Year, Division) directly against Cloud Firestore using atomic batch writes with zero dependency on an external backend server.
+- **🛡️ Automatic Admin Recognition**: Pre-configured institutional administrator accounts (`admin@logicq.io`, `logicq1304@gmail.com`, `ipworker1908@gmail.com`, `ipverse1918@gmail.com`) automatically receive `ADMIN` privileges and immediate access to the Administration Center without student PRN requirements.
+- **🎨 High-Contrast Light & Dark Themes**: Fully accessible WCAG AA compliant text and container styling for Session Notices, Auth Error Banners, Daily System Paused Alerts, and Locked Module Requirements across both Light (`#F4F6FB`) and Dark (`#0C0F1F`) modes.
 - **🕒 Daily Challenge at 17:00 IST (Single Visible Question)**: Challenges run on a 24-hour cycle (17:00 IST to 17:00 IST) with a 10-minute drain grace. Past and future challenges return 410/404 to students.  
   *(Current Status: Strictly **PAUSED** (`dailyChallengePaused = true`) while problem statements undergo final faculty curriculum verification).*
 - **⚡ Real Sandboxed C11 Judge**: GCC 13.2+ engine (`-Wall -Wextra -O2 -std=c11`) with strict 1.0s CPU and 128 MB RAM sandboxes blocking fork bombs, infinite loops, and file exfiltration. Hidden test cases are never sent to the browser.
@@ -55,7 +58,6 @@ All screenshots are captured using **clean test environments with fake data only
 - **🛡️ Admin Operations Dashboard**: 11 operational control centers for managing student records, checker workloads, daily challenge pause states, practice modules, and security audit logs.
 - **☁️ Optional Google Drive Backup**: Purely optional history backup export via narrow `drive.file` scope. Login, daily challenges, practice, and code judging function 100% on Firebase alone without Google Drive permissions.
 - **📱 Installable Progressive Web App (PWA)**: Web App Manifest, offline shell precaching, and a dedicated mobile C programming keyboard strip (`{`, `}`, `(`, `)`, `->`, `*`, `&`, `;`, `Tab`).
-- **🌓 Adaptive Contrast Themes**: WCAG AA compliant Light (`#F4F6FB`) and Dark (`#0C0F1F`) design tokens with custom syntax highlighting in the embedded Monaco Editor.
 - **🚫 Removed Legacy Features**: Arena contests, Archive browsing, and Badges were permanently removed from routes, UI, and database rules to keep students focused entirely on syllabus learning.
 
 ---
