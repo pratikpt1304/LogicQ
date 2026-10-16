@@ -15,6 +15,7 @@ import {
 import { db } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName } from '../config/academic.config.js';
+import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -369,23 +370,28 @@ export class FirestoreDataService {
     const currentStreak = Number(data.currentStreak ?? stats.currentStreak ?? 0);
     const longestStreak = Number(data.longestStreak ?? stats.longestStreak ?? 0);
 
+    const email = data.email || '';
+    const isAdmin = isExplicitAdminEmail(email) || data.role === 'ADMIN';
+    const role = isAdmin ? 'ADMIN' : (data.role || 'STUDENT');
+    const profileComplete = isAdmin ? true : Boolean(data.profileComplete && prn);
+
     return {
       id: uid,
-      username: data.username || `stu_${shortId.toLowerCase()}`,
-      email: data.email || '',
+      username: data.username || (isAdmin ? 'admin' : `stu_${shortId.toLowerCase()}`),
+      email,
       prn,
       maskedPrn: masked,
       shortId,
-      fullName: data.fullName || data.displayName || `Student ${shortId}`,
-      displayName: data.displayName || null,
-      publicDisplayName: data.displayName || (data.department && data.year ? `${data.department} • ${data.year} • ••••••••${shortId}` : `Student ••••••••${shortId}`),
-      ownIdentityLabel: prn && data.department && data.year ? `${data.department} • ${data.year} • ${masked}` : null,
-      role: data.role || 'STUDENT',
+      fullName: data.fullName || data.displayName || (isAdmin ? 'LogicQ Admin' : `Student ${shortId}`),
+      displayName: data.displayName || (isAdmin ? 'Admin' : null),
+      publicDisplayName: data.displayName || (isAdmin ? 'Administrator' : (data.department && data.year ? `${data.department} • ${data.year} • ••••••••${shortId}` : `Student ••••••••${shortId}`)),
+      ownIdentityLabel: prn && data.department && data.year ? `${data.department} • ${data.year} • ${masked}` : (isAdmin ? 'System Administrator' : null),
+      role,
       college: data.college || 'Sanjivani University',
       department: data.department || null,
       year: data.year || null,
       division: data.division || null,
-      profileComplete: Boolean(data.profileComplete && prn),
+      profileComplete,
       bio: data.bio || null,
       avatarUrl: data.photoURL || data.avatarUrl || null,
       totalPoints,

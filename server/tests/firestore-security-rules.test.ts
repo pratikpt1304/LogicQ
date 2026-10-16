@@ -19,8 +19,9 @@ import path from 'path';
 interface AuthContext {
   uid: string;
   token: {
-    email: string;
-    role?: 'STUDENT' | 'ADMIN';
+    email?: string;
+    role?: 'STUDENT' | 'ADMIN' | string;
+    [key: string]: any;
   };
 }
 
@@ -38,6 +39,22 @@ interface FirestoreRuleContext {
 
 // Emulated Firestore Security Rule Evaluators (matching firestore.rules)
 class RulesEvaluator {
+  static isAdmin(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.token?.role === 'ADMIN') return true;
+    const email = ctx.auth.token?.email;
+    if (typeof email === 'string') {
+      const adminEmails = [
+        'admin@logicq.io',
+        'logicq1304@gmail.com',
+        'ipworker1908@gmail.com',
+        'ipverse1918@gmail.com',
+      ];
+      return adminEmails.includes(email.toLowerCase());
+    }
+    return false;
+  }
+
   static evaluateUserSelfUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
     if (ctx.auth.uid !== targetUserId) return false;
@@ -198,7 +215,7 @@ class RulesEvaluator {
   static evaluateSubmissionRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
@@ -221,20 +238,19 @@ class RulesEvaluator {
   }
 
   static evaluateProblemRead(ctx: FirestoreRuleContext): boolean {
-    if (!ctx.auth) return false;
-    return ctx.auth.token.role === 'ADMIN';
+    return RulesEvaluator.isAdmin(ctx);
   }
 
   static evaluatePracticeProgressRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
   static evaluateUserPracticeProgressRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === targetUserId || isAdmin;
   }
 
@@ -244,7 +260,7 @@ class RulesEvaluator {
 
   static evaluateUserRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === targetUserId || isAdmin;
   }
 
@@ -345,7 +361,7 @@ class RulesEvaluator {
   static evaluatePrnIndexRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
@@ -413,7 +429,7 @@ class RulesEvaluator {
   static evaluateDailyResultRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
@@ -424,7 +440,7 @@ class RulesEvaluator {
   static evaluateDailySummaryRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
@@ -433,8 +449,7 @@ class RulesEvaluator {
   }
 
   static evaluateDailyCorrectionRead(ctx: FirestoreRuleContext): boolean {
-    if (!ctx.auth) return false;
-    return ctx.auth.token.role === 'ADMIN';
+    return RulesEvaluator.isAdmin(ctx);
   }
 
   static evaluateDailyCorrectionWrite(_ctx: FirestoreRuleContext): boolean {
@@ -452,13 +467,13 @@ class RulesEvaluator {
   static evaluateSessionEventRead(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
     const ownerId = ctx.resource?.data?.userId;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
   static evaluateUserSessionEventRead(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
-    const isAdmin = ctx.auth.token.role === 'ADMIN';
+    const isAdmin = RulesEvaluator.isAdmin(ctx);
     return ctx.auth.uid === targetUserId || isAdmin;
   }
 
@@ -528,6 +543,31 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
   const adminCharlie: AuthContext = {
     uid: 'admin_charlie',
     token: { email: 'admin@college.edu', role: 'ADMIN' },
+  };
+
+  const adminIpWorker: AuthContext = {
+    uid: 'admin_ipworker',
+    token: { email: 'ipworker1908@gmail.com' },
+  };
+
+  const adminLogicQ: AuthContext = {
+    uid: 'admin_logicq',
+    token: { email: 'logicq1304@gmail.com' },
+  };
+
+  const adminLogicQUpper: AuthContext = {
+    uid: 'admin_logicq_upper',
+    token: { email: 'LOGICQ1304@GMAIL.COM' },
+  };
+
+  const adminIpVerse: AuthContext = {
+    uid: 'admin_ipverse',
+    token: { email: 'ipverse1918@gmail.com' },
+  };
+
+  const adminLogicQIo: AuthContext = {
+    uid: 'admin_logicq_io',
+    token: { email: 'admin@logicq.io' },
   };
 
   it('CHEAT ATTEMPT 1: Student attempts to inflate their own points directly -> MUST FAIL', () => {
@@ -2032,6 +2072,65 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluatePrnIndexDelete(idempotentPrnIndexUpdateCtx)).toBe(false);
   });
 
+  it('ADMIN ACCESS: isAdmin() verifies custom claim role == "ADMIN" or explicit institutional admin emails', () => {
+    // 1. Explicit institutional admin emails evaluate isAdmin() as true
+    expect(RulesEvaluator.isAdmin({ auth: adminIpWorker, request: {} })).toBe(true);
+    expect(RulesEvaluator.isAdmin({ auth: adminLogicQ, request: {} })).toBe(true);
+    expect(RulesEvaluator.isAdmin({ auth: adminLogicQUpper, request: {} })).toBe(true);
+    expect(RulesEvaluator.isAdmin({ auth: adminIpVerse, request: {} })).toBe(true);
+    expect(RulesEvaluator.isAdmin({ auth: adminLogicQIo, request: {} })).toBe(true);
+
+    // 2. Custom claim role == 'ADMIN' evaluates isAdmin() as true even with generic college email
+    expect(RulesEvaluator.isAdmin({ auth: adminCharlie, request: {} })).toBe(true);
+
+    // 3. Regular student email evaluates isAdmin() as false
+    expect(RulesEvaluator.isAdmin({ auth: studentAlice, request: {} })).toBe(false);
+    expect(RulesEvaluator.isAdmin({ auth: studentBob, request: {} })).toBe(false);
+
+    // 4. Unauthenticated context evaluates isAdmin() as false
+    expect(RulesEvaluator.isAdmin({ auth: null, request: {} })).toBe(false);
+
+    // 5. Auth context without token or without email evaluates isAdmin() as false
+    expect(RulesEvaluator.isAdmin({ auth: { uid: 'anon', token: {} as any }, request: {} })).toBe(false);
+
+    // 6. Institutional admin emails grant administrative access across collections
+    const userReadCtx: FirestoreRuleContext = {
+      auth: adminIpWorker,
+      resource: { data: { uid: 'student_alice', email: 'alice@college.edu' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateUserRead(userReadCtx, 'student_alice')).toBe(true);
+
+    const problemReadCtx: FirestoreRuleContext = {
+      auth: adminLogicQ,
+      resource: { data: { id: 'problem_1', title: 'Hard Logic' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateProblemRead(problemReadCtx)).toBe(true);
+
+    const submissionReadCtx: FirestoreRuleContext = {
+      auth: adminIpVerse,
+      resource: { data: { userId: 'student_alice', code: 'print(42)' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSubmissionRead(submissionReadCtx)).toBe(true);
+
+    const dailyCorrectionReadCtx: FirestoreRuleContext = {
+      auth: adminLogicQIo,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateDailyCorrectionRead(dailyCorrectionReadCtx)).toBe(true);
+
+    // 7. Regular student cannot access administrative collections or actions
+    const studentProblemReadCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { id: 'problem_1', title: 'Hard Logic' } },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateProblemRead(studentProblemReadCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateDailyCorrectionRead({ auth: studentAlice, request: {} })).toBe(false);
+  });
+
   it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md enforce isValidInitialUserCreate and client onboarding rules', () => {
     const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
     const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
@@ -2063,6 +2162,19 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     // Both files must declare publicProfiles create/update rule without prn or email
     expect(firestoreRules).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
     expect(securityRulesDoc).toContain("!('prn' in request.resource.data) && !('email' in request.resource.data)");
+
+    // Both files must declare isAdmin() recognizing custom claim role == 'ADMIN' or explicit admin emails
+    expect(firestoreRules).toContain("request.auth.token.role == 'ADMIN'");
+    expect(firestoreRules).toContain("'admin@logicq.io'");
+    expect(firestoreRules).toContain("'logicq1304@gmail.com'");
+    expect(firestoreRules).toContain("'ipworker1908@gmail.com'");
+    expect(firestoreRules).toContain("'ipverse1918@gmail.com'");
+
+    expect(securityRulesDoc).toContain("request.auth.token.role == 'ADMIN'");
+    expect(securityRulesDoc).toContain("'admin@logicq.io'");
+    expect(securityRulesDoc).toContain("'logicq1304@gmail.com'");
+    expect(securityRulesDoc).toContain("'ipworker1908@gmail.com'");
+    expect(securityRulesDoc).toContain("'ipverse1918@gmail.com'");
   });
 });
 

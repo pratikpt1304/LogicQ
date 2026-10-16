@@ -181,9 +181,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const persistUser = (userData: User | null) => {
-    if (userData) {
+    let finalUser = userData;
+    if (finalUser && isExplicitAdminEmail(finalUser.email)) {
+      finalUser = {
+        ...finalUser,
+        role: 'ADMIN',
+        profileComplete: true,
+      };
+    }
+    if (finalUser) {
       try {
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(userData));
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(finalUser));
         recordUserActivity();
       } catch {
         // ignore
@@ -192,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
     }
     if (isMountedRef.current) {
-      setUser(userData);
+      setUser(finalUser);
     }
   };
 
@@ -753,8 +761,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading: authState === 'loading',
         isAuthenticated: authState === 'signedIn' && Boolean(user),
-        isAdmin: user?.role === 'ADMIN',
-        isChecker: user?.role === 'CHECKER',
+        isAdmin: user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
+        isChecker: user?.role === 'CHECKER' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
         isOffline,
         login,
         loginWithGoogle,

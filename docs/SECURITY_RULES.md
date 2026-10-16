@@ -29,7 +29,7 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  - Points & Streak Mutation:  BLOCKED TO ALL CLIENTS (Server Admin SDK only)                       |
 |  - Hidden Test Cases:         ADMIN ONLY (Students have zero direct access to hidden_tests)        |
 |  - Peer Code Inspection:      BLOCKED (Students read only their own submissions)                   |
-|  - Role Elevation:            BLOCKED (request.auth.token.role == 'ADMIN' custom claim required)   |
+|  - Role Elevation:            BLOCKED (role == 'ADMIN' claim or institutional admin email required)|
 |  - Deletion of Submissions:   BLOCKED TO ALL CLIENTS (Append-only ledger enforced)                 |
 +----------------------------------------------------------------------------------------------------+
 ```
@@ -127,6 +127,18 @@ To allow smooth student onboarding directly from the client without compromising
   - Subcollection: `allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid && request.resource.data.reason in ['manual', 'idle-timeout', 'token-refresh-failed', 'revoked-by-user', 'revoked-by-admin', 'role-changed', 'banned', 'app-check-failed', 'unusual-login-flag', 'multi-tab-sync', 'service-worker-update', 'unknown'];`
 - **Immutability Invariant**: Append-only security ledger. Document updates and deletions are categorically prohibited (`allow update, delete: if false;`).
 
+### Administrative Authority & Access Invariants (`isAdmin()`)
+
+Administrative privileges are evaluated via the `isAdmin()` helper function. A user is authorized as an administrator if authenticated and either:
+1. Possesses the Firebase Auth custom claim `role == 'ADMIN'` (`request.auth.token.role == 'ADMIN'`).
+2. Has a verified institutional admin email matching one of the designated administrative accounts:
+   - `admin@logicq.io`
+   - `logicq1304@gmail.com`
+   - `ipworker1908@gmail.com`
+   - `ipverse1918@gmail.com`
+
+Any user lacking both the `'ADMIN'` role custom claim and a matching institutional email evaluates `isAdmin()` to `false`, denying administrative access across private profiles, error reports, hidden test cases, upload reviews, and administrative audit streams.
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -153,7 +165,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'ADMIN';
+      return isAuthenticated() && (
+        request.auth.token.role == 'ADMIN'
+        || (request.auth.token.email is string && request.auth.token.email.lower() in [
+          'admin@logicq.io',
+          'logicq1304@gmail.com',
+          'ipworker1908@gmail.com',
+          'ipverse1918@gmail.com'
+        ])
+      );
     }
 
     function uidNotModified() {

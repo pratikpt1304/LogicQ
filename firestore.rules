@@ -154,7 +154,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'ADMIN';
+      return isAuthenticated() && (
+        request.auth.token.role == 'ADMIN'
+        || (request.auth.token.email is string && request.auth.token.email.lower() in [
+          'admin@logicq.io',
+          'logicq1304@gmail.com',
+          'ipworker1908@gmail.com',
+          'ipverse1918@gmail.com'
+        ])
+      );
     }
 
     function uidNotModified() {
