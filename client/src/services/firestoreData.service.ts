@@ -50,21 +50,17 @@ export class FirestoreDataService {
     const resolvedName = (data.fullName || data.displayName || 'Student').trim();
     const resolvedDisplayName = (data.displayName || resolvedName).slice(0, 20);
 
-    // Pre-check if PRN is already registered to another user
     const prnRef = doc(db, 'prnIndex', normalizedPrn);
-    const prnSnap = await getDoc(prnRef);
-    if (prnSnap.exists() && prnSnap.data()?.userId !== uid) {
-      throw new Error('This PRN is already registered to another account.');
-    }
+    const userDocRef = doc(db, 'users', uid);
+    const normalizedEmail = email.trim().toLowerCase();
 
     const batch = writeBatch(db);
 
-    const userDocRef = doc(db, 'users', uid);
     const userData: Record<string, any> = {
       uid,
       id: uid,
-      email,
-      username: email.split('@')[0],
+      email: normalizedEmail,
+      username: normalizedEmail.split('@')[0],
       fullName: resolvedName,
       displayName: resolvedDisplayName,
       shortId,
@@ -83,7 +79,7 @@ export class FirestoreDataService {
     };
     batch.set(userDocRef, userData, { merge: true });
 
-    // Set prnIndex
+    // Set prnIndex (enforces global uniqueness atomically in Firestore rules)
     batch.set(prnRef, {
       prn: normalizedPrn,
       userId: uid,
@@ -105,12 +101,24 @@ export class FirestoreDataService {
       updatedAt: serverTimestamp(),
     });
 
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (batchErr: any) {
+      console.error('Firestore completeUserProfile batch commit failed:', batchErr);
+      const code = batchErr?.code;
+      const msg = batchErr?.message || '';
+      if (code === 'permission-denied' || msg.includes('permission') || msg.includes('insufficient')) {
+        throw new Error(
+          'Unable to complete profile. This PRN may already be registered to another account, or your details do not match academic records.'
+        );
+      }
+      throw batchErr;
+    }
 
     return {
       id: uid,
-      username: email.split('@')[0],
-      email,
+      username: normalizedEmail.split('@')[0],
+      email: normalizedEmail,
       fullName: resolvedName,
       displayName: resolvedDisplayName,
       shortId,

@@ -11,8 +11,8 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 |  match /{document=**} { allow read, write: if false; }                                            |
 |                                                                                                    |
 |  - Private User PII & PRN:    OWNER OR ADMIN READ ONLY (Peers cannot read users/{userId})         |
-|  - Initial Client Onboarding: OWNER CREATE ONLY (Validated users, prnIndex, publicProfiles)       |
-|  - PRN Uniqueness Index:      OWNER ONBOARDING REGISTRATION ONLY (Unique lock; update/del blocked) |
+|  - Initial Client Onboarding: OWNER CREATE / UNCOMPLETED UPDATE (Validated users, prnIndex, publicProfiles)|
+|  - PRN Uniqueness Index:      OWNER REGISTRATION & IDEMPOTENT UPDATE ONLY (Unique lock; delete blocked)|
 |  - PRN & College Immutability:BLOCKED ON CLIENT UPDATE (Audited Admin/Server action only)          |
 |  - Arena, Archive & Badges:   DISABLED & BLOCKED TO ALL ROLES (contests/archive/badges -> false)   |
 |  - Single Visible Question:   NO DIRECT STUDENT READ ON /problems (Served via GET /api/problems/daily)|
@@ -52,26 +52,37 @@ LogicQ follows a strict **Deny-by-Default Architecture**. Any collection or oper
 
 To allow smooth student onboarding directly from the client without compromising security, Firestore rules enforce strict structural validation:
 
-1. **Initial Student Profile Creation (`users/{userId}`)**:
+1. **Initial Student Profile Creation & Onboarding Update (`users/{userId}`)**:
    - Evaluated via `isValidInitialUserCreate()`:
      - **Auth UID Binding**: `request.resource.data.uid == request.auth.uid`
-     - **Auth Email Binding**: `request.resource.data.email == request.auth.token.email`
+     - **Auth Email Binding**: `request.resource.data.email.lower() == request.auth.token.email.lower()` (case-insensitive email matching)
      - **Role Lockdown**: `request.resource.data.role == 'STUDENT'` (strictly `'STUDENT'`, categorically prohibiting elevation to `'ADMIN'` or `'CHECKER'`)
      - **College Validation**: `request.resource.data.college == 'Sanjivani University'`
      - **Department & Year Validation**: Must match allowed enumerations (`isAllowedDepartment()` and `isAllowedYear()`)
-     - **Division & Display Name Format**: Length and character constraints enforced via `isValidDivision()` and `isValidDisplayName()`
+     - **Division & Display Name Format**: Length and character constraints enforced via `isValidDivision()` and `isValidDisplayName()` (2..30 characters)
      - **PRN Format Validation**: `request.resource.data.prn is string && request.resource.data.prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')`
      - **PRN Uniqueness Check**: `!exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))` ensures no duplicate PRN can be registered
      - **Points & Streak Zero Baseline**: `request.resource.data.totalPoints == 0` and `request.resource.data.currentStreak == 0` prevent any initial points forging
      - **Profile Complete Flag**: `request.resource.data.profileComplete == true`
-   - Allowed rule: `allow create: if isOwner(userId) && isValidInitialUserCreate();`
+   - Allowed create rule: `allow create: if isOwner(userId) && isValidInitialUserCreate();`
+   - **Initial Onboarding Update via `isInitialOnboardingUpdate()`**:
+     ```javascript
+     function isInitialOnboardingUpdate() {
+       return (!('profileComplete' in resource.data) || resource.data.profileComplete != true || !('prn' in resource.data))
+         && isValidInitialUserCreate();
+     }
+     ```
+     This ensures that if a `users/{userId}` document pre-existed prior to onboarding with `profileComplete != true` (e.g., an auth-triggered stub record), the student can complete their profile, while keeping PRN/college strictly immutable once `profileComplete: true` is established.
+   - Allowed update rule: `allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());`
 
-2. **PRN Index Lock Registration (`prnIndex/{prn}`)**:
+2. **PRN Index Lock Registration & Idempotent Update (`prnIndex/{prn}`)**:
    - Document ID is the canonical uppercase 12-character PRN.
    - Owner can register during onboarding:
      `allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && request.resource.data.prn == prn && prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$') && !exists(/databases/$(database)/documents/prnIndex/$(prn));`
    - Readable by the document owner or Admin: `allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());`
-   - Mutation and deletion strictly blocked: `allow update, delete: if false;`
+   - Allows idempotent update by the same authenticated owner (enabling safe retries or resubmissions):
+     `allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.prn == prn;`
+   - Deletion strictly blocked: `allow delete: if false;`
 
 3. **Non-PII Public Mirror Creation (`publicProfiles/{userId}`)**:
    - Created/updated by owner: `allow create, update: if isOwner(userId) && request.resource.data.userId == request.auth.uid && !('prn' in request.resource.data) && !('email' in request.resource.data) && request.resource.data.role == 'STUDENT';`
@@ -84,7 +95,7 @@ To allow smooth student onboarding directly from the client without compromising
   - `department`: string (enum: `'AIML' | 'AIDS' | 'Integrated M.Tech' | 'Mechanical' | 'CSE' | 'Integrated B.Tech'`)
   - `year`: string (enum: `'FY' | 'SY' | 'TY'`)
   - `division`: string | null (optional, `^[A-Z0-9]{0,3}$`)
-  - `displayName`: string | null (optional, 3..20 chars)
+  - `displayName`: string | null (optional, 2..30 chars)
   - `bio`: string | null (optional, <= 500 chars)
   - `photoURL`: string | null (optional, <= 500 chars)
   - `storagePreference`: string (optional, enum: `'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE'`)
@@ -167,7 +178,7 @@ service cloud.firestore {
 
     function isValidDisplayName(name) {
       return name == null ||
-        (name is string && name.size() >= 3 && name.size() <= 20);
+        (name is string && name.size() >= 2 && name.size() <= 30);
     }
 
     function isValidUserSelfUpdate() {
@@ -206,7 +217,7 @@ service cloud.firestore {
       // and ensures PRN format and prnIndex uniqueness before document creation.
       function isValidInitialUserCreate() {
         return request.resource.data.uid == request.auth.uid
-          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.email.lower() == request.auth.token.email.lower()
           && request.resource.data.role == 'STUDENT'
           && request.resource.data.college == 'Sanjivani University'
           && isAllowedDepartment(request.resource.data.department)
@@ -220,12 +231,18 @@ service cloud.firestore {
           && request.resource.data.profileComplete == true;
       }
 
+      function isInitialOnboardingUpdate() {
+        return (!('profileComplete' in resource.data) || resource.data.profileComplete != true || !('prn' in resource.data))
+          && isValidInitialUserCreate();
+      }
+
       // Initial student profile onboarding directly from the client:
       allow create: if isOwner(userId) && isValidInitialUserCreate();
 
-      // Students can ONLY update allowed self-service academic/profile fields.
-      // Cannot change prn, college, email, role, status, banReason, points, or streak.
-      allow update: if isOwner(userId) && isValidUserSelfUpdate();
+      // Students can update allowed self-service academic/profile fields, or complete initial onboarding
+      // if their user document was previously uncompleted.
+      // Once profileComplete is true, PRN, college, email, role, status, banReason, points, and streak remain strictly immutable.
+      allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());
 
       // Account deletion is handled strictly by the server account deletion
       // transaction that also frees prnIndex/{prn} and scrubs PII.
@@ -276,7 +293,12 @@ service cloud.firestore {
         && prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')
         && !exists(/databases/$(database)/documents/prnIndex/$(prn));
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow update, delete: if false;
+      // Allows idempotent update by the same authenticated owner:
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.prn == prn;
+      allow delete: if false;
     }
 
     match /publicProfiles/{userId} {

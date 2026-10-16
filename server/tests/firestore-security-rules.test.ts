@@ -38,7 +38,7 @@ interface FirestoreRuleContext {
 
 // Emulated Firestore Security Rule Evaluators (matching firestore.rules)
 class RulesEvaluator {
-  static evaluateUserUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
+  static evaluateUserSelfUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
     if (ctx.auth.uid !== targetUserId) return false;
 
@@ -137,9 +137,9 @@ class RulesEvaluator {
       }
     }
 
-    // Validate displayName
+    // Validate displayName (2 to 30 characters)
     if ('displayName' in incomingData && incomingData.displayName !== null && incomingData.displayName !== undefined) {
-      if (typeof incomingData.displayName !== 'string' || incomingData.displayName.length < 3 || incomingData.displayName.length > 20) {
+      if (typeof incomingData.displayName !== 'string' || incomingData.displayName.length < 2 || incomingData.displayName.length > 30) {
         return false;
       }
     }
@@ -159,6 +159,35 @@ class RulesEvaluator {
     }
 
     return true;
+  }
+
+  static evaluateInitialOnboardingUpdate(
+    ctx: FirestoreRuleContext,
+    targetUserId: string,
+    existingPrns: string[] = []
+  ): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.uid !== targetUserId) return false;
+    const existingData = ctx.resource?.data || {};
+    const isUncompleted =
+      !('profileComplete' in existingData) ||
+      existingData.profileComplete !== true ||
+      !('prn' in existingData);
+    if (!isUncompleted) return false;
+    return RulesEvaluator.evaluateUserCreate(ctx, targetUserId, existingPrns);
+  }
+
+  static evaluateUserUpdate(
+    ctx: FirestoreRuleContext,
+    targetUserId: string,
+    existingPrns: string[] = []
+  ): boolean {
+    if (!ctx.auth) return false;
+    if (ctx.auth.uid !== targetUserId) return false;
+    return (
+      RulesEvaluator.evaluateUserSelfUpdate(ctx, targetUserId) ||
+      RulesEvaluator.evaluateInitialOnboardingUpdate(ctx, targetUserId, existingPrns)
+    );
   }
 
   static evaluateHiddenTestRead(_ctx: FirestoreRuleContext): boolean {
@@ -233,8 +262,14 @@ class RulesEvaluator {
     // request.resource.data.uid == request.auth.uid
     if (data.uid !== ctx.auth.uid) return false;
 
-    // request.resource.data.email == request.auth.token.email
-    if (data.email !== ctx.auth.token.email) return false;
+    // request.resource.data.email.lower() == request.auth.token.email.lower()
+    if (
+      typeof data.email !== 'string' ||
+      typeof ctx.auth.token.email !== 'string' ||
+      data.email.toLowerCase() !== ctx.auth.token.email.toLowerCase()
+    ) {
+      return false;
+    }
 
     // request.resource.data.role == 'STUDENT'
     if (data.role !== 'STUDENT') return false;
@@ -263,7 +298,7 @@ class RulesEvaluator {
 
     // (!('displayName' in request.resource.data) || isValidDisplayName(request.resource.data.displayName))
     if ('displayName' in data && data.displayName !== null && data.displayName !== undefined) {
-      if (typeof data.displayName !== 'string' || data.displayName.length < 3 || data.displayName.length > 20) {
+      if (typeof data.displayName !== 'string' || data.displayName.length < 2 || data.displayName.length > 30) {
         return false;
       }
     }
@@ -314,8 +349,18 @@ class RulesEvaluator {
     return ctx.auth.uid === ownerId || isAdmin;
   }
 
-  static evaluatePrnIndexUpdate(_ctx: FirestoreRuleContext): boolean {
-    return false;
+  static evaluatePrnIndexUpdate(ctx: FirestoreRuleContext, targetPrn?: string): boolean {
+    if (!ctx.auth) return false;
+    const existingData = ctx.resource?.data;
+    const incomingData = ctx.request.resource?.data;
+    if (!existingData || !incomingData) return false;
+
+    const prn = targetPrn || existingData.prn;
+    return (
+      existingData.userId === ctx.auth.uid &&
+      incomingData.userId === ctx.auth.uid &&
+      incomingData.prn === prn
+    );
   }
 
   static evaluatePrnIndexDelete(_ctx: FirestoreRuleContext): boolean {
@@ -1720,6 +1765,273 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(piiPublicProfileCtx, 'student_alice')).toBe(false);
   });
 
+  it('ONBOARDING: Student can complete initial onboarding update when user document was previously uncompleted', () => {
+    // 1. Initial uncompleted profile where profileComplete is false
+    const uncompletedProfile = {
+      uid: 'student_alice',
+      email: 'alice@college.edu',
+      profileComplete: false,
+    };
+
+    const onboardingUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: uncompletedProfile,
+      },
+      request: {
+        resource: {
+          data: { ...validInitialStudentProfile },
+        },
+      },
+    };
+
+    // Should be allowed via isInitialOnboardingUpdate
+    expect(RulesEvaluator.evaluateUserUpdate(onboardingUpdateCtx, 'student_alice', [])).toBe(true);
+
+    // 2. Initial stub profile where profileComplete or prn is missing entirely
+    const stubProfileWithoutPrn = {
+      uid: 'student_alice',
+      email: 'alice@college.edu',
+    };
+
+    const stubOnboardingUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: stubProfileWithoutPrn,
+      },
+      request: {
+        resource: {
+          data: { ...validInitialStudentProfile },
+        },
+      },
+    };
+
+    expect(RulesEvaluator.evaluateUserUpdate(stubOnboardingUpdateCtx, 'student_alice', [])).toBe(true);
+  });
+
+  it('ONBOARDING: Rejects onboarding update if profileComplete: true already exists on user document', () => {
+    const completedProfile = { ...validInitialStudentProfile, profileComplete: true };
+
+    // Student Alice already has a completed profile, attempts an onboarding update with changed PRN
+    const repeatOnboardingCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: completedProfile,
+      },
+      request: {
+        resource: {
+          data: {
+            ...completedProfile,
+            prn: '2199TESF0002',
+          },
+        },
+      },
+    };
+
+    // Both evaluateInitialOnboardingUpdate (blocked because profileComplete == true) and evaluateUserSelfUpdate (prn is immutable) must fail
+    expect(RulesEvaluator.evaluateUserUpdate(repeatOnboardingCtx, 'student_alice', [])).toBe(false);
+  });
+
+  it('ONBOARDING: Supports case-insensitive email comparison between document and auth token', () => {
+    const studentMixedCase: AuthContext = {
+      uid: 'student_alice',
+      token: { email: 'Student@Gmail.com', role: 'STUDENT' },
+    };
+
+    // Create with lowercase email when token has mixed case
+    const lowerEmailCtx: FirestoreRuleContext = {
+      auth: studentMixedCase,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            email: 'student@gmail.com',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(lowerEmailCtx, 'student_alice', [])).toBe(true);
+
+    // Onboarding update with mixed case email when token has lowercase
+    const tokenLowerStudent: AuthContext = {
+      uid: 'student_alice',
+      token: { email: 'student@gmail.com', role: 'STUDENT' },
+    };
+    const mixedEmailUpdateCtx: FirestoreRuleContext = {
+      auth: tokenLowerStudent,
+      resource: {
+        data: {
+          uid: 'student_alice',
+          email: 'student@gmail.com',
+          profileComplete: false,
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            email: 'Student@Gmail.com',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(mixedEmailUpdateCtx, 'student_alice', [])).toBe(true);
+
+    // Different email address completely -> MUST FAIL
+    const differentEmailCtx: FirestoreRuleContext = {
+      auth: studentMixedCase,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            email: 'otherstudent@gmail.com',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(differentEmailCtx, 'student_alice', [])).toBe(false);
+  });
+
+  it('ONBOARDING & PROFILE: Validates 2-character to 30-character display name range', () => {
+    // 1. 2-character display name is VALID on create
+    const minDisplayNameCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            displayName: 'Al',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(minDisplayNameCtx, 'student_alice', [])).toBe(true);
+
+    // 2. 30-character display name is VALID on create
+    const maxDisplayNameCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            displayName: 'A'.repeat(30),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(maxDisplayNameCtx, 'student_alice', [])).toBe(true);
+
+    // 3. 1-character display name is INVALID (< 2 chars) -> MUST FAIL
+    const tooShortDisplayNameCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            displayName: 'A',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(tooShortDisplayNameCtx, 'student_alice', [])).toBe(false);
+
+    // 4. 31-character display name is INVALID (> 30 chars) -> MUST FAIL
+    const tooLongDisplayNameCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            displayName: 'A'.repeat(31),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(tooLongDisplayNameCtx, 'student_alice', [])).toBe(false);
+
+    // 5. 2-character display name is VALID on self update
+    const validSelfUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: { ...validInitialStudentProfile, displayName: 'AliceDev' },
+      },
+      request: {
+        resource: {
+          data: {
+            ...validInitialStudentProfile,
+            displayName: 'Bo',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserSelfUpdate(validSelfUpdateCtx, 'student_alice')).toBe(true);
+  });
+
+  it('ONBOARDING: Idempotent owner prnIndex update is allowed, but changing ownership or deleting is blocked', () => {
+    // 1. Authenticated owner Alice updates her existing prnIndex document idempotently -> MUST SUCCEED
+    const idempotentPrnIndexUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESM0001',
+            userId: 'student_alice',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexUpdate(idempotentPrnIndexUpdateCtx, '2199TESM0001')).toBe(true);
+
+    // 2. Non-owner Bob attempts to update Alice\'s prnIndex -> MUST FAIL
+    const nonOwnerUpdateCtx: FirestoreRuleContext = {
+      auth: studentBob,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESM0001',
+            userId: 'student_bob',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexUpdate(nonOwnerUpdateCtx, '2199TESM0001')).toBe(false);
+
+    // 3. Owner attempts to change PRN value in prnIndex document -> MUST FAIL
+    const mutatePrnCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: {
+        data: {
+          prn: '2199TESM0001',
+          userId: 'student_alice',
+        },
+      },
+      request: {
+        resource: {
+          data: {
+            prn: '2199TESF0002',
+            userId: 'student_alice',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePrnIndexUpdate(mutatePrnCtx, '2199TESM0001')).toBe(false);
+
+    // 4. Any attempt to delete prnIndex remains blocked -> MUST FAIL
+    expect(RulesEvaluator.evaluatePrnIndexDelete(idempotentPrnIndexUpdateCtx)).toBe(false);
+  });
+
   it('SPEC VERIFICATION: firestore.rules and docs/SECURITY_RULES.md enforce isValidInitialUserCreate and client onboarding rules', () => {
     const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
     const securityRulesDoc = fs.readFileSync(path.resolve(__dirname, '../../docs/SECURITY_RULES.md'), 'utf-8');
@@ -1731,6 +2043,18 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     // Both files must allow user create with isOwner and isValidInitialUserCreate
     expect(firestoreRules).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
     expect(securityRulesDoc).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
+
+    // Both files must declare isInitialOnboardingUpdate
+    expect(firestoreRules).toContain('function isInitialOnboardingUpdate()');
+    expect(securityRulesDoc).toContain('isInitialOnboardingUpdate');
+
+    // Both files must allow user update with isOwner and (isValidUserSelfUpdate() || isInitialOnboardingUpdate())
+    expect(firestoreRules).toContain('allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());');
+    expect(securityRulesDoc).toContain('allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());');
+
+    // Both files must declare case-insensitive email comparison
+    expect(firestoreRules).toContain('request.resource.data.email.lower() == request.auth.token.email.lower()');
+    expect(securityRulesDoc).toContain('request.resource.data.email.lower() == request.auth.token.email.lower()');
 
     // Both files must declare prnIndex create rule with !exists check and regex
     expect(firestoreRules).toContain('!exists(/databases/$(database)/documents/prnIndex/$(prn))');
