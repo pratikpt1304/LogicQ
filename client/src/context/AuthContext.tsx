@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 
 export type AuthState = 'loading' | 'signedIn' | 'signedOut';
 
@@ -528,7 +529,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           // Check direct Firestore profile
-          const firestoreUser = await FirestoreDataService.getUserProfile(fbUser.uid).catch(() => null);
+          let firestoreUser = await FirestoreDataService.getUserProfile(fbUser.uid).catch(() => null);
+          const isAdminUser = isExplicitAdminEmail(fbUser.email);
+          if (isAdminUser && (!firestoreUser || firestoreUser.role !== 'ADMIN' || !firestoreUser.profileComplete)) {
+            firestoreUser = {
+              ...(firestoreUser || {}),
+              id: fbUser.uid,
+              username: (fbUser.email || 'admin').split('@')[0],
+              email: fbUser.email || '',
+              fullName: fbUser.displayName || 'LogicQ Admin',
+              displayName: fbUser.displayName || 'Admin',
+              role: 'ADMIN',
+              profileComplete: true,
+              totalPoints: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+            } as User;
+          }
           if (firestoreUser && isMountedRef.current) {
             persistUser(firestoreUser);
             setAuthState('signedIn');
@@ -649,17 +666,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!authenticatedUser) {
-        // First-time sign in via Google: create initial uncompleted profile state
+        // First-time sign in via Google: check if user is configured admin
+        const isAdminUser = isExplicitAdminEmail(cred.user.email);
         authenticatedUser = {
           id: cred.user.uid,
           username: (cred.user.email || 'student').split('@')[0],
           email: cred.user.email || '',
-          fullName: cred.user.displayName || 'Student',
-          displayName: cred.user.displayName || null,
+          fullName: cred.user.displayName || (isAdminUser ? 'LogicQ Admin' : 'Student'),
+          displayName: cred.user.displayName || (isAdminUser ? 'Admin' : null),
           avatarUrl: cred.user.photoURL || null,
-          role: 'STUDENT',
+          role: isAdminUser ? 'ADMIN' : 'STUDENT',
           college: 'Sanjivani University',
-          profileComplete: false,
+          profileComplete: isAdminUser ? true : false,
           totalPoints: 0,
           currentStreak: 0,
           longestStreak: 0,
