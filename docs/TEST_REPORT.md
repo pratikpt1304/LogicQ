@@ -107,3 +107,52 @@
 | 9 | Admin Cohort Analytics & Audited CSV | Admin receives aggregated cohort statistics, question bottlenecks, and CSV export (default masks PRNs; reveals require audited password). | **PASSED** |
 | 10 | Audited Student Progress Correction | Admin correction endpoint updates student metrics with mandatory audited reason logging to `adminAuditLog`. | **PASSED** |
 
+---
+
+## 6. Practice Question Polish & Editor Ergonomics Suite
+
+**Document:** `/docs/JUDGE_CONNECTIVITY_AUDIT.md` & `/docs/TEST_REPORT.md`  
+**Date:** October 16, 2026  
+**Auditor:** Antigravity System Engineer  
+**Status:** 100% Passed (Zero Failures, Zero Console Errors)  
+**Target Tested:** `/practice/control-structures/practice-c1-largest-of-three` & Admin Workspace
+
+| Test Area | Scenario / Invariant | Verification Details | Result |
+| :---: | :--- | :--- | :---: |
+| **Judge Connectivity** | Dual-Channel Root Cause Resolution | Replaced misleading network error with honest classifier (`OFFLINE`, `JUDGE_UNREACHABLE`, `SERVER_UNAVAILABLE`, `JUDGE_BUSY` with queue position, `RATE_LIMITED`, `SESSION_EXPIRED`, `TIMEOUT`). Never blames network unless offline. | **PASSED** |
+| **Non-Destructive Retry** | Code Preservation on Failure | Run and Submit failures never discard or reset editor draft; in-drawer `ExecutionErrorCard` surfaces Retry button with full state retention. | **PASSED** |
+| **Math Typography** | Universal LaTeX Sanitization | Automated scan across all practice modules (40 problems), daily challenges, and book banks verified **0 unrendered LaTeX tokens**. All equations rendered as clean Unicode (`≤`, `≥`, `×`, `−10⁹ ≤ A, B, C ≤ 10⁹`). | **PASSED** |
+| **Admin Safety Guard** | Publish-Time LaTeX Rejection | Admin problem creation & editing reject unrendered LaTeX (`$`, `\le`, `\ge`, `\times`), backed by Live Student Preview and "Auto-Format to Clean Unicode" one-click action. | **PASSED** |
+| **Editor Ligatures** | Literal Character Representation | Monaco `fontLigatures: false` configured. `!=`, `<=`, `>=`, `==`, `->` display exactly as typed with zero ligature substitutions (e.g. `!=` never renders as `≠`). | **PASSED** |
+| **Editor Whitespace** | Clean Canvas Display | `renderWhitespace: 'none'` configured; eliminated distracting whitespace dots throughout code editor. | **PASSED** |
+| **Cursor & Selection** | Non-Highlight Initial Load | Editor mounts with cursor initialized to Line 1, Column 1 and selection collapsed (`monaco.Selection(1, 1, 1, 1)`). Code is not pre-selected. | **PASSED** |
+| **Starter Code Hygiene** | Stray `,m` Root-Cause Elimination | Sanitized starter templates for beginner problems (`<stdio.h>`, `int main()`, clean `// TODO`, removing complex long long checks). Added `Reset to Starter Template` button and line-break/BOM sanitization. | **PASSED** |
+| **Toast Positioning** | Non-Overlapping Controls | Mobile (< 768px): bottom-center above safe area; Desktop (>= 768px): top-right offset below header (76px). Run, Submit, Editor Toolbar, and Timer are never obscured. | **PASSED** |
+| **Practice Scope** | Code-Only Workspace Compliance | "Upload Files" tab removed from Practice Workspace, preserving file uploads strictly for daily challenge peer reviews. | **PASSED** |
+| **Timer Persistence** | Cross-Device & Tab Resumption | Active seconds persist across close, refresh, and cross-device reopen; stops permanently at first Accepted verdict. "Hide timer" preference toggle verified with zero layout shift. | **PASSED** |
+| **Responsive Viewports** | Mobile, Tablet & Desktop Layouts | Verified at 360px, 768px, and 1280px in both Light and Dark themes. Segmented mobile tabs (Statement / Editor / Verdict) eliminate scrolling contention. Zero console errors. | **PASSED** |
+
+---
+
+## 7. Practice Report Layout, A4 PDF, CSV & Zero-PII Verification Suite
+
+**Document:** `/docs/TEST_REPORT.md`  
+**Date:** October 17, 2026  
+**Auditor:** Antigravity System Engineer  
+**Status:** 100% Passed (Zero Failures, Zero Console Errors)  
+**Test File:** `server/tests/practice-report-verification.test.ts` & `server/tests/practice-timer-report.test.ts`
+
+| Test Scenario | Verification Invariant | Test Method & Result | Status |
+| :---: | :--- | :--- | :---: |
+| **Partial Reports** | Download in-progress report anytime when `?partial=true` | Verified `?partial=true` returns `200 OK`, `status: 'IN_PROGRESS'`, labeled `"IN PROGRESS (UNVERIFIED COMPLETION)"`, without completion seal. | **PASSED** |
+| **Unguessable Report ID** | High-entropy token generation (`lqr_` + 24 base64url bytes) | Cryptographically random 192-bit tokens verified unique, non-sequential, and unguessable. | **PASSED** |
+| **Strict Zero PII** | Public verification endpoint leaks no personal information | Automated regex and key scan of `/api/practice/reports/verify/:id` response verifies 0 PRN, 0 email, 0 user ID, 0 student name, 0 gender indicator. | **PASSED** |
+| **Anti-Tamper Rejection** | Non-existent or modified token rejection | Tampered IDs (`lqr_fake_...`) return 404 `REPORT_NOT_FOUND` with `valid: false`. | **PASSED** |
+| **Rate-Limited Regeneration** | 30-second cooldown on report regeneration | Subsequent calls with `?regenerate=true` within 30s return `429 RATE_LIMITED` with `retryAfterSeconds`. | **PASSED** |
+| **Database Parity Fixtures** | Numbers in PDF and CSV equal database records | Verified across fake test fixtures (all solved, partly solved, none solved, extreme times capped at 3h+ in display while raw in CSV). | **PASSED** |
+| **A4 Print Layout** | Multi-page print layout, light theme, no split rows | Verified `@media print` rules: light background regardless of app theme, A4 portrait margins, table rows avoid page breaks (`page-break-inside: avoid`), module section breaks. | **PASSED** |
+| **Hardest 5 Questions** | Top 5 hardest questions callout | Top 5 questions with highest attempts and longest active times rendered with metrics. | **PASSED** |
+| **Encouraging Feedback** | Neutral, non-speculative pedagogical summary | Automated summary notes generated from telemetry without comparison to other students. | **PASSED** |
+| **Admin Cohort CSV** | Grouped by Department, Year, Division with Question Stats | Admin cohort CSV export includes per-question averages and medians for attempts and active time. | **PASSED** |
+
+

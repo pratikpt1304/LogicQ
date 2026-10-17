@@ -9,6 +9,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
+import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { UPLOAD_CONFIG } from '../config/upload.config.js';
 import {
   Play,
@@ -810,16 +811,7 @@ export const ChallengePage: React.FC = () => {
           </div>
 
           {/* Markdown Content */}
-          <div className="prose max-w-none text-[var(--text-main)] leading-relaxed font-sans">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {(problem.description || '')
-                .replace(/\\le\b/g, '≤')
-                .replace(/\\ge\b/g, '≥')
-                .replace(/\\neq\b/g, '≠')
-                .replace(/\\times\b/g, '×')
-                .replace(/\$([^$\n]+)\$/g, '`$1`')}
-            </ReactMarkdown>
-          </div>
+          <StatementMarkdown content={problem.description || ''} />
 
           {/* Visible Sample Test Cases (kept inside problem statement left panel) */}
           {sampleCases.length > 0 && (

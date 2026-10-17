@@ -43,20 +43,20 @@ export const KANETKAR_BOOK_PROBLEMS: BookProblemDef[] = [
 In C, variables declared in an inner block shadow variables of the same name declared in an enclosing outer block or at file scope (Yashavant Kanetkar, *Test Your C Skills*, Chapter 1: Declarations and Initializations).
 
 Given three integer inputs:
-- An outer global initial base value $G$
-- An enclosing function local value $L$
-- An innermost block value $B$
-- A sequence of $K$ block entry and exit operations (\`ENTER\` to enter an inner scope multiplying the active value by $M$, or \`EXIT\` to return to the outer scope)
+- An outer global initial base value G
+- An enclosing function local value L
+- An innermost block value B
+- A sequence of K block entry and exit operations (\`ENTER\` to enter an inner scope multiplying the active value by M, or \`EXIT\` to return to the outer scope)
 
 Simulate the lexical scope resolution and print the resolved active value after each operation.
 
 ### Input Format
-- First line: Three space-separated integers $G$, $L$, and $B$ ($-10^4 \\le G, L, B \\le 10^4$).
-- Second line: Integer $K$ ($1 \\le K \\le 100$), the number of operations.
-- Next $K$ lines: Either \`ENTER M\` (where $M$ is an integer multiplier) or \`EXIT\`.
+- First line: Three space-separated integers G, L, and B (−10⁴ ≤ G, L, B ≤ 10⁴).
+- Second line: Integer K (1 ≤ K ≤ 100), the number of operations.
+- Next K lines: Either \`ENTER M\` (where M is an integer multiplier) or \`EXIT\`.
 
 ### Output Format
-Print the active scoped value after each of the $K$ operations on a separate line.
+Print the active scoped value after each of the K operations on a separate line.
 
 ### Example 1
 **Input:**
@@ -89,7 +89,7 @@ EXIT
 \`\`\`
 
 ### Constraints
-- $1 \\le K \\le 100$
+- 1 ≤ K ≤ 100
 - Time Limit: 1000 ms
 - Memory Limit: 64 MB`,
     starterCode: `#include <stdio.h>
@@ -183,18 +183,18 @@ int main() {
 
 In standard C, \`switch\` statements execute sequentially from the matched \`case\` label until an explicit \`break\` statement is encountered or the block terminates (Yashavant Kanetkar, *Test Your C Skills*, Chapter 2: Control Instructions, Q 2.1).
 
-Implement a simulation of a 4-state accumulator register $A$ starting at an initial value $V_0$.
-Given an integer code $C \\in \\{1, 2, 3, 4\\}$ and an array of 4 operation modifiers:
-- Case 1: Add $X_1$ to $A$ (no break $\\rightarrow$ falls through to Case 2)
-- Case 2: Multiply $A$ by $X_2$ (no break $\\rightarrow$ falls through to Case 3)
-- Case 3: Subtract $X_3$ from $A$ (has break $\\rightarrow$ terminates switch)
-- Case 4: Default case: Set $A = A \\oplus X_4$ (has break)
+Implement a simulation of a 4-state accumulator register A starting at an initial value V₀.
+Given an integer code C ∈ {1, 2, 3, 4} and an array of 4 operation modifiers:
+- Case 1: Add X₁ to A (no break → falls through to Case 2)
+- Case 2: Multiply A by X₂ (no break → falls through to Case 3)
+- Case 3: Subtract X₃ from A (has break → terminates switch)
+- Case 4: Default case: Set A = A oplus X₄ (has break)
 
 Compute the final accumulator value after the switch executes according to standard C fallthrough semantics.
 
 ### Input Format
-- First line: The initial accumulator value $V_0$ and the switch code $C$ ($-10^4 \\le V_0 \\le 10^4$, $1 \\le C \\le 4$).
-- Second line: Four space-separated integers $X_1, X_2, X_3, X_4$ (modifiers for cases 1 to 4).
+- First line: The initial accumulator value V₀ and the switch code C (−10⁴ ≤ V₀ ≤ 10⁴, 1 ≤ C ≤ 4).
+- Second line: Four space-separated integers X₁, X₂, X₃, X₄ (modifiers for cases 1 to 4).
 
 ### Output Format
 Print the single resulting accumulator value followed by a newline.
@@ -209,7 +209,7 @@ Print the single resulting accumulator value followed by a newline.
 \`\`\`
 23
 \`\`\`
-**Explanation:** Starts at 10. Code 1: adds $X_1=5$ ($10+5=15$). Falls through to Case 2: multiplies by $X_2=2$ ($15 \\times 2 = 30$). Falls through to Case 3: subtracts $X_3=7$ ($30-7=23$). Hits break! Final = 23.
+**Explanation:** Starts at 10. Code 1: adds X₁=5 (10+5=15). Falls through to Case 2: multiplies by X₂=2 (15 × 2 = 30). Falls through to Case 3: subtracts X₃=7 (30-7=23). Hits break! Final = 23.
 
 ### Example 2
 **Input:**
@@ -313,15 +313,15 @@ In standard C, logical operators \`&&\` and \`||\` enforce strict left-to-right 
 If the left-hand operand of \`&&\` evaluates to zero (false), the right-hand operand is **never evaluated**.
 Similarly, if the left-hand operand of \`||\` evaluates to non-zero (true), the right-hand operand is **never evaluated**.
 
-Given four integer registers $I, J, K, M$ and an expression type:
+Given four integer registers I, J, K, M and an expression type:
 - Type 1: \`M = (++I || ++J) && ++K;\`
 - Type 2: \`M = (++I && ++J) || ++K;\`
 - Type 3: \`M = (++I && ++J) && ++K;\`
 
-Simulate the exact C standard evaluation order, accounting for all side-effects, and print the resulting values of $I, J, K, M$.
+Simulate the exact C standard evaluation order, accounting for all side-effects, and print the resulting values of I, J, K, M.
 
 ### Input Format
-A single line containing 5 space-separated integers: $T$ (expression type 1, 2, or 3) followed by the initial values $I, J, K, M$ ($-100 \\le I, J, K, M \\le 100$).
+A single line containing 5 space-separated integers: T (expression type 1, 2, or 3) followed by the initial values I, J, K, M (−100 ≤ I, J, K, M ≤ 100).
 
 ### Output Format
 Print the four updated values \`I J K M\` separated by single spaces.
@@ -335,7 +335,7 @@ Print the four updated values \`I J K M\` separated by single spaces.
 \`\`\`
 0 1 1 1
 \`\`\`
-**Explanation:** Initial $I=-1, J=0, K=0$. Type 1: \`++I\` yields $0$ (false). Because it is false, \`++J\` must be evaluated! $J$ becomes $1$ (true). Now the left side of \`&&\` is true, so \`++K\` is evaluated ($K$ becomes 1). $M = 1$. Final values: $0, 1, 1, 1$.
+**Explanation:** Initial I=-1, J=0, K=0. Type 1: \`++I\` yields 0 (false). Because it is false, \`++J\` must be evaluated! J becomes 1 (true). Now the left side of \`&&\` is true, so \`++K\` is evaluated (K becomes 1). M = 1. Final values: 0, 1, 1, 1.
 
 ### Example 2
 **Input:**
@@ -346,7 +346,7 @@ Print the four updated values \`I J K M\` separated by single spaces.
 \`\`\`
 2 0 1 1
 \`\`\`
-**Explanation:** $I=1$. \`++I\` yields 2 (true). Short-circuit skips \`++J\` ($J$ remains 0). \`++K\` evaluates to 1. $M=1$. Final: $2, 0, 1, 1$.
+**Explanation:** I=1. \`++I\` yields 2 (true). Short-circuit skips \`++J\` (J remains 0). \`++K\` evaluates to 1. M=1. Final: 2, 0, 1, 1.
 
 ### Constraints
 - Time Limit: 1000 ms
@@ -421,16 +421,16 @@ int main() {
 
 In C, each recursive function call allocates a new stack frame storing local variables and return addresses until the base condition is met (Yashavant Kanetkar, *Test Your C Skills*, Chapter 5: Functions).
 
-Given two positive integers $N$ and $K$:
+Given two positive integers N and K:
 Implement a recursive function that tracks both the computed value and the maximum call stack depth.
 The recurrence is defined as:
-- $F(0) = 1$
-- $F(x) = (x \\times F(x - 1) + K) \\pmod{10^9 + 7}$
+- F(0) = 1
+- F(x) = (x × F(x - 1) + K) pmod{10⁹ + 7}
 
-Output the computed value $F(N)$ and the total number of stack frames instantiated.
+Output the computed value F(N) and the total number of stack frames instantiated.
 
 ### Input Format
-A single line with two space-separated integers $N$ ($0 \\le N \\le 10^5$) and $K$ ($0 \\le K \\le 10^9$).
+A single line with two space-separated integers N (0 ≤ N ≤ 10⁵) and K (0 ≤ K ≤ 10⁹).
 
 ### Output Format
 Print two space-separated integers: \`F(N) STACK_FRAMES\`.
@@ -445,13 +445,13 @@ Print two space-separated integers: \`F(N) STACK_FRAMES\`.
 38 4
 \`\`\`
 **Explanation:** 
-$F(0) = 1$ (1 frame)
-$F(1) = 1 \\times 1 + 5 = 6$
-$F(2) = 2 \\times 6 + 5 = 17$
-$F(3) = 3 \\times 17 + 5 = 56 \\pmod{10^9+7} = 56$... For $N=3$, frames instantiated = 4 ($0, 1, 2, 3$).
+F(0) = 1 (1 frame)
+F(1) = 1 × 1 + 5 = 6
+F(2) = 2 × 6 + 5 = 17
+F(3) = 3 × 17 + 5 = 56 pmod{10⁹+7} = 56... For N=3, frames instantiated = 4 (0, 1, 2, 3).
 
 ### Constraints
-- $0 \\le N \\le 10^5$
+- 0 ≤ N ≤ 10⁵
 - Time Limit: 1000 ms
 - Memory Limit: 64 MB`,
     starterCode: `#include <stdio.h>
@@ -527,14 +527,14 @@ Consider two classic preprocessor subtleties:
 1. \`#define SQR(x) (x * x)\`: Passing an expression like \`a + b\` expands to \`a + b * a + b\` rather than \`((a + b) * (a + b))\`.
 2. Safe macro: \`#define SAFE_SQR(x) ((x) * (x))\`.
 
-Given $N$ pairs of integers $A$ and $B$, compute and print:
-- The result of naive expansion: $A + B \\times A + B$
-- The result of safe parenthesized expansion: $(A + B)^2$
+Given N pairs of integers A and B, compute and print:
+- The result of naive expansion: A + B × A + B
+- The result of safe parenthesized expansion: (A + B)²
 - The absolute difference between the safe and naive evaluations.
 
 ### Input Format
-- First line: Integer $N$ ($1 \\le N \\le 100$).
-- Next $N$ lines: Two space-separated integers $A$ and $B$ ($-1000 \\le A, B \\le 1000$).
+- First line: Integer N (1 ≤ N ≤ 100).
+- Next N lines: Two space-separated integers A and B (−1000 ≤ A, B ≤ 1000).
 
 ### Output Format
 For each pair, print three space-separated integers on a line: \`NAIVE SAFE DIFF\`.
@@ -551,7 +551,7 @@ For each pair, print three space-separated integers on a line: \`NAIVE SAFE DIFF
 11 25 14
 29 81 52
 \`\`\`
-**Explanation:** For $A=2, B=3$: Naive = $2 + 3 \\times 2 + 3 = 2 + 6 + 3 = 11$. Safe = $(2 + 3)^2 = 25$. Diff = $25 - 11 = 14$.
+**Explanation:** For A=2, B=3: Naive = 2 + 3 × 2 + 3 = 2 + 6 + 3 = 11. Safe = (2 + 3)² = 25. Diff = 25 - 11 = 14.
 
 ### Constraints
 - Time Limit: 1000 ms
@@ -626,17 +626,17 @@ int main() {
     description: `### Problem Description
 
 In C pointer arithmetic, array indexing is identical to pointer dereferencing: \`a[i][j][k]\` is strictly defined as \`*(*(*(a + i) + j) + k)\` (Yashavant Kanetkar, *Test Your C Skills*, Chapter 7: Pointers, Q 7.5, Q 7.7, Q 7.8).
-Furthermore, incrementing a pointer to an array of dimension $D_2 \\times D_3$ advances the address by $D_2 \\times D_3 \\times \\text{sizeof}(\\text{type})$ bytes.
+Furthermore, incrementing a pointer to an array of dimension D₂ × D₃ advances the address by D₂ × D₃ × sizeof(type) bytes.
 
-Given a 3D array of dimensions $D_1 \\times D_2 \\times D_3$ populated in row-major order with sequential integers starting at $1$, and a base byte address $B_0$:
-For $Q$ queries specifying either:
-1. Index triplet $(i, j, k)$: Compute the element value, the linear element offset, and the exact byte address assuming 4-byte integers.
-2. A linear index $L$: Compute the corresponding $(i, j, k)$ coordinate decomposition.
+Given a 3D array of dimensions D₁ × D₂ × D₃ populated in row-major order with sequential integers starting at 1, and a base byte address B₀:
+For Q queries specifying either:
+1. Index triplet (i, j, k): Compute the element value, the linear element offset, and the exact byte address assuming 4-byte integers.
+2. A linear index L: Compute the corresponding (i, j, k) coordinate decomposition.
 
 ### Input Format
-- First line: Dimensions $D_1, D_2, D_3$ and base address $B_0$ ($1 \\le D_1, D_2, D_3 \\le 50$, $1000 \\le B_0 \\le 10^6$).
-- Second line: Number of queries $Q$ ($1 \\le Q \\le 100$).
-- Next $Q$ lines: Either \`COORD i j k\` or \`LINEAR L\` ($0 \\le i < D_1, 0 \\le j < D_2, 0 \\le k < D_3$, $0 \\le L < D_1 D_2 D_3$).
+- First line: Dimensions D₁, D₂, D₃ and base address B₀ (1 ≤ D₁, D₂, D₃ ≤ 50, 1000 ≤ B₀ ≤ 10⁶).
+- Second line: Number of queries Q (1 ≤ Q ≤ 100).
+- Next Q lines: Either \`COORD i j k\` or \`LINEAR L\` (0 ≤ i < D₁, 0 ≤ j < D₂, 0 ≤ k < D₃, 0 ≤ L < D₁ D₂ D₃).
 
 ### Output Format
 - For \`COORD i j k\`: Print \`VAL: <v> OFFSET: <linear> ADDR: <addr>\`.
@@ -655,7 +655,7 @@ LINEAR 7
 VAL: 24 OFFSET: 23 ADDR: 1092
 I: 0 J: 1 K: 3
 \`\`\`
-**Explanation:** Total elements = $2 \\times 3 \\times 4 = 24$. Linear offset for $(1, 2, 3) = 1 \\times 12 + 2 \\times 4 + 3 = 23$. Value = $23 + 1 = 24$. Byte address = $1000 + 23 \\times 4 = 1092$.
+**Explanation:** Total elements = 2 × 3 × 4 = 24. Linear offset for (1, 2, 3) = 1 × 12 + 2 × 4 + 3 = 23. Value = 23 + 1 = 24. Byte address = 1000 + 23 × 4 = 1092.
 
 ### Constraints
 - Time Limit: 1000 ms
@@ -751,16 +751,16 @@ int main() {
 
 In C, an array name decays to a pointer to its first element in most expression contexts, except when operand to \`sizeof\` or the unary \`&\` address-of operator (Yashavant Kanetkar, *Test Your C Skills*, Chapter 9: Arrays, Q 9.1, Q 9.5).
 
-Given an array of $N$ integers and $M$ stride traversal operations:
-Each operation gives a starting index $S$, a stride step $K$, and an element count $C$.
-Accumulate the sum of values accessed by following the stride: $A[S], A[S + K], A[S + 2K], \\dots, A[S + (C - 1)K]$.
-If any index exceeds the array bounds ($< 0$ or $\\ge N$), stop accumulating at that boundary and report \`BOUND_EXCEEDED\`. Otherwise, report \`OK\`.
+Given an array of N integers and M stride traversal operations:
+Each operation gives a starting index S, a stride step K, and an element count C.
+Accumulate the sum of values accessed by following the stride: A[S], A[S + K], A[S + 2K], ..., A[S + (C - 1)K].
+If any index exceeds the array bounds (< 0 or ≥ N), stop accumulating at that boundary and report \`BOUND_EXCEEDED\`. Otherwise, report \`OK\`.
 
 ### Input Format
-- First line: Integer $N$ ($1 \\le N \\le 1000$).
-- Second line: $N$ space-separated integers.
-- Third line: Integer $M$ ($1 \\le M \\le 100$).
-- Next $M$ lines: Three space-separated integers $S, K, C$.
+- First line: Integer N (1 ≤ N ≤ 1000).
+- Second line: N space-separated integers.
+- Third line: Integer M (1 ≤ M ≤ 100).
+- Next M lines: Three space-separated integers S, K, C.
 
 ### Output Format
 For each operation, print \`SUM: <total> STATUS: <status>\` on a separate line.
@@ -780,8 +780,8 @@ SUM: 90 STATUS: OK
 SUM: 60 STATUS: BOUND_EXCEEDED
 \`\`\`
 **Explanation:** 
-Query 1: accesses $A[0]=10, A[2]=30, A[4]=50$. Sum = 90. Status OK.
-Query 2: accesses $A[1]=20, A[4]=40$. Next index $1 + 6 = 7 \\ge 5$, out of bounds! Sum = 60. Status BOUND_EXCEEDED.
+Query 1: accesses A[0]=10, A[2]=30, A[4]=50. Sum = 90. Status OK.
+Query 2: accesses A[1]=20, A[4]=40. Next index 1 + 6 = 7 ≥ 5, out of bounds! Sum = 60. Status BOUND_EXCEEDED.
 
 ### Constraints
 - Time Limit: 1000 ms
@@ -869,21 +869,21 @@ int main() {
     description: `### Problem Description
 
 In standard C, a string literal evaluates to a pointer to the first character of a null-terminated static array (Yashavant Kanetkar, *Test Your C Skills*, Chapter 10: Strings, Q 10.1, Q 10.2).
-Adding an integer offset $K$ to a string literal (\`K + "Fascimile"\`) yields a pointer starting $K$ characters into the string.
+Adding an integer offset K to a string literal (\`K + "Fascimile"\`) yields a pointer starting K characters into the string.
 Additionally, comparing two string pointers using \`==\` checks for **pointer address identity**, NOT contents (which requires \`strcmp\`).
 
-Given a string $S$ and an integer offset $K$ ($0 \\le K < |S|$):
-1. Extract and print the substring starting at offset $K$: \`*(S + K)\`.
-2. Given a second string $T$, report whether they are identical in content (\`CONTENT_EQUAL\` vs \`CONTENT_DIFFERENT\`).
+Given a string S and an integer offset K (0 ≤ K < |S|):
+1. Extract and print the substring starting at offset K: \`*(S + K)\`.
+2. Given a second string T, report whether they are identical in content (\`CONTENT_EQUAL\` vs \`CONTENT_DIFFERENT\`).
 3. Compute the lexicographical difference value (\`strcmp(S, T)\`).
 
 ### Input Format
-- First line: The string $S$ (no spaces, length $1 \\le |S| \\le 1000$).
-- Second line: An integer offset $K$ ($0 \\le K < |S|$).
-- Third line: A comparison string $T$ (no spaces, length $1 \\le |T| \\le 1000$).
+- First line: The string S (no spaces, length 1 ≤ |S| ≤ 1000).
+- Second line: An integer offset K (0 ≤ K < |S|).
+- Third line: A comparison string T (no spaces, length 1 ≤ |T| ≤ 1000).
 
 ### Output Format
-- Line 1: The substring starting at offset $K$.
+- Line 1: The substring starting at offset K.
 - Line 2: Either \`CONTENT_EQUAL\` or \`CONTENT_DIFFERENT\`.
 - Line 3: The sign of \`strcmp(S, T)\`: \`LESS\`, \`EQUAL\`, or \`GREATER\`.
 
@@ -1008,17 +1008,17 @@ In standard C, compilers insert alignment padding between structure members so t
 The macro \`offsetof(type, member)\` computes the exact byte offset of a member from the start of the structure.
 
 Consider a composite structure layout:
-- Member 1: A \`char\` array of size $S_1$ bytes (alignment = 1)
+- Member 1: A \`char\` array of size S₁ bytes (alignment = 1)
 - Member 2: A 4-byte \`int\` (natural alignment = 4 bytes)
 - Member 3: A 2-byte \`short\` (natural alignment = 2 bytes)
 - Member 4: An 8-byte \`long long\` (natural alignment = 8 bytes)
 
-Given the character buffer size $S_1$, calculate:
+Given the character buffer size S₁, calculate:
 1. The exact starting byte offset of each of the 4 members assuming standard natural alignment.
 2. The total size in bytes of the structure including trailing padding (which must round up to the maximum member alignment, 8 bytes).
 
 ### Input Format
-A single line containing the integer $S_1$ ($1 \\le S_1 \\le 128$).
+A single line containing the integer S₁ (1 ≤ S₁ ≤ 128).
 
 ### Output Format
 - First line: Four space-separated integers: \`OFF_M1 OFF_M2 OFF_M3 OFF_M4\`.
@@ -1285,10 +1285,10 @@ int main() {
 In C, passing a single pointer \`char *p\` by value prevents a function from modifying the caller's pointer address. To alter the caller's target address, a pointer-to-pointer (\`char **pp\`) or handle must be passed (Yashavant Kanetkar, *Test Your C Skills*, Chapter 8: More Pointers).
 
 Given two dynamic string handles pointing to distinct memory buffers:
-Implement an indirection function \`swapHandles(char **h1, char **h2)\` that exchanges their pointer targets in $O(1)$ pointer operations.
+Implement an indirection function \`swapHandles(char **h1, char **h2)\` that exchanges their pointer targets in O(1) pointer operations.
 
 ### Input Format
-Two space-separated strings $S_1$ and $S_2$ ($1 \\le |S_1|, |S_2| \\le 100$).
+Two space-separated strings S₁ and S₂ (1 ≤ |S₁|, |S₂| ≤ 100).
 
 ### Output Format
 Print the swapped strings on a single line separated by a space: \`S2 S1\`.
@@ -1385,17 +1385,17 @@ int main() {
 
 In standard C stream I/O (\`<stdio.h>\`), \`fseek(fp, offset, whence)\` positions the file offset pointer relative to \`SEEK_SET\` (0), \`SEEK_CUR\` (current), or \`SEEK_END\` (end of stream) (Yashavant Kanetkar, *Test Your C Skills*, Chapter 12: File Input/Output).
 
-Simulate a file stream containing a buffer of length $L$ starting with cursor at position $0$.
-Process $Q$ seek operations:
+Simulate a file stream containing a buffer of length L starting with cursor at position 0.
+Process Q seek operations:
 - \`SEEK_SET offset\`: Sets cursor to \`offset\`.
 - \`SEEK_CUR offset\`: Shifts cursor by \`offset\`.
 - \`SEEK_END offset\`: Sets cursor to \`L + offset\`.
 
-If the resulting cursor is $< 0$ or $> L$, clamp it to the bounds ($0$ or $L$) and output \`CLAMPED <pos>\`. Otherwise output \`OK <pos>\`.
+If the resulting cursor is < 0 or > L, clamp it to the bounds (0 or L) and output \`CLAMPED <pos>\`. Otherwise output \`OK <pos>\`.
 
 ### Input Format
-- First line: Total stream length $L$ ($1 \\le L \\le 10^5$) and operation count $Q$ ($1 \\le Q \\le 100$).
-- Next $Q$ lines: Commands in format \`<WHENCE> <offset>\`.
+- First line: Total stream length L (1 ≤ L ≤ 10⁵) and operation count Q (1 ≤ Q ≤ 100).
+- Next Q lines: Commands in format \`<WHENCE> <offset>\`.
 
 ### Output Format
 For each seek, print \`STATUS <position>\` on a new line.
@@ -1493,7 +1493,7 @@ int main() {
 
 In standard C, \`main(int argc, char *argv[])\` receives arguments as an array of pointers to null-terminated strings, where \`argv[0]\` is the program name and \`argc\` is the count of arguments (Yashavant Kanetkar, *Test Your C Skills*, Chapter 13: Command Line Arguments).
 
-Simulate command-line argument parsing for a command line with $N$ arguments.
+Simulate command-line argument parsing for a command line with N arguments.
 Print \`argc\`, each \`argv[i]\` enclosed in double quotes, and the total character length of all arguments combined.
 
 ### Input Format
@@ -1666,19 +1666,19 @@ int main() {
 
 In C, the \`static\` storage class specifier on local function variables extends their lifetime to the entire execution duration of the program while maintaining block scope visibility (Yashavant Kanetkar, *Test Your C Skills*, Chapter 16: Miscellany).
 
-Given an initial counter base $B$:
-Simulate $K$ consecutive function calls where:
-- Automatic variable starts fresh at $0$ each call and is incremented by $X_i$.
-- Static accumulator variable preserves its value across calls and accumulates $X_i$.
+Given an initial counter base B:
+Simulate K consecutive function calls where:
+- Automatic variable starts fresh at 0 each call and is incremented by Xᵢ.
+- Static accumulator variable preserves its value across calls and accumulates Xᵢ.
 
 Print \`AUTO: <auto_val> STATIC: <static_val>\` for each call.
 
 ### Input Format
-First line: Integer $K$ ($1 \\le K \\le 100$).
-Second line: $K$ space-separated integers $X_1, X_2, \\dots, X_K$.
+First line: Integer K (1 ≤ K ≤ 100).
+Second line: K space-separated integers X₁, X₂, ..., X_K.
 
 ### Output Format
-Print the status after each of the $K$ invocations.
+Print the status after each of the K invocations.
 
 ### Constraints
 - Time Limit: 1000 ms
@@ -1752,12 +1752,12 @@ int main() {
 
 In x86 16-bit real mode memory architecture, a 20-bit physical address is formed from a 16-bit segment and 16-bit offset: \`Physical = (Segment << 4) + Offset\` (Yashavant Kanetkar, *Test Your C Skills*, Chapter 17: C Under DOS).
 
-Given $Q$ queries of Segment and Offset pairs in hexadecimal format:
+Given Q queries of Segment and Offset pairs in hexadecimal format:
 Compute and output the 20-bit absolute physical address in 5-digit uppercase hexadecimal.
 
 ### Input Format
-First line: Integer $Q$ ($1 \\le Q \\le 100$).
-Next $Q$ lines: Two space-separated hexadecimal numbers: \`Segment Offset\`.
+First line: Integer Q (1 ≤ Q ≤ 100).
+Next Q lines: Two space-separated hexadecimal numbers: \`Segment Offset\`.
 
 ### Output Format
 For each query, print \`PHYSICAL: 0x<HEX5>\`.
@@ -1830,13 +1830,13 @@ int main() {
     tags: ['Graphics', 'Bresenham', 'Algorithms', 'Grid'],
     description: `### Problem Description
 
-In computer graphics C libraries, Bresenham's line algorithm draws straight lines between two integer grid coordinates $(X_0, Y_0)$ and $(X_1, Y_1)$ using purely integer additions, subtractions, and bit shifts, avoiding slow floating-point arithmetic (Yashavant Kanetkar, *Test Your C Skills*, Chapter 18: Graphics).
+In computer graphics C libraries, Bresenham's line algorithm draws straight lines between two integer grid coordinates (X₀, Y₀) and (X₁, Y₁) using purely integer additions, subtractions, and bit shifts, avoiding slow floating-point arithmetic (Yashavant Kanetkar, *Test Your C Skills*, Chapter 18: Graphics).
 
-Given two points $(X_0, Y_0)$ and $(X_1, Y_1)$ where $X_0 \\le X_1$ and slope $0 \\le \\frac{Y_1 - Y_0}{X_1 - X_0} \\le 1$:
-Implement Bresenham's algorithm and print each traversed integer pixel coordinate $(X, Y)$ along the raster line.
+Given two points (X₀, Y₀) and (X₁, Y₁) where X₀ ≤ X₁ and slope 0 ≤ frac{Y₁ - Y₀}{X₁ - X₀} ≤ 1:
+Implement Bresenham's algorithm and print each traversed integer pixel coordinate (X, Y) along the raster line.
 
 ### Input Format
-Four space-separated integers: $X_0, Y_0, X_1, Y_1$ ($0 \\le X_0 \\le X_1 \\le 100$, $0 \\le Y_0 \\le Y_1 \\le 100$).
+Four space-separated integers: X₀, Y₀, X₁, Y₁ (0 ≤ X₀ ≤ X₁ ≤ 100, 0 ≤ Y₀ ≤ Y₁ ≤ 100).
 
 ### Output Format
 Print each visited pixel on a separate line in format \`PIXEL: (x, y)\`.

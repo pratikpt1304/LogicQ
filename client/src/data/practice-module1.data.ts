@@ -30,20 +30,20 @@ export const PRACTICE_MODULE_1_PROBLEMS: PracticeProblemDef[] = [
     tags: ['If-Else', 'Comparison', 'Basics'],
     description: `### Problem Description
 
-Given three distinct or identical integers $A, B$, and $C$, determine the maximum value among them using conditional control flow.
+Given three distinct or identical integers A, B, and C, determine the maximum value among them using conditional control flow.
 
 ### Input Format
-A single line containing three space-separated integers $A, B, C$ ($-10^9 \\le A, B, C \\le 10^9$).
+A single line containing three space-separated integers A, B, C (−10⁹ ≤ A, B, C ≤ 10⁹).
 
 ### Output Format
 Print the largest integer followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
-    long long a, b, c;
-    if (scanf("%lld %lld %lld", &a, &b, &c) != 3) return 0;
+    int a, b, c;
+    scanf("%d %d %d", &a, &b, &c);
     
-    // TODO: Determine maximum and print
+    // TODO: Determine maximum among a, b, c and print it
     
     return 0;
 }`,
@@ -102,21 +102,21 @@ int main() {
     tags: ['Switch-Case', 'Arithmetic', 'Basics'],
     description: `### Problem Description
 
-Given two integers $X$ and $Y$ and an operator character $OP \\in \\{'+', '-', '*', '/'\\}$, evaluate the arithmetic expression using a \`switch\` statement. For integer division, output integer quotient truncated towards zero. If division by zero is attempted ($OP = '/' \\text{ and } Y = 0$), output \`ERROR\`.
+Given two integers X and Y and an operator character OP ∈ {'+', '-', '*', '/'}, evaluate the arithmetic expression using a \`switch\` statement. For integer division, output integer quotient truncated towards zero. If division by zero is attempted (OP = '/' \ and  Y = 0), output \`ERROR\`.
 
 ### Input Format
-A single line containing: integer $X$, character $OP$, and integer $Y$ separated by spaces.
+A single line containing: integer X, character OP, and integer Y separated by spaces.
 
 ### Output Format
 Print the computed integer result or \`ERROR\` followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
-    long long x, y;
+    int x, y;
     char op;
-    if (scanf("%lld %c %lld", &x, &op, &y) != 3) return 0;
+    scanf("%d %c %d", &x, &op, &y);
     
-    // TODO: Evaluate using switch(op)
+    // TODO: Evaluate using switch(op) and print result (or ERROR for division by 0)
     
     return 0;
 }`,
@@ -190,20 +190,21 @@ int main() {
     tags: ['Loops', 'Modulo', 'Math'],
     description: `### Problem Description
 
-Given an integer $N$ (positive, negative, or zero), compute the sum of all digits in its base-10 decimal representation.
+Given an integer N (positive, negative, or zero), compute the sum of all digits in its base-10 decimal representation.
 
 ### Input Format
-A single line containing integer $N$ ($-2 \\times 10^9 \\le N \\le 2 \\times 10^9$).
+A single line containing integer N (−2 × 10⁹ ≤ N ≤ 2 × 10⁹).
 
 ### Output Format
 Print the non-negative sum of its decimal digits followed by a newline.`,
     starterCode: `#include <stdio.h>
+#include <stdlib.h>
 
 int main() {
-    long long n;
-    if (scanf("%lld", &n) != 1) return 0;
+    int n;
+    scanf("%d", &n);
     
-    // TODO: Extract digits and compute sum
+    // TODO: Compute and print the sum of digits of n
     
     return 0;
 }`,
@@ -269,14 +270,14 @@ int main() {
     tags: ['Loops', 'Formatting', 'Basics'],
     description: `### Problem Description
 
-Given two integers $N$ and $K$, print the multiplication table of $N$ from $1$ through $K$ in the exact format:
+Given two integers N and K, print the multiplication table of N from 1 through K in the exact format:
 \`N x i = Result\`
 
 ### Input Format
-A single line containing integers $N$ and $K$ ($1 \\le N \\le 1000, 1 \\le K \\le 100$).
+A single line containing integers N and K (1 ≤ N ≤ 1000, 1 ≤ K ≤ 100).
 
 ### Output Format
-Print $K$ lines, each formatted as \`N x i = (N*i)\`.`,
+Print K lines, each formatted as \`N x i = (N*i)\`.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -341,13 +342,13 @@ int main() {
     tags: ['Nested Loops', 'Primes', 'Number Theory'],
     description: `### Problem Description
 
-Given an integer $N$, count how many prime numbers exist in the inclusive range $[2, N]$. A prime number is an integer greater than 1 with no positive divisors other than 1 and itself.
+Given an integer N, count how many prime numbers exist in the inclusive range [2, N]. A prime number is an integer greater than 1 with no positive divisors other than 1 and itself.
 
 ### Input Format
-A single line containing integer $N$ ($1 \\le N \\le 2 \\times 10^5$).
+A single line containing integer N (1 ≤ N ≤ 2 × 10⁵).
 
 ### Output Format
-Print the total count of primes $\\le N$ followed by a newline.`,
+Print the total count of primes ≤ N followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -429,10 +430,10 @@ int main() {
     tags: ['Loops', 'Palindrome', 'Math'],
     description: `### Problem Description
 
-Given a non-negative integer $N$, compute its reversed value $R$ (with leading zeros stripped), and determine whether $N$ is a decimal palindrome. Output \`R PALINDROME\` if $N = R$, or \`R NOT_PALINDROME\` otherwise.
+Given a non-negative integer N, compute its reversed value R (with leading zeros stripped), and determine whether N is a decimal palindrome. Output \`R PALINDROME\` if N = R, or \`R NOT_PALINDROME\` otherwise.
 
 ### Input Format
-A single line containing integer $N$ ($0 \\le N \\le 10^{14}$).
+A single line containing integer N (0 ≤ N ≤ 10¹⁴).
 
 ### Output Format
 Print the reversed number and status separated by a single space, followed by a newline.`,
@@ -508,19 +509,19 @@ int main() {
     tags: ['Nested Loops', 'Patterns', 'Printing'],
     description: `### Problem Description
 
-Given an integer height $H$, print a centered mirrored number pyramid of height $H$.
-For row $r$ from $1$ to $H$:
-- Print $2 \\times (H - r)$ leading spaces.
-- Print increasing numbers from $1$ to $r$, space-separated.
-- Print decreasing numbers from $r - 1$ down to $1$, space-separated.
+Given an integer height H, print a centered mirrored number pyramid of height H.
+For row r from 1 to H:
+- Print 2 × (H - r) leading spaces.
+- Print increasing numbers from 1 to r, space-separated.
+- Print decreasing numbers from r - 1 down to 1, space-separated.
 
 Do not print trailing spaces at the end of lines.
 
 ### Input Format
-A single line containing integer $H$ ($1 \\le H \\le 9$).
+A single line containing integer H (1 ≤ H ≤ 9).
 
 ### Output Format
-Print the $H$ pyramid lines.`,
+Print the H pyramid lines.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -597,10 +598,10 @@ int main() {
     tags: ['Euclidean Algorithm', 'Math', 'Loops'],
     description: `### Problem Description
 
-Given two positive integers $A$ and $B$, compute their Greatest Common Divisor (GCD) using the Euclidean algorithm and their Least Common Multiple (LCM).
+Given two positive integers A and B, compute their Greatest Common Divisor (GCD) using the Euclidean algorithm and their Least Common Multiple (LCM).
 
 ### Input Format
-A single line containing two space-separated integers $A$ and $B$ ($1 \\le A, B \\le 2 \\times 10^9$).
+A single line containing two space-separated integers A and B (1 ≤ A, B ≤ 2 × 10⁹).
 
 ### Output Format
 Print GCD and LCM separated by a single space, followed by a newline.`,
@@ -677,18 +678,18 @@ int main() {
     tags: ['Collatz Conjecture', 'Loops', 'Optimization'],
     description: `### Problem Description
 
-The Collatz sequence for a positive integer $x$ is defined as:
-- If $x$ is even: $x \\to x / 2$
-- If $x$ is odd: $x \\to 3x + 1$
-The chain stops when $x = 1$. The length of the chain is the number of steps taken to reach 1.
+The Collatz sequence for a positive integer x is defined as:
+- If x is even: x → x / 2
+- If x is odd: x → 3x + 1
+The chain stops when x = 1. The length of the chain is the number of steps taken to reach 1.
 
-Given an integer $N$, find the starting integer $S \\le N$ that produces the maximum number of steps. If there are ties, output the smallest starting integer $S$.
+Given an integer N, find the starting integer S ≤ N that produces the maximum number of steps. If there are ties, output the smallest starting integer S.
 
 ### Input Format
-A single line containing integer $N$ ($1 \\le N \\le 10^5$).
+A single line containing integer N (1 ≤ N ≤ 10⁵).
 
 ### Output Format
-Print two integers separated by a space: the optimal starting number $S$ and its chain step count, followed by a newline.`,
+Print two integers separated by a space: the optimal starting number S and its chain step count, followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -770,10 +771,10 @@ int main() {
     tags: ['Legendre Formula', 'Math', 'Loops'],
     description: `### Problem Description
 
-Given a non-negative integer $N$, calculate the exact number of trailing zeros in the decimal value of $N!$ (N factorial). Since $N$ can be up to $10^{14}$, you must compute this efficiently in $O(\\log_5 N)$ time without computing the actual factorial.
+Given a non-negative integer N, calculate the exact number of trailing zeros in the decimal value of N! (N factorial). Since N can be up to 10¹⁴, you must compute this efficiently in O(log₅ N) time without computing the actual factorial.
 
 ### Input Format
-A single line containing integer $N$ ($0 \\le N \\le 10^{14}$).
+A single line containing integer N (0 ≤ N ≤ 10¹⁴).
 
 ### Output Format
 Print the count of trailing zeros followed by a newline.`,

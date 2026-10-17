@@ -67,7 +67,7 @@ function scanDirectory(dir) {
 
       // Check if client.ts or services contain un-mirrored primary student records in localStorage
       if (entry.name === 'client.ts') {
-        if (content.includes("import.meta.env.PROD") && !content.includes("LogicQ server connection unavailable")) {
+        if (content.includes("import.meta.env.PROD") && !content.includes("LogicQ server connection unavailable") && !content.includes("LogicQ server did not respond")) {
           console.error(`❌ [MOCK FALLBACK VIOLATION] client.ts must fail closed in production for auth and submissions.`);
           errorsFound++;
         }

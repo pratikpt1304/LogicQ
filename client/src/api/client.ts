@@ -12,6 +12,16 @@ function isJsonResponse(res: Response): boolean {
   return ct.includes('application/json');
 }
 
+export interface LogicQApiError extends Error {
+  status?: number;
+  code?: string;
+  isOffline?: boolean;
+  canRetry?: boolean;
+  queuePosition?: number;
+  ended?: boolean;
+  todayChallengeUrl?: string;
+}
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_BASE}${cleanEndpoint}`;
@@ -47,8 +57,26 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay
   // into browser localStorage fallback in production.
   if (useFallback || !response) {
-    if (import.meta.env.PROD && (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/submissions'))) {
-      throw new Error('LogicQ server connection unavailable. Please check your network connection.');
+    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth'))) {
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
+      let errorMsg = 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.';
+      let errorCode = 'SERVER_UNAVAILABLE';
+
+      if (isOffline) {
+        errorMsg = 'You are currently offline. Please reconnect to the internet and click Retry.';
+        errorCode = 'OFFLINE';
+      } else if (response && !isJsonResponse(response)) {
+        errorMsg = 'LogicQ judge service is currently unreachable (server returned non-API response). Your code is safely saved locally.';
+        errorCode = 'JUDGE_UNREACHABLE';
+      }
+
+      const err = new Error(errorMsg) as LogicQApiError;
+      err.status = response?.status;
+      err.code = errorCode;
+      err.isOffline = isOffline;
+      err.canRetry = true;
+      throw err;
     }
     return (await handleFallbackRequest(cleanEndpoint, options)) as T;
   }
@@ -77,15 +105,33 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const data = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
-    const errorMsg = data?.message || `Request failed with status ${response.status}`;
-    const err = new Error(errorMsg) as Error & {
-      status?: number;
-      code?: string;
-      ended?: boolean;
-      todayChallengeUrl?: string;
-    };
+    let errorMsg = data?.message || `Request failed with status ${response.status}`;
+    let errorCode = data?.code;
+    let canRetry = true;
+
+    if (response.status === 401) {
+      errorMsg = 'Your session has expired. Please log in again to run or submit code.';
+      errorCode = 'SESSION_EXPIRED';
+      canRetry = false;
+    } else if (response.status === 429) {
+      errorMsg = 'Submission limit reached. Please wait a few seconds before trying again.';
+      errorCode = 'RATE_LIMITED';
+      canRetry = true;
+    } else if (response.status === 503) {
+      errorMsg = data?.message || 'LogicQ judge is busy processing submissions. Please wait a moment.';
+      errorCode = 'JUDGE_BUSY';
+      canRetry = true;
+    } else if (response.status === 504) {
+      errorMsg = 'Code execution timed out. The server did not respond.';
+      errorCode = 'TIMEOUT';
+      canRetry = true;
+    }
+
+    const err = new Error(errorMsg) as LogicQApiError;
     err.status = response.status;
-    err.code = data?.code;
+    err.code = errorCode;
+    err.canRetry = canRetry;
+    err.queuePosition = data?.queuePosition;
     err.ended = Boolean(data?.ended);
     err.todayChallengeUrl = data?.todayChallengeUrl;
     throw err;

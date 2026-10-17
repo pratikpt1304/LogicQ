@@ -24,6 +24,7 @@ import { CheckerReviewsPage } from './pages/checker/CheckerReviewsPage.js';
 import { PracticeModulesPage } from './pages/PracticeModulesPage.js';
 import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.js';
 import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
+import { PublicReportVerificationPage } from './pages/PublicReportVerificationPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
@@ -110,7 +111,9 @@ const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 export const App: React.FC = () => {
   const { user, authState } = useAuth();
   const location = useLocation();
-  const isWorkspaceRoute = location.pathname.startsWith('/challenge');
+  const isWorkspaceRoute =
+    location.pathname.startsWith('/challenge') ||
+    location.pathname.startsWith('/practice/');
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors overflow-x-hidden">
@@ -139,6 +142,7 @@ export const App: React.FC = () => {
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/how-to-install" element={<HowToInstallPage />} />
+          <Route path="/verify/report/:reportId" element={<PublicReportVerificationPage />} />
 
           {/* Authentication */}
           <Route path="/login" element={<LoginPage />} />

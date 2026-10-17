@@ -1,9 +1,10 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
 import { maskPrn } from '../config/academic.config.js';
+import { practiceReportService } from '../services/practice-report.service.js';
 
 export async function getPracticeModules(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -713,7 +714,24 @@ export async function getPracticeModuleReport(req: AuthRequest, res: Response): 
     const solvedCount = progressRecords.filter((p) => p.isSolved).length;
     const isCompleted = totalProblems > 0 && solvedCount >= totalProblems;
 
-    if (!isCompleted) {
+    const isPartialRequested = req.query.partial === 'true' || req.query.allowPartial === 'true';
+    const isRegenerate = req.query.regenerate === 'true';
+
+    // Rate-limiting check if student is regenerating
+    if (isRegenerate) {
+      const rateLimit = practiceReportService.checkRateLimit(userId, 30);
+      if (!rateLimit.allowed) {
+        res.status(429).json({
+          success: false,
+          code: 'RATE_LIMITED',
+          message: `Please wait ${rateLimit.retryAfterSeconds} seconds before regenerating your practice report.`,
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        });
+        return;
+      }
+    }
+
+    if (!isCompleted && !isPartialRequested) {
       res.status(403).json({
         success: false,
         code: 'MODULE_INCOMPLETE',
@@ -724,6 +742,7 @@ export async function getPracticeModuleReport(req: AuthRequest, res: Response): 
           solvedCount,
           totalQuestions: totalProblems,
           progressPercent: totalProblems > 0 ? Math.round((solvedCount / totalProblems) * 100) : 0,
+          canDownloadPartial: true,
         },
       });
       return;
@@ -778,16 +797,16 @@ export async function getPracticeModuleReport(req: AuthRequest, res: Response): 
       };
     }
 
-    // Hardest questions
+    // Hardest questions (Top 5 by attempts and time)
     const hardestByAttempts = [...questions]
       .filter((q) => q.attempts > 0)
       .sort((a, b) => b.attempts - a.attempts)
-      .slice(0, 3);
+      .slice(0, 5);
 
     const hardestByTime = [...questions]
       .filter((q) => (q.timeToSolveSeconds || 0) > 0)
       .sort((a, b) => (b.timeToSolveSeconds || 0) - (a.timeToSolveSeconds || 0))
-      .slice(0, 3);
+      .slice(0, 5);
 
     const diagnosticSummary = generateDiagnosticFeedback(questions, moduleSlug);
 
@@ -799,14 +818,44 @@ export async function getPracticeModuleReport(req: AuthRequest, res: Response): 
       division: user?.division || null,
     };
 
+    // Register verified report record in registry with cryptographically unguessable ID
+    const reportId = practiceReportService.generateReportId();
+    const generatedAt = new Date().toISOString();
+    const status = isCompleted ? 'COMPLETED' : 'IN_PROGRESS';
+    const statusLabel = isCompleted ? 'VERIFIED COMPLETION' : 'IN PROGRESS (UNVERIFIED COMPLETION)';
+    const protocol = req.protocol || 'https';
+    const host = req.get('host') || 'localhost:5173';
+    const verificationUrl = `${protocol}://${host}/verify/report/${reportId}`;
+
+    practiceReportService.registerReport({
+      reportId,
+      scope: 'SINGLE_MODULE',
+      moduleSlug,
+      moduleTitle: targetModule.title,
+      status,
+      isComplete: isCompleted,
+      statusLabel,
+      questionsSolved: solvedCount,
+      totalQuestions: totalProblems,
+      completionPercentage: totalProblems > 0 ? Math.round((solvedCount / totalProblems) * 100) : 0,
+      generatedAt,
+      verificationNotice: 'This public verification record confirms report authenticity. It contains zero student personally identifiable information (PII).',
+      _internalUserId: userId,
+    });
+
     res.status(200).json({
       success: true,
       data: {
         report: {
+          reportId,
+          verificationUrl,
           type: 'MODULE_REPORT',
           moduleSlug,
           moduleTitle: targetModule.title,
           student: studentInfo,
+          isCompleted,
+          status,
+          statusLabel,
           totalSolved: solvedCount,
           totalQuestions: totalProblems,
           totals: {
@@ -828,7 +877,8 @@ export async function getPracticeModuleReport(req: AuthRequest, res: Response): 
           },
           diagnosticSummary,
           questions,
-          generatedAt: new Date().toISOString(),
+          footerNote: 'All reported times reflect active solve time accumulated exclusively while the question tab was open and focused, validated against anti-tamper server telemetry.',
+          generatedAt,
         },
       },
     });
@@ -879,7 +929,24 @@ export async function getPracticeFinalReport(req: AuthRequest, res: Response): P
     const solvedCount = progressRecords.filter((p) => p.isSolved).length;
     const isCompleted = totalCurriculumQuestions >= 40 && solvedCount >= totalCurriculumQuestions;
 
-    if (!isCompleted) {
+    const isPartialRequested = req.query.partial === 'true' || req.query.allowPartial === 'true';
+    const isRegenerate = req.query.regenerate === 'true';
+
+    // Rate-limiting check if student is regenerating
+    if (isRegenerate) {
+      const rateLimit = practiceReportService.checkRateLimit(userId, 30);
+      if (!rateLimit.allowed) {
+        res.status(429).json({
+          success: false,
+          code: 'RATE_LIMITED',
+          message: `Please wait ${rateLimit.retryAfterSeconds} seconds before regenerating your practice report.`,
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        });
+        return;
+      }
+    }
+
+    if (!isCompleted && !isPartialRequested) {
       res.status(403).json({
         success: false,
         code: 'CURRICULUM_INCOMPLETE',
@@ -888,6 +955,7 @@ export async function getPracticeFinalReport(req: AuthRequest, res: Response): P
           solvedCount,
           totalQuestions: totalCurriculumQuestions,
           progressPercent: totalCurriculumQuestions > 0 ? Math.round((solvedCount / totalCurriculumQuestions) * 100) : 0,
+          canDownloadPartial: true,
         },
       });
       return;
@@ -974,12 +1042,12 @@ export async function getPracticeFinalReport(req: AuthRequest, res: Response): P
     const hardestByAttempts = [...allQuestions]
       .filter((q) => q.attempts > 0)
       .sort((a, b) => b.attempts - a.attempts)
-      .slice(0, 3);
+      .slice(0, 5);
 
     const hardestByTime = [...allQuestions]
       .filter((q) => (q.timeToSolveSeconds || 0) > 0)
       .sort((a, b) => (b.timeToSolveSeconds || 0) - (a.timeToSolveSeconds || 0))
-      .slice(0, 3);
+      .slice(0, 5);
 
     const diagnosticSummary = generateDiagnosticFeedback(allQuestions);
 
@@ -990,13 +1058,43 @@ export async function getPracticeFinalReport(req: AuthRequest, res: Response): P
       division: user?.division || null,
     };
 
+    // Register verified report record in registry with cryptographically unguessable ID
+    const reportId = practiceReportService.generateReportId();
+    const generatedAt = new Date().toISOString();
+    const status = isCompleted ? 'COMPLETED' : 'IN_PROGRESS';
+    const statusLabel = isCompleted ? 'VERIFIED COMPLETION' : 'IN PROGRESS (UNVERIFIED COMPLETION)';
+    const protocol = req.protocol || 'https';
+    const host = req.get('host') || 'localhost:5173';
+    const verificationUrl = `${protocol}://${host}/verify/report/${reportId}`;
+
+    practiceReportService.registerReport({
+      reportId,
+      scope: 'ALL_MODULES',
+      moduleSlug: null,
+      moduleTitle: 'All 4 Practice Modules (Curriculum)',
+      status,
+      isComplete: isCompleted,
+      statusLabel,
+      questionsSolved: solvedCount,
+      totalQuestions: totalCurriculumQuestions,
+      completionPercentage: totalCurriculumQuestions > 0 ? Math.round((solvedCount / totalCurriculumQuestions) * 100) : 0,
+      generatedAt,
+      verificationNotice: 'This public verification record confirms report authenticity. It contains zero student personally identifiable information (PII).',
+      _internalUserId: userId,
+    });
+
     res.status(200).json({
       success: true,
       data: {
         report: {
+          reportId,
+          verificationUrl,
           type: 'FINAL_CURRICULUM_REPORT',
           title: 'LogicQ Practice Curriculum Final Report',
           student: studentInfo,
+          isCompleted,
+          status,
+          statusLabel,
           totals: {
             solvedCount,
             totalQuestions: totalCurriculumQuestions,
@@ -1017,7 +1115,8 @@ export async function getPracticeFinalReport(req: AuthRequest, res: Response): P
           },
           diagnosticSummary,
           allQuestions,
-          generatedAt: new Date().toISOString(),
+          footerNote: 'All reported times reflect active solve time accumulated exclusively while the question tab was open and focused, validated against anti-tamper server telemetry.',
+          generatedAt,
         },
       },
     });
@@ -1238,10 +1337,103 @@ export async function exportAdminPracticeCsv(req: AuthRequest, res: Response): P
       ].join(',');
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    // Fetch all practice problems to calculate per-question averages and medians
+    const practiceProblems = await prisma.problem.findMany({
+      where: { isPractice: true, status: 'PUBLISHED' },
+      orderBy: [{ moduleSlug: 'asc' }, { moduleOrder: 'asc' }],
+      select: { id: true, slug: true, title: true, moduleSlug: true },
+    });
+
+    const questionStatsHeaders = [
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ];
+
+    const questionSectionTitle = [
+      '--- PER-QUESTION AVERAGES & MEDIANS ---',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+    ];
+
+    const questionMetricHeaders = [
+      'Module',
+      'Problem Title',
+      'Total Solvers',
+      'Average Attempts',
+      'Median Attempts',
+      'Average Active Time (Seconds)',
+      'Average Active Time (Formatted)',
+      'Median Active Time (Seconds)',
+      'Median Active Time (Formatted)',
+      '',
+      '',
+    ];
+
+    const allStudentProgress = await prisma.practiceProgress.findMany({
+      where: { user: { role: 'STUDENT' } },
+    });
+
+    const questionRows = practiceProblems.map((prob) => {
+      const records = allStudentProgress.filter((p) => p.problemId === prob.id);
+      const solvedRecords = records.filter((p) => p.isSolved);
+      const solverCount = solvedRecords.length;
+
+      const attemptsList = records.map((p) => p.attemptsCount).filter((a) => a > 0);
+      const timesList = solvedRecords.map((p) => p.timeToSolveSeconds || p.activeSeconds).filter((t) => t > 0);
+
+      const avgAttempts = attemptsList.length > 0
+        ? Number((attemptsList.reduce((a, b) => a + b, 0) / attemptsList.length).toFixed(1))
+        : 0;
+      const medianAttempts = calculateMedian(attemptsList);
+
+      const avgSeconds = timesList.length > 0
+        ? Math.round(timesList.reduce((a, b) => a + b, 0) / timesList.length)
+        : 0;
+      const medianSeconds = calculateMedian(timesList);
+
+      return [
+        `"${(prob.moduleSlug || 'control-structures').replace(/"/g, '""')}"`,
+        `"${prob.title.replace(/"/g, '""')}"`,
+        solverCount,
+        avgAttempts,
+        medianAttempts,
+        avgSeconds,
+        `"${formatTimeDisplay(avgSeconds)}"`,
+        medianSeconds,
+        `"${formatTimeDisplay(medianSeconds)}"`,
+        '',
+        '',
+      ].join(',');
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows,
+      questionStatsHeaders.join(','),
+      questionSectionTitle.join(','),
+      questionMetricHeaders.join(','),
+      ...questionRows,
+    ].join('\r\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="logicq-practice-progress.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="logicq-practice-cohort-progress.csv"');
     res.status(200).send(csvContent);
   } catch (err) {
     console.error('Error in exportAdminPracticeCsv:', err);
@@ -1357,6 +1549,45 @@ export async function correctStudentPracticeProgress(req: AuthRequest, res: Resp
   } catch (err) {
     console.error('Error in correctStudentPracticeProgress:', err);
     res.status(500).json({ success: false, message: 'Failed to correct practice record' });
+  }
+}
+
+/**
+ * Public Zero-PII Practice Report Verification Endpoint.
+ * Strictly verifies authenticity, scope, completion status, and generation date.
+ * Guarantees ZERO personal data (no name, PRN, email, or user identifier).
+ */
+export async function verifyPracticeReport(req: Request, res: Response): Promise<void> {
+  try {
+    const { reportId } = req.params;
+    if (!reportId || typeof reportId !== 'string') {
+      res.status(400).json({
+        success: false,
+        valid: false,
+        message: 'Invalid report ID provided',
+      });
+      return;
+    }
+
+    const verificationRecord = practiceReportService.getPublicVerificationRecord(reportId);
+    if (!verificationRecord) {
+      res.status(404).json({
+        success: false,
+        valid: false,
+        code: 'REPORT_NOT_FOUND',
+        message: 'The requested practice report could not be found or verification record has expired.',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      valid: true,
+      data: verificationRecord,
+    });
+  } catch (err) {
+    console.error('Error in verifyPracticeReport:', err);
+    res.status(500).json({ success: false, valid: false, message: 'Verification service error' });
   }
 }
 

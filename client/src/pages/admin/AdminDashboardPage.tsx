@@ -9,6 +9,8 @@ import {
 } from '../../config/academic.config.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
+import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
+import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -676,6 +678,15 @@ export const AdminDashboardPage: React.FC = () => {
     if (/Kanetkar|Test Your C Skills/i.test(`${problemForm.title} ${problemForm.description}`)) {
       toast.error('Direct book citations or author names are forbidden in student-facing text.');
       return;
+    }
+    if (/(\$[^\$\n]+\$|\\[a-zA-Z]+)/.test(problemForm.description)) {
+      const allowed = new Set(['\\n', '\\t', '\\r', '\\"', "\\'"]);
+      const matches = problemForm.description.match(/(\$[^\$\n]+\$|\\[a-zA-Z]+)/g) || [];
+      const violations = matches.filter((m) => !allowed.has(m) && !m.startsWith('\\n') && !m.startsWith('\\t'));
+      if (violations.length > 0) {
+        toast.error(`Problem description contains unrendered LaTeX (${violations.slice(0, 3).join(', ')}). Click 'Auto-Format to Clean Unicode' before saving.`);
+        return;
+      }
     }
     createProblemMutation.mutate(problemForm);
   };
@@ -3207,6 +3218,19 @@ export const AdminDashboardPage: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    const studentUrl = `/profile/${selectedActivityUser.username || selectedActivityUser.id}`;
+                    window.open(studentUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition flex items-center gap-1.5"
+                  title="Open student practice report and verified record in new tab"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Practice Report</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setSelectedActivityUser(null)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
                   title="Close inspector"
@@ -3724,11 +3748,24 @@ export const AdminDashboardPage: React.FC = () => {
                   <label className="block text-xs font-mono text-slate-300">
                     PROBLEM STATEMENT (MARKDOWN)
                   </label>
-                  {/(Chapter|Exercise|Page)\s*\d+/i.test(problemForm.description) && (
-                    <span className="text-[11px] font-mono text-amber-400">
-                      ⚠️ Warning: Mentions Chapter/Exercise/Page. Ensure problem statement does not leak internal book structure.
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cleaned = sanitizeMathInStatement(problemForm.description);
+                        setProblemForm({ ...problemForm, description: cleaned });
+                        toast.success('Converted math to clean Unicode symbols');
+                      }}
+                      className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline"
+                    >
+                      Auto-Format to Clean Unicode
+                    </button>
+                    {/(Chapter|Exercise|Page)\s*\d+/i.test(problemForm.description) && (
+                      <span className="text-[11px] font-mono text-amber-400">
+                        ⚠️ Mentions Chapter/Page
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <textarea
                   rows={6}
@@ -3741,6 +3778,16 @@ export const AdminDashboardPage: React.FC = () => {
                   <p className="mt-1 text-[11px] font-mono text-rose-400 font-semibold">
                     🚫 Blocked: Direct book citation or author name detected. Keep problem statements reworded without author/book names.
                   </p>
+                )}
+                {problemForm.description && (
+                  <div className="mt-2 p-3 rounded-lg bg-slate-900/80 border border-slate-700/60">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1.5 font-bold">
+                      Live Student Preview
+                    </span>
+                    <div className="text-xs text-slate-200">
+                      <StatementMarkdown content={problemForm.description} />
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -4002,6 +4049,15 @@ export const AdminDashboardPage: React.FC = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (/(\$[^\$\n]+\$|\\[a-zA-Z]+)/.test(newPracticeProblemForm.description)) {
+                  const allowed = new Set(['\\n', '\\t', '\\r', '\\"', "\\'"]);
+                  const matches = newPracticeProblemForm.description.match(/(\$[^\$\n]+\$|\\[a-zA-Z]+)/g) || [];
+                  const violations = matches.filter((m) => !allowed.has(m) && !m.startsWith('\\n') && !m.startsWith('\\t'));
+                  if (violations.length > 0) {
+                    toast.error(`Practice problem description contains unrendered LaTeX (${violations.slice(0, 3).join(', ')}). Click 'Auto-Format to Clean Unicode' before saving.`);
+                    return;
+                  }
+                }
                 createPracticeProblemMutation.mutate({
                   ...newPracticeProblemForm,
                   sampleTests: [
@@ -4108,9 +4164,22 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-300 mb-1">
-                  PROBLEM STATEMENT (MARKDOWN)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-mono text-slate-300">
+                    PROBLEM STATEMENT (MARKDOWN)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleaned = sanitizeMathInStatement(newPracticeProblemForm.description);
+                      setNewPracticeProblemForm({ ...newPracticeProblemForm, description: cleaned });
+                      toast.success('Converted math to clean Unicode symbols');
+                    }}
+                    className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline"
+                  >
+                    Auto-Format to Clean Unicode
+                  </button>
+                </div>
                 <textarea
                   rows={5}
                   required
@@ -4123,6 +4192,16 @@ export const AdminDashboardPage: React.FC = () => {
                   }
                   className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white resize-none"
                 />
+                {newPracticeProblemForm.description && (
+                  <div className="mt-2 p-3 rounded-lg bg-slate-900/80 border border-slate-700/60">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1.5 font-bold">
+                      Live Student Preview
+                    </span>
+                    <div className="text-xs text-slate-200">
+                      <StatementMarkdown content={newPracticeProblemForm.description} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

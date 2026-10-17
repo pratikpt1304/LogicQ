@@ -82,6 +82,15 @@ function registerLogicQMonacoThemes(m: any) {
   });
 }
 
+function sanitizeSourceCode(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^\uFEFF/, '')
+    .trimEnd() + '\n';
+}
+
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   code,
   onChange,
@@ -123,14 +132,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       fontFamily: "'JetBrains Mono', monospace",
       fontSize: 14,
       lineHeight: 22,
-      fontLigatures: true,
+      fontLigatures: false,
+      renderWhitespace: 'none',
       tabSize: 4,
       insertSpaces: true,
       automaticLayout: true,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       padding: { top: 16, bottom: 16 },
-      renderLineHighlight: 'all',
+      renderLineHighlight: 'line',
       cursorBlinking: 'smooth',
       smoothScrolling: true,
       readOnly: Boolean(readOnly),
@@ -139,6 +149,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     editorRef.current = editor;
     editor.setScrollTop(0);
     editor.revealLine(1);
+    editor.setSelection(new monaco.Selection(1, 1, 1, 1));
+    editor.setPosition({ lineNumber: 1, column: 1 });
 
     const sub = editor.onDidChangeModelContent(() => {
       if (readOnlyRef.current) return;
@@ -174,6 +186,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   React.useEffect(() => {
     if (editorRef.current && editorRef.current.getValue() !== code) {
       editorRef.current.setValue(code);
+      editorRef.current.setSelection(new monaco.Selection(1, 1, 1, 1));
+      editorRef.current.setPosition({ lineNumber: 1, column: 1 });
     }
   }, [code]);
 
@@ -199,7 +213,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result;
       if (typeof content === 'string') {
-        onChange(content);
+        const cleaned = sanitizeSourceCode(content);
+        onChange(cleaned);
         toast.success(`Loaded "${file.name}" into editor (${file.size} bytes)`);
       }
     };
@@ -234,7 +249,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result;
       if (typeof content === 'string') {
-        onChange(content);
+        const cleaned = sanitizeSourceCode(content);
+        onChange(cleaned);
         toast.success(`Loaded "${file.name}" into editor (${file.size} bytes)`);
       }
     };
@@ -267,7 +283,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         return;
       }
     }
-    onChange(code + insertText);
+    const cleanCurrent = code ? (code.endsWith('\n') ? code : code + '\n') : '';
+    onChange(cleanCurrent + insertText);
   };
 
   return (

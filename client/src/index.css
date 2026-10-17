@@ -415,3 +415,109 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   LogicQ Practice Report A4 Print Rules (Clean Light Theme & Page Budgeting)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 15mm 10mm;
+  }
+
+  body {
+    background: #FFFFFF !important;
+    color: #0C0F1F !important;
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  nav,
+  footer,
+  .print\\:hidden,
+  button:not(.print-show) {
+    display: none !important;
+  }
+
+  #printable-practice-report {
+    background: #FFFFFF !important;
+    color: #0C0F1F !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #printable-practice-report * {
+    color: #0C0F1F !important;
+    background-color: transparent !important;
+    border-color: #D1D5DB !important;
+  }
+
+  #printable-practice-report .text-emerald-400,
+  #printable-practice-report [class*="text-emerald"],
+  #printable-practice-report [class*="text-[#46D9A0]"] {
+    color: #065F46 !important;
+  }
+
+  #printable-practice-report .text-amber-400,
+  #printable-practice-report .text-amber-300,
+  #printable-practice-report [class*="text-amber"] {
+    color: #92400E !important;
+  }
+
+  #printable-practice-report .text-rose-400,
+  #printable-practice-report [class*="text-rose"],
+  #printable-practice-report [class*="text-[#FF7A8A]"] {
+    color: #991B1B !important;
+  }
+
+  #printable-practice-report [class*="text-[#8B9BFF]"] {
+    color: #3730A3 !important;
+  }
+
+  .print-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .print-page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-page-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-size: 8pt;
+    text-align: center;
+    border-top: 1px solid #D1D5DB;
+    padding-top: 4px;
+    background: #FFFFFF !important;
+  }
+}

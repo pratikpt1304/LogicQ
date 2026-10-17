@@ -178,11 +178,22 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
 
     // Mark 10 problems as solved for this student
     for (const prob of m1Problems) {
-      const progress = await prisma.practiceProgress.create({
-        data: {
+      const progress = await prisma.practiceProgress.upsert({
+        where: {
+          userId_problemId: {
+            userId: studentId,
+            problemId: prob.id,
+          },
+        },
+        create: {
           userId: studentId,
           problemId: prob.id,
           moduleSlug: 'control-structures',
+          isSolved: true,
+          attemptsCount: 1,
+          solvedAt: new Date(),
+        },
+        update: {
           isSolved: true,
           attemptsCount: 1,
           solvedAt: new Date(),

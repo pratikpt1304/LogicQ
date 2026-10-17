@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 // LogicQ production Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjxkk2FVbtvqmhFk1XWUDRRkCgBtdfuBw",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "logicq-clanguage.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "logicq-clanguage",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "logicq-clanguage.firebasestorage.app",

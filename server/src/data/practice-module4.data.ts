@@ -17,11 +17,11 @@ Define a structure \`struct Student\` containing:
 - \`char name[50]\`
 - \`int marks\`
 
-Given $N$ students, find the student with the highest marks. If there is a tie, output the one who appeared first in the input.
+Given N students, find the student with the highest marks. If there is a tie, output the one who appeared first in the input.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 1000$).
-Next $N$ lines: each line contains an integer roll number, a single-word name, and an integer mark separated by spaces ($0 \\le marks \\le 100$).
+First line: an integer N (1 ≤ N ≤ 1000).
+Next N lines: each line contains an integer roll number, a single-word name, and an integer mark separated by spaces (0 ≤ marks ≤ 100).
 
 ### Output Format
 Print the roll number, name, and marks of the top student separated by spaces, followed by a newline.`,
@@ -106,10 +106,10 @@ int main() {
     description: `### Problem Description
 
 Define an \`enum Day\` where \`SUNDAY = 0, MONDAY = 1, TUESDAY = 2, WEDNESDAY = 3, THURSDAY = 4, FRIDAY = 5, SATURDAY = 6\`.
-Given an integer day index $D$ ($0 \\le D \\le 6$), print the corresponding day name in uppercase. If $D < 0$ or $D > 6$, print \`INVALID\`.
+Given an integer day index D (0 ≤ D ≤ 6), print the corresponding day name in uppercase. If D < 0 or D > 6, print \`INVALID\`.
 
 ### Input Format
-A single line containing an integer $D$ ($-100 \\le D \\le 100$).
+A single line containing an integer D (−100 ≤ D ≤ 100).
 
 ### Output Format
 Print the day name (\`SUNDAY\`, \`MONDAY\`, \`TUESDAY\`, \`WEDNESDAY\`, \`THURSDAY\`, \`FRIDAY\`, \`SATURDAY\`) or \`INVALID\` followed by a newline.`,
@@ -205,11 +205,11 @@ int main() {
     tags: ['Dynamic Memory', 'malloc', 'free', 'Pointers'],
     description: `### Problem Description
 
-Dynamically allocate an array of $N$ integers using \`malloc\`. Read the $N$ integers into the allocated memory, compute the sum and minimum element, and ensure that the memory is released using \`free\`.
+Dynamically allocate an array of N integers using \`malloc\`. Read the N integers into the allocated memory, compute the sum and minimum element, and ensure that the memory is released using \`free\`.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 10^5$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: an integer N (1 ≤ N ≤ 10⁵).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 Print the sum of elements and the minimum element separated by a single space, followed by a newline.`,
@@ -289,12 +289,10 @@ int main() {
     description: `### Problem Description
 
 Define a structure \`struct Point\` with coordinates \`long long x\` and \`long long y\`.
-Given two points $P_1(x_1, y_1)$ and $P_2(x_2, y_2)$, write a function to calculate the squared Euclidean distance:
-$$(x_2 - x_1)^2 + (y_2 - y_1)^2$$
-
-### Input Format
-First line: two space-separated integers $x_1$ and $y_1$ ($-10^6 \\le x_1, y_1 \\le 10^6$).
-Second line: two space-separated integers $x_2$ and $y_2$ ($-10^6 \\le x_2, y_2 \\le 10^6$).
+Given two points P₁(x₁, y₁) and P₂(x₂, y₂), write a function to calculate the squared Euclidean distance:
+(x₂ - x₁)² + (y₂ - y₁)²### Input Format
+First line: two space-separated integersx₁andy₁(−10⁶ ≤ x₁, y₁ ≤ 10⁶).
+Second line: two space-separated integersx₂andy₂(−10⁶ ≤ x₂, y₂ ≤ 10⁶).
 
 ### Output Format
 Print the squared distance followed by a newline.`,
@@ -373,11 +371,11 @@ int main() {
     tags: ['Structures', 'qsort', 'Sorting'],
     description: `### Problem Description
 
-Given $N$ student records each with a roll number, single-word name, and marks, sort all records in descending order of marks using the C standard library \`qsort\`. If two students have the same marks, preserve their original relative order (or break ties by smaller roll number).
+Given N student records each with a roll number, single-word name, and marks, sort all records in descending order of marks using the C standard library \`qsort\`. If two students have the same marks, preserve their original relative order (or break ties by smaller roll number).
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 1000$).
-Next $N$ lines: each line contains an integer roll number, name, and integer mark ($0 \\le marks \\le 100$).
+First line: an integer N (1 ≤ N ≤ 1000).
+Next N lines: each line contains an integer roll number, name, and integer mark (0 ≤ marks ≤ 100).
 
 ### Output Format
 Print the sorted records, one per line, with roll number, name, and mark separated by spaces.`,
@@ -501,14 +499,14 @@ int main() {
     tags: ['Dynamic Memory', '2D Arrays', 'Pointers to Pointers', 'malloc'],
     description: `### Problem Description
 
-Dynamically allocate a 2D matrix of $R$ rows and $C$ columns using an array of pointers \`long long **mat = malloc(R * sizeof(long long *))\` where each row is allocated with \`malloc(C * sizeof(long long))\`. Read the elements, compute the sum of each row, print the sums, and deallocate all dynamically allocated memory using \`free\`.
+Dynamically allocate a 2D matrix of R rows and C columns using an array of pointers \`long long **mat = malloc(R * sizeof(long long *))\` where each row is allocated with \`malloc(C * sizeof(long long))\`. Read the elements, compute the sum of each row, print the sums, and deallocate all dynamically allocated memory using \`free\`.
 
 ### Input Format
-First line: two integers $R$ and $C$ ($1 \\le R, C \\le 500$).
-Next $R$ lines: each line contains $C$ space-separated integers ($-10^9 \\le M_{i,j} \\le 10^9$).
+First line: two integers R and C (1 ≤ R, C ≤ 500).
+Next R lines: each line contains C space-separated integers (−10⁹ ≤ M_{i,j} ≤ 10⁹).
 
 ### Output Format
-Print $R$ space-separated integers representing the row sums on a single line, followed by a newline.`,
+Print R space-separated integers representing the row sums on a single line, followed by a newline.`,
     starterCode: `#include <stdio.h>
 #include <stdlib.h>
 
@@ -585,10 +583,10 @@ int main() {
     tags: ['Dynamic Memory', 'Strings', 'malloc'],
     description: `### Problem Description
 
-Given a string $S$, dynamically allocate memory using \`malloc\` for a copy of the string, reverse the string characters into the allocated buffer, and print the reversed string. Free the allocated memory before exiting.
+Given a string S, dynamically allocate memory using \`malloc\` for a copy of the string, reverse the string characters into the allocated buffer, and print the reversed string. Free the allocated memory before exiting.
 
 ### Input Format
-A single line containing a single non-empty word without whitespace ($1 \\le |S| \\le 10^5$).
+A single line containing a single non-empty word without whitespace (1 ≤ |S| ≤ 10⁵).
 
 ### Output Format
 Print the dynamically reversed string followed by a newline.`,
@@ -767,15 +765,15 @@ int main() {
     description: `### Problem Description
 
 Implement a dynamically resizable vector of integers using \`malloc\` and \`realloc\`. The vector starts with capacity 2 and size 0.
-Handle $Q$ operations:
-- \`PUSH X\`: Append integer $X$. If size equals capacity, double capacity using \`realloc\`.
+Handle Q operations:
+- \`PUSH X\`: Append integer X. If size equals capacity, double capacity using \`realloc\`.
 - \`POP\`: Remove the last element if non-empty. If empty, print \`EMPTY\`.
-- \`GET I\`: Print the element at 0-based index $I$. If index is invalid, print \`OUT_OF_BOUNDS\`.
+- \`GET I\`: Print the element at 0-based index I. If index is invalid, print \`OUT_OF_BOUNDS\`.
 - \`SIZE\`: Print current number of elements and capacity formatted as \`<size> <capacity>\`.
 
 ### Input Format
-First line: an integer $Q$ ($1 \\le Q \\le 10^5$).
-Next $Q$ lines: each line contains an operation as described above.
+First line: an integer Q (1 ≤ Q ≤ 10⁵).
+Next Q lines: each line contains an operation as described above.
 
 ### Output Format
 For each \`GET\`, \`SIZE\`, or invalid \`POP\` operation, print the resulting output on a new line.`,
@@ -920,17 +918,17 @@ struct Node {
     struct Node *next;
 };
 \`\`\`
-Process $Q$ operations:
-- \`INSERT_HEAD X\`: Insert $X$ at the front of the list.
-- \`INSERT_TAIL X\`: Insert $X$ at the end of the list.
+Process Q operations:
+- \`INSERT_HEAD X\`: Insert X at the front of the list.
+- \`INSERT_TAIL X\`: Insert X at the end of the list.
 - \`DELETE_HEAD\`: Delete the front node. If list is empty, print \`EMPTY\`.
 - \`PRINT\`: Print all elements in the list from head to tail separated by spaces, or \`EMPTY\` if the list is empty.
 
 Free all remaining nodes before program termination.
 
 ### Input Format
-First line: an integer $Q$ ($1 \\le Q \\le 10^4$).
-Next $Q$ lines: each line contains an operation as described above.
+First line: an integer Q (1 ≤ Q ≤ 10⁴).
+Next Q lines: each line contains an operation as described above.
 
 ### Output Format
 Print the output for each \`DELETE_HEAD\` (when empty) and \`PRINT\` operation on a new line.`,

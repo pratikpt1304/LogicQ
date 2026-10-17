@@ -100,11 +100,11 @@ int main() {
     tags: ['Pointers', 'Functions', 'Out-Parameters'],
     description: `### Problem Description
 
-Implement a function \`void find_min_max(const long long *arr, int n, long long *min_val, long long *max_val)\` that computes both the minimum and maximum elements of an array of $n$ integers and stores them in \`*min_val\` and \`*max_val\`.
+Implement a function \`void find_min_max(const long long *arr, int n, long long *min_val, long long *max_val)\` that computes both the minimum and maximum elements of an array of n integers and stores them in \`*min_val\` and \`*max_val\`.
 
 ### Input Format
-The first line contains an integer $N$ ($1 \\le N \\le 10^5$).
-The second line contains $N$ space-separated integers ($ -10^{18} \\le A_i \\le 10^{18} $).
+The first line contains an integer N (1 ≤ N ≤ 10⁵).
+The second line contains N space-separated integers (−10¹⁸ ≤ Aᵢ ≤ 10¹⁸).
 
 ### Output Format
 Print the minimum and maximum values separated by a space, followed by a newline.`,
@@ -200,7 +200,7 @@ int main() {
     tags: ['Functions', 'Recursion', 'Math'],
     description: `### Problem Description
 
-Define a function \`unsigned long long factorial(int n)\` that calculates $N!$ for $0 \\le N \\le 20$. In \`main\`, read $N$ and output the calculated factorial.
+Define a function \`unsigned long long factorial(int n)\` that calculates N! for 0 ≤ N ≤ 20. In \`main\`, read $N$ and output the calculated factorial.
 
 ### Input Format
 A single line containing an integer $N$ ($0 \\le N \\le 20$).
@@ -377,7 +377,7 @@ int main() {
     tags: ['Functions', 'Recursion', 'GCD', 'Math'],
     description: `### Problem Description
 
-Write a recursive function \`long long gcd(long long a, long long b)\` using the Euclidean algorithm to find the Greatest Common Divisor of two positive integers $A$ and $B$. Using \`gcd\`, compute their Least Common Multiple (LCM) as $\\text{LCM}(a, b) = \\frac{a}{\\gcd(a, b)} \\times b$.
+Write a recursive function \`long long gcd(long long a, long long b)\` using the Euclidean algorithm to find the Greatest Common Divisor of two positive integers A and B. Using \`gcd\`, compute their Least Common Multiple (LCM) as $\\text{LCM}(a, b) = \\frac{a}{\\gcd(a, b)} \\times b$.
 
 ### Input Format
 A single line containing two positive integers $A$ and $B$ ($1 \\le A, B \\le 10^9$).
@@ -461,8 +461,8 @@ int main() {
 Write a function \`void reverse_array(int *start, int *end)\` that reverses an array in-place using two pointers (\`start\` pointing to the first element and \`end\` pointing to the last element), advancing \`start\` and decrementing \`end\` until they cross.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 10^5$).
-Second line: $N$ space-separated integers ($ -10^9 \\le A_i \\le 10^9 $).
+First line: an integer N (1 ≤ N ≤ 10⁵).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 Print the reversed array on a single line with elements separated by spaces, followed by a newline.`,
@@ -657,13 +657,13 @@ int main() {
     tags: ['Functions', 'Recursion', 'Math', 'Fast Pow'],
     description: `### Problem Description
 
-Write a recursive function \`long long mod_pow(long long base, long long exp, long long mod)\` that computes $(base^{exp}) \\pmod{mod}$ in $O(\\log(exp))$ time using divide and conquer.
+Write a recursive function \`long long mod_pow(long long base, long long exp, long long mod)\` that computes (base^{exp}) pmod{mod} in O(log(exp)) time using divide and conquer.
 
 ### Input Format
-A single line containing three integers $A$, $B$, and $M$ ($0 \\le A \\le 10^9$, $0 \\le B \\le 10^9$, $1 \\le M \\le 10^9 + 7$). Note: $0^0 = 1$.
+A single line containing three integers A, B, and M (0 ≤ A ≤ 10⁹, 0 ≤ B ≤ 10⁹, 1 ≤ M ≤ 10⁹ + 7). Note: 0⁰ = 1.
 
 ### Output Format
-Print $(A^B) \\pmod M$ followed by a newline.`,
+Print (A^B) pmod M followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 long long mod_pow(long long base, long long exp, long long mod) {
@@ -742,16 +742,16 @@ int main() {
     description: `### Problem Description
 
 Implement a dispatch table using an array of function pointers \`long long (*ops[4])(long long, long long)\` to handle four operations:
-- \`0\`: Add ($A + B$)
-- \`1\`: Subtract ($A - B$)
-- \`2\`: Multiply ($A \\times B$)
-- \`3\`: Integer Division ($A / B$). If $B = 0$, output \`DIV_BY_ZERO\`.
+- \`0\`: Add (A + B)
+- \`1\`: Subtract (A - B)
+- \`2\`: Multiply (A × B)
+- \`3\`: Integer Division (A / B). If B = 0, output \`DIV_BY_ZERO\`.
 
-Given $Q$ queries, each with an operation code and operands $A$ and $B$, evaluate each query using the function pointer table.
+Given Q queries, each with an operation code and operands A and B, evaluate each query using the function pointer table.
 
 ### Input Format
-First line: integer $Q$ ($1 \\le Q \\le 10^4$).
-Next $Q$ lines: three integers $op$, $A$, $B$ ($0 \\le op \\le 3$, $-10^9 \\le A, B \\le 10^9$).
+First line: integer Q (1 ≤ Q ≤ 10⁴).
+Next Q lines: three integers op, A, B (0 ≤ op ≤ 3, −10⁹ ≤ A, B ≤ 10⁹).
 
 ### Output Format
 For each query, print the computed integer result or \`DIV_BY_ZERO\` on its own line.`,

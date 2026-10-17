@@ -61,17 +61,32 @@ const queryClient = new QueryClient({
 
 const ThemedToaster: React.FC = () => {
   const { theme } = useTheme();
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <Toaster
       theme={theme}
-      position="top-right"
+      position={isMobile ? 'bottom-center' : 'top-right'}
+      closeButton
+      richColors
+      offset={isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 16px)' : '130px'}
       toastOptions={{
+        className: 'font-mono text-xs sm:text-sm rounded-xl shadow-2xl border',
         style: {
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '14px',
           backgroundColor: 'var(--bg-panel)',
           color: 'var(--text-main)',
-          border: '1px solid var(--border-line)',
+          borderColor: 'var(--border-line)',
         },
       }}
     />

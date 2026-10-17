@@ -7,6 +7,7 @@ import {
   trackPracticeRun,
   getPracticeModuleReport,
   getPracticeFinalReport,
+  verifyPracticeReport,
   getAdminPracticeReports,
   exportAdminPracticeCsv,
   correctStudentPracticeProgress,
@@ -15,6 +16,9 @@ import { authenticate, optionalAuthenticate } from '../middleware/auth.middlewar
 import { requireRole } from '../middleware/role.middleware.js';
 
 export const practiceRouter = Router();
+
+// Public report verification (Zero PII, unguessable report ID)
+practiceRouter.get('/reports/verify/:reportId', verifyPracticeReport);
 
 // Public / optional authenticated module discovery
 practiceRouter.get('/modules', optionalAuthenticate, getPracticeModules);

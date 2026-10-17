@@ -40,7 +40,21 @@ export const problemAdminSchema = z.object({
     difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']),
     category: z.string().default('Algorithms'),
     tags: z.array(z.string()).default([]),
-    description: z.string().min(10),
+    description: z
+      .string()
+      .min(10)
+      .refine(
+        (val) => {
+          const rawMatches = val.match(/(\$[^\$\n]+\$|\\[a-zA-Z]+)/g);
+          if (!rawMatches) return true;
+          const allowed = new Set(['\\n', '\\t', '\\r', '\\"', "\\'"]);
+          return rawMatches.every((m) => allowed.has(m) || m.startsWith('\\n') || m.startsWith('\\t'));
+        },
+        {
+          message:
+            'Problem description contains unrendered LaTeX ($ or \\macro). Please use clean Unicode characters (e.g. ≤, ≥, ×, ·, −10⁹ ≤ A, B ≤ 10⁹).',
+        }
+      ),
     starterCode: z.string().min(1),
     solutionCode: z.string().optional(),
     timeLimitMs: z.number().min(100).max(10000).default(1000),
@@ -641,6 +655,22 @@ export async function createProblem(req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // LaTeX Guard: Block unrendered LaTeX math syntax ($ or \macro)
+    if (problemData.description) {
+      const rawMatches = problemData.description.match(/(\$[^\$\n]+\$|\\[a-zA-Z]+)/g);
+      if (rawMatches) {
+        const allowed = new Set(['\\n', '\\t', '\\r', '\\"', "\\'"]);
+        const violations = rawMatches.filter((m: string) => !allowed.has(m) && !m.startsWith('\\n') && !m.startsWith('\\t'));
+        if (violations.length > 0) {
+          res.status(400).json({
+            success: false,
+            message: `Content policy violation: Unrendered LaTeX math (${violations.slice(0, 3).join(', ')}) is forbidden. Use clean Unicode characters (e.g. ≤, ≥, ×, ·, −10⁹ ≤ A, B ≤ 10⁹).`,
+          });
+          return;
+        }
+      }
+    }
+
     const existing = await prisma.problem.findUnique({ where: { slug: problemData.slug } });
     if (existing) {
       res.status(400).json({ success: false, message: 'A problem with this slug already exists' });
@@ -688,6 +718,22 @@ export async function updateProblem(req: AuthRequest, res: Response): Promise<vo
           'Content policy violation: Direct book citations or author names ("Kanetkar", "Test Your C Skills") are forbidden in problem statements. Store book references exclusively in sourceRefJson.',
       });
       return;
+    }
+
+    // LaTeX Guard: Block unrendered LaTeX math syntax ($ or \macro)
+    if (problemData.description) {
+      const rawMatches = problemData.description.match(/(\$[^\$\n]+\$|\\[a-zA-Z]+)/g);
+      if (rawMatches) {
+        const allowed = new Set(['\\n', '\\t', '\\r', '\\"', "\\'"]);
+        const violations = rawMatches.filter((m: string) => !allowed.has(m) && !m.startsWith('\\n') && !m.startsWith('\\t'));
+        if (violations.length > 0) {
+          res.status(400).json({
+            success: false,
+            message: `Content policy violation: Unrendered LaTeX math (${violations.slice(0, 3).join(', ')}) is forbidden. Use clean Unicode characters (e.g. ≤, ≥, ×, ·, −10⁹ ≤ A, B ≤ 10⁹).`,
+          });
+          return;
+        }
+      }
     }
 
     const existing = await prisma.problem.findUnique({ where: { id } });

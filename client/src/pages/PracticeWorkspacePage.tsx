@@ -1,33 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
-import { api } from '../api/client.js';
+import { api, LogicQApiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
-import { UPLOAD_CONFIG } from '../config/upload.config.js';
+import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import {
   Play,
   Send,
   CheckCircle2,
-  Cpu,
-  Layers,
-  Check,
   ChevronUp,
   ChevronDown,
   ArrowLeft,
   Terminal,
   BookOpen,
-  Upload,
-  Camera,
-  FileText,
-  Trash2,
-  Lock,
   Cloud,
+  AlertTriangle,
+  RotateCcw,
+  Layers,
+  WifiOff,
+  Clock,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -38,13 +33,20 @@ import {
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 import { PracticeTimer, PracticeTimerHandle } from '../components/practice/PracticeTimer.js';
 
-interface StagedUploadFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataBase64: string;
-  previewUrl?: string;
+interface ExecutionErrorState {
+  message: string;
+  code?: string;
+  canRetry?: boolean;
+  type: 'run' | 'submit';
+}
+
+function cleanDraftCode(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/^\uFEFF/, '')
+    .trimEnd() + '\n';
 }
 
 export const PracticeWorkspacePage: React.FC = () => {
@@ -57,14 +59,9 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [customInput, setCustomInput] = useState<string>('');
   const [runResult, setRunResult] = useState<any | null>(null);
   const [submissionResult, setSubmissionResult] = useState<any | null>(null);
+  const [executionError, setExecutionError] = useState<ExecutionErrorState | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output' | 'upload'>('custom');
-
-  const [stagedFiles, setStagedFiles] = useState<StagedUploadFile[]>([]);
-  const [studentNote, setStudentNote] = useState<string>('');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('custom');
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -72,13 +69,13 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idempotencyKeyRef = useRef<string>(`prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
   // Fetch problem details
   const {
     data: responseData,
     isLoading,
     error: problemError,
-    refetch: refetchProblem,
   } = useQuery({
     queryKey: ['practice-problem', problemSlug],
     queryFn: () => api.get(`/practice/problems/${problemSlug}`),
@@ -96,13 +93,13 @@ export const PracticeWorkspacePage: React.FC = () => {
 
       // 1. Instant local cache restore
       const localDraft = DraftSyncService.getLocalDraft(problem.slug, true);
-      let initialCode = problem.starterCode;
+      let initialCode = cleanDraftCode(problem.starterCode);
 
       if (localDraft?.code) {
-        initialCode = localDraft.code;
-        setCode(localDraft.code);
+        initialCode = cleanDraftCode(localDraft.code);
+        setCode(initialCode);
       } else {
-        setCode(problem.starterCode);
+        setCode(initialCode);
       }
 
       if (problem.sampleTests && problem.sampleTests.length > 0) {
@@ -111,17 +108,20 @@ export const PracticeWorkspacePage: React.FC = () => {
 
       // 2. Authoritative cloud draft sync
       if (user?.id) {
-        DraftSyncService.fetchRemoteDraft(user.id, problem.slug, true).then((remoteDraft) => {
-          if (!remoteDraft) return;
+        DraftSyncService.fetchRemoteDraft(user.id, problem.slug, true)
+          .then((remoteDraft) => {
+            if (!remoteDraft) return;
 
-          const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
-          if (conflict) {
-            setConflictInfo(conflict);
-          } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
-            setCode(remoteDraft.code);
-            DraftSyncService.saveLocalDraft(remoteDraft, true);
-          }
-        }).catch(() => {});
+            const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
+            if (conflict) {
+              setConflictInfo(conflict);
+            } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
+              const cleanedRemote = cleanDraftCode(remoteDraft.code);
+              setCode(cleanedRemote);
+              DraftSyncService.saveLocalDraft({ ...remoteDraft, code: cleanedRemote }, true);
+            }
+          })
+          .catch(() => {});
       }
     }
   }, [problem, user?.id]);
@@ -157,8 +157,9 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const handleKeepRemoteDraft = () => {
     if (conflictInfo) {
-      setCode(conflictInfo.remoteDraft.code);
-      DraftSyncService.saveLocalDraft(conflictInfo.remoteDraft, true);
+      const cleaned = cleanDraftCode(conflictInfo.remoteDraft.code);
+      setCode(cleaned);
+      DraftSyncService.saveLocalDraft({ ...conflictInfo.remoteDraft, code: cleaned }, true);
       setConflictInfo(null);
       toast.success('Restored newer draft from cloud');
     }
@@ -168,6 +169,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     if (conflictInfo && user?.id) {
       const updatedLocal: DraftData = {
         ...conflictInfo.localDraft,
+        code: cleanDraftCode(conflictInfo.localDraft.code),
         updatedAt: Date.now(),
         deviceLabel: getDeviceLabel(),
       };
@@ -175,6 +177,16 @@ export const PracticeWorkspacePage: React.FC = () => {
       DraftSyncService.saveRemoteDraft(user.id, updatedLocal, true);
       setConflictInfo(null);
       toast.success('Kept local code and updated cloud');
+    }
+  };
+
+  const handleResetStarterCode = () => {
+    if (problem?.starterCode) {
+      const cleanStarter = cleanDraftCode(problem.starterCode);
+      setCode(cleanStarter);
+      handleCodeChange(cleanStarter);
+      setExecutionError(null);
+      toast.success('Reset code to clean starter template');
     }
   };
 
@@ -189,6 +201,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Run Code Mutation
   const runMutation = useMutation({
     mutationFn: () => {
+      setExecutionError(null);
       if (problem?.id) {
         api.post('/practice/track-run', { problemId: problem.id }).catch(() => {});
       }
@@ -200,6 +213,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       });
     },
     onSuccess: (res) => {
+      setExecutionError(null);
       setSubmissionResult(null);
       setRunResult(res.data);
       setActiveBottomTab('output');
@@ -207,26 +221,41 @@ export const PracticeWorkspacePage: React.FC = () => {
       setActiveMobileTab('results');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Execution failed');
+      const apiErr = err as LogicQApiError;
+      setExecutionError({
+        message: apiErr.message || 'Execution service did not respond.',
+        code: apiErr.code,
+        canRetry: apiErr.canRetry !== false,
+        type: 'run',
+      });
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
+      setActiveMobileTab('results');
+      toast.error(apiErr.message || 'Execution failed');
     },
   });
 
   // Submit Solution Mutation (Practice submission)
   const submitMutation = useMutation({
     mutationFn: async () => {
+      setExecutionError(null);
       if (practiceTimerRef.current) {
         await practiceTimerRef.current.syncNow('submit');
       }
       return api.post('/submissions/submit', {
         problemId: problem.id,
         code,
+        idempotencyKey: idempotencyKeyRef.current,
       });
     },
     onSuccess: (res) => {
+      setExecutionError(null);
       setRunResult(null);
       setIsDrawerOpen(true);
       setActiveBottomTab('output');
       setActiveMobileTab('results');
+      // Rotate idempotency key after successful submission dispatch
+      idempotencyKeyRef.current = `prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
       const immediateSub = res?.data?.submission;
       if (
@@ -310,119 +339,17 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Submission failed');
-    },
-  });
-
-  // Query for student's uploaded solution files for this practice problem
-  const { data: myUploadsData, refetch: refetchMyUploads } = useQuery({
-    queryKey: ['my-uploads', problem?.id || problemSlug],
-    queryFn: () => api.get(`/uploads/my?problemId=${problem?.id || problemSlug}`),
-    enabled: Boolean((problem?.id || problemSlug) && user),
-    refetchOnWindowFocus: false,
-  });
-
-  const myProblemUploads: any[] = myUploadsData?.data || [];
-  const latestUpload = myProblemUploads[0] || null;
-
-  const handleSelectFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
-    setUploadError(null);
-
-    const incoming = Array.from(fileList);
-    if (stagedFiles.length + incoming.length > UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION) {
-      setUploadError(
-        `Maximum ${UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION} files allowed per submission.`
-      );
-      return;
-    }
-
-    const nextStaged: StagedUploadFile[] = [...stagedFiles];
-
-    for (const file of incoming) {
-      if (!(UPLOAD_CONFIG.ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
-        setUploadError(
-          `Unsupported file type (${file.name}). Only JPG, PNG, WebP, and PDF files are allowed.`
-        );
-        return;
-      }
-      if (file.size === 0) {
-        setUploadError(`File "${file.name}" is empty (0 bytes).`);
-        return;
-      }
-      if (file.size > UPLOAD_CONFIG.MAX_FILE_SIZE_BYTES) {
-        setUploadError(`File "${file.name}" exceeds the 5 MB limit.`);
-        return;
-      }
-
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
+      const apiErr = err as LogicQApiError;
+      setExecutionError({
+        message: apiErr.message || 'Submission service did not respond.',
+        code: apiErr.code,
+        canRetry: apiErr.canRetry !== false,
+        type: 'submit',
       });
-
-      const base64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
-      nextStaged.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        dataBase64: base64,
-        previewUrl: file.type.startsWith('image/') ? dataUrl : undefined,
-      });
-    }
-
-    setStagedFiles(nextStaged);
-  };
-
-  const handleRemoveStagedFile = (id: string) => {
-    setStagedFiles((prev) => prev.filter((f) => f.id !== id));
-    setUploadError(null);
-  };
-
-  const uploadMutation = useMutation({
-    mutationFn: () => {
-      const payload = {
-        problemId: problem?.id || problemSlug,
-        studentNote: studentNote.trim(),
-        files: stagedFiles.map((f) => ({
-          mimeType: f.mimeType,
-          dataBase64: f.dataBase64,
-        })),
-      };
-
-      if (
-        latestUpload &&
-        (latestUpload.status === 'PENDING_REVIEW' || latestUpload.status === 'NEEDS_CHANGES')
-      ) {
-        return api.put(`/uploads/${latestUpload.id}`, payload);
-      }
-      return api.post('/uploads', payload);
-    },
-    onSuccess: (res: any) => {
-      toast.success(
-        res.message || 'Uploaded for review. Solution saved successfully.'
-      );
-      setStagedFiles([]);
-      setStudentNote('');
-      setUploadError(null);
-      refetchMyUploads();
-    },
-    onError: (err: any) => {
-      setUploadError(err.message || 'Failed to upload solution.');
-      toast.error(err.message || 'Failed to upload solution.');
-    },
-  });
-
-  const cancelUploadMutation = useMutation({
-    mutationFn: (uploadId: string) => api.delete(`/uploads/${uploadId}`),
-    onSuccess: () => {
-      toast.info('Pending upload cancelled.');
-      refetchMyUploads();
-    },
-    onError: (err: any) => {
-      toast.error(err.message || 'Could not cancel upload.');
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
+      setActiveMobileTab('results');
+      toast.error(apiErr.message || 'Submission failed');
     },
   });
 
@@ -456,10 +383,13 @@ export const PracticeWorkspacePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-main)]">
+    <div
+      style={{ minHeight: 'calc(100dvh - var(--navbar-height, 4rem))' }}
+      className="flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden"
+    >
       {/* Top Workspace Header */}
-      <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/60 backdrop-blur-md px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/60 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
             to={`/practice/${moduleSlug}`}
             className="p-1.5 rounded-lg hover:bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors shrink-0"
@@ -470,16 +400,16 @@ export const PracticeWorkspacePage: React.FC = () => {
 
           <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
 
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-xs font-mono px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--accent)] shrink-0">
               #{problem.moduleOrder}
             </span>
-            <h1 className="text-sm font-semibold text-[var(--text-main)] truncate">
+            <h1 className="text-xs sm:text-sm font-semibold text-[var(--text-main)] truncate max-w-[120px] sm:max-w-xs md:max-w-md">
               {problem.title}
             </h1>
             <DifficultyBadge difficulty={problem.difficulty as any} />
             {userProgress?.isSolved && (
-              <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
+              <span className="hidden md:flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Solved</span>
               </span>
@@ -487,8 +417,8 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Buttons & Timer: Timer, Run & Submit */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Action Buttons & Timer */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {problem && (
             <PracticeTimer
               ref={practiceTimerRef}
@@ -500,24 +430,33 @@ export const PracticeWorkspacePage: React.FC = () => {
             />
           )}
           {user?.id && (
-            <span className="hidden sm:flex items-center gap-1 text-[11px] font-mono text-[var(--text-muted)] pr-2 border-r border-[var(--border-line)]">
-              <Cloud className={`w-3.5 h-3.5 ${draftSyncStatus === 'saving' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
+            <span className="hidden lg:flex items-center gap-1 text-[11px] font-mono text-[var(--text-muted)] pr-2 border-r border-[var(--border-line)]">
+              <Cloud
+                className={`w-3.5 h-3.5 ${
+                  draftSyncStatus === 'saving'
+                    ? 'text-amber-400 animate-pulse'
+                    : 'text-emerald-400'
+                }`}
+              />
               <span>{draftSyncStatus === 'saving' ? 'Saving...' : 'Synced'}</span>
             </span>
           )}
           <button
             onClick={() => runMutation.mutate()}
             disabled={runMutation.isPending || submitMutation.isPending}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors disabled:opacity-50"
+            title="Run solution against custom stdin"
           >
             <Play className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
-            <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
+            <span className="hidden sm:inline">{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
+            <span className="sm:hidden">{runMutation.isPending ? '...' : 'Run'}</span>
           </button>
 
           <button
             onClick={() => submitMutation.mutate()}
             disabled={submitMutation.isPending || runMutation.isPending}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-xs font-bold text-white shadow-sm shadow-[var(--accent)]/20 transition-all disabled:opacity-50"
+            className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-xs font-bold text-white shadow-sm shadow-[var(--accent)]/20 transition-all disabled:opacity-50"
+            title="Submit solution for judging against test cases"
           >
             <Send className="w-3.5 h-3.5" />
             <span>{submitMutation.isPending ? 'Submitting...' : 'Submit'}</span>
@@ -525,12 +464,61 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Segmented Switcher (Statement | Editor | Verdict) */}
+      <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('statement')}
+          className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            activeMobileTab === 'statement'
+              ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+              : 'text-[var(--text-muted)]'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Statement</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('editor')}
+          className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            activeMobileTab === 'editor'
+              ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+              : 'text-[var(--text-muted)]'
+          }`}
+        >
+          <Terminal className="w-3.5 h-3.5" />
+          <span>Editor</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveMobileTab('results');
+            setActiveBottomTab('output');
+            setIsDrawerOpen(true);
+          }}
+          className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            activeMobileTab === 'results'
+              ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+              : 'text-[var(--text-muted)]'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Verdict</span>
+          {executionError && <span className="w-2 h-2 rounded-full bg-amber-400" />}
+        </button>
+      </div>
+
       {/* Main Two-Pane Split View */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Pane: Problem Description Statement */}
-        <div className="lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-6 space-y-6">
+        <div
+          className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
+            activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
+          }`}
+        >
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-[var(--text-main)]">{problem.title}</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-[var(--text-main)]">{problem.title}</h2>
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
               <span>{problem.category}</span>
               <span>•</span>
@@ -540,11 +528,8 @@ export const PracticeWorkspacePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="prose prose-invert max-w-none text-sm text-[var(--text-muted)] leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {problem.description}
-            </ReactMarkdown>
-          </div>
+          {/* Safe Markdown Renderer with clean Unicode math and zero unrendered LaTeX */}
+          <StatementMarkdown content={problem.description} />
 
           {/* Sample Test Cases */}
           {problem.sampleTests && problem.sampleTests.length > 0 && (
@@ -553,16 +538,25 @@ export const PracticeWorkspacePage: React.FC = () => {
                 Sample Test Cases
               </h3>
               {problem.sampleTests.map((st: any, idx: number) => (
-                <div key={idx} className="glass-card rounded-xl p-3.5 border border-[var(--border-line)] space-y-2 text-xs font-mono">
-                  <div className="text-[11px] text-[var(--accent)] font-semibold">Sample #{idx + 1}</div>
+                <div
+                  key={idx}
+                  className="glass-card rounded-xl p-3.5 border border-[var(--border-line)] space-y-2 text-xs font-mono"
+                >
+                  <div className="text-[11px] text-[var(--accent)] font-semibold">
+                    Sample #{idx + 1}
+                  </div>
                   <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Input</span>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">
+                      Input
+                    </span>
                     <pre className="p-2 rounded bg-[var(--bg-main)] text-[var(--text-main)] overflow-x-auto mt-0.5">
                       {st.input}
                     </pre>
                   </div>
                   <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">Expected Output</span>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase">
+                      Expected Output
+                    </span>
                     <pre className="p-2 rounded bg-[var(--bg-main)] text-emerald-400 overflow-x-auto mt-0.5">
                       {st.expectedOutput}
                     </pre>
@@ -574,20 +568,30 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer */}
-        <div className="lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)]">
-          {/* Editor Container */}
-          <div className="flex-1 min-h-[350px] relative overflow-hidden">
+        <div
+          className={`lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)] ${
+            activeMobileTab !== 'statement' ? 'flex-1' : 'hidden lg:flex'
+          }`}
+        >
+          {/* Editor Container (visible when active tab is editor on mobile, or always on desktop) */}
+          <div
+            className={`flex-1 min-h-[300px] relative overflow-hidden ${
+              activeMobileTab === 'results' ? 'hidden sm:block' : 'block'
+            }`}
+          >
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
+              onReset={handleResetStarterCode}
             />
           </div>
 
-          {/* Bottom Tabs Drawer (Strictly: Custom Stdin, Verdict & Output) */}
+          {/* Bottom Tabs Drawer: Strictly Custom Stdin and Verdict & Output */}
           <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)]/80 flex flex-col shrink-0">
             <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border-line)]/60">
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveBottomTab('custom');
                     setIsDrawerOpen(true);
@@ -601,46 +605,26 @@ export const PracticeWorkspacePage: React.FC = () => {
                   Custom Stdin
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setActiveBottomTab('output');
                     setIsDrawerOpen(true);
                   }}
-                  className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 ${
                     activeBottomTab === 'output' && isDrawerOpen
                       ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  Verdict &amp; Output
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveBottomTab('upload');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono rounded-md transition-colors ${
-                    activeBottomTab === 'upload' && isDrawerOpen
-                      ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Upload Files</span>
-                  {latestUpload && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded bg-[var(--accent)]/15 text-[var(--accent)] text-[10px]">
-                      {latestUpload.status === 'PENDING_REVIEW'
-                        ? 'Pending'
-                        : latestUpload.status === 'APPROVED'
-                        ? 'Approved'
-                        : latestUpload.status === 'NEEDS_CHANGES'
-                        ? 'Changes'
-                        : 'Uploaded'}
-                    </span>
+                  <span>Verdict &amp; Output</span>
+                  {executionError && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
                   )}
                 </button>
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
                 className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)]"
                 title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
@@ -650,27 +634,95 @@ export const PracticeWorkspacePage: React.FC = () => {
             </div>
 
             {isDrawerOpen && (
-              <div className="h-56 p-3 overflow-y-auto font-mono text-xs">
+              <div className="h-60 p-3 overflow-y-auto font-mono text-xs">
                 {activeBottomTab === 'custom' ? (
-                  <div className="h-full flex flex-col">
+                  <div className="h-full flex flex-col space-y-1.5">
+                    <label className="text-[10px] uppercase text-[var(--text-muted)]">
+                      Standard Input (passed to stdin for Run Code):
+                    </label>
                     <textarea
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
-                      placeholder="Enter standard input (stdin) for Run Code..."
+                      placeholder="Enter test input data (e.g. 10 20 30)..."
                       className="w-full flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-[var(--text-main)] border border-[var(--border-line)] focus:outline-none focus:border-[var(--accent)] resize-none"
                     />
                   </div>
-                ) : activeBottomTab === 'output' ? (
-                  <div className="space-y-2">
+                ) : (
+                  <div className="space-y-3">
+                    {/* Execution Error Card with Non-destructive Retry Button */}
+                    {executionError && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                            {executionError.code === 'OFFLINE' ? (
+                              <WifiOff className="w-4 h-4 shrink-0" />
+                            ) : executionError.code === 'TIMEOUT' ? (
+                              <Clock className="w-4 h-4 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="w-4 h-4 shrink-0" />
+                            )}
+                            <span>
+                              {executionError.code === 'OFFLINE'
+                                ? 'Browser Offline'
+                                : executionError.code === 'JUDGE_UNREACHABLE'
+                                ? 'Judge Service Unreachable'
+                                : executionError.code === 'JUDGE_BUSY'
+                                ? 'Judge Service Busy'
+                                : executionError.code === 'TIMEOUT'
+                                ? 'Execution Timed Out'
+                                : 'Judge Connection Unavailable'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setExecutionError(null)}
+                            className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                        <p className="text-xs text-[var(--text-main)] leading-relaxed">
+                          {executionError.message}
+                        </p>
+                        {executionError.canRetry && (
+                          <div className="pt-1 flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExecutionError(null);
+                                if (executionError.type === 'run') {
+                                  runMutation.mutate();
+                                } else {
+                                  submitMutation.mutate();
+                                }
+                              }}
+                              disabled={runMutation.isPending || submitMutation.isPending}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs transition-opacity"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>
+                                Retry {executionError.type === 'run' ? 'Run Code' : 'Submit'}
+                              </span>
+                            </button>
+                            <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                              Your code in the editor is safely preserved.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {submitMutation.isPending || runMutation.isPending ? (
-                      <div className="flex items-center gap-2 text-cyan-400 py-4 justify-center">
+                      <div className="flex items-center gap-2 text-cyan-400 py-6 justify-center">
                         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        <span>Compiling and evaluating C source on judge...</span>
+                        <span>Compiling and executing C11 code on isolated judge...</span>
                       </div>
                     ) : submissionResult ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[var(--text-muted)]">Submission Verdict:</span>
+                          <span className="font-semibold text-[var(--text-muted)]">
+                            Submission Verdict:
+                          </span>
                           <VerdictBadge verdict={submissionResult.verdict} />
                         </div>
                         {submissionResult.runtimeMs > 0 && (
@@ -683,6 +735,28 @@ export const PracticeWorkspacePage: React.FC = () => {
                             {submissionResult.compileOutput}
                           </pre>
                         )}
+                        {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (
+                          <div className="space-y-1 pt-2">
+                            <span className="text-[10px] uppercase text-[var(--text-muted)] block">
+                              Test Cases Evaluation:
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                              {submissionResult.testCaseResults.map((tc: any, i: number) => (
+                                <div
+                                  key={i}
+                                  className={`p-1.5 rounded text-[11px] border flex items-center justify-between ${
+                                    tc.passed
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                  }`}
+                                >
+                                  <span>Test #{i + 1}</span>
+                                  <span>{tc.passed ? 'PASS' : 'FAIL'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : runResult ? (
                       <div className="space-y-2">
@@ -691,204 +765,29 @@ export const PracticeWorkspacePage: React.FC = () => {
                           <VerdictBadge verdict={runResult.verdict} />
                         </div>
                         <div>
-                          <span className="text-[10px] text-[var(--text-muted)] uppercase block">Standard Output:</span>
+                          <span className="text-[10px] text-[var(--text-muted)] uppercase block">
+                            Standard Output:
+                          </span>
                           <pre className="p-2 rounded bg-[var(--bg-main)] text-emerald-400 whitespace-pre-wrap max-h-24 overflow-y-auto">
                             {runResult.stdout || '(no standard output)'}
                           </pre>
                         </div>
                         {runResult.stderr && (
                           <div>
-                            <span className="text-[10px] text-[var(--text-muted)] uppercase block">Standard Error:</span>
+                            <span className="text-[10px] text-[var(--text-muted)] uppercase block">
+                              Standard Error:
+                            </span>
                             <pre className="p-2 rounded bg-[var(--bg-main)] text-rose-400 whitespace-pre-wrap max-h-20 overflow-y-auto">
                               {runResult.stderr}
                             </pre>
                           </div>
                         )}
                       </div>
-                    ) : (
+                    ) : !executionError ? (
                       <div className="text-center py-6 text-[var(--text-muted)]">
                         Press &ldquo;Run Code&rdquo; or &ldquo;Submit&rdquo; to execute your solution.
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Tab 3: Upload Files */
-                  <div className="space-y-4 font-sans">
-                    <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-start justify-between gap-3 flex-wrap">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold text-[var(--text-main)]">
-                          Upload handwritten solutions, flowcharts, or code files for practice review.
-                        </p>
-                        <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                          Allowed: JPG, PNG, WebP, PDF • Max {UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION} files • Max 5 MB per file
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Existing upload status banner */}
-                    {latestUpload && (
-                      <div className="p-3.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between gap-3 flex-wrap">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[var(--text-main)]">
-                              Latest Uploaded Solution:
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${
-                                latestUpload.status === 'APPROVED'
-                                  ? 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
-                                  : latestUpload.status === 'REJECTED'
-                                  ? 'bg-[var(--color-error)]/15 text-[var(--color-error)]'
-                                  : 'bg-[var(--accent)]/15 text-[var(--accent)]'
-                              }`}
-                            >
-                              {latestUpload.status}
-                            </span>
-                            {latestUpload.pointsAwarded > 0 && (
-                              <span className="text-xs font-mono font-bold text-emerald-400">
-                                +{latestUpload.pointsAwarded} PTS
-                              </span>
-                            )}
-                          </div>
-                          {latestUpload.reviewerComment && (
-                            <p className="text-xs text-[var(--text-muted)]">
-                              Reviewer feedback: &ldquo;{latestUpload.reviewerComment}&rdquo;
-                            </p>
-                          )}
-                        </div>
-
-                        {latestUpload.status === 'PENDING_REVIEW' && (
-                          <button
-                            type="button"
-                            onClick={() => cancelUploadMutation.mutate(latestUpload.id)}
-                            disabled={cancelUploadMutation.isPending}
-                            className="px-3 py-1.5 rounded-lg border border-rose-500/30 text-rose-400 text-xs font-semibold hover:bg-rose-500/10 transition-colors"
-                          >
-                            Cancel Pending Upload
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Upload Controls */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          multiple
-                          accept={UPLOAD_CONFIG.ALLOWED_EXTENSIONS.join(',')}
-                          className="hidden"
-                          onChange={(e) => handleSelectFiles(e.target.files)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors"
-                        >
-                          <Upload className="w-3.5 h-3.5 text-[var(--accent)]" />
-                          <span>Choose Files</span>
-                        </button>
-
-                        <input
-                          ref={cameraInputRef}
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => handleSelectFiles(e.target.files)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="sm:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors"
-                        >
-                          <Camera className="w-3.5 h-3.5 text-[var(--accent)]" />
-                          <span>Capture Photo</span>
-                        </button>
-
-                        <span className="text-xs text-[var(--text-muted)]">
-                          {stagedFiles.length}/{UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION} files selected
-                        </span>
-                      </div>
-
-                      {uploadError && (
-                        <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-                          {uploadError}
-                        </div>
-                      )}
-
-                      {/* Staged Files Preview Grid */}
-                      {stagedFiles.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                          {stagedFiles.map((sf) => (
-                            <div
-                              key={sf.id}
-                              className="relative rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] p-2 flex items-center gap-2"
-                            >
-                              {sf.previewUrl ? (
-                                <img
-                                  src={sf.previewUrl}
-                                  alt={sf.name}
-                                  className="w-10 h-10 object-cover rounded"
-                                />
-                              ) : (
-                                <FileText className="w-10 h-10 text-[var(--text-muted)] p-2" />
-                              )}
-                              <div className="flex-1 min-w-0 text-xs">
-                                <p className="font-semibold text-[var(--text-main)] truncate">
-                                  {sf.name}
-                                </p>
-                                <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                                  {(sf.sizeBytes / 1024).toFixed(1)} KB
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveStagedFile(sf.id)}
-                                className="p-1 rounded text-rose-400 hover:bg-rose-500/10"
-                                title="Remove file"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Student Approach Note */}
-                      <div className="space-y-1">
-                        <label className="text-xs text-[var(--text-muted)] block">
-                          Approach / Solution Note (optional):
-                        </label>
-                        <textarea
-                          value={studentNote}
-                          onChange={(e) => setStudentNote(e.target.value.slice(0, UPLOAD_CONFIG.MAX_NOTE_LENGTH))}
-                          rows={2}
-                          placeholder="Briefly explain your approach or key steps..."
-                          className="w-full p-2 rounded-lg bg-[var(--bg-main)] text-[var(--text-main)] border border-[var(--border-line)] text-xs resize-none focus:outline-none focus:border-[var(--accent)]"
-                        />
-                      </div>
-
-                      {/* Submit Upload Button */}
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => uploadMutation.mutate()}
-                          disabled={stagedFiles.length === 0 || uploadMutation.isPending}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-xs font-bold text-white shadow-sm disabled:opacity-50 transition-all"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>
-                            {uploadMutation.isPending
-                              ? 'Uploading...'
-                              : latestUpload && (latestUpload.status === 'PENDING_REVIEW' || latestUpload.status === 'NEEDS_CHANGES')
-                              ? 'Replace Upload for Review'
-                              : 'Upload Files for Review'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -896,6 +795,7 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
       </div>
+
       {/* Draft Conflict Resolution Modal */}
       {conflictInfo && (
         <DraftConflictModal

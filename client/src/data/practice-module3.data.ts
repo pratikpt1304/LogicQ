@@ -12,11 +12,11 @@ export const PRACTICE_MODULE_3_PROBLEMS: PracticeProblemDef[] = [
     tags: ['Arrays', 'Sum', 'Max'],
     description: `### Problem Description
 
-Given an array of $N$ integers, compute the sum of all elements and find the maximum element in the array.
+Given an array of N integers, compute the sum of all elements and find the maximum element in the array.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 10^5$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: an integer N (1 ≤ N ≤ 10⁵).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 Print the total sum and the maximum value separated by a space, followed by a newline.`,
@@ -88,14 +88,14 @@ int main() {
     tags: ['Arrays', 'Search', 'Linear Search'],
     description: `### Problem Description
 
-Given an array of $N$ integers and a target key $K$, find the 0-based index of the first occurrence of $K$ in the array. If $K$ is not present, output \`-1\`.
+Given an array of N integers and a target key K, find the 0-based index of the first occurrence of K in the array. If K is not present, output \`-1\`.
 
 ### Input Format
-First line: two integers $N$ and $K$ ($1 \\le N \\le 10^5$, $-10^9 \\le K \\le 10^9$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: two integers N and K (1 ≤ N ≤ 10⁵, −10⁹ ≤ K ≤ 10⁹).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
-Print the 0-based index of the first occurrence of $K$, or \`-1\` if not found, followed by a newline.`,
+Print the 0-based index of the first occurrence of K, or \`-1\` if not found, followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -169,14 +169,14 @@ int main() {
     tags: ['Arrays', 'Frequency', 'Counting'],
     description: `### Problem Description
 
-Given an array of $N$ integers and a query value $X$, count how many times $X$ appears in the array.
+Given an array of N integers and a query value X, count how many times X appears in the array.
 
 ### Input Format
-First line: two integers $N$ and $X$ ($1 \\le N \\le 10^5$, $-10^9 \\le X \\le 10^9$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: two integers N and X (1 ≤ N ≤ 10⁵, −10⁹ ≤ X ≤ 10⁹).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
-Print the number of times $X$ occurs in the array, followed by a newline.`,
+Print the number of times X occurs in the array, followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -243,11 +243,11 @@ int main() {
     tags: ['Arrays', 'Extrema', 'Logic'],
     description: `### Problem Description
 
-Given an array of $N$ integers, find the second strictly largest distinct element. If no such element exists (i.e., all elements in the array are identical), output \`NO_SECOND_LARGEST\`.
+Given an array of N integers, find the second strictly largest distinct element. If no such element exists (i.e., all elements in the array are identical), output \`NO_SECOND_LARGEST\`.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 10^5$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: an integer N (1 ≤ N ≤ 10⁵).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 Print the second strictly largest distinct integer or \`NO_SECOND_LARGEST\`, followed by a newline.`,
@@ -336,14 +336,14 @@ int main() {
     tags: ['Arrays', 'Rotation', 'Algorithms'],
     description: `### Problem Description
 
-Given an array of $N$ integers, perform a cyclic left rotation of the array by $K$ positions. That is, each element at index $i$ moves to $(i - K + N) \\pmod N$. Output the rotated array.
+Given an array of N integers, perform a cyclic left rotation of the array by K positions. That is, each element at index i moves to (i - K + N) pmod N. Output the rotated array.
 
 ### Input Format
-First line: two integers $N$ and $K$ ($1 \\le N \\le 10^5$, $0 \\le K \\le 10^9$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: two integers N and K (1 ≤ N ≤ 10⁵, 0 ≤ K ≤ 10⁹).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
-Print the $N$ integers after left-rotation, separated by spaces and followed by a newline.`,
+Print the N integers after left-rotation, separated by spaces and followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -414,17 +414,17 @@ int main() {
     tags: ['2D Arrays', 'Matrices', 'Row Sum', 'Col Sum'],
     description: `### Problem Description
 
-Given a 2D matrix with $R$ rows and $C$ columns of integers:
+Given a 2D matrix with R rows and C columns of integers:
 1. Print the sum of each row, separated by spaces.
 2. Print the sum of each column, separated by spaces.
 
 ### Input Format
-First line: two integers $R$ and $C$ ($1 \\le R, C \\le 500$).
-Next $R$ lines: each line contains $C$ space-separated integers ($-10^6 \\le M_{i,j} \\le 10^6$).
+First line: two integers R and C (1 ≤ R, C ≤ 500).
+Next R lines: each line contains C space-separated integers (−10⁶ ≤ M_{i,j} ≤ 10⁶).
 
 ### Output Format
-First line: $R$ space-separated integers representing row sums.
-Second line: $C$ space-separated integers representing column sums.`,
+First line: R space-separated integers representing row sums.
+Second line: C space-separated integers representing column sums.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -499,15 +499,15 @@ int main() {
     tags: ['Arrays', 'Sorting', 'Bubble Sort'],
     description: `### Problem Description
 
-Given an array of $N$ integers, sort the array in ascending order using standard Bubble Sort. Count and output the total number of adjacent swaps performed during the sorting process, followed by the sorted array.
+Given an array of N integers, sort the array in ascending order using standard Bubble Sort. Count and output the total number of adjacent swaps performed during the sorting process, followed by the sorted array.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 2000$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: an integer N (1 ≤ N ≤ 2000).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 First line: total number of swaps.
-Second line: $N$ space-separated integers representing the sorted array.`,
+Second line: N space-separated integers representing the sorted array.`,
     starterCode: `#include <stdio.h>
 
 int main() {
@@ -587,11 +587,11 @@ int main() {
     tags: ['Arrays', 'Kadane', 'Dynamic Programming'],
     description: `### Problem Description
 
-Given an array of $N$ integers, find the contiguous subarray (containing at least one element) which has the largest sum. Implement Kadane's algorithm to solve this in $O(N)$ time.
+Given an array of N integers, find the contiguous subarray (containing at least one element) which has the largest sum. Implement Kadane's algorithm to solve this in O(N) time.
 
 ### Input Format
-First line: an integer $N$ ($1 \\le N \\le 10^5$).
-Second line: $N$ space-separated integers ($-10^9 \\le A_i \\le 10^9$).
+First line: an integer N (1 ≤ N ≤ 10⁵).
+Second line: N space-separated integers (−10⁹ ≤ Aᵢ ≤ 10⁹).
 
 ### Output Format
 Print the maximum contiguous subarray sum followed by a newline.`,
@@ -674,11 +674,11 @@ int main() {
     tags: ['2D Arrays', 'Matrices', 'Spiral Traversal'],
     description: `### Problem Description
 
-Given a 2D matrix of $R$ rows and $C$ columns, traverse all elements of the matrix in spiral order starting from top-left $(0, 0)$ and moving clockwise (right $\\to$ down $\\to$ left $\\to$ up).
+Given a 2D matrix of R rows and C columns, traverse all elements of the matrix in spiral order starting from top-left (0, 0) and moving clockwise (right → down → left → up).
 
 ### Input Format
-First line: two integers $R$ and $C$ ($1 \\le R, C \\le 100$).
-Next $R$ lines: each line contains $C$ space-separated integers ($-10^9 \\le M_{i,j} \\le 10^9$).
+First line: two integers R and C (1 ≤ R, C ≤ 100).
+Next R lines: each line contains C space-separated integers (−10⁹ ≤ M_{i,j} ≤ 10⁹).
 
 ### Output Format
 Print the matrix elements in spiral order on a single line, separated by spaces and followed by a newline.`,
@@ -785,15 +785,15 @@ int main() {
     tags: ['2D Arrays', 'Matrices', 'Matrix Multiplication'],
     description: `### Problem Description
 
-Given a matrix $A$ of dimensions $N \\times M$ and a matrix $B$ of dimensions $M \\times K$, compute their matrix product $C = A \\times B$ of dimensions $N \\times K$, where $C_{i,j} = \\sum_{p=0}^{M-1} A_{i,p} \\times B_{p,j}$.
+Given a matrix A of dimensions N × M and a matrix B of dimensions M × K, compute their matrix product C = A × B of dimensions N × K, where C_{i,j} = sum_{p=0}^{M-1} A_{i,p} × B_{p,j}.
 
 ### Input Format
-First line: three integers $N, M, K$ ($1 \\le N, M, K \\le 100$).
-Next $N$ lines: each line contains $M$ space-separated integers for matrix $A$ ($-10^4 \\le A_{i,j} \\le 10^4$).
-Next $M$ lines: each line contains $K$ space-separated integers for matrix $B$ ($-10^4 \\le B_{i,j} \\le 10^4$).
+First line: three integers N, M, K (1 ≤ N, M, K ≤ 100).
+Next N lines: each line contains M space-separated integers for matrix A (−10⁴ ≤ A_{i,j} ≤ 10⁴).
+Next M lines: each line contains K space-separated integers for matrix B (−10⁴ ≤ B_{i,j} ≤ 10⁴).
 
 ### Output Format
-Print the $N \\times K$ result matrix $C$, with each row containing $K$ space-separated integers followed by a newline.`,
+Print the N × K result matrix C, with each row containing K space-separated integers followed by a newline.`,
     starterCode: `#include <stdio.h>
 
 int main() {

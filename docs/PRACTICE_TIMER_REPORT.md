@@ -195,55 +195,47 @@ model PracticeProgress {
 
 ---
 
-## 6. Practice Progress Reports Specification
+### 6. Practice Progress Reports Specification
 
-### 6.1. Availability Rules
-- **Module Report**: Unlocked as soon as `solvedCount == 10` for that specific module. If `< 10`, shows progress tracker (e.g. `"7/10 Solved — Complete 3 more to unlock report"`).
-- **Final Report**: Unlocked as soon as all 4 modules are completed (`solvedCount == 40`). If `< 40`, displays curriculum milestone indicator.
+### 6.1. Availability Rules & Formats
+- **Formats**:
+  * **PDF**: A4 portrait format, print-friendly light theme regardless of the user's active theme, embedded fonts, selectable text, accessible table markup. File name: `LogicQ-Practice-Report-<Module-N or Final>-<YYYY-MM-DD>.pdf`.
+  * **CSV**: RFC 4180 standard CSV, one row per question, with raw numerical values. File name: `LogicQ-Practice-Report-<Module-N or Final>-<YYYY-MM-DD>.csv`.
+- **Location**: Available on the student's Profile under "Practice report" on mobile phones and desktop laptops.
+- **Unlocking Gates**:
+  * **Per-Module Report**: Appears when that module is fully solved (10/10).
+  * **Final Report**: Appears when all 4 modules are fully solved (40/40).
+  * **In-Progress Report**: A student may download an "In progress" report at any time, clearly labeled with `IN PROGRESS (UNVERIFIED COMPLETION)` and without the verified completion seal or badge (governed by config flag `ALLOW_IN_PROGRESS_REPORT_DOWNLOAD = true`).
 
-### 6.2. Report Content Architecture
-1. **Student Header**:
-   - Display Name (or `"Student ••••••••1039"`).
-   - Academic Attributes: Department (`AIML`), Year (`FY`), Division (`A`).
-   - Generation Date & Verification Hash.
-   - **Privacy Guard**: Full PRN and M/F letter are strictly omitted.
-2. **Curriculum & Module Summary Cards**:
-   - Total Problems Solved (e.g. `10/10` or `40/40`).
-   - Total Active Time (formatted as `Xh Ym Zs`).
-   - Total Attempts & First-Try Success Rate (`%`).
-   - Average Active Time per Problem.
-3. **Difficulty Breakdown Matrix**:
-   - Metrics segmented across `EASY`, `MEDIUM`, and `HARD`:
-     * Total Solved / Total Available
-     * Average Attempts per Solve
-     * Average Active Time to Solve
-4. **Student's "Hardest Questions" Insight**:
-   - Top 3 Problems with highest attempt count before solve.
-   - Top 3 Problems with longest active time spent.
-5. **Detailed Question Ledger Table**:
-   - Order Index & Problem Title.
-   - Difficulty Badge (`EASY` / `MEDIUM` / `HARD`).
-   - Status (`SOLVED` / `UNSOLVED` / `IN_PROGRESS`).
-   - Total Attempts.
-   - First Attempt Accepted (`Yes` / `No`).
-   - Active Solve Time (`mm:ss`, or `"3h+"` if $>3$ hours).
-   - Time to First Attempt (`mm:ss`).
-   - Hints Used (`0`).
-6. **Visual Charts & Accessibility Alternative**:
-   - Horizontal SVG/CSS distribution bar charts for:
-     * Active time per problem.
-     * Attempts per problem.
-   - Semantic HTML `<table>` alternative with full ARIA labeling for accessibility.
-7. **Constructive Educational Feedback**:
-   - Automated rule-based diagnostic summary based on attempt and time patterns:
-     * High first-attempt rate $\rightarrow$ Praise for algorithmic planning.
-     * High attempts on pointers/memory $\rightarrow$ Suggest review of memory alignment & dereference operators.
-     * Balanced pace $\rightarrow$ Commendation for steady progress.
+### 6.2. PDF Layout & Page Budgeting
+1. **Page 1, Summary**:
+   - Title: `"LogicQ Practice Report"` with subtitle `"Final, all 4 modules"`, `"Module N"`, or `"In progress"`.
+   - Student Identity: Display Name (or fallback `"Student XXXX"`), department, year, and division.
+   - Metadata: Generation date and unique cryptographic Report ID.
+   - Summary Figures Row: Solved out of total, total attempts (with runs count), total active time, solved on the first try (count and percent), average time per question.
+   - Charts: Horizontal distribution bar charts for active time per question and attempts per question (coloured by module) accompanied by accessible text alternatives.
+   - "Your hardest questions": Top 5 questions with the most attempts and longest active solve times.
+   - Encouraging Pedagogical Summary: Neutral and encouraging feedback (e.g. which modules had high first-try accuracy and topics taking more attempts). Strictly no speculation about ability and zero comparison with peer students.
+   - Footer: `"Time means the time you were actively on the question. An attempt is a judged Submit. This is your own practice record, not an official college marksheet."` plus report ID and page number (`Page 1 of N`), plus short verification link / QR code.
+2. **Page 2, Module-Wise & Difficulty Summary**:
+   - Module Summary Table: One row per module (Module title, solved count, total attempts, total active time, first-try count).
+   - Difficulty Table: `Easy`, `Medium`, `Hard` matrix detailing number of questions, average attempts, and average active time.
+   - Online verification QR code and short link confirming genuine report authenticity with zero PII.
+   - Page 2 footer note.
+3. **Following Pages, One Section per Module**:
+   - Section header with module title and solve progress.
+   - Detailed Question-by-Question Table:
+     * Columns: Number (`#`), Title, Difficulty, Attempts, Solved on first try (`Yes`/`No`), Time to first attempt, Time to solve, Hints used (or `—` if none).
+     * Unopened or unsolved questions show `—`.
+     * Time formatted as `mm:ss` or `h m`; extreme values $\ge 3$ hours display as `"3h+"` while preserving exact seconds in the CSV.
+   - Page break between modules; rows never split across pages (`page-break-inside: avoid`).
+   - Page footer on every page.
 
-### 6.3. Export Capabilities
-- **Printable PDF**: Styled via CSS `@media print` with clean page breaks, high-contrast monochrome/brand palette, and institutional header.
-- **CSV Export**: Standardized RFC 4180 CSV with headers:
-  `Module,Order,Title,Difficulty,Status,Attempts,FirstAttemptAccepted,TimeToSolveSeconds,TimeToSolveFormatted,TimeToFirstAttemptSeconds,HintsUsed`
+### 6.3. Institutional Privacy & Data Protection
+- **Strict Zero-PII**: Student-facing files, PDF prints, CSV exports, and verification endpoints strictly exclude the 12-character PRN, M/F gender indicator, student email, and source book references.
+- **Server-Side Generation**: Reports are computed strictly on-demand from server-validated `practiceProgress` records.
+- **Rate-Limiting**: Regeneration has a 30-second cooldown (`429 RATE_LIMITED`).
+- **Data Export & Deletion**: Personal data export (`/users/me/export`) includes practice progress, and account deletion clears all records and invalidates verification.
 
 ---
 

@@ -11,8 +11,14 @@ build/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+client/.env
+client/.env.*
+!client/.env.example
+server/.env
+server/.env.*
+!server/.env.example
 
 # Databases & Cache
 *.sqlite
@@ -45,6 +51,10 @@ private/
 /private/review/
 exports/
 backups/
+*.pdf
+*.docx
+*.xlsx
+syllabus/
 *service-account*.json
 *firebase-adminsdk*.json
 *.pem
@@ -53,3 +63,4 @@ backups/
 server/storage/uploads/
 server/audit-users.json
 audit-users.json
+
