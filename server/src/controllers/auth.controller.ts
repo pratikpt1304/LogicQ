@@ -772,9 +772,12 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       include: { user: true },
     });
 
+    const gracePeriodMs = 60 * 1000;
+    const isRecentlyRevoked = storedToken?.revokedAt && (Date.now() - new Date(storedToken.revokedAt).getTime() < gracePeriodMs);
+
     if (
       !storedToken ||
-      storedToken.revokedAt ||
+      (storedToken.revokedAt && !isRecentlyRevoked) ||
       storedToken.expiresAt < new Date() ||
       storedToken.user.isBanned
     ) {

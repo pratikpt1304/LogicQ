@@ -13,7 +13,7 @@ export function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(
     { userId: payload.userId, role: payload.role, username: payload.username },
     ENV.JWT_ACCESS_SECRET,
-    { expiresIn: '15m' }
+    { expiresIn: '24h' }
   );
 }
 

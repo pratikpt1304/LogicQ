@@ -113,39 +113,46 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     return (await handleFallbackRequest(cleanEndpoint, options)) as T;
   }
 
-  // If 401 Unauthorized and not already retrying, attempt token refresh or silent Firebase Auth re-exchange
-  if (response.status === 401 && !options.skipAuthRefresh && !cleanEndpoint.includes('/auth/')) {
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+async function refreshAuthSession(): Promise<string | null> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
     try {
-      let refreshedAccessToken: string | null = null;
       const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
 
-      // 1. First try refresh endpoint
-      try {
-        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ refreshToken: storedRefreshToken }),
-        });
+      // 1. Try backend refresh endpoint
+      if (storedRefreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken: storedRefreshToken }),
+          });
 
-        if (refreshRes.ok && isJsonResponse(refreshRes)) {
-          const refreshData = await refreshRes.json().catch(() => null);
-          const token = refreshData?.data?.accessToken;
-          if (typeof token === 'string' && token.length > 0) {
-            refreshedAccessToken = token;
-            localStorage.setItem(TOKEN_STORAGE_KEY, token);
-            const rToken = refreshData?.data?.refreshToken;
-            if (typeof rToken === 'string' && rToken.length > 0) {
-              localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+          if (refreshRes.ok && isJsonResponse(refreshRes)) {
+            const refreshData = await refreshRes.json().catch(() => null);
+            const token = refreshData?.data?.accessToken;
+            if (typeof token === 'string' && token.length > 0) {
+              localStorage.setItem(TOKEN_STORAGE_KEY, token);
+              const rToken = refreshData?.data?.refreshToken;
+              if (typeof rToken === 'string' && rToken.length > 0) {
+                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+              }
+              return token;
             }
           }
+        } catch {
+          // Continue to Firebase Auth fallback
         }
-      } catch {
-        // Continue to Firebase Auth fallback
       }
 
-      // 2. If refresh token failed or was missing, check Firebase Auth session
-      if (!refreshedAccessToken && auth.currentUser) {
+      // 2. Silent Firebase Auth token re-exchange
+      if (auth.currentUser) {
         try {
           const idToken = await auth.currentUser.getIdToken(true);
           const googleRes = await fetch(`${API_BASE}/auth/google`, {
@@ -162,12 +169,12 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
             const googleData = await googleRes.json().catch(() => null);
             const token = googleData?.data?.accessToken;
             if (typeof token === 'string' && token.length > 0) {
-              refreshedAccessToken = token;
               localStorage.setItem(TOKEN_STORAGE_KEY, token);
               const rToken = googleData?.data?.refreshToken;
               if (typeof rToken === 'string' && rToken.length > 0) {
                 localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
               }
+              return token;
             }
           }
         } catch {
@@ -175,6 +182,19 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
         }
       }
 
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
+  // If 401 Unauthorized and not already retrying, attempt token refresh or silent Firebase Auth re-exchange
+  if (response.status === 401 && !options.skipAuthRefresh && !cleanEndpoint.includes('/auth/')) {
+    try {
+      const refreshedAccessToken = await refreshAuthSession();
       if (refreshedAccessToken) {
         headers.set('Authorization', `Bearer ${refreshedAccessToken}`);
         response = await fetch(url, { ...config, headers, skipAuthRefresh: true } as any);
