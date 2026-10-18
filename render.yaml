@@ -1,11 +1,10 @@
 services:
   - type: web
     name: logicq-api
-    runtime: node
+    runtime: docker
+    dockerfilePath: server/Dockerfile
+    dockerContext: server
     plan: free
-    rootDir: server
-    buildCommand: npm install && npx prisma db push && npm run build
-    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV

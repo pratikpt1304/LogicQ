@@ -30,13 +30,23 @@ app.use(
 
 app.use(
   cors({
-    origin: [
-      ENV.CLIENT_URL,
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'https://logicq-clanguage.web.app',
-      'https://logicq-clanguage.firebaseapp.com',
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        origin === ENV.CLIENT_URL ||
+        origin === 'http://localhost:5173' ||
+        origin === 'http://127.0.0.1:5173' ||
+        origin.endsWith('.web.app') ||
+        origin.endsWith('.firebaseapp.com');
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   })
 );
@@ -58,11 +68,28 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Health Check
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', async (req: Request, res: Response) => {
+  let judgeStatus: 'ready' | 'unavailable' | 'error' = 'unavailable';
+  let judgeName = 'unknown';
+  try {
+    const { getJudge } = await import('./judge/judge.factory.js');
+    const judge = await getJudge();
+    judgeName = judge.name;
+    const ready = await judge.isAvailable();
+    judgeStatus = ready ? 'ready' : 'unavailable';
+  } catch {
+    judgeStatus = 'error';
+  }
+
   res.status(200).json({
     status: 'healthy',
     app: 'LogicQ API',
     version: '1.0.0',
+    judge: {
+      status: judgeStatus,
+      name: judgeName,
+      ready: judgeStatus === 'ready',
+    },
     timestamp: new Date().toISOString(),
   });
 });

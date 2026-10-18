@@ -170,23 +170,24 @@ LogicQ is engineered with a strict **defense-in-depth, deny-by-default security 
 
 ```
 LogicQ/
-├── client/                     # Frontend Vite + React 18 Application
-│   ├── public/                 # Static assets, brand logos, PWA manifest
+├── client/                     # Frontend Vite + React 18 + Tailwind SPA & PWA
+│   ├── public/                 # Favicons, PWA icons, web manifest
 │   ├── src/
-│   │   ├── api/                # API client & offline fallback engine
-│   │   ├── components/         # Common UI badges, modals, Monaco editor
-│   │   ├── config/             # Academic, practice, and Firebase configurations
-│   │   ├── context/            # Authentication & session lifecycle providers
+│   │   ├── api/                # Dual-channel API client & offline fallback engine
+│   │   ├── components/         # Monaco editor, Navbar, Workspace, Badges
+│   │   ├── config/             # Practice modules & academic configurations
+│   │   ├── context/            # AuthContext (Firebase Auth state machine)
 │   │   ├── pages/              # Dashboard, Challenge, Practice, Admin, Checker
 │   │   ├── services/           # Firestore data & Google Drive backup services
 │   │   └── types/              # TypeScript interface definitions
 │   └── vite.config.ts          # Vite bundler configuration with COOP headers
 ├── server/                     # Backend Express API & Code Judge Engine
+│   ├── Dockerfile              # Production Dockerfile with GCC C11 & Node 20
 │   ├── prisma/                 # Prisma schema definition & database seeds
 │   ├── src/
 │   │   ├── config/             # Practice modules & academic configurations
 │   │   ├── controllers/        # Auth, Practice, Problem, Submission, User
-│   │   ├── judges/             # Local GCC and sandboxed C11 execution runners
+│   │   ├── judge/              # Local GCC C11 and sandboxed execution runners
 │   │   ├── middleware/         # Auth JWT, role authorization, rate limiting
 │   │   ├── routes/             # REST route declarations
 │   │   └── services/           # Badge, integrity, streak, and config services
@@ -196,8 +197,49 @@ LogicQ/
 ├── firestore.rules             # Compiled Firestore deny-by-default security rules
 ├── storage.rules               # Cloud Storage security rules with mime-type checking
 ├── firebase.json               # Firebase Hosting headers, rewrites, and COOP settings
+├── render.yaml                 # Render.com Blueprint configuration (Docker runtime)
 └── package.json                # Monorepo workspaces & root execution scripts
 ```
+
+---
+
+## 🏗️ System Architecture & Dual-Channel Network Flow
+
+LogicQ uses a decoupled dual-channel architecture separating real-time database synchronisation from heavy algorithmic C11 code compilation:
+
+```
++-----------------------------------------------------------------------------------+
+|                           STUDENT BROWSER ENVIRONMENT                             |
+|           (PWA / Mobile / Desktop — Hosted on Firebase Hosting CDN)              |
++-----------------------------------------------------------------------------------+
+             |                                                  |
+             | Channel A: Direct HTTPS / gRPC                   | Channel B: REST API (/api)
+             v                                                  v
++-------------------------------+             +-------------------------------------+
+|    Google Cloud Firestore     |             |      Render C11 Judge Engine        |
+|  (firestore.googleapis.com)   |             | (Docker Node 20 + GCC 11 Sandbox)   |
++-------------------------------+             +-------------------------------------+
+  - Real-time student drafts                    - POST /api/submissions/run
+  - Active practice timer sync                  - POST /api/submissions/submit
+  - User profiles & PRN index                   - GET /api/health (Judge readiness)
+  - Deny-by-default security rules              - Hard limits: 2.0s CPU, 128 MB RAM
+```
+
+---
+
+## 🚢 Render Backend Deployment (1-Click Free Setup)
+
+To power the online GCC C11 compiler without requiring a paid Firebase Blaze plan:
+
+1. **Push to GitHub**: Ensure the latest changes with `server/Dockerfile` and `render.yaml` are pushed to your GitHub repo.
+2. **Open Render Dashboard**: Visit [dashboard.render.com](https://dashboard.render.com/) and click **New +** $\rightarrow$ **Blueprint** (or **Web Service**).
+3. **Connect Repository**: Select `LogicQ`. Render will automatically detect [`render.yaml`](render.yaml) and [`server/Dockerfile`](server/Dockerfile).
+4. **Deploy**: Render builds the Docker container with GCC and starts the API with health checks at `/api/health`.
+5. **Connect Frontend**: Copy your Render service URL (e.g. `https://logicq-api.onrender.com`) into `client/.env.production`:
+   ```env
+   VITE_API_URL=https://logicq-api.onrender.com/api
+   ```
+   Then re-deploy hosting via `npm run build && firebase deploy --only hosting`.
 
 ---
 
@@ -334,6 +376,7 @@ Deployment must proceed sequentially through staging verification before product
 The following authoritative specifications in `/docs` define the platform standards:
 
 - [MASTER_SPEC.md](docs/MASTER_SPEC.md): Complete consolidated platform specifications, role definitions, and daily cycle rules.
+- [STAGING_ISOLATION_AND_JUDGE_AUDIT.md](docs/STAGING_ISOLATION_AND_JUDGE_AUDIT.md): Staging isolation audit, non-API root cause investigation, client resilience, and production data zero-leak verification.
 - [PRACTICE_TIMER_REPORT.md](docs/PRACTICE_TIMER_REPORT.md): Practice active timers, attempt tracking, anti-tamper sync, and verification report architecture with Blaze cost estimates.
 - [JUDGE_CONNECTIVITY_AUDIT.md](docs/JUDGE_CONNECTIVITY_AUDIT.md): Root cause audit of judge connection messages and client honest error UX.
 - [TEST_REPORT.md](docs/TEST_REPORT.md): Full automated testing report, verification matrix, and simulation records across all test suites.

@@ -47,8 +47,22 @@ import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnal
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily' | 'system'
   >('users');
+
+  const { data: healthData, isLoading: isHealthLoading, refetch: refetchHealth, isFetching: isHealthFetching } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: async () => {
+      return await api.get<{
+        status: string;
+        app: string;
+        version: string;
+        judge?: { status: string; name: string; ready: boolean };
+        timestamp: string;
+      }>('/health');
+    },
+    refetchInterval: activeTab === 'system' ? 10000 : false,
+  });
 
   // Filter States for Users & Submissions & Uploads
   const [filterSearch, setFilterSearch] = useState('');
@@ -912,6 +926,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Trophy className="w-3.5 h-3.5" />
           <span>Daily Results</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('system')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'system'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>System & Judge Health</span>
         </button>
       </div>
 
@@ -3114,6 +3140,87 @@ export const AdminDashboardPage: React.FC = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: System & Judge Health */}
+      {activeTab === 'system' && (
+        <div className="space-y-6" data-testid="admin-system-health-panel">
+          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
+                <Activity className="w-5 h-5 text-emerald-400" />
+                <span>System & Judge Health</span>
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-2xl">
+                Real-time observability of LogicQ API service, GCC sandbox runner, environment configuration, and submission pipelines.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => refetchHealth()}
+              disabled={isHealthFetching}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isHealthFetching ? 'animate-spin' : ''}`} />
+              <span>Ping /api/health</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+            {/* LogicQ API Status */}
+            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 uppercase text-[10px] tracking-wider">LogicQ API</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  healthData?.status === 'healthy'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                }`}>
+                  {healthData?.status?.toUpperCase() || (isHealthLoading ? 'CHECKING...' : 'OFFLINE')}
+                </span>
+              </div>
+              <div className="space-y-1 text-slate-300">
+                <p>Endpoint: <span className="text-cyan-400">/api/health</span></p>
+                <p>Version: <span className="text-white font-bold">{healthData?.version || '1.0.0'}</span></p>
+                <p>Last checked: <span className="text-slate-400 text-[11px]">{healthData?.timestamp ? new Date(healthData.timestamp).toLocaleTimeString() : '—'}</span></p>
+              </div>
+            </div>
+
+            {/* C11 Judge Status */}
+            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 uppercase text-[10px] tracking-wider">C11 Isolated Judge</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  healthData?.judge?.ready
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                }`}>
+                  {healthData?.judge?.status?.toUpperCase() || 'UNAVAILABLE'}
+                </span>
+              </div>
+              <div className="space-y-1 text-slate-300">
+                <p>Runner: <span className="text-cyan-400">{healthData?.judge?.name || 'local_gcc'}</span></p>
+                <p>Sandboxing: <span className="text-emerald-400">2.0s / 128 MB</span></p>
+                <p>Execution: <span className="text-slate-300">{healthData?.judge?.ready ? 'Ready for evaluations' : 'Fallback / Offline'}</span></p>
+              </div>
+            </div>
+
+            {/* Hosting & Environment */}
+            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 uppercase text-[10px] tracking-wider">Environment Tier</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                  {typeof window !== 'undefined' && window.location.hostname.includes('staging') ? 'STAGING' : 'PRODUCTION'}
+                </span>
+              </div>
+              <div className="space-y-1 text-slate-300">
+                <p>Host: <span className="text-slate-300 text-[11px]">{typeof window !== 'undefined' ? window.location.hostname : 'localhost'}</span></p>
+                <p>API Base: <span className="text-cyan-400">{(import.meta as any).env?.VITE_API_URL || '/api'}</span></p>
+                <p>SPA Rewrite: <span className="text-emerald-400">Protected</span></p>
+              </div>
+            </div>
           </div>
         </div>
       )}

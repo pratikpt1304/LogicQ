@@ -115,8 +115,25 @@ export const App: React.FC = () => {
     location.pathname.startsWith('/challenge') ||
     location.pathname.startsWith('/practice/');
 
+  const isStaging =
+    typeof window !== 'undefined' &&
+    (window.location.hostname.includes('--staging') ||
+      window.location.hostname.includes('staging') ||
+      (window.location.hostname.endsWith('.web.app') && window.location.hostname !== 'logicq-clanguage.web.app') ||
+      (import.meta as any).env?.VITE_IS_STAGING === 'true');
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] transition-colors overflow-x-hidden">
+      {isStaging && (
+        <div
+          role="banner"
+          aria-label="Staging Environment Indicator"
+          className="w-full bg-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider py-1.5 px-4 text-center sticky top-0 z-[100] shadow-md flex items-center justify-center gap-2 border-b border-amber-600"
+        >
+          <span className="inline-block w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
+          <span>STAGING ENVIRONMENT — TEST DATA ONLY (ISOLATED FROM PRODUCTION)</span>
+        </div>
+      )}
       <Navbar />
       <PwaManager />
 

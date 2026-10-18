@@ -67,7 +67,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
         errorMsg = 'You are currently offline. Please reconnect to the internet and click Retry.';
         errorCode = 'OFFLINE';
       } else if (response && !isJsonResponse(response)) {
-        errorMsg = 'LogicQ judge service is currently unreachable (server returned non-API response). Your code is safely saved locally.';
+        errorMsg = 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.';
         errorCode = 'JUDGE_UNREACHABLE';
       }
 
@@ -105,8 +105,10 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const data = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
-    let errorMsg = data?.message || `Request failed with status ${response.status}`;
-    let errorCode = data?.code;
+    let errorMsg = data?.message || (!data 
+      ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
+      : `Request failed with status ${response.status}`);
+    let errorCode = data?.code || (!data ? 'INVALID_RESPONSE' : undefined);
     let canRetry = true;
 
     if (response.status === 401) {

@@ -5,6 +5,17 @@ import { KANETKAR_BOOK_PROBLEMS } from '../src/data/kanetkar-book-bank.js';
 const prisma = new PrismaClient();
 
 async function main() {
+  const isProductionProject =
+    process.env.NODE_ENV === 'production' ||
+    process.env.FIREBASE_PROJECT_ID === 'logicq-clanguage' ||
+    process.env.VITE_FIREBASE_PROJECT_ID === 'logicq-clanguage' ||
+    process.env.GCLOUD_PROJECT === 'logicq-clanguage';
+
+  if (isProductionProject && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error('⛔ FATAL: Seeding refused on production project logicq-clanguage! Never run test seeds on production.');
+    process.exit(1);
+  }
+
   console.log('Seeding LogicQ database...');
 
   // 1. Create Badges
