@@ -5,6 +5,7 @@ import { initSocketIO } from './sockets/socket.manager.js';
 import { getQueue } from './queue/queue.factory.js';
 import { evaluateSubmission } from './services/submission-evaluator.js';
 import { getJudge } from './judge/judge.factory.js';
+import { autoSeedDatabase } from './services/auto-seed.service.js';
 
 async function bootstrap() {
   const server = http.createServer(app);
@@ -17,6 +18,9 @@ async function bootstrap() {
   const judge = await getJudge();
   const judgeReady = await judge.isAvailable();
   console.log(`⚡ Judge [${judge.name}] status: ${judgeReady ? 'READY' : 'UNAVAILABLE (Check compiler / settings)'}`);
+
+  // Auto-seed practice curriculum, book bank, and badges if empty
+  await autoSeedDatabase();
 
   // Initialize submission worker queue
   const queue = getQueue();

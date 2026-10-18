@@ -3,6 +3,7 @@ import request from 'supertest';
 import { app } from '../src/app.js';
 import { prisma } from '../src/utils/prisma.js';
 import { generateAccessToken } from '../src/utils/jwt.js';
+import { autoSeedDatabase } from '../src/services/auto-seed.service.js';
 
 describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
   let studentToken: string;
@@ -13,6 +14,9 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
   let testSubmissionIds: string[] = [];
 
   beforeAll(async () => {
+    // 0. Ensure practice database is seeded
+    await autoSeedDatabase();
+
     // 1. Create a fresh test student
     const student = await prisma.user.create({
       data: {
