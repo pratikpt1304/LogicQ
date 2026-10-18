@@ -886,25 +886,44 @@ export const PracticeWorkspacePage: React.FC = () => {
                           </pre>
                         )}
                         {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (
-                          <div className="space-y-1 pt-2">
-                            <span className="text-[10px] uppercase text-[var(--text-muted)] block">
+                          <div className="space-y-1.5 pt-2">
+                            <span className="text-[10px] uppercase text-[var(--text-muted)] block font-semibold">
                               Test Cases Evaluation:
                             </span>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                              {submissionResult.testCaseResults.map((tc: any, i: number) => (
-                                <div
-                                  key={i}
-                                  className={`p-1.5 rounded text-[11px] border flex items-center justify-between ${
-                                    tc.passed
-                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                  }`}
-                                >
-                                  <span>Test #{i + 1}</span>
-                                  <span>{tc.passed ? 'PASS' : 'FAIL'}</span>
-                                </div>
-                              ))}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {submissionResult.testCaseResults.map((tc: any, i: number) => {
+                                const isPassed = tc.passed ?? (tc.verdict === 'ACCEPTED');
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`p-2 rounded-lg border flex items-center justify-between text-xs ${
+                                      isPassed
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                    }`}
+                                  >
+                                    <span className="font-medium text-[var(--text-muted)]">Test #{i + 1}</span>
+                                    {tc.verdict ? (
+                                      <VerdictBadge verdict={tc.verdict} size="sm" />
+                                    ) : (
+                                      <span className="font-bold font-mono">{isPassed ? 'PASS' : 'FAIL'}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
+                            {submissionResult.testCaseResults.some((tc: any) => !tc.passed && tc.verdict !== 'ACCEPTED' && tc.stderr) && (
+                              <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs mt-2 space-y-1">
+                                <span className="font-semibold block text-[11px] uppercase tracking-wider text-amber-400">Judge Diagnostic Guidance:</span>
+                                {submissionResult.testCaseResults
+                                  .filter((tc: any) => !tc.passed && tc.verdict !== 'ACCEPTED' && tc.stderr)
+                                  .map((tc: any, idx: number) => (
+                                    <div key={idx} className="font-mono text-[11px] leading-relaxed">
+                                      • Test #{tc.orderIndex != null ? tc.orderIndex + 1 : idx + 1}: {tc.stderr}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
                         )}
 

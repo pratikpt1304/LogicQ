@@ -12,6 +12,8 @@ import os from 'os';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import { ENV } from '../config/env.js';
+import { mapCompilerOutput } from './diagnostic-mapper.js';
+import { decodeSignal } from './signal-mapper.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -381,11 +383,12 @@ static inline int __lq_deny_path(const char *path) {
   async compile(code: string, options?: { timeLimitMs?: number }): Promise<CompilationResult> {
     const securityError = this.validateSourceSecurity(code);
     if (securityError) {
+      const diagReport = mapCompilerOutput(securityError);
       return {
         success: false,
         verdict: Verdict.COMPILE_ERROR,
         compileOutput: securityError,
-        diagnostics: [],
+        diagnostics: diagReport.diagnostics,
         primaryHint: securityError,
       };
     }
@@ -443,12 +446,15 @@ static inline int __lq_deny_path(const char *path) {
         }
       };
 
+      const rawCompileOutput = (stdout || '') + (stderr || '');
+      const diagReport = mapCompilerOutput(rawCompileOutput);
+
       return {
         success: true,
         binaryPath: binaryFile,
         cleanup,
-        compileOutput: (stdout || '') + (stderr || ''),
-        diagnostics: [],
+        compileOutput: diagReport.formattedOutput || rawCompileOutput,
+        diagnostics: diagReport.diagnostics,
       };
     } catch (compileErr: any) {
       try {
@@ -461,13 +467,14 @@ static inline int __lq_deny_path(const char *path) {
         unregisterTempDir(tempDir);
       }
 
-      const compileOutput = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
+      const rawCompileOutput = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
+      const diagReport = mapCompilerOutput(rawCompileOutput);
       return {
         success: false,
         verdict: Verdict.COMPILE_ERROR,
-        compileOutput,
-        diagnostics: [],
-        primaryHint: compileOutput.slice(0, 200),
+        compileOutput: diagReport.formattedOutput || rawCompileOutput,
+        diagnostics: diagReport.diagnostics,
+        primaryHint: diagReport.diagnostics[0]?.actionableHint || rawCompileOutput.slice(0, 200),
       };
     }
   }
@@ -623,6 +630,7 @@ static inline int __lq_deny_path(const char *path) {
         }
 
         if (exitCode !== 0) {
+          const decoded = decodeSignal(exitCode);
           resolve({
             verdict: Verdict.RUNTIME_ERROR,
             runtimeMs: userTimeMs || runtimeMs,
@@ -630,8 +638,10 @@ static inline int __lq_deny_path(const char *path) {
             kernelTimeMs,
             memoryKb: peakMemKb,
             stdout,
-            stderr: cleanStderr || `Process exited with code ${exitCode}`,
+            stderr: cleanStderr || decoded.description,
             exitCode,
+            signal: decoded.signal,
+            signalDescription: decoded.description,
           });
           return;
         }
@@ -747,23 +757,29 @@ static inline int __lq_deny_path(const char *path) {
 
         const unsignedCode = code !== null ? code >>> 0 : 0;
         if (code === EXIT_CODE_MLE || unsignedCode === WINDOWS_STACK_OVERFLOW) {
+          const decoded = decodeSignal(code);
           resolve({
             verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
             runtimeMs,
             stdout,
-            stderr: stderr || 'Memory limit exceeded',
+            stderr: stderr || decoded.description,
             exitCode: code || undefined,
+            signal: decoded.signal,
+            signalDescription: decoded.description,
           });
           return;
         }
 
         if (code !== 0) {
+          const decoded = decodeSignal(code);
           resolve({
             verdict: Verdict.RUNTIME_ERROR,
             runtimeMs,
             stdout,
-            stderr: stderr || `Process exited with code ${code}`,
+            stderr: stderr || decoded.description,
             exitCode: code || undefined,
+            signal: decoded.signal,
+            signalDescription: decoded.description,
           });
           return;
         }

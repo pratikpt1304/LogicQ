@@ -7,6 +7,7 @@ import { evaluateAndAwardBadges } from './badge.service.js';
 import { emitSubmissionVerdict, emitContestScoreboardUpdate } from '../sockets/socket.manager.js';
 import { getContestScoreboardData } from './contest.service.js';
 import { FEATURES } from '../config/features.config.js';
+import { generateDiff } from './diff-generator.js';
 
 function normalizeOutput(str: string = ''): string {
   return str
@@ -54,87 +55,187 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
     orderIndex: number;
   }> = [];
 
-  for (let i = 0; i < testCases.length; i++) {
-    const tc = testCases[i];
-    const exec = await judge.compileAndRun(
-      submission.code,
-      tc.input,
-      submission.problem.timeLimitMs,
-      submission.problem.memoryLimitMb
-    );
+  const hasTwoPhase = typeof judge.compile === 'function' && typeof judge.execute === 'function';
 
-    if (exec.runtimeMs > maxRuntime) maxRuntime = exec.runtimeMs;
-
-    if (exec.verdict === Verdict.COMPILE_ERROR) {
+  if (hasTwoPhase) {
+    const compilation = await judge.compile!(submission.code, { timeLimitMs: 10000 });
+    if (!compilation.success) {
       overallVerdict = Verdict.COMPILE_ERROR;
-      compileOutput = exec.compileOutput || exec.stderr || 'Compilation failed';
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.COMPILE_ERROR,
-        runtimeMs: 0,
-        stderr: compileOutput,
-        orderIndex: i,
-      });
-      break; // Stop further test cases on compile error
-    }
-
-    if (exec.verdict === Verdict.TIME_LIMIT_EXCEEDED) {
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.TIME_LIMIT_EXCEEDED,
-        runtimeMs: exec.runtimeMs,
-        stderr: 'Time limit exceeded',
-        orderIndex: i,
-      });
-      if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.TIME_LIMIT_EXCEEDED;
-      continue;
-    }
-
-    if (exec.verdict === Verdict.MEMORY_LIMIT_EXCEEDED) {
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
-        runtimeMs: exec.runtimeMs,
-        stderr: exec.stderr || 'Memory / output limit exceeded',
-        orderIndex: i,
-      });
-      if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.MEMORY_LIMIT_EXCEEDED;
-      continue;
-    }
-
-    if (exec.verdict === Verdict.RUNTIME_ERROR) {
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.RUNTIME_ERROR,
-        runtimeMs: exec.runtimeMs,
-        stderr: exec.stderr || 'Runtime error / segmentation fault',
-        orderIndex: i,
-      });
-      if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.RUNTIME_ERROR;
-      continue;
-    }
-
-    // Output comparison
-    const actual = normalizeOutput(exec.stdout);
-    const expected = normalizeOutput(tc.expectedOutput);
-
-    if (actual === expected) {
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.ACCEPTED,
-        runtimeMs: exec.runtimeMs,
-        stdout: tc.isHidden ? undefined : exec.stdout,
-        orderIndex: i,
-      });
+      compileOutput = compilation.compileOutput || 'Compilation failed';
+      if (testCases.length > 0) {
+        testResults.push({
+          testCaseId: testCases[0].id,
+          verdict: Verdict.COMPILE_ERROR,
+          runtimeMs: 0,
+          stderr: compileOutput,
+          orderIndex: 0,
+        });
+      }
     } else {
-      testResults.push({
-        testCaseId: tc.id,
-        verdict: Verdict.WRONG_ANSWER,
-        runtimeMs: exec.runtimeMs,
-        stdout: tc.isHidden ? undefined : exec.stdout,
-        orderIndex: i,
-      });
-      if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.WRONG_ANSWER;
+      compileOutput = compilation.compileOutput || '';
+      try {
+        for (let i = 0; i < testCases.length; i++) {
+          const tc = testCases[i];
+          const exec = await judge.execute!(
+            compilation.binaryPath,
+            tc.input,
+            submission.problem.timeLimitMs,
+            submission.problem.memoryLimitMb
+          );
+
+          if (exec.runtimeMs > maxRuntime) maxRuntime = exec.runtimeMs;
+
+          if (exec.verdict === Verdict.TIME_LIMIT_EXCEEDED) {
+            testResults.push({
+              testCaseId: tc.id,
+              verdict: Verdict.TIME_LIMIT_EXCEEDED,
+              runtimeMs: exec.runtimeMs,
+              stderr: tc.isHidden ? undefined : (exec.stderr || 'Time limit exceeded'),
+              orderIndex: i,
+            });
+            if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.TIME_LIMIT_EXCEEDED;
+            continue;
+          }
+
+          if (exec.verdict === Verdict.MEMORY_LIMIT_EXCEEDED) {
+            testResults.push({
+              testCaseId: tc.id,
+              verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+              runtimeMs: exec.runtimeMs,
+              stderr: tc.isHidden ? undefined : (exec.stderr || 'Memory / output limit exceeded'),
+              orderIndex: i,
+            });
+            if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.MEMORY_LIMIT_EXCEEDED;
+            continue;
+          }
+
+          if (exec.verdict === Verdict.RUNTIME_ERROR) {
+            testResults.push({
+              testCaseId: tc.id,
+              verdict: Verdict.RUNTIME_ERROR,
+              runtimeMs: exec.runtimeMs,
+              stderr: tc.isHidden ? undefined : (exec.stderr || 'Runtime error / segmentation fault'),
+              orderIndex: i,
+            });
+            if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.RUNTIME_ERROR;
+            continue;
+          }
+
+          // Output comparison
+          const actual = normalizeOutput(exec.stdout);
+          const expected = normalizeOutput(tc.expectedOutput);
+
+          if (actual === expected) {
+            testResults.push({
+              testCaseId: tc.id,
+              verdict: Verdict.ACCEPTED,
+              runtimeMs: exec.runtimeMs,
+              stdout: tc.isHidden ? undefined : exec.stdout,
+              orderIndex: i,
+            });
+          } else {
+            const diff = !tc.isHidden ? generateDiff(tc.expectedOutput, exec.stdout || '') : undefined;
+            testResults.push({
+              testCaseId: tc.id,
+              verdict: Verdict.WRONG_ANSWER,
+              runtimeMs: exec.runtimeMs,
+              stdout: tc.isHidden ? undefined : exec.stdout,
+              stderr: !tc.isHidden && diff?.remediationTip ? diff.remediationTip : undefined,
+              orderIndex: i,
+            });
+            if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.WRONG_ANSWER;
+          }
+        }
+      } finally {
+        await compilation.cleanup();
+      }
+    }
+  } else {
+    // Single-phase fallback (e.g. Judge0 or remote containers)
+    for (let i = 0; i < testCases.length; i++) {
+      const tc = testCases[i];
+      const exec = await judge.compileAndRun(
+        submission.code,
+        tc.input,
+        submission.problem.timeLimitMs,
+        submission.problem.memoryLimitMb
+      );
+
+      if (exec.runtimeMs > maxRuntime) maxRuntime = exec.runtimeMs;
+
+      if (exec.verdict === Verdict.COMPILE_ERROR) {
+        overallVerdict = Verdict.COMPILE_ERROR;
+        compileOutput = exec.compileOutput || exec.stderr || 'Compilation failed';
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.COMPILE_ERROR,
+          runtimeMs: 0,
+          stderr: compileOutput,
+          orderIndex: i,
+        });
+        break; // Stop further test cases on compile error
+      }
+
+      if (exec.verdict === Verdict.TIME_LIMIT_EXCEEDED) {
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.TIME_LIMIT_EXCEEDED,
+          runtimeMs: exec.runtimeMs,
+          stderr: tc.isHidden ? undefined : 'Time limit exceeded',
+          orderIndex: i,
+        });
+        if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.TIME_LIMIT_EXCEEDED;
+        continue;
+      }
+
+      if (exec.verdict === Verdict.MEMORY_LIMIT_EXCEEDED) {
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.MEMORY_LIMIT_EXCEEDED,
+          runtimeMs: exec.runtimeMs,
+          stderr: tc.isHidden ? undefined : (exec.stderr || 'Memory / output limit exceeded'),
+          orderIndex: i,
+        });
+        if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.MEMORY_LIMIT_EXCEEDED;
+        continue;
+      }
+
+      if (exec.verdict === Verdict.RUNTIME_ERROR) {
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.RUNTIME_ERROR,
+          runtimeMs: exec.runtimeMs,
+          stderr: tc.isHidden ? undefined : (exec.stderr || 'Runtime error / segmentation fault'),
+          orderIndex: i,
+        });
+        if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.RUNTIME_ERROR;
+        continue;
+      }
+
+      // Output comparison
+      const actual = normalizeOutput(exec.stdout);
+      const expected = normalizeOutput(tc.expectedOutput);
+
+      if (actual === expected) {
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.ACCEPTED,
+          runtimeMs: exec.runtimeMs,
+          stdout: tc.isHidden ? undefined : exec.stdout,
+          orderIndex: i,
+        });
+      } else {
+        const diff = !tc.isHidden ? generateDiff(tc.expectedOutput, exec.stdout || '') : undefined;
+        testResults.push({
+          testCaseId: tc.id,
+          verdict: Verdict.WRONG_ANSWER,
+          runtimeMs: exec.runtimeMs,
+          stdout: tc.isHidden ? undefined : exec.stdout,
+          stderr: !tc.isHidden && diff?.remediationTip ? diff.remediationTip : undefined,
+          orderIndex: i,
+        });
+        if (overallVerdict === Verdict.ACCEPTED) overallVerdict = Verdict.WRONG_ANSWER;
+      }
     }
   }
 
