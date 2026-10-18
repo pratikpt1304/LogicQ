@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -14,7 +14,10 @@ import {
   CheckCircle2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowLeft,
+  ArrowRight,
   Terminal,
   BookOpen,
   Cloud,
@@ -23,6 +26,7 @@ import {
   Layers,
   WifiOff,
   Clock,
+  Trophy,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -51,6 +55,7 @@ function cleanDraftCode(raw: string): string {
 
 export const PracticeWorkspacePage: React.FC = () => {
   const { moduleSlug, problemSlug } = useParams<{ moduleSlug: string; problemSlug: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -62,6 +67,8 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [executionError, setExecutionError] = useState<ExecutionErrorState | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('custom');
+  const [isProblemPickerOpen, setIsProblemPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -82,6 +89,45 @@ export const PracticeWorkspacePage: React.FC = () => {
     refetchOnWindowFocus: false,
     retry: false,
   });
+
+  // Fetch module problems list to enable Prev / Next navigation and dropdown picker
+  const { data: moduleProblemsResponse } = useQuery({
+    queryKey: ['practice-module-problems', moduleSlug],
+    queryFn: () => api.get(`/practice/modules/${moduleSlug}/problems`),
+    enabled: Boolean(moduleSlug),
+    refetchOnWindowFocus: false,
+  });
+
+  const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
+  const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
+  const prevProblem = currentProblemIndex > 0 ? moduleProblems[currentProblemIndex - 1] : null;
+  const nextProblem =
+    currentProblemIndex >= 0 && currentProblemIndex < moduleProblems.length - 1
+      ? moduleProblems[currentProblemIndex + 1]
+      : null;
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setIsProblemPickerOpen(false);
+      }
+    }
+    if (isProblemPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProblemPickerOpen]);
+
+  // Reset results when navigating between problems
+  useEffect(() => {
+    setRunResult(null);
+    setSubmissionResult(null);
+    setExecutionError(null);
+    setActiveBottomTab('custom');
+  }, [problemSlug]);
 
   const problem = responseData?.data?.problem;
   const userProgress = responseData?.data?.userProgress;
@@ -235,6 +281,39 @@ export const PracticeWorkspacePage: React.FC = () => {
     },
   });
 
+  const triggerAcceptedCelebration = (nextProb?: any) => {
+    confetti({
+      particleCount: 90,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#8B9BFF', '#46D9A0', '#FCD34D'],
+    });
+
+    queryClient.invalidateQueries({ queryKey: ['practice-problem', problemSlug] });
+    queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
+    queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+
+    if (nextProb) {
+      toast.success('Accepted! Problem solved 🎉', {
+        description: `Next up: #${nextProb.moduleOrder} ${nextProb.title}`,
+        action: {
+          label: 'Next Question →',
+          onClick: () => navigate(`/practice/${moduleSlug}/${nextProb.slug}`),
+        },
+        duration: 12000,
+      });
+    } else {
+      toast.success('Accepted! Module Complete 🏆', {
+        description: 'You have solved all 10 problems in this module!',
+        action: {
+          label: 'Back to Modules',
+          onClick: () => navigate('/practice'),
+        },
+        duration: 12000,
+      });
+    }
+  };
+
   // Submit Solution Mutation (Practice submission)
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -272,16 +351,7 @@ export const PracticeWorkspacePage: React.FC = () => {
           testCaseResults: immediateSub.testCaseResults,
         });
         if (immediateSub.verdict === 'ACCEPTED') {
-          confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.6 },
-            colors: ['#8B9BFF', '#46D9A0'],
-          });
-          toast.success('Accepted! Problem solved.');
-          queryClient.invalidateQueries({ queryKey: ['practice-problem', problemSlug] });
-          queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
-          queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+          triggerAcceptedCelebration(nextProblem);
         } else {
           toast.error(`Verdict: ${immediateSub.verdict.replace(/_/g, ' ')}`);
         }
@@ -315,15 +385,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                 testCaseResults: currentSub.testCaseResults,
               });
               if (currentSub.verdict === 'ACCEPTED') {
-                confetti({
-                  particleCount: 80,
-                  spread: 60,
-                  origin: { y: 0.6 },
-                });
-                toast.success('Accepted! Problem solved.');
-                queryClient.invalidateQueries({ queryKey: ['practice-problem', problemSlug] });
-                queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
-                queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+                triggerAcceptedCelebration(nextProblem);
               } else {
                 toast.error(`Verdict: ${currentSub.verdict.replace(/_/g, ' ')}`);
               }
@@ -389,7 +451,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     >
       {/* Top Workspace Header */}
       <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/60 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
           <Link
             to={`/practice/${moduleSlug}`}
             className="p-1.5 rounded-lg hover:bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors shrink-0"
@@ -400,16 +462,92 @@ export const PracticeWorkspacePage: React.FC = () => {
 
           <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
 
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-mono px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--accent)] shrink-0">
-              #{problem.moduleOrder}
-            </span>
-            <h1 className="text-xs sm:text-sm font-semibold text-[var(--text-main)] truncate max-w-[120px] sm:max-w-xs md:max-w-md">
-              {problem.title}
-            </h1>
+          {/* Prev / Next Chevrons */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              disabled={!prevProblem}
+              onClick={() => prevProblem && navigate(`/practice/${moduleSlug}/${prevProblem.slug}`)}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              title={prevProblem ? `Previous: #${prevProblem.moduleOrder} ${prevProblem.title}` : 'First problem'}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              disabled={!nextProblem}
+              onClick={() => nextProblem && navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              title={nextProblem ? `Next: #${nextProblem.moduleOrder} ${nextProblem.title}` : 'Last problem'}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
+
+          {/* Problem Selector Dropdown */}
+          <div className="relative" ref={pickerRef}>
+            <button
+              type="button"
+              onClick={() => setIsProblemPickerOpen((prev) => !prev)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] transition-colors"
+              title="Select Question from Module"
+            >
+              <span className="text-[var(--accent)] font-bold">#{problem.moduleOrder}</span>
+              <span className="hidden sm:inline font-sans font-medium truncate max-w-[120px] md:max-w-[200px]">
+                {problem.title}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            </button>
+
+            {isProblemPickerOpen && (
+              <div className="absolute left-0 top-full mt-1 w-72 sm:w-80 max-h-96 overflow-y-auto rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] shadow-2xl z-50 p-1.5 space-y-1">
+                <div className="px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-line)] flex items-center justify-between">
+                  <span>Module Questions ({moduleProblems.length})</span>
+                  <span>Select to switch</span>
+                </div>
+                {moduleProblems.map((p: any) => {
+                  const isCurrent = p.slug === problemSlug;
+                  return (
+                    <button
+                      key={p.id || p.slug}
+                      type="button"
+                      onClick={() => {
+                        setIsProblemPickerOpen(false);
+                        if (!isCurrent) {
+                          navigate(`/practice/${moduleSlug}/${p.slug}`);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs transition-colors ${
+                        isCurrent
+                          ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30'
+                          : 'hover:bg-[var(--bg-panel)] text-[var(--text-main)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-[11px] text-[var(--text-muted)] w-5 shrink-0">
+                          #{p.moduleOrder}
+                        </span>
+                        <span className="truncate">{p.title}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {p.isSolved && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        )}
+                        <DifficultyBadge difficulty={p.difficulty as any} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:flex items-center gap-1.5 min-w-0">
             <DifficultyBadge difficulty={problem.difficulty as any} />
-            {userProgress?.isSolved && (
-              <span className="hidden md:flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
+            {(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
+              <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Solved</span>
               </span>
@@ -419,6 +557,18 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         {/* Action Buttons & Timer */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {nextProblem && (userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
+            <button
+              onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
+              className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-bold text-[#0C0F1F] shadow-sm shadow-emerald-500/20 transition-all animate-pulse hover:animate-none"
+              title={`Next Question: #${nextProblem.moduleOrder} ${nextProblem.title}`}
+            >
+              <span className="hidden sm:inline">Next Question</span>
+              <span className="sm:hidden">Next</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {problem && (
             <PracticeTimer
               ref={practiceTimerRef}
@@ -755,6 +905,44 @@ export const PracticeWorkspacePage: React.FC = () => {
                                 </div>
                               ))}
                             </div>
+                          </div>
+                        )}
+
+                        {submissionResult.verdict === 'ACCEPTED' && (
+                          <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                <Trophy className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-emerald-400">
+                                  Challenge Solved! All test cases passed.
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)]">
+                                  {nextProblem
+                                    ? `Next challenge: #${nextProblem.moduleOrder} ${nextProblem.title}`
+                                    : 'Outstanding! You have completed all problems in this module.'}
+                                </div>
+                              </div>
+                            </div>
+                            {nextProblem ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
+                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0"
+                              >
+                                <span>Next Question</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <Link
+                                to={`/practice/${moduleSlug}`}
+                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0"
+                              >
+                                <span>Back to Modules</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </Link>
+                            )}
                           </div>
                         )}
                       </div>
