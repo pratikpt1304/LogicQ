@@ -291,24 +291,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Synchronize authentication status with server and authoritative Firestore
   const syncWithServer = useCallback(async (tokenOrFbUser?: FirebaseUser | null): Promise<User | null> => {
     try {
-      let headers: Record<string, string> = {};
       let fbUid: string | null = null;
+      let targetFbUser: FirebaseUser | null = null;
       if (tokenOrFbUser && 'getIdToken' in tokenOrFbUser) {
-        const idToken = await tokenOrFbUser.getIdToken();
-        headers['Authorization'] = `Bearer ${idToken}`;
+        targetFbUser = tokenOrFbUser;
         fbUid = tokenOrFbUser.uid;
       } else if (firebaseAuth.currentUser) {
+        targetFbUser = firebaseAuth.currentUser;
         fbUid = firebaseAuth.currentUser.uid;
       }
 
       let serverUser: User | null = null;
-      try {
-        const res = await api.get('/auth/me', { headers });
-        if (res?.success && res?.data?.user) {
-          serverUser = res.data.user;
+
+      // 1. If we have an active Firebase user, exchange for a fresh LogicQ backend session
+      if (targetFbUser) {
+        try {
+          const idToken = await targetFbUser.getIdToken();
+          const googleRes = await api.post('/auth/google', {
+            idToken,
+            email: targetFbUser.email,
+            avatarUrl: targetFbUser.photoURL,
+            googleId: targetFbUser.uid,
+          });
+          if (googleRes?.success) {
+            if (googleRes?.data?.accessToken) {
+              localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, googleRes.data.accessToken);
+            }
+            if (googleRes?.data?.refreshToken) {
+              localStorage.setItem('logicq_refresh_token', googleRes.data.refreshToken);
+            }
+            if (googleRes?.data?.user) {
+              serverUser = googleRes.data.user;
+            }
+          }
+        } catch (e) {
+          console.warn('Backend /auth/google exchange in syncWithServer failed:', e);
         }
-      } catch {
-        // Fall back to direct Firestore fetch
+      } else {
+        // 2. Otherwise check session via /auth/me with existing access token
+        try {
+          const res = await api.get('/auth/me');
+          if (res?.success && res?.data?.user) {
+            serverUser = res.data.user;
+          }
+        } catch {
+          // Ignore
+        }
       }
 
       if (serverUser) {
@@ -670,6 +698,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         if (res?.success && res?.data?.user) {
           authenticatedUser = res.data.user;
+          if (res.data.accessToken) {
+            localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, res.data.accessToken);
+          }
+          if (res.data.refreshToken) {
+            localStorage.setItem('logicq_refresh_token', res.data.refreshToken);
+          }
         }
       } catch (backendErr) {
         console.warn('Backend /auth/google unavailable; using direct Firestore sync:', backendErr);

@@ -151,12 +151,11 @@ const googleSignInSchema = z.object({
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
   const isProd = process.env.NODE_ENV === 'production';
 
-  // Firebase Hosting CDN edge exclusively forwards cookies named '__session' to backend functions.
-  // We set __session with httpOnly, lax sameSite, and path: '/' without storing PII inside it.
+  // Firebase Hosting CDN edge or cross-domain fetch requires sameSite: 'none' and secure: true in production
   res.cookie('__session', accessToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'lax',
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
@@ -164,7 +163,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'lax',
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     maxAge: 15 * 60 * 1000,
   });
@@ -172,7 +171,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'lax',
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
@@ -524,6 +523,7 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
       data: {
         user: formatSelfUserResponse(user),
         accessToken,
+        refreshToken,
         requiresProfileCompletion: !user.profileComplete,
       },
     });
@@ -707,6 +707,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         user: formatSelfUserResponse(user),
         accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -807,7 +808,10 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       success: true,
-      data: { accessToken: newAccessToken },
+      data: {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      },
     });
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid refresh token' });
