@@ -9,16 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy dependency definitions and Prisma schema
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy server package files and prisma directory from server/
+COPY server/package*.json ./
+COPY server/prisma/ ./prisma/
 
 # Install dependencies & generate Prisma client
 RUN npm install
 RUN npx prisma generate
 
-# Copy source code
-COPY . .
+# Copy server source code and config
+COPY server/ .
 
 # Build TypeScript to JavaScript
 RUN npm run build
@@ -28,5 +28,7 @@ EXPOSE 5000
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV JUDGE_TYPE=local_gcc
+ENV DATABASE_URL="file:./prisma/prod.db"
 
-CMD ["npm", "start"]
+# Ensure SQLite schema is prepared and start server
+CMD ["sh", "-c", "npx prisma db push && npm start"]
