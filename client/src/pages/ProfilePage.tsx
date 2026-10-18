@@ -866,17 +866,17 @@ export const ProfilePage: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="view-code-modal-title"
-          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm"
         >
-          <div className="w-full max-w-2xl glass-card rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+          <div className="w-full max-w-2xl rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-[#252C4F] bg-[#141932] shrink-0">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[var(--border-line)] bg-[var(--bg-surface)] shrink-0">
               <div className="space-y-0.5">
-                <h3 id="view-code-modal-title" className="text-base font-bold text-[#E8EAF6] flex items-center gap-2">
-                  <Code2 className="w-5 h-5 text-[#8B9BFF]" />
+                <h3 id="view-code-modal-title" className="text-base font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-[var(--color-accent)]" />
                   <span>{viewCodeSubmission.problem?.title || 'Daily Challenge'} Solution</span>
                 </h3>
-                <p className="text-xs font-mono text-[#9AA1C4]">
+                <p className="text-xs font-mono text-[var(--text-muted)]">
                   Submitted on {new Date(viewCodeSubmission.createdAt).toLocaleString()} • {viewCodeSubmission.pointsAwarded || 0} PTS
                 </p>
               </div>
@@ -885,15 +885,15 @@ export const ProfilePage: React.FC = () => {
                 type="button"
                 onClick={() => setViewCodeSubmission(null)}
                 aria-label="Close code modal"
-                className="p-1.5 text-[#9AA1C4] hover:text-[#E8EAF6] rounded-lg hover:bg-[#252C4F]/50 transition-colors"
+                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] rounded-lg hover:bg-[var(--bg-surface-hover)] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Code Body */}
-            <div className="p-5 overflow-y-auto space-y-3 flex-1 bg-[#0C0F1F]">
-              <div className="flex items-center justify-between text-xs font-mono text-[#9AA1C4]">
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 bg-[var(--bg-main)]">
+              <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
                 <div className="flex items-center gap-2">
                   <VerdictBadge verdict={viewCodeSubmission.verdict} size="sm" />
                   <span>Language: C (C11)</span>
@@ -906,12 +906,12 @@ export const ProfilePage: React.FC = () => {
                     toast.success('Code copied to clipboard');
                     setTimeout(() => setHasCopiedCode(false), 2000);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#141932] hover:bg-[#252C4F] border border-[#252C4F] text-xs font-mono text-[#E8EAF6] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] transition-colors"
                 >
                   {hasCopiedCode ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-[#46D9A0]" />
-                      <span className="text-[#46D9A0]">Copied!</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-emerald-500 font-semibold">Copied!</span>
                     </>
                   ) : (
                     <>
@@ -922,17 +922,36 @@ export const ProfilePage: React.FC = () => {
                 </button>
               </div>
 
-              <pre className="p-4 rounded-xl bg-[#090C18] border border-[#252C4F] overflow-x-auto text-xs font-mono text-[#E8EAF6] leading-relaxed">
-                <code>{viewCodeSubmission.code}</code>
-              </pre>
+              {/* Code Container with line numbers and high contrast */}
+              <div className="rounded-xl border border-[var(--border-line)] overflow-hidden bg-[var(--bg-panel)] shadow-sm">
+                <div className="px-3.5 py-2 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70 inline-block" />
+                    <span className="ml-1.5 font-semibold text-[var(--text-main)]">solution.c</span>
+                  </div>
+                  <span>{(viewCodeSubmission.code || '').split('\n').length} lines</span>
+                </div>
+                <div className="p-4 overflow-x-auto text-xs font-mono leading-relaxed bg-[var(--bg-panel)] flex gap-3">
+                  <div className="select-none text-right text-[var(--text-muted)] opacity-50 pr-2 border-r border-[var(--border-line)] shrink-0 font-mono">
+                    {(viewCodeSubmission.code || '').split('\n').map((_: string, idx: number) => (
+                      <div key={idx}>{idx + 1}</div>
+                    ))}
+                  </div>
+                  <pre className="flex-1 overflow-x-auto whitespace-pre font-mono text-[var(--text-main)] m-0 p-0">
+                    <code>{viewCodeSubmission.code}</code>
+                  </pre>
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-[#252C4F] bg-[#141932] flex items-center justify-end shrink-0">
+            <div className="p-4 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-end shrink-0">
               <button
                 type="button"
                 onClick={() => setViewCodeSubmission(null)}
-                className="px-4 py-2 rounded-lg text-xs font-mono font-semibold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold text-white bg-[var(--color-accent)] hover:opacity-90 transition-opacity shadow-sm"
               >
                 Close Viewer
               </button>
