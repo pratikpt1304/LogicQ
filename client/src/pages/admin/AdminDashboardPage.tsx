@@ -3436,11 +3436,11 @@ export const AdminDashboardPage: React.FC = () => {
                                 +{sub.pointsAwarded ?? sub.points ?? 0}
                               </td>
                               <td className="px-3 py-2 text-right">
-                                {sub.sourceCode && (
+                                {(sub.code || sub.sourceCode) && (
                                   <button
                                     type="button"
-                                    onClick={() => setSelectedSubmissionCode(sub.sourceCode)}
-                                    className="px-2 py-0.5 rounded text-[11px] bg-white/[0.05] hover:bg-white/[0.1] text-cyan-300"
+                                    onClick={() => setSelectedSubmissionCode(sub.code || sub.sourceCode)}
+                                    className="px-2 py-0.5 rounded text-[11px] bg-white/[0.05] hover:bg-white/[0.1] text-cyan-300 font-mono"
                                   >
                                     Code
                                   </button>
