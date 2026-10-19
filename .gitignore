@@ -36,6 +36,9 @@ yarn-error.log*
 .agents/
 .temp/
 temp/
+.tmp_judge/
+judge_build/
+server/src/judge/build/
 scratch/
 live_test*.png
 test-results/

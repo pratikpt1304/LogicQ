@@ -168,9 +168,13 @@ int main(int argc, char *argv[]) {
     }
     SetHandleInformation(hStderrRead, HANDLE_FLAG_INHERIT, 0);
 
-    // Stdin: Child directly inherits runner's stdin handle
+    // Stdin: Child directly inherits runner's stdin handle or NUL if closed/invalid
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-    SetHandleInformation(hStdin, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+    if (!hStdin || hStdin == INVALID_HANDLE_VALUE) {
+        hStdin = CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, OPEN_EXISTING, 0, NULL);
+    } else {
+        SetHandleInformation(hStdin, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+    }
 
     // 4. Create Child Process in Suspended State
     STARTUPINFOA si;
@@ -187,25 +191,38 @@ int main(int argc, char *argv[]) {
     char cmdLine[MAX_PATH * 2 + 10];
     snprintf(cmdLine, sizeof(cmdLine), "\"%s\"", targetExePath);
 
-    BOOL created = CreateProcessA(
-        NULL,
-        cmdLine,
-        NULL,
-        NULL,
-        TRUE, // inherit handles
-        CREATE_SUSPENDED,
-        NULL,
-        workDir,
-        &si,
-        &pi
-    );
+    BOOL created = FALSE;
+    DWORD err = 0;
+    for (int retry = 0; retry < 25; retry++) {
+        created = CreateProcessA(
+            NULL,
+            cmdLine,
+            NULL,
+            NULL,
+            TRUE, // inherit handles
+            CREATE_SUSPENDED,
+            NULL,
+            workDir,
+            &si,
+            &pi
+        );
+        if (created) break;
+        err = GetLastError();
+        // 4551: Windows Defender / App Control file scanning race
+        // 5: ERROR_ACCESS_DENIED (temporary file scanner lock)
+        // 32: ERROR_SHARING_VIOLATION
+        if (err == 4551 || err == 5 || err == 32) {
+            Sleep(50);
+        } else {
+            break;
+        }
+    }
 
     // Close write handles in parent immediately so reader threads receive EOF on process exit
     CloseHandle(hStdoutWrite);
     CloseHandle(hStderrWrite);
 
     if (!created) {
-        DWORD err = GetLastError();
         fprintf(stderr, "Runner Error: CreateProcessA failed (code %lu)\n", err);
         CloseHandle(hStdoutRead);
         CloseHandle(hStderrRead);

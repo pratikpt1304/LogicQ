@@ -43,15 +43,17 @@ import {
   CheckCircle,
   Zap,
   Clock,
+  ShieldAlert,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
+import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSecurity.js';
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily' | 'system'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily' | 'system' | 'anticheat'
   >('users');
 
   const { data: healthData, isLoading: isHealthLoading, refetch: refetchHealth, isFetching: isHealthFetching } = useQuery({
@@ -1018,6 +1020,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <Activity className="w-3.5 h-3.5" />
           <span>System & Judge Health</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('anticheat')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'anticheat'
+              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span>Anti-Cheat & Security</span>
         </button>
       </div>
 
@@ -3354,6 +3368,11 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tab: Anti-Cheat & Sandbox Security Audit */}
+      {activeTab === 'anticheat' && (
+        <AdminAntiCheatSecurity />
       )}
 
       {/* Student Activity Inspector Modal */}

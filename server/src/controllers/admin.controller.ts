@@ -20,6 +20,8 @@ import {
   getAllUserFreezes,
 } from '../services/streak.service.js';
 import { isDailyChallengePaused } from '../services/system-config.service.js';
+import { PlagiarismService } from '../services/plagiarism.service.js';
+import { SecurityAuditService } from '../services/security-audit.service.js';
 import {
   ALLOWED_COLLEGES,
   ALLOWED_DEPARTMENTS,
@@ -2542,6 +2544,40 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
   } catch (err: any) {
     console.error('syncFirestoreUsers error:', err);
     res.status(500).json({ success: false, message: 'Internal server error syncing users' });
+  }
+}
+
+export async function compareCodesPlagiarism(req: AuthRequest, res: Response) {
+  try {
+    const { codeA, codeB } = req.body;
+    if (!codeA || !codeB) {
+      res.status(400).json({ success: false, message: 'Both codeA and codeB are required' });
+      return;
+    }
+    const result = PlagiarismService.compareCodes(String(codeA), String(codeB));
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function scanProblemPlagiarism(req: AuthRequest, res: Response) {
+  try {
+    const { problemId } = req.params;
+    const threshold = req.query.threshold ? parseFloat(String(req.query.threshold)) : 0.70;
+    const report = await PlagiarismService.scanProblem(problemId, threshold);
+    res.json({ success: true, data: report });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function runSandboxSecurityAudit(_req: AuthRequest, res: Response) {
+  try {
+    const report = await SecurityAuditService.runFullAudit();
+    res.json({ success: true, data: report });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 

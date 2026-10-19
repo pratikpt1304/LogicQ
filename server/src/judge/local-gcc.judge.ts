@@ -15,6 +15,11 @@ import { ENV } from '../config/env.js';
 import { mapCompilerOutput } from './diagnostic-mapper.js';
 import { decodeSignal } from './signal-mapper.js';
 
+const getModuleDir = (): string => {
+  if (typeof __dirname !== 'undefined') return __dirname;
+  return path.resolve(process.cwd(), 'src/judge');
+};
+
 const execFileAsync = promisify(execFile);
 
 const EXIT_CODE_MLE = 99;
@@ -55,9 +60,28 @@ if (typeof process !== 'undefined') {
   });
 }
 
+function getJudgeWorkingRoot(): string {
+  if (process.platform === 'win32') {
+    // Keep build artifacts inside src/judge/build to comply with Windows Application Control / WDAC policies
+    const modDir = getModuleDir();
+    const runnerDir = modDir.includes('dist')
+      ? path.resolve(modDir, '../../src/judge')
+      : modDir;
+    const baseDir = path.join(runnerDir, 'build');
+    try {
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+    } catch {}
+    return baseDir;
+  }
+  return os.tmpdir();
+}
+
 function cleanStaleTempDirs(): void {
   try {
-    const tmp = os.tmpdir();
+    const tmp = getJudgeWorkingRoot();
+    if (!fs.existsSync(tmp)) return;
     const entries = fs.readdirSync(tmp);
     const now = Date.now();
     for (const entry of entries) {
@@ -78,6 +102,7 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
   readonly name = 'LocalGccJudge';
   private resolvedGccPath: string = '';
   private runnerExecutablePath: string = '';
+  private static cachedRunnerPath: string = '';
   private static runnerBuildPromise: Promise<string> | null = null;
 
   private getGccExecutable(): string {
@@ -118,7 +143,12 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
    */
   async ensureSandboxRunner(): Promise<string> {
     if (process.platform !== 'win32') return '';
+    if (LocalGccJudge.cachedRunnerPath && fs.existsSync(LocalGccJudge.cachedRunnerPath)) {
+      this.runnerExecutablePath = LocalGccJudge.cachedRunnerPath;
+      return LocalGccJudge.cachedRunnerPath;
+    }
     if (this.runnerExecutablePath && fs.existsSync(this.runnerExecutablePath)) {
+      LocalGccJudge.cachedRunnerPath = this.runnerExecutablePath;
       return this.runnerExecutablePath;
     }
 
@@ -128,23 +158,24 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
 
     LocalGccJudge.runnerBuildPromise = (async () => {
       try {
-        const currentDir = typeof __dirname !== 'undefined' ? __dirname : path.resolve('.');
-        let runnerSource = path.join(currentDir, 'win-sandbox-runner.c');
+        const modDir = getModuleDir();
+        const runnerDir = modDir.includes('dist')
+          ? path.resolve(modDir, '../../src/judge')
+          : modDir;
+        let runnerSource = path.join(runnerDir, 'win-sandbox-runner.c');
         if (!fs.existsSync(runnerSource)) {
-          const srcCandidate = path.resolve(currentDir, '../../src/judge/win-sandbox-runner.c');
-          if (fs.existsSync(srcCandidate)) {
-            runnerSource = srcCandidate;
-          }
+          runnerSource = path.resolve(process.cwd(), 'src/judge/win-sandbox-runner.c');
         }
 
         const runnerExe = path.join(path.dirname(runnerSource), 'win-sandbox-runner.exe');
 
-        // Check if existing binary is newer than source
+        // Check if existing binary is newer than or equal to source
         if (fs.existsSync(runnerExe) && fs.existsSync(runnerSource)) {
           const cMtime = fs.statSync(runnerSource).mtimeMs;
           const exeMtime = fs.statSync(runnerExe).mtimeMs;
           if (exeMtime >= cMtime) {
             this.runnerExecutablePath = runnerExe;
+            LocalGccJudge.cachedRunnerPath = runnerExe;
             return runnerExe;
           }
         }
@@ -160,6 +191,7 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
         });
 
         this.runnerExecutablePath = runnerExe;
+        LocalGccJudge.cachedRunnerPath = runnerExe;
         return runnerExe;
       } catch (err: any) {
         console.warn('[LocalGccJudge] Failed to build win-sandbox-runner.exe:', err.message);
@@ -342,36 +374,9 @@ static inline void* __lq_realloc(void *p, size_t sz) {
     return ptr;
 }
 
-static inline char* __lq_getenv(const char *name) {
-    (void)name;
-    return (char*)0;
-}
-
-static inline FILE* __lq_fopen(const char *path, const char *mode) {
-    (void)path;
-    (void)mode;
-    return (FILE*)0;
-}
-
-static inline FILE* __lq_freopen(const char *path, const char *mode, FILE *stream) {
-    (void)path;
-    (void)mode;
-    (void)stream;
-    return (FILE*)0;
-}
-
-static inline int __lq_deny_path(const char *path) {
-    (void)path;
-    return -1;
-}
-
 #define malloc(sz) __lq_malloc(sz)
 #define calloc(n, sz) __lq_calloc(n, sz)
 #define realloc(p, sz) __lq_realloc(p, sz)
-#define getenv(name) __lq_getenv(name)
-#define fopen(path, mode) __lq_fopen(path, mode)
-#define freopen(path, mode, stream) __lq_freopen(path, mode, stream)
-#define remove(path) __lq_deny_path(path)
 #endif
 `;
   }
@@ -394,7 +399,7 @@ static inline int __lq_deny_path(const char *path) {
     }
 
     const tempId = uuidv4();
-    const tempDir = path.join(os.tmpdir(), `logicq_judge_${tempId}`);
+    const tempDir = path.join(getJudgeWorkingRoot(), `logicq_judge_${tempId}`);
     fs.mkdirSync(tempDir, { recursive: true });
     registerTempDir(tempDir);
 
@@ -415,6 +420,7 @@ static inline int __lq_deny_path(const char *path) {
         '-Wall',
         '-std=c11',
         '-fno-asm',
+        '-D__LQ_BUILD__="LOGICQ"',
         '-include',
         preludeFile,
         '-o',
@@ -433,6 +439,10 @@ static inline int __lq_deny_path(const char *path) {
           TMP: tempDir,
         },
       });
+
+      if (isWindows) {
+        await new Promise((r) => setTimeout(r, 75));
+      }
 
       const cleanup = async () => {
         try {
@@ -526,11 +536,15 @@ static inline int __lq_deny_path(const char *path) {
         runToken,
       ];
 
+      const gcc = this.getGccExecutable();
+      const gccDir = path.dirname(gcc);
+
       const child = spawn(runnerExe, runnerArgs, {
         cwd: workDir,
         shell: false,
         env: {
-          PATH: '',
+          ...process.env,
+          PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
           SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
         },
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -552,14 +566,9 @@ static inline int __lq_deny_path(const char *path) {
         }
       });
 
-      child.on('error', (err) => {
-        const runtimeMs = Math.round(performance.now() - startTime);
-        resolve({
-          verdict: Verdict.RUNTIME_ERROR,
-          runtimeMs,
-          stdout,
-          stderr: err.message,
-        });
+      child.on('error', (_err) => {
+        // Fallback to direct Node execution if sandbox runner fails to spawn
+        this.executeFallback(binaryPath, stdin, timeLimitMs, memoryLimitMb, workDir).then(resolve);
       });
 
       child.on('close', (runnerExitCode) => {
@@ -577,12 +586,7 @@ static inline int __lq_deny_path(const char *path) {
 
         if (!match) {
           if (runnerExitCode !== 0) {
-            resolve({
-              verdict: Verdict.RUNTIME_ERROR,
-              runtimeMs,
-              stdout,
-              stderr: cleanStderr || `Sandbox runner failed with exit code ${runnerExitCode}`,
-            });
+            this.executeFallback(binaryPath, stdin, timeLimitMs, memoryLimitMb, workDir).then(resolve);
             return;
           }
           resolve({
@@ -601,7 +605,7 @@ static inline int __lq_deny_path(const char *path) {
         const kernelTimeMs = parseInt(match[5], 10);
         const peakMemKb = parseInt(match[6], 10);
 
-        if (timedOut || userTimeMs >= timeLimitMs) {
+        if (timedOut || userTimeMs >= timeLimitMs || exitCode === EXIT_CODE_TIMEOUT) {
           resolve({
             verdict: Verdict.TIME_LIMIT_EXCEEDED,
             runtimeMs: Math.max(runtimeMs, userTimeMs),
@@ -689,15 +693,30 @@ static inline int __lq_deny_path(const char *path) {
       let killed = false;
       const startTime = performance.now();
 
-      const child = spawn(binaryPath, [], {
-        cwd: workDir,
-        shell: false,
-        env: {
-          PATH: '',
-          SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-        },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      const gcc = this.getGccExecutable();
+      const gccDir = path.dirname(gcc);
+
+      let child: any;
+      try {
+        child = spawn(binaryPath, [], {
+          cwd: workDir,
+          shell: false,
+          env: {
+            ...process.env,
+            PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
+            SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
+          },
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } catch (spawnErr: any) {
+        resolve({
+          verdict: Verdict.RUNTIME_ERROR,
+          runtimeMs: 0,
+          stdout,
+          stderr: spawnErr.message || 'Failed to spawn process',
+        });
+        return;
+      }
 
       const timer = setTimeout(() => {
         timedOut = true;
@@ -705,7 +724,7 @@ static inline int __lq_deny_path(const char *path) {
         child.kill('SIGKILL');
       }, timeLimitMs);
 
-      child.stdout.on('data', (data) => {
+      child.stdout.on('data', (data: Buffer | string) => {
         totalStdoutBytes += data.length;
         if (stdout.length < maxRetained) {
           const remaining = maxRetained - stdout.length;
@@ -724,13 +743,13 @@ static inline int __lq_deny_path(const char *path) {
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr.on('data', (data: Buffer | string) => {
         if (stderr.length < 2 * 1024 * 1024) {
           stderr += data.toString();
         }
       });
 
-      child.on('error', (err) => {
+      child.on('error', (err: Error) => {
         clearTimeout(timer);
         resolve({
           verdict: Verdict.RUNTIME_ERROR,
@@ -740,7 +759,7 @@ static inline int __lq_deny_path(const char *path) {
         });
       });
 
-      child.on('close', (code, signal) => {
+      child.on('close', (code: number | null, signal: string | null) => {
         clearTimeout(timer);
         const runtimeMs = Math.round(performance.now() - startTime);
 

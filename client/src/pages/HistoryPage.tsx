@@ -1,22 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
-import { Clock, Eye, X, Copy, Check, Upload, FileText } from 'lucide-react';
+import { Clock, Eye, X, Copy, Check, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { Difficulty, Verdict } from '../types/index.js';
 
 export const HistoryPage: React.FC = () => {
+  const { user } = useAuth();
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['my-submissions'],
-    queryFn: () => api.get('/submissions/my?limit=50'),
+    queryKey: ['my-submissions', user?.id],
+    queryFn: async () => {
+      let serverSubs: any[] = [];
+      let serverUploads: any[] = [];
+      try {
+        const res = await api.get('/submissions/my?limit=50');
+        serverSubs = res?.data?.submissions || [];
+        serverUploads = res?.data?.uploadedSolutions || [];
+      } catch (err) {
+        console.warn('Backend submissions/my error, attempting Firestore fallback:', err);
+      }
+
+      // If backend has 0 submissions, fetch authoritative from Firestore / local storage
+      if (serverSubs.length === 0 && user?.id) {
+        try {
+          const fsSubs = await FirestoreDataService.getUserSubmissions(user.id);
+          if (fsSubs && fsSubs.length > 0) {
+            serverSubs = fsSubs;
+          }
+        } catch (fsErr) {
+          console.warn('Firestore fallback submissions error:', fsErr);
+        }
+
+        if (serverSubs.length === 0) {
+          try {
+            const raw = localStorage.getItem('logicq_fallback_submissions_v1');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              serverSubs = Array.isArray(parsed) ? parsed : [];
+            }
+          } catch {}
+        }
+      }
+
+      return {
+        data: {
+          submissions: serverSubs,
+          uploadedSolutions: serverUploads,
+        },
+      };
+    },
   });
 
   const submissions = data?.data?.submissions || [];
   const uploadedSolutions = data?.data?.uploadedSolutions || [];
+
+  // Compute attempt index per problem across submission timeline
+  const attemptMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const countMap: Record<string, number> = {};
+    const sorted = [...submissions].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    for (const s of sorted) {
+      const pKey = s.problemId || s.problem?.slug || s.problem?.id || 'unknown';
+      countMap[pKey] = (countMap[pKey] || 0) + 1;
+      map.set(s.id, countMap[pKey]);
+    }
+    return map;
+  }, [submissions]);
 
   const handleCopyCode = () => {
     if (selectedSubmission?.code) {
@@ -146,6 +203,7 @@ export const HistoryPage: React.FC = () => {
               <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
                 <tr>
                   <th className="px-6 py-3.5">Problem</th>
+                  <th className="px-4 py-3.5">Attempt</th>
                   <th className="px-6 py-3.5">Difficulty</th>
                   <th className="px-6 py-3.5">Verdict</th>
                   <th className="px-6 py-3.5">Runtime</th>
@@ -155,28 +213,35 @@ export const HistoryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {submissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-bold text-white">
-                      {sub.problem?.slug && !sub.problem?.isEnded ? (
-                        <Link
-                          to="/challenge"
-                          className="hover:text-cyan-400 transition-colors"
-                        >
-                          {sub.problem?.title}
-                        </Link>
-                      ) : (
-                        <span className="text-slate-200">
-                          {sub.problem?.title || 'Past Challenge'}
+                {submissions.map((sub: any) => {
+                  const attemptNum = attemptMap.get(sub.id) || 1;
+                  return (
+                    <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-bold text-white">
+                        {sub.problem?.slug && !sub.problem?.isEnded ? (
+                          <Link
+                            to="/challenge"
+                            className="hover:text-cyan-400 transition-colors"
+                          >
+                            {sub.problem?.title}
+                          </Link>
+                        ) : (
+                          <span className="text-slate-200">
+                            {sub.problem?.title || 'Past Challenge'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          #{attemptNum}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
-                    </td>
+                      </td>
+                      <td className="px-6 py-4">
+                        <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                      </td>
                     <td className="px-6 py-4 text-slate-400">
                       {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
                     </td>
@@ -196,7 +261,8 @@ export const HistoryPage: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

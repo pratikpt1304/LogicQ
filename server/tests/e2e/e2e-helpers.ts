@@ -9,7 +9,10 @@ export const C_SNIPPETS = {
   HELLO_WORLD: `
 #include <stdio.h>
 int main() {
-    printf("Hello LogicQ!\\n");
+    int ready = 1;
+    if (ready) {
+        printf("Hello LogicQ!\\n");
+    }
     return 0;
 }
 `,
@@ -319,12 +322,15 @@ export async function getDiffGenerator() {
   }
 }
 
+let globalE2EUserCounter = Math.floor(Math.random() * 5000);
+
 // User and Database test fixtures
 export async function createE2ETestUser(
   role: 'STUDENT' | 'CHECKER' | 'ADMIN' = 'STUDENT',
   emailPrefix: string = 'e2e_'
 ) {
-  const ts = Date.now() + Math.floor(Math.random() * 10000);
+  const counterStr = String(Math.floor(1000 + Math.random() * 8999)).padStart(4, '0');
+  const ts = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const passwordHash = await bcrypt.hash('TestPass123!', 10);
   const user = await prisma.user.create({
     data: {
@@ -333,7 +339,7 @@ export async function createE2ETestUser(
       fullName: `E2E ${role} Tester`,
       passwordHash,
       role,
-      prn: role === 'STUDENT' ? `2199E2E${String(ts).slice(-4)}` : null,
+      prn: role === 'STUDENT' ? `2199E2EM${counterStr}` : null,
       college: 'Sanjivani University',
       department: 'CSE',
       year: 'SY',
@@ -414,7 +420,13 @@ export async function cleanupE2EData(prefix: string = 'e2e_') {
       where: { slug: { startsWith: 'e2e-prob-' } },
     });
     await prisma.user.deleteMany({
-      where: { email: { startsWith: prefix } },
+      where: {
+        OR: [
+          { email: { startsWith: prefix } },
+          { email: { startsWith: 'e2e_' } },
+          { prn: { startsWith: '2199' } }
+        ]
+      },
     });
   } catch (err) {
     // Best-effort cleanup

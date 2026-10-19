@@ -767,6 +767,11 @@ export const ChallengePage: React.FC = () => {
                   <Check className="w-3.5 h-3.5" /> Solved
                 </span>
               )}
+              {typeof userStatus?.attempts === 'number' && userStatus.attempts > 0 && (
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-[var(--bg-surface)] text-cyan-400 border border-[var(--border-line)] font-semibold">
+                  {userStatus.attempts} {userStatus.attempts === 1 ? 'Attempt' : 'Attempts'}
+                </span>
+              )}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">{problem.title}</h1>

@@ -345,7 +345,12 @@ export const ProfilePage: React.FC = () => {
       );
 
       if (!backupResult.success) {
-        toast.error(backupResult.message || 'Failed to upload backup to Drive.', { id: 'profile-drive-export' });
+        const msg =
+          backupResult.error === 'COLLEGE_WORKSPACE_BLOCKED'
+            ? 'Your college administrator has restricted Google Drive integrations. Downloading your backup directly...'
+            : 'Downloading your backup file directly to your device...';
+        toast.info(msg, { id: 'profile-drive-export' });
+        await handleExportData();
         return;
       }
 
@@ -356,7 +361,8 @@ export const ProfilePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('History backed up to Google Drive successfully!', { id: 'profile-drive-export' });
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to backup to Google Drive', { id: 'profile-drive-export' });
+      toast.info('Downloading your backup file directly to your device...', { id: 'profile-drive-export' });
+      await handleExportData();
     } finally {
       setIsDriveBackingUp(false);
     }

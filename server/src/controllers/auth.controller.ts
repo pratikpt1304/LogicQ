@@ -530,30 +530,44 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
         });
       }
 
-      // Auto-heal / restore profile if Firestore has completed profile but user in DB does not
-      if (!user.profileComplete && hasCompleteFirestoreProfile && firestoreProfile?.prn) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            prn: firestoreProfile.prn,
-            college: firestoreProfile.college || user.college || 'Sanjivani University',
-            department: firestoreProfile.department || user.department,
-            year: firestoreProfile.year || user.year,
-            division: firestoreProfile.division ?? user.division,
-            displayName: firestoreProfile.displayName || user.displayName,
-            fullName: firestoreProfile.fullName || user.fullName,
-            profileComplete: true,
-            totalPoints: Math.max(user.totalPoints || 0, firestoreProfile.totalPoints || 0),
-            currentStreak: Math.max(user.currentStreak || 0, firestoreProfile.currentStreak || 0),
-            longestStreak: Math.max(user.longestStreak || 0, firestoreProfile.longestStreak || 0),
-          },
-        });
+      // Auto-heal / restore profile and points from Firestore
+      if (firestoreProfile) {
+        const nextPoints = Math.max(user.totalPoints || 0, Number(firestoreProfile.totalPoints || 0));
+        const nextCurrentStreak = Math.max(user.currentStreak || 0, Number(firestoreProfile.currentStreak || 0));
+        const nextLongestStreak = Math.max(user.longestStreak || 0, Number(firestoreProfile.longestStreak || 0));
+        const shouldUpdate =
+          !user.profileComplete ||
+          nextPoints !== user.totalPoints ||
+          nextCurrentStreak !== user.currentStreak ||
+          nextLongestStreak !== user.longestStreak ||
+          (!user.prn && firestoreProfile.prn);
 
-        await prisma.prnIndex.upsert({
-          where: { prn: firestoreProfile.prn },
-          create: { prn: firestoreProfile.prn, userId: user.id },
-          update: { userId: user.id },
-        }).catch(() => {});
+        if (shouldUpdate) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              prn: firestoreProfile.prn || user.prn,
+              college: firestoreProfile.college || user.college || 'Sanjivani University',
+              department: firestoreProfile.department || user.department,
+              year: firestoreProfile.year || user.year,
+              division: firestoreProfile.division ?? user.division,
+              displayName: firestoreProfile.displayName || user.displayName,
+              fullName: firestoreProfile.fullName || user.fullName,
+              profileComplete: user.profileComplete || hasCompleteFirestoreProfile,
+              totalPoints: nextPoints,
+              currentStreak: nextCurrentStreak,
+              longestStreak: nextLongestStreak,
+            },
+          });
+
+          if (firestoreProfile.prn) {
+            await prisma.prnIndex.upsert({
+              where: { prn: firestoreProfile.prn },
+              create: { prn: firestoreProfile.prn, userId: user.id },
+              update: { userId: user.id },
+            }).catch(() => {});
+          }
+        }
       }
 
       if (user.isBanned) {
@@ -836,12 +850,9 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       include: { user: true },
     });
 
-    const gracePeriodMs = 60 * 1000;
-    const isRecentlyRevoked = storedToken?.revokedAt && (Date.now() - new Date(storedToken.revokedAt).getTime() < gracePeriodMs);
-
     if (
       !storedToken ||
-      (storedToken.revokedAt && !isRecentlyRevoked) ||
+      storedToken.revokedAt ||
       storedToken.expiresAt < new Date() ||
       storedToken.user.isBanned
     ) {

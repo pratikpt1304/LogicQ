@@ -552,6 +552,24 @@ export const PracticeWorkspacePage: React.FC = () => {
                 <span>Solved</span>
               </span>
             )}
+            {Boolean(userProgress?.attemptsCount || userProgress?.attempts) && (
+              <span className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 shrink-0" title="Total attempts on this problem">
+                <span>
+                  {userProgress?.attemptsCount || userProgress?.attempts}{' '}
+                  {(userProgress?.attemptsCount || userProgress?.attempts) === 1 ? 'Attempt' : 'Attempts'}
+                </span>
+              </span>
+            )}
+            {Boolean(userProgress?.timeToSolveSeconds) && (
+              <span className="flex items-center gap-1 text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0" title="Time taken to solve">
+                <Clock className="w-3 h-3" />
+                <span>
+                  {userProgress.timeToSolveSeconds >= 60
+                    ? `${Math.floor(userProgress.timeToSolveSeconds / 60)}m ${userProgress.timeToSolveSeconds % 60}s`
+                    : `${userProgress.timeToSolveSeconds}s`}
+                </span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -675,6 +693,27 @@ export const PracticeWorkspacePage: React.FC = () => {
               <span>Time Limit: {problem.timeLimitMs}ms</span>
               <span>•</span>
               <span>Memory Limit: {problem.memoryLimitMb}MB</span>
+              {Boolean(userProgress?.attemptsCount || userProgress?.attempts) && (
+                <>
+                  <span>•</span>
+                  <span className="text-cyan-400 font-semibold">
+                    {userProgress?.attemptsCount || userProgress?.attempts}{' '}
+                    {(userProgress?.attemptsCount || userProgress?.attempts) === 1 ? 'Attempt' : 'Attempts'}
+                  </span>
+                </>
+              )}
+              {Boolean(userProgress?.timeToSolveSeconds) && (
+                <>
+                  <span>•</span>
+                  <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Solved in:{' '}
+                    {userProgress.timeToSolveSeconds >= 60
+                      ? `${Math.floor(userProgress.timeToSolveSeconds / 60)}m ${userProgress.timeToSolveSeconds % 60}s`
+                      : `${userProgress.timeToSolveSeconds}s`}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 

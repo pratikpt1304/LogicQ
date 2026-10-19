@@ -753,11 +753,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Backend /auth/google unavailable; using direct Firestore sync:', backendErr);
       }
 
-      // Safeguard: Merge with Firestore completed profile if backend user was missing details
-      if (firestoreProfile && firestoreProfile.profileComplete) {
+      // Safeguard: Merge with Firestore completed profile so stats and identity are always preserved
+      if (firestoreProfile) {
         if (!authenticatedUser) {
           authenticatedUser = firestoreProfile;
-        } else if (!authenticatedUser.profileComplete) {
+        } else {
           authenticatedUser = {
             ...authenticatedUser,
             prn: firestoreProfile.prn || authenticatedUser.prn,
@@ -767,7 +767,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             division: firestoreProfile.division || authenticatedUser.division,
             displayName: firestoreProfile.displayName || authenticatedUser.displayName,
             fullName: firestoreProfile.fullName || authenticatedUser.fullName,
-            profileComplete: true,
+            profileComplete: authenticatedUser.profileComplete || firestoreProfile.profileComplete,
             totalPoints: Math.max(authenticatedUser.totalPoints || 0, firestoreProfile.totalPoints || 0),
             currentStreak: Math.max(authenticatedUser.currentStreak || 0, firestoreProfile.currentStreak || 0),
             longestStreak: Math.max(authenticatedUser.longestStreak || 0, firestoreProfile.longestStreak || 0),

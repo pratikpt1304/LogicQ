@@ -352,7 +352,7 @@ export class GoogleDriveService {
         GoogleDriveService.disconnectDrive();
         throw new Error('TOKEN_EXPIRED');
       }
-      throw new Error(`Drive list error: ${listRes.statusText}`);
+      throw new Error('COLLEGE_WORKSPACE_BLOCKED');
     }
 
     const listData = await listRes.json();
@@ -375,7 +375,11 @@ export class GoogleDriveService {
     });
 
     if (!createRes.ok) {
-      throw new Error(`Failed to create LogicQ folder: ${createRes.statusText}`);
+      if (createRes.status === 401) {
+        GoogleDriveService.disconnectDrive();
+        throw new Error('TOKEN_EXPIRED');
+      }
+      throw new Error('COLLEGE_WORKSPACE_BLOCKED');
     }
 
     const folderData = await createRes.json();
@@ -457,7 +461,11 @@ Manage your account and preferences in LogicQ under Profile > Settings.
     });
 
     if (!createRes.ok) {
-      throw new Error(`Failed to create backups folder: ${createRes.statusText}`);
+      if (createRes.status === 401) {
+        GoogleDriveService.disconnectDrive();
+        throw new Error('TOKEN_EXPIRED');
+      }
+      throw new Error('COLLEGE_WORKSPACE_BLOCKED');
     }
 
     const folderData = await createRes.json();
@@ -519,14 +527,15 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         if (uploadRes.status === 403) {
           return {
             success: false,
-            error: 'QUOTA_EXCEEDED',
-            message: 'Your Google Drive storage quota is exceeded.',
+            error: 'COLLEGE_WORKSPACE_BLOCKED',
+            message: 'Your Google Drive storage quota is exceeded or restricted by your institution.',
           };
         }
+        const errDetail = uploadRes.statusText || `HTTP ${uploadRes.status}`;
         return {
           success: false,
           error: 'UPLOAD_FAILED',
-          message: `Failed to upload backup: ${uploadRes.statusText}`,
+          message: `Failed to upload backup: ${errDetail}`,
         };
       }
 
@@ -543,6 +552,13 @@ Manage your account and preferences in LogicQ under Profile > Settings.
           success: false,
           error: 'TOKEN_EXPIRED',
           message: 'Google Drive authorization expired. Please reconnect.',
+        };
+      }
+      if (err.message === 'COLLEGE_WORKSPACE_BLOCKED') {
+        return {
+          success: false,
+          error: 'COLLEGE_WORKSPACE_BLOCKED',
+          message: 'Google Drive access was restricted by your institution.',
         };
       }
       return {

@@ -33,6 +33,9 @@ import {
   adminCreateDailyCorrection,
   adminTogglePauseDay,
   syncFirestoreUsers,
+  compareCodesPlagiarism,
+  scanProblemPlagiarism,
+  runSandboxSecurityAudit,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -96,5 +99,12 @@ adminRouter.post('/daily-finalization/pause-day', adminTogglePauseDay);
 adminRouter.get('/daily-system/preview', getAdminDailySystemPreview);
 adminRouter.post('/daily-system/pause', adminPauseDailySystem);
 adminRouter.post('/daily-system/resume', adminResumeDailySystem);
+
+// Plagiarism & Code Similarity Detection
+adminRouter.post('/plagiarism/compare', compareCodesPlagiarism);
+adminRouter.get('/plagiarism/problem/:problemId', scanProblemPlagiarism);
+
+// Sandbox Red-Teaming & Security Auditing
+adminRouter.get('/security/audit', runSandboxSecurityAudit);
 
 export default adminRouter;
