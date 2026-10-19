@@ -5,6 +5,8 @@ import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { api, LogicQApiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { auth } from '../config/firebase.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';

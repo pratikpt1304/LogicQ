@@ -304,22 +304,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let serverUser: User | null = null;
 
       // 1. If we have an active Firebase user, exchange for a fresh LogicQ backend session
+      let statsBackup: any = null;
+      if (fbUid) {
+        try {
+          statsBackup = await FirestoreDataService.getStatsBackup(fbUid);
+        } catch {
+          // ignore
+        }
+      }
+
+      const cached = getCachedUser();
+      let firestoreProfile: any = null;
+      if (fbUid) {
+        try {
+          firestoreProfile = await FirestoreDataService.getUserProfile(fbUid);
+        } catch {
+          // ignore
+        }
+      }
+
+      const maxPoints = Math.max(
+        firestoreProfile?.totalPoints || 0,
+        statsBackup?.totalPoints || 0,
+        cached?.totalPoints || 0
+      );
+      const maxCurrentStreak = Math.max(
+        firestoreProfile?.currentStreak || 0,
+        statsBackup?.currentStreak || 0,
+        cached?.currentStreak || 0
+      );
+      const maxLongestStreak = Math.max(
+        firestoreProfile?.longestStreak || 0,
+        statsBackup?.longestStreak || 0,
+        cached?.longestStreak || 0
+      );
+
+      if (firestoreProfile) {
+        firestoreProfile.totalPoints = maxPoints;
+        firestoreProfile.currentStreak = maxCurrentStreak;
+        firestoreProfile.longestStreak = maxLongestStreak;
+      }
+
       if (targetFbUser) {
         try {
           const idToken = await targetFbUser.getIdToken();
-          let firestoreProfile: any = null;
-          try {
-            firestoreProfile = await FirestoreDataService.getUserProfile(targetFbUser.uid);
-          } catch {
-            // ignore
-          }
 
           const googleRes = await api.post('/auth/google', {
             idToken,
             email: targetFbUser.email,
             avatarUrl: targetFbUser.photoURL,
             googleId: targetFbUser.uid,
-            firestoreProfile: firestoreProfile && firestoreProfile.profileComplete ? firestoreProfile : undefined,
+            firestoreProfile: firestoreProfile && firestoreProfile.profileComplete ? firestoreProfile : (cached && cached.profileComplete ? { ...cached, totalPoints: maxPoints, currentStreak: maxCurrentStreak, longestStreak: maxLongestStreak } : undefined),
           });
           if (googleRes?.success) {
             if (googleRes?.data?.accessToken) {
@@ -347,16 +382,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Safeguard: Never let serverUser downgrade an already completed profile!
-      const cached = getCachedUser();
-      let firestoreUser: any = null;
-      if (fbUid) {
-        try {
-          firestoreUser = await FirestoreDataService.getUserProfile(fbUid);
-        } catch {
-          // Ignore
-        }
-      }
+      // Safeguard: Never let serverUser downgrade an already completed profile or points!
+      const firestoreUser = firestoreProfile;
 
       const existingCompleted =
         firestoreUser && firestoreUser.profileComplete
@@ -366,6 +393,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : null;
 
       if (serverUser) {
+        const authoritativePoints = Math.max(
+          serverUser.totalPoints || 0,
+          existingCompleted?.totalPoints || 0,
+          cached?.totalPoints || 0,
+          statsBackup?.totalPoints || 0
+        );
+        const authoritativeCurrentStreak = Math.max(
+          serverUser.currentStreak || 0,
+          existingCompleted?.currentStreak || 0,
+          cached?.currentStreak || 0,
+          statsBackup?.currentStreak || 0
+        );
+        const authoritativeLongestStreak = Math.max(
+          serverUser.longestStreak || 0,
+          existingCompleted?.longestStreak || 0,
+          cached?.longestStreak || 0,
+          statsBackup?.longestStreak || 0
+        );
+
         if (existingCompleted) {
           serverUser = {
             ...serverUser,
@@ -377,10 +423,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: existingCompleted.displayName || serverUser.displayName,
             fullName: existingCompleted.fullName || serverUser.fullName,
             profileComplete: existingCompleted.profileComplete || serverUser.profileComplete,
-            totalPoints: Math.max(serverUser.totalPoints || 0, existingCompleted.totalPoints || 0),
-            currentStreak: Math.max(serverUser.currentStreak || 0, existingCompleted.currentStreak || 0),
-            longestStreak: Math.max(serverUser.longestStreak || 0, existingCompleted.longestStreak || 0),
+            totalPoints: authoritativePoints,
+            currentStreak: authoritativeCurrentStreak,
+            longestStreak: authoritativeLongestStreak,
           };
+        } else {
+          serverUser = {
+            ...serverUser,
+            totalPoints: authoritativePoints,
+            currentStreak: authoritativeCurrentStreak,
+            longestStreak: authoritativeLongestStreak,
+          };
+        }
+
+        if (fbUid && authoritativePoints > 0) {
+          FirestoreDataService.saveStatsBackup(fbUid, {
+            totalPoints: authoritativePoints,
+            currentStreak: authoritativeCurrentStreak,
+            longestStreak: authoritativeLongestStreak,
+          }).catch(() => {});
         }
 
         persistUser(serverUser);

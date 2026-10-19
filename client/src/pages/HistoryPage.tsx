@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { Clock, Eye, X, Copy, Check, Upload, FileText, CheckCircle2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export const HistoryPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['my-submissions', user?.id],
+    queryKey: ['my-submissions', user?.id, auth.currentUser?.uid],
     queryFn: async () => {
       let serverSubs: any[] = [];
       let serverUploads: any[] = [];
@@ -27,9 +28,10 @@ export const HistoryPage: React.FC = () => {
       }
 
       // If backend has 0 submissions, fetch authoritative from Firestore / local storage
-      if (serverSubs.length === 0 && user?.id) {
+      const effectiveUid = auth.currentUser?.uid || user?.id || '';
+      if (serverSubs.length === 0 && effectiveUid) {
         try {
-          const fsSubs = await FirestoreDataService.getUserSubmissions(user.id);
+          const fsSubs = await FirestoreDataService.getUserSubmissions(effectiveUid);
           if (fsSubs && fsSubs.length > 0) {
             serverSubs = fsSubs;
           }

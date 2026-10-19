@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 
     BOOL created = FALSE;
     DWORD err = 0;
-    for (int retry = 0; retry < 25; retry++) {
+    for (int retry = 0; retry < 60; retry++) {
         created = CreateProcessA(
             NULL,
             cmdLine,

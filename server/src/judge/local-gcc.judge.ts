@@ -67,13 +67,7 @@ function getJudgeWorkingRoot(): string {
     const runnerDir = modDir.includes('dist')
       ? path.resolve(modDir, '../../src/judge')
       : modDir;
-    const baseDir = path.join(runnerDir, 'build');
-    try {
-      if (!fs.existsSync(baseDir)) {
-        fs.mkdirSync(baseDir, { recursive: true });
-      }
-    } catch {}
-    return baseDir;
+    return runnerDir;
   }
   return os.tmpdir();
 }
@@ -406,7 +400,13 @@ static inline void* __lq_realloc(void *p, size_t sz) {
     const preludeFile = path.join(tempDir, 'sandbox_prelude.h');
     const sourceFile = path.join(tempDir, 'solution.c');
     const isWindows = process.platform === 'win32';
-    const binaryFile = path.join(tempDir, isWindows ? 'solution.exe' : 'solution');
+    const binaryFile = isWindows
+      ? path.join(getJudgeWorkingRoot(), `solution_${tempId}.exe`)
+      : path.join(tempDir, 'solution');
+
+    if (isWindows) {
+      registerTempDir(binaryFile);
+    }
 
     try {
       fs.writeFileSync(preludeFile, this.buildSandboxPrelude(128), 'utf8');
@@ -417,6 +417,7 @@ static inline void* __lq_realloc(void *p, size_t sz) {
 
       const compileArgs = [
         '-O2',
+        '-s',
         '-Wall',
         '-std=c11',
         '-fno-asm',
@@ -433,10 +434,9 @@ static inline void* __lq_realloc(void *p, size_t sz) {
         timeout: options?.timeLimitMs || 10000,
         cwd: tempDir,
         env: {
-          PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : process.env.PATH,
+          ...process.env,
+          PATH: gccDir ? `${gccDir}${path.delimiter}${process.env.PATH || ''}` : (process.env.PATH || ''),
           SYSTEMROOT: process.env.SYSTEMROOT || 'C:\\Windows',
-          TEMP: tempDir,
-          TMP: tempDir,
         },
       });
 
@@ -446,6 +446,9 @@ static inline void* __lq_realloc(void *p, size_t sz) {
 
       const cleanup = async () => {
         try {
+          if (isWindows && fs.existsSync(binaryFile)) {
+            await fs.promises.rm(binaryFile, { force: true }).catch(() => {});
+          }
           if (fs.existsSync(tempDir)) {
             await fs.promises.rm(tempDir, { recursive: true, force: true });
           }
@@ -453,6 +456,7 @@ static inline void* __lq_realloc(void *p, size_t sz) {
           // Ignore transient lock cleanup races
         } finally {
           unregisterTempDir(tempDir);
+          if (isWindows) unregisterTempDir(binaryFile);
         }
       };
 
@@ -549,6 +553,14 @@ static inline void* __lq_realloc(void *p, size_t sz) {
         },
         stdio: ['pipe', 'pipe', 'pipe'],
       });
+
+      if (child.stdin) {
+        child.stdin.on('error', () => {});
+        if (stdin) {
+          child.stdin.write(stdin);
+        }
+        child.stdin.end();
+      }
 
       let stdout = '';
       let stderr = '';

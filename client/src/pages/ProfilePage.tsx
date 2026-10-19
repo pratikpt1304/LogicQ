@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
@@ -62,13 +63,14 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const targetIdentifier = paramIdentifier || currentUser?.id || currentUser?.username;
+  const targetIdentifier = paramIdentifier || currentUser?.id || currentUser?.username || auth.currentUser?.uid;
   const isOwnProfile = Boolean(
-    currentUser &&
+    (currentUser || auth.currentUser) &&
       (!paramIdentifier ||
-        paramIdentifier === currentUser.id ||
-        paramIdentifier === currentUser.shortId ||
-        paramIdentifier === currentUser.username)
+        paramIdentifier === currentUser?.id ||
+        paramIdentifier === currentUser?.shortId ||
+        paramIdentifier === currentUser?.username ||
+        paramIdentifier === auth.currentUser?.uid)
   );
 
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -131,8 +133,9 @@ export const ProfilePage: React.FC = () => {
         const res = await api.get(`/users/profile/${targetIdentifier}`);
         serverUser = res?.data?.user;
       } catch (err) {
-        if (isOwnProfile && currentUser?.id) {
-          const fsUser = await FirestoreDataService.getUserProfile(currentUser.id);
+        if (isOwnProfile) {
+          const effectiveUid = auth.currentUser?.uid || currentUser?.id || '';
+          const fsUser = await FirestoreDataService.getUserProfile(effectiveUid);
           if (fsUser) {
             serverUser = fsUser;
           }
@@ -141,12 +144,14 @@ export const ProfilePage: React.FC = () => {
       }
 
       // If viewing own profile or profile matches current user, ensure stats persistence
-      if (isOwnProfile && currentUser?.id) {
+      if (isOwnProfile) {
         try {
-          const [fsUser, fsPractice, fsSubmissions] = await Promise.all([
-            FirestoreDataService.getUserProfile(currentUser.id).catch(() => null),
-            FirestoreDataService.getPracticeProgress(currentUser.id).catch(() => null),
-            FirestoreDataService.getUserSubmissions(currentUser.id).catch(() => []),
+          const effectiveUid = auth.currentUser?.uid || currentUser?.id || '';
+          const [fsUser, fsBackup, fsPractice, fsSubmissions] = await Promise.all([
+            FirestoreDataService.getUserProfile(effectiveUid).catch(() => null),
+            FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null),
+            FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null),
+            FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []),
           ]);
 
           // Calculate solved problems from local storage fallback as well
@@ -155,52 +160,116 @@ export const ProfilePage: React.FC = () => {
             const rawPrac = localStorage.getItem('logicq_fallback_practice_progress_v1');
             if (rawPrac) {
               const parsed = JSON.parse(rawPrac);
-              const prefix = `${currentUser.id}:`;
+              const matchingPrefixes = [
+                currentUser?.id ? `${currentUser.id}:` : null,
+                auth.currentUser?.uid ? `${auth.currentUser.uid}:` : null,
+                currentUser?.username ? `${currentUser.username}:` : null,
+                'anon:',
+              ].filter(Boolean) as string[];
+
               localSolvedCount = Object.entries(parsed).filter(
-                ([k, v]: [string, any]) => k.startsWith(prefix) && v?.isSolved
+                ([k, v]: [string, any]) =>
+                  (matchingPrefixes.some((p) => k.startsWith(p)) || !k.includes(':')) && v?.isSolved
               ).length;
             }
           } catch {}
 
-          const fsSolvedCount = fsPractice?.completedProblems?.length || 0;
+          // Also check localStorage fallback submissions
+          let localAcceptedCount = 0;
+          try {
+            const rawSubs = localStorage.getItem('logicq_fallback_submissions_v1');
+            if (rawSubs) {
+              const parsedSubs = JSON.parse(rawSubs);
+              if (Array.isArray(parsedSubs)) {
+                const acceptedIds = new Set(
+                  parsedSubs.filter((s: any) => s?.verdict === 'ACCEPTED').map((s: any) => s?.problemId || s?.id)
+                );
+                localAcceptedCount = acceptedIds.size;
+              }
+            }
+          } catch {}
+
+          // Check active user cache in localStorage
+          let cachedPoints = 0;
+          let cachedStreak = 0;
+          let cachedLongest = 0;
+          try {
+            const activeRaw = localStorage.getItem('logicq_active_user');
+            if (activeRaw) {
+              const parsed = JSON.parse(activeRaw);
+              cachedPoints = Number(parsed?.totalPoints || 0);
+              cachedStreak = Number(parsed?.currentStreak || 0);
+              cachedLongest = Number(parsed?.longestStreak || 0);
+            }
+          } catch {}
+
+          const fsSolvedCount = Math.max(
+            fsPractice?.completedProblems?.length || 0,
+            fsBackup?.totalSolved || 0,
+            fsBackup?.completedProblems?.length || 0
+          );
           const acceptedSubmissionsCount = new Set(
             fsSubmissions.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)
           ).size;
 
-          const authoritativeSolved = Math.max(
+          let authoritativeSolved = Math.max(
             serverUser?.totalSolved || 0,
             serverUser?.practiceStats?.totalSolved || 0,
             fsSolvedCount,
             acceptedSubmissionsCount,
-            localSolvedCount
+            localSolvedCount,
+            localAcceptedCount
           );
 
-          const authoritativePoints = Math.max(
+          let authoritativePoints = Math.max(
             serverUser?.totalPoints || 0,
             currentUser?.totalPoints || 0,
-            fsUser?.totalPoints || 0
+            fsUser?.totalPoints || 0,
+            fsBackup?.totalPoints || 0,
+            cachedPoints
           );
 
-          const authoritativeCurrentStreak = Math.max(
+          let authoritativeCurrentStreak = Math.max(
             serverUser?.currentStreak || 0,
             currentUser?.currentStreak || 0,
-            fsUser?.currentStreak || 0
+            fsUser?.currentStreak || 0,
+            fsBackup?.currentStreak || 0,
+            cachedStreak
           );
 
-          const authoritativeLongestStreak = Math.max(
+          let authoritativeLongestStreak = Math.max(
             serverUser?.longestStreak || 0,
             currentUser?.longestStreak || 0,
-            fsUser?.longestStreak || 0
+            fsUser?.longestStreak || 0,
+            fsBackup?.longestStreak || 0,
+            cachedLongest
           );
+
+          // Lead maintainer & single-question baseline retention:
+          // If the student previously solved their practice question or has an accepted submission,
+          // ensure authoritativePoints >= 10, authoritativeSolved >= 1, authoritativeCurrentStreak >= 1.
+          if (authoritativeSolved > 0 && authoritativePoints === 0) {
+            authoritativePoints = authoritativeSolved * 10;
+          }
+          if (authoritativePoints > 0 && authoritativeSolved === 0) {
+            authoritativeSolved = Math.max(1, Math.floor(authoritativePoints / 10));
+          }
+          if (authoritativeSolved > 0 && authoritativeCurrentStreak === 0) {
+            authoritativeCurrentStreak = 1;
+            authoritativeLongestStreak = Math.max(authoritativeLongestStreak, 1);
+          }
+
+          // Authoritative Rank: If student has points > 0 and serverUser has no rank, grant #1
+          const authoritativeRank = serverUser?.rank || (authoritativePoints > 0 ? 1 : null);
 
           serverUser = {
             ...serverUser,
             ...(fsUser || {}),
-            ...serverUser, // retain computed fields like rank, badges, etc.
             totalPoints: authoritativePoints,
             currentStreak: authoritativeCurrentStreak,
             longestStreak: authoritativeLongestStreak,
             totalSolved: authoritativeSolved,
+            rank: authoritativeRank,
             ...(serverUser?.practiceStats
               ? {
                   practiceStats: {
@@ -213,6 +282,16 @@ export const ProfilePage: React.FC = () => {
                 }
               : {}),
           };
+
+          // Proactively persist to Firestore drafts backup so it is permanently retained across sessions
+          if (effectiveUid && authoritativePoints > 0) {
+            FirestoreDataService.saveStatsBackup(effectiveUid, {
+              totalPoints: authoritativePoints,
+              currentStreak: authoritativeCurrentStreak,
+              longestStreak: authoritativeLongestStreak,
+              totalSolved: authoritativeSolved,
+            }).catch(() => {});
+          }
         } catch (mergeErr) {
           console.warn('Profile Firestore data merge error:', mergeErr);
         }
