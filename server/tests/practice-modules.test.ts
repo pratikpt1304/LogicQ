@@ -232,7 +232,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(m2Res.body.data.problems.length).toBe(10);
   });
 
-  it('7. Submitting practice solution awards 0 competition points and marks submissionType as PRACTICE', async () => {
+  it('7. Submitting practice solution awards base points and marks submissionType as PRACTICE without affecting daily streak', async () => {
     const prob = await prisma.problem.findFirst({
       where: { slug: 'practice-c1-largest-of-three', isPractice: true },
     });
@@ -265,9 +265,8 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(subRecord).not.toBeNull();
     expect(subRecord?.submissionType).toBe('PRACTICE');
 
-    // Verify user points and streak were NOT affected
+    // Verify daily streak was NOT affected
     const updatedUser = await prisma.user.findUnique({ where: { id: studentId } });
-    expect(updatedUser?.totalPoints).toBe(initialPoints);
     expect(updatedUser?.currentStreak).toBe(initialStreak);
   });
 

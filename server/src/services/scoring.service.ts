@@ -26,14 +26,14 @@ export async function calculatePointsAndAward(
     }
   }
 
-  // Check if user has already solved or been awarded points for this problem on any other submission or approved upload
-  const [previousAccepted, previousApprovedUpload] = await Promise.all([
+  // Check if user has already been awarded points for this problem on any other submission or approved upload
+  const [previousAwardedSub, previousApprovedUpload] = await Promise.all([
     prisma.submission.findFirst({
       where: {
         userId,
         problemId,
         ...(submissionId ? { id: { not: submissionId } } : {}),
-        OR: [{ verdict: 'ACCEPTED' }, { pointsAwarded: { gt: 0 } }],
+        pointsAwarded: { gt: 0 },
       },
     }),
     prisma.uploadedSolution.findFirst({
@@ -45,15 +45,20 @@ export async function calculatePointsAndAward(
     }),
   ]);
 
-  const isFirstSolve = !previousAccepted && !previousApprovedUpload;
+  const hasAlreadyReceivedPoints = Boolean(previousAwardedSub || previousApprovedUpload);
 
-  // If already solved, award 0 points to prevent point farming
-  if (!isFirstSolve) {
+  // If already awarded points for this problem, award 0 points to prevent point farming
+  if (hasAlreadyReceivedPoints) {
     return { pointsAwarded: 0, isFirstSolve: false, isDailyBonus: false };
   }
 
-  // Single Visible Question Rule: Points are awarded strictly by difficulty (no same-day bonus, no 70% late catch-up points)
-  const points = problem.basePoints;
+  // Base points from problem definition (fallback to difficulty standard if basePoints <= 0)
+  let points = problem.basePoints;
+  if (!points || points <= 0) {
+    if (problem.difficulty === 'HARD') points = 30;
+    else if (problem.difficulty === 'MEDIUM') points = 20;
+    else points = 10;
+  }
 
   // Update user's totalPoints
   await prisma.user.update({
@@ -71,3 +76,73 @@ export async function calculatePointsAndAward(
     isDailyBonus: false,
   };
 }
+
+/**
+ * Backfill points for any previous ACCEPTED submissions that were awarded 0 points.
+ * Runs once on server startup to credit students who solved practice problems earlier.
+ */
+export async function backfillPracticeSubmissionPoints(): Promise<{ updatedCount: number; pointsTotal: number }> {
+  try {
+    const unrewardedAccepted = await prisma.submission.findMany({
+      where: {
+        verdict: 'ACCEPTED',
+        pointsAwarded: 0,
+      },
+      include: {
+        problem: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (unrewardedAccepted.length === 0) {
+      return { updatedCount: 0, pointsTotal: 0 };
+    }
+
+    let updatedCount = 0;
+    let pointsTotal = 0;
+
+    for (const sub of unrewardedAccepted) {
+      // Check if user already got points for this problem elsewhere
+      const existingAwarded = await prisma.submission.findFirst({
+        where: {
+          userId: sub.userId,
+          problemId: sub.problemId,
+          pointsAwarded: { gt: 0 },
+        },
+      });
+
+      if (!existingAwarded) {
+        let pts = sub.problem.basePoints;
+        if (!pts || pts <= 0) {
+          if (sub.problem.difficulty === 'HARD') pts = 30;
+          else if (sub.problem.difficulty === 'MEDIUM') pts = 20;
+          else pts = 10;
+        }
+
+        await prisma.$transaction([
+          prisma.submission.update({
+            where: { id: sub.id },
+            data: { pointsAwarded: pts },
+          }),
+          prisma.user.update({
+            where: { id: sub.userId },
+            data: { totalPoints: { increment: pts } },
+          }),
+        ]);
+
+        updatedCount++;
+        pointsTotal += pts;
+      }
+    }
+
+    if (updatedCount > 0) {
+      console.log(`[Scoring] Backfilled ${updatedCount} accepted submissions with ${pointsTotal} points.`);
+    }
+
+    return { updatedCount, pointsTotal };
+  } catch (err) {
+    console.warn('[Scoring] Backfill notice:', err);
+    return { updatedCount: 0, pointsTotal: 0 };
+  }
+}
+

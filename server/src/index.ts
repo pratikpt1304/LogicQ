@@ -6,6 +6,7 @@ import { getQueue } from './queue/queue.factory.js';
 import { evaluateSubmission } from './services/submission-evaluator.js';
 import { getJudge } from './judge/judge.factory.js';
 import { autoSeedDatabase } from './services/auto-seed.service.js';
+import { backfillPracticeSubmissionPoints } from './services/scoring.service.js';
 
 async function bootstrap() {
   const server = http.createServer(app);
@@ -21,6 +22,9 @@ async function bootstrap() {
 
   // Auto-seed practice curriculum, book bank, and badges if empty
   await autoSeedDatabase();
+
+  // Backfill points for any previously unrewarded accepted submissions
+  await backfillPracticeSubmissionPoints();
 
   // Initialize submission worker queue
   const queue = getQueue();

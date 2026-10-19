@@ -260,8 +260,8 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
   let pointsAwarded = 0;
   const isPractice = submission.submissionType === 'PRACTICE' || submission.problem.isPractice;
 
-  if (overallVerdict === Verdict.ACCEPTED && !isPractice) {
-    // Scoring (pass submissionId so rejudging never double-awards points)
+  if (overallVerdict === Verdict.ACCEPTED) {
+    // Scoring (pass submissionId so rejudging never double-awards points; supports Practice & Daily)
     const scoreResult = await calculatePointsAndAward(
       submission.userId,
       submission.problemId,
@@ -374,9 +374,9 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
     },
   });
 
-  if (overallVerdict === Verdict.ACCEPTED && !isPractice) {
-    // Daily streak if problem is daily or a scheduled challenge (attributed to submission.createdAt)
-    if (submission.problem.isDaily || submission.problem.scheduledDate) {
+  if (overallVerdict === Verdict.ACCEPTED) {
+    // Daily streak strictly for daily challenge or scheduled challenge (attributed to submission.createdAt)
+    if (!isPractice && (submission.problem.isDaily || submission.problem.scheduledDate)) {
       await updateUserStreak(submission.userId, submission.createdAt);
     }
 
@@ -386,7 +386,7 @@ export async function evaluateSubmission(submissionId: string): Promise<void> {
     }
 
     // If contest submission, update contest participant score
-    if (submission.contestId) {
+    if (!isPractice && submission.contestId) {
       await updateContestScore(submission.contestId, submission.userId, submission.problemId);
     }
   }
