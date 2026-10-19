@@ -81,6 +81,20 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
+    // Overall Standing (Points + Streak formula)
+    if (rawTab === 'overall') {
+      await handleOverallLeaderboard({
+        page,
+        limit,
+        search,
+        department,
+        year,
+        currentUserId: req.user?.userId,
+        res,
+      });
+      return;
+    }
+
     const isPaused = await isDailyChallengePaused();
     if (isPaused && (tab === 'today' || tab === 'yesterday')) {
       const availableDays = getPastDaysList(90, now);
@@ -437,5 +451,228 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+async function handleOverallLeaderboard({
+  page,
+  limit,
+  search,
+  department,
+  year,
+  currentUserId,
+  res,
+}: {
+  page: number;
+  limit: number;
+  search: string;
+  department: string;
+  year: string;
+  currentUserId?: string;
+  res: Response;
+}): Promise<void> {
+  // Query all active students
+  const students = await prisma.user.findMany({
+    where: {
+      role: 'STUDENT',
+      isBanned: false,
+    },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      prn: true,
+      shortId: true,
+      college: true,
+      department: true,
+      year: true,
+      division: true,
+      avatarUrl: true,
+      totalPoints: true,
+      currentStreak: true,
+      createdAt: true,
+      userBadges: FEATURES.BADGES ? { include: { badge: true }, take: 3 } : false,
+    },
+  });
+
+  // Calculate distinct solved problems count for all students
+  const studentIds = students.map((s) => s.id);
+  const acceptedSubmissions = await prisma.submission.findMany({
+    where: {
+      userId: { in: studentIds },
+      verdict: 'ACCEPTED',
+    },
+    select: { userId: true, problemId: true },
+  });
+
+  const totalSolvedByUser = new Map<string, number>();
+  const userSolvedProblems = new Map<string, Set<string>>();
+  for (const s of acceptedSubmissions) {
+    if (!userSolvedProblems.has(s.userId)) userSolvedProblems.set(s.userId, new Set());
+    userSolvedProblems.get(s.userId)!.add(s.problemId);
+  }
+  for (const [uid, set] of userSolvedProblems.entries()) {
+    totalSolvedByUser.set(uid, set.size);
+  }
+
+  // Filter by department and year
+  let filtered = students;
+  if (department && department !== 'ALL') {
+    filtered = filtered.filter((s) => s.department === department);
+  }
+  if (year && year !== 'ALL') {
+    filtered = filtered.filter((s) => s.year === year);
+  }
+  if (search) {
+    filtered = filtered.filter(
+      (s) =>
+        (s.displayName && s.displayName.toLowerCase().includes(search)) ||
+        (s.username && s.username.toLowerCase().includes(search)) ||
+        (s.department && s.department.toLowerCase().includes(search)) ||
+        (s.year && s.year.toLowerCase().includes(search))
+    );
+  }
+
+  // Points + Streak Ranking Formula:
+  // 1. totalPoints DESC
+  // 2. currentStreak DESC (Consistency tie-breaker)
+  // 3. totalSolved DESC
+  // 4. createdAt ASC (earlier registered)
+  // 5. id ASC
+  filtered.sort((a, b) => {
+    const ptsA = a.totalPoints || 0;
+    const ptsB = b.totalPoints || 0;
+    if (ptsA !== ptsB) return ptsB - ptsA;
+
+    const strkA = a.currentStreak || 0;
+    const strkB = b.currentStreak || 0;
+    if (strkA !== strkB) return strkB - strkA;
+
+    const slvA = totalSolvedByUser.get(a.id) || 0;
+    const slvB = totalSolvedByUser.get(b.id) || 0;
+    if (slvA !== slvB) return slvB - slvA;
+
+    const tA = a.createdAt.getTime();
+    const tB = b.createdAt.getTime();
+    if (tA !== tB) return tA - tB;
+
+    return a.id.localeCompare(b.id);
+  });
+
+  const totalStudents = filtered.length;
+  const skip = (page - 1) * limit;
+  const paginatedStudents = filtered.slice(skip, skip + limit);
+
+  const formatStudentRow = (s: (typeof students)[number], rank: number | null) => {
+    const isCurrentUser = Boolean(currentUserId && s.id === currentUserId);
+    const shortId = s.shortId || generateShortId(s.id);
+    const publicDisplayName = formatPublicDisplayName({
+      displayName: s.displayName,
+      shortId,
+      id: s.id,
+    });
+    const ownMaskedPrn = isCurrentUser && s.prn ? maskPrn(s.prn) : undefined;
+    const ownIdentityLabel = isCurrentUser
+      ? formatOwnIdentityLabel({
+          department: s.department,
+          year: s.year,
+          prn: s.prn || null,
+        })
+      : undefined;
+
+    const solvedCount = totalSolvedByUser.get(s.id) || 0;
+    const studentsBeaten = rank ? Math.max(0, totalStudents - rank) : 0;
+    const percentile =
+      rank && totalStudents >= MIN_RANKED_STUDENTS_FOR_PERCENTILE
+        ? Math.ceil((rank / totalStudents) * 100)
+        : null;
+
+    return {
+      id: s.id,
+      userId: s.id,
+      username: s.username,
+      displayName: s.displayName,
+      publicDisplayName,
+      fullName: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+      displayLabel: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+      ...(isCurrentUser
+        ? { maskedPrn: ownMaskedPrn, ownIdentityLabel, isCurrentUser: true }
+        : { isCurrentUser: false }),
+      shortId,
+      college: s.college || 'Sanjivani University',
+      department: s.department,
+      year: s.year,
+      division: s.division,
+      avatarUrl: s.avatarUrl,
+      totalPoints: s.totalPoints || 0,
+      pointsToday: 0,
+      currentStreak: s.currentStreak || 0,
+      rank,
+      dailyRank: rank,
+      percentile,
+      studentsBeaten,
+      solvedCount,
+      totalSolved: solvedCount,
+      wrongAttempts: 0,
+      ...(FEATURES.BADGES && s.userBadges ? { badges: (s.userBadges as any[]).map((ub) => ub.badge) } : {}),
+    };
+  };
+
+  const leaderboard = paginatedStudents.map((s, idx) => formatStudentRow(s, skip + idx + 1));
+
+  let pinnedOwnRow: any = null;
+  if (currentUserId) {
+    const myIndex = filtered.findIndex((s) => s.id === currentUserId);
+    if (myIndex !== -1) {
+      pinnedOwnRow = formatStudentRow(filtered[myIndex], myIndex + 1);
+    } else {
+      const myUser = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          prn: true,
+          shortId: true,
+          college: true,
+          department: true,
+          year: true,
+          division: true,
+          avatarUrl: true,
+          totalPoints: true,
+          currentStreak: true,
+          createdAt: true,
+        },
+      });
+      if (myUser) {
+        pinnedOwnRow = formatStudentRow(myUser as any, null);
+      }
+    }
+  }
+
+  const topThree = filtered.slice(0, 3).map((s, idx) => formatStudentRow(s, idx + 1));
+
+  res.status(200).json({
+    success: true,
+    data: {
+      leaderboard,
+      pinnedOwnRow,
+      totalSolvers: totalStudents,
+      activeTab: 'overall',
+      page,
+      limit,
+      totalPages: Math.ceil(totalStudents / limit) || 1,
+      topThree,
+      dailyChallengePaused: false,
+      paused: false,
+      isFrozen: false,
+      filters: {
+        tab: 'overall',
+        department: department || 'ALL',
+        year: year || 'ALL',
+        allowedDepartments: ALLOWED_DEPARTMENTS,
+        allowedYears: ALLOWED_YEARS,
+      },
+    },
+  });
+}
 
 export default getLeaderboard;

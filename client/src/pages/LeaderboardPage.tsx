@@ -13,7 +13,7 @@ import { Trophy, Flame, GraduationCap, Calendar, UserCheck, Clock, CheckCircle2 
 
 export const LeaderboardPage: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'today' | 'yesterday' | 'past'>('today');
+  const [activeTab, setActiveTab] = useState<'overall' | 'today' | 'yesterday' | 'past'>('overall');
   const [selectedDayId, setSelectedDayId] = useState<string>('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
   const [yearFilter, setYearFilter] = useState<string>('ALL');
@@ -79,12 +79,12 @@ export const LeaderboardPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] flex items-center gap-2.5">
             <Trophy className="w-7 h-7 text-[var(--color-accent)]" />
-            <span>Daily Leaderboard</span>
+            <span>{activeTab === 'overall' ? 'College Leaderboard' : 'Daily Challenge Sprint'}</span>
           </h1>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-mono">
-            Daily competition (17:00 IST cutoff) • {totalSolvers} accepted solver{totalSolvers === 1 ? '' : 's'}
-            {challenge ? ` • ${challenge.title} (${challenge.date})` : ''}
-            {isFrozen ? ' • Frozen Day Archive' : ''}
+            {activeTab === 'overall'
+              ? `Overall Standing • Ranked by Points 💎 & Streak Consistency 🔥 • ${totalSolvers} student${totalSolvers === 1 ? '' : 's'}`
+              : `Daily competition (17:00 IST cutoff) • ${totalSolvers} accepted solver${totalSolvers === 1 ? '' : 's'}${challenge ? ` • ${challenge.title} (${challenge.date})` : ''}${isFrozen ? ' • Frozen Day Archive' : ''}`}
           </p>
         </div>
 
@@ -140,9 +140,25 @@ export const LeaderboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Daily Navigation Tabs: Today | Yesterday | Past days */}
+      {/* Navigation Tabs: Overall Standing | Today Sprint | Yesterday | Past Archive */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-line)] pb-3">
         <div className="flex items-center gap-2 text-xs font-mono">
+          <button
+            type="button"
+            data-testid="tab-overall"
+            onClick={() => {
+              setActiveTab('overall');
+              setSelectedDayId('');
+            }}
+            className={`px-4 py-2 rounded-xl transition-all font-semibold flex items-center gap-1.5 ${
+              activeTab === 'overall'
+                ? 'bg-[var(--color-accent)] text-[#0C0F1F] font-bold shadow-md'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)]'
+            }`}
+          >
+            <span>🌟 Overall Standing</span>
+          </button>
+
           <button
             type="button"
             data-testid="tab-today"
@@ -150,13 +166,13 @@ export const LeaderboardPage: React.FC = () => {
               setActiveTab('today');
               setSelectedDayId('');
             }}
-            className={`px-4 py-2 rounded-xl transition-all ${
+            className={`px-4 py-2 rounded-xl transition-all font-semibold flex items-center gap-1.5 ${
               activeTab === 'today'
                 ? 'bg-[var(--color-accent)] text-[#0C0F1F] font-bold shadow-md'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)]'
             }`}
           >
-            Today (Live)
+            <span>⚡ Daily Sprint</span>
           </button>
 
           <button
@@ -172,7 +188,7 @@ export const LeaderboardPage: React.FC = () => {
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)]'
             }`}
           >
-            Yesterday (Final)
+            Yesterday
           </button>
 
           <button
@@ -190,7 +206,7 @@ export const LeaderboardPage: React.FC = () => {
                 : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)]'
             }`}
           >
-            Past Days Archive
+            Past Archive
           </button>
         </div>
 
@@ -232,8 +248,8 @@ export const LeaderboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Pinned Own-Row Banner (with masked PRN, percentile, accepted time) */}
-      {pinnedOwnRow && !data?.data?.paused && !data?.data?.dailyChallengePaused && (
+      {/* Pinned Own-Row Banner (with masked PRN, percentile, stats) */}
+      {pinnedOwnRow && (!data?.data?.paused || activeTab === 'overall') && (
         <div
           data-testid="pinned-own-row"
           className="glass-card p-4 sm:p-5 rounded-2xl border-2 border-[var(--color-accent)] bg-[var(--bg-panel)] shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -246,7 +262,7 @@ export const LeaderboardPage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-mono uppercase tracking-wider text-[var(--color-accent)] font-bold flex items-center gap-1">
                   <UserCheck className="w-3.5 h-3.5" />
-                  <span>Your Daily Standing</span>
+                  <span>{activeTab === 'overall' ? 'Your College Standing' : 'Your Daily Standing'}</span>
                 </span>
                 <span className="text-sm font-bold text-[var(--text-main)] font-mono">
                   {getDisplayLabel(pinnedOwnRow)}
@@ -258,34 +274,50 @@ export const LeaderboardPage: React.FC = () => {
                     {pinnedOwnRow.percentile !== null && pinnedOwnRow.percentile !== undefined ? (
                       <>Top {pinnedOwnRow.percentile}% • </>
                     ) : (
-                      <span>Needs 10 solvers for percentile • </span>
+                      <span>Needs 10 students for percentile • </span>
                     )}
                     {pinnedOwnRow.studentsBeaten ?? 0} students beaten
                   </>
                 ) : (
-                  <span>Not solved yet • Solve today&apos;s challenge before 17:00 IST to enter the daily rank</span>
+                  <span>
+                    {activeTab === 'overall'
+                      ? 'Solve any Practice or Daily problem to start climbing the college leaderboard!'
+                      : "Not solved yet • Solve today's challenge before 17:00 IST to enter the daily rank"}
+                  </span>
                 )}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-5 text-xs font-mono">
-            <div>
-              <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
-              <strong className="text-[var(--text-main)] text-sm">
-                {formatAcceptedTime(pinnedOwnRow.acceptedAt)}
-              </strong>
-            </div>
-            <div>
-              <span className="text-[var(--text-muted)] block text-[11px]">ATTEMPTS</span>
-              <strong className="text-[var(--text-main)] text-sm">
-                {(pinnedOwnRow.wrongAttempts ?? 0) + 1}
-              </strong>
-            </div>
+            {activeTab !== 'overall' && (
+              <>
+                <div>
+                  <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
+                  <strong className="text-[var(--text-main)] text-sm">
+                    {formatAcceptedTime(pinnedOwnRow.acceptedAt)}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-[var(--text-muted)] block text-[11px]">ATTEMPTS</span>
+                  <strong className="text-[var(--text-main)] text-sm">
+                    {(pinnedOwnRow.wrongAttempts ?? 0) + 1}
+                  </strong>
+                </div>
+              </>
+            )}
             <div>
               <span className="text-[var(--text-muted)] block text-[11px]">STREAK</span>
-              <strong className="text-[var(--color-success)] text-sm">
+              <strong className="text-[var(--color-success)] text-sm flex items-center gap-1">
+                <Flame className="w-3 h-3" />
                 {pinnedOwnRow.currentStreak || 0}d
+              </strong>
+            </div>
+            <div>
+              <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
+              <strong className="text-[var(--text-main)] text-sm flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
+                {pinnedOwnRow.totalSolved ?? pinnedOwnRow.solvedCount ?? 0}
               </strong>
             </div>
             <div>
@@ -298,7 +330,7 @@ export const LeaderboardPage: React.FC = () => {
         </div>
       )}
 
-      {data?.data?.paused || data?.data?.dailyChallengePaused ? (
+      {activeTab !== 'overall' && (data?.data?.paused || data?.data?.dailyChallengePaused) ? (
         <div data-testid="leaderboard-paused-state" className="glass-card p-12 text-center rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] font-mono flex flex-col items-center justify-center space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-center text-cyan-400">
             <Trophy className="w-7 h-7" />
@@ -320,7 +352,7 @@ export const LeaderboardPage: React.FC = () => {
         </div>
       ) : isLoading ? (
         <div className="py-20 text-center font-mono text-[var(--color-accent)] text-sm">
-          Loading daily leaderboard standings...
+          Loading leaderboard standings...
         </div>
       ) : rankedUsers.length === 0 ? (
         <div className="glass-card p-12 text-center rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] font-mono flex flex-col items-center justify-center space-y-4">
@@ -329,18 +361,22 @@ export const LeaderboardPage: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h2 className="text-base font-bold text-[var(--text-main)]">
-              No Solvers Found for Selected Filter
+              {activeTab === 'overall' ? 'No students found for selected filter' : 'No Solvers Found for Selected Filter'}
             </h2>
             <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
-              Only students who solved today&apos;s challenge before 17:00 IST appear on the leaderboard. Be the first to solve it and claim Rank #1!
+              {activeTab === 'overall'
+                ? 'Try selecting All Departments or All Years to view student standings.'
+                : "Only students who solved today's challenge before 17:00 IST appear on the leaderboard. Be the first to solve it and claim Rank #1!"}
             </p>
           </div>
-          <Link
-            to="/challenge"
-            className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] transition-all"
-          >
-            <span>Conquer Daily Challenge</span>
-          </Link>
+          {activeTab !== 'overall' && (
+            <Link
+              to="/challenge"
+              className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] transition-all"
+            >
+              <span>Conquer Daily Challenge</span>
+            </Link>
+          )}
         </div>
       ) : (
         <>
@@ -365,12 +401,21 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
 
                 <div className="mt-4 pt-3 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
-                    <strong className="text-[var(--text-main)] text-sm">
-                      {formatAcceptedTime(topThree[1].acceptedAt)}
-                    </strong>
-                  </div>
+                  {activeTab !== 'overall' ? (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
+                      <strong className="text-[var(--text-main)] text-sm">
+                        {formatAcceptedTime(topThree[1].acceptedAt)}
+                      </strong>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
+                      <strong className="text-[var(--text-main)] text-sm">
+                        {topThree[1].totalSolved ?? topThree[1].solvedCount ?? 0}
+                      </strong>
+                    </div>
+                  )}
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-sm">
@@ -406,12 +451,21 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
 
                 <div className="mt-5 pt-4 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
-                    <strong className="text-[var(--text-main)] text-base">
-                      {formatAcceptedTime(topThree[0].acceptedAt)}
-                    </strong>
-                  </div>
+                  {activeTab !== 'overall' ? (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
+                      <strong className="text-[var(--text-main)] text-base">
+                        {formatAcceptedTime(topThree[0].acceptedAt)}
+                      </strong>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
+                      <strong className="text-[var(--text-main)] text-base">
+                        {topThree[0].totalSolved ?? topThree[0].solvedCount ?? 0}
+                      </strong>
+                    </div>
+                  )}
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-base">
@@ -447,12 +501,21 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
 
                 <div className="mt-4 pt-3 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
-                    <strong className="text-[var(--text-main)] text-sm">
-                      {formatAcceptedTime(topThree[2].acceptedAt)}
-                    </strong>
-                  </div>
+                  {activeTab !== 'overall' ? (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">ACCEPTED</span>
+                      <strong className="text-[var(--text-main)] text-sm">
+                        {formatAcceptedTime(topThree[2].acceptedAt)}
+                      </strong>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
+                      <strong className="text-[var(--text-main)] text-sm">
+                        {topThree[2].totalSolved ?? topThree[2].solvedCount ?? 0}
+                      </strong>
+                    </div>
+                  )}
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-sm">
@@ -476,13 +539,19 @@ export const LeaderboardPage: React.FC = () => {
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-[var(--bg-main)] text-[var(--text-muted)] uppercase text-[11px] tracking-wider border-b border-[var(--border-line)]">
                   <tr>
-                    <th className="px-4 sm:px-6 py-3.5">Daily Rank</th>
+                    <th className="px-4 sm:px-6 py-3.5">
+                      {activeTab === 'overall' ? 'College Rank' : 'Daily Rank'}
+                    </th>
                     <th className="px-4 sm:px-6 py-3.5">Challenger</th>
                     <th className="px-4 sm:px-6 py-3.5">Department & Year</th>
-                    <th className="px-4 sm:px-6 py-3.5">Accepted Time</th>
-                    <th className="px-4 sm:px-6 py-3.5">Attempts</th>
+                    {activeTab !== 'overall' && (
+                      <>
+                        <th className="px-4 sm:px-6 py-3.5">Accepted Time</th>
+                        <th className="px-4 sm:px-6 py-3.5">Attempts</th>
+                      </>
+                    )}
                     <th className="px-4 sm:px-6 py-3.5">Streak</th>
-                    <th className="px-4 sm:px-6 py-3.5">Total Solved</th>
+                    <th className="px-4 sm:px-6 py-3.5">Problems Solved</th>
                     <th className="px-4 sm:px-6 py-3.5 text-right">Total Points</th>
                   </tr>
                 </thead>
@@ -521,12 +590,16 @@ export const LeaderboardPage: React.FC = () => {
                             u.college ||
                             'Sanjivani University'}
                         </td>
-                        <td className="px-4 sm:px-6 py-4 text-[var(--text-main)]">
-                          {formatAcceptedTime(u.acceptedAt)}
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 text-[var(--text-muted)]">
-                          {(u.wrongAttempts ?? 0) + 1}
-                        </td>
+                        {activeTab !== 'overall' && (
+                          <>
+                            <td className="px-4 sm:px-6 py-4 text-[var(--text-main)]">
+                              {formatAcceptedTime(u.acceptedAt)}
+                            </td>
+                            <td className="px-4 sm:px-6 py-4 text-[var(--text-muted)]">
+                              {(u.wrongAttempts ?? 0) + 1}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 sm:px-6 py-4">
                           <span className="inline-flex items-center gap-1 text-[var(--color-success)] font-semibold">
                             <Flame className="w-3.5 h-3.5" />
