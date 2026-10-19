@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.js';
 import { Navbar } from './components/layout/Navbar.js';
@@ -111,6 +111,27 @@ const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 export const App: React.FC = () => {
   const { user, authState } = useAuth();
   const location = useLocation();
+
+  // Background Pre-Warm & Keep-Alive for Render Backend
+  useEffect(() => {
+    const rawApiUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+    const pingEndpoint = `${rawApiUrl}/practice/modules`;
+
+    const warmBackend = () => {
+      fetch(pingEndpoint, { method: 'GET', credentials: 'omit' }).catch(() => {
+        // Silent background ping
+      });
+    };
+
+    // 1. Immediate pre-warm on initial page load / app visit
+    warmBackend();
+
+    // 2. Keep-alive ping every 8 minutes while user has tab open (prevents Render 15-min sleep)
+    const intervalId = setInterval(warmBackend, 8 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const isWorkspaceRoute =
     location.pathname.startsWith('/challenge') ||
     location.pathname.startsWith('/practice/');
