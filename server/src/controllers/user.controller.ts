@@ -37,6 +37,7 @@ import {
   getStudentDailySummary,
   runDailyFinalizationJob,
 } from '../services/daily-finalization.service.js';
+import { PRACTICE_CONFIG, PracticeModuleConfig } from '../config/practice.config.js';
 
 function stripHtmlTags(str: string): string {
   return str.replace(/<[^>]*>?/gm, '').trim();
@@ -292,6 +293,111 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
       bestDailyRank = finalRank;
     }
 
+    // Practice progress stats (Curriculum mastery & module progress)
+    const [practiceProgressList, publishedPracticeProblems, acceptedPracticeSubmissions] = await Promise.all([
+      prisma.practiceProgress.findMany({
+        where: { userId: user.id },
+        select: {
+          problemId: true,
+          moduleSlug: true,
+          isSolved: true,
+          attemptsCount: true,
+          activeSeconds: true,
+          firstAttemptAccepted: true,
+        },
+      }),
+      prisma.problem.findMany({
+        where: { isPractice: true, status: 'PUBLISHED' },
+        select: { id: true, moduleSlug: true, difficulty: true },
+      }),
+      prisma.submission.findMany({
+        where: {
+          userId: user.id,
+          verdict: 'ACCEPTED',
+          OR: [{ submissionType: 'PRACTICE' }, { problem: { isPractice: true } }],
+        },
+        select: { problemId: true },
+      }),
+    ]);
+
+    const solvedPracticeProblemIds = new Set<string>();
+    for (const prog of practiceProgressList) {
+      if (prog.isSolved) solvedPracticeProblemIds.add(prog.problemId);
+    }
+    for (const sub of acceptedPracticeSubmissions) {
+      solvedPracticeProblemIds.add(sub.problemId);
+    }
+
+    let practiceSolvedCount = 0;
+    let practiceEasySolved = 0;
+    let practiceMediumSolved = 0;
+    let practiceHardSolved = 0;
+    const practiceSolvedByModule: Record<string, number> = {};
+
+    for (const prob of publishedPracticeProblems) {
+      const isSolved = solvedPracticeProblemIds.has(prob.id);
+      if (isSolved) {
+        practiceSolvedCount++;
+        if (prob.moduleSlug) {
+          practiceSolvedByModule[prob.moduleSlug] = (practiceSolvedByModule[prob.moduleSlug] || 0) + 1;
+        }
+        if (prob.difficulty === 'EASY') practiceEasySolved++;
+        else if (prob.difficulty === 'MEDIUM') practiceMediumSolved++;
+        else if (prob.difficulty === 'HARD') practiceHardSolved++;
+      }
+    }
+
+    let totalPracticeActiveSeconds = 0;
+    let firstAttemptAcceptedCount = 0;
+    for (const prog of practiceProgressList) {
+      totalPracticeActiveSeconds += prog.activeSeconds || 0;
+      if (prog.firstAttemptAccepted) {
+        firstAttemptAcceptedCount++;
+      }
+    }
+
+    let previousModSolved = 0;
+    const practiceModules = PRACTICE_CONFIG.MODULES.map((mod: PracticeModuleConfig, idx: number) => {
+      const solved = practiceSolvedByModule[mod.slug] || 0;
+      const total = mod.totalQuestions || 10;
+      const isCompleted = solved >= total;
+      let isUnlocked = false;
+      if (idx === 0) {
+        isUnlocked = true;
+      } else {
+        const threshold = mod.requiredSolvedToUnlock || PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD;
+        isUnlocked = previousModSolved >= threshold;
+      }
+      previousModSolved = solved;
+      const percentage = Math.min(100, Math.round((solved / total) * 100));
+
+      return {
+        id: mod.id,
+        order: mod.order,
+        slug: mod.slug,
+        title: mod.title,
+        description: mod.description,
+        totalQuestions: total,
+        solvedCount: solved,
+        percentage,
+        isUnlocked,
+        isCompleted,
+      };
+    });
+
+    const totalPracticeQuestions = publishedPracticeProblems.length > 0 ? publishedPracticeProblems.length : 40;
+    const practiceStats = {
+      totalSolved: practiceSolvedCount,
+      totalQuestions: totalPracticeQuestions,
+      percentage: totalPracticeQuestions > 0 ? Math.min(100, Math.round((practiceSolvedCount / totalPracticeQuestions) * 100)) : 0,
+      easySolved: practiceEasySolved,
+      mediumSolved: practiceMediumSolved,
+      hardSolved: practiceHardSolved,
+      totalActiveSeconds: totalPracticeActiveSeconds,
+      firstAttemptAcceptedCount,
+      modules: practiceModules,
+    };
+
     res.status(200).json({
       success: true,
       data: {
@@ -362,6 +468,7 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           heatmap,
           streakHeatmap90d,
           rankHistory30d,
+          practiceStats,
         },
       },
     });

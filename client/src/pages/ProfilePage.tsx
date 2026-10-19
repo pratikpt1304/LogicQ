@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   AlertCircle,
   CheckCircle2,
+  BookOpen,
   KeyRound,
   Trophy,
   Target,
@@ -592,6 +593,260 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Practice Curriculum Mastery & Module Progress */}
+      {profile.practiceStats && (
+        <div data-testid="profile-practice-mastery" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#252C4F] pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-[#8B9BFF]" />
+                <h2 className="text-base font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
+                  Practice Curriculum Mastery
+                </h2>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/30 font-semibold">
+                  4 Modules • 40 Problems
+                </span>
+              </div>
+              <p className="text-xs font-mono text-[#9AA1C4] mt-1">
+                4-phase structured C programming curriculum from Control Structures to Dynamic Memory
+              </p>
+            </div>
+            <Link
+              to="/practice"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#8B9BFF]/10 hover:bg-[#8B9BFF]/20 text-[#8B9BFF] border border-[#8B9BFF]/30 text-xs font-mono font-semibold transition-colors self-start sm:self-auto"
+            >
+              <span>Go to Practice Arena</span>
+              <span>→</span>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            {/* Left: LeetCode-style Donut Progress Ring */}
+            <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]/80">
+              <div className="relative w-44 h-44 flex items-center justify-center">
+                {/* SVG Donut */}
+                {(() => {
+                  const size = 160;
+                  const strokeWidth = 14;
+                  const radius = (size - strokeWidth) / 2;
+                  const circumference = 2 * Math.PI * radius;
+
+                  const total = profile.practiceStats.totalQuestions || 40;
+                  const easy = profile.practiceStats.easySolved || 0;
+                  const medium = profile.practiceStats.mediumSolved || 0;
+                  const hard = profile.practiceStats.hardSolved || 0;
+
+                  // Arc lengths
+                  const easyLen = total > 0 ? (easy / total) * circumference : 0;
+                  const medLen = total > 0 ? (medium / total) * circumference : 0;
+                  const hardLen = total > 0 ? (hard / total) * circumference : 0;
+
+                  // Dash offsets (starting from top -90deg)
+                  const easyOffset = 0;
+                  const medOffset = -easyLen;
+                  const hardOffset = -(easyLen + medLen);
+
+                  return (
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
+                      {/* Background Track */}
+                      <circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        fill="none"
+                        stroke="#1F2647"
+                        strokeWidth={strokeWidth}
+                      />
+                      {/* Easy Arc */}
+                      {easy > 0 && (
+                        <circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke="#46D9A0"
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={`${easyLen} ${circumference}`}
+                          strokeDashoffset={easyOffset}
+                          strokeLinecap="round"
+                        />
+                      )}
+                      {/* Medium Arc */}
+                      {medium > 0 && (
+                        <circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke="#8B9BFF"
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={`${medLen} ${circumference}`}
+                          strokeDashoffset={medOffset}
+                          strokeLinecap="round"
+                        />
+                      )}
+                      {/* Hard Arc */}
+                      {hard > 0 && (
+                        <circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke="#FF7A8A"
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={`${hardLen} ${circumference}`}
+                          strokeDashoffset={hardOffset}
+                          strokeLinecap="round"
+                        />
+                      )}
+                    </svg>
+                  );
+                })()}
+
+                {/* Center Content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="text-2xl font-extrabold font-mono text-[#E8EAF6] tracking-tight">
+                    {profile.practiceStats.totalSolved}
+                    <span className="text-xs text-[#9AA1C4] font-normal">/{profile.practiceStats.totalQuestions || 40}</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-[#9AA1C4] uppercase tracking-wider">
+                    Solved
+                  </span>
+                  <span className="text-[11px] font-mono font-bold text-[#8B9BFF] mt-0.5">
+                    {profile.practiceStats.percentage}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Difficulty Breakdown Badges Under Donut */}
+              <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-[#252C4F]">
+                <div className="text-center">
+                  <div className="text-[10px] font-mono font-semibold text-[#46D9A0] flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#46D9A0]" />
+                    Easy
+                  </div>
+                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                    {profile.practiceStats.easySolved}
+                    <span className="text-[10px] text-[#9AA1C4] font-normal">/16</span>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <div className="text-[10px] font-mono font-semibold text-[#8B9BFF] flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#8B9BFF]" />
+                    Med
+                  </div>
+                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                    {profile.practiceStats.mediumSolved}
+                    <span className="text-[10px] text-[#9AA1C4] font-normal">/16</span>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <div className="text-[10px] font-mono font-semibold text-[#FF7A8A] flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A8A]" />
+                    Hard
+                  </div>
+                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                    {profile.practiceStats.hardSolved}
+                    <span className="text-[10px] text-[#9AA1C4] font-normal">/8</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Practice telemetry: Active time & 1st attempt solve */}
+              {(profile.practiceStats.totalActiveSeconds > 0 || profile.practiceStats.firstAttemptAcceptedCount > 0) && (
+                <div className="flex items-center justify-between w-full mt-3 px-1 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]/60">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-[#8B9BFF]" />
+                    {profile.practiceStats.totalActiveSeconds >= 3600
+                      ? `${Math.floor(profile.practiceStats.totalActiveSeconds / 3600)}h ${Math.floor((profile.practiceStats.totalActiveSeconds % 3600) / 60)}m`
+                      : `${Math.round(profile.practiceStats.totalActiveSeconds / 60)} mins`}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-[#46D9A0]" />
+                    {profile.practiceStats.firstAttemptAcceptedCount} first-try
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Right: 4 Module Progress Bars */}
+            <div className="md:col-span-7 space-y-3">
+              <div className="text-xs font-mono font-semibold text-[#9AA1C4] uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Modules Curriculum Progress</span>
+                <span className="text-[10px] text-[#8B9BFF]">{profile.practiceStats.totalSolved} of {profile.practiceStats.totalQuestions || 40} completed</span>
+              </div>
+
+              {(profile.practiceStats.modules || []).map((mod: any) => {
+                const isLocked = !mod.isUnlocked;
+                const isDone = mod.isCompleted;
+
+                return (
+                  <div
+                    key={mod.id}
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      isDone
+                        ? 'bg-[#0C0F1F] border-[#46D9A0]/30 hover:border-[#46D9A0]/50'
+                        : isLocked
+                        ? 'bg-[#0C0F1F]/50 border-[#252C4F]/40 opacity-70'
+                        : 'bg-[#0C0F1F] border-[#8B9BFF]/30 hover:border-[#8B9BFF]/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-mono font-bold text-[#8B9BFF] px-1.5 py-0.5 rounded bg-[#8B9BFF]/10 shrink-0">
+                          M{mod.order}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-[#E8EAF6] truncate">
+                          {mod.title}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isDone ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#46D9A0] bg-[#46D9A0]/10 px-2 py-0.5 rounded-full border border-[#46D9A0]/30">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Completed
+                          </span>
+                        ) : isLocked ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#9AA1C4] bg-[#252C4F]/30 px-2 py-0.5 rounded-full border border-[#252C4F]">
+                            <Lock className="w-3 h-3 text-[#9AA1C4]" />
+                            Locked
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#8B9BFF] bg-[#8B9BFF]/10 px-2 py-0.5 rounded-full border border-[#8B9BFF]/30">
+                            In Progress
+                          </span>
+                        )}
+
+                        <span className="text-xs font-mono font-bold text-[#E8EAF6]">
+                          {mod.solvedCount}/{mod.totalQuestions}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-[#141932] h-2 rounded-full overflow-hidden border border-[#252C4F]/50">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isDone
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                            : isLocked
+                            ? 'bg-[#252C4F]'
+                            : 'bg-gradient-to-r from-indigo-500 to-blue-400'
+                        }`}
+                        style={{ width: `${Math.max(mod.percentage, isDone ? 100 : 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Student Charts Section: 90-Day Challenge Streak Heatmap & 30-Day Daily Rank Trend */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
