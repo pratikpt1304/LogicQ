@@ -126,17 +126,99 @@ export const ProfilePage: React.FC = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['profile', targetIdentifier],
     queryFn: async () => {
+      let serverUser: any = null;
       try {
-        return await api.get(`/users/profile/${targetIdentifier}`);
+        const res = await api.get(`/users/profile/${targetIdentifier}`);
+        serverUser = res?.data?.user;
       } catch (err) {
         if (isOwnProfile && currentUser?.id) {
           const fsUser = await FirestoreDataService.getUserProfile(currentUser.id);
           if (fsUser) {
-            return { success: true, data: { user: fsUser } };
+            serverUser = fsUser;
           }
         }
-        throw err;
+        if (!serverUser) throw err;
       }
+
+      // If viewing own profile or profile matches current user, ensure stats persistence
+      if (isOwnProfile && currentUser?.id) {
+        try {
+          const [fsUser, fsPractice, fsSubmissions] = await Promise.all([
+            FirestoreDataService.getUserProfile(currentUser.id).catch(() => null),
+            FirestoreDataService.getPracticeProgress(currentUser.id).catch(() => null),
+            FirestoreDataService.getUserSubmissions(currentUser.id).catch(() => []),
+          ]);
+
+          // Calculate solved problems from local storage fallback as well
+          let localSolvedCount = 0;
+          try {
+            const rawPrac = localStorage.getItem('logicq_fallback_practice_progress_v1');
+            if (rawPrac) {
+              const parsed = JSON.parse(rawPrac);
+              const prefix = `${currentUser.id}:`;
+              localSolvedCount = Object.entries(parsed).filter(
+                ([k, v]: [string, any]) => k.startsWith(prefix) && v?.isSolved
+              ).length;
+            }
+          } catch {}
+
+          const fsSolvedCount = fsPractice?.completedProblems?.length || 0;
+          const acceptedSubmissionsCount = new Set(
+            fsSubmissions.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)
+          ).size;
+
+          const authoritativeSolved = Math.max(
+            serverUser?.totalSolved || 0,
+            serverUser?.practiceStats?.totalSolved || 0,
+            fsSolvedCount,
+            acceptedSubmissionsCount,
+            localSolvedCount
+          );
+
+          const authoritativePoints = Math.max(
+            serverUser?.totalPoints || 0,
+            currentUser?.totalPoints || 0,
+            fsUser?.totalPoints || 0
+          );
+
+          const authoritativeCurrentStreak = Math.max(
+            serverUser?.currentStreak || 0,
+            currentUser?.currentStreak || 0,
+            fsUser?.currentStreak || 0
+          );
+
+          const authoritativeLongestStreak = Math.max(
+            serverUser?.longestStreak || 0,
+            currentUser?.longestStreak || 0,
+            fsUser?.longestStreak || 0
+          );
+
+          serverUser = {
+            ...serverUser,
+            ...(fsUser || {}),
+            ...serverUser, // retain computed fields like rank, badges, etc.
+            totalPoints: authoritativePoints,
+            currentStreak: authoritativeCurrentStreak,
+            longestStreak: authoritativeLongestStreak,
+            totalSolved: authoritativeSolved,
+            ...(serverUser?.practiceStats
+              ? {
+                  practiceStats: {
+                    ...serverUser.practiceStats,
+                    totalSolved: Math.max(
+                      serverUser.practiceStats.totalSolved || 0,
+                      authoritativeSolved
+                    ),
+                  },
+                }
+              : {}),
+          };
+        } catch (mergeErr) {
+          console.warn('Profile Firestore data merge error:', mergeErr);
+        }
+      }
+
+      return { success: true, data: { user: serverUser } };
     },
     enabled: !!targetIdentifier,
   });
@@ -236,16 +318,21 @@ export const ProfilePage: React.FC = () => {
     try {
       const authResult = await GoogleDriveService.requestAccessToken();
       if (!authResult.success) {
+        if (authResult.error === 'USER_CANCELLED') {
+          toast.info('Google Drive authorization was cancelled.');
+          return;
+        }
         if (authResult.error === 'COLLEGE_WORKSPACE_BLOCKED') {
           const msg =
-            'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.';
+            'Your college administrator has restricted Google Drive integrations. Downloading your backup directly...';
           setProfileWorkspaceBlockMsg(msg);
-          toast.error(msg);
-        } else if (authResult.error === 'USER_CANCELLED') {
-          toast.info('Google Drive authorization was cancelled.');
-        } else {
-          toast.error(authResult.message || 'Could not connect Google Drive.');
+          toast.info(msg);
+          await handleExportData();
+          return;
         }
+        // Seamless fallback: directly download the offline backup file with 0 errors!
+        toast.info('Downloading your backup file directly to your device...', { id: 'profile-drive-export' });
+        await handleExportData();
         return;
       }
 
@@ -488,7 +575,7 @@ export const ProfilePage: React.FC = () => {
         <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
           <span className="text-xs font-mono text-[#9AA1C4] block mb-1">TOTAL SCORE</span>
           <span className="text-2xl font-extrabold text-[#8B9BFF] font-mono">
-            {profile.totalPoints || 0} PTS
+            {Math.max(profile.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0)} PTS
           </span>
         </div>
 
@@ -496,14 +583,14 @@ export const ProfilePage: React.FC = () => {
           <span className="text-xs font-mono text-[#9AA1C4] block mb-1">CURRENT STREAK</span>
           <span className="text-2xl font-extrabold text-[#46D9A0] font-mono flex items-center gap-1">
             <Flame className="w-6 h-6" />
-            {profile.currentStreak || 0}d
+            {Math.max(profile.currentStreak || 0, isOwnProfile ? (currentUser?.currentStreak || 0) : 0)}d
           </span>
         </div>
 
         <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
           <span className="text-xs font-mono text-[#9AA1C4] block mb-1">LONGEST STREAK</span>
           <span className="text-2xl font-extrabold text-[#E8EAF6] font-mono">
-            {profile.longestStreak || 0} days
+            {Math.max(profile.longestStreak || 0, isOwnProfile ? (currentUser?.longestStreak || 0) : 0)} days
           </span>
         </div>
 

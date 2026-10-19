@@ -366,7 +366,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : null;
 
       if (serverUser) {
-        if (existingCompleted && existingCompleted.profileComplete && !serverUser.profileComplete) {
+        if (existingCompleted) {
           serverUser = {
             ...serverUser,
             prn: existingCompleted.prn || serverUser.prn,
@@ -376,7 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             division: existingCompleted.division || serverUser.division,
             displayName: existingCompleted.displayName || serverUser.displayName,
             fullName: existingCompleted.fullName || serverUser.fullName,
-            profileComplete: true,
+            profileComplete: existingCompleted.profileComplete || serverUser.profileComplete,
             totalPoints: Math.max(serverUser.totalPoints || 0, existingCompleted.totalPoints || 0),
             currentStreak: Math.max(serverUser.currentStreak || 0, existingCompleted.currentStreak || 0),
             longestStreak: Math.max(serverUser.longestStreak || 0, existingCompleted.longestStreak || 0),

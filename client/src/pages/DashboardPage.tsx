@@ -116,11 +116,10 @@ export const DashboardPage: React.FC = () => {
         } else if (authResult.error === 'USER_CANCELLED') {
           toast.info('Google Drive authorization was cancelled.');
         } else {
-          toast.error(authResult.message || 'Could not connect Google Drive.', {
-            description: 'You can also download your full offline backup file directly anytime.',
-          });
+          toast.info('Downloading your backup file directly to your device...', { id: 'local-backup' });
+          await handleDownloadLocalBackup();
+          return;
         }
-        return;
       }
 
       toast.loading('Exporting history to Google Drive...', { id: 'drive-export' });
