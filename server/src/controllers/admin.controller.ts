@@ -900,10 +900,89 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
       prisma.submission.count({ where }),
     ]);
 
+    const userProblemPairs = submissions.map((s) => ({
+      userId: s.userId,
+      problemId: s.problemId,
+    }));
+
+    // Fetch practice progress and prior submissions to compute attempt number and solve time
+    const [progressRecords, userProblemSubs] = await Promise.all([
+      userProblemPairs.length > 0
+        ? prisma.practiceProgress.findMany({
+            where: {
+              OR: userProblemPairs.map((p) => ({
+                userId: p.userId,
+                problemId: p.problemId,
+              })),
+            },
+            select: {
+              userId: true,
+              problemId: true,
+              attemptsCount: true,
+              activeSeconds: true,
+              timeToSolveSeconds: true,
+              firstAttemptAccepted: true,
+              isSolved: true,
+            },
+          })
+        : [],
+      userProblemPairs.length > 0
+        ? prisma.submission.findMany({
+            where: {
+              OR: userProblemPairs.map((p) => ({
+                userId: p.userId,
+                problemId: p.problemId,
+              })),
+            },
+            select: {
+              id: true,
+              userId: true,
+              problemId: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          })
+        : [],
+    ]);
+
+    const progressMap = new Map<string, (typeof progressRecords)[0]>();
+    for (const prog of progressRecords) {
+      progressMap.set(`${prog.userId}_${prog.problemId}`, prog);
+    }
+
+    const attemptNumberMap = new Map<string, number>();
+    const totalAttemptsMap = new Map<string, number>();
+    for (const sub of userProblemSubs) {
+      const key = `${sub.userId}_${sub.problemId}`;
+      const current = (totalAttemptsMap.get(key) || 0) + 1;
+      totalAttemptsMap.set(key, current);
+      attemptNumberMap.set(sub.id, current);
+    }
+
+    const enrichedSubmissions = submissions.map((sub) => {
+      const key = `${sub.userId}_${sub.problemId}`;
+      const prog = progressMap.get(key);
+      const attemptNumber = attemptNumberMap.get(sub.id) || 1;
+      const totalAttempts = prog?.attemptsCount || totalAttemptsMap.get(key) || 1;
+      const timeToSolveSeconds = prog?.timeToSolveSeconds ?? null;
+      const activeSeconds = prog?.activeSeconds ?? null;
+
+      return {
+        ...sub,
+        attemptNumber,
+        totalAttempts,
+        timeToSolveSeconds,
+        activeSeconds,
+        isFirstAttemptAccepted: Boolean(
+          prog?.firstAttemptAccepted || (attemptNumber === 1 && sub.verdict === 'ACCEPTED')
+        ),
+      };
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        submissions,
+        submissions: enrichedSubmissions,
         pagination: {
           page,
           limit,

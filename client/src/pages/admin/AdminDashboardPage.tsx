@@ -40,9 +40,12 @@ import {
   Pause,
   AlertCircle,
   CheckCircle,
+  Zap,
+  Clock,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
+import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -1746,6 +1749,8 @@ export const AdminDashboardPage: React.FC = () => {
                     <th className="px-4 py-3.5">Academic Info</th>
                     <th className="px-4 py-3.5">Problem</th>
                     <th className="px-4 py-3.5">Verdict</th>
+                    <th className="px-4 py-3.5">Attempts</th>
+                    <th className="px-4 py-3.5">Solve / Focus Time</th>
                     <th className="px-4 py-3.5">Runtime</th>
                     <th className="px-4 py-3.5">Submitted</th>
                     <th className="px-4 py-3.5 text-right">Actions</th>
@@ -1776,6 +1781,43 @@ export const AdminDashboardPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-white text-xs font-mono">
+                            Attempt #{sub.attemptNumber || 1}
+                          </span>
+                          {sub.isFirstAttemptAccepted ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1 w-fit font-mono">
+                              <Zap className="w-2.5 h-2.5" /> 1st Try Solve
+                            </span>
+                          ) : sub.totalAttempts && sub.totalAttempts > 1 ? (
+                            <span className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                              {sub.totalAttempts} tries total
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        {sub.timeToSolveSeconds != null && sub.timeToSolveSeconds > 0 ? (
+                          <div>
+                            <div className="flex items-center gap-1 text-emerald-400 font-bold font-mono">
+                              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>{formatPracticeTime(sub.timeToSolveSeconds)}</span>
+                            </div>
+                            <span className="text-[10px] text-emerald-400/80 block font-mono">Solved in</span>
+                          </div>
+                        ) : sub.activeSeconds != null && sub.activeSeconds > 0 ? (
+                          <div>
+                            <div className="flex items-center gap-1 text-cyan-400 font-mono">
+                              <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>{formatPracticeTime(sub.activeSeconds)}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 block font-mono">Active focus</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500 font-mono text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-slate-400">
                         {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
