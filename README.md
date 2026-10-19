@@ -1,414 +1,261 @@
 <p align="center">
-  <img src="client/public/brand/logo-mark.svg" alt="LogicQ Logo" width="80" height="80" />
+  <img src="client/public/brand/logo-mark.svg" alt="LogicQ Logo" width="88" height="88" />
 </p>
 
 # LogicQ
 
-> **Daily C programming challenge and practice platform for undergraduate engineering students**  
-> *Engineered for Sanjivani University Undergraduate Engineering Programs*
+> **Enterprise-Grade Competitive C Programming & Structured Curriculum Platform for University Engineers**  
+> *Engineered for Sanjivani University Undergraduate Engineering Programs (Sanjivani Group of Institutes)*
 
 [![Release Status](https://img.shields.io/badge/Release_Status-Production_Live-46D9A0?style=for-the-badge&logo=rocket&logoColor=white)](https://logicq-clanguage.web.app)
-[![Live Deployment](https://img.shields.io/badge/Live_Hosting-logicq--clanguage.web.app-blue?style=for-the-badge&logo=google-chrome&logoColor=white)](https://logicq-clanguage.web.app)
-[![Security Rules](https://img.shields.io/badge/Firestore_Rules-47%2F47_Verified-success?style=for-the-badge&logo=firebase&logoColor=white)](docs/SECURITY_RULES.md)
+[![Live Frontend](https://img.shields.io/badge/Live_Client-logicq--clanguage.web.app-blue?style=for-the-badge&logo=google-chrome&logoColor=white)](https://logicq-clanguage.web.app)
+[![Backend API](https://img.shields.io/badge/Render_API-Live_Online-8B9BFF?style=for-the-badge&logo=render&logoColor=white)](https://logicq-bitwiseclub.onrender.com)
+[![Firestore Security](https://img.shields.io/badge/Firestore_Rules-47%2F47_Verified-success?style=for-the-badge&logo=firebase&logoColor=white)](docs/SECURITY_RULES.md)
 [![Build Guard](https://img.shields.io/badge/Build_Guard-Zero_Storage_Violations-success?style=for-the-badge&logo=typescript&logoColor=white)](#testing-and-scripts)
 [![Security Policy](https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white)](SECURITY.md)
 
 ---
 
-## 📌 Overview
+## 📌 Executive Summary
 
-**LogicQ** is a dedicated campus competitive programming and algorithmic thinking platform designed specifically for undergraduate engineering students mastering the **C programming language** (ISO C11 standard).
+**LogicQ** is a high-performance, security-hardened competitive programming and algorithmic thinking platform designed specifically for undergraduate engineering students mastering the **C programming language** (ISO C11 standard).
 
-Unlike broad algorithmic websites that present beginners with thousands of unstructured problems and noisy gamification, LogicQ focuses on three core educational pillars:
-1. **Daily Focused Habit**: Exactly one challenge per day, synchronizing at **17:00 IST**, emphasizing steady consistency over speed hacking.
-2. **Sequential Syllabus Practice**: 4 structured topic modules (40 vetted problems) spanning Control Structures to Dynamic Memory, unlocking on a strict 10-of-10 mastery rule.
-3. **Multi-Faceted Feedback**: Real-time sandboxed C11 compiler feedback for code, paired with blinded faculty review for uploaded handwritten logic and flowcharts.
+Unlike generic coding platforms that overwhelm beginners with thousands of disorganized algorithmic puzzles and distracting gamification, LogicQ is structured around **three educational pillars**:
 
----
-
-## 🖼️ UI Previews & Screenshots
-
-All screenshots are captured using **clean test environments with fake data only** (no real student names, PRNs, personal info, browser tabs, or external notifications). High-resolution compressed images are located in [`docs/screenshots/readme/`](docs/screenshots/readme/):
-
-| View | Description | Screenshot Link |
-| :--- | :--- | :---: |
-| **Landing Page** | Public portal highlighting syllabus tracks and daily rhythm | [01_landing.png](docs/screenshots/readme/01_landing.png) |
-| **Sign In** | Clean authentication with Google OAuth & credentials | [02_login.png](docs/screenshots/readme/02_login.png) |
-| **Profile Completion** | University PRN validation (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`) & division | [03_profile_completion.png](docs/screenshots/readme/03_profile_completion.png) |
-| **Daily Challenge & Editor** | Monaco C11 workspace, compilation console & mobile toolbar | [04_daily_challenge.png](docs/screenshots/readme/04_daily_challenge.png) |
-| **Daily Leaderboard** | Consistency-ordered board (Streak $\rightarrow$ Solved $\rightarrow$ Stable ID) | [05_leaderboard.png](docs/screenshots/readme/05_leaderboard.png) |
-| **Admin Operations** | Centralized dashboard for user status, pause control & reviews | [06_admin_dashboard.png](docs/screenshots/readme/06_admin_dashboard.png) |
-| **Mobile PWA View** | Ergonomic C symbol helper toolbar on 360px viewport | [07_mobile_view.png](docs/screenshots/readme/07_mobile_view.png) |
-
----
-
-## ✨ Features & Capabilities
-
-- **🕒 Daily Challenge at 17:00 IST (Single Visible Question)**: Challenges run on a 24-hour cycle (17:00 IST to 17:00 IST) with a 10-minute drain grace. Past and future challenges return 410/404 to students.  
-  *(Current Status: Strictly **PAUSED** (`dailyChallengePaused = true`) in production while problem statements undergo final faculty curriculum verification).*
-- **⚡ Sandboxed GCC C11 Judge Engine**: Real compilation runner (`-Wall -Wextra -O2 -std=c11`) with hard 1.0s CPU and 128 MB RAM execution limits. Provides standard verdict classifications (`ACCEPTED`, `WRONG_ANSWER`, `TIME_LIMIT_EXCEEDED`, `MEMORY_LIMIT_EXCEEDED`, `COMPILATION_ERROR`, `RUNTIME_ERROR`). Hidden test cases are strictly verified on the server and never sent to the browser.
-- **🌐 Honest Connectivity & Non-Destructive Retries**: Clear operational error states (`OFFLINE`, `JUDGE_UNREACHABLE`, `SERVER_UNAVAILABLE`, `JUDGE_BUSY` with queue position, `RATE_LIMITED`, `SESSION_EXPIRED`, `TIMEOUT`) with an interactive Retry button. Drafts are never discarded on network blips.
-- **📚 Practice Modules with 10-of-10 Unlock**: 4 curriculum modules (Control Structures, Pointers & Functions, Arrays & Applications, Advanced Data Types & Dynamic Memory) with 10 published questions each (4 Easy, 4 Medium, 2 Hard). Module $N+1$ unlocks strictly after solving all 10 problems in Module $N$ (`practiceUnlockThreshold = 10`).
-- **⏱️ Per-Question Active Practice Timers**: Each Practice problem features an active timer tracking real engagement (runs only while the page is open, the browser tab is visible, and the student is active within 2 minutes; pauses on tab hide or idle; resumes continuously across close/reopen and devices; permanently freezes at first `ACCEPTED` verdict as "Solved in mm:ss"). A profile setting ("Hide practice timer") allows distraction-free coding without stopping background recording.
-- **📊 Practice Module & Final Reports**: Comprehensive performance audit reports available per module (unlocked upon completing all 10 problems) and final (unlocked upon completing all 4 modules, 40/40). Displays active times, attempts, first-attempt accuracy, hardest questions, and exportable printable summaries. Strictly omits student PRN and M/F indicators from student-facing views.
-- **📐 Rendered Mathematical Statements**: Problem statements feature clean, accessible Unicode symbols (`≤`, `≥`, `×`, `−10⁹ ≤ A, B, C ≤ 10⁹`) with responsive KaTeX fallback. 0 unrendered LaTeX tokens across all problem definitions. Admin problem authoring features Live Student Preview, "Auto-Format to Clean Unicode" one-click action, and publish-time LaTeX blocker.
-- **💻 Monaco Editor Ergonomics**: Font ligatures disabled (`fontLigatures: false`) so `!=`, `<=`, `>=`, `==`, `->` show literally without glyph substitutions; whitespace dots removed (`renderWhitespace: 'none'`); initial cursor collapsed to Line 1 Col 1 without text pre-selection; clean beginner-friendly starter boilerplate (`<stdio.h>`, `int main()`, `// TODO`); and "Reset to Starter Template" button.
-- **🔔 Non-Overlapping Toast Alerts**: Relocated alerts to bottom-center above safe area on mobile (`< 768px`) and top-right below header on desktop (`>= 768px`) with dismiss button and `aria-live: polite`. Toasts never obscure the editor toolbar, Run, Submit, or timer.
-- **📱 Alphanumeric PRN Keyboard & Format Guide**: PRN inputs on mobile open full alphanumeric keyboards (`type="text"`, `inputmode="text"`, `autocapitalize="characters"`), uppercase dynamically as students type, trim whitespace on paste/blur, and provide visual format grouping (`0000 AAA M 0000`) with live counters (`8/12`).
-- **📝 Uploaded Solutions & Blind Checker Review**: Students can upload flowcharts or handwritten proofs for daily challenges (up to 3 files, 5 MB each, PDF/PNG/JPEG). Faculty checkers evaluate submissions via anonymized tokens (`SUB-XXXX`) with a formula-driven rubric (Logic 50%, Flowchart 30%, Clarity 20%) and a 30-minute decision edit window. (Practice mode is strictly code-only per specification).
-- **🏆 Consistency Daily Rank & Daily Results**: Daily leaderboard ordered by Current Streak $\rightarrow$ Total Solved $\rightarrow$ Stable UID. Speed and attempt penalties are eliminated. Percentile ranking appears only with at least 10 solvers.
-- **🔥 Streaks with Freeze & Pause Days**: 1 automated freeze per rolling 7-day window protects student streaks against accidental misses. Institutional holidays are designated as Admin Pause Days.
-- **📊 Performance Charts**: Visual breakdown of solve distribution by difficulty (Easy, Medium, Hard) and submission accuracy trends over time.
-- **🛡️ Admin Operations Dashboard**: Centralized management for student records, checker workloads, daily challenge pause states, practice modules, cohort question telemetry, and security audit logs.
-- **☁️ Optional Google Drive Backup**: Purely optional history backup export via narrow `drive.file` scope. Login, daily challenges, practice, and code judging function 100% on Firebase alone without Google Drive permissions.
-- **📱 Installable Progressive Web App (PWA)**: Web App Manifest, offline shell precaching, and a dedicated mobile C programming keyboard strip (`{`, `}`, `(`, `)`, `->`, `*`, `&`, `;`, `Tab`).
-- **🎨 High-Contrast Light & Dark Themes**: Fully accessible WCAG AA compliant text and container styling across both Light (`#F4F6FB`) and Dark (`#0C0F1F`) modes.
-- **🚫 Removed Legacy Features**: Arena contests, Archive browsing, and Badges were permanently removed from routes, UI, and database rules to keep students focused entirely on syllabus learning.
-
----
-
-## ⚙️ How It Works
-
-1. **Student Logs In**: Authenticates via Google OAuth (with `Cross-Origin-Opener-Policy: same-origin-allow-popups` preventing window warnings) or verified email credentials.
-2. **PRN Verification**: First-time users validate their 12-character alphanumeric university PRN (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`), locked permanently into an atomic unique index (`prnIndex/{prn}`).
-3. **Practice Track Mastery**: Students work through the 4 syllabus modules at their own pace. Code is judged against public sample tests and private evaluation tests. Solving all 10 problems unlocks the next module.
-4. **Daily Rhythm**: At 17:00 IST, today's daily challenge unlocks. Students have 24 hours to submit their C code or upload flowcharts.
-5. **Finalization**: At 17:05 IST, the daily leaderboard freezes permanently. Ranks are awarded based on streak consistency, and streaks increment.
-
----
-
-## 👥 User Roles Matrix
-
-| Role | Permissions & Operational Scope |
-| :--- | :--- |
-| **`student`** | Access dashboard, solve active daily challenge, work on unlocked Practice modules, submit C code, upload flowcharts, view own daily results and consistency rank. PII and PRN remain private. |
-| **`checker`** | Access blind grading portal (`/checker/reviews`), review assigned student flowchart submissions identified only by token `SUB-XXXX`, grade according to formula rubric within 48-hour SLA. Zero access to student names, emails, or PRNs. |
-| **`admin`** | Access all 11 admin consoles, manage checker queues and assignments, toggle system pause switch, inspect security audit logs, manage practice curriculum. Minimum 2 administrators invariant enforced; admin self-demotion blocked. |
+1. **Daily Habit & Consistency Rhythm**: Exactly one challenge every 24 hours, synchronizing at **17:00 IST**, emphasizing steady daily practice with automatic streak freeze protection.
+2. **4-Phase Structured Practice Curriculum**: 40 curated, vetted C programming challenges spanning 4 sequential modules—unlocking strictly on a 10-of-10 mastery rule. First solves award base points with automated anti-farming protection.
+3. **Comprehensive Performance Analytics & Institutional Privacy**: Real-time LeetCode-style Practice Mastery Donut charts, 90-day streak heatmaps, and a college-wide Overall Standing leaderboard ranking students by combined points, streak consistency, and verified solves—while maintaining strict student PRN privacy and anti-surveillance guarantees.
 
 ---
 
 ## 🏛️ System Architecture
 
+LogicQ utilizes a decoupled, resilient dual-channel architecture separating real-time cloud data synchronization from sandboxed ISO C11 compilation and execution:
+
 ```mermaid
 flowchart TD
-    subgraph Client ["Student & Evaluator Tier"]
+    subgraph ClientLayer ["Student & Evaluator Tier"]
         Browser["Desktop Browser (React 18 + Monaco Editor)"]
-        Mobile["Mobile PWA (Custom C-Symbol Bar)"]
+        MobilePWA["Mobile PWA (Custom C-Symbol Bar)"]
     end
 
-    subgraph FirebaseCloud ["Firebase & Google Cloud (Source of Truth)"]
-        Hosting["Firebase Hosting (CDN Static Shell)"]
-        Auth["Firebase Auth (Google OAuth & Password)"]
+    subgraph FirebaseLayer ["Firebase & Google Cloud (Source of Truth)"]
+        Hosting["Firebase Hosting (CDN Static Assets)"]
+        Auth["Firebase Authentication (OAuth & Credentials)"]
         Firestore["Cloud Firestore (Deny-by-Default Security Rules)"]
-        Storage["Cloud Storage (Student Flowchart Uploads)"]
-        Scheduler["Cloud Scheduler (17:00 IST Daily Switch)"]
+        Storage["Cloud Storage (Student Flowchart & Proof Uploads)"]
     end
 
-    subgraph BackendJudge ["Backend & Execution Sandbox"]
-        APIServer["Node.js / Express 20 API"]
-        C11Judge["Sandboxed GCC C11 Compiler Sandbox"]
-        CheckerPortal["Blind Checker Review Portal (/checker/reviews)"]
+    subgraph BackendLayer ["Backend & Execution Sandbox"]
+        APIServer["Node.js 20 / Express API (Render.com)"]
+        PrismaORM["Prisma ORM (PostgreSQL Database)"]
+        C11Judge["Sandboxed GCC C11 Runner (Hard Limits: 2.0s, 128MB)"]
+        ScoringEngine["Points & Anti-Farming Scoring Engine"]
     end
 
-    subgraph StudentDrive ["Student's Personal Google Drive (Optional)"]
-        DriveBackup["Drive Backup Export (settings.json, backups/)"]
-    end
-
-    Browser -->|HTTPS Assets| Hosting
-    Mobile -->|HTTPS Assets| Hosting
-    Browser -->|Auth Tokens| Auth
-    Browser -->|Sync Drafts & Profile| Firestore
-    Browser -->|Signed Uploads| Storage
-    Browser -.->|Optional Manual Backup| DriveBackup
-    APIServer -->|Compile & Execute| C11Judge
-    Scheduler -->|17:00 IST Trigger| APIServer
-    CheckerPortal -->|Token-based Reviews| APIServer
+    Browser -->|HTTPS CDN Assets| Hosting
+    MobilePWA -->|HTTPS CDN Assets| Hosting
+    Browser -->|Token Exchange| Auth
+    Browser -->|Direct Profile & Draft Sync| Firestore
+    Browser -->|Evaluation & Submissions| APIServer
+    APIServer -->|Database Queries| PrismaORM
+    APIServer -->|Compile & Run Sandbox| C11Judge
+    APIServer -->|Award Verified Points| ScoringEngine
 ```
 
-### Data Partitioning: Firebase vs. Optional Drive
+---
 
-- **Firebase (Authoritative Source of Truth)**: Accounts, university PRN mapping, roles, profile preferences, problems and private test suites, submissions, verdicts, points, streaks, daily results, practice progress, uploaded flowcharts, session audit logs, and cloud drafts.
-- **Student's Google Drive (Optional Convenience Only)**: Personal exported backup of solved history, notes, and local editor settings. Zero core platform features require or depend on Google Drive.
+## ✨ Key Platform Features
+
+### 1. 📘 4-Phase Sequential Practice Curriculum
+- **4 Structured Modules (40 Problems)**:
+  - **Module 1**: Control Structures (Branching, Loops, Switch-Case, Iteration flow)
+  - **Module 2**: Pointers and Functions (Addresses, Dereferencing, Pass-by-reference, Recursion)
+  - **Module 3**: Arrays and Applications (1D/2D Arrays, Searching, Sorting, Matrix operations)
+  - **Module 4**: Advanced Data Types & Dynamic Memory (`struct`, `union`, `enum`, `malloc`, `free`)
+- **10-of-10 Sequential Mastery Rule**: Module $N+1$ unlocks only after all 10 problems in Module $N$ are solved.
+- **Fair Points & Anti-Farming**:
+  - First Accepted solve awards base points: **Easy (+10 PTS)**, **Medium (+20 PTS)**, **Hard (+30 PTS)**.
+  - Repeat submissions on already-solved problems award **+0 PTS** to prevent farming.
+  - Automatic historical backfill engine ensures past unrewarded solves are credited.
+- **Per-Problem Active Timer**: Tracks genuine focus time (pauses automatically on browser tab blur or 2 minutes of idle time; permanently freezes upon solve).
+
+### 2. ⚡ Daily 17:00 IST Challenge & Streak Engine
+- **Single Active Question**: Exactly one daily challenge active from 17:00 IST to 17:00 IST (+10 min drain grace).
+- **Streak Preservation (🔥)**: Increments daily on accepted solve before the 17:00 IST cutoff.
+- **Auto Freeze Protection**: 1 automated freeze per rolling 7-day window protects student streaks against unforeseen academic disruptions or outages.
+- **Admin Pause Days**: Institutional holidays and exams can be marked as pause days without breaking streaks.
+
+### 3. 🌟 College Overall Standing & Daily Leaderboards
+- **🌟 Overall Standing**: Ranks the entire university cohort by:
+  $$\text{Total Points} \downarrow \;\longrightarrow\; \text{Current Streak} \downarrow \;\longrightarrow\; \text{Total Solved} \downarrow \;\longrightarrow\; \text{Join Timestamp} \uparrow$$
+- **⚡ Daily Sprint**: Ranks solvers for the active daily challenge with live completion times.
+- **Department & Academic Year Filters**: Filter standings across AIML, AIDS, CSE, Mechanical, Integrated B.Tech, and FY/SY/TY cohorts.
+- **Pinned Student Row**: Quick visual reference pinning the logged-in student's personal standing at the bottom of the table.
+
+### 4. 📊 Student Profile Analytics & Mastery Charts
+- **LeetCode-Style Practice Donut Progress Ring**:
+  - Interactive multi-color SVG circular progress ring showing `X / 40 Solved (%)` in center.
+  - Three distinct color-coded arcs: **Easy 🟢 (`#46D9A0`)**, **Medium 🔵 (`#8B9BFF`)**, **Hard 🔴 (`#FF7A8A`)**.
+  - Difficulty sub-counters: Easy (`X/16`), Medium (`X/16`), Hard (`X/8`).
+  - Real-time telemetry: Cumulative active practice time and first-try solve accuracy.
+- **Curriculum Module Progress Bars**: Visual status indicators (`Completed`, `In Progress`, `Locked`) across all 4 modules.
+- **90-Day Challenge Streak Heatmap**: Calendar grid visualization mapping solved, frozen, paused, and missed daily challenge days.
+- **30-Day Daily Rank Trend**: Interactive SVG trajectory graph displaying daily rank progression over the past month.
+
+### 5. 🛡️ Sandboxed GCC C11 Judge & Beginner Diagnostics
+- **Strict Resource Boundaries**: GCC C11 standard (`-Wall -Wextra -O2 -std=c11`), 2.0s maximum CPU execution time, 128 MB RAM, and 10 MB maximum output buffer.
+- **Beginner-Friendly Compiler Explanations**: Intercepts complex raw GCC syntax, pointer dereferencing, and type mismatch errors, displaying constructive, plain-language guidance while preserving raw compiler logs.
+- **Zero Information Leakage**: Hidden evaluation test inputs and outputs are verified strictly on the server and never exposed to the client.
+
+### 6. 🔒 Academic Identity Verification & PII Protection
+- **University PRN Format**: Strictly validates the 12-character canonical PRN (`^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$`).
+- **Atomic Registration**: PRNs are registered in an isolated, client-unwritable `prnIndex/{prn}` document preventing impersonation.
+- **Anti-Surveillance Masking**: Student PRNs are masked as `••••••••1039` (8 bullets + last 4 digits). Other students can never inspect a peer's PRN or personal email.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Technology Stack
 
-| Domain | Technology | Version | Purpose |
+| Layer | Technology | Version | Purpose |
 | :--- | :--- | :---: | :--- |
-| **Frontend Framework** | React | `18.3.1` | Reactive user interface & component state |
-| **Language** | TypeScript | `5.6.2` | End-to-end static typing across client and server |
-| **Styling** | Tailwind CSS | `3.4.11` | Custom theme tokens (`#0C0F1F`, `#141932`, `#46D9A0`) |
-| **Code Editor** | Monaco Editor | `0.57.0` | Browser-based C editor bundled locally without CDNs |
-| **Build Tool** | Vite | `5.4.21` | High-speed production bundling with chunk optimization |
-| **Backend Runtime** | Node.js / Express | `20.x` / `4.21.0` | REST API, security middleware, and business logic |
-| **Database ORM** | Prisma ORM | `5.19.1` | SQLite (dev) / PostgreSQL (prod) schema management |
-| **Cloud Document Store** | Cloud Firestore | `v2` | Primary cloud document store with deny-by-default rules |
-| **Cloud Object Storage**| Cloud Storage | `v2` | Student flowchart uploads with strict mime-type validation |
-| **Compilation Sandbox** | GCC Compiler | `13.2+` (C11) | Sandboxed ISO C11 compilation and execution engine |
-| **Testing Engines** | Vitest & Playwright | `2.1.9` / `1.64.1` | Unit, integration, security rules, and e2e testing |
+| **Frontend Framework** | React | `18.3.1` | Component-based reactive UI |
+| **Language** | TypeScript | `5.6.2` | Strict end-to-end type safety |
+| **Styling & Theme** | Tailwind CSS | `3.4.11` | Custom cyber-dark design system |
+| **Code Editor** | Monaco Editor | `0.57.0` | Browser-based ISO C11 editor |
+| **Build System** | Vite | `5.4.21` | High-speed production bundling |
+| **Backend API** | Node.js / Express | `20.x` / `4.21.0` | Secure REST API & auth middleware |
+| **Database ORM** | Prisma ORM | `5.22.0` | SQLite (dev) / PostgreSQL (production) |
+| **Cloud Document Store** | Cloud Firestore | `v2` | Primary state with deny-by-default rules |
+| **Compilation Sandbox** | GCC Compiler | `13.2+` (C11) | Sandboxed isolated execution |
+| **Testing Harness** | Vitest & Playwright | `2.1.9` / `1.64.1` | Unit, security rules, and e2e testing |
 
 ---
 
-## 🔒 Security Architecture
-
-LogicQ is engineered with a strict **defense-in-depth, deny-by-default security model**. While no web platform can claim absolute security, LogicQ enforces rigorous protections against common web and evaluation vulnerabilities:
-
-- **Deny by Default**: All database and storage rules deny access unless explicitly permitted by affirmative conditions.
-- **PII Isolation**: University PRNs, student emails, and private submission histories are inaccessible to peer students. Public profile mirrors (`publicProfiles/{userId}`) expose only non-PII metrics.
-- **Anti-Squatting PRN Lock**: University PRNs are claimed atomically via private transaction documents (`prnIndex/{prn}`). Released PRNs are protected by a 30-day anti-squatting hold.
-- **Blinded Academic Review**: Checkers evaluate submissions labeled only with cryptographic tokens (`SUB-XXXX`). Checkers cannot see student identities, and students cannot view checker identities.
-- **Sandboxed GCC Execution**: C program compilation and execution run in restricted sandboxes with tight CPU (1.0s) and memory (128 MB) boundaries, preventing recursive exhaustion and malicious syscalls.
-- **Defensive Headers & COOP**: All responses serve HSTS, `nosniff`, `X-Frame-Options: DENY`, strict-origin referrer policies, and `Cross-Origin-Opener-Policy: same-origin-allow-popups` ensuring clean Google OAuth popup flows without window leakage.
-- **Immutable Session Events**: Security events (`session_events/{eventId}`) record audit trails for all logins, logouts, idle timeouts, and token revocations.
-
-*For complete vulnerability disclosure procedures and detailed threat boundaries, refer to [SECURITY.md](SECURITY.md).*
-
----
-
-## 📁 Project Structure
+## 📁 Repository Directory Structure
 
 ```
 LogicQ/
-├── client/                     # Frontend Vite + React 18 + Tailwind SPA & PWA
-│   ├── public/                 # Favicons, PWA icons, web manifest
+├── client/                     # Frontend Vite + React 18 SPA & PWA
+│   ├── public/                 # Favicons, PWA manifests, brand icons
 │   ├── src/
-│   │   ├── api/                # Dual-channel API client & offline fallback engine
-│   │   ├── components/         # Monaco editor, Navbar, Workspace, Badges
-│   │   ├── config/             # Practice modules & academic configurations
-│   │   ├── context/            # AuthContext (Firebase Auth state machine)
-│   │   ├── pages/              # Dashboard, Challenge, Practice, Admin, Checker
-│   │   ├── services/           # Firestore data & Google Drive backup services
-│   │   └── types/              # TypeScript interface definitions
-│   └── vite.config.ts          # Vite bundler configuration with COOP headers
-├── server/                     # Backend Express API & Code Judge Engine
-│   ├── Dockerfile              # Production Dockerfile with GCC C11 & Node 20
-│   ├── prisma/                 # Prisma schema definition & database seeds
+│   │   ├── api/                # API client with offline retry handling
+│   │   ├── components/         # Monaco editor, Navbar, Workspace, Donut charts
+│   │   ├── config/             # Academic, practice, and UI configuration
+│   │   ├── context/            # Firebase AuthContext state machine
+│   │   ├── pages/              # ProfilePage, LeaderboardPage, PracticePage, Admin
+│   │   └── services/           # Firestore data & Google Drive backup
+│   └── vite.config.ts          # Bundler configuration with COOP headers
+├── server/                     # Backend Express API & Isolated Judge
+│   ├── Dockerfile              # Production Dockerfile (GCC C11 + Node 20)
+│   ├── prisma/                 # Prisma schema definitions & migrations
 │   ├── src/
-│   │   ├── config/             # Practice modules & academic configurations
-│   │   ├── controllers/        # Auth, Practice, Problem, Submission, User
-│   │   ├── judge/              # Local GCC C11 and sandboxed execution runners
-│   │   ├── middleware/         # Auth JWT, role authorization, rate limiting
-│   │   ├── routes/             # REST route declarations
-│   │   └── services/           # Badge, integrity, streak, and config services
-│   └── tests/                  # Vitest suite (automated unit & security tests)
-├── tests-e2e/                  # Playwright end-to-end tests (clean browser context)
-├── docs/                       # Architectural specifications & deployment plans
-├── firestore.rules             # Compiled Firestore deny-by-default security rules
-├── storage.rules               # Cloud Storage security rules with mime-type checking
-├── firebase.json               # Firebase Hosting headers, rewrites, and COOP settings
-├── render.yaml                 # Render.com Blueprint configuration (Docker runtime)
-└── package.json                # Monorepo workspaces & root execution scripts
+│   │   ├── config/             # Academic PRN rules, practice modules config
+│   │   ├── controllers/        # Leaderboard, Practice, Problem, Submission, User
+│   │   ├── judge/              # GCC C11 sandbox runners & diagnostics mapper
+│   │   ├── middleware/         # Auth JWT, rate limits, role guards
+│   │   ├── routes/             # Express API route endpoints
+│   │   └── services/           # Scoring, backfill, daily finalization, streaks
+│   └── tests/                  # Automated Vitest test suite (scoring, rules, judge)
+├── docs/                       # Specifications, security rules & audit reports
+├── firestore.rules             # Production Firestore deny-by-default security rules
+├── storage.rules               # Cloud Storage security rules for flowchart proofs
+├── firebase.json               # Firebase Hosting configuration & COOP headers
+├── render.yaml                 # Render Blueprint configuration for backend API
+└── package.json                # Monorepo workspace configuration
 ```
 
 ---
 
-## 🏗️ System Architecture & Dual-Channel Network Flow
-
-LogicQ uses a decoupled dual-channel architecture separating real-time database synchronisation from heavy algorithmic C11 code compilation:
-
-```
-+-----------------------------------------------------------------------------------+
-|                           STUDENT BROWSER ENVIRONMENT                             |
-|           (PWA / Mobile / Desktop — Hosted on Firebase Hosting CDN)              |
-+-----------------------------------------------------------------------------------+
-             |                                                  |
-             | Channel A: Direct HTTPS / gRPC                   | Channel B: REST API (/api)
-             v                                                  v
-+-------------------------------+             +-------------------------------------+
-|    Google Cloud Firestore     |             |      Render C11 Judge Engine        |
-|  (firestore.googleapis.com)   |             | (Docker Node 20 + GCC 11 Sandbox)   |
-+-------------------------------+             +-------------------------------------+
-  - Real-time student drafts                    - POST /api/submissions/run
-  - Active practice timer sync                  - POST /api/submissions/submit
-  - User profiles & PRN index                   - GET /api/health (Judge readiness)
-  - Deny-by-default security rules              - Hard limits: 2.0s CPU, 128 MB RAM
-```
-
----
-
-## 🚢 Render Backend Deployment (1-Click Free Setup)
-
-To power the online GCC C11 compiler without requiring a paid Firebase Blaze plan:
-
-1. **Push to GitHub**: Ensure the latest changes with `server/Dockerfile` and `render.yaml` are pushed to your GitHub repo.
-2. **Open Render Dashboard**: Visit [dashboard.render.com](https://dashboard.render.com/) and click **New +** $\rightarrow$ **Blueprint** (or **Web Service**).
-3. **Connect Repository**: Select `LogicQ`. Render will automatically detect [`render.yaml`](render.yaml) and [`server/Dockerfile`](server/Dockerfile).
-4. **Deploy**: Render builds the Docker container with GCC and starts the API with health checks at `/api/health`.
-5. **Connect Frontend**: Copy your Render service URL (e.g. `https://logicq-api.onrender.com`) into `client/.env.production`:
-   ```env
-   VITE_API_URL=https://logicq-api.onrender.com/api
-   ```
-   Then re-deploy hosting via `npm run build && firebase deploy --only hosting`.
-
----
-
-## 🚀 Getting Started (Windows-First)
+## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
-- **Node.js**: `v20.x` or higher installed ([Download Node.js](https://nodejs.org/)).
-- **GCC / MinGW**: Required for local C11 code judging (e.g. `gcc --version` must return `13.x` or compatible). On Windows, install via [w64devkit](https://github.com/skeeto/w64devkit/releases) or MinGW-w64.
+- **Node.js**: `v20.x` or higher ([Download Node.js](https://nodejs.org/)).
+- **GCC / MinGW**: Required for local C compilation (`gcc --version`).
 - **Git**: Version control CLI.
-- **Firebase CLI**: `npm.cmd install -g firebase-tools` (or use bundled `npx.cmd firebase-tools`).
+- **Firebase CLI**: `npm install -g firebase-tools` (or bundled `npx firebase-tools`).
 
-### Step-by-Step Setup
+### Quickstart Installation
 
 1. **Clone the Repository**:
-   ```powershell
+   ```bash
    git clone https://github.com/pratikpt1304/LogicQ.git
    cd LogicQ
    ```
 
 2. **Install Dependencies**:
-   ```powershell
-   npm.cmd install
-   npm.cmd --prefix server install
-   npm.cmd --prefix client install
+   ```bash
+   npm install
+   npm --prefix server install
+   npm --prefix client install
    ```
 
 3. **Configure Environment Variables**:
-   ```powershell
-   Copy-Item .env.example .env
-   Copy-Item .env.example server/.env
+   ```bash
+   cp .env.example .env
+   cp .env.example server/.env
    ```
 
 4. **Initialize Local Database**:
-   ```powershell
-   npm.cmd run db:push
-   npm.cmd run db:seed
+   ```bash
+   npm run db:push
+   npm run db:seed
    ```
 
-5. **Start Local Development Server**:
-   ```powershell
-   npm.cmd run dev
+5. **Start Development Servers**:
+   ```bash
+   npm run dev
    ```
-   Open your browser at **[http://localhost:5173](http://localhost:5173)**.
-
-6. **Execute Automated Test Suites**:
-   ```powershell
-   # Run server & security rule tests
-   npm.cmd test
-
-   # Run Playwright cross-browser e2e tests
-   npx.cmd playwright test
-   ```
+   Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 
 ---
 
-## 🔐 Environment Variables
+## 🧪 Testing & Verification Suites
 
-| Variable Name |
-| :--- |
-| `NODE_ENV` |
-| `PORT` |
-| `CLIENT_URL` |
-| `DATABASE_URL` |
-| `JWT_ACCESS_SECRET` |
-| `JWT_REFRESH_SECRET` |
-| `JWT_ACCESS_EXPIRES_IN` |
-| `JWT_REFRESH_EXPIRES_IN` |
-| `ADMIN_USERNAME` |
-| `ADMIN_EMAIL` |
-| `ADMIN_PASSWORD` |
-| `ADMIN_FULLNAME` |
-| `JUDGE_TYPE` |
-| `GCC_PATH` |
-| `JUDGE0_URL` |
-| `JUDGE0_KEY` |
-| `JUDGE0_HOST` |
-| `REDIS_URL` |
-| `MAIL_PROVIDER` |
-| `SMTP_HOST` |
-| `SMTP_PORT` |
-| `SMTP_USER` |
-| `SMTP_PASS` |
-| `MAIL_FROM` |
-| `VITE_API_URL` |
-| `VITE_FIREBASE_API_KEY` |
-| `VITE_FIREBASE_AUTH_DOMAIN` |
-| `VITE_FIREBASE_PROJECT_ID` |
-| `VITE_FIREBASE_STORAGE_BUCKET` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` |
-| `VITE_FIREBASE_APP_ID` |
-| `VITE_FIREBASE_MEASUREMENT_ID` |
+Execute comprehensive automated verification across all layers:
+
+```bash
+# Run server unit & scoring tests
+npm test
+
+# Run isolated scoring & practice module verification
+npm --prefix server test tests/scoring.test.ts
+
+# Run Firestore deny-by-default security rules verification
+npm --prefix server test tests/firestore-security-rules.test.ts
+
+# Run end-to-end browser tests
+npx playwright test
+```
 
 ---
 
-## 📜 Testing & Available Scripts
+## 🌐 Live Deployments & Operations
 
-| Script | Location | Purpose |
-| :--- | :--- | :--- |
-| `npm run dev` | Root | Starts both backend API (port 5000) and frontend client (port 5173) concurrently. |
-| `npm run dev:server` | Root | Starts the backend Express server with TypeScript hot reloading (`tsx watch`). |
-| `npm run dev:client` | Root | Starts the Vite React frontend with Hot Module Replacement (HMR). |
-| `npm run build` | Root | Compiles Prisma client, builds TypeScript backend, and bundles production client. |
-| `npm test` | Root | Runs server Vitest suite covering security rules, judge engine, and roles. |
-| `npx playwright test` | Root | Runs end-to-end clean-context tests in Chromium, Firefox, WebKit, and Mobile Safari. |
-| `npm run db:push` | Root | Synchronizes Prisma schema definitions with the local SQLite database. |
-| `npm run db:seed` | Root | Seeds initial administrator accounts and 40 Practice problems. |
-| `npm run verify-integrity` | Root | Verifies PRN uniqueness, role constraints, and data consistency. |
-| `npm run setup` | Root | Complete automated bootstrap: installs dependencies, pushes schema, and seeds data. |
+- **Frontend Application**: Hosted on **Firebase Hosting** with global CDN caching and automatic SSL.
+  - **URL**: [https://logicq-clanguage.web.app](https://logicq-clanguage.web.app)
+  - **Deploy Command**: `npm --prefix client run build && npx firebase-tools deploy --only hosting`
+- **Backend API & Judge Sandbox**: Hosted on **Render.com** (Docker container with native GCC 13 C11 runtime).
+  - **URL**: [https://logicq-bitwiseclub.onrender.com](https://logicq-bitwiseclub.onrender.com)
+  - **Deploy Mechanism**: Automatic continuous deployment on push to GitHub `main` branch.
+- **Database & Security Rules**: **Google Cloud Firestore**.
+  - **Deploy Command**: `npx firebase-tools deploy --only firestore:rules`
 
 ---
 
-## 🚀 Cloud Deployment & Operations
+## 📚 Architectural Documentation
 
-### Deployment Order
-Deployment must proceed sequentially through staging verification before production:
-1. **Gate 1**: GitHub audit, secret scanning, clean branch, small conventional commits, PR review.
-2. **Gate 2 (Staging)**: Deploy rules and hosting to staging environment / preview channel, take database export snapshot, run full test suite with fake data.
-3. **Gate 3 (Production)**:
-   - Deploy Firestore indexes and security rules (`firestore.rules`).
-   - Deploy Storage security rules (`storage.rules`).
-   - Deploy Cloud Functions & Cloud Scheduler (with `maxInstances: 10`).
-   - Run idempotent data migrations (`migrate-prn-format.ts`).
-   - Deploy Firebase Hosting last (`client/dist`).
+Comprehensive architectural blueprints and specifications are maintained in `/docs`:
 
-### Blaze Plan & Budget Reminder
-- **Estimated Cost**: Less than **\$0.76 – \$1.86 / month** (~₹65 – ₹160 INR / month) for 500 engineering students.
-- **Budget Alert**: Set a hard budget alert at **₹500 INR ($6.00 USD) / month** in the Google Cloud Billing Console.
-- **Concurrency Cap**: Configure `maxInstances: 10` on Cloud Run / Cloud Functions to eliminate unexpected auto-scaling spikes.
+- [SECURITY_RULES.md](docs/SECURITY_RULES.md): Complete Firestore security rules architecture and test cases.
+- [MASTER_SPEC.md](docs/MASTER_SPEC.md): Master specification for daily competition cycles and practice tracks.
+- [PRACTICE_TIMER_REPORT.md](docs/PRACTICE_TIMER_REPORT.md): Practice active timer architecture and audit reports.
+- [SECURITY.md](SECURITY.md): Vulnerability disclosure policies and security perimeter boundaries.
 
 ---
 
-## 📚 Documentation Index
+## 📄 License & Maintainers
 
-The following authoritative specifications in `/docs` define the platform standards:
-
-- [MASTER_SPEC.md](docs/MASTER_SPEC.md): Complete consolidated platform specifications, role definitions, and daily cycle rules.
-- [STAGING_ISOLATION_AND_JUDGE_AUDIT.md](docs/STAGING_ISOLATION_AND_JUDGE_AUDIT.md): Staging isolation audit, non-API root cause investigation, client resilience, and production data zero-leak verification.
-- [PRACTICE_TIMER_REPORT.md](docs/PRACTICE_TIMER_REPORT.md): Practice active timers, attempt tracking, anti-tamper sync, and verification report architecture with Blaze cost estimates.
-- [JUDGE_CONNECTIVITY_AUDIT.md](docs/JUDGE_CONNECTIVITY_AUDIT.md): Root cause audit of judge connection messages and client honest error UX.
-- [TEST_REPORT.md](docs/TEST_REPORT.md): Full automated testing report, verification matrix, and simulation records across all test suites.
-- [DATA_ARCHITECTURE.md](docs/DATA_ARCHITECTURE.md): Authoritative architectural division between Firebase and optional Google Drive.
-- [DRIVE_INTEGRATION.md](docs/DRIVE_INTEGRATION.md): Technical specification for optional Google Drive backup export and failure mode handling.
-- [LEARNING_FIRST.md](docs/LEARNING_FIRST.md): Pedagogical scaffolding, consistency-first daily ranking, and compiler error guidance.
-- [PILOT_PLAN.md](docs/PILOT_PLAN.md): 14-day campus pilot framework, success metrics, and consent protocol.
-- [SECURITY_RULES.md](docs/SECURITY_RULES.md): Complete Firestore and Storage security rules documentation and test vectors.
-- [DEPLOY_PLAN.md](docs/DEPLOY_PLAN.md): Pre-release test verification matrix, Blaze plan cost breakdown, and 5-minute rollback plan.
-- [CROSS_ORIGIN_OPENER_POLICY.md](docs/CROSS_ORIGIN_OPENER_POLICY.md): COOP configuration details and browser extension error isolation note.
-
----
-
-## 🗺️ Roadmap & Next Steps
-
-- [ ] **Pedagogical Tiered Hints**: Progressive hints for daily challenges unlocked after 2 and 4 failed attempts (conceptual pointers without leaking solutions).
-- [ ] **Plain-Language Compiler Diagnostics**: Automatic translation of cryptic GCC compiler messages into friendly student guidance.
-- [ ] **Day-After Challenge Review**: Unlocking ended daily challenges in read-only review mode with editorial explanations and zero-point retries.
-- [ ] **Automated Code Linting**: Real-time feedback on memory safety (`malloc` without `free`), uninitialized pointers, and boundary errors.
-
----
-
-## ⚠️ Known Limitations & Disclosures
-
-1. **Daily Challenge Paused**: The daily competition pool is temporarily paused (`dailyChallengePaused = true`) in production while problem statements derived from academic sources undergo formal faculty review. The practice curriculum (40 questions) is fully functional and unlocked.
-2. **Firebase Blaze Plan Dependencies**: Cloud Run judge sandboxing and production Cloud Storage buckets require upgrading the Firebase project to the Blaze plan. On the Spark free tier, code judging runs via the local execution engine or GitHub Actions fallback.
-3. **Google Drive Integration is Optional**: Student Google Drive connectivity is exclusively for personal history backup export. No core feature (authentication, practice, code judging, uploads) requires Google Drive access.
-
----
-
-## 📄 Contributing, License & Author
-
-- **Contributing**: Contributions are restricted to authorized university developers and faculty reviewers. Please review [SECURITY.md](SECURITY.md) before opening pull requests.
-- **License**: Copyright (c) 2026 LogicQ / Sanjivani University. All rights reserved. Redistribution and use in source and binary forms are strictly prohibited without prior written permission.
-- **Author**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304)) — Engineered for Sanjivani University Undergraduate Engineering Programs.
+- **Copyright**: © 2026 LogicQ / Sanjivani University. All rights reserved.
+- **Lead Architect & Maintainer**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304))
+- **Institution**: Sanjivani University Undergraduate Engineering Programs
