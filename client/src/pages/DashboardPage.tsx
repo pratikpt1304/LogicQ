@@ -24,6 +24,7 @@ import {
   X,
   ShieldCheck,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -85,6 +86,23 @@ export const DashboardPage: React.FC = () => {
     setIsDriveCardDismissed(true);
   };
 
+  const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
+
+  const handleDownloadLocalBackup = async () => {
+    setIsDownloadingBackup(true);
+    try {
+      toast.loading('Preparing your backup file...', { id: 'local-backup' });
+      const exportRes = await api.get('/users/me/export');
+      const backupData = exportRes.data?.data || exportRes.data;
+      GoogleDriveService.downloadLocalBackup(backupData, user?.username || user?.prn || 'student');
+      toast.success('Backup file downloaded successfully! Keep it safe.', { id: 'local-backup' });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to download backup file.', { id: 'local-backup' });
+    } finally {
+      setIsDownloadingBackup(false);
+    }
+  };
+
   const handleConnectDrive = async () => {
     setWorkspaceBlockMessage(null);
     setIsDriveConnecting(true);
@@ -98,16 +116,19 @@ export const DashboardPage: React.FC = () => {
         } else if (authResult.error === 'USER_CANCELLED') {
           toast.info('Google Drive authorization was cancelled.');
         } else {
-          toast.error(authResult.message || 'Could not connect Google Drive.');
+          toast.error(authResult.message || 'Could not connect Google Drive.', {
+            description: 'You can also download your full offline backup file directly anytime.',
+          });
         }
         return;
       }
 
       toast.loading('Exporting history to Google Drive...', { id: 'drive-export' });
       const exportRes = await api.get('/users/me/export');
+      const backupData = exportRes.data?.data || exportRes.data;
       const backupResult = await GoogleDriveService.backupHistoryToDrive(
         authResult.accessToken!,
-        exportRes.data,
+        backupData,
         user?.id || 'anonymous'
       );
 
@@ -324,12 +345,28 @@ export const DashboardPage: React.FC = () => {
                 {workspaceBlockMessage && (
                   <div
                     data-testid="workspace-blocked-alert"
-                    className="p-3 mt-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2"
+                    className="p-3.5 mt-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-2.5"
                   >
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold block">Institutional Workspace Notice:</span>
-                      <span>{workspaceBlockMessage}</span>
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block">Institutional Workspace Notice:</span>
+                        <span>{workspaceBlockMessage}</span>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-amber-500/20 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] text-amber-200/90 font-mono">
+                        Direct offline backup is available with 1 click:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDownloadLocalBackup}
+                        disabled={isDownloadingBackup}
+                        className="px-3 py-1.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>{isDownloadingBackup ? 'Downloading...' : 'Download Backup (.json)'}</span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -353,13 +390,32 @@ export const DashboardPage: React.FC = () => {
               <span>LogicQ only accesses files it creates. We never inspect your personal Drive files.</span>
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleDismissDriveCard}
                 className="px-3.5 py-1.5 rounded-xl text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-colors"
               >
                 Skip for now
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadLocalBackup}
+                disabled={isDownloadingBackup}
+                data-testid="download-backup-btn"
+                className="px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-cyan-500/30 text-cyan-300 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isDownloadingBackup ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Preparing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Backup (.json)</span>
+                  </>
+                )}
               </button>
               <button
                 type="button"

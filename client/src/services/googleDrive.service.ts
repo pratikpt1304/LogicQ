@@ -7,6 +7,9 @@
  * Invariant: Handled college Workspace blocks with calm notification.
  */
 
+import { auth } from '../config/firebase';
+import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup } from 'firebase/auth';
+
 export interface DriveAuthResult {
   success: boolean;
   accessToken?: string;
@@ -100,23 +103,98 @@ export class GoogleDriveService {
    * Requests a short-lived access token directly from student browser
    */
   public static async requestAccessToken(): Promise<DriveAuthResult> {
-    const isLoaded = await GoogleDriveService.loadGis();
-    const google = (window as any).google;
-
-    if (!isLoaded || !google?.accounts?.oauth2) {
+    // 1. Check valid cached token
+    const cachedToken = GoogleDriveService.getCachedAccessToken();
+    if (cachedToken) {
       return {
-        success: false,
-        error: 'GIS_UNAVAILABLE',
-        message: 'Google Sign-In service is temporarily unavailable in this browser.',
+        success: true,
+        accessToken: cachedToken,
+        expiresIn: 3600,
       };
     }
 
+    // 2. Try Firebase Auth GoogleAuthProvider (Native to Firebase project, requires 0 extra Client ID config)
+    if (auth.currentUser) {
+      try {
+        const driveProvider = new GoogleAuthProvider();
+        driveProvider.addScope(DRIVE_FILE_SCOPE);
+        driveProvider.setCustomParameters({ prompt: 'consent' });
+
+        let userCred;
+        try {
+          userCred = await reauthenticateWithPopup(auth.currentUser, driveProvider);
+        } catch (reauthErr: any) {
+          const errCode = reauthErr?.code;
+          if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
+            return {
+              success: false,
+              error: 'USER_CANCELLED',
+              message: 'Google Drive authorization was cancelled.',
+            };
+          }
+          if (errCode === 'auth/admin-restricted-operation' || errCode === 'auth/operation-not-allowed') {
+            return {
+              success: false,
+              error: 'COLLEGE_WORKSPACE_BLOCKED',
+              message:
+                'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.',
+            };
+          }
+          // Fall back to signInWithPopup with the drive scope
+          userCred = await signInWithPopup(auth, driveProvider);
+        }
+
+        const credential = GoogleAuthProvider.credentialFromResult(userCred);
+        if (credential?.accessToken) {
+          const expiresInSec = 3600;
+          const expiresAt = Date.now() + expiresInSec * 1000;
+          try {
+            sessionStorage.setItem(TOKEN_STORAGE_KEY, credential.accessToken);
+            sessionStorage.setItem(EXPIRY_STORAGE_KEY, String(expiresAt));
+          } catch {
+            // Ignore sessionStorage quota errors
+          }
+
+          return {
+            success: true,
+            accessToken: credential.accessToken,
+            expiresIn: expiresInSec,
+          };
+        }
+      } catch (fbErr: any) {
+        const errCode = fbErr?.code;
+        if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
+          return {
+            success: false,
+            error: 'USER_CANCELLED',
+            message: 'Google Drive authorization was cancelled.',
+          };
+        }
+        if (
+          errCode === 'auth/admin-restricted-operation' ||
+          String(fbErr?.message || '').toLowerCase().includes('admin')
+        ) {
+          return {
+            success: false,
+            error: 'COLLEGE_WORKSPACE_BLOCKED',
+            message:
+              'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.',
+          };
+        }
+        console.warn('Firebase Auth Google Drive scope error, attempting GIS fallback:', fbErr);
+      }
+    }
+
+    // 3. Fallback: Google Identity Services (GIS) client token flow
+    const isLoaded = await GoogleDriveService.loadGis();
+    const google = (window as any).google;
+
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    if (!clientId) {
+    if (!isLoaded || !google?.accounts?.oauth2 || !clientId) {
       return {
         success: false,
-        error: 'UNKNOWN',
-        message: 'Google OAuth Client ID is not configured.',
+        error: 'GIS_UNAVAILABLE',
+        message: 'Google authorization is unavailable in this browser session. You can download your backup file directly.',
       };
     }
 
@@ -473,5 +551,35 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         message: err.message || 'An error occurred during Google Drive backup.',
       };
     }
+  }
+
+  /**
+   * Downloads a local JSON backup file directly to the student device
+   */
+  public static downloadLocalBackup(data: any, usernameOrPrn?: string): void {
+    const now = new Date();
+    const isoStamp = now.toISOString().slice(0, 10);
+    const label = usernameOrPrn ? `${usernameOrPrn}_` : '';
+    const fileName = `logicq_backup_${label}${isoStamp}.json`;
+
+    const envelope: DriveEnvelope = {
+      schemaVersion: '1.0.0',
+      fileType: 'BACKUP',
+      updatedAt: now.getTime(),
+      updatedAtIso: now.toISOString(),
+      deviceLabel: getDeviceLabel(),
+      userId: usernameOrPrn || 'anonymous',
+      content: data,
+    };
+
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }
