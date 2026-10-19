@@ -307,11 +307,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (targetFbUser) {
         try {
           const idToken = await targetFbUser.getIdToken();
+          let firestoreProfile: any = null;
+          try {
+            firestoreProfile = await FirestoreDataService.getUserProfile(targetFbUser.uid);
+          } catch {
+            // ignore
+          }
+
           const googleRes = await api.post('/auth/google', {
             idToken,
             email: targetFbUser.email,
             avatarUrl: targetFbUser.photoURL,
             googleId: targetFbUser.uid,
+            firestoreProfile: firestoreProfile && firestoreProfile.profileComplete ? firestoreProfile : undefined,
           });
           if (googleRes?.success) {
             if (googleRes?.data?.accessToken) {
@@ -339,7 +347,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // Safeguard: Never let serverUser downgrade an already completed profile!
+      const cached = getCachedUser();
+      let firestoreUser: any = null;
+      if (fbUid) {
+        try {
+          firestoreUser = await FirestoreDataService.getUserProfile(fbUid);
+        } catch {
+          // Ignore
+        }
+      }
+
+      const existingCompleted =
+        firestoreUser && firestoreUser.profileComplete
+          ? firestoreUser
+          : cached && cached.profileComplete
+          ? cached
+          : null;
+
       if (serverUser) {
+        if (existingCompleted && existingCompleted.profileComplete && !serverUser.profileComplete) {
+          serverUser = {
+            ...serverUser,
+            prn: existingCompleted.prn || serverUser.prn,
+            college: existingCompleted.college || serverUser.college,
+            department: existingCompleted.department || serverUser.department,
+            year: existingCompleted.year || serverUser.year,
+            division: existingCompleted.division || serverUser.division,
+            displayName: existingCompleted.displayName || serverUser.displayName,
+            fullName: existingCompleted.fullName || serverUser.fullName,
+            profileComplete: true,
+            totalPoints: Math.max(serverUser.totalPoints || 0, existingCompleted.totalPoints || 0),
+            currentStreak: Math.max(serverUser.currentStreak || 0, existingCompleted.currentStreak || 0),
+            longestStreak: Math.max(serverUser.longestStreak || 0, existingCompleted.longestStreak || 0),
+          };
+        }
+
         persistUser(serverUser);
         if (isMountedRef.current) {
           setAuthState('signedIn');
@@ -349,20 +392,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Check authoritative Firestore profile
-      if (fbUid) {
-        try {
-          const firestoreUser = await FirestoreDataService.getUserProfile(fbUid);
-          if (firestoreUser) {
-            persistUser(firestoreUser);
-            if (isMountedRef.current) {
-              setAuthState('signedIn');
-              setIsOffline(false);
-            }
-            return firestoreUser;
-          }
-        } catch {
-          // Ignore
+      if (firestoreUser) {
+        persistUser(firestoreUser);
+        if (isMountedRef.current) {
+          setAuthState('signedIn');
+          setIsOffline(false);
         }
+        return firestoreUser;
       }
       return null;
     } catch (err: any) {
@@ -688,6 +724,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const idToken = await cred.user.getIdToken();
 
+      let firestoreProfile: any = null;
+      try {
+        firestoreProfile = await FirestoreDataService.getUserProfile(cred.user.uid);
+      } catch {
+        // ignore
+      }
+
       let authenticatedUser: User | null = null;
       try {
         const res = await api.post('/auth/google', {
@@ -695,6 +738,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: cred.user.email,
           avatarUrl: cred.user.photoURL,
           googleId: cred.user.uid,
+          firestoreProfile: firestoreProfile && firestoreProfile.profileComplete ? firestoreProfile : undefined,
         });
         if (res?.success && res?.data?.user) {
           authenticatedUser = res.data.user;
@@ -709,9 +753,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Backend /auth/google unavailable; using direct Firestore sync:', backendErr);
       }
 
+      // Safeguard: Merge with Firestore completed profile if backend user was missing details
+      if (firestoreProfile && firestoreProfile.profileComplete) {
+        if (!authenticatedUser) {
+          authenticatedUser = firestoreProfile;
+        } else if (!authenticatedUser.profileComplete) {
+          authenticatedUser = {
+            ...authenticatedUser,
+            prn: firestoreProfile.prn || authenticatedUser.prn,
+            college: firestoreProfile.college || authenticatedUser.college,
+            department: firestoreProfile.department || authenticatedUser.department,
+            year: firestoreProfile.year || authenticatedUser.year,
+            division: firestoreProfile.division || authenticatedUser.division,
+            displayName: firestoreProfile.displayName || authenticatedUser.displayName,
+            fullName: firestoreProfile.fullName || authenticatedUser.fullName,
+            profileComplete: true,
+            totalPoints: Math.max(authenticatedUser.totalPoints || 0, firestoreProfile.totalPoints || 0),
+            currentStreak: Math.max(authenticatedUser.currentStreak || 0, firestoreProfile.currentStreak || 0),
+            longestStreak: Math.max(authenticatedUser.longestStreak || 0, firestoreProfile.longestStreak || 0),
+          };
+        }
+      }
+
       if (!authenticatedUser) {
         // Read directly from Firestore
-        authenticatedUser = await FirestoreDataService.getUserProfile(cred.user.uid).catch(() => null);
+        authenticatedUser = firestoreProfile || await FirestoreDataService.getUserProfile(cred.user.uid).catch(() => null);
       }
 
       if (!authenticatedUser) {

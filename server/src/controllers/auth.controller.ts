@@ -146,6 +146,22 @@ const googleSignInSchema = z.object({
   email: z.string().trim().toLowerCase().email('Valid Google college email is required.'),
   googleId: z.string().optional(),
   avatarUrl: z.string().url().optional().nullable(),
+  firestoreProfile: z
+    .object({
+      prn: z.string().optional().nullable(),
+      college: z.string().optional().nullable(),
+      department: z.string().optional().nullable(),
+      year: z.string().optional().nullable(),
+      division: z.string().optional().nullable(),
+      displayName: z.string().optional().nullable(),
+      fullName: z.string().optional().nullable(),
+      profileComplete: z.boolean().optional(),
+      totalPoints: z.number().optional(),
+      currentStreak: z.number().optional(),
+      longestStreak: z.number().optional(),
+    })
+    .optional()
+    .nullable(),
 });
 
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -455,7 +471,7 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const { email, avatarUrl } = parsed.data;
+    const { email, avatarUrl, firestoreProfile } = parsed.data;
     const domainCheck = isEmailDomainAllowed(email);
     if (!domainCheck.allowed) {
       res.status(403).json({
@@ -466,6 +482,10 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     }
 
     const isExplicitAdmin = isExplicitAdminEmail(email);
+    const hasCompleteFirestoreProfile = Boolean(
+      firestoreProfile?.profileComplete && firestoreProfile?.prn
+    );
+
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -479,19 +499,63 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
           email,
           passwordHash: randomPasswordHash,
           shortId,
-          fullName: isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`,
+          prn: firestoreProfile?.prn || null,
+          college: firestoreProfile?.college || (hasCompleteFirestoreProfile ? 'Sanjivani University' : null),
+          department: firestoreProfile?.department || null,
+          year: firestoreProfile?.year || null,
+          division: firestoreProfile?.division || null,
+          displayName: firestoreProfile?.displayName || null,
+          fullName: firestoreProfile?.fullName || (isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`),
           avatarUrl: avatarUrl || null,
-          profileComplete: isExplicitAdmin ? true : false,
+          profileComplete: isExplicitAdmin || hasCompleteFirestoreProfile,
           role: isExplicitAdmin ? 'ADMIN' : 'STUDENT',
+          totalPoints: firestoreProfile?.totalPoints || 0,
+          currentStreak: firestoreProfile?.currentStreak || 0,
+          longestStreak: firestoreProfile?.longestStreak || 0,
         },
       });
+
+      if (firestoreProfile?.prn) {
+        await prisma.prnIndex.upsert({
+          where: { prn: firestoreProfile.prn },
+          create: { prn: firestoreProfile.prn, userId: user.id },
+          update: { userId: user.id },
+        }).catch(() => {});
+      }
     } else {
       if (isExplicitAdmin && user.role !== 'ADMIN') {
         user = await prisma.user.update({
           where: { id: user.id },
-          data: { role: 'ADMIN' },
+          data: { role: 'ADMIN', profileComplete: true },
         });
       }
+
+      // Auto-heal / restore profile if Firestore has completed profile but user in DB does not
+      if (!user.profileComplete && hasCompleteFirestoreProfile && firestoreProfile?.prn) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            prn: firestoreProfile.prn,
+            college: firestoreProfile.college || user.college || 'Sanjivani University',
+            department: firestoreProfile.department || user.department,
+            year: firestoreProfile.year || user.year,
+            division: firestoreProfile.division ?? user.division,
+            displayName: firestoreProfile.displayName || user.displayName,
+            fullName: firestoreProfile.fullName || user.fullName,
+            profileComplete: true,
+            totalPoints: Math.max(user.totalPoints || 0, firestoreProfile.totalPoints || 0),
+            currentStreak: Math.max(user.currentStreak || 0, firestoreProfile.currentStreak || 0),
+            longestStreak: Math.max(user.longestStreak || 0, firestoreProfile.longestStreak || 0),
+          },
+        });
+
+        await prisma.prnIndex.upsert({
+          where: { prn: firestoreProfile.prn },
+          create: { prn: firestoreProfile.prn, userId: user.id },
+          update: { userId: user.id },
+        }).catch(() => {});
+      }
+
       if (user.isBanned) {
         res.status(403).json({
           success: false,

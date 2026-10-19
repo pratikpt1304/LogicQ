@@ -16,6 +16,6 @@ services:
       - key: JUDGE_TYPE
         value: local_gcc
       - key: JWT_ACCESS_SECRET
-        generateValue: true
+        value: logicq_prod_access_secret_persistent_key_2026_fixed
       - key: JWT_REFRESH_SECRET
-        generateValue: true
+        value: logicq_prod_refresh_secret_persistent_key_2026_fixed
