@@ -406,4 +406,57 @@ export class FirestoreDataService {
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
     };
   }
+
+  /**
+   * Fetches all registered student profiles directly from Firestore (Admin only)
+   */
+  public static async getAllFirestoreUsers(): Promise<User[]> {
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      const list: User[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        if (!raw) return;
+        const mapped = FirestoreDataService.mapDocToUser(d.id, raw);
+        list.push(mapped);
+      });
+      return list;
+    } catch (err) {
+      console.warn('getAllFirestoreUsers error from users collection, trying publicProfiles fallback:', err);
+      try {
+        const pubSnap = await getDocs(collection(db, 'publicProfiles'));
+        const list: User[] = [];
+        pubSnap.forEach((d) => {
+          const raw = d.data();
+          if (!raw) return;
+          list.push({
+            id: d.id,
+            username: raw.username || d.id,
+            email: '',
+            prn: null,
+            maskedPrn: '••••••••',
+            shortId: '0000',
+            fullName: raw.displayName || 'Student',
+            displayName: raw.displayName || null,
+            publicDisplayName: raw.displayName || 'Student',
+            ownIdentityLabel: null,
+            role: raw.role || 'STUDENT',
+            college: raw.college || 'Sanjivani University',
+            department: raw.department || null,
+            year: raw.year || null,
+            division: raw.division || null,
+            profileComplete: true,
+            totalPoints: Number(raw.totalPoints || 0),
+            currentStreak: Number(raw.currentStreak || 0),
+            longestStreak: Number(raw.longestStreak || 0),
+            createdAt: new Date().toISOString(),
+          } as User);
+        });
+        return list;
+      } catch (pubErr) {
+        console.warn('getAllFirestoreUsers publicProfiles fallback failed:', pubErr);
+        return [];
+      }
+    }
+  }
 }

@@ -32,6 +32,7 @@ import {
   adminResumeDailySystem,
   adminCreateDailyCorrection,
   adminTogglePauseDay,
+  syncFirestoreUsers,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -69,6 +70,7 @@ adminRouter.get('/checkers', getAdminCheckers);
 adminRouter.patch('/checkers/:id/pause', toggleCheckerPause);
 
 adminRouter.get('/users', getAdminUsers);
+adminRouter.post('/users/sync-firestore', syncFirestoreUsers);
 adminRouter.post('/users/:id/reveal-prn', adminRevealStudentPrn);
 adminRouter.post('/users/:id/reset-prn-cooldown', adminResetPrnCooldown);
 adminRouter.put('/users/:id/prn', adminUpdateUserPrnAndCollege);

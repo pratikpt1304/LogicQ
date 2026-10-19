@@ -11,6 +11,7 @@ import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -366,7 +367,7 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get(`/admin/uploads?${buildFilterQuery()}`),
   });
 
-  // Fetch Users
+  // Fetch Users from Backend
   const { data: usersData } = useQuery({
     queryKey: [
       'admin-users',
@@ -379,11 +380,56 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get(`/admin/users?${buildFilterQuery()}`),
   });
 
+  // Fetch Authoritative Student Roster from Google Cloud Firestore
+  const { data: firestoreUsersData } = useQuery({
+    queryKey: ['admin-firestore-users'],
+    queryFn: async () => {
+      return await FirestoreDataService.getAllFirestoreUsers();
+    },
+    staleTime: 30000,
+  });
+
   // Fetch Checkers
   const { data: checkersData } = useQuery({
     queryKey: ['admin-checkers'],
     queryFn: () => api.get('/admin/checkers'),
   });
+
+  const [isSyncingFirestore, setIsSyncingFirestore] = useState(false);
+
+  const handleSyncFirestoreToBackend = async () => {
+    setIsSyncingFirestore(true);
+    try {
+      const fUsers = await FirestoreDataService.getAllFirestoreUsers();
+      if (!fUsers || fUsers.length === 0) {
+        toast.info('No registered student profiles found in Firestore.');
+        return;
+      }
+      toast.loading(`Restoring ${fUsers.length} student profiles from Cloud Firestore...`, { id: 'sync-firestore' });
+      const res = await api.post('/admin/users/sync-firestore', { users: fUsers });
+      toast.success(res?.message || `Successfully synced ${fUsers.length} students into database!`, { id: 'sync-firestore' });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to sync users from Firestore.', { id: 'sync-firestore' });
+    } finally {
+      setIsSyncingFirestore(false);
+    }
+  };
+
+  // Background auto-healing: If backend SQLite was restarted/wiped by Render, automatically restore all Firestore students!
+  React.useEffect(() => {
+    if (firestoreUsersData && firestoreUsersData.length > 0) {
+      const backendCount = usersData?.data?.users?.length || 0;
+      if (backendCount < firestoreUsersData.length) {
+        api.post('/admin/users/sync-firestore', { users: firestoreUsersData })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+          })
+          .catch(() => {});
+      }
+    }
+  }, [firestoreUsersData, usersData, queryClient]);
 
   const overview = analyticsData?.data?.overview;
   const pilotAnalytics = analyticsData?.data?.pilotAnalytics;
@@ -392,7 +438,38 @@ export const AdminDashboardPage: React.FC = () => {
   const problems = problemsData?.data?.problems || [];
   const submissions = submissionsData?.data?.submissions || [];
   const uploads = uploadsData?.data?.uploads || [];
-  const users = usersData?.data?.users || [];
+
+  // Resilient merged users list: combines backend users with Firestore users so students NEVER disappear
+  const users = React.useMemo(() => {
+    const backendUsers = usersData?.data?.users || [];
+    if (!firestoreUsersData || firestoreUsersData.length === 0) return backendUsers;
+    const backendEmails = new Set(backendUsers.map((u: any) => u.email?.toLowerCase()));
+    const missingFromBackend = firestoreUsersData.filter(
+      (fu) => fu.email && !backendEmails.has(fu.email.toLowerCase())
+    );
+    let merged = [...backendUsers, ...missingFromBackend];
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      merged = merged.filter(
+        (u) =>
+          u.prn?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q) ||
+          u.displayName?.toLowerCase().includes(q) ||
+          u.fullName?.toLowerCase().includes(q)
+      );
+    }
+    if (filterDepartment && filterDepartment !== 'ALL') {
+      merged = merged.filter((u) => u.department === filterDepartment);
+    }
+    if (filterYear && filterYear !== 'ALL') {
+      merged = merged.filter((u) => u.year === filterYear);
+    }
+    if (filterDivision && filterDivision !== 'ALL') {
+      merged = merged.filter((u) => u.division === filterDivision.toUpperCase());
+    }
+    return merged;
+  }, [usersData, firestoreUsersData, filterSearch, filterDepartment, filterYear, filterDivision]);
+
   const checkers = checkersData?.data?.checkers || [];
 
   // Mutations
@@ -1611,6 +1688,18 @@ export const AdminDashboardPage: React.FC = () => {
               records
             </span>
             <div className="flex flex-wrap items-center gap-2">
+              {activeTab === 'users' && (
+                <button
+                  type="button"
+                  onClick={handleSyncFirestoreToBackend}
+                  disabled={isSyncingFirestore}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs font-mono text-cyan-300 hover:bg-cyan-500/20 font-bold transition-colors disabled:opacity-50"
+                  title="Force re-sync and restore all students from Cloud Firestore to database"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFirestore ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingFirestore ? 'Syncing...' : 'Restore from Firestore'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleDownloadCsv('users')}

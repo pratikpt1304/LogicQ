@@ -2447,4 +2447,102 @@ export async function adminResumeDailySystem(req: AuthRequest, res: Response): P
   }
 }
 
+/**
+ * Bulk syncs registered users from Firestore into SQLite database.
+ * Auto-restores all student profiles so Render container restarts never leave database empty.
+ */
+export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { users } = req.body;
+    if (!Array.isArray(users) || users.length === 0) {
+      res.status(400).json({ success: false, message: 'Users array is required' });
+      return;
+    }
+
+    const explicitAdminEmails = ['admin@logicq.io', 'logicq1304@gmail.com', 'ipworker1908@gmail.com', 'ipverse1918@gmail.com'];
+    const isExplicitAdminEmail = (email: string) => explicitAdminEmails.includes(email?.toLowerCase());
+    const crypto = await import('crypto');
+
+    let syncedCount = 0;
+    for (const u of users) {
+      if (!u.email) continue;
+      const email = String(u.email).trim().toLowerCase();
+      const prn = u.prn ? String(u.prn).trim().toUpperCase() : null;
+      const isExplicitAdmin = isExplicitAdminEmail(email);
+
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            prn: prn || existing.prn,
+            college: u.college || existing.college || 'Sanjivani University',
+            department: u.department || existing.department,
+            year: u.year || existing.year,
+            division: u.division ?? existing.division,
+            displayName: u.displayName || existing.displayName,
+            fullName: u.fullName || existing.fullName,
+            totalPoints: Math.max(existing.totalPoints || 0, Number(u.totalPoints || 0)),
+            currentStreak: Math.max(existing.currentStreak || 0, Number(u.currentStreak || 0)),
+            longestStreak: Math.max(existing.longestStreak || 0, Number(u.longestStreak || 0)),
+            profileComplete: true,
+          },
+        });
+        if (prn) {
+          await prisma.prnIndex.upsert({
+            where: { prn },
+            create: { prn, userId: existing.id },
+            update: { userId: existing.id },
+          }).catch(() => {});
+        }
+        syncedCount++;
+      } else {
+        const shortId = prn ? prn.slice(-4) : crypto.randomBytes(2).toString('hex').toUpperCase();
+        const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+        const username = isExplicitAdmin ? 'admin_logicq1304' : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+        const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+
+        const newUser = await prisma.user.create({
+          data: {
+            username,
+            email,
+            passwordHash: randomPasswordHash,
+            shortId,
+            prn,
+            college: u.college || 'Sanjivani University',
+            department: u.department || null,
+            year: u.year || null,
+            division: u.division || null,
+            displayName: u.displayName || null,
+            fullName: u.fullName || (isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`),
+            profileComplete: true,
+            role: isExplicitAdmin ? 'ADMIN' : 'STUDENT',
+            totalPoints: Number(u.totalPoints || 0),
+            currentStreak: Number(u.currentStreak || 0),
+            longestStreak: Number(u.longestStreak || 0),
+          },
+        });
+
+        if (prn) {
+          await prisma.prnIndex.upsert({
+            where: { prn },
+            create: { prn, userId: newUser.id },
+            update: { userId: newUser.id },
+          }).catch(() => {});
+        }
+        syncedCount++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully synchronized ${syncedCount} users from Firestore into SQLite.`,
+      syncedCount,
+    });
+  } catch (err: any) {
+    console.error('syncFirestoreUsers error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error syncing users' });
+  }
+}
+
 
