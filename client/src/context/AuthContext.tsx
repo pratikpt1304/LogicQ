@@ -182,14 +182,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const persistUser = (userData: User | null) => {
     let finalUser = userData;
-    if (finalUser && isExplicitAdminEmail(finalUser.email)) {
+    if (finalUser) {
+      if (isExplicitAdminEmail(finalUser.email)) {
+        finalUser = {
+          ...finalUser,
+          role: 'ADMIN',
+          profileComplete: true,
+        };
+      }
+
+      // MONOTONIC RETENTION: Never allow points, streak, or solved count to downgrade to 0!
+      const active = user || getCachedUser();
+      const retainedPoints = Math.max(active?.totalPoints || 0, finalUser.totalPoints || 0);
+      const retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
+      const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
+      const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
+
       finalUser = {
         ...finalUser,
-        role: 'ADMIN',
-        profileComplete: true,
+        totalPoints: retainedPoints,
+        currentStreak: retainedCurrentStreak,
+        longestStreak: retainedLongestStreak,
+        totalSolved: retainedSolved,
       };
-    }
-    if (finalUser) {
+
       try {
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(finalUser));
         recordUserActivity();
@@ -653,8 +669,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         firestoreUnsubRef.current = FirestoreDataService.subscribeUserProfile(
           fbUser.uid,
-          (liveUser) => {
+          async (liveUser) => {
             if (liveUser && isMountedRef.current) {
+              try {
+                const backup = await FirestoreDataService.getStatsBackup(fbUser.uid);
+                if (backup) {
+                  liveUser.totalPoints = Math.max(liveUser.totalPoints || 0, backup.totalPoints || 0);
+                  liveUser.currentStreak = Math.max(liveUser.currentStreak || 0, backup.currentStreak || 0);
+                  liveUser.longestStreak = Math.max(liveUser.longestStreak || 0, backup.longestStreak || 0);
+                  liveUser.totalSolved = Math.max(liveUser.totalSolved || 0, backup.totalSolved || 0);
+                }
+              } catch {}
               persistUser(liveUser);
               setAuthState('signedIn');
             }

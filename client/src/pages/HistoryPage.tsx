@@ -206,6 +206,7 @@ export const HistoryPage: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3.5">Problem</th>
                   <th className="px-4 py-3.5">Attempt</th>
+                  <th className="px-4 py-3.5">Time Taken</th>
                   <th className="px-6 py-3.5">Difficulty</th>
                   <th className="px-6 py-3.5">Verdict</th>
                   <th className="px-6 py-3.5">Runtime</th>
@@ -236,6 +237,20 @@ export const HistoryPage: React.FC = () => {
                       <td className="px-4 py-4">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                           #{attemptNum}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-slate-300 font-mono text-[11px]">
+                        <span className="inline-flex items-center gap-1 text-slate-400">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                          {(() => {
+                            const secs = sub.timeToSolveSeconds ?? sub.activeSeconds;
+                            if (secs && secs > 0) {
+                              const mins = Math.floor(secs / 60);
+                              const remaining = secs % 60;
+                              return mins > 0 ? `${mins}m ${remaining}s` : `${remaining}s`;
+                            }
+                            return sub.timeToSolveFormatted || '< 1m';
+                          })()}
                         </span>
                       </td>
                       <td className="px-6 py-4">

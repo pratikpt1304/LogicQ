@@ -34,6 +34,7 @@ export interface User {
   totalPoints: number;
   currentStreak: number;
   longestStreak?: number;
+  totalSolved?: number;
   lastSolvedDate?: string | null;
   prnChangedAt?: string | null;
   prnNextAllowedDate?: string | null;

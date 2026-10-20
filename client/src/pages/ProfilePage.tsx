@@ -262,6 +262,65 @@ export const ProfilePage: React.FC = () => {
           // Authoritative Rank: If student has points > 0 and serverUser has no rank, grant #1
           const authoritativeRank = serverUser?.rank || (authoritativePoints > 0 ? 1 : null);
 
+          // Merge recent submissions from server, Firestore, and local storage fallback
+          const rawLocalSubs = (() => {
+            try {
+              const parsed = JSON.parse(localStorage.getItem('logicq_fallback_submissions_v1') || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          })();
+
+          const existingServerSubs = serverUser?.recentSubmissions || [];
+          const combinedSubsMap = new Map<string, any>();
+
+          for (const s of existingServerSubs) {
+            if (s && s.id) combinedSubsMap.set(s.id, s);
+          }
+          for (const s of fsSubmissions) {
+            if (s && s.id && !combinedSubsMap.has(s.id)) {
+              combinedSubsMap.set(s.id, s);
+            }
+          }
+          for (const s of rawLocalSubs) {
+            if (s && s.id && !combinedSubsMap.has(s.id)) {
+              combinedSubsMap.set(s.id, s);
+            }
+          }
+
+          const allUserSubs = Array.from(combinedSubsMap.values());
+          allUserSubs.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+
+          const attemptsCounter: Record<string, number> = {};
+          const enrichedSubs = allUserSubs.map((sub) => {
+            const pKey = sub.problemId || sub.problem?.slug || sub.problem?.id || 'unknown';
+            attemptsCounter[pKey] = (attemptsCounter[pKey] || 0) + 1;
+            const attemptNumber = attemptsCounter[pKey];
+
+            const solveSecs = sub.timeToSolveSeconds ?? sub.activeSeconds ?? (
+              fsPractice?.completedProblems?.includes(sub.problemId)
+                ? ((fsPractice as any)?.problemProgress?.[sub.problemId]?.timeToSolveSeconds ?? (fsPractice as any)?.activeSeconds ?? null)
+                : null
+            );
+
+            let timeToSolveFormatted = '< 1m';
+            if (solveSecs && solveSecs > 0) {
+              const mins = Math.floor(solveSecs / 60);
+              const secs = solveSecs % 60;
+              timeToSolveFormatted = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            }
+
+            return {
+              ...sub,
+              attemptNumber,
+              timeToSolveSeconds: solveSecs,
+              timeToSolveFormatted,
+            };
+          });
+
+          const displayRecentSubs = enrichedSubs.reverse();
+
           serverUser = {
             ...serverUser,
             ...(fsUser || {}),
@@ -270,6 +329,7 @@ export const ProfilePage: React.FC = () => {
             longestStreak: authoritativeLongestStreak,
             totalSolved: authoritativeSolved,
             rank: authoritativeRank,
+            recentSubmissions: displayRecentSubs,
             ...(serverUser?.practiceStats
               ? {
                   practiceStats: {
@@ -291,6 +351,10 @@ export const ProfilePage: React.FC = () => {
               longestStreak: authoritativeLongestStreak,
               totalSolved: authoritativeSolved,
             }).catch(() => {});
+          }
+
+          if (isOwnProfile && currentUser && (currentUser.totalPoints < authoritativePoints || currentUser.currentStreak < authoritativeCurrentStreak)) {
+            refreshUser().catch(() => {});
           }
         } catch (mergeErr) {
           console.warn('Profile Firestore data merge error:', mergeErr);
@@ -1232,6 +1296,8 @@ export const ProfilePage: React.FC = () => {
               <thead className="text-[#9AA1C4] uppercase text-[10px] tracking-wider border-b border-[#252C4F]">
                 <tr>
                   <th className="pb-3">Challenge Title</th>
+                  <th className="pb-3">Attempt</th>
+                  <th className="pb-3">Time Taken</th>
                   <th className="pb-3">Verdict</th>
                   <th className="pb-3">Points</th>
                   <th className="pb-3">Runtime</th>
@@ -1244,6 +1310,17 @@ export const ProfilePage: React.FC = () => {
                   <tr key={sub.id} className="hover:bg-[#0C0F1F]/40 transition-colors">
                     <td className="py-3 font-semibold text-[#E8EAF6]">
                       {sub.problem?.title || 'Daily Challenge'}
+                    </td>
+                    <td className="py-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                        #{sub.attemptNumber || 1}
+                      </span>
+                    </td>
+                    <td className="py-3 text-[#9AA1C4] font-mono text-[11px]">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {sub.timeToSolveFormatted || (sub.timeToSolveSeconds ? (sub.timeToSolveSeconds >= 60 ? `${Math.floor(sub.timeToSolveSeconds / 60)}m ${sub.timeToSolveSeconds % 60}s` : `${sub.timeToSolveSeconds}s`) : '< 1m')}
+                      </span>
                     </td>
                     <td className="py-3">
                       <VerdictBadge verdict={sub.verdict} size="sm" />

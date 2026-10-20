@@ -295,8 +295,12 @@ export const PracticeWorkspacePage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
     queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
 
+    const sec = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
+    const timeFormatted = sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : sec > 0 ? `${sec}s` : '< 1m';
+    const attemptStr = `Attempt #${(userProgress?.attemptsCount || 0) || 1}`;
+
     if (nextProb) {
-      toast.success('Accepted! Problem solved 🎉', {
+      toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🎉`, {
         description: `Next up: #${nextProb.moduleOrder} ${nextProb.title}`,
         action: {
           label: 'Next Question →',
@@ -305,7 +309,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         duration: 12000,
       });
     } else {
-      toast.success('Accepted! Module Complete 🏆', {
+      toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🏆`, {
         description: 'You have solved all 10 problems in this module!',
         action: {
           label: 'Back to Modules',
@@ -549,28 +553,29 @@ export const PracticeWorkspacePage: React.FC = () => {
           <div className="hidden lg:flex items-center gap-1.5 min-w-0">
             <DifficultyBadge difficulty={problem.difficulty as any} />
             {(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
-              <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Solved</span>
-              </span>
-            )}
-            {Boolean(userProgress?.attemptsCount || userProgress?.attempts) && (
-              <span className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 shrink-0" title="Total attempts on this problem">
-                <span>
-                  {userProgress?.attemptsCount || userProgress?.attempts}{' '}
-                  {(userProgress?.attemptsCount || userProgress?.attempts) === 1 ? 'Attempt' : 'Attempts'}
+              <>
+                <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Solved</span>
                 </span>
-              </span>
-            )}
-            {Boolean(userProgress?.timeToSolveSeconds) && (
-              <span className="flex items-center gap-1 text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0" title="Time taken to solve">
-                <Clock className="w-3 h-3" />
-                <span>
-                  {userProgress.timeToSolveSeconds >= 60
-                    ? `${Math.floor(userProgress.timeToSolveSeconds / 60)}m ${userProgress.timeToSolveSeconds % 60}s`
-                    : `${userProgress.timeToSolveSeconds}s`}
+                <span className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 shrink-0" title="Total attempts on this problem">
+                  <span>
+                    {(userProgress?.attemptsCount || userProgress?.attempts || 1)}{' '}
+                    {(userProgress?.attemptsCount || userProgress?.attempts || 1) === 1 ? 'Attempt' : 'Attempts'}
+                  </span>
                 </span>
-              </span>
+                <span className="flex items-center gap-1 text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0" title="Time taken to solve">
+                  <Clock className="w-3 h-3" />
+                  <span>
+                    {(() => {
+                      const s = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
+                      if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+                      if (s > 0) return `${s}s`;
+                      return '< 1m';
+                    })()}
+                  </span>
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -977,6 +982,21 @@ export const PracticeWorkspacePage: React.FC = () => {
                               <div>
                                 <div className="text-xs font-bold text-emerald-400">
                                   Challenge Solved! All test cases passed.
+                                </div>
+                                <div className="flex items-center gap-2.5 text-[11px] font-mono my-1">
+                                  <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
+                                    Attempt #{(userProgress?.attemptsCount || 0) || 1}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    Time Taken:{' '}
+                                    {(() => {
+                                      const s = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
+                                      if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+                                      if (s > 0) return `${s}s`;
+                                      return '< 1m';
+                                    })()}
+                                  </span>
                                 </div>
                                 <div className="text-[11px] text-[var(--text-muted)]">
                                   {nextProblem
