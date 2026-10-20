@@ -368,9 +368,24 @@ static inline void* __lq_realloc(void *p, size_t sz) {
     return ptr;
 }
 
+static inline FILE* __lq_fopen(const char *path, const char *mode) {
+    (void)path;
+    (void)mode;
+    return NULL;
+}
+
+static inline FILE* __lq_freopen(const char *path, const char *mode, FILE *stream) {
+    (void)path;
+    (void)mode;
+    (void)stream;
+    return NULL;
+}
+
 #define malloc(sz) __lq_malloc(sz)
 #define calloc(n, sz) __lq_calloc(n, sz)
 #define realloc(p, sz) __lq_realloc(p, sz)
+#define fopen(path, mode) __lq_fopen(path, mode)
+#define freopen(path, mode, stream) __lq_freopen(path, mode, stream)
 #endif
 `;
   }
