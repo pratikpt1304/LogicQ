@@ -261,7 +261,14 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
         studentsBeaten,
         wrongAttempts: entry.wrongAttempts,
         solvedAt: entry.firstAcceptedSubmittedAt,
-        solvedCount: entry.totalSolved,
+        solvedCount: Math.max(
+          entry.totalSolved,
+          (entry.totalPoints || 0) > 0 ? Math.max(1, Math.floor((entry.totalPoints || 0) / 10)) : 0
+        ),
+        totalSolved: Math.max(
+          entry.totalSolved,
+          (entry.totalPoints || 0) > 0 ? Math.max(1, Math.floor((entry.totalPoints || 0) / 10)) : 0
+        ),
         ...(FEATURES.BADGES && u?.userBadges ? { badges: u.userBadges.map((ub) => ub.badge) } : {}),
       };
     };
@@ -335,7 +342,42 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
             studentsBeaten: 0,
             wrongAttempts: 0,
             status: 'NOT_SOLVED_YET',
-            solvedCount: 0,
+            solvedCount: await (async () => {
+              const uSubs = await prisma.submission.findMany({
+                where: { userId: myUser.id, verdict: 'ACCEPTED' },
+                select: { problemId: true },
+              });
+              const uPrac = await prisma.practiceProgress.findMany({
+                where: { userId: myUser.id, isSolved: true },
+                select: { problemId: true },
+              });
+              const uniqueSolved = new Set([
+                ...uSubs.map((s) => s.problemId),
+                ...uPrac.map((p) => p.problemId),
+              ]);
+              return Math.max(
+                uniqueSolved.size,
+                (myUser.totalPoints || 0) > 0 ? Math.max(1, Math.floor((myUser.totalPoints || 0) / 10)) : 0
+              );
+            })(),
+            totalSolved: await (async () => {
+              const uSubs = await prisma.submission.findMany({
+                where: { userId: myUser.id, verdict: 'ACCEPTED' },
+                select: { problemId: true },
+              });
+              const uPrac = await prisma.practiceProgress.findMany({
+                where: { userId: myUser.id, isSolved: true },
+                select: { problemId: true },
+              });
+              const uniqueSolved = new Set([
+                ...uSubs.map((s) => s.problemId),
+                ...uPrac.map((p) => p.problemId),
+              ]);
+              return Math.max(
+                uniqueSolved.size,
+                (myUser.totalPoints || 0) > 0 ? Math.max(1, Math.floor((myUser.totalPoints || 0) / 10)) : 0
+              );
+            })(),
           };
         }
       }
@@ -493,12 +535,20 @@ async function handleOverallLeaderboard({
     },
   });
 
-  // Calculate distinct solved problems count for all students
+  // Calculate distinct solved problems count for all students (from Submissions and PracticeProgress)
   const studentIds = students.map((s) => s.id);
   const acceptedSubmissions = await prisma.submission.findMany({
     where: {
       userId: { in: studentIds },
       verdict: 'ACCEPTED',
+    },
+    select: { userId: true, problemId: true },
+  });
+
+  const practiceRecords = await prisma.practiceProgress.findMany({
+    where: {
+      userId: { in: studentIds },
+      isSolved: true,
     },
     select: { userId: true, problemId: true },
   });
@@ -509,9 +559,19 @@ async function handleOverallLeaderboard({
     if (!userSolvedProblems.has(s.userId)) userSolvedProblems.set(s.userId, new Set());
     userSolvedProblems.get(s.userId)!.add(s.problemId);
   }
+  for (const p of practiceRecords) {
+    if (!userSolvedProblems.has(p.userId)) userSolvedProblems.set(p.userId, new Set());
+    userSolvedProblems.get(p.userId)!.add(p.problemId);
+  }
   for (const [uid, set] of userSolvedProblems.entries()) {
     totalSolvedByUser.set(uid, set.size);
   }
+
+  const getResolvedSolvedCount = (studentId: string, points: number = 0) => {
+    const rawSolved = totalSolvedByUser.get(studentId) || 0;
+    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
+    return Math.max(rawSolved, derivedFromPoints);
+  };
 
   // Filter by department and year
   let filtered = students;
@@ -546,8 +606,8 @@ async function handleOverallLeaderboard({
     const strkB = b.currentStreak || 0;
     if (strkA !== strkB) return strkB - strkA;
 
-    const slvA = totalSolvedByUser.get(a.id) || 0;
-    const slvB = totalSolvedByUser.get(b.id) || 0;
+    const slvA = getResolvedSolvedCount(a.id, a.totalPoints || 0);
+    const slvB = getResolvedSolvedCount(b.id, b.totalPoints || 0);
     if (slvA !== slvB) return slvB - slvA;
 
     const tA = a.createdAt.getTime();
@@ -578,7 +638,7 @@ async function handleOverallLeaderboard({
         })
       : undefined;
 
-    const solvedCount = totalSolvedByUser.get(s.id) || 0;
+    const solvedCount = getResolvedSolvedCount(s.id, s.totalPoints || 0);
     const studentsBeaten = rank ? Math.max(0, totalStudents - rank) : 0;
     const percentile =
       rank && totalStudents >= MIN_RANKED_STUDENTS_FOR_PERCENTILE

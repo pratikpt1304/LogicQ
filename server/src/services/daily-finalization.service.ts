@@ -219,12 +219,20 @@ export async function computeDailyBoardForDay(dayId: string): Promise<{
     },
   });
 
-  // Calculate distinct solved problems count for all students
+  // Calculate distinct solved problems count for all students (from Submissions and PracticeProgress)
   const studentIds = students.map((s) => s.id);
   const acceptedSubmissions = await prisma.submission.findMany({
     where: {
       userId: { in: studentIds },
       verdict: 'ACCEPTED',
+    },
+    select: { userId: true, problemId: true },
+  });
+
+  const practiceRecords = await prisma.practiceProgress.findMany({
+    where: {
+      userId: { in: studentIds },
+      isSolved: true,
     },
     select: { userId: true, problemId: true },
   });
@@ -235,9 +243,19 @@ export async function computeDailyBoardForDay(dayId: string): Promise<{
     if (!userSolvedProblems.has(s.userId)) userSolvedProblems.set(s.userId, new Set());
     userSolvedProblems.get(s.userId)!.add(s.problemId);
   }
+  for (const p of practiceRecords) {
+    if (!userSolvedProblems.has(p.userId)) userSolvedProblems.set(p.userId, new Set());
+    userSolvedProblems.get(p.userId)!.add(p.problemId);
+  }
   for (const [uid, set] of userSolvedProblems.entries()) {
     totalSolvedByUser.set(uid, set.size);
   }
+
+  const getResolvedSolvedCount = (studentId: string, points: number = 0) => {
+    const rawSolved = totalSolvedByUser.get(studentId) || 0;
+    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
+    return Math.max(rawSolved, derivedFromPoints);
+  };
 
   const eligibleSolvers: {
     student: (typeof students)[number];
@@ -289,8 +307,8 @@ export async function computeDailyBoardForDay(dayId: string): Promise<{
     }
 
     // 5. higher total solved DESC
-    const solvedA = totalSolvedByUser.get(a.student.id) || 0;
-    const solvedB = totalSolvedByUser.get(b.student.id) || 0;
+    const solvedA = getResolvedSolvedCount(a.student.id, a.student.totalPoints || 0);
+    const solvedB = getResolvedSolvedCount(b.student.id, b.student.totalPoints || 0);
     if (solvedA !== solvedB) return solvedB - solvedA;
 
     // 6. stable tie-break: createdAt ASC, then uid ASC
@@ -321,7 +339,7 @@ export async function computeDailyBoardForDay(dayId: string): Promise<{
       wrongAttempts: item.wrongAttempts,
       currentStreak: item.student.currentStreak,
       totalPoints: item.student.totalPoints,
-      totalSolved: totalSolvedByUser.get(item.student.id) || 0,
+      totalSolved: getResolvedSolvedCount(item.student.id, item.student.totalPoints || 0),
       createdAt: item.student.createdAt,
       pointsToday: problem.basePoints,
       percentile,

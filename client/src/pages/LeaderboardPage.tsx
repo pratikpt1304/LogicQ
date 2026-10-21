@@ -72,6 +72,16 @@ export const LeaderboardPage: React.FC = () => {
     }
   };
 
+  const resolveSolvedCount = (u: any) => {
+    if (!u) return 0;
+    const directSolved = Number(u.totalSolved ?? u.solvedCount ?? 0);
+    const points = Number(u.totalPoints ?? u.score ?? u.points ?? 0);
+    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
+    const isMe = Boolean(u.isCurrentUser || (currentUser && (u.id === currentUser.id || u.userId === currentUser.id)));
+    const meSolved = isMe ? Number((currentUser as any)?.totalSolved ?? (currentUser as any)?.solvedCount ?? 0) : 0;
+    return Math.max(directSolved, derivedFromPoints, meSolved);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header & Tabs */}
@@ -317,7 +327,7 @@ export const LeaderboardPage: React.FC = () => {
               <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
               <strong className="text-[var(--text-main)] text-sm flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-[var(--color-accent)]" />
-                {pinnedOwnRow.totalSolved ?? pinnedOwnRow.solvedCount ?? 0}
+                {resolveSolvedCount(pinnedOwnRow)}
               </strong>
             </div>
             <div>
@@ -412,7 +422,7 @@ export const LeaderboardPage: React.FC = () => {
                     <div>
                       <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
                       <strong className="text-[var(--text-main)] text-sm">
-                        {topThree[1].totalSolved ?? topThree[1].solvedCount ?? 0}
+                        {resolveSolvedCount(topThree[1])}
                       </strong>
                     </div>
                   )}
@@ -462,7 +472,7 @@ export const LeaderboardPage: React.FC = () => {
                     <div>
                       <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
                       <strong className="text-[var(--text-main)] text-base">
-                        {topThree[0].totalSolved ?? topThree[0].solvedCount ?? 0}
+                        {resolveSolvedCount(topThree[0])}
                       </strong>
                     </div>
                   )}
@@ -512,7 +522,7 @@ export const LeaderboardPage: React.FC = () => {
                     <div>
                       <span className="text-[var(--text-muted)] block text-[11px]">SOLVED</span>
                       <strong className="text-[var(--text-main)] text-sm">
-                        {topThree[2].totalSolved ?? topThree[2].solvedCount ?? 0}
+                        {resolveSolvedCount(topThree[2])}
                       </strong>
                     </div>
                   )}
@@ -607,7 +617,7 @@ export const LeaderboardPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-[var(--text-main)]">
-                          {u.totalSolved ?? u.solvedCount ?? 0}
+                          {resolveSolvedCount(u)}
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-right font-extrabold text-[var(--color-accent)] text-sm">
                           {u.totalPoints ?? u.score ?? 0} PTS

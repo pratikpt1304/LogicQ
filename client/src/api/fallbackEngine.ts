@@ -1344,6 +1344,27 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       const studentsBeaten = Math.max(0, totalRanked - rank);
       const percentile = totalRanked <= 1 ? 100 : Math.round(((totalRanked - rank + 1) / totalRanked) * 100);
 
+      const userPoints = u.totalPoints || 0;
+      let storedPracticeMap: Record<string, any> = {};
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+        if (raw) storedPracticeMap = JSON.parse(raw);
+      } catch {}
+      const allSubs = getStoredSubmissions();
+      const userSolvedSet = new Set<string>();
+      for (const s of allSubs) {
+        if (s.userId === u.id && s.verdict === 'ACCEPTED' && s.problemId) {
+          userSolvedSet.add(s.problemId);
+        }
+      }
+      for (const [key, prog] of Object.entries(storedPracticeMap)) {
+        if (prog && prog.isSolved && (prog.userId === u.id || key.startsWith(`${u.id}:`))) {
+          userSolvedSet.add(prog.problemId || key.split(':')[1] || key);
+        }
+      }
+      const derivedFromPoints = userPoints > 0 ? Math.max(1, Math.floor(userPoints / 10)) : 0;
+      const solvedCount = Math.max(userSolvedSet.size, derivedFromPoints);
+
       return {
         rank,
         id: u.id,
@@ -1359,11 +1380,12 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         department: u.department || null,
         year: u.year || null,
         division: u.division || null,
-        totalPoints: u.totalPoints || 0,
-        weeklyPoints: u.totalPoints || 0,
+        totalPoints: userPoints,
+        weeklyPoints: userPoints,
         currentStreak: u.currentStreak || 0,
         longestStreak: u.longestStreak || 0,
-        solvedCount: Math.max(0, Math.floor((u.totalPoints || 0) / 20)),
+        solvedCount,
+        totalSolved: solvedCount,
         percentile,
         studentsBeaten,
       };
@@ -1406,7 +1428,14 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         weeklyPoints: current.totalPoints || 0,
         currentStreak: current.currentStreak || 0,
         longestStreak: current.longestStreak || 0,
-        solvedCount: 0,
+        solvedCount: (() => {
+          const pts = current.totalPoints || 0;
+          return pts > 0 ? Math.max(1, Math.floor(pts / 10)) : 0;
+        })(),
+        totalSolved: (() => {
+          const pts = current.totalPoints || 0;
+          return pts > 0 ? Math.max(1, Math.floor(pts / 10)) : 0;
+        })(),
         percentile: 0,
         studentsBeaten: 0,
       } as any;
