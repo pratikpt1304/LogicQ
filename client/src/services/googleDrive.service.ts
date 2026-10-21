@@ -8,7 +8,7 @@
  */
 
 import { auth } from '../config/firebase';
-import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, linkWithPopup } from 'firebase/auth';
 
 export interface DriveAuthResult {
   success: boolean;
@@ -120,28 +120,33 @@ export class GoogleDriveService {
         driveProvider.addScope(DRIVE_FILE_SCOPE);
         driveProvider.setCustomParameters({ prompt: 'consent' });
 
-        let userCred;
-        try {
-          userCred = await reauthenticateWithPopup(auth.currentUser, driveProvider);
-        } catch (reauthErr: any) {
-          const errCode = reauthErr?.code;
-          if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
-            return {
-              success: false,
-              error: 'USER_CANCELLED',
-              message: 'Google Drive authorization was cancelled.',
-            };
+        let userCred: any = null;
+        const isGoogleLinked = auth.currentUser.providerData.some((p) => p.providerId === 'google.com');
+
+        if (isGoogleLinked) {
+          try {
+            userCred = await reauthenticateWithPopup(auth.currentUser, driveProvider);
+          } catch (reauthErr: any) {
+            const errCode = reauthErr?.code;
+            if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
+              return { success: false, error: 'USER_CANCELLED', message: 'Google Drive authorization was cancelled.' };
+            }
+            try {
+              userCred = await linkWithPopup(auth.currentUser, driveProvider);
+            } catch {
+              userCred = await signInWithPopup(auth, driveProvider);
+            }
           }
-          if (errCode === 'auth/admin-restricted-operation' || errCode === 'auth/operation-not-allowed') {
-            return {
-              success: false,
-              error: 'COLLEGE_WORKSPACE_BLOCKED',
-              message:
-                'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.',
-            };
+        } else {
+          try {
+            userCred = await linkWithPopup(auth.currentUser, driveProvider);
+          } catch (linkErr: any) {
+            const errCode = linkErr?.code;
+            if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
+              return { success: false, error: 'USER_CANCELLED', message: 'Google Drive authorization was cancelled.' };
+            }
+            userCred = await signInWithPopup(auth, driveProvider);
           }
-          // Fall back to signInWithPopup with the drive scope
-          userCred = await signInWithPopup(auth, driveProvider);
         }
 
         const credential = GoogleAuthProvider.credentialFromResult(userCred);
@@ -162,7 +167,10 @@ export class GoogleDriveService {
           };
         }
       } catch (fbErr: any) {
+        console.error('[GoogleDriveService] Firebase Auth Drive scope error:', fbErr);
         const errCode = fbErr?.code;
+        const errMsg = String(fbErr?.message || '');
+
         if (errCode === 'auth/popup-closed-by-user' || errCode === 'auth/cancelled-popup-request') {
           return {
             success: false,
@@ -170,15 +178,18 @@ export class GoogleDriveService {
             message: 'Google Drive authorization was cancelled.',
           };
         }
-        if (
-          errCode === 'auth/admin-restricted-operation' ||
-          String(fbErr?.message || '').toLowerCase().includes('admin')
-        ) {
+        if (errCode === 'auth/operation-not-allowed') {
+          return {
+            success: false,
+            error: 'UNKNOWN',
+            message: 'Google Sign-In is not enabled in Firebase Authentication console. Please enable it in Firebase Console.',
+          };
+        }
+        if (errCode === 'auth/admin-restricted-operation' || errMsg.includes('admin_policy_enforced')) {
           return {
             success: false,
             error: 'COLLEGE_WORKSPACE_BLOCKED',
-            message:
-              'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.',
+            message: 'Google Drive access was restricted by your Google Workspace administrator. Downloading your backup directly...',
           };
         }
         console.warn('Firebase Auth Google Drive scope error, attempting GIS fallback:', fbErr);
@@ -352,7 +363,16 @@ export class GoogleDriveService {
         GoogleDriveService.disconnectDrive();
         throw new Error('TOKEN_EXPIRED');
       }
-      throw new Error('COLLEGE_WORKSPACE_BLOCKED');
+      const errBody = await listRes.json().catch(() => null);
+      console.error('[GoogleDriveService] Drive files list error:', listRes.status, errBody);
+      const detailMsg = errBody?.error?.message || `HTTP ${listRes.status}`;
+      if (detailMsg.includes('Google Drive API has not been used') || detailMsg.includes('disabled')) {
+        throw new Error(`DRIVE_API_DISABLED: ${detailMsg}`);
+      }
+      if (listRes.status === 403) {
+        throw new Error(`DRIVE_FORBIDDEN: ${detailMsg}`);
+      }
+      throw new Error(`DRIVE_ERROR: ${detailMsg}`);
     }
 
     const listData = await listRes.json();
@@ -379,7 +399,10 @@ export class GoogleDriveService {
         GoogleDriveService.disconnectDrive();
         throw new Error('TOKEN_EXPIRED');
       }
-      throw new Error('COLLEGE_WORKSPACE_BLOCKED');
+      const errBody = await createRes.json().catch(() => null);
+      console.error('[GoogleDriveService] Drive folder create error:', createRes.status, errBody);
+      const detailMsg = errBody?.error?.message || `HTTP ${createRes.status}`;
+      throw new Error(`DRIVE_ERROR: ${detailMsg}`);
     }
 
     const folderData = await createRes.json();
@@ -547,6 +570,7 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         message: `Successfully backed up history to Google Drive (${fileName})`,
       };
     } catch (err: any) {
+      console.error('[GoogleDriveService] backupHistoryToDrive error:', err);
       if (err.message === 'TOKEN_EXPIRED') {
         return {
           success: false,
@@ -554,11 +578,19 @@ Manage your account and preferences in LogicQ under Profile > Settings.
           message: 'Google Drive authorization expired. Please reconnect.',
         };
       }
-      if (err.message === 'COLLEGE_WORKSPACE_BLOCKED') {
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes('DRIVE_API_DISABLED')) {
+        return {
+          success: false,
+          error: 'UNKNOWN',
+          message: 'Google Drive API is not enabled in your Google Cloud Console for project logicq-clanguage. Please enable it in Google Cloud Console.',
+        };
+      }
+      if (errMsg.includes('COLLEGE_WORKSPACE_BLOCKED') || errMsg.includes('DRIVE_FORBIDDEN')) {
         return {
           success: false,
           error: 'COLLEGE_WORKSPACE_BLOCKED',
-          message: 'Google Drive access was restricted by your institution.',
+          message: 'Google Drive access was restricted for this account. Downloading your backup directly...',
         };
       }
       return {

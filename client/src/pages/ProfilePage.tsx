@@ -496,8 +496,7 @@ export const ProfilePage: React.FC = () => {
           return;
         }
         if (authResult.error === 'COLLEGE_WORKSPACE_BLOCKED') {
-          const msg =
-            'Your college administrator has restricted Google Drive integrations. Downloading your backup directly...';
+          const msg = authResult.message || 'Google Drive access was restricted. Downloading your backup directly...';
           setProfileWorkspaceBlockMsg(msg);
           toast.info(msg);
           await handleExportData();
@@ -518,10 +517,7 @@ export const ProfilePage: React.FC = () => {
       );
 
       if (!backupResult.success) {
-        const msg =
-          backupResult.error === 'COLLEGE_WORKSPACE_BLOCKED'
-            ? 'Your college administrator has restricted Google Drive integrations. Downloading your backup directly...'
-            : 'Downloading your backup file directly to your device...';
+        const msg = backupResult.message || 'Could not upload to Google Drive. Downloading your backup directly...';
         toast.info(msg, { id: 'profile-drive-export' });
         await handleExportData();
         return;
