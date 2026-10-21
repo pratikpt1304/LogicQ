@@ -23,6 +23,7 @@ export interface DriveBackupResult {
   fileId?: string;
   fileName?: string;
   error?: string;
+  enableUrl?: string;
   message?: string;
 }
 
@@ -582,8 +583,9 @@ Manage your account and preferences in LogicQ under Profile > Settings.
       if (errMsg.includes('DRIVE_API_DISABLED')) {
         return {
           success: false,
-          error: 'UNKNOWN',
-          message: 'Google Drive API is not enabled in your Google Cloud Console for project logicq-clanguage. Please enable it in Google Cloud Console.',
+          error: 'DRIVE_API_DISABLED',
+          enableUrl: 'https://console.cloud.google.com/apis/library/drive.googleapis.com?project=logicq-clanguage',
+          message: 'Google Drive API is not enabled in your Google Cloud Console for project logicq-clanguage. Please click the button below to enable it.',
         };
       }
       if (errMsg.includes('COLLEGE_WORKSPACE_BLOCKED') || errMsg.includes('DRIVE_FORBIDDEN')) {

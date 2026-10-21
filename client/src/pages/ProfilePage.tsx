@@ -40,7 +40,7 @@ import {
   Download,
   Trash2,
   ShieldCheck,
-  AlertCircle,
+  AlertCircle, ExternalLink,
   CheckCircle2,
   BookOpen,
   KeyRound,
@@ -77,6 +77,7 @@ export const ProfilePage: React.FC = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [isDriveBackingUp, setIsDriveBackingUp] = useState(false);
   const [profileWorkspaceBlockMsg, setProfileWorkspaceBlockMsg] = useState<string | null>(null);
+  const [driveApiDisabled, setDriveApiDisabled] = useState<boolean>(false);
   const [editForm, setEditForm] = useState({
     displayName: '',
     department: '',
@@ -517,6 +518,12 @@ export const ProfilePage: React.FC = () => {
       );
 
       if (!backupResult.success) {
+        if (backupResult.error === 'DRIVE_API_DISABLED' || backupResult.message?.includes('Google Drive API')) {
+          setDriveApiDisabled(true);
+          setProfileWorkspaceBlockMsg(
+            'Google Drive API is not enabled in Google Cloud Console for project logicq-clanguage. Click below to enable it in 1 click.'
+          );
+        }
         const msg = backupResult.message || 'Could not upload to Google Drive. Downloading your backup directly...';
         toast.info(msg, { id: 'profile-drive-export' });
         await handleExportData();
@@ -1719,9 +1726,22 @@ export const ProfilePage: React.FC = () => {
                   </p>
 
                   {profileWorkspaceBlockMsg && (
-                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <span>{profileWorkspaceBlockMsg}</span>
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-2.5">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <span className="leading-relaxed">{profileWorkspaceBlockMsg}</span>
+                      </div>
+                      {driveApiDisabled && (
+                        <a
+                          href="https://console.cloud.google.com/apis/library/drive.googleapis.com?project=logicq-clanguage"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black font-semibold text-xs hover:bg-amber-400 transition-colors w-fit shadow"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Enable Google Drive API in Google Cloud Console</span>
+                        </a>
+                      )}
                     </div>
                   )}
 
@@ -1758,29 +1778,50 @@ export const ProfilePage: React.FC = () => {
                         checked={editForm.storagePreference === 'GOOGLE_DRIVE'}
                         onChange={async () => {
                           setProfileWorkspaceBlockMsg(null);
+                          setDriveApiDisabled(false);
                           const authRes = await GoogleDriveService.requestAccessToken();
                           if (authRes.success) {
-                            setEditForm((prev) => ({ ...prev, storagePreference: 'GOOGLE_DRIVE' }));
                             try {
-                              localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
-                            } catch {}
+                              // Verify that Google Drive API is actually enabled
+                              await GoogleDriveService.ensureLogicQFolder(authRes.accessToken!);
 
-                            const effectiveUid = auth.currentUser?.uid || currentUser?.id;
-                            if (effectiveUid) {
-                              FirestoreDataService.updateUserProfile(effectiveUid, {
-                                storagePreference: 'GOOGLE_DRIVE',
-                              }).catch(() => {});
+                              setEditForm((prev) => ({ ...prev, storagePreference: 'GOOGLE_DRIVE' }));
+                              try {
+                                localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
+                              } catch {}
+
+                              const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+                              if (effectiveUid) {
+                                FirestoreDataService.updateUserProfile(effectiveUid, {
+                                  storagePreference: 'GOOGLE_DRIVE',
+                                }).catch(() => {});
+                              }
+
+                              api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' })
+                                .then(() => {
+                                  if (refreshUser) refreshUser().catch(() => {});
+                                  queryClient.invalidateQueries({ queryKey: ['profile'] });
+                                })
+                                .catch(() => {});
+
+                              toast.success('Connected Google Drive!');
+                            } catch (testErr: any) {
+                              const errMsg = String(testErr?.message || '');
+                              if (errMsg.includes('DRIVE_API_DISABLED')) {
+                                setDriveApiDisabled(true);
+                                setProfileWorkspaceBlockMsg(
+                                  'Google Drive API is not enabled in Google Cloud Console for project logicq-clanguage. Click the button below to enable it.'
+                                );
+                                toast.error('Google Drive API is disabled on project logicq-clanguage.');
+                              } else if (errMsg.includes('COLLEGE_WORKSPACE_BLOCKED') || errMsg.includes('DRIVE_FORBIDDEN')) {
+                                setProfileWorkspaceBlockMsg(
+                                  'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
+                                );
+                              } else {
+                                setProfileWorkspaceBlockMsg(testErr?.message || 'Failed to initialize Google Drive folder.');
+                              }
+                              setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
                             }
-
-                            // Instantly save to backend API as well so connection is preserved immediately
-                            api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' })
-                              .then(() => {
-                                if (refreshUser) refreshUser().catch(() => {});
-                                queryClient.invalidateQueries({ queryKey: ['profile'] });
-                              })
-                              .catch(() => {});
-
-                            toast.success('Connected Google Drive!');
                           } else if (authRes.error === 'COLLEGE_WORKSPACE_BLOCKED') {
                             setProfileWorkspaceBlockMsg(
                               'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
