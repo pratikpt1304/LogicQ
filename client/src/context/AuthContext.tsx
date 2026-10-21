@@ -198,16 +198,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
       const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
 
+      const retainedStorage =
+        finalUser.storagePreference ||
+        active?.storagePreference ||
+        (localStorage.getItem('logicq_storage_preference') as any) ||
+        'FIRESTORE_FALLBACK';
+
       finalUser = {
         ...finalUser,
         totalPoints: retainedPoints,
         currentStreak: retainedCurrentStreak,
         longestStreak: retainedLongestStreak,
         totalSolved: retainedSolved,
+        storagePreference: retainedStorage,
       };
 
       try {
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(finalUser));
+        localStorage.setItem('logicq_storage_preference', retainedStorage);
         recordUserActivity();
       } catch {
         // ignore
@@ -678,6 +686,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   liveUser.currentStreak = Math.max(liveUser.currentStreak || 0, backup.currentStreak || 0);
                   liveUser.longestStreak = Math.max(liveUser.longestStreak || 0, backup.longestStreak || 0);
                   liveUser.totalSolved = Math.max(liveUser.totalSolved || 0, backup.totalSolved || 0);
+                }
+                const cachedStorage = localStorage.getItem('logicq_storage_preference');
+                if (cachedStorage && !liveUser.storagePreference) {
+                  liveUser.storagePreference = cachedStorage as any;
                 }
               } catch {}
               persistUser(liveUser);

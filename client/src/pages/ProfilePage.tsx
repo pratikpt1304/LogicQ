@@ -321,6 +321,13 @@ export const ProfilePage: React.FC = () => {
 
           const displayRecentSubs = enrichedSubs.reverse();
 
+          const authoritativeStorage =
+            fsUser?.storagePreference ||
+            currentUser?.storagePreference ||
+            serverUser?.storagePreference ||
+            (localStorage.getItem('logicq_storage_preference') as any) ||
+            'FIRESTORE_FALLBACK';
+
           serverUser = {
             ...serverUser,
             ...(fsUser || {}),
@@ -329,6 +336,8 @@ export const ProfilePage: React.FC = () => {
             longestStreak: authoritativeLongestStreak,
             totalSolved: authoritativeSolved,
             rank: authoritativeRank,
+            storagePreference: authoritativeStorage,
+            hidePracticeTimer: serverUser?.hidePracticeTimer ?? fsUser?.hidePracticeTimer ?? Boolean(currentUser?.hidePracticeTimer),
             recentSubmissions: displayRecentSubs,
             ...(serverUser?.practiceStats
               ? {
@@ -406,14 +415,20 @@ export const ProfilePage: React.FC = () => {
     if (profile) {
       setEditError(null);
       setProfileWorkspaceBlockMsg(null);
+      const activeStorage =
+        profile.storagePreference ||
+        currentUser?.storagePreference ||
+        (localStorage.getItem('logicq_storage_preference') as any) ||
+        'FIRESTORE_FALLBACK';
+
       setEditForm({
         displayName: profile.displayName || '',
         department: profile.department || ALLOWED_DEPARTMENTS[0],
         year: profile.year || ALLOWED_YEARS[0],
         division: profile.division || '',
         bio: profile.bio || '',
-        storagePreference: profile.storagePreference || 'FIRESTORE_FALLBACK',
-        hidePracticeTimer: Boolean(profile.hidePracticeTimer),
+        storagePreference: activeStorage,
+        hidePracticeTimer: Boolean(profile.hidePracticeTimer ?? currentUser?.hidePracticeTimer),
       });
       setIsEditOpen(true);
     }
@@ -443,6 +458,21 @@ export const ProfilePage: React.FC = () => {
       setEditError('Division must be up to 3 letters or digits (e.g., A, B, C1).');
       return;
     }
+
+    const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+    if (effectiveUid) {
+      FirestoreDataService.updateUserProfile(effectiveUid, {
+        displayName: trimmedDisplay || null,
+        department: editForm.department,
+        year: editForm.year,
+        division: trimmedDiv || null,
+        bio: editForm.bio.trim() || null,
+        storagePreference: editForm.storagePreference as any,
+      }).catch((e) => console.warn('Firestore profile update non-fatal error:', e));
+    }
+    try {
+      localStorage.setItem('logicq_storage_preference', editForm.storagePreference);
+    } catch {}
 
     updateMutation.mutate({
       displayName: trimmedDisplay || null,
@@ -498,6 +528,15 @@ export const ProfilePage: React.FC = () => {
       }
 
       await api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' });
+      const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+      if (effectiveUid) {
+        FirestoreDataService.updateUserProfile(effectiveUid, {
+          storagePreference: 'GOOGLE_DRIVE',
+        }).catch(() => {});
+      }
+      try {
+        localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
+      } catch {}
       if (refreshUser) {
         await refreshUser();
       }
@@ -1697,7 +1736,12 @@ export const ProfilePage: React.FC = () => {
                         name="storagePreference"
                         value="FIRESTORE_FALLBACK"
                         checked={editForm.storagePreference !== 'GOOGLE_DRIVE'}
-                        onChange={() => setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' })}
+                        onChange={() => {
+                          setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
+                          try {
+                            localStorage.setItem('logicq_storage_preference', 'FIRESTORE_FALLBACK');
+                          } catch {}
+                        }}
                         className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"
                       />
                       <div>
@@ -1718,17 +1762,36 @@ export const ProfilePage: React.FC = () => {
                         checked={editForm.storagePreference === 'GOOGLE_DRIVE'}
                         onChange={async () => {
                           setProfileWorkspaceBlockMsg(null);
-                          const auth = await GoogleDriveService.requestAccessToken();
-                          if (auth.success) {
-                            setEditForm({ ...editForm, storagePreference: 'GOOGLE_DRIVE' });
+                          const authRes = await GoogleDriveService.requestAccessToken();
+                          if (authRes.success) {
+                            setEditForm((prev) => ({ ...prev, storagePreference: 'GOOGLE_DRIVE' }));
+                            try {
+                              localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
+                            } catch {}
+
+                            const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+                            if (effectiveUid) {
+                              FirestoreDataService.updateUserProfile(effectiveUid, {
+                                storagePreference: 'GOOGLE_DRIVE',
+                              }).catch(() => {});
+                            }
+
+                            // Instantly save to backend API as well so connection is preserved immediately
+                            api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' })
+                              .then(() => {
+                                if (refreshUser) refreshUser().catch(() => {});
+                                queryClient.invalidateQueries({ queryKey: ['profile'] });
+                              })
+                              .catch(() => {});
+
                             toast.success('Connected Google Drive!');
-                          } else if (auth.error === 'COLLEGE_WORKSPACE_BLOCKED') {
+                          } else if (authRes.error === 'COLLEGE_WORKSPACE_BLOCKED') {
                             setProfileWorkspaceBlockMsg(
                               'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
                             );
-                            setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' });
+                            setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
                           } else {
-                            setEditForm({ ...editForm, storagePreference: 'FIRESTORE_FALLBACK' });
+                            setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
                           }
                         }}
                         className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"

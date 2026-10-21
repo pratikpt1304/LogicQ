@@ -250,6 +250,8 @@ export function formatSelfUserResponse(user: {
   bio?: string | null;
   prnChangedAt?: Date | null;
   createdAt?: Date;
+  storagePreference?: string | null;
+  hidePracticeTimer?: boolean | null;
 }) {
   const shortId = user.shortId || generateShortId(user.id);
   const publicDisplayName = formatPublicDisplayName({
@@ -291,6 +293,8 @@ export function formatSelfUserResponse(user: {
     prnChangedAt: user.prnChangedAt || null,
     prnNextAllowedDate: cooldownStatus.nextAllowedDate ? cooldownStatus.nextAllowedDate.toISOString() : null,
     isPrnChangeEligible: cooldownStatus.isEligible,
+    storagePreference: user.storagePreference || 'FIRESTORE_FALLBACK',
+    hidePracticeTimer: Boolean(user.hidePracticeTimer),
     createdAt: user.createdAt,
   };
 }

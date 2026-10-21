@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { auth } from '../config/firebase.js';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { toast } from 'sonner';
 import {
@@ -137,6 +139,15 @@ export const DashboardPage: React.FC = () => {
       }
 
       await api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' });
+      const effectiveUid = auth.currentUser?.uid || user?.id;
+      if (effectiveUid) {
+        FirestoreDataService.updateUserProfile(effectiveUid, {
+          storagePreference: 'GOOGLE_DRIVE',
+        }).catch(() => {});
+      }
+      try {
+        localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
+      } catch {}
       if (refreshUser) {
         await refreshUser();
       }

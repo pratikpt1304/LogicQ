@@ -436,6 +436,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
           rank: finalRank,
           createdAt: user.createdAt,
           totalSolved: uniqueSolvedMap.size,
+          storagePreference: user.storagePreference || 'FIRESTORE_FALLBACK',
+          hidePracticeTimer: Boolean(user.hidePracticeTimer),
           solvedByDifficulty: {
             EASY: easySolved,
             MEDIUM: mediumSolved,
