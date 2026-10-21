@@ -511,10 +511,13 @@ export const ProfilePage: React.FC = () => {
 
       toast.loading('Exporting history to Google Drive...', { id: 'profile-drive-export' });
       const exportRes = await api.get('/users/me/export');
+      const studentName =
+        currentUser?.displayName || currentUser?.fullName || currentUser?.username || 'Student';
       const backupResult = await GoogleDriveService.backupHistoryToDrive(
         authResult.accessToken!,
         exportRes.data,
-        currentUser?.id || 'anonymous'
+        currentUser?.id || 'anonymous',
+        studentName
       );
 
       if (!backupResult.success) {

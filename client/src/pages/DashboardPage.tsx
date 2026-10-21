@@ -127,10 +127,13 @@ export const DashboardPage: React.FC = () => {
       toast.loading('Exporting history to Google Drive...', { id: 'drive-export' });
       const exportRes = await api.get('/users/me/export');
       const backupData = exportRes.data?.data || exportRes.data;
+      const studentName =
+        user?.displayName || user?.fullName || user?.username || 'Student';
       const backupResult = await GoogleDriveService.backupHistoryToDrive(
         authResult.accessToken!,
         backupData,
-        user?.id || 'anonymous'
+        user?.id || 'anonymous',
+        studentName
       );
 
       if (!backupResult.success) {
