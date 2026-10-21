@@ -527,9 +527,8 @@ export const ProfilePage: React.FC = () => {
             'Google Drive API is not enabled in Google Cloud Console for project logicq-clanguage. Click below to enable it in 1 click.'
           );
         }
-        const msg = backupResult.message || 'Could not upload to Google Drive. Downloading your backup directly...';
-        toast.info(msg, { id: 'profile-drive-export' });
-        await handleExportData();
+        const msg = backupResult.message || 'Could not upload to Google Drive.';
+        toast.error(msg, { id: 'profile-drive-export' });
         return;
       }
 
@@ -549,8 +548,7 @@ export const ProfilePage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('History backed up to Google Drive successfully!', { id: 'profile-drive-export' });
     } catch (err: any) {
-      toast.info('Downloading your backup file directly to your device...', { id: 'profile-drive-export' });
-      await handleExportData();
+      toast.error(err?.message || 'Failed to complete Google Drive backup', { id: 'profile-drive-export' });
     } finally {
       setIsDriveBackingUp(false);
     }
@@ -559,16 +557,27 @@ export const ProfilePage: React.FC = () => {
   const handleExportData = async () => {
     try {
       const res = await api.get('/users/me/export');
+      const studentName =
+        currentUser?.displayName || currentUser?.fullName || currentUser?.username || 'Student';
+      const safeName = studentName.replace(/[\\/:*?"<>|]/g, '').trim() || 'Student';
+      const now = new Date();
+      const istDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(now);
+
       const blob = new Blob([JSON.stringify(res.data, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `logicq_data_export_${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `${safeName}_LogicQ_Backup_${istDate}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Personal data export downloaded.');
+      toast.success(`Personal data backup downloaded (${safeName}_LogicQ_Backup_${istDate}.json)`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to export personal data');
     }

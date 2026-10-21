@@ -456,6 +456,40 @@ Manage your account and preferences in LogicQ under Profile > Settings.
   }
 
   /**
+   * Helper to perform standard RFC 2387 multipart/related uploads to Google Drive API v3.
+   * This guarantees that Drive properly processes metadata (such as parent folders)
+   * and never misplaces files into the root Drive directory.
+   */
+  private static async uploadMultipartFile(
+    accessToken: string,
+    metadata: { name: string; mimeType: string; parents?: string[]; description?: string },
+    fileContent: string,
+    fileContentType: string = 'application/json'
+  ): Promise<Response> {
+    const boundary = '-------logicq_boundary_' + Math.random().toString(36).substring(2);
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+
+    const multipartRequestBody =
+      delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) +
+      delimiter +
+      `Content-Type: ${fileContentType}\r\n\r\n` +
+      fileContent +
+      closeDelimiter;
+
+    return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body: multipartRequestBody,
+    });
+  }
+
+  /**
    * Ensures the student's personal named folder exists inside the `LogicQ/` root folder.
    * e.g. `LogicQ / Pratik Thorat /`
    */
@@ -488,7 +522,7 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         name: safeName,
         mimeType: 'application/vnd.google-apps.folder',
         parents: [parentFolderId],
-        description: `LogicQ programming workspace and backups for ${safeName}`,
+        description: `LogicQ personal coding workspace and backups for ${safeName}`,
       }),
     });
 
@@ -505,6 +539,49 @@ Manage your account and preferences in LogicQ under Profile > Settings.
   }
 
   /**
+   * Ensures a Date-wise subfolder exists inside the student's personal folder:
+   * e.g. `LogicQ / Pratik Thorat / 2026-10-21 /`
+   */
+  public static async ensureDateFolder(
+    accessToken: string,
+    parentFolderId: string,
+    dateStr: string
+  ): Promise<string> {
+    const query = encodeURIComponent(`name = '${dateStr}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`);
+    const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      if (listData.files && listData.files.length > 0) {
+        return listData.files[0].id;
+      }
+    }
+
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: dateStr,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId],
+        description: `LogicQ backups for ${dateStr}`,
+      }),
+    });
+
+    if (!createRes.ok) {
+      return parentFolderId;
+    }
+
+    const folderData = await createRes.json();
+    return folderData.id || parentFolderId;
+  }
+
+  /**
    * Ensures the `backups/` subfolder exists inside the `LogicQ/` folder (legacy compatibility)
    */
   public static async ensureBackupsFolder(accessToken: string, parentFolderId: string): Promise<string> {
@@ -513,7 +590,7 @@ Manage your account and preferences in LogicQ under Profile > Settings.
 
   /**
    * Exports authoritative student history snapshot into a versioned JSON backup file on Google Drive,
-   * organized under: `LogicQ / [Student Name] / YYYY-MM-DD_Backup_HH-mm.json`
+   * organized strictly inside: `LogicQ / [Student Name] / [YYYY-MM-DD] / YYYY-MM-DD_Backup_HH-mm-ss.json`
    */
   public static async backupHistoryToDrive(
     accessToken: string,
@@ -522,9 +599,10 @@ Manage your account and preferences in LogicQ under Profile > Settings.
     studentName?: string
   ): Promise<DriveBackupResult> {
     try {
+      // 1. Ensure root LogicQ folder
       const rootFolderId = await GoogleDriveService.ensureLogicQFolder(accessToken);
 
-      // Extract and sanitize student name for personal folder creation
+      // 2. Ensure student's personal name folder: e.g. "LogicQ / Pratik Thorat /"
       const rawName =
         studentName ||
         historyData?.profile?.displayName ||
@@ -532,11 +610,9 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         historyData?.profile?.username ||
         'Student';
       const safeStudentName = rawName.replace(/[\\/:*?"<>|]/g, '').trim() || 'Student';
+      const studentFolderId = await GoogleDriveService.ensureStudentFolder(accessToken, rootFolderId, safeStudentName);
 
-      // 1. Create/Ensure student's personal folder: LogicQ / [Student Name] /
-      const targetFolderId = await GoogleDriveService.ensureStudentFolder(accessToken, rootFolderId, safeStudentName);
-
-      // 2. Format Date-wise file name in IST: YYYY-MM-DD_Backup_HH-mm-ss.json
+      // 3. Format Date in IST
       const now = new Date();
       const istDate = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
@@ -554,6 +630,10 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         .format(now)
         .replace(/:/g, '-');
 
+      // 4. Ensure Date folder inside student's folder: "LogicQ / Pratik Thorat / 2026-10-21 /"
+      const dateFolderId = await GoogleDriveService.ensureDateFolder(accessToken, studentFolderId, istDate);
+
+      // 5. Build date-named backup file
       const fileName = `${istDate}_Backup_${istTime}.json`;
 
       const envelope: DriveEnvelope = {
@@ -570,19 +650,17 @@ Manage your account and preferences in LogicQ under Profile > Settings.
       const metadata = {
         name: fileName,
         mimeType: 'application/json',
-        parents: [targetFolderId],
+        parents: [dateFolderId],
         description: `LogicQ backup for ${safeStudentName} on ${istDate} at ${istTime.replace(/-/g, ':')} IST`,
       };
 
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', new Blob([fileContent], { type: 'application/json' }));
-
-      const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: form,
-      });
+      // Upload with proper RFC 2387 multipart/related to guarantee file lands inside the date folder
+      const uploadRes = await GoogleDriveService.uploadMultipartFile(
+        accessToken,
+        metadata,
+        fileContent,
+        'application/json'
+      );
 
       if (!uploadRes.ok) {
         if (uploadRes.status === 401) {
@@ -613,7 +691,7 @@ Manage your account and preferences in LogicQ under Profile > Settings.
         success: true,
         fileId: uploadData.id,
         fileName,
-        message: `Successfully backed up to Google Drive (LogicQ/${safeStudentName}/${fileName})`,
+        message: `Successfully saved in: LogicQ > ${safeStudentName} > ${istDate} > ${fileName}`,
       };
     } catch (err: any) {
       console.error('[GoogleDriveService] backupHistoryToDrive error:', err);
