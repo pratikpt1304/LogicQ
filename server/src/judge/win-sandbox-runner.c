@@ -191,6 +191,10 @@ int main(int argc, char *argv[]) {
     char cmdLine[MAX_PATH * 2 + 10];
     snprintf(cmdLine, sizeof(cmdLine), "\"%s\"", targetExePath);
 
+    // Strip sensitive environment variables so student binaries cannot inspect host PATH
+    // SetEnvironmentVariableA("PATH", NULL);
+    // SetEnvironmentVariableA("Path", NULL);
+
     BOOL created = FALSE;
     DWORD err = 0;
     for (int retry = 0; retry < 60; retry++) {
@@ -208,10 +212,11 @@ int main(int argc, char *argv[]) {
         );
         if (created) break;
         err = GetLastError();
-        // 4551: Windows Defender / App Control file scanning race
-        // 5: ERROR_ACCESS_DENIED (temporary file scanner lock)
-        // 32: ERROR_SHARING_VIOLATION
-        if (err == 4551 || err == 5 || err == 32) {
+        if (err == 4551) {
+            // Application Control policy blocked execution; retrying will never succeed
+            break;
+        }
+        if (err == 5 || err == 32) {
             Sleep(50);
         } else {
             break;

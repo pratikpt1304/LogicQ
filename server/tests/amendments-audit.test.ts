@@ -196,6 +196,7 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
       where: {
         status: 'PUBLISHED',
         NOT: [
+          { slug: { startsWith: 'test-' } },
           { slug: { startsWith: 'dbg-' } },
           { slug: { startsWith: 'sa-' } },
           { slug: { startsWith: 'safety-' } },

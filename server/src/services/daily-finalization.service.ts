@@ -253,8 +253,8 @@ export async function computeDailyBoardForDay(dayId: string): Promise<{
 
   const getResolvedSolvedCount = (studentId: string, points: number = 0) => {
     const rawSolved = totalSolvedByUser.get(studentId) || 0;
-    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
-    return Math.max(rawSolved, derivedFromPoints);
+    if (rawSolved > 0) return rawSolved;
+    return points > 0 ? 1 : 0;
   };
 
   const eligibleSolvers: {

@@ -62,7 +62,6 @@ if (typeof process !== 'undefined') {
 
 function getJudgeWorkingRoot(): string {
   if (process.platform === 'win32') {
-    // Keep build artifacts inside src/judge/build to comply with Windows Application Control / WDAC policies
     const modDir = getModuleDir();
     const runnerDir = modDir.includes('dist')
       ? path.resolve(modDir, '../../src/judge')
@@ -98,6 +97,7 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
   private runnerExecutablePath: string = '';
   private static cachedRunnerPath: string = '';
   private static runnerBuildPromise: Promise<string> | null = null;
+  private static runnerDisabledByPolicy = false;
 
   private getGccExecutable(): string {
     if (this.resolvedGccPath) return this.resolvedGccPath;
@@ -136,7 +136,7 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
    * Ensures the Win32 Job Object native C sandbox runner is compiled on startup or on demand.
    */
   async ensureSandboxRunner(): Promise<string> {
-    if (process.platform !== 'win32') return '';
+    if (process.platform !== 'win32' || LocalGccJudge.runnerDisabledByPolicy) return '';
     if (LocalGccJudge.cachedRunnerPath && fs.existsSync(LocalGccJudge.cachedRunnerPath)) {
       this.runnerExecutablePath = LocalGccJudge.cachedRunnerPath;
       return LocalGccJudge.cachedRunnerPath;
@@ -381,11 +381,22 @@ static inline FILE* __lq_freopen(const char *path, const char *mode, FILE *strea
     return NULL;
 }
 
+static inline char* __lq_getenv(const char *name) {
+    (void)name;
+    return NULL;
+}
+
 #define malloc(sz) __lq_malloc(sz)
 #define calloc(n, sz) __lq_calloc(n, sz)
 #define realloc(p, sz) __lq_realloc(p, sz)
 #define fopen(path, mode) __lq_fopen(path, mode)
 #define freopen(path, mode, stream) __lq_freopen(path, mode, stream)
+#define getenv(name) __lq_getenv(name)
+
+__attribute__((constructor))
+static void __lq_crt_anchor(void) {
+    (void)fflush(NULL);
+}
 #endif
 `;
   }
@@ -612,6 +623,11 @@ static inline FILE* __lq_freopen(const char *path, const char *mode, FILE *strea
         const cleanStderr = stderr.replace(sentinelPattern, '').trim();
 
         if (!match) {
+          if (stderr.includes('4551')) {
+            LocalGccJudge.runnerDisabledByPolicy = true;
+            this.runnerExecutablePath = '';
+            LocalGccJudge.cachedRunnerPath = '';
+          }
           if (runnerExitCode !== 0) {
             this.executeFallback(binaryPath, stdin, timeLimitMs, memoryLimitMb, workDir).then(resolve);
             return;

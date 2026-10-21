@@ -75,11 +75,12 @@ export const LeaderboardPage: React.FC = () => {
   const resolveSolvedCount = (u: any) => {
     if (!u) return 0;
     const directSolved = Number(u.totalSolved ?? u.solvedCount ?? 0);
-    const points = Number(u.totalPoints ?? u.score ?? u.points ?? 0);
-    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
+    if (directSolved > 0) return directSolved;
     const isMe = Boolean(u.isCurrentUser || (currentUser && (u.id === currentUser.id || u.userId === currentUser.id)));
     const meSolved = isMe ? Number((currentUser as any)?.totalSolved ?? (currentUser as any)?.solvedCount ?? 0) : 0;
-    return Math.max(directSolved, derivedFromPoints, meSolved);
+    if (meSolved > 0) return meSolved;
+    const points = Number(u.totalPoints ?? u.score ?? u.points ?? 0);
+    return points > 0 ? 1 : 0;
   };
 
   return (

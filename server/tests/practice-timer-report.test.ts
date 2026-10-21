@@ -32,7 +32,7 @@ describe('Practice Active Timers, Telemetry Anti-Tamper & Verification Reports',
         department: 'CSE',
         year: 'FY',
         division: 'A',
-        prn: '2199TESM0001',
+        prn: `2199TMRM${String(ts % 9000 + 1000)}`,
         shortId: 'TMR1',
       },
     });
@@ -222,6 +222,24 @@ describe('Practice Active Timers, Telemetry Anti-Tamper & Verification Reports',
   });
 
   it('6. Module report: returns 403 locked if module has incomplete questions', async () => {
+    // Create an unsolved problem in module to make module incomplete
+    await prisma.problem.create({
+      data: {
+        title: 'Unsolved Practice Problem',
+        slug: `test-unsolved-${ts}`,
+        description: 'Practice problem for lock test',
+        difficulty: 'EASY',
+        category: 'Basics',
+        tags: '["Lock"]',
+        starterCode: '#include <stdio.h>\nint main(){return 0;}',
+        isPractice: true,
+        moduleSlug: testModuleSlug,
+        moduleOrder: 100,
+        status: 'PUBLISHED',
+        basePoints: 20,
+      },
+    });
+
     const res = await request(app)
       .get(`/api/practice/reports/module/${testModuleSlug}`)
       .set('Authorization', `Bearer ${studentToken}`);
@@ -356,5 +374,18 @@ describe('Practice Active Timers, Telemetry Anti-Tamper & Verification Reports',
     });
     expect(auditLog).toBeDefined();
     expect(auditLog?.reason).toContain('power glitch');
+  });
+
+  afterAll(async () => {
+    if (studentId) {
+      await prisma.practiceProgress.deleteMany({ where: { userId: studentId } });
+      await prisma.user.delete({ where: { id: studentId } }).catch(() => {});
+    }
+    if (adminId) {
+      await prisma.user.delete({ where: { id: adminId } }).catch(() => {});
+    }
+    if (testProblemId) {
+      await prisma.problem.delete({ where: { id: testProblemId } }).catch(() => {});
+    }
   });
 });

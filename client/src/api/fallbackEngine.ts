@@ -1362,8 +1362,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           userSolvedSet.add(prog.problemId || key.split(':')[1] || key);
         }
       }
-      const derivedFromPoints = userPoints > 0 ? Math.max(1, Math.floor(userPoints / 10)) : 0;
-      const solvedCount = Math.max(userSolvedSet.size, derivedFromPoints);
+      const solvedCount = userSolvedSet.size > 0 ? userSolvedSet.size : (userPoints > 0 ? 1 : 0);
 
       return {
         rank,

@@ -261,14 +261,8 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
         studentsBeaten,
         wrongAttempts: entry.wrongAttempts,
         solvedAt: entry.firstAcceptedSubmittedAt,
-        solvedCount: Math.max(
-          entry.totalSolved,
-          (entry.totalPoints || 0) > 0 ? Math.max(1, Math.floor((entry.totalPoints || 0) / 10)) : 0
-        ),
-        totalSolved: Math.max(
-          entry.totalSolved,
-          (entry.totalPoints || 0) > 0 ? Math.max(1, Math.floor((entry.totalPoints || 0) / 10)) : 0
-        ),
+        solvedCount: entry.totalSolved > 0 ? entry.totalSolved : ((entry.totalPoints || 0) > 0 ? 1 : 0),
+        totalSolved: entry.totalSolved > 0 ? entry.totalSolved : ((entry.totalPoints || 0) > 0 ? 1 : 0),
         ...(FEATURES.BADGES && u?.userBadges ? { badges: u.userBadges.map((ub) => ub.badge) } : {}),
       };
     };
@@ -355,10 +349,7 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
                 ...uSubs.map((s) => s.problemId),
                 ...uPrac.map((p) => p.problemId),
               ]);
-              return Math.max(
-                uniqueSolved.size,
-                (myUser.totalPoints || 0) > 0 ? Math.max(1, Math.floor((myUser.totalPoints || 0) / 10)) : 0
-              );
+              return uniqueSolved.size > 0 ? uniqueSolved.size : ((myUser.totalPoints || 0) > 0 ? 1 : 0);
             })(),
             totalSolved: await (async () => {
               const uSubs = await prisma.submission.findMany({
@@ -373,10 +364,7 @@ export const getLeaderboard = async (req: AuthRequest, res: Response): Promise<v
                 ...uSubs.map((s) => s.problemId),
                 ...uPrac.map((p) => p.problemId),
               ]);
-              return Math.max(
-                uniqueSolved.size,
-                (myUser.totalPoints || 0) > 0 ? Math.max(1, Math.floor((myUser.totalPoints || 0) / 10)) : 0
-              );
+              return uniqueSolved.size > 0 ? uniqueSolved.size : ((myUser.totalPoints || 0) > 0 ? 1 : 0);
             })(),
           };
         }
@@ -569,8 +557,8 @@ async function handleOverallLeaderboard({
 
   const getResolvedSolvedCount = (studentId: string, points: number = 0) => {
     const rawSolved = totalSolvedByUser.get(studentId) || 0;
-    const derivedFromPoints = points > 0 ? Math.max(1, Math.floor(points / 10)) : 0;
-    return Math.max(rawSolved, derivedFromPoints);
+    if (rawSolved > 0) return rawSolved;
+    return points > 0 ? 1 : 0;
   };
 
   // Filter by department and year

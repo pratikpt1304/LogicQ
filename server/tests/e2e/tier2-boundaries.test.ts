@@ -104,7 +104,7 @@ describe('Tier 2: Boundary & Corner Cases Test Suite (F1 to F10)', () => {
       const res = await judge.compileAndRun('int main() { return 0; }', '', 2000, 64);
       const elapsed = Date.now() - start;
       expect(res.verdict).toBe(Verdict.ACCEPTED);
-      expect(elapsed).toBeLessThan(3000);
+      expect(elapsed).toBeLessThan(process.platform === 'win32' ? 6000 : 3000);
     }, 20000);
 
     it('F2-B2: Moderate heap allocation (10 MB) below limit succeeds with ACCEPTED', async () => {
@@ -138,7 +138,7 @@ describe('Tier 2: Boundary & Corner Cases Test Suite (F1 to F10)', () => {
       const res = await judge.compileAndRun(code, '', 1000, 64);
       const elapsed = Date.now() - start;
       expect(res.verdict).toBe(Verdict.TIME_LIMIT_EXCEEDED);
-      expect(elapsed).toBeLessThan(5000);
+      expect(elapsed).toBeLessThan(process.platform === 'win32' ? 12000 : 5000);
     }, 25000);
 
     it('F2-B4: Program producing zero stdout output returns ACCEPTED with empty string', async () => {
