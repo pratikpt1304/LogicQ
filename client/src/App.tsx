@@ -33,6 +33,8 @@ import { InstantJoinPage } from './pages/InstantJoinPage.js';
 import { StudentTestListPage } from './pages/exam/StudentTestListPage.js';
 import { ExamWorkspacePage } from './pages/exam/ExamWorkspacePage.js';
 import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.js';
+import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
+import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -339,6 +341,16 @@ export const App: React.FC = () => {
             }
           />
 
+          {/* Faculty Overview Analytics (Phase 5, Sections 48-56, 59-63) */}
+          <Route
+            path="/faculty/analytics"
+            element={
+              <AdminRoute>
+                <FacultyAnalyticsPage />
+              </AdminRoute>
+            }
+          />
+
           {/* Student Assessment Tests & Exam Workspace (Phase 3) */}
           <Route
             path="/student/tests"
@@ -361,6 +373,24 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <MiniProjectWorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Student Dual-Score Analytics Dashboard (Phase 5, Sections 40-47, 59-61) */}
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <StudentDashboardAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/analytics"
+            element={
+              <ProtectedRoute>
+                <StudentDashboardAnalyticsPage />
               </ProtectedRoute>
             }
           />

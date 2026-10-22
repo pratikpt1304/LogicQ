@@ -26,6 +26,7 @@ import {
   BookOpen,
   Sparkles,
   FileCode2,
+  Brain,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -47,6 +48,9 @@ export const Navbar: React.FC = () => {
     if (path === '/student/tests') {
       return location.pathname === '/student/tests' || location.pathname.startsWith('/exam/');
     }
+    if (path === '/analytics') {
+      return location.pathname === '/analytics' || location.pathname.startsWith('/student/analytics');
+    }
     return location.pathname === path;
   };
 
@@ -56,6 +60,7 @@ export const Navbar: React.FC = () => {
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
     { label: 'Practice', path: '/practice', icon: Code2 },
     { label: 'Tests', path: '/student/tests', icon: ShieldCheck },
+    { label: 'Analytics', path: '/analytics', icon: Brain },
     { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];
 
@@ -212,6 +217,15 @@ export const Navbar: React.FC = () => {
                       <span>My Submissions</span>
                     </Link>
 
+                    <Link
+                      to="/analytics"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-cyan-400 hover:bg-[var(--bg-surface)]"
+                    >
+                      <Brain className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Learning Analytics</span>
+                    </Link>
+
                     {!isStandalone && (
                       <button
                         type="button"
@@ -256,6 +270,14 @@ export const Navbar: React.FC = () => {
                         >
                           <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
                           <span>Assign Tests (Workflow 2)</span>
+                        </Link>
+                        <Link
+                          to="/faculty/analytics"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs text-indigo-400 hover:bg-[var(--bg-surface)]"
+                        >
+                          <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Faculty Analytics</span>
                         </Link>
                       </>
                     )}
@@ -408,14 +430,30 @@ export const Navbar: React.FC = () => {
                 >
                   Submission History
                 </Link>
+                <Link
+                  to="/analytics"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-cyan-400 hover:bg-[var(--bg-surface)]"
+                >
+                  Learning Analytics
+                </Link>
                 {isAdmin && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-                  >
-                    Admin Portal
-                  </Link>
+                  <>
+                    <Link
+                      to="/admin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                    >
+                      Admin Portal
+                    </Link>
+                    <Link
+                      to="/faculty/analytics"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-indigo-400 hover:bg-[var(--bg-surface)]"
+                    >
+                      Faculty Analytics
+                    </Link>
+                  </>
                 )}
                 {(isChecker || isAdmin) && (
                   <Link

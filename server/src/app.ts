@@ -22,6 +22,7 @@ import { questionBankRoutes } from './routes/question-bank.routes.js';
 import { assessmentTestRoutes } from './routes/assessment-test.routes.js';
 import { smartExamRoutes } from './routes/smart-exam.routes.js';
 import { miniProjectRoutes } from './routes/mini-project.routes.js';
+import { analyticsRoutes } from './routes/analytics.routes.js';
 import { prisma } from './utils/prisma.js';
 
 export const app = express();
@@ -195,6 +196,7 @@ app.use('/api/questions', questionBankRoutes);
 app.use('/api/assessment-tests', assessmentTestRoutes);
 app.use('/api/exam', smartExamRoutes);
 app.use('/api/mini-project', miniProjectRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
