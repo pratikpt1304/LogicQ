@@ -9,3 +9,5 @@ smartExamRoutes.get('/my-tests', authenticate, SmartExamController.getStudentTes
 smartExamRoutes.post('/start-question', authenticate, SmartExamController.startQuestion);
 smartExamRoutes.post('/run-code', authenticate, SmartExamController.runCode);
 smartExamRoutes.post('/submit-question', authenticate, SmartExamController.submitQuestion);
+smartExamRoutes.get('/viva/current', authenticate, SmartExamController.getPendingViva);
+smartExamRoutes.post('/viva/submit', authenticate, SmartExamController.submitViva);

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SmartExamService } from '../services/smart-exam.service.js';
+import { AiVivaService } from '../services/ai-viva.service.js';
 import { prisma } from '../utils/prisma.js';
 
 export class SmartExamController {
@@ -161,6 +162,46 @@ export class SmartExamController {
         success: false,
         message: err.message || 'Failed to fetch student tests.',
       });
+    }
+  }
+
+  /**
+   * GET /api/exam/viva/current?assignmentId=...
+   */
+  static async getPendingViva(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const assignmentId = req.query.assignmentId as string;
+      if (!assignmentId) {
+        return res.status(400).json({ success: false, message: 'assignmentId query param is required.' });
+      }
+
+      const outcome = await AiVivaService.getPendingVivaForAssignment(assignmentId, user.userId || user.id);
+      return res.json({ success: true, ...outcome });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message || 'Failed to fetch pending viva.' });
+    }
+  }
+
+  /**
+   * POST /api/exam/viva/submit
+   */
+  static async submitViva(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { vivaId, answer } = req.body;
+      if (!vivaId || answer === undefined) {
+        return res.status(400).json({ success: false, message: 'vivaId and answer are required.' });
+      }
+
+      const outcome = await AiVivaService.submitVivaAnswer({
+        vivaId,
+        answer,
+        studentId: user.userId || user.id,
+      });
+      return res.json(outcome);
+    } catch (err: any) {
+      return res.status(400).json({ success: false, message: err.message || 'Failed to submit viva.' });
     }
   }
 }

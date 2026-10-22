@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { getJudge } from '../judge/judge.factory.js';
 import { Verdict } from '../judge/judge.interface.js';
+import { AiVivaService } from './ai-viva.service.js';
 import crypto from 'crypto';
 
 export interface SubmitQuestionDto {
@@ -457,6 +458,14 @@ export class SmartExamService {
       },
     });
 
+    // 6. AI Viva Trigger Evaluation (Sections 29 - 33)
+    const vivaOutcome = await AiVivaService.handleSubmissionVivaTrigger({
+      assignmentId: attempt.assignmentId,
+      attemptId: attempt.id,
+      verdict: allPassed ? 'ACCEPTED' : finalVerdict,
+      submittedCode: input.code,
+    });
+
     return {
       success: true,
       verdict: allPassed ? 'ACCEPTED' : finalVerdict,
@@ -470,6 +479,9 @@ export class SmartExamService {
       integrityRisk,
       suspiciousFlags,
       testOutcomes,
+      vivaTriggered: vivaOutcome.vivaTriggered,
+      vivaId: vivaOutcome.vivaId,
+      vivaQuestionText: vivaOutcome.questionText,
     };
   }
 }

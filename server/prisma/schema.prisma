@@ -56,6 +56,8 @@ model User {
   enrolledSections     SectionStudent[]   @relation("StudentSections")
   createdTests         AssessmentTest[]   @relation("CreatedTests")
   testAssignments     AssessmentTestAssignment[] @relation("StudentTestAssignments")
+  studentMiniProjects StudentMiniProjectAccess[] @relation("StudentMiniProjects")
+  activatedMiniProjects StudentMiniProjectAccess[] @relation("FacultyActivatedMiniProjects")
 }
 
 model PrnIndex {
@@ -487,6 +489,8 @@ model AssessmentTestAssignment {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   attempts       AssessmentQuestionAttempt[]
+  successiveCorrectCount Int    @default(0) // Track sequence of correct submissions (Section 29)
+  vivaQuestions  AssessmentVivaQuestion[]
 
   @@unique([testId, studentId])
   @@index([testId])
@@ -561,4 +565,72 @@ model AssessmentQuestionAttempt {
   @@index([problemId])
   @@index([questionVariantId])
   @@index([isLocked])
+}
+
+// AI Viva Verification Engine (Sections 29 - 33)
+model AssessmentVivaQuestion {
+  id                         String                   @id @default(uuid())
+  assignmentId               String
+  assignment                 AssessmentTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  attemptId                  String
+  questionText               String
+  codeContext                String                   // Snapshot of student's submitted C code that inspired the viva
+  startedAt                  DateTime                 @default(now())
+  submittedAt                DateTime?
+  studentAnswer              String?
+  responseDurationSec        Int?                     // Actual response time in seconds
+  submittedBeforeTimeout     Boolean                  @default(false) // Strict 1-minute limit (Section 31)
+  relevanceScore             Float?                   // AI evaluation relevance (0 - 100)
+  aiEvaluation               String?                  // Qualitative feedback
+  status                     String                   @default("PENDING") // "PENDING" | "COMPLETED" | "TIMED_OUT"
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+
+  @@index([assignmentId])
+  @@index([attemptId])
+  @@index([status])
+}
+
+// Integrated Mini-Project Framework (Sections 35 - 39)
+model MiniProject {
+  id                         String                   @id @default(uuid())
+  moduleId                   String
+  title                      String
+  scenario                   String                   // Multi-system real world scenario
+  requirements               String                   // Detailed requirements combining Sections 1-4
+  rubricJson                 String                   // JSON with 4 component rubrics (5 marks each = 20 total) (Section 35)
+  starterCode                String?
+  solutionCode               String?
+  expectedTimeMin            Int                      @default(45)
+  expectedTimeMax            Int                      @default(120)
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+  studentAccess              StudentMiniProjectAccess[]
+}
+
+model StudentMiniProjectAccess {
+  id                         String                   @id @default(uuid())
+  miniProjectId              String
+  miniProject                MiniProject              @relation(fields: [miniProjectId], references: [id], onDelete: Cascade)
+  studentId                  String
+  student                    User                     @relation("StudentMiniProjects", fields: [studentId], references: [id], onDelete: Cascade)
+  sectionId                  String
+  status                     String                   @default("INACTIVE") // INACTIVE by default (Section 36) | ACTIVE | SUBMITTED | EVALUATED
+  activatedById              String?                  // Faculty ID who activated this individual student (Section 37)
+  activatedBy                User?                    @relation("FacultyActivatedMiniProjects", fields: [activatedById], references: [id], onDelete: SetNull)
+  activatedAt                DateTime?
+  activationReason           String?                  // Audit log of activation (Section 38: no bulk activation)
+  academicScore              Float                    @default(0)     // Out of 20 marks
+  rubricScoresJson           String?                  // JSON breakdown of rubric scores (4 x 5 marks)
+  submittedCode              String?
+  submittedAt                DateTime?
+  integrityScore             Float                    @default(0)
+  integrityRisk              String                   @default("NORMAL")
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+
+  @@unique([miniProjectId, studentId])
+  @@index([studentId])
+  @@index([sectionId])
+  @@index([status])
 }

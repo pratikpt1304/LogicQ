@@ -32,6 +32,7 @@ import { CreateTestPage } from './pages/faculty/CreateTestPage.js';
 import { InstantJoinPage } from './pages/InstantJoinPage.js';
 import { StudentTestListPage } from './pages/exam/StudentTestListPage.js';
 import { ExamWorkspacePage } from './pages/exam/ExamWorkspacePage.js';
+import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -141,7 +142,8 @@ export const App: React.FC = () => {
   const isWorkspaceRoute =
     location.pathname.startsWith('/challenge') ||
     location.pathname.startsWith('/practice/') ||
-    location.pathname.startsWith('/exam/');
+    location.pathname.startsWith('/exam/') ||
+    location.pathname.startsWith('/mini-project/');
 
   const isStaging =
     typeof window !== 'undefined' &&
@@ -351,6 +353,14 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <ExamWorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mini-project/:miniProjectId"
+            element={
+              <ProtectedRoute>
+                <MiniProjectWorkspacePage />
               </ProtectedRoute>
             }
           />

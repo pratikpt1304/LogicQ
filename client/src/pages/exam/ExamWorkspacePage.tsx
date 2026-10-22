@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api } from '../../api/client.js';
 import { CodeEditor } from '../../components/editor/CodeEditor.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
+import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
 import {
   Play,
   Send,
@@ -38,6 +39,7 @@ export const ExamWorkspacePage: React.FC = () => {
   const [academicScore, setAcademicScore] = useState<number | null>(null);
   const [elapsedSec, setElapsedSec] = useState<number>(0);
   const [startedAt, setStartedAt] = useState<Date | null>(null);
+  const [activeViva, setActiveViva] = useState<{ vivaId: string; questionText: string; remainingSec?: number } | null>(null);
 
   // Test Results
   const [testResults, setTestResults] = useState<any[]>([]);
@@ -260,6 +262,15 @@ export const ExamWorkspacePage: React.FC = () => {
         setAcademicScore(res.academicScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
         toast.success(`ACCEPTED! Score: ${res.academicScore} Mark. Question is now permanently locked.`);
+
+        // Section 29: Trigger AI Viva Verification if returned by engine
+        if (res.vivaTriggered && res.vivaId) {
+          setActiveViva({
+            vivaId: res.vivaId,
+            questionText: res.vivaQuestionText,
+            remainingSec: 60,
+          });
+        }
       } else {
         toast.error(`Evaluation failed (${res.verdict}). Academic Score: 0.0 marks.`);
       }
@@ -581,6 +592,21 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Viva Verification Modal (Sections 29 - 33) */}
+      {activeViva && (
+        <AiVivaModal
+          vivaId={activeViva.vivaId}
+          questionText={activeViva.questionText}
+          initialRemainingSec={activeViva.remainingSec ?? 60}
+          onCompleted={(outcome) => {
+            setActiveViva(null);
+            if (outcome?.submittedBeforeTimeout) {
+              toast.success('AI Viva explanation recorded successfully.');
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
