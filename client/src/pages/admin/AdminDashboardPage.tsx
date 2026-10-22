@@ -2517,6 +2517,7 @@ export const AdminDashboardPage: React.FC = () => {
                         title="Change role (Admin, Checker, Student)"
                       >
                         <option value="STUDENT">STUDENT</option>
+                        <option value="FACULTY">FACULTY</option>
                         <option value="CHECKER">CHECKER</option>
                         <option value="ADMIN">ADMIN</option>
                       </select>

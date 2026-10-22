@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, isAdmin, isChecker, logout } = useAuth();
+  const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isStandalone = useIsStandalonePwa();
   const location = useLocation();
@@ -152,6 +152,17 @@ export const Navbar: React.FC = () => {
                 </Link>
               )}
 
+              {/* Faculty Gateway Pill */}
+              {isFaculty && (
+                <Link
+                  to="/faculty/sections"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-indigo-400 text-xs font-mono font-semibold hover:bg-[var(--bg-surface-hover)] transition-colors"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>Faculty</span>
+                </Link>
+              )}
+
               {/* Theme Toggle Button */}
               <button
                 type="button"
@@ -238,15 +249,18 @@ export const Navbar: React.FC = () => {
                     )}
 
                     {isAdmin && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                        <span>Admin Dashboard</span>
+                      </Link>
+                    )}
+
+                    {isFaculty && (
                       <>
-                        <Link
-                          to="/admin"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                          <span>Admin Dashboard</span>
-                        </Link>
                         <Link
                           to="/faculty/sections"
                           onClick={() => setProfileDropdownOpen(false)}
@@ -438,13 +452,29 @@ export const Navbar: React.FC = () => {
                   Learning Analytics
                 </Link>
                 {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                  >
+                    Admin Portal
+                  </Link>
+                )}
+                {isFaculty && (
                   <>
                     <Link
-                      to="/admin"
+                      to="/faculty/sections"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-indigo-400 hover:bg-[var(--bg-surface)]"
                     >
-                      Admin Portal
+                      Sections & Rosters
+                    </Link>
+                    <Link
+                      to="/faculty/tests"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-cyan-400 hover:bg-[var(--bg-surface)]"
+                    >
+                      Assign Tests
                     </Link>
                     <Link
                       to="/faculty/analytics"

@@ -43,6 +43,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isFaculty: boolean;
   isChecker: boolean;
   isOffline: boolean;
   login: (identifier: string, password: string) => Promise<User>;
@@ -60,6 +61,7 @@ interface AuthContextType {
 // - Admins: 2 hours idle timeout (replaces legacy 30m)
 export const STUDENT_INACTIVITY_LIMIT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const CHECKER_INACTIVITY_LIMIT_MS = 8 * 60 * 60 * 1000; // 8 hours
+export const FACULTY_INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours
 export const ADMIN_INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours
 export const IDLE_WARNING_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes pre-warning
 
@@ -102,6 +104,7 @@ export const STORAGE_KEYS = {
 
 export function getInactivityLimit(role?: string): number {
   if (role === 'ADMIN') return ADMIN_INACTIVITY_LIMIT_MS;
+  if (role === 'FACULTY') return FACULTY_INACTIVITY_LIMIT_MS;
   if (role === 'CHECKER') return CHECKER_INACTIVITY_LIMIT_MS;
   return STUDENT_INACTIVITY_LIMIT_MS;
 }
@@ -967,6 +970,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading: authState === 'loading',
         isAuthenticated: authState === 'signedIn' && Boolean(user),
         isAdmin: user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
+        isFaculty: user?.role === 'FACULTY' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
         isChecker: user?.role === 'CHECKER' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
         isOffline,
         login,

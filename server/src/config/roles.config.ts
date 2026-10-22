@@ -1,10 +1,10 @@
 /**
  * ROLES_REGISTRY - Extensible role definition table for LogicQ.
- * Exactly 3 supported roles currently: 'admin', 'checker', 'student'.
+ * Exactly 4 supported roles: 'ADMIN', 'FACULTY', 'CHECKER', 'STUDENT'.
  * Kept in a centralized registry so future roles can be added without architectural rewrites.
  */
 
-export type RoleName = 'ADMIN' | 'CHECKER' | 'STUDENT';
+export type RoleName = 'ADMIN' | 'FACULTY' | 'CHECKER' | 'STUDENT';
 
 export interface RoleDefinition {
   name: RoleName;
@@ -12,7 +12,9 @@ export interface RoleDefinition {
   description: string;
   permissions: {
     canAccessAdminPortal: boolean;
+    canAccessFacultyPortal: boolean;
     canAccessCheckerPortal: boolean;
+    canManageSections: boolean;
     canViewAllSubmissions: boolean;
     canViewHiddenTests: boolean;
     canReviewUploadsBlind: boolean;
@@ -33,7 +35,9 @@ export const ROLES_REGISTRY: Record<RoleName, RoleDefinition> = {
     description: 'Full access to all 12 admin pages, APIs, settings, and user/checker management.',
     permissions: {
       canAccessAdminPortal: true,
+      canAccessFacultyPortal: true,
       canAccessCheckerPortal: true, // admin can supervise / test checker reviews
+      canManageSections: true,
       canViewAllSubmissions: true,
       canViewHiddenTests: true,
       canReviewUploadsBlind: true,
@@ -44,7 +48,28 @@ export const ROLES_REGISTRY: Record<RoleName, RoleDefinition> = {
       canViewAuditLogs: true,
       canExportReports: true,
     },
-    idleTimeoutMs: 30 * 60 * 1000, // 30 minutes
+    idleTimeoutMs: 2 * 60 * 60 * 1000, // 2 hours
+  },
+  FACULTY: {
+    name: 'FACULTY',
+    displayName: 'Faculty Member',
+    description: 'Faculty section management, Excel roster import, test building, question authoring, and section analytics.',
+    permissions: {
+      canAccessAdminPortal: false,
+      canAccessFacultyPortal: true,
+      canAccessCheckerPortal: false,
+      canManageSections: true,
+      canViewAllSubmissions: false,
+      canViewHiddenTests: false,
+      canReviewUploadsBlind: false,
+      canReviewUploadsFull: false,
+      canManageUsers: false,
+      canChangeRoles: false,
+      canOverrideReviews: false,
+      canViewAuditLogs: false,
+      canExportReports: true,
+    },
+    idleTimeoutMs: 2 * 60 * 60 * 1000, // 2 hours
   },
   CHECKER: {
     name: 'CHECKER',
@@ -52,7 +77,9 @@ export const ROLES_REGISTRY: Record<RoleName, RoleDefinition> = {
     description: 'Restricted blind review portal (/checker/reviews). Zero access to admin portal or student PII.',
     permissions: {
       canAccessAdminPortal: false,
+      canAccessFacultyPortal: false,
       canAccessCheckerPortal: true,
+      canManageSections: false,
       canViewAllSubmissions: false,
       canViewHiddenTests: false,
       canReviewUploadsBlind: true,
@@ -71,7 +98,9 @@ export const ROLES_REGISTRY: Record<RoleName, RoleDefinition> = {
     description: 'Standard student portal: daily challenge, submissions, personal history & leaderboard.',
     permissions: {
       canAccessAdminPortal: false,
+      canAccessFacultyPortal: false,
       canAccessCheckerPortal: false,
+      canManageSections: false,
       canViewAllSubmissions: false,
       canViewHiddenTests: false,
       canReviewUploadsBlind: false,
@@ -86,7 +115,7 @@ export const ROLES_REGISTRY: Record<RoleName, RoleDefinition> = {
   },
 };
 
-export const ALLOWED_ROLES: RoleName[] = ['ADMIN', 'CHECKER', 'STUDENT'];
+export const ALLOWED_ROLES: RoleName[] = ['ADMIN', 'FACULTY', 'CHECKER', 'STUDENT'];
 
 export function isValidRole(role: string): role is RoleName {
   return ALLOWED_ROLES.includes(role.toUpperCase() as RoleName);
@@ -94,7 +123,7 @@ export function isValidRole(role: string): role is RoleName {
 
 export function normalizeRole(role: string): RoleName {
   const upper = role.toUpperCase();
-  if (upper === 'ADMIN' || upper === 'CHECKER' || upper === 'STUDENT') {
+  if (upper === 'ADMIN' || upper === 'FACULTY' || upper === 'CHECKER' || upper === 'STUDENT') {
     return upper as RoleName;
   }
   return 'STUDENT';

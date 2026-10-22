@@ -1892,8 +1892,8 @@ export async function updateUserRole(req: AuthRequest, res: Response): Promise<v
     const { role, reason } = req.body;
 
     const normalizedNewRole = (role || '').toUpperCase();
-    if (!['STUDENT', 'ADMIN', 'CHECKER'].includes(normalizedNewRole)) {
-      res.status(400).json({ success: false, message: 'Invalid role. Allowed roles: STUDENT, ADMIN, CHECKER' });
+    if (!['STUDENT', 'ADMIN', 'CHECKER', 'FACULTY'].includes(normalizedNewRole)) {
+      res.status(400).json({ success: false, message: 'Invalid role. Allowed roles: STUDENT, ADMIN, CHECKER, FACULTY' });
       return;
     }
 

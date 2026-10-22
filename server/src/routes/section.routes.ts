@@ -10,8 +10,8 @@ sectionRoutes.get('/join-info/:tokenOrCode', SectionController.getPublicJoinInfo
 sectionRoutes.post('/instant-join', SectionController.instantJoin);
 
 // Faculty & Admin authenticated routes
-sectionRoutes.post('/', authenticate, requireRole(['ADMIN']), SectionController.createSection);
-sectionRoutes.get('/', authenticate, SectionController.getFacultySections);
-sectionRoutes.get('/:id', authenticate, SectionController.getSectionDetails);
-sectionRoutes.post('/preview-excel', authenticate, SectionController.previewExcel);
-sectionRoutes.post('/:sectionId/import-students', authenticate, SectionController.importStudents);
+sectionRoutes.post('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.createSection);
+sectionRoutes.get('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.getFacultySections);
+sectionRoutes.get('/:id', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.getSectionDetails);
+sectionRoutes.post('/preview-excel', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.previewExcel);
+sectionRoutes.post('/:sectionId/import-students', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.importStudents);

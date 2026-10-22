@@ -97,6 +97,25 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const FacultyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isFaculty, authState } = useAuth();
+  const location = useLocation();
+
+  if (authState === 'loading') {
+    return <AuthLoadingScreen message="Verifying faculty privileges..." />;
+  }
+
+  if (authState === 'signedOut' || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!isFaculty) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAdmin, isChecker, authState } = useAuth();
   const location = useLocation();
@@ -315,9 +334,9 @@ export const App: React.FC = () => {
           <Route
             path="/faculty/sections"
             element={
-              <AdminRoute>
+              <FacultyRoute>
                 <SectionManagementPage />
-              </AdminRoute>
+              </FacultyRoute>
             }
           />
 
@@ -325,9 +344,9 @@ export const App: React.FC = () => {
           <Route
             path="/faculty/questions"
             element={
-              <AdminRoute>
+              <FacultyRoute>
                 <QuestionBankPage />
-              </AdminRoute>
+              </FacultyRoute>
             }
           />
 
@@ -335,9 +354,9 @@ export const App: React.FC = () => {
           <Route
             path="/faculty/tests"
             element={
-              <AdminRoute>
+              <FacultyRoute>
                 <CreateTestPage />
-              </AdminRoute>
+              </FacultyRoute>
             }
           />
 
@@ -345,9 +364,9 @@ export const App: React.FC = () => {
           <Route
             path="/faculty/analytics"
             element={
-              <AdminRoute>
+              <FacultyRoute>
                 <FacultyAnalyticsPage />
-              </AdminRoute>
+              </FacultyRoute>
             }
           />
 

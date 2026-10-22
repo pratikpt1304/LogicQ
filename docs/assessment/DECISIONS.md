@@ -1,17 +1,15 @@
-# Key Architectural & Policy Decisions for Review
+# Key Architectural & Policy Decisions (Approved Policy)
 
-**Document Version**: 1.0.0  
-**Date**: October 22, 2026  
-**Status**: Strategic Decision Brief (Documents-Only)  
+**Document Version**: 1.1.0  
+**Date**: October 23, 2026  
+**Status**: APPROVED POLICY (All 7 Decisions Adopted)  
 **Target Path**: `/docs/assessment/DECISIONS.md`  
 
 ---
 
 ## Executive Summary
 
-Before transitioning any portion of the Assessment Mode specification into application code, seven foundational technical, pedagogical, and legal decisions must be approved by project leadership and university management. 
-
-Each item below details the core dilemma, the trade-offs, and our explicit engineering recommendation.
+On October 23, 2026, all seven foundational strategic and architectural decisions were formally approved. The platform will implement the recommended institutional policies outlined below for the Assessment Mode subsystem.
 
 ---
 
@@ -91,14 +89,14 @@ Each item below details the core dilemma, the trade-offs, and our explicit engin
 
 ---
 
-## Summary Matrix of Recommended Decisions
+## Summary Matrix of Approved Decisions
 
-| # | Decision Topic | Spec Proposal | Recommended Architecture | Primary Benefit |
-| :---: | :--- | :--- | :--- | :--- |
-| **1** | **Identity Binding** | Email OTP + Mobile SMS OTP | Google OAuth + PRN Allowlist | Zero SMS cost, zero check-in delays |
-| **2** | **Hidden Test Cases** | Exactly 1 hidden test case | **3 to 5 hidden test cases** | Prevents brute-force hardcoding |
-| **3** | **AI Viva Format** | 60-second voice viva | **Typed text, 2.5-min timer** | Eliminates panic & microphone failures |
-| **4** | **Student Telemetry View** | Show 0–100 Integrity Score | **Faculty-Only advisory flags** | Prevents student exam panic and evasion |
-| **5** | **Data Retention** | Indefinite / unstated | **90-Day Telemetry Purge** | DPDP Act compliance & low storage cost |
-| **6** | **Institutional Sign-Off** | Direct deployment | **Formal Dean/HOD Approval** | Legal validity of exam grades |
-| **7** | **Content Ownership** | Automated generation | **Faculty Review Committee** | Accredited syllabus alignment |
+| # | Decision Topic | Spec Proposal | Approved Architecture | Approval Status | Primary Benefit |
+| :---: | :--- | :--- | :--- | :---: | :--- |
+| **1** | **Identity Binding** | Email OTP + Mobile SMS OTP | **Google OAuth + PRN Allowlist** | **APPROVED** | Zero SMS cost, zero check-in delays |
+| **2** | **Hidden Test Cases** | Exactly 1 hidden test case | **3 to 5 hidden test cases** | **APPROVED** | Prevents brute-force hardcoding |
+| **3** | **AI Viva Format** | 60-second voice viva | **Typed text, 2.5-min timer** | **APPROVED** | Eliminates panic & microphone failures |
+| **4** | **Student Telemetry View** | Show 0–100 Integrity Score | **Faculty-Only advisory flags** | **APPROVED** | Prevents student exam panic and evasion |
+| **5** | **Data Retention** | Indefinite / unstated | **90-Day Telemetry Purge** | **APPROVED** | DPDP Act compliance & low storage cost |
+| **6** | **Institutional Sign-Off** | Direct deployment | **Formal Dean/HOD Approval** | **APPROVED** | Legal validity of exam grades |
+| **7** | **Content Ownership** | Automated generation | **Faculty Review Committee** | **APPROVED** | Accredited syllabus alignment |

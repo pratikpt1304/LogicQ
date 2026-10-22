@@ -12,8 +12,13 @@ describe('Phase 1: Student Identity, Dual OTP & Section Management', () => {
   const testEmail = `student_${ts}@sanjivani.edu.in`;
   const testMobile = `987654${ts}`;
   let adminToken: string;
+  let facultyToken: string;
+  let studentToken: string;
   let adminUser: any;
+  let facultyUser: any;
+  let studentUser: any;
   let createdSection: any;
+  let facultySection: any;
 
   beforeAll(async () => {
     // Setup Admin user
@@ -34,6 +39,42 @@ describe('Phase 1: Student Identity, Dual OTP & Section Management', () => {
       username: adminUser.username,
       role: 'ADMIN',
     });
+
+    facultyUser = await prisma.user.upsert({
+      where: { email: `faculty_${ts}@logicq.io` },
+      update: { role: 'FACULTY' },
+      create: {
+        email: `faculty_${ts}@logicq.io`,
+        username: `faculty_${ts}`,
+        passwordHash: 'dummy',
+        role: 'FACULTY',
+        accountState: 'ACTIVE',
+      },
+    });
+
+    facultyToken = generateAccessToken({
+      userId: facultyUser.id,
+      username: facultyUser.username,
+      role: 'FACULTY',
+    });
+
+    studentUser = await prisma.user.upsert({
+      where: { email: `student_rbac_${ts}@logicq.io` },
+      update: { role: 'STUDENT' },
+      create: {
+        email: `student_rbac_${ts}@logicq.io`,
+        username: `student_rbac_${ts}`,
+        passwordHash: 'dummy',
+        role: 'STUDENT',
+        accountState: 'ACTIVE',
+      },
+    });
+
+    studentToken = generateAccessToken({
+      userId: studentUser.id,
+      username: studentUser.username,
+      role: 'STUDENT',
+    });
   });
 
   afterAll(async () => {
@@ -42,8 +83,12 @@ describe('Phase 1: Student Identity, Dual OTP & Section Management', () => {
       await prisma.sectionStudent.deleteMany({ where: { sectionId: createdSection.id } });
       await prisma.section.deleteMany({ where: { id: createdSection.id } });
     }
+    if (facultySection) {
+      await prisma.sectionStudent.deleteMany({ where: { sectionId: facultySection.id } });
+      await prisma.section.deleteMany({ where: { id: facultySection.id } });
+    }
     await prisma.otpVerification.deleteMany({ where: { target: { in: [testEmail, testMobile] } } });
-    await prisma.user.deleteMany({ where: { email: { in: [testEmail, 'admin_test@logicq.io'] } } });
+    await prisma.user.deleteMany({ where: { email: { in: [testEmail, 'admin_test@logicq.io', `faculty_${ts}@logicq.io`, `student_rbac_${ts}@logicq.io`] } } });
     await prisma.prnIndex.deleteMany({ where: { prn: testPrn } });
   });
 
@@ -131,6 +176,62 @@ describe('Phase 1: Student Identity, Dual OTP & Section Management', () => {
       expect(res.body.data.joinCode).toMatch(/^LQ-[A-Z0-9]{4}$/);
       expect(res.body.data.joinToken).toBeDefined();
       createdSection = res.body.data;
+    });
+
+    it('should allow a FACULTY user to create a section and list sections', async () => {
+      const res = await request(app)
+        .post('/api/sections')
+        .set('Authorization', `Bearer ${facultyToken}`)
+        .send({
+          institution: 'Sanjivani University',
+          course: 'B.Tech IT',
+          subject: 'Operating Systems',
+          academicYear: '2025-2026',
+          semester: 'Semester 4',
+          sectionName: `Faculty-Sec-${ts}`,
+          description: 'Faculty created section',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.facultyId).toBe(facultyUser.id);
+      facultySection = res.body.data;
+
+      // Verify faculty can list their sections
+      const listRes = await request(app)
+        .get('/api/sections')
+        .set('Authorization', `Bearer ${facultyToken}`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.success).toBe(true);
+      expect(listRes.body.data.some((s: any) => s.id === facultySection.id)).toBe(true);
+    });
+
+    it('should block STUDENT from creating a section with 403 Forbidden', async () => {
+      const res = await request(app)
+        .post('/api/sections')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          institution: 'Sanjivani University',
+          course: 'B.Tech IT',
+          subject: 'Operating Systems',
+          academicYear: '2025-2026',
+          semester: 'Semester 4',
+          sectionName: `Illegal-Sec-${ts}`,
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Access denied');
+    });
+
+    it('should block STUDENT from listing faculty sections with 403 Forbidden', async () => {
+      const res = await request(app)
+        .get('/api/sections')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Access denied');
     });
 
     it('should fetch public join info by joinToken without authentication', async () => {
