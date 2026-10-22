@@ -392,11 +392,6 @@ static inline char* __lq_getenv(const char *name) {
 #define fopen(path, mode) __lq_fopen(path, mode)
 #define freopen(path, mode, stream) __lq_freopen(path, mode, stream)
 #define getenv(name) __lq_getenv(name)
-
-__attribute__((constructor))
-static void __lq_crt_anchor(void) {
-    (void)fflush(NULL);
-}
 #endif
 `;
   }
@@ -443,7 +438,6 @@ static void __lq_crt_anchor(void) {
 
       const compileArgs = [
         '-O2',
-        '-s',
         '-Wall',
         '-std=c11',
         '-fno-asm',
@@ -648,7 +642,7 @@ static void __lq_crt_anchor(void) {
         const kernelTimeMs = parseInt(match[5], 10);
         const peakMemKb = parseInt(match[6], 10);
 
-        if (timedOut || userTimeMs >= timeLimitMs || exitCode === EXIT_CODE_TIMEOUT) {
+        if (timedOut || userTimeMs >= timeLimitMs || exitCode === EXIT_CODE_TIMEOUT || runnerExitCode === EXIT_CODE_TIMEOUT) {
           resolve({
             verdict: Verdict.TIME_LIMIT_EXCEEDED,
             runtimeMs: Math.max(runtimeMs, userTimeMs),
