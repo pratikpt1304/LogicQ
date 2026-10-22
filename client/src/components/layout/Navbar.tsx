@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   Download,
+  BookOpen,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -217,14 +218,24 @@ export const Navbar: React.FC = () => {
                     )}
 
                     {isAdmin && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                        <span>Admin Dashboard</span>
-                      </Link>
+                      <>
+                        <Link
+                          to="/admin"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                        <Link
+                          to="/faculty/sections"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs text-indigo-400 hover:bg-[var(--bg-surface)]"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Sections & Rosters</span>
+                        </Link>
+                      </>
                     )}
 
                     {(isChecker || isAdmin) && (

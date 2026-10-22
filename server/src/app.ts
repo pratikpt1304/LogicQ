@@ -16,6 +16,8 @@ import { adminRouter } from './routes/admin.routes.js';
 import { checkerRouter } from './routes/checker.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
 import { practiceRouter } from './routes/practice.routes.js';
+import { otpRoutes } from './routes/otp.routes.js';
+import { sectionRoutes } from './routes/section.routes.js';
 import { prisma } from './utils/prisma.js';
 
 export const app = express();
@@ -54,6 +56,7 @@ app.use(
 app.use(cookieParser());
 // Allow larger JSON payloads specifically on /api/uploads (up to 3 x 5 MB base64 files)
 app.use('/api/uploads', express.json({ limit: '25mb' }));
+app.use('/api/sections', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: true, limit: '256kb' }));
 
@@ -182,6 +185,8 @@ app.use('/api/users', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/checker', checkerRouter);
 app.use('/api/practice', practiceRouter);
+app.use('/api/otp', otpRoutes);
+app.use('/api/sections', sectionRoutes);
 
 // Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

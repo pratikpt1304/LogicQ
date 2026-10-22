@@ -26,6 +26,8 @@ import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.j
 import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
 import { PublicReportVerificationPage } from './pages/PublicReportVerificationPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
+import { SectionManagementPage } from './pages/faculty/SectionManagementPage.js';
+import { InstantJoinPage } from './pages/InstantJoinPage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -294,6 +296,19 @@ export const App: React.FC = () => {
               <CheckerRoute>
                 <CheckerReviewsPage />
               </CheckerRoute>
+            }
+          />
+
+          {/* Public Instant Student Join (Section 13) */}
+          <Route path="/join/:joinToken" element={<InstantJoinPage />} />
+
+          {/* Faculty & Admin Section Management (Section 11-12) */}
+          <Route
+            path="/faculty/sections"
+            element={
+              <AdminRoute>
+                <SectionManagementPage />
+              </AdminRoute>
             }
           />
 

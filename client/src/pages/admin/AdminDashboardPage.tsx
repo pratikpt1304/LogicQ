@@ -44,16 +44,18 @@ import {
   Zap,
   Clock,
   ShieldAlert,
+  BookOpen,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
 import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSecurity.js';
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
+import { SectionManagementPage } from '../faculty/SectionManagementPage.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily' | 'system' | 'anticheat'
+    'problems' | 'submissions' | 'uploads' | 'checkers' | 'users' | 'analytics' | 'practice' | 'daily' | 'system' | 'anticheat' | 'sections'
   >('users');
 
   const { data: healthData, isLoading: isHealthLoading, refetch: refetchHealth, isFetching: isHealthFetching } = useQuery({
@@ -1032,6 +1034,18 @@ export const AdminDashboardPage: React.FC = () => {
         >
           <ShieldAlert className="w-3.5 h-3.5" />
           <span>Anti-Cheat & Security</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sections')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'sections'
+              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Sections & Rosters</span>
         </button>
       </div>
 
@@ -3373,6 +3387,11 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Anti-Cheat & Sandbox Security Audit */}
       {activeTab === 'anticheat' && (
         <AdminAntiCheatSecurity />
+      )}
+
+      {/* Tab: Sections & Student Roster Management */}
+      {activeTab === 'sections' && (
+        <SectionManagementPage />
       )}
 
       {/* Student Activity Inspector Modal */}

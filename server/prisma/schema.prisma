@@ -35,6 +35,11 @@ model User {
   prnChangedAt         DateTime?      // Last student PRN change timestamp (cooldown gate)
   storagePreference    String?        @default("FIRESTORE_FALLBACK")
   hidePracticeTimer    Boolean        @default(false)
+  mobile               String?        @unique
+  accountState         String         @default("ACTIVE") // "PENDING" | "EMAIL_OTP_VERIFIED" | "MOBILE_OTP_VERIFIED" | "IDENTITY_BOUND" | "ACTIVE" | "SUSPENDED"
+  emailOtpVerifiedAt   DateTime?
+  mobileOtpVerifiedAt  DateTime?
+  identityBoundAt      DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -47,6 +52,8 @@ model User {
   refreshTokens        RefreshToken[]
   contestParticipants  ContestParticipant[]
   practiceProgress     PracticeProgress[]
+  taughtSections       Section[]          @relation("FacultySections")
+  enrolledSections     SectionStudent[]   @relation("StudentSections")
 }
 
 model PrnIndex {
@@ -337,3 +344,67 @@ model SystemConfig {
   updatedBy String?
 }
 
+
+
+model OtpVerification {
+  id          String    @id @default(uuid())
+  target      String    // email address or mobile number
+  type        String    // "EMAIL" | "MOBILE"
+  codeHash    String    // bcrypt or sha256 hash of 6-digit OTP
+  prn         String?   // optional PRN tied to verification flow
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  expiresAt   DateTime
+  verified    Boolean   @default(false)
+  verifiedAt  DateTime?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([target, type])
+  @@index([expiresAt])
+}
+
+model Section {
+  id           String           @id @default(uuid())
+  institution  String
+  course       String
+  subject      String
+  academicYear String           // e.g. "2026-2027"
+  semester     String           // e.g. "Semester 1"
+  sectionName  String           // e.g. "Section A - CSE"
+  facultyId    String
+  description  String?
+  joinCode     String           @unique // short code e.g. "LQ-CSE-A1"
+  joinToken    String           @unique // unique UUID for QR & link
+  startDate    DateTime?
+  endDate      DateTime?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  faculty      User             @relation("FacultySections", fields: [facultyId], references: [id], onDelete: Cascade)
+  students     SectionStudent[]
+
+  @@index([facultyId])
+  @@index([joinCode])
+  @@index([joinToken])
+}
+
+model SectionStudent {
+  id         String   @id @default(uuid())
+  sectionId  String
+  studentId  String
+  prn        String
+  status     String   @default("ENROLLED") // "ENROLLED" | "PENDING_VERIFICATION" | "DROPPED"
+  joinedVia  String   @default("EXCEL_IMPORT") // "EXCEL_IMPORT" | "INSTANT_JOIN" | "FACULTY_ADD"
+  enrolledAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  section    Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student    User     @relation("StudentSections", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, studentId])
+  @@unique([sectionId, prn])
+  @@index([sectionId])
+  @@index([studentId])
+}
