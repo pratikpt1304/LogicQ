@@ -212,11 +212,8 @@ int main(int argc, char *argv[]) {
         );
         if (created) break;
         err = GetLastError();
-        if (err == 4551) {
-            // Application Control policy blocked execution; retrying will never succeed
-            break;
-        }
-        if (err == 5 || err == 32) {
+        if (err == 4551 || err == 5 || err == 32) {
+            // Temporary Windows Defender / file scanner lock or sharing violation; retry
             Sleep(50);
         } else {
             break;

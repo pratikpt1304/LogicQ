@@ -44,6 +44,9 @@ export const Navbar: React.FC = () => {
     if (path === '/practice') {
       return location.pathname === '/practice' || location.pathname.startsWith('/practice/');
     }
+    if (path === '/student/tests') {
+      return location.pathname === '/student/tests' || location.pathname.startsWith('/exam/');
+    }
     return location.pathname === path;
   };
 
@@ -52,6 +55,7 @@ export const Navbar: React.FC = () => {
     { label: 'Home', path: '/dashboard', icon: Home },
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
     { label: 'Practice', path: '/practice', icon: Code2 },
+    { label: 'Tests', path: '/student/tests', icon: ShieldCheck },
     { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];
 

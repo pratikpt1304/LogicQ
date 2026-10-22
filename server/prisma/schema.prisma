@@ -158,6 +158,7 @@ model Problem {
   validationStatus  String             @default("PUBLISHED") // "DRAFT" | "AI_GENERATED" | "VALIDATION_FAILED" | "VALIDATION_PASSED" | "FACULTY_APPROVED" | "PUBLISHED" | "ARCHIVED"
   validationDetails String?            // JSON string with sandbox judge compilation & run logs on 3 test cases
   testQuestions     AssessmentTestQuestion[]
+  assessmentAttempts AssessmentQuestionAttempt[]
 }
 
 model TestCase {
@@ -485,9 +486,79 @@ model AssessmentTestAssignment {
   integrityRisk  String         @default("NORMAL") // "NORMAL" | "LOW" | "MODERATE" | "HIGH" | "CRITICAL"
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  attempts       AssessmentQuestionAttempt[]
 
   @@unique([testId, studentId])
   @@index([testId])
   @@index([studentId])
   @@index([status])
+}
+
+
+model AssessmentQuestionAttempt {
+  id                         String                   @id @default(uuid())
+  assignmentId               String
+  assignment                 AssessmentTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  problemId                  String
+  problem                    Problem                  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  questionVariantId          String                   // Unique variant ID per student instance (Section 34)
+  startedAt                  DateTime                 @default(now())
+  firstInteractionAt         DateTime?
+  firstCodeEditAt            DateTime?
+  firstExecutionAt           DateTime?
+  firstPassT1At              DateTime?
+  firstPassT2At              DateTime?
+  firstPassT3At              DateTime?
+  submittedAt                DateTime?
+  isLocked                   Boolean                  @default(false) // Locked immediately upon successful submission (Section 7)
+  academicScore              Float                    @default(0)     // 1.0 (inside time), 0.5 (outside time), 0.0 (incorrect) (Section 5)
+  actualTimeTakenSec         Int?
+  expectedRefTimeSec         Int?
+  timeDeviationSec           Int?
+  deviationPercent           Float?
+  verdict                    String?                  // ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, etc.
+  submittedCode              String?
+  status                     String                   @default("IN_PROGRESS") // IN_PROGRESS | ACCEPTED | FAILED | LOCKED
+
+  // Anti-Copying & Environment Metrics (Sections 20 & 21)
+  copyPasteAttempts          Int                      @default(0)
+  cutAttempts                Int                      @default(0)
+  contextMenuAttempts        Int                      @default(0)
+  tabSwitchCount             Int                      @default(0)
+  focusLossCount             Int                      @default(0)
+  totalFocusLossDurationMs   Int                      @default(0)
+  longestFocusLossDurationMs  Int                      @default(0)
+  fullScreenExitCount        Int                      @default(0)
+
+  // Typing & Code Evolution Metrics (Sections 22 - 28)
+  totalKeystrokes            Int                      @default(0)
+  charsInserted              Int                      @default(0)
+  charsDeleted               Int                      @default(0)
+  cpm                        Float                    @default(0)
+  wpm                        Float                    @default(0)
+  linesAdded                 Int                      @default(0)
+  linesDeleted               Int                      @default(0)
+  largestBurstChars          Int                      @default(0)
+  codeBurstRatio             Float                    @default(0)     // Largest Burst / Final Submitted Code Size
+  activeInteractionTimeSec   Int                      @default(0)
+  activeWorkRatio            Float                    @default(0)     // Active Time / Total Duration * 100
+  editCount                  Int                      @default(0)
+  executionCount             Int                      @default(0)
+  compilationErrors          Int                      @default(0)
+  runtimeErrors              Int                      @default(0)
+  editToExecutionRatio       Float                    @default(0)
+  solutionEmergenceJson      String?                  // JSON array of emergence checkpoints
+  codeRevisionsJson          String?                  // JSON array of code revisions
+  integrityScore             Float                    @default(0)     // Calculated Integrity Score 0-100 (Section 57)
+  integrityRisk              String                   @default("NORMAL") // NORMAL | LOW | MODERATE | HIGH | CRITICAL (Section 58)
+  suspiciousFlags            String?                  // JSON array of integrity alerts
+
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+
+  @@unique([assignmentId, problemId])
+  @@index([assignmentId])
+  @@index([problemId])
+  @@index([questionVariantId])
+  @@index([isLocked])
 }

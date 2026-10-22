@@ -467,7 +467,7 @@ static void __lq_crt_anchor(void) {
       });
 
       if (isWindows) {
-        await new Promise((r) => setTimeout(r, 75));
+        await new Promise((r) => setTimeout(r, 120));
       }
 
       const cleanup = async () => {

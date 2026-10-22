@@ -30,6 +30,8 @@ import { SectionManagementPage } from './pages/faculty/SectionManagementPage.js'
 import { QuestionBankPage } from './pages/faculty/QuestionBankPage.js';
 import { CreateTestPage } from './pages/faculty/CreateTestPage.js';
 import { InstantJoinPage } from './pages/InstantJoinPage.js';
+import { StudentTestListPage } from './pages/exam/StudentTestListPage.js';
+import { ExamWorkspacePage } from './pages/exam/ExamWorkspacePage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -138,7 +140,8 @@ export const App: React.FC = () => {
 
   const isWorkspaceRoute =
     location.pathname.startsWith('/challenge') ||
-    location.pathname.startsWith('/practice/');
+    location.pathname.startsWith('/practice/') ||
+    location.pathname.startsWith('/exam/');
 
   const isStaging =
     typeof window !== 'undefined' &&
@@ -331,6 +334,24 @@ export const App: React.FC = () => {
               <AdminRoute>
                 <CreateTestPage />
               </AdminRoute>
+            }
+          />
+
+          {/* Student Assessment Tests & Exam Workspace (Phase 3) */}
+          <Route
+            path="/student/tests"
+            element={
+              <ProtectedRoute>
+                <StudentTestListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exam/:assignmentId/:problemId"
+            element={
+              <ProtectedRoute>
+                <ExamWorkspacePage />
+              </ProtectedRoute>
             }
           />
 

@@ -20,6 +20,7 @@ import { otpRoutes } from './routes/otp.routes.js';
 import { sectionRoutes } from './routes/section.routes.js';
 import { questionBankRoutes } from './routes/question-bank.routes.js';
 import { assessmentTestRoutes } from './routes/assessment-test.routes.js';
+import { smartExamRoutes } from './routes/smart-exam.routes.js';
 import { prisma } from './utils/prisma.js';
 
 export const app = express();
@@ -191,6 +192,7 @@ app.use('/api/otp', otpRoutes);
 app.use('/api/sections', sectionRoutes);
 app.use('/api/questions', questionBankRoutes);
 app.use('/api/assessment-tests', assessmentTestRoutes);
+app.use('/api/exam', smartExamRoutes);
 
 // Global Error Handler (Mask internal details in production)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
