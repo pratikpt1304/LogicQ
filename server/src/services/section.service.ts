@@ -31,6 +31,13 @@ export interface ExcelValidationResult {
   duplicateRows: Array<{ rowNumber: number; data: StudentRowData; reason: string }>;
   conflictingRows: Array<{ rowNumber: number; data: StudentRowData; conflictReason: string }>;
   canImport: boolean;
+  summary?: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicate: number;
+    conflicting: number;
+  };
 }
 
 export class SectionService {

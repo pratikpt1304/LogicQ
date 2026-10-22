@@ -24,6 +24,8 @@ import {
   Moon,
   Download,
   BookOpen,
+  Sparkles,
+  FileCode2,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -234,6 +236,22 @@ export const Navbar: React.FC = () => {
                         >
                           <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
                           <span>Sections & Rosters</span>
+                        </Link>
+                        <Link
+                          to="/faculty/questions"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs text-purple-400 hover:bg-[var(--bg-surface)]"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Question Bank & AI</span>
+                        </Link>
+                        <Link
+                          to="/faculty/tests"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs text-cyan-400 hover:bg-[var(--bg-surface)]"
+                        >
+                          <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Assign Tests (Workflow 2)</span>
                         </Link>
                       </>
                     )}

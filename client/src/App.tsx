@@ -27,6 +27,8 @@ import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
 import { PublicReportVerificationPage } from './pages/PublicReportVerificationPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { SectionManagementPage } from './pages/faculty/SectionManagementPage.js';
+import { QuestionBankPage } from './pages/faculty/QuestionBankPage.js';
+import { CreateTestPage } from './pages/faculty/CreateTestPage.js';
 import { InstantJoinPage } from './pages/InstantJoinPage.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
@@ -308,6 +310,26 @@ export const App: React.FC = () => {
             element={
               <AdminRoute>
                 <SectionManagementPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* Faculty Question Bank & AI Generator (Sections 16-18) */}
+          <Route
+            path="/faculty/questions"
+            element={
+              <AdminRoute>
+                <QuestionBankPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* Faculty Create & Assign Tests (Workflow 2, Sections 14-15) */}
+          <Route
+            path="/faculty/tests"
+            element={
+              <AdminRoute>
+                <CreateTestPage />
               </AdminRoute>
             }
           />

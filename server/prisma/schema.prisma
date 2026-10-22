@@ -54,6 +54,8 @@ model User {
   practiceProgress     PracticeProgress[]
   taughtSections       Section[]          @relation("FacultySections")
   enrolledSections     SectionStudent[]   @relation("StudentSections")
+  createdTests         AssessmentTest[]   @relation("CreatedTests")
+  testAssignments     AssessmentTestAssignment[] @relation("StudentTestAssignments")
 }
 
 model PrnIndex {
@@ -142,6 +144,20 @@ model Problem {
   uploadedSolutions UploadedSolution[]
   contestProblems   ContestProblem[]
   practiceProgress  PracticeProgress[]
+  module            String?            // "Module 1", "Module 2", etc.
+  section           String?            // "Section 1", "Section 2", "Section 3", "Section 4"
+  topic             String?
+  learningOutcome   String?
+  bloomsLevel       String?            // "REMEMBER" | "UNDERSTAND" | "APPLY" | "ANALYZE" | "EVALUATE" | "CREATE"
+  scenario          String?            // Real-world engineering scenario
+  inputSpecification String?
+  outputSpecification String?
+  constraints       String?
+  expectedTimeMin   Int?               // 2 for Easy, 8 for Medium, 15 for Hard
+  expectedTimeMax   Int?               // 8 for Easy, 15 for Medium, 25 for Hard
+  validationStatus  String             @default("PUBLISHED") // "DRAFT" | "AI_GENERATED" | "VALIDATION_FAILED" | "VALIDATION_PASSED" | "FACULTY_APPROVED" | "PUBLISHED" | "ARCHIVED"
+  validationDetails String?            // JSON string with sandbox judge compilation & run logs on 3 test cases
+  testQuestions     AssessmentTestQuestion[]
 }
 
 model TestCase {
@@ -384,6 +400,7 @@ model Section {
 
   faculty      User             @relation("FacultySections", fields: [facultyId], references: [id], onDelete: Cascade)
   students     SectionStudent[]
+  assessmentTests AssessmentTest[]
 
   @@index([facultyId])
   @@index([joinCode])
@@ -407,4 +424,70 @@ model SectionStudent {
   @@unique([sectionId, prn])
   @@index([sectionId])
   @@index([studentId])
+}
+
+
+model AssessmentTest {
+  id                 String                     @id @default(uuid())
+  title              String
+  sectionId          String
+  section            Section                    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  moduleId           String                     // e.g. "Module 1", "Module 2"
+  instructions       String?
+  durationMinutes    Int                        @default(60)
+  questionCount      Int                        @default(20) // e.g. 20 questions
+  easyRatio          Int                        @default(40) // 40% Easy (2-8 min)
+  mediumRatio        Int                        @default(40) // 40% Medium (8-15 min)
+  hardRatio          Int                        @default(20) // 20% Hard (15-25 min)
+  randomiseQuestions Boolean                    @default(true)
+  startTime          DateTime?
+  endTime            DateTime?
+  attemptPolicy      String                     @default("STRICT_NO_REATTEMPT") // "STRICT_NO_REATTEMPT" | "ALLOW_ONE_RETRY"
+  status             String                     @default("DRAFT") // "DRAFT" | "PUBLISHED" | "ACTIVE" | "COMPLETED" | "ARCHIVED"
+  createdById        String
+  createdBy          User                       @relation("CreatedTests", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  questions          AssessmentTestQuestion[]
+  assignments        AssessmentTestAssignment[]
+
+  @@index([sectionId])
+  @@index([createdById])
+  @@index([status])
+}
+
+model AssessmentTestQuestion {
+  id         String         @id @default(uuid())
+  testId     String
+  test       AssessmentTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  problemId  String
+  problem    Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  orderIndex Int            @default(0)
+  marks      Int            @default(1)
+
+  @@unique([testId, problemId])
+  @@index([testId])
+  @@index([problemId])
+}
+
+model AssessmentTestAssignment {
+  id             String         @id @default(uuid())
+  testId         String
+  test           AssessmentTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User           @relation("StudentTestAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  status         String         @default("ASSIGNED") // "ASSIGNED" | "IN_PROGRESS" | "SUBMITTED" | "EXPIRED"
+  startedAt      DateTime?
+  submittedAt    DateTime?
+  academicScore  Float          @default(0)
+  integrityScore Float          @default(0)
+  integrityRisk  String         @default("NORMAL") // "NORMAL" | "LOW" | "MODERATE" | "HIGH" | "CRITICAL"
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([testId, studentId])
+  @@index([testId])
+  @@index([studentId])
+  @@index([status])
 }
