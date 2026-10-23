@@ -997,7 +997,7 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           <Code2 className="w-3.5 h-3.5" />
-          <span>Practice Curriculum (4 Modules / 40 Problems)</span>
+          <span>Practice Curriculum (4 Modules / 80 Problems)</span>
         </button>
 
         <button

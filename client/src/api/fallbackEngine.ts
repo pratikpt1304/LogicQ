@@ -1696,14 +1696,14 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const allPracticeProblems = getStoredPracticeProblems();
 
     let previousModuleSolved = 0;
-    let previousModuleTotal = 10;
+    let previousModuleTotal = 20;
     const modulesResponse = practiceModules.map((m, idx) => {
       const moduleProblems = allPracticeProblems.filter((p) => p.moduleSlug === m.slug);
       const totalPublished = moduleProblems.length;
       const easyCount = moduleProblems.filter((p) => p.difficulty === 'EASY').length;
       const mediumCount = moduleProblems.filter((p) => p.difficulty === 'MEDIUM').length;
       const hardCount = moduleProblems.filter((p) => p.difficulty === 'HARD').length;
-      const isComingSoon = totalPublished < 10;
+      const isComingSoon = totalPublished < (m.totalQuestions || 20);
 
       const solvedInModule = moduleProblems.filter(
         (p) => storedProgress[`${userPrefix}${p.slug}`]?.isSolved
@@ -1718,7 +1718,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       if (idx === 0) {
         isUnlocked = true;
         requirementText = 'Unlocked by default';
-      } else if (previousModuleTotal < 10) {
+      } else if (previousModuleTotal < (practiceModules[idx - 1].totalQuestions || 20)) {
         isUnlocked = false;
         requirementText = `${prevTitle} is coming soon (incomplete curriculum)`;
       } else {
@@ -1792,7 +1792,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (!isAdmin && modIdx > 0) {
       const prevMod = practiceModules[modIdx - 1];
       const prevProblems = allPracticeProblems.filter((p) => p.moduleSlug === prevMod.slug);
-      if (prevProblems.length < 10) {
+      if (prevProblems.length < (prevMod.totalQuestions || 20)) {
         const err = new Error(
           `${prevMod.title} is coming soon and cannot be unlocked as complete.`
         ) as Error & { status?: number; code?: string };

@@ -59,7 +59,7 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
     // Module N+1 unlocks if module N has at least module[N].requiredSolvedToUnlock solved problems
     // and module N has at least 10 published questions (complete curriculum).
     let previousModuleSolved = 0;
-    let previousModuleTotal = 10;
+    let previousModuleTotal = 20;
 
     const modulesWithStatus = PRACTICE_CONFIG.MODULES.map((mod: PracticeModuleConfig, idx: number) => {
       const moduleProbs = problemsByModule[mod.slug] || [];
@@ -67,7 +67,7 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
       const easyCount = moduleProbs.filter((p) => p.difficulty === 'EASY').length;
       const mediumCount = moduleProbs.filter((p) => p.difficulty === 'MEDIUM').length;
       const hardCount = moduleProbs.filter((p) => p.difficulty === 'HARD').length;
-      const isComingSoon = totalPublished < 10;
+      const isComingSoon = totalPublished < mod.totalQuestions;
 
       let isUnlocked = false;
       let requirementText = '';
@@ -79,7 +79,7 @@ export async function getPracticeModules(req: AuthRequest, res: Response): Promi
         const threshold = mod.requiredSolvedToUnlock || PRACTICE_CONFIG.DEFAULT_UNLOCK_THRESHOLD;
 
         // Incomplete curriculum: cannot unlock as complete
-        if (previousModuleTotal < 10) {
+        if (previousModuleTotal < prevModule.totalQuestions) {
           isUnlocked = false;
           requirementText = `${prevModule.title} is coming soon (incomplete curriculum)`;
         } else {
@@ -161,7 +161,7 @@ export async function getPracticeModuleProblems(req: AuthRequest, res: Response)
         },
       });
 
-      if (prevProblemsCount < 10) {
+      if (prevProblemsCount < prevModule.totalQuestions) {
         res.status(403).json({
           success: false,
           code: 'MODULE_LOCKED',
@@ -301,7 +301,7 @@ export async function getPracticeProblemDetails(req: AuthRequest, res: Response)
         },
       });
 
-      if (prevProblemsCount < 10) {
+      if (prevProblemsCount < prevModule.totalQuestions) {
         res.status(403).json({
           success: false,
           code: 'MODULE_LOCKED',

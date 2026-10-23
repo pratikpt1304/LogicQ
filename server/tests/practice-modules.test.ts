@@ -95,11 +95,11 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
 
     // Verify all 4 modules have dynamic 4 Easy / 4 Medium / 2 Hard distribution computed from DB
     for (const m of [m1, m2, m3, m4]) {
-      expect(m.totalQuestions).toBe(10);
+      expect(m.totalQuestions).toBe(20);
       expect(m.isComingSoon).toBe(false);
-      expect(m.distribution.EASY).toBe(4);
-      expect(m.distribution.MEDIUM).toBe(4);
-      expect(m.distribution.HARD).toBe(2);
+      expect(m.distribution.EASY).toBe(8);
+      expect(m.distribution.MEDIUM).toBe(8);
+      expect(m.distribution.HARD).toBe(4);
     }
 
     // Module 1: Control Structures
@@ -110,14 +110,14 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     // Module 2: Pointers and functions
     expect(m2.slug).toBe('pointers-and-functions');
     expect(m2.isUnlocked).toBe(false);
-    expect(m2.requirementText).toContain('Solve all 10 in Control Structures to unlock (0 of 10 solved)');
+    expect(m2.requirementText).toContain('Solve all 20 in Control Structures to unlock (0 of 20 solved)');
 
     // Module 3 & 4: Locked
     expect(m3.isUnlocked).toBe(false);
     expect(m4.isUnlocked).toBe(false);
   });
 
-  it('2. GET /api/practice/modules/control-structures/problems - Returns 10 problems without hidden tests', async () => {
+  it('2. GET /api/practice/modules/control-structures/problems - Returns 20 problems without hidden tests', async () => {
     const res = await request(app)
       .get('/api/practice/modules/control-structures/problems')
       .set('Authorization', `Bearer ${studentToken}`);
@@ -125,7 +125,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.module.slug).toBe('control-structures');
-    expect(res.body.data.problems.length).toBe(10);
+    expect(res.body.data.problems.length).toBe(20);
 
     for (const prob of res.body.data.problems) {
       expect(prob.status).toBe('NOT_STARTED');
@@ -138,14 +138,14 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     }
   });
 
-  it('3. GET /api/practice/modules/pointers-and-functions/problems - Returns 403 MODULE_LOCKED for student with < 10 solves', async () => {
+  it('3. GET /api/practice/modules/pointers-and-functions/problems - Returns 403 MODULE_LOCKED for student with < 20 solves', async () => {
     const res = await request(app)
       .get('/api/practice/modules/pointers-and-functions/problems')
       .set('Authorization', `Bearer ${studentToken}`);
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('MODULE_LOCKED');
-    expect(res.body.message || res.body.error).toContain('Solve all 10 in Control Structures to unlock');
+    expect(res.body.message || res.body.error).toContain('Solve all 20 in Control Structures to unlock');
   });
 
   it('4. GET /api/practice/problems/practice-m2-p1-swap-pointers - Returns 403 MODULE_LOCKED', async () => {
@@ -172,13 +172,11 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(res.body.data.problem.sampleTests.length).toBeGreaterThan(0);
   });
 
-  it('6. Solves all 10 problems in Module 1 -> Module 2 unlocks immediately', async () => {
+  it('6. Solves all 20 problems in Module 1 -> Module 2 unlocks immediately', async () => {
     // Fetch problems of Module 1
     const m1Problems = await prisma.problem.findMany({
-      where: { moduleSlug: 'control-structures', isPractice: true },
-      take: 10,
-    });
-    expect(m1Problems.length).toBe(10);
+      where: { moduleSlug: 'control-structures', isPractice: true } });
+    expect(m1Problems.length).toBe(20);
 
     // Mark 10 problems as solved for this student
     for (const prob of m1Problems) {
@@ -213,7 +211,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
 
     expect(res.status).toBe(200);
     const [m1, m2, m3] = res.body.data.modules;
-    expect(m1.solvedCount).toBe(10);
+    expect(m1.solvedCount).toBe(20);
     expect(m1.isUnlocked).toBe(true);
 
     // Module 2 MUST NOW BE UNLOCKED!
@@ -229,7 +227,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       .set('Authorization', `Bearer ${studentToken}`);
 
     expect(m2Res.status).toBe(200);
-    expect(m2Res.body.data.problems.length).toBe(10);
+    expect(m2Res.body.data.problems.length).toBe(20);
   });
 
   it('7. Submitting practice solution awards base points and marks submissionType as PRACTICE without affecting daily streak', async () => {
@@ -283,7 +281,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       .get('/api/practice/modules/array-and-its-applications/problems')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(adminRes.status).toBe(200);
-    expect(adminRes.body.data.problems.length).toBe(10);
+    expect(adminRes.body.data.problems.length).toBe(20);
 
     // Admin can also preview locked problem details directly!
     const adminProbRes = await request(app)
@@ -293,15 +291,13 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(adminProbRes.body.data.problem.slug).toBe('practice-m4-p1-struct-student-topper');
   });
 
-  it('9. Solving 9 questions does NOT unlock Module 3; solving the 10th question unlocks Module 3 immediately', async () => {
+  it('9. Solving 19 questions does NOT unlock Module 3; solving the 20th question unlocks Module 3 immediately', async () => {
     const m2Problems = await prisma.problem.findMany({
-      where: { moduleSlug: 'pointers-and-functions', isPractice: true },
-      take: 10,
-    });
-    expect(m2Problems.length).toBe(10);
+      where: { moduleSlug: 'pointers-and-functions', isPractice: true } });
+    expect(m2Problems.length).toBe(20);
 
     // Solve 9 problems in Module 2
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 19; i++) {
       const p = await prisma.practiceProgress.create({
         data: {
           userId: studentId,
@@ -315,7 +311,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       createdProgressIds.push(p.id);
     }
 
-    // With 9 solves, Module 3 MUST STILL BE LOCKED!
+    // With 19 solves, Module 3 MUST STILL BE LOCKED!
     const lockedRes = await request(app)
       .get('/api/practice/modules/array-and-its-applications/problems')
       .set('Authorization', `Bearer ${studentToken}`);
@@ -326,7 +322,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     const p10 = await prisma.practiceProgress.create({
       data: {
         userId: studentId,
-        problemId: m2Problems[9].id,
+        problemId: m2Problems[19].id,
         moduleSlug: 'pointers-and-functions',
         isSolved: true,
         attemptsCount: 1,
@@ -340,15 +336,13 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       .get('/api/practice/modules/array-and-its-applications/problems')
       .set('Authorization', `Bearer ${studentToken}`);
     expect(unlockedRes.status).toBe(200);
-    expect(unlockedRes.body.data.problems.length).toBe(10);
+    expect(unlockedRes.body.data.problems.length).toBe(20);
   });
 
-  it('10. Solving 10 questions in Module 3 unlocks Module 4 immediately with all 10 questions readable', async () => {
+  it('10. Solving 20 questions in Module 3 unlocks Module 4 immediately with all 20 questions readable', async () => {
     const m3Problems = await prisma.problem.findMany({
-      where: { moduleSlug: 'array-and-its-applications', isPractice: true },
-      take: 10,
-    });
-    expect(m3Problems.length).toBe(10);
+      where: { moduleSlug: 'array-and-its-applications', isPractice: true } });
+    expect(m3Problems.length).toBe(20);
 
     for (const prob of m3Problems) {
       const p = await prisma.practiceProgress.create({
@@ -369,7 +363,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
       .get('/api/practice/modules/advanced-data-types-dynamic-memory/problems')
       .set('Authorization', `Bearer ${studentToken}`);
     expect(m4Res.status).toBe(200);
-    expect(m4Res.body.data.problems.length).toBe(10);
+    expect(m4Res.body.data.problems.length).toBe(20);
   });
 
   it('11. Hidden tests and source references are never leaked to student in responses', async () => {
@@ -392,7 +386,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(prob.description).not.toContain('page');
   });
 
-  it('12. Incomplete module (< 10 questions) displays Coming soon and blocks unlocking as complete', async () => {
+  it('12. Incomplete module (< 20 questions) displays Coming soon and blocks unlocking as complete', async () => {
     // Temporarily unpublish 2 problems of Module 4 to simulate incomplete curriculum
     const m4Probs = await prisma.problem.findMany({
       where: { moduleSlug: 'advanced-data-types-dynamic-memory', isPractice: true },
@@ -412,7 +406,7 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
 
       expect(res.status).toBe(200);
       const m4 = res.body.data.modules.find((m: any) => m.slug === 'advanced-data-types-dynamic-memory');
-      expect(m4.totalQuestions).toBe(8);
+      expect(m4.totalQuestions).toBe(18);
       expect(m4.isComingSoon).toBe(true);
       expect(m4.canComplete).toBe(false);
     } finally {

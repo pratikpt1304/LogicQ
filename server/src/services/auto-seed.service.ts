@@ -73,9 +73,9 @@ export async function autoSeedDatabase(): Promise<void> {
       console.log('⚡ Badges seeded.');
     }
 
-    // 2. Seed Practice Curriculum (40 problems across 4 modules)
+    // 2. Seed Practice Curriculum (80 problems across 4 modules)
     const practiceCount = await prisma.problem.count({ where: { isPractice: true } });
-    if (practiceCount < 40) {
+    if (practiceCount < 80) {
       console.log(`⚡ Auto-seeding practice curriculum (current count: ${practiceCount})...`);
       const allPractice: PracticeProblemDef[] = [
         ...PRACTICE_MODULE_1_PROBLEMS,

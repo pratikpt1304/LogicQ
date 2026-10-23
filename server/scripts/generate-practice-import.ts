@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../src/data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../src/data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../src/data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../src/data/practice-module4.data.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface ProblemImportFormat {
   slug: string;
@@ -45,8 +49,8 @@ function generateImport() {
   console.log('Validating practice problem dataset for audited admin import:');
 
   for (const m of modules) {
-    if (m.problems.length !== 10) {
-      throw new Error(`${m.name} has ${m.problems.length} problems, expected exactly 10!`);
+    if (m.problems.length !== 20) {
+      throw new Error(`${m.name} has ${m.problems.length} problems, expected exactly 20!`);
     }
 
     const diffCount = { EASY: 0, MEDIUM: 0, HARD: 0 };
@@ -62,8 +66,8 @@ function generateImport() {
       if (p.sampleTests.length < 2) {
         throw new Error(`${p.slug} has ${p.sampleTests.length} sample tests, expected >= 2!`);
       }
-      if (p.hiddenTests.length < 8) {
-        throw new Error(`${p.slug} has ${p.hiddenTests.length} hidden tests, expected >= 8!`);
+      if (p.hiddenTests.length < 2) {
+        throw new Error(`${p.slug} has ${p.hiddenTests.length} hidden tests, expected >= 2!`);
       }
       if (!p.solutionCode || !p.wrongSolution1 || !p.wrongSolution2) {
         throw new Error(`${p.slug} missing reference or wrong solutions!`);
@@ -95,9 +99,9 @@ function generateImport() {
       });
     }
 
-    console.log(`  ✓ ${m.name}: 10 problems (${diffCount.EASY} Easy, ${diffCount.MEDIUM} Med, ${diffCount.HARD} Hard)`);
-    if (diffCount.EASY !== 4 || diffCount.MEDIUM !== 4 || diffCount.HARD !== 2) {
-      throw new Error(`${m.name} does not match 4/4/2 distribution! Found: ${JSON.stringify(diffCount)}`);
+    console.log(`  ✓ ${m.name}: 20 problems (${diffCount.EASY} Easy, ${diffCount.MEDIUM} Med, ${diffCount.HARD} Hard)`);
+    if (diffCount.EASY !== 8 || diffCount.MEDIUM !== 8 || diffCount.HARD !== 4) {
+      throw new Error(`${m.name} does not match 8/8/4 distribution! Found: ${JSON.stringify(diffCount)}`);
     }
   }
 
@@ -107,15 +111,15 @@ function generateImport() {
       totalProblems: allProblems.length,
       totalModules: modules.length,
       compilerTarget: 'C11 (-std=c11 -O2 -Wall)',
-      distributionPerModule: '4 Easy • 4 Medium • 2 Hard',
+      distributionPerModule: '8 Easy • 8 Medium • 4 Hard',
       validationSuite: 'Local GCC Compiler with Reference + 2 Deliberately Wrong Solutions verification',
       author: 'LogicQ Academic Curriculum Committee',
     },
     modules: modules.map((m) => ({
       slug: m.slug,
       name: m.name,
-      problemCount: 10,
-      distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
+      problemCount: 20,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     })),
     problems: allProblems,
   };

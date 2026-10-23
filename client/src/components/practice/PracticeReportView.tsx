@@ -314,7 +314,7 @@ export const PracticeReportView: React.FC<PracticeReportViewProps> = ({ user }) 
             </h3>
             <p className="text-xs text-[#9AA1C4] max-w-md mx-auto leading-relaxed">
               {isFinalSelected
-                ? 'Complete all 40 questions across all 4 Practice modules to unlock your verified audit record and completion badge.'
+                ? 'Complete all 80 questions across all 4 Practice modules to unlock your verified audit record and completion badge.'
                 : `Complete all 10 problems in "${currentModule?.title || 'this module'}" to unlock the verified audit breakdown.`}
             </p>
           </div>

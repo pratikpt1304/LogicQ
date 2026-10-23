@@ -14,8 +14,8 @@ export interface PracticeModuleConfig {
 }
 
 export const PRACTICE_CONFIG = {
-  practiceUnlockThreshold: 10,
-  DEFAULT_UNLOCK_THRESHOLD: 10,
+  practiceUnlockThreshold: 20,
+  DEFAULT_UNLOCK_THRESHOLD: 20,
   practiceHintUnlockAssist: false, // default OFF
   hintUnlockAssistAttemptThreshold: 6, // default 6 failed attempts
   allowSkipOneQuestionAfterDays: false, // default OFF
@@ -28,8 +28,8 @@ export const PRACTICE_CONFIG = {
       order: 1,
       description: 'Branching decisions, loops, switch-case, and iteration flow in C.',
       requiredSolvedToUnlock: 0,
-      totalQuestions: 10,
-      distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
+      totalQuestions: 20,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     },
     {
       id: 'module-2',
@@ -37,9 +37,9 @@ export const PRACTICE_CONFIG = {
       title: 'Pointers and Functions',
       order: 2,
       description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
-      requiredSolvedToUnlock: 10,
-      totalQuestions: 10,
-      distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
+      requiredSolvedToUnlock: 20,
+      totalQuestions: 20,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     },
     {
       id: 'module-3',
@@ -47,9 +47,9 @@ export const PRACTICE_CONFIG = {
       title: 'Array and its Applications',
       order: 3,
       description: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
-      requiredSolvedToUnlock: 10,
-      totalQuestions: 10,
-      distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
+      requiredSolvedToUnlock: 20,
+      totalQuestions: 20,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     },
     {
       id: 'module-4',
@@ -57,9 +57,9 @@ export const PRACTICE_CONFIG = {
       title: 'Advanced Data Types, Dynamic Memory',
       order: 4,
       description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
-      requiredSolvedToUnlock: 10,
-      totalQuestions: 10,
-      distribution: { EASY: 4, MEDIUM: 4, HARD: 2 },
+      requiredSolvedToUnlock: 20,
+      totalQuestions: 20,
+      distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     },
   ] as PracticeModuleConfig[],
 };
@@ -68,7 +68,7 @@ export function getModuleRequirementText(
   prevModuleTitle: string,
   threshold: number = PRACTICE_CONFIG.practiceUnlockThreshold,
   prevSolved: number = 0,
-  prevTotal: number = 10
+  prevTotal: number = 20
 ): string {
   const solvePrefix = threshold >= prevTotal ? `Solve all ${threshold}` : `Solve ${threshold} of ${prevTotal}`;
   return `${solvePrefix} in ${prevModuleTitle} to unlock (${prevSolved} of ${prevTotal} solved)`;

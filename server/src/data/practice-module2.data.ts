@@ -947,4 +947,1040 @@ int main() {
       },
     ],
   },
+  {
+    slug: "practice-m2-p11-increment-by-reference",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 11,
+    title: "Increment Variable by Reference",
+    difficulty: "EASY",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Pass-by-Reference","Functions","Dereference"],
+    description: `### Problem Description
+
+Write a function \`void incrementBy(long long *val, long long step)\` that modifies the variable pointed to by \`val\` by adding \`step\` to it using the dereference operator \`*\`.
+
+Given the initial value \$V\$ and step \$S\$, invoke the function and print the updated value.
+
+### Input Format
+Two space-separated integers \$V\$ and \$S\$ (\$-10^{14} \\le V, S \\le 10^{14}\$).
+
+### Output Format
+Print the updated value followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+void incrementBy(long long *val, long long step) {
+    // TODO: Dereference val and add step
+}
+
+int main() {
+    long long v, s;
+    if (scanf("%lld %lld", &v, &s) != 2) return 0;
+    incrementBy(&v, s);
+    printf("%lld\\n", v);
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+void incrementBy(long long *val, long long step) {
+    if (val) {
+        *val += step;
+    }
+}
+
+int main() {
+    long long v, s;
+    if (scanf("%lld %lld", &v, &s) != 2) return 0;
+    incrementBy(&v, s);
+    printf("%lld\\n", v);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+void incrementBy(long long *val, long long step) {
+    val += step; // Pointer arithmetic instead of dereferencing value!
+}
+int main() {
+    long long v, s;
+    scanf("%lld %lld", &v, &s);
+    incrementBy(&v, s);
+    printf("%lld\\n", v);
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    long long v, s;
+    scanf("%lld %lld", &v, &s);
+    printf("0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "10 5\n",
+                "expectedOutput": "15\n"
+          },
+          {
+                "input": "-20 30\n",
+                "expectedOutput": "10\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0 0\n",
+                "expectedOutput": "0\n"
+          },
+          {
+                "input": "1000000000 -500000000\n",
+                "expectedOutput": "500000000\n"
+          },
+          {
+                "input": "-100000000000 -200000000000\n",
+                "expectedOutput": "-300000000000\n"
+          },
+          {
+                "input": "42 0\n",
+                "expectedOutput": "42\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p12-count-vowels-pointer-walk",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 12,
+    title: "Count Vowels Using Pointer Traversal",
+    difficulty: "EASY",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Strings","Pointer Arithmetic","Characters"],
+    description: `### Problem Description
+
+Given a string \$S\$ consisting of alphanumeric characters without spaces, count the total number of vowels ('A', 'E', 'I', 'O', 'U', case-insensitive) by traversing the string character-by-character using a character pointer \`const char *ptr = s;\` rather than array indexing \`s[i]\`.
+
+### Input Format
+A single line containing string \$S\$ (\$1 \\le |S| \\le 1000\$).
+
+### Output Format
+Print the count of vowels followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <ctype.h>
+
+int countVowels(const char *str) {
+    // TODO: Traverse using pointer: while (*str) { ... str++; }
+    return 0;
+}
+
+int main() {
+    char str[1024];
+    if (scanf("%1023s", str) != 1) return 0;
+    printf("%d\\n", countVowels(str));
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <ctype.h>
+
+int countVowels(const char *str) {
+    int count = 0;
+    const char *ptr = str;
+    while (*ptr != '\\0') {
+        char ch = tolower((unsigned char)*ptr);
+        if (ch == 'a' || ch == 'e' || ch == 'i' || ch == 'o' || ch == 'u') {
+            count++;
+        }
+        ptr++;
+    }
+    return count;
+}
+
+int main() {
+    char str[1024];
+    if (scanf("%1023s", str) != 1) return 0;
+    printf("%d\\n", countVowels(str));
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int countVowels(const char *str) {
+    return 0;
+}
+int main() {
+    char str[1024];
+    scanf("%1023s", str);
+    printf("%d\\n", countVowels(str));
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int countVowels(const char *str) {
+    int c = 0;
+    while (*str) { if (*str == 'a') c++; str++; } // Only counts lowercase 'a'
+    return c;
+}
+int main() {
+    char str[1024];
+    scanf("%1023s", str);
+    printf("%d\\n", countVowels(str));
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "LogicQ\n",
+                "expectedOutput": "2\n"
+          },
+          {
+                "input": "EDUCATION\n",
+                "expectedOutput": "5\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "rhythm\n",
+                "expectedOutput": "0\n"
+          },
+          {
+                "input": "AEIOUaeiou\n",
+                "expectedOutput": "10\n"
+          },
+          {
+                "input": "CProgrammingLanguage\n",
+                "expectedOutput": "7\n"
+          },
+          {
+                "input": "pointer2024\n",
+                "expectedOutput": "3\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p13-copy-string-pointers",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 13,
+    title: "Custom String Copy via Pointer Arithmetic",
+    difficulty: "EASY",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Strings","Pointer Arithmetic","Idiom"],
+    description: `### Problem Description
+
+Implement the classic C idiomatic string copy function:
+\`\`\`c
+void myStrcpy(char *dest, const char *src);
+\`\`\`
+using the pointer copy idiom \`while ((*dest++ = *src++));\`.
+Do not use \`strcpy\` from \`<string.h>\`.
+
+### Input Format
+A single line containing a word \$S\$ (\$1 \\le |S| \\le 500\$).
+
+### Output Format
+Print the copied string from the destination buffer followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+void myStrcpy(char *dest, const char *src) {
+    // TODO: Copy src to dest using pointer arithmetic
+}
+
+int main() {
+    char src[512], dest[512];
+    if (scanf("%511s", src) != 1) return 0;
+    myStrcpy(dest, src);
+    printf("%s\\n", dest);
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+void myStrcpy(char *dest, const char *src) {
+    while ((*dest++ = *src++));
+}
+
+int main() {
+    char src[512], dest[512];
+    if (scanf("%511s", src) != 1) return 0;
+    myStrcpy(dest, src);
+    printf("%s\\n", dest);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+void myStrcpy(char *dest, const char *src) {
+    dest = (char*)src; // Shallow pointer copy, does not copy contents into dest buffer
+}
+int main() {
+    char src[512], dest[512];
+    scanf("%511s", src);
+    myStrcpy(dest, src);
+    printf("%s\\n", dest);
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("EMPTY\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "HelloLogicQ\n",
+                "expectedOutput": "HelloLogicQ\n"
+          },
+          {
+                "input": "C11Standards\n",
+                "expectedOutput": "C11Standards\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "a\n",
+                "expectedOutput": "a\n"
+          },
+          {
+                "input": "PointerArithmeticIsFun\n",
+                "expectedOutput": "PointerArithmeticIsFun\n"
+          },
+          {
+                "input": "1234567890\n",
+                "expectedOutput": "1234567890\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p14-recursive-sum-digits",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 14,
+    title: "Recursive Sum of Digits",
+    difficulty: "EASY",
+    category: "Pointers and Functions",
+    tags: ["Recursion","Functions","Digits","Math"],
+    description: `### Problem Description
+
+Write a recursive function \`long long sumDigits(long long n)\` that computes the sum of the decimal digits of a non-negative integer \$N\$.
+The recursive definition is:
+- Base case: If \$N < 10\$, return \$N\$.
+- Recursive step: Return \$(N \\% 10) + \\text{sumDigits}(N / 10)\$.
+
+### Input Format
+A single non-negative 64-bit integer \$N\$ (\$0 \\le N \\le 10^{15}\$).
+
+### Output Format
+Print the sum of digits followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+long long sumDigits(long long n) {
+    // TODO: Implement recursive sum of digits
+    return 0;
+}
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    printf("%lld\\n", sumDigits(n));
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+long long sumDigits(long long n) {
+    if (n < 10) return n;
+    return (n % 10) + sumDigits(n / 10);
+}
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    printf("%lld\\n", sumDigits(n));
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+long long sumDigits(long long n) {
+    return n; // Misses recursion
+}
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    printf("%lld\\n", sumDigits(n));
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+long long sumDigits(long long n) {
+    return n % 10; // Only returns last digit
+}
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    printf("%lld\\n", sumDigits(n));
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "12345\n",
+                "expectedOutput": "15\n"
+          },
+          {
+                "input": "0\n",
+                "expectedOutput": "0\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "9\n",
+                "expectedOutput": "9\n"
+          },
+          {
+                "input": "999999999\n",
+                "expectedOutput": "81\n"
+          },
+          {
+                "input": "1000000000000000\n",
+                "expectedOutput": "1\n"
+          },
+          {
+                "input": "876543210987654\n",
+                "expectedOutput": "71\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p15-pointer-array-subtraction",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 15,
+    title: "Pointer Subtraction Distance",
+    difficulty: "MEDIUM",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Pointer Arithmetic","ptrdiff_t","Arrays"],
+    description: `### Problem Description
+
+In C, subtracting two pointers that point to elements of the same array yields the number of elements between them (\`ptrdiff_t\`).
+
+Given an array of \$N\$ integers and two values \$X\$ and \$Y\$ guaranteed to exist in the array, find the pointer distance \`ptrY - ptrX\` using pointer subtraction, where \`ptrX\` points to the first occurrence of \$X\$ and \`ptrY\` points to the first occurrence of \$Y\$.
+
+### Input Format
+- Line 1: An integer \$N\$ (\$1 \\le N \\le 1000\$).
+- Line 2: \$N\$ space-separated integers.
+- Line 3: Two integers \$X\$ and \$Y\$.
+
+### Output Format
+Print the difference \`ptrY - ptrX\` (positive, negative, or zero) followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <stddef.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    int arr[1005];
+    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);
+    int x, y;
+    if (scanf("%d %d", &x, &y) != 2) return 0;
+    
+    // TODO: Locate pointers to x and y and print ptrY - ptrX
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stddef.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    int arr[1005];
+    for (int i = 0; i < n; i++) {
+        if (scanf("%d", &arr[i]) != 1) return 0;
+    }
+    int x, y;
+    if (scanf("%d %d", &x, &y) != 2) return 0;
+
+    int *ptrX = NULL;
+    int *ptrY = NULL;
+
+    for (int *p = arr; p < arr + n; p++) {
+        if (!ptrX && *p == x) ptrX = p;
+        if (!ptrY && *p == y) ptrY = p;
+        if (ptrX && ptrY) break;
+    }
+
+    ptrdiff_t diff = ptrY - ptrX;
+    printf("%td\\n", diff);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("0\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    int arr[1005];
+    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);
+    int x, y;
+    scanf("%d %d", &x, &y);
+    printf("%d\\n", y - x); // Subtracts values instead of pointers!
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "5\n10 20 30 40 50\n20 50\n",
+                "expectedOutput": "3\n"
+          },
+          {
+                "input": "5\n10 20 30 40 50\n40 10\n",
+                "expectedOutput": "-3\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "4\n1 2 3 4\n2 2\n",
+                "expectedOutput": "0\n"
+          },
+          {
+                "input": "6\n5 2 8 2 9 8\n5 9\n",
+                "expectedOutput": "4\n"
+          },
+          {
+                "input": "6\n5 2 8 2 9 8\n8 5\n",
+                "expectedOutput": "-2\n"
+          },
+          {
+                "input": "1\n42\n42 42\n",
+                "expectedOutput": "0\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p16-recursive-palindrome-string",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 16,
+    title: "Recursive String Palindrome Check",
+    difficulty: "MEDIUM",
+    category: "Pointers and Functions",
+    tags: ["Recursion","Pointers","Strings","Palindrome"],
+    description: `### Problem Description
+
+Write a recursive function \`int isPalindrome(const char *left, const char *right)\` that determines whether a given word is a palindrome.
+- If \`left >= right\`, return \$1\$ (true).
+- If \`*left != *right\`, return \$0\$ (false).
+- Otherwise, return \`isPalindrome(left + 1, right - 1)\`.
+
+### Input Format
+A single line containing string \$S\$ (\$1 \\le |S| \\le 500\$) without spaces.
+
+### Output Format
+Print \`YES\` if \$S\$ is a palindrome; otherwise, print \`NO\`.`,
+    starterCode: `#include <stdio.h>
+#include <string.h>
+
+int isPalindrome(const char *left, const char *right) {
+    // TODO: Recursive palindrome check using pointers
+    return 0;
+}
+
+int main() {
+    char s[512];
+    if (scanf("%511s", s) != 1) return 0;
+    int len = strlen(s);
+    if (isPalindrome(s, s + len - 1)) {
+        printf("YES\\n");
+    } else {
+        printf("NO\\n");
+    }
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <string.h>
+
+int isPalindrome(const char *left, const char *right) {
+    if (left >= right) return 1;
+    if (*left != *right) return 0;
+    return isPalindrome(left + 1, right - 1);
+}
+
+int main() {
+    char s[512];
+    if (scanf("%511s", s) != 1) return 0;
+    int len = strlen(s);
+    if (isPalindrome(s, s + len - 1)) {
+        printf("YES\\n");
+    } else {
+        printf("NO\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("YES\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int isPalindrome(const char *left, const char *right) {
+    return *left == *right; // Only checks first and last characters!
+}
+int main() {
+    char s[512];
+    scanf("%511s", s);
+    printf("NO\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "racecar\n",
+                "expectedOutput": "YES\n"
+          },
+          {
+                "input": "logic\n",
+                "expectedOutput": "NO\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "a\n",
+                "expectedOutput": "YES\n"
+          },
+          {
+                "input": "noon\n",
+                "expectedOutput": "YES\n"
+          },
+          {
+                "input": "deified\n",
+                "expectedOutput": "YES\n"
+          },
+          {
+                "input": "palindrome\n",
+                "expectedOutput": "NO\n"
+          },
+          {
+                "input": "abccba\n",
+                "expectedOutput": "YES\n"
+          },
+          {
+                "input": "abccbx\n",
+                "expectedOutput": "NO\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p17-function-pointer-comparator-sort",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 17,
+    title: "Function Pointer Comparator Sort",
+    difficulty: "MEDIUM",
+    category: "Pointers and Functions",
+    tags: ["Function Pointers","Sorting","Callbacks","High-Order Functions"],
+    description: `### Problem Description
+
+Implement a sorting function \`void sortArray(int *arr, int n, int (*cmp)(int, int))\` that sorts an array of integers using a function pointer comparator callback.
+- Comparator 1 (Ascending): returns positive if \$A > B\$.
+- Comparator 2 (Descending): returns positive if \$A < B\$.
+
+Given \$N\$, the sort mode (\$1\$ for ascending, \$2\$ for descending), and \$N\$ integers, sort the array using the appropriate comparator function pointer.
+
+### Input Format
+- Line 1: Two integers \$N\$ (\$1 \\le N \\le 500\$) and \$mode\$ (\$1\$ or \$2\$).
+- Line 2: \$N\$ space-separated integers.
+
+### Output Format
+Print the sorted integers separated by a single space, followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int cmpAsc(int a, int b) { return a - b; }
+int cmpDesc(int a, int b) { return b - a; }
+
+void sortArray(int *arr, int n, int (*cmp)(int, int)) {
+    // TODO: Sort arr using comparator function pointer cmp
+}
+
+int main() {
+    int n, mode;
+    if (scanf("%d %d", &n, &mode) != 2) return 0;
+    int arr[505];
+    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);
+    
+    // TODO: Call sortArray with appropriate function pointer
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int cmpAsc(int a, int b) { return a - b; }
+int cmpDesc(int a, int b) { return b - a; }
+
+void sortArray(int *arr, int n, int (*cmp)(int, int)) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - 1 - i; j++) {
+            if (cmp(arr[j], arr[j + 1]) > 0) {
+                int tmp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = tmp;
+            }
+        }
+    }
+}
+
+int main() {
+    int n, mode;
+    if (scanf("%d %d", &n, &mode) != 2) return 0;
+    int arr[505];
+    for (int i = 0; i < n; i++) {
+        if (scanf("%d", &arr[i]) != 1) return 0;
+    }
+    
+    int (*comparator)(int, int) = (mode == 1) ? cmpAsc : cmpDesc;
+    sortArray(arr, n, comparator);
+    
+    for (int i = 0; i < n; i++) {
+        printf("%d%s", arr[i], (i == n - 1) ? "" : " ");
+    }
+    printf("\\n");
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int n, mode;
+    scanf("%d %d", &n, &mode);
+    int arr[505];
+    for (int i = 0; i < n; i++) scanf("%d", &arr[i]);
+    for (int i = 0; i < n; i++) printf("%d ", arr[i]);
+    printf("\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "5 1\n40 10 50 20 30\n",
+                "expectedOutput": "10 20 30 40 50\n"
+          },
+          {
+                "input": "5 2\n40 10 50 20 30\n",
+                "expectedOutput": "50 40 30 20 10\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1 1\n42\n",
+                "expectedOutput": "42\n"
+          },
+          {
+                "input": "4 1\n-5 10 -20 0\n",
+                "expectedOutput": "-20 -5 0 10\n"
+          },
+          {
+                "input": "4 2\n-5 10 -20 0\n",
+                "expectedOutput": "10 0 -5 -20\n"
+          },
+          {
+                "input": "6 1\n3 3 2 2 1 1\n",
+                "expectedOutput": "1 1 2 2 3 3\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p18-simulate-call-by-value-swap",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 18,
+    title: "Call-by-Value vs Call-by-Reference Demonstration",
+    difficulty: "MEDIUM",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Call-by-Value","Call-by-Reference","Memory Model"],
+    description: `### Problem Description
+
+Demonstrate the difference between Call-by-Value and Call-by-Reference in C:
+1. Write \`void swapByVal(int a, int b)\`: attempts to swap the parameters locally. Note that because C passes arguments by value (copying), the caller's variables remain untouched.
+2. Write \`void swapByRef(int *a, int *b)\`: swaps values at the memory addresses pointed to by \`a\` and \`b\`.
+
+Given two integers \$X\$ and \$Y\$, invoke \`swapByVal(x, y)\` and print the values of \`x\` and \`y\` (Line 1: \`AFTER VAL: X Y\`). Then invoke \`swapByRef(&x, &y)\` and print the updated values of \`x\` and \`y\` (Line 2: \`AFTER REF: Y X\`).
+
+### Input Format
+Two space-separated integers \$X\$ and \$Y\$.
+
+### Output Format
+- Line 1: \`AFTER VAL: X Y\`
+- Line 2: \`AFTER REF: Y X\``,
+    starterCode: `#include <stdio.h>
+
+void swapByVal(int a, int b) {
+    int t = a; a = b; b = t;
+}
+
+void swapByRef(int *a, int *b) {
+    // TODO: Swap dereferenced values
+}
+
+int main() {
+    int x, y;
+    if (scanf("%d %d", &x, &y) != 2) return 0;
+    swapByVal(x, y);
+    printf("AFTER VAL: %d %d\\n", x, y);
+    swapByRef(&x, &y);
+    printf("AFTER REF: %d %d\\n", x, y);
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+void swapByVal(int a, int b) {
+    int t = a; a = b; b = t;
+}
+
+void swapByRef(int *a, int *b) {
+    if (a && b) {
+        int t = *a;
+        *a = *b;
+        *b = t;
+    }
+}
+
+int main() {
+    int x, y;
+    if (scanf("%d %d", &x, &y) != 2) return 0;
+    swapByVal(x, y);
+    printf("AFTER VAL: %d %d\\n", x, y);
+    swapByRef(&x, &y);
+    printf("AFTER REF: %d %d\\n", x, y);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int x, y;
+    scanf("%d %d", &x, &y);
+    printf("AFTER VAL: %d %d\\nAFTER REF: %d %d\\n", x, y, x, y); // Did not swap in ref
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("AFTER VAL: 0 0\\nAFTER REF: 0 0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "10 20\n",
+                "expectedOutput": "AFTER VAL: 10 20\nAFTER REF: 20 10\n"
+          },
+          {
+                "input": "-5 99\n",
+                "expectedOutput": "AFTER VAL: -5 99\nAFTER REF: 99 -5\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0 0\n",
+                "expectedOutput": "AFTER VAL: 0 0\nAFTER REF: 0 0\n"
+          },
+          {
+                "input": "1000 -1000\n",
+                "expectedOutput": "AFTER VAL: 1000 -1000\nAFTER REF: -1000 1000\n"
+          },
+          {
+                "input": "42 7\n",
+                "expectedOutput": "AFTER VAL: 42 7\nAFTER REF: 7 42\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p19-ackermann-function-recursion",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 19,
+    title: "Ackermann Deep Recursion Function",
+    difficulty: "HARD",
+    category: "Pointers and Functions",
+    tags: ["Recursion","Functions","Non-Primitive Recursive","Stack Frames"],
+    description: `### Problem Description
+
+The Ackermann function \$A(m, n)\$ is a classic example of a computable function that is not primitive recursive:
+- \$A(0, n) = n + 1\$
+- \$A(m, 0) = A(m - 1, 1)\$ for \$m > 0\$
+- \$A(m, n) = A(m - 1, A(m, n - 1))\$ for \$m > 0, n > 0\$.
+
+Write a recursive C function to evaluate \$A(m, n)\$ for small non-negative integers \$m\$ and \$n\$.
+
+### Input Format
+Two space-separated non-negative integers \$m\$ and \$n\$ (\$0 \\le m \\le 3\$, \$0 \\le n \\le 10\$).
+
+### Output Format
+Print the computed value \$A(m, n)\$ followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+long long ackermann(int m, int n) {
+    // TODO: Implement Ackermann recursive definition
+    return 0;
+}
+
+int main() {
+    int m, n;
+    if (scanf("%d %d", &m, &n) != 2) return 0;
+    printf("%lld\\n", ackermann(m, n));
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+long long ackermann(int m, int n) {
+    if (m == 0) return n + 1;
+    if (m > 0 && n == 0) return ackermann(m - 1, 1);
+    return ackermann(m - 1, ackermann(m, n - 1));
+}
+
+int main() {
+    int m, n;
+    if (scanf("%d %d", &m, &n) != 2) return 0;
+    printf("%lld\\n", ackermann(m, n));
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int m, n;
+    scanf("%d %d", &m, &n);
+    printf("%d\\n", m + n); // Primitive addition bug
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1500,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "1 2\n",
+                "expectedOutput": "4\n"
+          },
+          {
+                "input": "2 2\n",
+                "expectedOutput": "7\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0 5\n",
+                "expectedOutput": "6\n"
+          },
+          {
+                "input": "1 0\n",
+                "expectedOutput": "2\n"
+          },
+          {
+                "input": "2 4\n",
+                "expectedOutput": "11\n"
+          },
+          {
+                "input": "3 2\n",
+                "expectedOutput": "29\n"
+          },
+          {
+                "input": "3 4\n",
+                "expectedOutput": "125\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m2-p20-generic-pointer-byte-scanner",
+    moduleSlug: "pointers-and-functions",
+    moduleOrder: 20,
+    title: "Generic Pointer Memory Byte Inspector",
+    difficulty: "HARD",
+    category: "Pointers and Functions",
+    tags: ["Pointers","Generic Pointers","void*","Endianness","Type Punning"],
+    description: `### Problem Description
+
+In low-level systems programming, \`void*\` and \`unsigned char*\` allow examining raw memory byte-by-byte.
+
+Write a function \`void dumpBytes(const void *ptr, size_t size)\` that casts \`ptr\` to \`const unsigned char*\` and prints each byte formatted as a two-digit uppercase hexadecimal number with leading zeros (e.g. \`%02X\`), separated by a single space.
+
+Given a 32-bit unsigned integer \$X\$, pass its address and \`sizeof(unsigned int)\` to the function to inspect how the architecture stores \$X\$ in RAM.
+
+### Input Format
+A single 32-bit unsigned integer \$X\$ (\$0 \\le X \\le 4294967295\$).
+
+### Output Format
+Print the \$4\$ hexadecimal bytes in memory order separated by spaces, followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <stddef.h>
+
+void dumpBytes(const void *ptr, size_t size) {
+    // TODO: Cast to const unsigned char* and print each byte as %02X
+}
+
+int main() {
+    unsigned int x;
+    if (scanf("%u", &x) != 1) return 0;
+    dumpBytes(&x, sizeof(x));
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stddef.h>
+
+void dumpBytes(const void *ptr, size_t size) {
+    const unsigned char *p = (const unsigned char *)ptr;
+    for (size_t i = 0; i < size; i++) {
+        printf("%02X%s", p[i], (i == size - 1) ? "" : " ");
+    }
+    printf("\\n");
+}
+
+int main() {
+    unsigned int x;
+    if (scanf("%u", &x) != 1) return 0;
+    dumpBytes(&x, sizeof(x));
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    unsigned int x;
+    scanf("%u", &x);
+    printf("%08X\\n", x); // Prints full int in big-endian presentation rather than memory byte order
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("00 00 00 00\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "305419896\n",
+                "expectedOutput": "78 56 34 12\n"
+          },
+          {
+                "input": "1\n",
+                "expectedOutput": "01 00 00 00\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0\n",
+                "expectedOutput": "00 00 00 00\n"
+          },
+          {
+                "input": "255\n",
+                "expectedOutput": "FF 00 00 00\n"
+          },
+          {
+                "input": "4294967295\n",
+                "expectedOutput": "FF FF FF FF\n"
+          },
+          {
+                "input": "65535\n",
+                "expectedOutput": "FF FF 00 00\n"
+          }
+    ],
+  }
 ];

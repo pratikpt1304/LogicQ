@@ -1081,4 +1081,1217 @@ int main() {
       },
     ],
   },
+  {
+    slug: "practice-m4-p11-complex-number-addition-struct",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 11,
+    title: "Complex Numbers Addition with Structures",
+    difficulty: "EASY",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Structures","Complex Numbers","Data Types","Formatting"],
+    description: `### Problem Description
+
+Define a structure \`struct Complex\` with two double fields: \`real\` and \`imag\`.
+Write a function:
+\`\`\`c
+struct Complex addComplex(struct Complex a, struct Complex b);
+\`\`\`
+that adds two complex numbers: \$(r_1 + i_1 i) + (r_2 + i_2 i) = (r_1 + r_2) + (i_1 + i_2)i\$.
+
+Print the sum formatted with two decimal places.
+If the imaginary part is non-negative, format as: \`%.2f + %.2fi\\n\`
+If the imaginary part is negative, format as: \`%.2f - %.2fi\\n\` (with positive imaginary value). Note: if a component is within \$10^{-9}\$ of zero, normalize \$-0.00\$ to \$0.00\$.
+
+### Input Format
+Four space-separated floating-point numbers \$r_1, i_1, r_2, i_2\$.
+
+### Output Format
+Print the formatted sum followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <math.h>
+
+struct Complex {
+    double real;
+    double imag;
+};
+
+struct Complex addComplex(struct Complex a, struct Complex b) {
+    // TODO: Add complex numbers
+    struct Complex res = {0, 0};
+    return res;
+}
+
+int main() {
+    struct Complex c1, c2;
+    if (scanf("%lf %lf %lf %lf", &c1.real, &c1.imag, &c2.real, &c2.imag) != 4) return 0;
+    struct Complex sum = addComplex(c1, c2);
+    // TODO: Format output
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <math.h>
+
+struct Complex {
+    double real;
+    double imag;
+};
+
+struct Complex addComplex(struct Complex a, struct Complex b) {
+    struct Complex res;
+    res.real = a.real + b.real;
+    res.imag = a.imag + b.imag;
+    return res;
+}
+
+int main() {
+    struct Complex c1, c2;
+    if (scanf("%lf %lf %lf %lf", &c1.real, &c1.imag, &c2.real, &c2.imag) != 4) return 0;
+    struct Complex sum = addComplex(c1, c2);
+    if (fabs(sum.real) < 1e-9) sum.real = 0.0;
+    if (fabs(sum.imag) < 1e-9) sum.imag = 0.0;
+    if (sum.imag >= 0.0) {
+        printf("%.2f + %.2fi\\n", sum.real, sum.imag);
+    } else {
+        printf("%.2f - %.2fi\\n", sum.real, -sum.imag);
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("0.00 + 0.00i\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    double r1, i1, r2, i2;
+    scanf("%lf %lf %lf %lf", &r1, &i1, &r2, &i2);
+    printf("%.2f + %.2fi\\n", r1 + r2, i1 + i2); // Fails negative imaginary sign formatting
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "2.5 3.0 1.5 2.0\n",
+                "expectedOutput": "4.00 + 5.00i\n"
+          },
+          {
+                "input": "3.0 1.0 2.0 -4.0\n",
+                "expectedOutput": "5.00 - 3.00i\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0.0 0.0 0.0 0.0\n",
+                "expectedOutput": "0.00 + 0.00i\n"
+          },
+          {
+                "input": "-5.2 -3.1 5.2 3.1\n",
+                "expectedOutput": "0.00 + 0.00i\n"
+          },
+          {
+                "input": "-10.5 0.0 2.5 -5.5\n",
+                "expectedOutput": "-8.00 - 5.50i\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p12-dynamic-array-calloc-zero-init",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 12,
+    title: "Zero-Initialized Dynamic Array via calloc",
+    difficulty: "EASY",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Dynamic Memory","calloc","Heap","free"],
+    description: `### Problem Description
+
+Write a C program that dynamically allocates an array of \$N\$ 64-bit integers on the heap using \`calloc\`:
+\`\`\`c
+long long *arr = (long long *)calloc(n, sizeof(long long));
+\`\`\`
+Verify that \`calloc\` initializes all elements to zero. Then, populate each element at index \$i\$ (\$0 \\le i < N\$) with \$(i + 1)^2\$.
+Calculate and print the sum of all elements, then properly release the heap allocation with \`free(arr)\`.
+
+### Input Format
+A single integer \$N\$ (\$1 \\le N \\le 10^5\$).
+
+### Output Format
+Print the total sum followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Allocate with calloc, populate with (i+1)^2, sum, and free
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    long long *arr = (long long *)calloc(n, sizeof(long long));
+    if (!arr) return 1;
+
+    unsigned long long sum = 0;
+    for (int i = 0; i < n; i++) {
+        long long val = (long long)(i + 1) * (i + 1);
+        arr[i] = val;
+        sum += arr[i];
+    }
+    printf("%llu\\n", sum);
+    free(arr);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("0\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("%d\\n", n * (n + 1) / 2); // Linear sum instead of square sum
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "3\n",
+                "expectedOutput": "14\n"
+          },
+          {
+                "input": "1\n",
+                "expectedOutput": "1\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "5\n",
+                "expectedOutput": "55\n"
+          },
+          {
+                "input": "10\n",
+                "expectedOutput": "385\n"
+          },
+          {
+                "input": "100\n",
+                "expectedOutput": "338350\n"
+          },
+          {
+                "input": "1000\n",
+                "expectedOutput": "333833500\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p13-enum-traffic-light-state-machine",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 13,
+    title: "Traffic Light Finite State Machine with Enums",
+    difficulty: "EASY",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Enums","State Machine","Switch","Data Types"],
+    description: `### Problem Description
+
+Define an enumerated type representing the states of a traffic light:
+\`\`\`c
+typedef enum {
+    LIGHT_RED,
+    LIGHT_GREEN,
+    LIGHT_YELLOW
+} TrafficLight;
+\`\`\`
+The traffic light transitions cyclically:
+- \`LIGHT_RED\` \$\\to\$ \`LIGHT_GREEN\`
+- \`LIGHT_GREEN\` \$\\to\$ \`LIGHT_YELLOW\`
+- \`LIGHT_YELLOW\` \$\\to\$ \`LIGHT_RED\`.
+
+Given the initial state string (\`RED\`, \`GREEN\`, or \`YELLOW\`) and an integer \$K\$, compute the state after \$K\$ transitions.
+
+### Input Format
+A single line containing the initial state string and an integer \$K\$ (\$0 \\le K \\le 10^9\$).
+
+### Output Format
+Print the resulting state name (\`RED\`, \`GREEN\`, or \`YELLOW\`) followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <string.h>
+
+typedef enum {
+    LIGHT_RED,
+    LIGHT_GREEN,
+    LIGHT_YELLOW
+} TrafficLight;
+
+int main() {
+    char state[16];
+    long long k;
+    if (scanf("%15s %lld", state, &k) != 2) return 0;
+    
+    // TODO: Determine final state after k transitions
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <string.h>
+
+typedef enum {
+    LIGHT_RED = 0,
+    LIGHT_GREEN = 1,
+    LIGHT_YELLOW = 2
+} TrafficLight;
+
+int main() {
+    char state[16];
+    long long k;
+    if (scanf("%15s %lld", state, &k) != 2) return 0;
+    TrafficLight current = LIGHT_RED;
+    if (strcmp(state, "GREEN") == 0) current = LIGHT_GREEN;
+    else if (strcmp(state, "YELLOW") == 0) current = LIGHT_YELLOW;
+
+    current = (TrafficLight)((current + (k % 3)) % 3);
+
+    if (current == LIGHT_RED) printf("RED\\n");
+    else if (current == LIGHT_GREEN) printf("GREEN\\n");
+    else printf("YELLOW\\n");
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("RED\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    char s[16]; long long k;
+    scanf("%s %lld", s, &k);
+    printf("%s\\n", s); // Fails state transitions
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "RED 1\n",
+                "expectedOutput": "GREEN\n"
+          },
+          {
+                "input": "GREEN 2\n",
+                "expectedOutput": "RED\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "YELLOW 0\n",
+                "expectedOutput": "YELLOW\n"
+          },
+          {
+                "input": "RED 3\n",
+                "expectedOutput": "RED\n"
+          },
+          {
+                "input": "YELLOW 1000000000\n",
+                "expectedOutput": "RED\n"
+          },
+          {
+                "input": "GREEN 5\n",
+                "expectedOutput": "YELLOW\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p14-struct-employee-salary-filter",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 14,
+    title: "Employee Record Salary Filter with Structs",
+    difficulty: "EASY",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Structures","Records","Filtering","Formatting"],
+    description: `### Problem Description
+
+Define a structure \`struct Employee\` with fields:
+- \`int id\`
+- \`char name[32]\`
+- \`double salary\`
+
+Given \$N\$ employee records and a threshold salary \$T\$, filter and print all employees whose salary is greater than or equal to \$T\$ in the original input order.
+Format each employee as:
+\`id name %.2f\`
+If no employee meets the threshold, print \`NONE\`.
+
+### Input Format
+- Line 1: Two values: \$N\$ (\$1 \\le N \\le 100\$) and \$T\$ (\$0.0 \\le T \\le 10^7\$).
+- Next \$N\$ lines: \`id name salary\`.
+
+### Output Format
+Print the qualifying employees, each on a new line, or \`NONE\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+struct Employee {
+    int id;
+    char name[32];
+    double salary;
+};
+
+int main() {
+    int n;
+    double threshold;
+    if (scanf("%d %lf", &n, &threshold) != 2) return 0;
+    
+    // TODO: Read N employee structs, filter and print >= threshold
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+struct Employee {
+    int id;
+    char name[32];
+    double salary;
+};
+
+int main() {
+    int n;
+    double threshold;
+    if (scanf("%d %lf", &n, &threshold) != 2) return 0;
+    struct Employee emps[105];
+    int count = 0;
+    for (int i = 0; i < n; i++) {
+        if (scanf("%d %31s %lf", &emps[i].id, emps[i].name, &emps[i].salary) != 3) return 0;
+        if (emps[i].salary >= threshold) {
+            printf("%d %s %.2f\\n", emps[i].id, emps[i].name, emps[i].salary);
+            count++;
+        }
+    }
+    if (count == 0) {
+        printf("NONE\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("NONE\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n; double t;
+    scanf("%d %lf", &n, &t);
+    for (int i = 0; i < n; i++) {
+        int id; char name[32]; double s;
+        scanf("%d %s %lf", &id, name, &s);
+        printf("%d %s %.2f\\n", id, name, s); // Prints all without filtering
+    }
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "3 50000.00\n101 Alice 62000.50\n102 Bob 45000.00\n103 Charlie 75000.00\n",
+                "expectedOutput": "101 Alice 62000.50\n103 Charlie 75000.00\n"
+          },
+          {
+                "input": "2 100000.00\n1 Sam 30000.00\n2 Dan 40000.00\n",
+                "expectedOutput": "NONE\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1 500.00\n100 Chief 500.00\n",
+                "expectedOutput": "100 Chief 500.00\n"
+          },
+          {
+                "input": "4 20000.00\n1 A 19999.99\n2 B 20000.00\n3 C 25000.00\n4 D 15000.00\n",
+                "expectedOutput": "2 B 20000.00\n3 C 25000.00\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p15-linked-list-delete-node-by-value",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 15,
+    title: "Singly Linked List Delete First Node by Value",
+    difficulty: "MEDIUM",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Linked List","Pointers","Dynamic Memory","Deletion"],
+    description: `### Problem Description
+
+Given a singly linked list with \$N\$ integer nodes, delete the **first occurrence** of a node having value \$X\$.
+If \$X\$ matches the head node, update the head pointer. Ensure that the memory of the deleted node is freed with \`free()\`.
+
+Print the remaining node values separated by spaces. If the list becomes completely empty, print \`EMPTY\`.
+
+### Input Format
+- Line 1: An integer \$N\$ (\$1 \\le N \\le 1000\$).
+- Line 2: \$N\$ space-separated integers.
+- Line 3: An integer \$X\$ to delete.
+
+### Output Format
+Print the space-separated values of the remaining linked list or \`EMPTY\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <stdlib.h>
+
+struct Node {
+    int data;
+    struct Node *next;
+};
+
+// TODO: Implement append and deleteByValue functions
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Build list, delete x, print result
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stdlib.h>
+
+struct Node {
+    int data;
+    struct Node *next;
+};
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    struct Node *head = NULL;
+    struct Node *tail = NULL;
+    for (int i = 0; i < n; i++) {
+        int val;
+        if (scanf("%d", &val) != 1) return 0;
+        struct Node *newNode = (struct Node *)malloc(sizeof(struct Node));
+        newNode->data = val;
+        newNode->next = NULL;
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            tail = newNode;
+        }
+    }
+    int x;
+    if (scanf("%d", &x) != 1) return 0;
+
+    // Delete first occurrence of x
+    struct Node *curr = head;
+    struct Node *prev = NULL;
+    while (curr) {
+        if (curr->data == x) {
+            if (!prev) {
+                head = curr->next;
+            } else {
+                prev->next = curr->next;
+            }
+            free(curr);
+            break;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+
+    if (!head) {
+        printf("EMPTY\\n");
+    } else {
+        struct Node *p = head;
+        int first = 1;
+        while (p) {
+            printf("%s%d", first ? "" : " ", p->data);
+            first = 0;
+            struct Node *tmp = p;
+            p = p->next;
+            free(tmp);
+        }
+        printf("\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("EMPTY\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n; scanf("%d", &n);
+    for (int i = 0; i < n; i++) { int v; scanf("%d", &v); printf("%d ", v); }
+    printf("\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "5\n10 20 30 20 50\n20\n",
+                "expectedOutput": "10 30 20 50\n"
+          },
+          {
+                "input": "1\n100\n100\n",
+                "expectedOutput": "EMPTY\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "3\n5 10 15\n5\n",
+                "expectedOutput": "10 15\n"
+          },
+          {
+                "input": "3\n5 10 15\n15\n",
+                "expectedOutput": "5 10\n"
+          },
+          {
+                "input": "4\n1 2 3 4\n99\n",
+                "expectedOutput": "1 2 3 4\n"
+          },
+          {
+                "input": "2\n10 20\n20\n",
+                "expectedOutput": "10\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p16-dynamic-stack-push-pop-malloc",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 16,
+    title: "Dynamic Heap Stack with malloc and realloc",
+    difficulty: "MEDIUM",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Stack","Dynamic Memory","malloc","realloc","Data Structures"],
+    description: `### Problem Description
+
+Implement an expandable LIFO Stack using dynamic memory (\`malloc\`, \`realloc\`, \`free\`).
+The stack starts with an initial capacity of \$2\$. When a \`PUSH\` occurs and the stack is full, double its capacity using \`realloc\`.
+
+Process \$Q\$ commands:
+- \`PUSH X\`: Push integer \$X\$ onto stack.
+- \`POP\`: Pop the top integer and print it. If the stack is empty, print \`UNDERFLOW\`.
+- \`PEEK\`: Print the top integer without removing it. If the stack is empty, print \`EMPTY\`.
+
+### Input Format
+- Line 1: An integer \$Q\$ (\$1 \\le Q \\le 1000\$).
+- Next \$Q\$ lines: A command string (\`PUSH X\`, \`POP\`, or \`PEEK\`).
+
+### Output Format
+Print the output of each \`POP\` and \`PEEK\` command on a new line.`,
+    starterCode: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// TODO: Implement Dynamic Stack with PUSH, POP, PEEK
+
+int main() {
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    
+    // TODO: Process stack operations
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    int *data;
+    int top;
+    int capacity;
+} DynamicStack;
+
+void push(DynamicStack *s, int val) {
+    if (s->top + 1 >= s->capacity) {
+        s->capacity *= 2;
+        s->data = (int *)realloc(s->data, s->capacity * sizeof(int));
+    }
+    s->data[++(s->top)] = val;
+}
+
+void pop(DynamicStack *s) {
+    if (s->top < 0) {
+        printf("UNDERFLOW\\n");
+    } else {
+        printf("%d\\n", s->data[(s->top)--]);
+    }
+}
+
+void peek(DynamicStack *s) {
+    if (s->top < 0) {
+        printf("EMPTY\\n");
+    } else {
+        printf("%d\\n", s->data[s->top]);
+    }
+}
+
+int main() {
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    DynamicStack s;
+    s.capacity = 2;
+    s.top = -1;
+    s.data = (int *)malloc(s.capacity * sizeof(int));
+
+    char cmd[16];
+    while (q--) {
+        if (scanf("%15s", cmd) != 1) break;
+        if (strcmp(cmd, "PUSH") == 0) {
+            int val;
+            scanf("%d", &val);
+            push(&s, val);
+        } else if (strcmp(cmd, "POP") == 0) {
+            pop(&s);
+        } else if (strcmp(cmd, "PEEK") == 0) {
+            peek(&s);
+        }
+    }
+    free(s.data);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("EMPTY\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("UNDERFLOW\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "6\nPUSH 10\nPUSH 20\nPEEK\nPOP\nPOP\nPOP\n",
+                "expectedOutput": "20\n20\n10\nUNDERFLOW\n"
+          },
+          {
+                "input": "3\nPEEK\nPOP\nPUSH 99\n",
+                "expectedOutput": "EMPTY\nUNDERFLOW\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "7\nPUSH 1\nPUSH 2\nPUSH 3\nPUSH 4\nPOP\nPOP\nPEEK\n",
+                "expectedOutput": "4\n3\n2\n"
+          },
+          {
+                "input": "4\nPUSH 5\nPOP\nPUSH 6\nPEEK\n",
+                "expectedOutput": "5\n6\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p17-union-type-pun-endianness",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 17,
+    title: "Architecture Endianness Detection with Unions",
+    difficulty: "MEDIUM",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Unions","Type Punning","Endianness","Systems Programming"],
+    description: `### Problem Description
+
+In C, a \`union\` shares the same memory space across all its members.
+Define a union:
+\`\`\`c
+union EndianTest {
+    unsigned int word;
+    unsigned char bytes[sizeof(unsigned int)];
+};
+\`\`\`
+Assign \`word = 0x01\`.
+- If the first byte \`bytes[0] == 0x01\`, the least significant byte is stored at the lowest address, indicating **LITTLE ENDIAN**.
+- If the last byte \`bytes[sizeof(unsigned int) - 1] == 0x01\`, it indicates **BIG ENDIAN**.
+
+Write a program that uses this union type-punning technique to detect the target machine's endianness and print \`LITTLE ENDIAN\` or \`BIG ENDIAN\`.
+
+### Input Format
+(Input can contain an arbitrary integer \$X\$ which is ignored or can be used as test input).
+
+### Output Format
+Print \`LITTLE ENDIAN\` or \`BIG ENDIAN\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+union EndianTest {
+    unsigned int word;
+    unsigned char bytes[sizeof(unsigned int)];
+};
+
+int main() {
+    // TODO: Determine machine endianness via union
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+union EndianTest {
+    unsigned int word;
+    unsigned char bytes[sizeof(unsigned int)];
+};
+
+int main() {
+    int dummy;
+    if (scanf("%d", &dummy) != 1) {
+        // Continue even if no input
+    }
+    union EndianTest test;
+    test.word = 1;
+    if (test.bytes[0] == 1) {
+        printf("LITTLE ENDIAN\\n");
+    } else {
+        printf("BIG ENDIAN\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("UNKNOWN\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("BIG ENDIAN\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "0\n",
+                "expectedOutput": "LITTLE ENDIAN\n"
+          },
+          {
+                "input": "42\n",
+                "expectedOutput": "LITTLE ENDIAN\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\n",
+                "expectedOutput": "LITTLE ENDIAN\n"
+          },
+          {
+                "input": "9999\n",
+                "expectedOutput": "LITTLE ENDIAN\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p18-nested-struct-university-database",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 18,
+    title: "University City Topper with Nested Structures",
+    difficulty: "MEDIUM",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Nested Structures","Searching","Database","Records"],
+    description: `### Problem Description
+
+Model student profiles using nested structures:
+\`\`\`c
+struct Address {
+    char city[32];
+    int pincode;
+};
+
+struct Student {
+    char name[32];
+    int marks;
+    struct Address address;
+};
+\`\`\`
+
+Given \$N\$ students, find the student who has the highest \`marks\` among those residing in a queried city \$C\$.
+If multiple students in that city have the same highest marks, print the one who appeared first in the input list.
+If no student lives in city \$C\$, print \`NOT FOUND\`.
+
+### Input Format
+- Line 1: An integer \$N\$ (\$1 \\le N \\le 100\$).
+- Next \$N\$ lines: \`name marks city pincode\`.
+- Last line: Query city name \$C\$.
+
+### Output Format
+Print \`name marks\` or \`NOT FOUND\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <string.h>
+
+struct Address {
+    char city[32];
+    int pincode;
+};
+
+struct Student {
+    char name[32];
+    int marks;
+    struct Address address;
+};
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Read students and query topper in city C
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <string.h>
+
+struct Address {
+    char city[32];
+    int pincode;
+};
+
+struct Student {
+    char name[32];
+    int marks;
+    struct Address address;
+};
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    struct Student students[105];
+    for (int i = 0; i < n; i++) {
+        if (scanf("%31s %d %31s %d", students[i].name, &students[i].marks, students[i].address.city, &students[i].address.pincode) != 4) return 0;
+    }
+    char queryCity[32];
+    if (scanf("%31s", queryCity) != 1) return 0;
+
+    int bestIdx = -1;
+    for (int i = 0; i < n; i++) {
+        if (strcmp(students[i].address.city, queryCity) == 0) {
+            if (bestIdx == -1 || students[i].marks > students[bestIdx].marks) {
+                bestIdx = i;
+            }
+        }
+    }
+
+    if (bestIdx == -1) {
+        printf("NOT FOUND\\n");
+    } else {
+        printf("%s %d\\n", students[bestIdx].name, students[bestIdx].marks);
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("NOT FOUND\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n; scanf("%d", &n);
+    char name[32]; int m; char c[32]; int p;
+    scanf("%s %d %s %d", name, &m, c, &p);
+    printf("%s %d\\n", name, m); // Just prints first student
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "3\nAlice 92 Pune 411001\nBob 95 Mumbai 400001\nCharlie 88 Pune 411002\nPune\n",
+                "expectedOutput": "Alice 92\n"
+          },
+          {
+                "input": "2\nJohn 80 Delhi 110001\nJane 85 Delhi 110002\nPune\n",
+                "expectedOutput": "NOT FOUND\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\nSam 99 Bangalore 560001\nBangalore\n",
+                "expectedOutput": "Sam 99\n"
+          },
+          {
+                "input": "4\nA 70 Chennai 600001\nB 90 Chennai 600002\nC 90 Chennai 600003\nD 85 Chennai 600004\nChennai\n",
+                "expectedOutput": "B 90\n"
+          },
+          {
+                "input": "2\nX 50 Goa 403001\nY 60 Goa 403002\nMumbai\n",
+                "expectedOutput": "NOT FOUND\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p19-singly-linked-list-detect-cycle",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 19,
+    title: "Floyd's Cycle Detection in Linked List",
+    difficulty: "HARD",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["Linked List","Floyd's Algorithm","Two Pointers","Cycle Detection"],
+    description: `### Problem Description
+
+Implement Floyd's Tortoise and Hare algorithm to detect a cycle in a singly linked list in \$O(N)\$ time and \$O(1)\$ auxiliary space.
+
+Given \$N\$ node values and a 0-based index \$pos\$ indicating where the tail node's \`next\` pointer connects back to create a loop (-1 if there is no loop):
+- If a cycle exists, find and print: \`CYCLE DETECTED AT NODE <index>\` where \`<index>\` is the 0-based index where the cycle begins.
+- If there is no cycle, print: \`NO CYCLE\`.
+
+### Input Format
+- Line 1: Two integers \$N\$ (\$1 \\le N \\le 10^5\$) and \$pos\$ (\$-1 \\le pos < N\$).
+- Line 2: \$N\$ space-separated integers.
+
+### Output Format
+Print \`CYCLE DETECTED AT NODE <pos>\` or \`NO CYCLE\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <stdlib.h>
+
+struct Node {
+    int val;
+    struct Node *next;
+};
+
+// TODO: Implement Floyd's cycle detection
+
+int main() {
+    int n, pos;
+    if (scanf("%d %d", &n, &pos) != 2) return 0;
+    
+    // TODO: Construct list with loop at pos and detect
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stdlib.h>
+
+struct Node {
+    int val;
+    int index;
+    struct Node *next;
+};
+
+int main() {
+    int n, pos;
+    if (scanf("%d %d", &n, &pos) != 2) return 0;
+    struct Node **nodes = (struct Node **)malloc(n * sizeof(struct Node *));
+    for (int i = 0; i < n; i++) {
+        nodes[i] = (struct Node *)malloc(sizeof(struct Node));
+        scanf("%d", &nodes[i]->val);
+        nodes[i]->index = i;
+        nodes[i]->next = NULL;
+        if (i > 0) nodes[i - 1]->next = nodes[i];
+    }
+    if (pos >= 0 && pos < n) {
+        nodes[n - 1]->next = nodes[pos];
+    }
+
+    struct Node *slow = nodes[0];
+    struct Node *fast = nodes[0];
+    int hasCycle = 0;
+
+    while (fast && fast->next) {
+        slow = slow->next;
+        fast = fast->next->next;
+        if (slow == fast) {
+            hasCycle = 1;
+            break;
+        }
+    }
+
+    if (!hasCycle) {
+        printf("NO CYCLE\\n");
+    } else {
+        // Find cycle start
+        struct Node *ptr1 = nodes[0];
+        struct Node *ptr2 = slow;
+        while (ptr1 != ptr2) {
+            ptr1 = ptr1->next;
+            ptr2 = ptr2->next;
+        }
+        printf("CYCLE DETECTED AT NODE %d\\n", ptr1->index);
+    }
+
+    // Clean up
+    if (pos >= 0 && pos < n) nodes[n - 1]->next = NULL;
+    for (int i = 0; i < n; i++) free(nodes[i]);
+    free(nodes);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("NO CYCLE\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("CYCLE DETECTED AT NODE 0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "4 1\n3 2 0 -4\n",
+                "expectedOutput": "CYCLE DETECTED AT NODE 1\n"
+          },
+          {
+                "input": "2 -1\n1 2\n",
+                "expectedOutput": "NO CYCLE\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1 0\n10\n",
+                "expectedOutput": "CYCLE DETECTED AT NODE 0\n"
+          },
+          {
+                "input": "1 -1\n10\n",
+                "expectedOutput": "NO CYCLE\n"
+          },
+          {
+                "input": "5 3\n1 2 3 4 5\n",
+                "expectedOutput": "CYCLE DETECTED AT NODE 3\n"
+          },
+          {
+                "input": "6 -1\n10 20 30 40 50 60\n",
+                "expectedOutput": "NO CYCLE\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-m4-p20-custom-dynamic-string-builder",
+    moduleSlug: "advanced-data-types-dynamic-memory",
+    moduleOrder: 20,
+    title: "Dynamic String Builder Buffer with realloc",
+    difficulty: "HARD",
+    category: "Advanced Data Types, Dynamic Memory",
+    tags: ["realloc","Dynamic Memory","String Buffer","Amortized Analysis"],
+    description: `### Problem Description
+
+Implement an expandable string builder buffer \`StringBuilder\` using \`malloc\` and \`realloc\`:
+\`\`\`c
+typedef struct {
+    char *buffer;
+    size_t length;
+    size_t capacity;
+} StringBuilder;
+\`\`\`
+The buffer starts with initial \`capacity = 4\` and \`length = 0\`.
+When appending a string of length \$L\$, ensure that \`length + L + 1 <= capacity\`. If the capacity is insufficient, repeatedly double \`capacity\` (\`capacity *= 2\`) until it can accommodate the new string plus the null-terminator \`'\\0'\`, and reallocate memory using \`realloc\`.
+
+Process \$Q\$ words to append in order.
+Output:
+- Line 1: The concatenated string.
+- Line 2: \`LENGTH: <L> CAPACITY: <C>\`.
+Ensure all memory is freed before exiting.
+
+### Input Format
+- Line 1: An integer \$Q\$ (\$1 \\le Q \\le 100\$).
+- Next \$Q\$ lines: Each line contains a word \$W_i\$ (\$1 \\le |W_i| \\le 100\$).
+
+### Output Format
+- Line 1: The full concatenated string.
+- Line 2: \`LENGTH: <L> CAPACITY: <C>\``,
+    starterCode: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// TODO: Implement Dynamic StringBuilder
+
+int main() {
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    
+    // TODO: Append Q strings and report length and capacity
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    char *buffer;
+    size_t length;
+    size_t capacity;
+} StringBuilder;
+
+void sb_init(StringBuilder *sb) {
+    sb->capacity = 4;
+    sb->length = 0;
+    sb->buffer = (char *)malloc(sb->capacity * sizeof(char));
+    sb->buffer[0] = '\\0';
+}
+
+void sb_append(StringBuilder *sb, const char *str) {
+    size_t addLen = strlen(str);
+    while (sb->length + addLen + 1 > sb->capacity) {
+        sb->capacity *= 2;
+        sb->buffer = (char *)realloc(sb->buffer, sb->capacity * sizeof(char));
+    }
+    memcpy(sb->buffer + sb->length, str, addLen);
+    sb->length += addLen;
+    sb->buffer[sb->length] = '\\0';
+}
+
+int main() {
+    int q;
+    if (scanf("%d", &q) != 1) return 0;
+    StringBuilder sb;
+    sb_init(&sb);
+    for (int i = 0; i < q; i++) {
+        char word[128];
+        if (scanf("%127s", word) == 1) {
+            sb_append(&sb, word);
+        }
+    }
+    printf("%s\\n", sb.buffer);
+    printf("LENGTH: %zu CAPACITY: %zu\\n", sb.length, sb.capacity);
+    free(sb.buffer);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("LENGTH: 0 CAPACITY: 4\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("ERROR\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "3\nHello\nWorld\nLogicQ\n",
+                "expectedOutput": "HelloWorldLogicQ\nLENGTH: 16 CAPACITY: 32\n"
+          },
+          {
+                "input": "1\nHi\n",
+                "expectedOutput": "Hi\nLENGTH: 2 CAPACITY: 4\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "2\nC\n11\n",
+                "expectedOutput": "C11\nLENGTH: 3 CAPACITY: 4\n"
+          },
+          {
+                "input": "4\na\nb\nc\nd\n",
+                "expectedOutput": "abcd\nLENGTH: 4 CAPACITY: 8\n"
+          },
+          {
+                "input": "5\nData\nStructures\nAnd\nAlgorithms\nInC\n",
+                "expectedOutput": "DataStructuresAndAlgorithmsInC\nLENGTH: 30 CAPACITY: 32\n"
+          }
+    ],
+  }
 ];

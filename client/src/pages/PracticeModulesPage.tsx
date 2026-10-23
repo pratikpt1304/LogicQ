@@ -94,7 +94,7 @@ export const PracticeModulesPage: React.FC = () => {
           </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
             <Code2 className="w-4 h-4 text-[var(--accent)]" />
-            <span>40 Total Practice Problems</span>
+            <span>80 Total Practice Problems</span>
           </div>
         </div>
       </div>

@@ -833,4 +833,975 @@ int main() {
       { input: '100000000000000\n', expectedOutput: '24999999999998\n' },
     ],
   },
+  {
+    slug: "practice-c1-leap-year-calendar-checker",
+    moduleSlug: "control-structures",
+    moduleOrder: 11,
+    title: "Leap Year Calendar Checker",
+    difficulty: "EASY",
+    category: "Control Structures",
+    tags: ["Conditionals","Modulo","Calendar","Logic"],
+    description: `### Problem Description
+
+Write a C program that determines whether a given Gregorian calendar year \$Y\$ is a leap year.
+A year is a leap year if:
+- It is divisible by \$4\$, **and**
+- It is **not** divisible by \$100\$, **unless** it is also divisible by \$400\$.
+
+Print \`LEAP YEAR\` if it satisfies the condition; otherwise, print \`NOT LEAP YEAR\`.
+
+### Input Format
+A single line containing an integer \$Y\$ (\$1 \\le Y \\le 10^9\$).
+
+### Output Format
+Print \`LEAP YEAR\` or \`NOT LEAP YEAR\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    long long year;
+    if (scanf("%lld", &year) != 1) return 0;
+    
+    // TODO: Determine leap year condition
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    long long year;
+    if (scanf("%lld", &year) != 1) return 0;
+    if ((year % 400 == 0) || (year % 4 == 0 && year % 100 != 0)) {
+        printf("LEAP YEAR\\n");
+    } else {
+        printf("NOT LEAP YEAR\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    long long year;
+    if (scanf("%lld", &year) != 1) return 0;
+    if (year % 4 == 0) printf("LEAP YEAR\\n"); // Fails century rule
+    else printf("NOT LEAP YEAR\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    long long year;
+    if (scanf("%lld", &year) != 1) return 0;
+    if (year % 400 == 0) printf("LEAP YEAR\\n");
+    else printf("NOT LEAP YEAR\\n"); // Misses normal leap years
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "2024\n",
+                "expectedOutput": "LEAP YEAR\n"
+          },
+          {
+                "input": "1900\n",
+                "expectedOutput": "NOT LEAP YEAR\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "2000\n",
+                "expectedOutput": "LEAP YEAR\n"
+          },
+          {
+                "input": "2023\n",
+                "expectedOutput": "NOT LEAP YEAR\n"
+          },
+          {
+                "input": "1600\n",
+                "expectedOutput": "LEAP YEAR\n"
+          },
+          {
+                "input": "2100\n",
+                "expectedOutput": "NOT LEAP YEAR\n"
+          },
+          {
+                "input": "2400\n",
+                "expectedOutput": "LEAP YEAR\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-grade-classifier-nested-if",
+    moduleSlug: "control-structures",
+    moduleOrder: 12,
+    title: "Student Grade Percentage Classifier",
+    difficulty: "EASY",
+    category: "Control Structures",
+    tags: ["If-Else","Branching","Ranges","Grades"],
+    description: `### Problem Description
+
+Given a student's total marks percentage \$M\$ (\$0 \\le M \\le 100\$), classify their grade as follows:
+- \$M \\ge 90\$: \`Grade A\`
+- \$80 \\le M < 90\$: \`Grade B\`
+- \$70 \\le M < 80\$: \`Grade C\`
+- \$60 \\le M < 70\$: \`Grade D\`
+- \$M < 60\$: \`Grade F\`
+
+### Input Format
+A single floating-point number \$M\$ (\$0.0 \\le M \\le 100.0\$).
+
+### Output Format
+Print the classified grade string followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    double marks;
+    if (scanf("%lf", &marks) != 1) return 0;
+    
+    // TODO: Classify grade
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    double marks;
+    if (scanf("%lf", &marks) != 1) return 0;
+    if (marks >= 90.0) {
+        printf("Grade A\\n");
+    } else if (marks >= 80.0) {
+        printf("Grade B\\n");
+    } else if (marks >= 70.0) {
+        printf("Grade C\\n");
+    } else if (marks >= 60.0) {
+        printf("Grade D\\n");
+    } else {
+        printf("Grade F\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    double marks;
+    if (scanf("%lf", &marks) != 1) return 0;
+    if (marks > 90.0) printf("Grade A\\n"); // Strict inequality bug
+    else printf("Grade B\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    double marks;
+    if (scanf("%lf", &marks) != 1) return 0;
+    printf("Grade A\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "92.5\n",
+                "expectedOutput": "Grade A\n"
+          },
+          {
+                "input": "74.0\n",
+                "expectedOutput": "Grade C\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "90.0\n",
+                "expectedOutput": "Grade A\n"
+          },
+          {
+                "input": "89.9\n",
+                "expectedOutput": "Grade B\n"
+          },
+          {
+                "input": "60.0\n",
+                "expectedOutput": "Grade D\n"
+          },
+          {
+                "input": "59.9\n",
+                "expectedOutput": "Grade F\n"
+          },
+          {
+                "input": "0.0\n",
+                "expectedOutput": "Grade F\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-factorial-iterative-loop",
+    moduleSlug: "control-structures",
+    moduleOrder: 13,
+    title: "Factorial Iterative Calculator",
+    difficulty: "EASY",
+    category: "Control Structures",
+    tags: ["Loops","Factorial","Math","Iteration"],
+    description: `### Problem Description
+
+Given a non-negative integer \$N\$ (\$0 \\le N \\le 20\$), calculate \$N!\$ (factorial of \$N\$) using an iterative \`for\` or \`while\` loop.
+Recall that \$0! = 1\$. Use a 64-bit integer (\`long long\` or \`unsigned long long\`) to prevent arithmetic overflow.
+
+### Input Format
+A single non-negative integer \$N\$ (\$0 \\le N \\le 20\$).
+
+### Output Format
+Print the factorial value followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Calculate factorial using loop
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    unsigned long long fact = 1;
+    for (int i = 2; i <= n; i++) {
+        fact *= (unsigned long long)i;
+    }
+    printf("%llu\\n", fact);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    int fact = 1;
+    for (int i = 1; i <= n; i++) fact *= i; // 32-bit integer overflows for n > 12
+    printf("%d\\n", fact);
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    if (n == 0) printf("0\\n"); // Fails 0! = 1
+    else printf("1\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "5\n",
+                "expectedOutput": "120\n"
+          },
+          {
+                "input": "0\n",
+                "expectedOutput": "1\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\n",
+                "expectedOutput": "1\n"
+          },
+          {
+                "input": "10\n",
+                "expectedOutput": "3628800\n"
+          },
+          {
+                "input": "15\n",
+                "expectedOutput": "1307674368000\n"
+          },
+          {
+                "input": "20\n",
+                "expectedOutput": "2432902008176640000\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-sum-of-even-numbers-up-to-n",
+    moduleSlug: "control-structures",
+    moduleOrder: 14,
+    title: "Sum of Even Numbers up to N",
+    difficulty: "EASY",
+    category: "Control Structures",
+    tags: ["Loops","Accumulator","Arithmetic","Even"],
+    description: `### Problem Description
+
+Given a positive integer \$N\$, calculate the sum of all even integers from \$1\$ up to \$N\$ inclusive (\$2 + 4 + 6 + \\dots \\le N\$).
+
+### Input Format
+A single integer \$N\$ (\$1 \\le N \\le 10^6\$).
+
+### Output Format
+Print the total sum followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    
+    // TODO: Calculate sum of all even integers <= n
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    long long sum = 0;
+    long long k = n / 2;
+    sum = k * (k + 1);
+    printf("%lld\\n", sum);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    printf("%lld\\n", n * (n + 1) / 2); // Sum of all numbers, not even
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    printf("0\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 10,
+    sampleTests: [
+          {
+                "input": "10\n",
+                "expectedOutput": "30\n"
+          },
+          {
+                "input": "5\n",
+                "expectedOutput": "6\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\n",
+                "expectedOutput": "0\n"
+          },
+          {
+                "input": "2\n",
+                "expectedOutput": "2\n"
+          },
+          {
+                "input": "100\n",
+                "expectedOutput": "2550\n"
+          },
+          {
+                "input": "1000000\n",
+                "expectedOutput": "250000500000\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-fibonacci-sequence-generator",
+    moduleSlug: "control-structures",
+    moduleOrder: 15,
+    title: "First N Fibonacci Numbers Generator",
+    difficulty: "MEDIUM",
+    category: "Control Structures",
+    tags: ["Loops","Fibonacci","Sequence","State Update"],
+    description: `### Problem Description
+
+Given an integer \$N\$ (\$1 \\le N \\le 45\$), print the first \$N\$ terms of the Fibonacci sequence separated by a single space.
+The sequence starts with \$F_1 = 0\$ and \$F_2 = 1\$, and \$F_i = F_{i-1} + F_{i-2}\$ for \$i \\ge 3\$.
+
+### Input Format
+A single integer \$N\$ (\$1 \\le N \\le 45\$).
+
+### Output Format
+Print the first \$N\$ Fibonacci numbers separated by a single space, followed by a newline. Do not print a trailing space at the end of the line.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Generate first N Fibonacci numbers
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    if (n == 1) {
+        printf("0\\n");
+        return 0;
+    }
+    long long a = 0, b = 1;
+    printf("%lld %lld", a, b);
+    for (int i = 3; i <= n; i++) {
+        long long c = a + b;
+        printf(" %lld", c);
+        a = b;
+        b = c;
+    }
+    printf("\\n");
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("0 1 1 2 3\\n"); // Hardcoded sequence
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    long long a = 1, b = 1; // Starts at 1 1 instead of 0 1
+    for (int i = 1; i <= n; i++) {
+        printf("%lld ", a);
+        long long c = a + b;
+        a = b; b = c;
+    }
+    printf("\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "5\n",
+                "expectedOutput": "0 1 1 2 3\n"
+          },
+          {
+                "input": "1\n",
+                "expectedOutput": "0\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "2\n",
+                "expectedOutput": "0 1\n"
+          },
+          {
+                "input": "7\n",
+                "expectedOutput": "0 1 1 2 3 5 8\n"
+          },
+          {
+                "input": "10\n",
+                "expectedOutput": "0 1 1 2 3 5 8 13 21 34\n"
+          },
+          {
+                "input": "15\n",
+                "expectedOutput": "0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-armstrong-number-verifier",
+    moduleSlug: "control-structures",
+    moduleOrder: 16,
+    title: "Armstrong Number Verifier",
+    difficulty: "MEDIUM",
+    category: "Control Structures",
+    tags: ["Loops","Digits","Math","Powers"],
+    description: `### Problem Description
+
+An Armstrong number (narcissistic number) is a number that is equal to the sum of its own digits each raised to the power of the total number of digits.
+For example:
+- \$153\$ has \$3\$ digits: \$1^3 + 5^3 + 3^3 = 1 + 125 + 27 = 153\$ (Armstrong).
+- \$1634\$ has \$4\$ digits: \$1^4 + 6^4 + 3^4 + 4^4 = 1 + 1296 + 81 + 256 = 1634\$ (Armstrong).
+
+Given an integer \$N\$ (\$1 \\le N \\le 10^9\$), print \`ARMSTRONG\` if it is an Armstrong number; otherwise, print \`NOT ARMSTRONG\`.
+
+### Input Format
+A single integer \$N\$.
+
+### Output Format
+Print \`ARMSTRONG\` or \`NOT ARMSTRONG\` followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    
+    // TODO: Verify Armstrong number condition
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+static long long power(long long base, int exp) {
+    long long res = 1;
+    for (int i = 0; i < exp; i++) res *= base;
+    return res;
+}
+
+int main() {
+    long long n;
+    if (scanf("%lld", &n) != 1) return 0;
+    long long temp = n;
+    int digits = 0;
+    while (temp > 0) {
+        digits++;
+        temp /= 10;
+    }
+    temp = n;
+    long long sum = 0;
+    while (temp > 0) {
+        int d = temp % 10;
+        sum += power(d, digits);
+        temp /= 10;
+    }
+    if (sum == n) {
+        printf("ARMSTRONG\\n");
+    } else {
+        printf("NOT ARMSTRONG\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    if (n == 153 || n == 370 || n == 371) printf("ARMSTRONG\\n");
+    else printf("NOT ARMSTRONG\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    printf("ARMSTRONG\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "153\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "123\n",
+                "expectedOutput": "NOT ARMSTRONG\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "9\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "371\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "1634\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "9474\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "54748\n",
+                "expectedOutput": "ARMSTRONG\n"
+          },
+          {
+                "input": "100\n",
+                "expectedOutput": "NOT ARMSTRONG\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-binary-to-decimal-converter",
+    moduleSlug: "control-structures",
+    moduleOrder: 17,
+    title: "Binary String to Decimal Converter",
+    difficulty: "MEDIUM",
+    category: "Control Structures",
+    tags: ["Bitwise","Base Conversion","Loops","Parsing"],
+    description: `### Problem Description
+
+Given a string representing a non-empty binary number \$B\$ (up to 32 bits), convert it into its unsigned decimal integer representation using iterative bit manipulation or power accumulator without using standard conversion library functions like \`strtol\`.
+
+### Input Format
+A single string of '0' and '1' characters (length \$1 \\le |B| \\le 32\$).
+
+### Output Format
+Print the decimal value followed by a newline.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    char binary[35];
+    if (scanf("%34s", binary) != 1) return 0;
+    
+    // TODO: Convert binary string to decimal integer
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    char binary[35];
+    if (scanf("%34s", binary) != 1) return 0;
+    unsigned long long decimal = 0;
+    for (int i = 0; binary[i] != '\\0'; i++) {
+        decimal = (decimal << 1) + (binary[i] - '0');
+    }
+    printf("%llu\\n", decimal);
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    char binary[35];
+    scanf("%34s", binary);
+    printf("0\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    char binary[35];
+    scanf("%34s", binary);
+    printf("%d\\n", binary[0] - '0');
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "1101\n",
+                "expectedOutput": "13\n"
+          },
+          {
+                "input": "10000\n",
+                "expectedOutput": "16\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "0\n",
+                "expectedOutput": "0\n"
+          },
+          {
+                "input": "1\n",
+                "expectedOutput": "1\n"
+          },
+          {
+                "input": "11111111\n",
+                "expectedOutput": "255\n"
+          },
+          {
+                "input": "1010101010\n",
+                "expectedOutput": "682\n"
+          },
+          {
+                "input": "1111111111111111\n",
+                "expectedOutput": "65535\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-diamond-star-pattern",
+    moduleSlug: "control-structures",
+    moduleOrder: 18,
+    title: "Centered Diamond Star Pattern",
+    difficulty: "MEDIUM",
+    category: "Control Structures",
+    tags: ["Nested Loops","Pattern Printing","Formatting"],
+    description: `### Problem Description
+
+Given an odd integer \$N\$ (\$1 \\le N \\le 25\$), print a centered diamond star pattern of height \$N\$.
+For \$N = 5\$, the diamond has \$3\$ upper rows and \$2\$ lower rows:
+\`\`\`
+  *
+ ***
+*****
+ ***
+  *
+\`\`\`
+Each row consists of leading spaces followed by asterisks. Do not output any trailing spaces after the asterisks on any line.
+
+### Input Format
+A single odd integer \$N\$ (\$1 \\le N \\le 25\$).
+
+### Output Format
+Print the \$N\$-line diamond pattern followed by a newline on each line.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    
+    // TODO: Print centered diamond pattern
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    int mid = n / 2;
+    for (int i = 0; i <= mid; i++) {
+        for (int s = 0; s < mid - i; s++) printf(" ");
+        for (int st = 0; st < 2 * i + 1; st++) printf("*");
+        printf("\\n");
+    }
+    for (int i = mid - 1; i >= 0; i--) {
+        for (int s = 0; s < mid - i; s++) printf(" ");
+        for (int st = 0; st < 2 * i + 1; st++) printf("*");
+        printf("\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) printf("*\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("*\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 20,
+    sampleTests: [
+          {
+                "input": "3\n",
+                "expectedOutput": " *\n***\n *\n"
+          },
+          {
+                "input": "5\n",
+                "expectedOutput": "  *\n ***\n*****\n ***\n  *\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\n",
+                "expectedOutput": "*\n"
+          },
+          {
+                "input": "7\n",
+                "expectedOutput": "   *\n  ***\n *****\n*******\n *****\n  ***\n   *\n"
+          },
+          {
+                "input": "9\n",
+                "expectedOutput": "    *\n   ***\n  *****\n *******\n*********\n *******\n  *****\n   ***\n    *\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-quadratic-equation-solver",
+    moduleSlug: "control-structures",
+    moduleOrder: 19,
+    title: "Quadratic Equation Roots Classifier",
+    difficulty: "HARD",
+    category: "Control Structures",
+    tags: ["Conditionals","Math","Discriminant","Floating Point"],
+    description: `### Problem Description
+
+Given the coefficients \$A, B, C\$ of a quadratic equation \$Ax^2 + Bx + C = 0\$ (\$A \\ne 0\$), classify and compute its roots based on the discriminant \$D = B^2 - 4AC\$:
+1. If \$D > 0\$: The equation has two distinct real roots. Print:
+   \`REAL DISTINCT: %.2f %.2f\\n\` with roots in ascending order (\$r_1 \\le r_2\$).
+2. If \$D = 0\$: The equation has two equal real roots. Print:
+   \`REAL EQUAL: %.2f\\n\` with the root.
+3. If \$D < 0\$: The equation has two complex conjugate roots. Print:
+   \`COMPLEX: %.2f + %.2fi, %.2f - %.2fi\\n\` with real part followed by imaginary magnitude (\$|\\sqrt{-D} / (2A)|\$). Note: print \$-0.00\$ normalized as \$0.00\$.
+
+### Input Format
+Three space-separated floating-point numbers \$A, B, C\$ with \$A \\ne 0\$.
+
+### Output Format
+Print the classified roots formatted to two decimal places followed by a newline.`,
+    starterCode: `#include <stdio.h>
+#include <math.h>
+
+int main() {
+    double a, b, c;
+    if (scanf("%lf %lf %lf", &a, &b, &c) != 3) return 0;
+    
+    // TODO: Calculate discriminant and roots
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+#include <math.h>
+
+int main() {
+    double a, b, c;
+    if (scanf("%lf %lf %lf", &a, &b, &c) != 3) return 0;
+    double d = b * b - 4.0 * a * c;
+    if (fabs(d) < 1e-9) {
+        double r = -b / (2.0 * a);
+        if (fabs(r) < 1e-9) r = 0.0;
+        printf("REAL EQUAL: %.2f\\n", r);
+    } else if (d > 0.0) {
+        double sqrt_d = sqrt(d);
+        double r1 = (-b - sqrt_d) / (2.0 * a);
+        double r2 = (-b + sqrt_d) / (2.0 * a);
+        if (r1 > r2) {
+            double tmp = r1; r1 = r2; r2 = tmp;
+        }
+        if (fabs(r1) < 1e-9) r1 = 0.0;
+        if (fabs(r2) < 1e-9) r2 = 0.0;
+        printf("REAL DISTINCT: %.2f %.2f\\n", r1, r2);
+    } else {
+        double realPart = -b / (2.0 * a);
+        double imagPart = sqrt(-d) / (2.0 * fabs(a));
+        if (fabs(realPart) < 1e-9) realPart = 0.0;
+        printf("COMPLEX: %.2f + %.2fi, %.2f - %.2fi\\n", realPart, imagPart, realPart, imagPart);
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    printf("REAL EQUAL: 0.00\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+#include <math.h>
+int main() {
+    double a, b, c;
+    scanf("%lf %lf %lf", &a, &b, &c);
+    printf("REAL DISTINCT: %.2f %.2f\\n", -b/(2*a), -b/(2*a));
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "1 -5 6\n",
+                "expectedOutput": "REAL DISTINCT: 2.00 3.00\n"
+          },
+          {
+                "input": "1 -2 1\n",
+                "expectedOutput": "REAL EQUAL: 1.00\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1 2 5\n",
+                "expectedOutput": "COMPLEX: -1.00 + 2.00i, -1.00 - 2.00i\n"
+          },
+          {
+                "input": "2 4 2\n",
+                "expectedOutput": "REAL EQUAL: -1.00\n"
+          },
+          {
+                "input": "1 0 -4\n",
+                "expectedOutput": "REAL DISTINCT: -2.00 2.00\n"
+          },
+          {
+                "input": "1 0 1\n",
+                "expectedOutput": "COMPLEX: 0.00 + 1.00i, 0.00 - 1.00i\n"
+          }
+    ],
+  },
+  {
+    slug: "practice-c1-pascal-triangle-rows",
+    moduleSlug: "control-structures",
+    moduleOrder: 20,
+    title: "Pascal Triangle Matrix Form",
+    difficulty: "HARD",
+    category: "Control Structures",
+    tags: ["Combinatorics","Nested Loops","Dynamic Form","Formatting"],
+    description: `### Problem Description
+
+Given an integer \$R\$ (\$1 \\le R \\le 20\$), generate and print the first \$R\$ rows of Pascal's Triangle.
+Row \$0\$ starts with \$1\$. For each subsequent row \$i\$ (\$0 \\le i < R\$), the element at column \$j\$ (\$0 \\le j \\le i\$) is computed as:
+\$\$C(i, j) = \\frac{i!}{j!(i - j)!}\$\$
+Print each row on a new line with space-separated numbers without trailing spaces.
+
+### Input Format
+A single integer \$R\$ (\$1 \\le R \\le 20\$).
+
+### Output Format
+Print \$R\$ lines, where each line contains space-separated integers of that row.`,
+    starterCode: `#include <stdio.h>
+
+int main() {
+    int r;
+    if (scanf("%d", &r) != 1) return 0;
+    
+    // TODO: Generate Pascal's Triangle up to R rows
+    
+    return 0;
+}`,
+    solutionCode: `#include <stdio.h>
+
+int main() {
+    int r;
+    if (scanf("%d", &r) != 1) return 0;
+    for (int i = 0; i < r; i++) {
+        long long val = 1;
+        printf("%lld", val);
+        for (int j = 1; j <= i; j++) {
+            val = val * (i - j + 1) / j;
+            printf(" %lld", val);
+        }
+        printf("\\n");
+    }
+    return 0;
+}`,
+    wrongSolution1: `#include <stdio.h>
+int main() {
+    int r;
+    scanf("%d", &r);
+    for (int i = 0; i < r; i++) printf("1\\n");
+    return 0;
+}`,
+    wrongSolution2: `#include <stdio.h>
+int main() {
+    printf("1\\n1 1\\n1 2 1\\n");
+    return 0;
+}`,
+    timeLimitMs: 1000,
+    memoryLimitMb: 64,
+    basePoints: 30,
+    sampleTests: [
+          {
+                "input": "3\n",
+                "expectedOutput": "1\n1 1\n1 2 1\n"
+          },
+          {
+                "input": "5\n",
+                "expectedOutput": "1\n1 1\n1 2 1\n1 3 3 1\n1 4 6 4 1\n"
+          }
+    ],
+    hiddenTests: [
+          {
+                "input": "1\n",
+                "expectedOutput": "1\n"
+          },
+          {
+                "input": "2\n",
+                "expectedOutput": "1\n1 1\n"
+          },
+          {
+                "input": "4\n",
+                "expectedOutput": "1\n1 1\n1 2 1\n1 3 3 1\n"
+          },
+          {
+                "input": "7\n",
+                "expectedOutput": "1\n1 1\n1 2 1\n1 3 3 1\n1 4 6 4 1\n1 5 10 10 5 1\n1 6 15 20 15 6 1\n"
+          }
+    ],
+  }
 ];
