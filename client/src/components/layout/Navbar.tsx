@@ -59,7 +59,6 @@ export const Navbar: React.FC = () => {
     { label: 'Home', path: '/dashboard', icon: Home },
     { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
     { label: 'Practice', path: '/practice', icon: Code2 },
-    { label: 'Analytics', path: '/analytics', icon: Brain },
     { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
   ];
 
@@ -233,7 +232,7 @@ export const Navbar: React.FC = () => {
                       className="flex items-center gap-2 px-4 py-2 text-xs text-cyan-400 hover:bg-[var(--bg-surface)]"
                     >
                       <Brain className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Learning Analytics</span>
+                      <span>Analytics & Reports</span>
                     </Link>
 
                     {!isStandalone && (
@@ -448,7 +447,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-cyan-400 hover:bg-[var(--bg-surface)]"
                 >
-                  Learning Analytics
+                  Analytics & Reports
                 </Link>
                 {isAdmin && (
                   <Link
