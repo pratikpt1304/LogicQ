@@ -13,3 +13,4 @@ analyticsRoutes.get('/student/report/:testId', authenticate, AnalyticsController
 analyticsRoutes.get('/faculty/overview', authenticate, requireRole(['ADMIN', 'FACULTY']), AnalyticsController.getFacultyOverview);
 analyticsRoutes.get('/faculty/student-deep-dive/:studentId', authenticate, requireRole(['ADMIN', 'FACULTY']), AnalyticsController.getStudentDeepDive);
 analyticsRoutes.get('/faculty/export/csv/:sectionId', authenticate, requireRole(['ADMIN', 'FACULTY']), AnalyticsController.exportSectionCsv);
+analyticsRoutes.get('/faculty/calibration/:testId?', authenticate, requireRole(['ADMIN', 'FACULTY']), AnalyticsController.getCalibrationReport);

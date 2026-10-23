@@ -31,6 +31,27 @@ export interface SubmitQuestionDto {
   };
 }
 
+export interface RecordTelemetryDto {
+  attemptId: string;
+  clientMetrics: {
+    copyPasteAttempts?: number;
+    cutAttempts?: number;
+    contextMenuAttempts?: number;
+    tabSwitchCount?: number;
+    focusLossCount?: number;
+    totalFocusLossDurationMs?: number;
+    longestFocusLossDurationMs?: number;
+    fullScreenExitCount?: number;
+    totalKeystrokes?: number;
+    charsInserted?: number;
+    charsDeleted?: number;
+    cpm?: number;
+    wpm?: number;
+    largestBurstChars?: number;
+    activeInteractionTimeSec?: number;
+  };
+}
+
 function normalizeOutput(str: string): string {
   return str.replace(/\r\n/g, '\n').trim();
 }
@@ -260,6 +281,51 @@ export class SmartExamService {
       success: true,
       testResults,
     };
+  }
+
+  /**
+   * Asynchronous telemetry ingestion endpoint (Phase 3 Deliverable).
+   * Non-blocking heartbeat updating factual environment and typing metrics.
+   * STRICT SEPARATION: Academic marks and problem state are untouched.
+   */
+  static async recordTelemetry(input: RecordTelemetryDto, studentId: string) {
+    const attempt = await prisma.assessmentQuestionAttempt.findUnique({
+      where: { id: input.attemptId },
+      include: { assignment: true },
+    });
+
+    if (!attempt) throw new Error('Attempt not found.');
+    if (attempt.assignment.studentId !== studentId) throw new Error('Unauthorized.');
+
+    // If attempt is already locked/completed, ignore further telemetry
+    if (attempt.isLocked || attempt.status === 'LOCKED') {
+      return { success: true, isLocked: true };
+    }
+
+    const m = input.clientMetrics || {};
+
+    await prisma.assessmentQuestionAttempt.update({
+      where: { id: input.attemptId },
+      data: {
+        copyPasteAttempts: Math.max(attempt.copyPasteAttempts, m.copyPasteAttempts ?? 0),
+        cutAttempts: Math.max(attempt.cutAttempts, m.cutAttempts ?? 0),
+        contextMenuAttempts: Math.max(attempt.contextMenuAttempts, m.contextMenuAttempts ?? 0),
+        tabSwitchCount: Math.max(attempt.tabSwitchCount, m.tabSwitchCount ?? 0),
+        focusLossCount: Math.max(attempt.focusLossCount, m.focusLossCount ?? 0),
+        totalFocusLossDurationMs: Math.max(attempt.totalFocusLossDurationMs, m.totalFocusLossDurationMs ?? 0),
+        longestFocusLossDurationMs: Math.max(attempt.longestFocusLossDurationMs, m.longestFocusLossDurationMs ?? 0),
+        fullScreenExitCount: Math.max(attempt.fullScreenExitCount, m.fullScreenExitCount ?? 0),
+        totalKeystrokes: Math.max(attempt.totalKeystrokes, m.totalKeystrokes ?? 0),
+        charsInserted: Math.max(attempt.charsInserted, m.charsInserted ?? 0),
+        charsDeleted: Math.max(attempt.charsDeleted, m.charsDeleted ?? 0),
+        largestBurstChars: Math.max(attempt.largestBurstChars, m.largestBurstChars ?? 0),
+        activeInteractionTimeSec: Math.max(attempt.activeInteractionTimeSec, m.activeInteractionTimeSec ?? 0),
+        cpm: m.cpm !== undefined ? m.cpm : attempt.cpm,
+        wpm: m.wpm !== undefined ? m.wpm : attempt.wpm,
+      },
+    });
+
+    return { success: true };
   }
 
   /**

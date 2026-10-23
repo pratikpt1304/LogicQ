@@ -158,9 +158,10 @@ export class LearningAnalyticsService {
   /**
    * Generates faculty dashboard intelligence (Sections 48, 49, 50, 51, 56).
    */
-  static async getFacultyOverviewAnalytics(facultyId: string) {
+  static async getFacultyOverviewAnalytics(facultyId: string, userRole?: string) {
+    const isSuperAdmin = userRole === 'ADMIN';
     const sections = await prisma.section.findMany({
-      where: { facultyId },
+      where: isSuperAdmin ? {} : { facultyId },
       include: {
         students: {
           include: {
@@ -397,7 +398,8 @@ export class LearningAnalyticsService {
   /**
    * Generates CSV export for faculty (Section 55).
    */
-  static async generateSectionCsv(sectionId: string, facultyId: string): Promise<string> {
+  static async generateSectionCsv(sectionId: string, facultyId: string, userRole?: string): Promise<string> {
+    const isSuperAdmin = userRole === 'ADMIN';
     const section = await prisma.section.findUnique({
       where: { id: sectionId },
       include: {
@@ -412,7 +414,7 @@ export class LearningAnalyticsService {
       },
     });
 
-    if (!section || section.facultyId !== facultyId) {
+    if (!section || (!isSuperAdmin && section.facultyId !== facultyId)) {
       throw new Error('Section not found or unauthorized.');
     }
 

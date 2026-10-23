@@ -67,6 +67,38 @@ export class SmartExamController {
   }
 
   /**
+   * POST /api/exam/telemetry - Asynchronous non-blocking telemetry heartbeat (Phase 3)
+   */
+  static async recordTelemetry(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { attemptId, clientMetrics } = req.body;
+
+      if (!attemptId) {
+        return res.status(400).json({
+          success: false,
+          message: 'attemptId is required.',
+        });
+      }
+
+      const result = await SmartExamService.recordTelemetry(
+        {
+          attemptId,
+          clientMetrics: clientMetrics || {},
+        },
+        user.userId || user.id
+      );
+
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Failed to record telemetry heartbeat.',
+      });
+    }
+  }
+
+  /**
    * POST /api/exam/submit-question - Final evaluation against 3 tests, time scoring & locking
    */
   static async submitQuestion(req: Request, res: Response) {

@@ -121,13 +121,61 @@ export const ExamWorkspacePage: React.FC = () => {
     return () => clearInterval(interval);
   }, [startedAt, isLocked]);
 
-  // 3. Fullscreen & Focus Proctoring Event Listeners (Section 21)
+  // 3. Silent Non-blocking Telemetry Heartbeat (Phase 3 Deliverable)
+  const sendTelemetryPing = useCallback((overrideMetrics?: Record<string, any>) => {
+    if (!attemptId || isLocked) return;
+    api.post('/exam/telemetry', {
+      attemptId,
+      clientMetrics: {
+        copyPasteAttempts,
+        cutAttempts,
+        contextMenuAttempts,
+        tabSwitchCount,
+        focusLossCount,
+        totalFocusLossDurationMs: totalFocusLossMsRef.current,
+        fullScreenExitCount,
+        totalKeystrokes,
+        largestBurstChars,
+        activeInteractionTimeSec: activeSec,
+        ...overrideMetrics,
+      },
+    }).catch(() => {
+      // Asynchronous non-blocking: silently ignore network errors so student is never interrupted
+    });
+  }, [
+    attemptId,
+    isLocked,
+    copyPasteAttempts,
+    cutAttempts,
+    contextMenuAttempts,
+    tabSwitchCount,
+    focusLossCount,
+    fullScreenExitCount,
+    totalKeystrokes,
+    largestBurstChars,
+    activeSec,
+  ]);
+
+  // Periodic Telemetry Sync every 30 seconds
+  useEffect(() => {
+    if (!attemptId || isLocked) return;
+    const interval = setInterval(() => {
+      sendTelemetryPing();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [attemptId, isLocked, sendTelemetryPing]);
+
+  // 4. Fullscreen & Focus Proctoring Event Listeners (Section 21)
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
       if (!active && !isLocked) {
-        setFullScreenExitCount((c) => c + 1);
+        setFullScreenExitCount((c) => {
+          const next = c + 1;
+          sendTelemetryPing({ fullScreenExitCount: next });
+          return next;
+        });
         toast.warning('Proctoring Notice: Exiting full-screen mode is recorded on your institutional integrity audit.', {
           duration: 4000,
         });
@@ -136,7 +184,11 @@ export const ExamWorkspacePage: React.FC = () => {
 
     const handleVisibilityChange = () => {
       if (document.hidden && !isLocked) {
-        setTabSwitchCount((c) => c + 1);
+        setTabSwitchCount((c) => {
+          const next = c + 1;
+          sendTelemetryPing({ tabSwitchCount: next });
+          return next;
+        });
         focusLossStartRef.current = Date.now();
         toast.error('Proctoring Warning: Tab / Window switch detected! Tab navigation is strictly monitored.', {
           duration: 5000,
@@ -145,12 +197,17 @@ export const ExamWorkspacePage: React.FC = () => {
         const duration = Date.now() - focusLossStartRef.current;
         totalFocusLossMsRef.current += duration;
         focusLossStartRef.current = null;
+        sendTelemetryPing({ totalFocusLossDurationMs: totalFocusLossMsRef.current });
       }
     };
 
     const handleWindowBlur = () => {
       if (!isLocked) {
-        setFocusLossCount((c) => c + 1);
+        setFocusLossCount((c) => {
+          const next = c + 1;
+          sendTelemetryPing({ focusLossCount: next });
+          return next;
+        });
       }
     };
 
@@ -163,7 +220,7 @@ export const ExamWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [isLocked]);
+  }, [isLocked, sendTelemetryPing]);
 
   const toggleFullscreen = async () => {
     try {
