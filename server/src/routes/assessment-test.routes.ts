@@ -9,25 +9,27 @@ export const assessmentTestRoutes = Router();
 assessmentTestRoutes.post(
   '/',
   authenticate,
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'FACULTY']),
   AssessmentTestController.createTest
 );
 
 assessmentTestRoutes.get(
   '/',
   authenticate,
+  requireRole(['ADMIN', 'FACULTY']),
   AssessmentTestController.getFacultyTests
 );
 
 assessmentTestRoutes.get(
   '/:id',
   authenticate,
+  requireRole(['ADMIN', 'FACULTY']),
   AssessmentTestController.getTestDetails
 );
 
 assessmentTestRoutes.post(
   '/:id/assign',
   authenticate,
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'FACULTY']),
   AssessmentTestController.assignTest
 );

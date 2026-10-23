@@ -9,26 +9,27 @@ export const questionBankRoutes = Router();
 questionBankRoutes.post(
   '/generate-ai',
   authenticate,
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'FACULTY']),
   QuestionBankController.generateAiQuestion
 );
 
 questionBankRoutes.post(
   '/:id/validate',
   authenticate,
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'FACULTY']),
   QuestionBankController.validateQuestion
 );
 
 questionBankRoutes.post(
   '/:id/approve',
   authenticate,
-  requireRole(['ADMIN']),
+  requireRole(['ADMIN', 'FACULTY']),
   QuestionBankController.approveQuestion
 );
 
 questionBankRoutes.get(
   '/bank',
   authenticate,
+  requireRole(['ADMIN', 'FACULTY']),
   QuestionBankController.listQuestions
 );

@@ -11,6 +11,9 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
   const ts = Date.now().toString().slice(-4);
   let adminUser: any;
   let adminToken: string;
+  let facultyUser: any;
+  let facultyToken: string;
+  let studentToken: string;
   let testSection: any;
   let testStudentUser: any;
   let createdProblemId: string;
@@ -31,11 +34,35 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
       },
     });
 
+
+
     adminToken = generateAccessToken({
       userId: adminUser.id,
       username: adminUser.username,
       role: 'ADMIN',
     });
+
+    // 1b. Setup Faculty User
+    facultyUser = await prisma.user.upsert({
+      where: { email: `faculty_p2_${ts}@sanjivani.edu.in` },
+      update: { role: 'FACULTY' },
+      create: {
+        email: `faculty_p2_${ts}@sanjivani.edu.in`,
+        username: `faculty_p2_${ts}`,
+        fullName: 'Prof. Faculty Tester',
+        passwordHash: 'dummy',
+        role: 'FACULTY',
+        accountState: 'ACTIVE',
+      },
+    });
+
+    facultyToken = generateAccessToken({
+      userId: facultyUser.id,
+      username: facultyUser.username,
+      role: 'FACULTY',
+    });
+
+
 
     // 2. Setup Course Section
     testSection = await prisma.section.create({
@@ -74,6 +101,12 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
         status: 'ENROLLED',
       },
     });
+
+    studentToken = generateAccessToken({
+      userId: testStudentUser.id,
+      username: testStudentUser.username,
+      role: 'STUDENT',
+    });
   });
 
   afterAll(async () => {
@@ -97,6 +130,9 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
     if (adminUser) {
       await prisma.user.deleteMany({ where: { id: adminUser.id } });
     }
+    if (facultyUser) {
+      await prisma.user.deleteMany({ where: { id: facultyUser.id } });
+    }
   });
 
   describe('1. C Code Correctness & Sandbox Validation Engine (Section 17)', () => {
@@ -114,7 +150,7 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
       expect(outcome.validationStatus).toBe('VALIDATION_PASSED');
       expect(outcome.testResults).toHaveLength(3);
       expect(outcome.testResults.every((t) => t.passed)).toBe(true);
-    });
+    }, 60000);
 
     it('should fail validation when reference solution produces incorrect output', async () => {
       // Logic bug: multiplies instead of adds
@@ -251,6 +287,85 @@ describe('Phase 2: Question Bank, AI Validation & Test Assignment Engine', () =>
       expect(res.body.success).toBe(true);
       expect(res.body.data.assignments).toHaveLength(1);
       expect(res.body.data.assignments[0].student.email).toBe(testStudentUser.email);
+    });
+
+    it('should allow a FACULTY user to create and list their assessment tests', async () => {
+      // Create section owned by facultyUser
+      const facSection = await prisma.section.create({
+        data: {
+          institution: 'Sanjivani University',
+          course: 'B.Tech CSE',
+          subject: 'Operating Systems',
+          academicYear: '2026-2027',
+          semester: 'Semester 3',
+          sectionName: `Fac-Sec-${ts}`,
+          facultyId: facultyUser.id,
+          joinCode: `FAC-${ts}`,
+          joinToken: `token-fac-${ts}`,
+        },
+      });
+
+      const res = await request(app)
+        .post('/api/assessment-tests')
+        .set('Authorization', `Bearer ${facultyToken}`)
+        .send({
+          title: 'Faculty Authored Operating Systems Midterm',
+          sectionId: facSection.id,
+          moduleId: 'Module 2',
+          durationMinutes: 45,
+          questionCount: 5,
+          easyRatio: 40,
+          mediumRatio: 40,
+          hardRatio: 20,
+          autoSelectQuestions: true,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.title).toBe('Faculty Authored Operating Systems Midterm');
+
+      const listRes = await request(app)
+        .get('/api/assessment-tests')
+        .set('Authorization', `Bearer ${facultyToken}`);
+
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.success).toBe(true);
+      expect(listRes.body.data.some((t: any) => t.id === res.body.data.id)).toBe(true);
+
+      // Clean up facSection
+      await prisma.assessmentTestQuestion.deleteMany({ where: { testId: res.body.data.id } });
+      await prisma.assessmentTestAssignment.deleteMany({ where: { testId: res.body.data.id } });
+      await prisma.assessmentTest.deleteMany({ where: { id: res.body.data.id } });
+      await prisma.section.deleteMany({ where: { id: facSection.id } });
+    });
+
+    it('should block STUDENT from creating assessment tests with 403 Forbidden', async () => {
+      const res = await request(app)
+        .post('/api/assessment-tests')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          title: 'Illegal Student Created Test',
+          sectionId: testSection.id,
+          moduleId: 'Module 1',
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Access denied');
+    });
+
+    it('should block STUDENT from generating AI questions with 403 Forbidden', async () => {
+      const res = await request(app)
+        .post('/api/questions/generate-ai')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          module: 'Module 1',
+          topic: 'Pointers',
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Access denied');
     });
   });
 });

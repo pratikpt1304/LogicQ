@@ -30,7 +30,8 @@ export class AssessmentTestService {
     if (!section) {
       throw new Error('Section not found.');
     }
-    if (section.facultyId !== facultyId) {
+    const creatorUser = await prisma.user.findUnique({ where: { id: facultyId }, select: { role: true } });
+    if (section.facultyId !== facultyId && creatorUser?.role !== 'ADMIN') {
       throw new Error('Unauthorized to create tests for this section.');
     }
 
@@ -161,7 +162,8 @@ export class AssessmentTestService {
     if (!test) {
       throw new Error('Assessment test not found.');
     }
-    if (test.createdById !== facultyId && test.section.facultyId !== facultyId) {
+    const assignerUser = await prisma.user.findUnique({ where: { id: facultyId }, select: { role: true } });
+    if (test.createdById !== facultyId && test.section.facultyId !== facultyId && assignerUser?.role !== 'ADMIN') {
       throw new Error('Unauthorized to assign this test.');
     }
 
@@ -203,8 +205,10 @@ export class AssessmentTestService {
    * Fetches tests created by a faculty member.
    */
   static async getFacultyTests(facultyId: string) {
+    const user = await prisma.user.findUnique({ where: { id: facultyId }, select: { role: true } });
+    const where = user?.role === 'ADMIN' ? {} : { createdById: facultyId };
     return prisma.assessmentTest.findMany({
-      where: { createdById: facultyId },
+      where,
       include: {
         section: {
           select: {
