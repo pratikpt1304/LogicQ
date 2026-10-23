@@ -13,6 +13,7 @@ import {
   Sparkles,
   Layers,
   Eye,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface PracticeModuleItem {
@@ -46,6 +47,13 @@ export const PracticeModulesPage: React.FC = () => {
   });
 
   const modules: PracticeModuleItem[] = data?.data?.modules || [];
+  const { data: testsData } = useQuery({
+    queryKey: ['my-assigned-tests'],
+    queryFn: () => api.get('/exam/my-tests'),
+    refetchOnWindowFocus: false,
+  });
+
+  const assignedTests = testsData?.data || testsData?.assignments || [];
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -65,19 +73,63 @@ export const PracticeModulesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {isAdmin && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-400">
               <Eye className="w-4 h-4" />
               <span>Admin Preview Enabled</span>
             </div>
           )}
+          <Link
+            to="/student/tests"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] transition-colors group"
+          >
+            <ShieldCheck className="w-4 h-4 text-cyan-400" />
+            <span>Assigned Tests</span>
+            {assignedTests.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[10px] border border-cyan-500/30">
+                {assignedTests.length}
+              </span>
+            )}
+          </Link>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
             <Code2 className="w-4 h-4 text-[var(--accent)]" />
             <span>40 Total Practice Problems</span>
           </div>
         </div>
       </div>
+
+      {/* Active Institutional Lab Assessment Banner */}
+      {assignedTests.length > 0 && (
+        <div className="glass-card p-5 sm:p-6 rounded-2xl border-2 border-cyan-500/40 bg-gradient-to-r from-cyan-950/20 via-[var(--bg-panel)] to-blue-950/15 shadow-xl space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 flex-shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold mb-1">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>ACTIVE LAB ASSESSMENT ASSIGNED</span>
+                </div>
+                <h2 className="text-base font-bold text-[var(--text-main)] tracking-tight">
+                  {assignedTests[0]?.test?.testName || 'Institutional Assessment Test'}
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
+                  Section: {assignedTests[0]?.test?.section?.sectionName || 'Enrolled Section'} • {assignedTests.length} Test{assignedTests.length > 1 ? 's' : ''} Available • Zero-Reattempt Evaluation
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/student/tests"
+              className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#0C0F1F] font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 shadow-md flex-shrink-0"
+            >
+              <span>Go to Assessment Workspace</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

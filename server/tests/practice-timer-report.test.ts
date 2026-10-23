@@ -387,5 +387,6 @@ describe('Practice Active Timers, Telemetry Anti-Tamper & Verification Reports',
     if (testProblemId) {
       await prisma.problem.delete({ where: { id: testProblemId } }).catch(() => {});
     }
+    await prisma.problem.deleteMany({ where: { slug: { startsWith: 'test-unsolved-' } } }).catch(() => {});
   });
 });

@@ -367,7 +367,7 @@ export async function createE2ETestProblem(options?: {
   scheduledDate?: string | null;
   testCases?: Array<{ input: string; expectedOutput: string; isHidden: boolean; orderIndex: number }>;
 }) {
-  const ts = Date.now() + Math.floor(Math.random() * 10000);
+  const ts = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const problem = await prisma.problem.create({
     data: {
       slug: `e2e-prob-${ts}`,
