@@ -149,8 +149,8 @@ Return ONLY the question text without preamble.`;
 
     const now = new Date();
     const durationSec = Math.max(1, Math.round((now.getTime() - viva.startedAt.getTime()) / 1000));
-    // Strict 1-minute limit with 5s network grace (Section 31: 60 seconds)
-    const submittedBeforeTimeout = durationSec <= 65;
+    // Generous 2.5-minute limit (150 seconds) with 5s network grace (Decision 3 & Phase 4)
+    const submittedBeforeTimeout = durationSec <= 155;
 
     // Evaluate relevance score (0 - 100)
     let relevanceScore = 0;
@@ -163,7 +163,7 @@ Return ONLY the question text without preamble.`;
         aiEvaluation = 'Valid on-time conceptual explanation provided.';
       } else {
         relevanceScore = 30;
-        aiEvaluation = 'Answer received after 1-minute time limit expired.';
+        aiEvaluation = 'Answer received after 2.5-minute time limit expired.';
       }
     } else {
       relevanceScore = 0;
@@ -194,6 +194,51 @@ Return ONLY the question text without preamble.`;
   }
 
   /**
+   * Faculty manual review and score override for an AI viva response (Phase 4 Deliverable).
+   * Ensures institutional human governance over all AI-generated scores.
+   */
+  static async facultyOverrideViva(input: {
+    vivaId: string;
+    facultyId: string;
+    overrideScore: number;
+    feedback?: string;
+  }) {
+    const viva = await prisma.assessmentVivaQuestion.findUnique({
+      where: { id: input.vivaId },
+      include: {
+        assignment: {
+          include: {
+            test: {
+              include: { section: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!viva) throw new Error('Viva question record not found.');
+
+    const cleanScore = Math.max(0, Math.min(100, Math.round(input.overrideScore)));
+    const feedbackNote = input.feedback?.trim() || 'Score updated via faculty review console.';
+
+    const updated = await prisma.assessmentVivaQuestion.update({
+      where: { id: input.vivaId },
+      data: {
+        relevanceScore: cleanScore,
+        aiEvaluation: `[FACULTY OVERRIDE - ${feedbackNote}] Previous AI Score: ${viva.relevanceScore ?? 'N/A'}`,
+        status: 'COMPLETED',
+      },
+    });
+
+    return {
+      success: true,
+      vivaId: updated.id,
+      relevanceScore: updated.relevanceScore,
+      aiEvaluation: updated.aiEvaluation,
+    };
+  }
+
+  /**
    * Retrieves pending viva for an active student test assignment if one exists.
    */
   static async getPendingVivaForAssignment(assignmentId: string, studentId: string) {
@@ -209,7 +254,7 @@ Return ONLY the question text without preamble.`;
     if (!viva) return { pending: false };
 
     const elapsed = Math.round((Date.now() - viva.startedAt.getTime()) / 1000);
-    const remainingSec = Math.max(0, 60 - elapsed);
+    const remainingSec = Math.max(0, 150 - elapsed);
 
     return {
       pending: true,

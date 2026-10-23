@@ -270,4 +270,44 @@ export class MiniProjectService {
 
     return roster;
   }
+
+  /**
+   * Official faculty rubric evaluation and grade override for a mini-project (Phase 5).
+   * Evaluates 4 section competencies (5 marks each = 20 total marks).
+   */
+  static async gradeMiniProjectRubric(input: {
+    accessId: string;
+    facultyId: string;
+    rubricScores: { section1: number; section2: number; section3: number; section4: number };
+    facultyFeedback?: string;
+  }) {
+    const access = await prisma.studentMiniProjectAccess.findUnique({
+      where: { id: input.accessId },
+    });
+    if (!access) throw new Error('Student mini project access record not found.');
+
+    const s1 = Math.max(0, Math.min(5, Number(input.rubricScores.section1 || 0)));
+    const s2 = Math.max(0, Math.min(5, Number(input.rubricScores.section2 || 0)));
+    const s3 = Math.max(0, Math.min(5, Number(input.rubricScores.section3 || 0)));
+    const s4 = Math.max(0, Math.min(5, Number(input.rubricScores.section4 || 0)));
+    const totalAcademicScore = s1 + s2 + s3 + s4; // Max 20 marks
+
+    const updated = await prisma.studentMiniProjectAccess.update({
+      where: { id: input.accessId },
+      data: {
+        status: 'EVALUATED',
+        academicScore: totalAcademicScore,
+        rubricScoresJson: JSON.stringify({ section1: s1, section2: s2, section3: s3, section4: s4 }),
+      },
+    });
+
+    return {
+      success: true,
+      accessId: updated.id,
+      academicScore: updated.academicScore,
+      maxMarks: 20,
+      rubricScores: { section1: s1, section2: s2, section3: s3, section4: s4 },
+      status: updated.status,
+    };
+  }
 }

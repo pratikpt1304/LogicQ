@@ -416,5 +416,71 @@ int main() {
       expect(submitRes.body.rubricScores.section4).toBe(5);
       expect(submitRes.body.status).toBe('SUBMITTED');
     });
+
+    it('should allow faculty to manually override AI viva score (Phase 4)', async () => {
+      // Find the viva question created earlier
+      const viva = await prisma.assessmentVivaQuestion.findFirst({
+        where: { assignmentId: assignment.id },
+      });
+      expect(viva).toBeDefined();
+
+      const overrideRes = await request(app)
+        .post('/api/exam/viva/faculty-override')
+        .set('Authorization', `Bearer ${facultyToken}`)
+        .send({
+          vivaId: viva!.id,
+          overrideScore: 95,
+          feedback: 'Excellent authentic oral explanation of scanf handling.',
+        });
+
+      expect(overrideRes.status).toBe(200);
+      expect(overrideRes.body.success).toBe(true);
+      expect(overrideRes.body.relevanceScore).toBe(95);
+      expect(overrideRes.body.aiEvaluation).toContain('FACULTY OVERRIDE');
+    });
+
+    it('should allow faculty to evaluate mini-project rubric and export 100-mark ERP CSV (Phase 5)', async () => {
+      // Find the student's mini project access
+      const access = await prisma.studentMiniProjectAccess.findUnique({
+        where: {
+          miniProjectId_studentId: {
+            miniProjectId: miniProject.id,
+            studentId: studentUser.id,
+          },
+        },
+      });
+      expect(access).toBeDefined();
+
+      // 1. Faculty grades the rubric
+      const gradeRes = await request(app)
+        .post('/api/mini-project/grade')
+        .set('Authorization', `Bearer ${facultyToken}`)
+        .send({
+          accessId: access!.id,
+          rubricScores: {
+            section1: 5,
+            section2: 4,
+            section3: 5,
+            section4: 5,
+          },
+          facultyFeedback: 'Clean memory management with minor optimization suggested for arrays.',
+        });
+
+      expect(gradeRes.status).toBe(200);
+      expect(gradeRes.body.success).toBe(true);
+      expect(gradeRes.body.academicScore).toBe(19); // 5 + 4 + 5 + 5 = 19/20
+      expect(gradeRes.body.status).toBe('EVALUATED');
+
+      // 2. Export Section CSV and verify 100-mark ERP compilation
+      const csvRes = await request(app)
+        .get(`/api/analytics/faculty/export/csv/${section.id}`)
+        .set('Authorization', `Bearer ${facultyToken}`);
+
+      expect(csvRes.status).toBe(200);
+      expect(csvRes.text).toContain('Question Marks (Max 80)');
+      expect(csvRes.text).toContain('Mini-Project Marks (Max 20)');
+      expect(csvRes.text).toContain('Total Academic Marks (Max 100)');
+      expect(csvRes.text).toContain('19'); // Student's 19-mark mini project
+    });
   });
 });

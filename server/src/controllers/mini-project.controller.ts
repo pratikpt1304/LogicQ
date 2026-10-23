@@ -8,7 +8,7 @@ export class MiniProjectController {
   static async createProject(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      if (user.role !== 'ADMIN') {
+      if (user.role !== 'ADMIN' && user.role !== 'FACULTY') {
         return res.status(403).json({ success: false, message: 'Forbidden. Faculty or Admin only.' });
       }
 
@@ -40,7 +40,7 @@ export class MiniProjectController {
   static async activateIndividual(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      if (user.role !== 'ADMIN') {
+      if (user.role !== 'ADMIN' && user.role !== 'FACULTY') {
         return res.status(403).json({ success: false, message: 'Forbidden. Faculty or Admin only.' });
       }
 
@@ -74,7 +74,7 @@ export class MiniProjectController {
   static async getSectionRoster(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      if (user.role !== 'ADMIN') {
+      if (user.role !== 'ADMIN' && user.role !== 'FACULTY') {
         return res.status(403).json({ success: false, message: 'Forbidden. Faculty or Admin only.' });
       }
 
@@ -83,6 +83,34 @@ export class MiniProjectController {
       return res.json({ success: true, roster });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message || 'Failed to fetch section roster.' });
+    }
+  }
+
+  /**
+   * POST /api/mini-project/grade - Faculty rubric evaluation (Phase 5)
+   */
+  static async gradeProject(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      if (user.role !== 'ADMIN' && user.role !== 'FACULTY') {
+        return res.status(403).json({ success: false, message: 'Forbidden. Faculty or Admin only.' });
+      }
+
+      const { accessId, rubricScores, facultyFeedback } = req.body;
+      if (!accessId || !rubricScores) {
+        return res.status(400).json({ success: false, message: 'accessId and rubricScores are required.' });
+      }
+
+      const outcome = await MiniProjectService.gradeMiniProjectRubric({
+        accessId,
+        facultyId: user.userId || user.id,
+        rubricScores,
+        facultyFeedback,
+      });
+
+      return res.json(outcome);
+    } catch (err: any) {
+      return res.status(400).json({ success: false, message: err.message || 'Failed to grade mini-project.' });
     }
   }
 

@@ -418,12 +418,18 @@ export class LearningAnalyticsService {
       throw new Error('Section not found or unauthorized.');
     }
 
+    const miniProjects = await prisma.studentMiniProjectAccess.findMany({
+      where: { sectionId },
+    });
+
     const header = [
       'PRN',
       'Student Name',
       'Email',
       'Test Title',
-      'Academic Score',
+      'Question Marks (Max 80)',
+      'Mini-Project Marks (Max 20)',
+      'Total Academic Marks (Max 100)',
       'Integrity Score',
       'Integrity Risk',
       'Status',
@@ -433,14 +439,22 @@ export class LearningAnalyticsService {
     const rows: string[] = [header];
 
     for (const st of section.students) {
+      const studentProject = miniProjects.find((mp) => mp.studentId === st.studentId);
+      const miniProjMarks = studentProject?.academicScore ?? 0;
+
       for (const test of section.assessmentTests) {
         const assign = test.assignments.find((a) => a.studentId === st.studentId);
+        const questionMarks = assign?.academicScore ?? 0;
+        const totalMarks = Math.min(100, questionMarks + miniProjMarks);
+
         const row = [
           `"${st.prn}"`,
           `"${st.student.fullName}"`,
           `"${st.student.email}"`,
           `"${test.title}"`,
-          assign?.academicScore ?? 0,
+          questionMarks,
+          miniProjMarks,
+          totalMarks,
           assign?.integrityScore ?? 0,
           `"${assign?.integrityRisk || 'NOT_STARTED'}"`,
           `"${assign?.status || 'ASSIGNED'}"`,

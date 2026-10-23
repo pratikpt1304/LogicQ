@@ -496,7 +496,7 @@ int main() {
 
     expect(csvRes.status).toBe(200);
     expect(csvRes.headers['content-type']).toContain('text/csv');
-    expect(csvRes.text).toContain('Academic Score');
+    expect(csvRes.text).toContain('Total Academic Marks (Max 100)');
     expect(csvRes.text).toContain('Integrity Score');
   });
 });

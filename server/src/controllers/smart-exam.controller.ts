@@ -236,4 +236,32 @@ export class SmartExamController {
       return res.status(400).json({ success: false, message: err.message || 'Failed to submit viva.' });
     }
   }
+
+  /**
+   * POST /api/exam/viva/faculty-override - Faculty manual score override (Phase 4)
+   */
+  static async facultyOverrideViva(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      if (user.role !== 'ADMIN' && user.role !== 'FACULTY') {
+        return res.status(403).json({ success: false, message: 'Forbidden. Faculty or Admin only.' });
+      }
+
+      const { vivaId, overrideScore, feedback } = req.body;
+      if (!vivaId || overrideScore === undefined) {
+        return res.status(400).json({ success: false, message: 'vivaId and overrideScore are required.' });
+      }
+
+      const outcome = await AiVivaService.facultyOverrideViva({
+        vivaId,
+        facultyId: user.userId || user.id,
+        overrideScore: Number(overrideScore),
+        feedback,
+      });
+
+      return res.json(outcome);
+    } catch (err: any) {
+      return res.status(400).json({ success: false, message: err.message || 'Failed to override viva score.' });
+    }
+  }
 }
