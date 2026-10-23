@@ -8,7 +8,7 @@ export const PRACTICE_MODULE_2_PROBLEMS: PracticeProblemDef[] = [
     moduleOrder: 1,
     title: 'Swap Two Values Using Pointers',
     difficulty: 'EASY',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Functions', 'Swap', 'Pass-by-Reference'],
     description: `### Problem Description
 
@@ -96,7 +96,7 @@ int main() {
     moduleOrder: 2,
     title: 'Min and Max via Pointer Parameters',
     difficulty: 'EASY',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Functions', 'Out-Parameters'],
     description: `### Problem Description
 
@@ -196,7 +196,7 @@ int main() {
     moduleOrder: 3,
     title: 'Factorial via Function',
     difficulty: 'EASY',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Functions', 'Recursion', 'Math'],
     description: `### Problem Description
 
@@ -277,7 +277,7 @@ int main() {
     moduleOrder: 4,
     title: 'Sum and Average via Pointer Arguments',
     difficulty: 'EASY',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Functions', 'Math'],
     description: `### Problem Description
 
@@ -373,7 +373,7 @@ int main() {
     moduleOrder: 5,
     title: 'Recursive GCD and LCM',
     difficulty: 'MEDIUM',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Functions', 'Recursion', 'GCD', 'Math'],
     description: `### Problem Description
 
@@ -454,7 +454,7 @@ int main() {
     moduleOrder: 6,
     title: 'Array Reversal In-Place with Two Pointers',
     difficulty: 'MEDIUM',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Arrays', 'Two-Pointer'],
     description: `### Problem Description
 
@@ -551,7 +551,7 @@ int main() {
     moduleOrder: 7,
     title: 'String Length and In-Place Reversal via Pointers',
     difficulty: 'MEDIUM',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Strings', 'Two-Pointer'],
     description: `### Problem Description
 
@@ -653,7 +653,7 @@ int main() {
     moduleOrder: 8,
     title: 'Recursive Fast Modular Exponentiation',
     difficulty: 'MEDIUM',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Functions', 'Recursion', 'Math', 'Fast Pow'],
     description: `### Problem Description
 
@@ -737,7 +737,7 @@ int main() {
     moduleOrder: 9,
     title: 'Function Pointer Dispatch Table',
     difficulty: 'HARD',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Pointers', 'Function Pointers', 'Dispatch Table'],
     description: `### Problem Description
 
@@ -839,7 +839,7 @@ int main() {
     moduleOrder: 10,
     title: 'Tower of Hanoi Step Tracer',
     difficulty: 'HARD',
-    category: 'Pointers and functions',
+    category: 'Pointers and Functions',
     tags: ['Functions', 'Recursion', 'Hanoi', 'Divide-and-Conquer'],
     description: `### Problem Description
 

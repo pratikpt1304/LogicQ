@@ -60,10 +60,10 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           <Brain className="w-3.5 h-3.5" />
           <span>Student Learning Analytics & Dual-Score Audit</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
+        <h1 className="text-2xl sm:text-3xl font-extrabold !text-white text-white tracking-tight font-sans">
           Performance & Integrity Analytics
         </h1>
-        <p className="text-gray-400 max-w-2xl font-sans text-sm">
+        <p className="text-slate-300 max-w-2xl font-sans text-sm">
           Institutional continuous assessment framework. Academic performance (did you solve the problem?) and Assessment Integrity (did the session adhere to proctoring bounds?) are evaluated independently per Section 59.
         </p>
       </div>
@@ -79,15 +79,15 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <Award className="w-6 h-6 text-emerald-400" />
           </div>
           <div className="space-y-1">
-            <div className="text-4xl sm:text-5xl font-black text-white">
-              {anl.academicScore.toFixed(1)} <span className="text-xl text-gray-500">/ 100</span>
+            <div className="text-4xl sm:text-5xl font-black !text-white text-white">
+              {anl.academicScore.toFixed(1)} <span className="text-xl text-slate-400 font-normal">/ 100</span>
             </div>
-            <p className="text-gray-400 text-[11px] font-sans">
+            <p className="text-slate-300 text-[11px] font-sans">
               Combines question solving (max 80) and integrated mini-project (max 20).
             </p>
           </div>
           <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-gray-400">Questions Solved: {anl.totalQuestionsSolved}</span>
+            <span className="text-slate-300">Questions Solved: {anl.totalQuestionsSolved}</span>
             <span className="text-emerald-400 font-semibold">Mini-Project: {anl.miniProjectScore} / 20</span>
           </div>
         </div>
@@ -101,11 +101,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <ShieldCheck className="w-6 h-6 text-cyan-400" />
           </div>
           <div className="space-y-1">
-            <div className="text-4xl sm:text-5xl font-black text-white">
-              {anl.integrityScore} <span className="text-xl text-gray-500">/ 100</span>
+            <div className="text-4xl sm:text-5xl font-black !text-white text-white">
+              {anl.integrityScore} <span className="text-xl text-slate-400 font-normal">/ 100</span>
             </div>
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-gray-400 text-[11px]">Risk Classification:</span>
+              <span className="text-slate-300 text-[11px]">Risk Classification:</span>
               <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
                 anl.integrityRisk === 'NORMAL' ? 'bg-emerald-500/20 text-emerald-400' :
                 anl.integrityRisk === 'LOW' ? 'bg-blue-500/20 text-blue-400' :
@@ -117,14 +117,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             </div>
           </div>
           <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px]">
-            <span className="text-gray-400">Clipboard Events: {anl.telemetry.totalClipboardAttempts}</span>
-            <span className="text-gray-400">Tab Switches: {anl.telemetry.totalTabSwitches}</span>
+            <span className="text-slate-300">Clipboard Events: {anl.telemetry.totalClipboardAttempts}</span>
+            <span className="text-slate-300">Tab Switches: {anl.telemetry.totalTabSwitches}</span>
           </div>
         </div>
       </div>
 
       {/* Section 59 Invariant Callout */}
-      <div className="bg-gray-950 border border-gray-800 rounded-xl p-4 flex items-center gap-3 text-gray-400 font-sans text-xs">
+      <div className="bg-gray-950 border border-gray-800 rounded-xl p-4 flex items-center gap-3 text-slate-300 font-sans text-xs">
         <ShieldAlert className="w-5 h-5 text-cyan-400 flex-shrink-0" />
         <span>
           <strong>Section 59 Protocol:</strong> A high Academic Score and a review flag can coexist. Integrity is a behavioral review indicator and is never merged with academic scores.
@@ -172,7 +172,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             {Object.entries(anl.difficultyStats).map(([diff, stats]: any) => (
               <div key={diff} className="space-y-1">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-gray-300">{diff}</span>
+                  <span className="text-slate-200">{diff}</span>
                   <span className="text-cyan-400 font-bold">{stats.solved} / {stats.total} Solved</span>
                 </div>
                 <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -181,7 +181,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                     style={{ width: `${stats.total > 0 ? (stats.solved / stats.total) * 100 : 0}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-gray-500 text-right">Avg: {stats.avgTimeSec}s</div>
+                <div className="text-[10px] text-slate-400 text-right">Avg: {stats.avgTimeSec}s</div>
               </div>
             ))}
           </div>
@@ -194,14 +194,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </h4>
           <div className="space-y-3">
             <div className="bg-black/40 p-3 rounded-xl border border-gray-800">
-              <div className="text-gray-400 text-[10px]">Net Time Deviation</div>
+              <div className="text-slate-300 text-[10px]">Net Time Deviation</div>
               <div className={`text-sm font-bold mt-1 ${anl.netTimeDeviationSec <= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {anl.netTimeDeviationSec > 0 ? `+${anl.netTimeDeviationSec}s (Overtime)` : `${anl.netTimeDeviationSec}s (Efficient)`}
               </div>
             </div>
 
             <div className="bg-black/40 p-3 rounded-xl border border-gray-800">
-              <div className="text-gray-400 text-[10px]">Hidden Test 3 Success</div>
+              <div className="text-slate-300 text-[10px]">Hidden Test 3 Success</div>
               <div className="text-sm font-bold text-white mt-1">
                 {anl.hiddenTestPassRatio} Passed
               </div>
@@ -216,19 +216,19 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </h4>
           <div className="space-y-2 text-[11px]">
             <div className="flex justify-between py-1 border-b border-gray-800">
-              <span className="text-gray-400">Total Keystrokes</span>
+              <span className="text-slate-300">Total Keystrokes</span>
               <span className="text-white font-bold">{anl.telemetry.totalKeystrokes}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-gray-800">
-              <span className="text-gray-400">Focus Loss Time</span>
+              <span className="text-slate-300">Focus Loss Time</span>
               <span className="text-white font-bold">{anl.telemetry.totalFocusLossDurationSec}s</span>
             </div>
             <div className="flex justify-between py-1 border-b border-gray-800">
-              <span className="text-gray-400">Fullscreen Exits</span>
+              <span className="text-slate-300">Fullscreen Exits</span>
               <span className="text-white font-bold">{anl.telemetry.totalFullScreenExits}</span>
             </div>
             <div className="flex justify-between py-1">
-              <span className="text-gray-400">AI Viva Verification</span>
+              <span className="text-slate-300">AI Viva Verification</span>
               <span className="text-cyan-400 font-bold">{anl.telemetry.vivaCompletedRatio}</span>
             </div>
           </div>
@@ -243,7 +243,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               <FileText className="w-4 h-4 text-cyan-400" />
               <span>Official Institutional Assessment Report (PDF / Printable Audit)</span>
             </h3>
-            <p className="text-xs text-gray-400 mt-1 font-sans">
+            <p className="text-xs text-slate-300 mt-1 font-sans">
               Generates the verified two-part report: Part A (Submitted Solutions & Code) and Part B (Integrity Telemetry Trail) per Section 47.
             </p>
           </div>

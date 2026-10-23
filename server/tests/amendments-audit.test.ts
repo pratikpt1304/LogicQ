@@ -226,7 +226,7 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
 
     // (b) Infinite loop -> TIME_LIMIT_EXCEEDED
     const tleRes = await judge.compileAndRun(
-      '#include <stdio.h>\nint main() { while(1) {} return 0; }',
+      '#include <stdio.h>\nint main() { volatile int x = 0; while(1) { x++; } return 0; }',
       '',
       800
     );

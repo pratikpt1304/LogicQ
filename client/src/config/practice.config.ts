@@ -34,7 +34,7 @@ export const PRACTICE_CONFIG = {
     {
       id: 'module-2',
       slug: 'pointers-and-functions',
-      title: 'Pointers and functions',
+      title: 'Pointers and Functions',
       order: 2,
       description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
       requiredSolvedToUnlock: 10,

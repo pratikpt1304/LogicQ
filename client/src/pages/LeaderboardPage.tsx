@@ -46,20 +46,60 @@ export const LeaderboardPage: React.FC = () => {
   const availablePastDays: string[] = data?.data?.availablePastDays || [];
   const topThree = rankedUsers.slice(0, 3);
 
-  const getDisplayLabel = (u: any) => {
-    const isMe = Boolean(u.isCurrentUser || (currentUser && u.id === currentUser.id));
+    const formatPoints = (val: any) => {
+    if (val === null || val === undefined) return '0 PTS';
+    const str = String(val).trim();
+    const cleaned = str.replace(/(\s*pts)+$/i, '').trim();
+    return `${cleaned || '0'} PTS`;
+  };
+
+  const getDisplayName = (u: any) => {
+    if (!u) return 'Student';
+    const isMe = Boolean(u.isCurrentUser || (currentUser && (u.id === currentUser.id || u.userId === currentUser.id)));
     if (isMe) {
-      return (
-        u.ownIdentityLabel ||
-        formatOwnIdentityLabel({
-          department: u.department || currentUser?.department,
-          year: u.year || currentUser?.year,
-          prn: currentUser?.prn,
-          maskedPrn: u.maskedPrn || currentUser?.maskedPrn,
-        })
-      );
+      const myName = currentUser?.fullName || currentUser?.displayName;
+      if (myName && !myName.includes('••••••••') && !myName.includes(' • ')) {
+        return myName.trim();
+      }
     }
-    return u.publicDisplayName || formatPublicDisplayName(u);
+
+    const candidates = [u.displayName, u.name, u.fullName, u.username];
+    for (const cand of candidates) {
+      if (typeof cand === 'string' && cand.trim().length > 0) {
+        const trimmed = cand.trim();
+        if (!trimmed.includes('••••••••') && !trimmed.includes(' • ')) {
+          return trimmed;
+        }
+      }
+    }
+
+    if (u.publicDisplayName && !u.publicDisplayName.includes('••••••••') && !u.publicDisplayName.includes(' • ')) {
+      return u.publicDisplayName;
+    }
+    return formatPublicDisplayName(u);
+  };
+
+  const getSubtitle = (u: any) => {
+    if (!u) return 'Sanjivani University';
+    const dept = u.department || (u.isCurrentUser ? currentUser?.department : null);
+    const yr = u.year || (u.isCurrentUser ? currentUser?.year : null);
+    const div = u.division || (u.isCurrentUser ? currentUser?.division : null);
+    const maskedPrn = u.maskedPrn || (u.isCurrentUser ? currentUser?.maskedPrn : null);
+
+    const parts = [
+      [dept, yr].filter(Boolean).join(' • '),
+      div ? `Div ${div}` : null,
+      maskedPrn ? maskedPrn : null,
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join(' • ');
+    }
+    return u.college || 'Sanjivani University';
+  };
+
+  const getDisplayLabel = (u: any) => {
+    return getDisplayName(u);
   };
 
   const formatAcceptedTime = (isoString?: string) => {
@@ -334,7 +374,7 @@ export const LeaderboardPage: React.FC = () => {
             <div>
               <span className="text-[var(--text-muted)] block text-[11px]">TOTAL POINTS</span>
               <strong className="text-[var(--color-accent)] text-base">
-                {pinnedOwnRow.totalPoints ?? pinnedOwnRow.score ?? 0} PTS
+                {formatPoints(pinnedOwnRow.totalPoints ?? pinnedOwnRow.score ?? 0)}
               </strong>
             </div>
           </div>
@@ -403,13 +443,13 @@ export const LeaderboardPage: React.FC = () => {
                   to={`/profile/${topThree[1].shortId || topThree[1].id}`}
                   className="font-bold text-[var(--text-main)] text-base hover:text-[var(--color-accent)] transition-colors"
                 >
-                  {getDisplayLabel(topThree[1])}
+                  {getDisplayName(topThree[1])}
                 </Link>
-                <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                  {[topThree[1].department, topThree[1].year].filter(Boolean).join(' • ') ||
-                    topThree[1].college ||
-                    'Sanjivani University'}
-                </span>
+                {getSubtitle(topThree[1]) !== getDisplayName(topThree[1]) && (
+                  <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                    {getSubtitle(topThree[1])}
+                  </span>
+                )}
 
                 <div className="mt-4 pt-3 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
                   {activeTab !== 'overall' ? (
@@ -430,7 +470,7 @@ export const LeaderboardPage: React.FC = () => {
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-sm">
-                      {topThree[1].totalPoints ?? topThree[1].score ?? 0} PTS
+                      {formatPoints(topThree[1].totalPoints ?? topThree[1].score ?? 0)}
                     </strong>
                   </div>
                   <div>
@@ -453,13 +493,13 @@ export const LeaderboardPage: React.FC = () => {
                   to={`/profile/${topThree[0].shortId || topThree[0].id}`}
                   className="font-extrabold text-[var(--text-main)] text-lg hover:text-[var(--color-accent)] transition-colors"
                 >
-                  {getDisplayLabel(topThree[0])}
+                  {getDisplayName(topThree[0])}
                 </Link>
-                <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                  {[topThree[0].department, topThree[0].year].filter(Boolean).join(' • ') ||
-                    topThree[0].college ||
-                    'Sanjivani University'}
-                </span>
+                {getSubtitle(topThree[0]) !== getDisplayName(topThree[0]) && (
+                  <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                    {getSubtitle(topThree[0])}
+                  </span>
+                )}
 
                 <div className="mt-5 pt-4 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
                   {activeTab !== 'overall' ? (
@@ -480,7 +520,7 @@ export const LeaderboardPage: React.FC = () => {
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-base">
-                      {topThree[0].totalPoints ?? topThree[0].score ?? 0} PTS
+                      {formatPoints(topThree[0].totalPoints ?? topThree[0].score ?? 0)}
                     </strong>
                   </div>
                   <div>
@@ -503,13 +543,13 @@ export const LeaderboardPage: React.FC = () => {
                   to={`/profile/${topThree[2].shortId || topThree[2].id}`}
                   className="font-bold text-[var(--text-main)] text-base hover:text-[var(--color-accent)] transition-colors"
                 >
-                  {getDisplayLabel(topThree[2])}
+                  {getDisplayName(topThree[2])}
                 </Link>
-                <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                  {[topThree[2].department, topThree[2].year].filter(Boolean).join(' • ') ||
-                    topThree[2].college ||
-                    'Sanjivani University'}
-                </span>
+                {getSubtitle(topThree[2]) !== getDisplayName(topThree[2]) && (
+                  <span className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                    {getSubtitle(topThree[2])}
+                  </span>
+                )}
 
                 <div className="mt-4 pt-3 border-t border-[var(--border-line)] w-full flex items-center justify-around text-xs font-mono">
                   {activeTab !== 'overall' ? (
@@ -530,7 +570,7 @@ export const LeaderboardPage: React.FC = () => {
                   <div>
                     <span className="text-[var(--text-muted)] block text-[11px]">TOTAL PTS</span>
                     <strong className="text-[var(--color-accent)] text-sm">
-                      {topThree[2].totalPoints ?? topThree[2].score ?? 0} PTS
+                      {formatPoints(topThree[2].totalPoints ?? topThree[2].score ?? 0)}
                     </strong>
                   </div>
                   <div>
@@ -586,7 +626,7 @@ export const LeaderboardPage: React.FC = () => {
                             to={`/profile/${u.shortId || u.id}`}
                             className="font-bold text-[var(--text-main)] hover:text-[var(--color-accent)] transition-colors inline-block"
                           >
-                            {getDisplayLabel(u)}
+                            {getDisplayName(u)}
                           </Link>
                           {isMe && (
                             <span className="ml-2 px-1.5 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] text-[10px] font-bold">
@@ -595,11 +635,7 @@ export const LeaderboardPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-[var(--text-muted)]">
-                          {[u.department, u.year, u.division ? `Div ${u.division}` : null]
-                            .filter(Boolean)
-                            .join(' • ') ||
-                            u.college ||
-                            'Sanjivani University'}
+                          {getSubtitle(u)}
                         </td>
                         {activeTab !== 'overall' && (
                           <>
@@ -621,7 +657,7 @@ export const LeaderboardPage: React.FC = () => {
                           {resolveSolvedCount(u)}
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-right font-extrabold text-[var(--color-accent)] text-sm">
-                          {u.totalPoints ?? u.score ?? 0} PTS
+                          {formatPoints(u.totalPoints ?? u.score ?? 0)}
                         </td>
                       </tr>
                     );

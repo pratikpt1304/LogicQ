@@ -21,7 +21,7 @@ export const StudentTestListPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  const assignments = data?.assignments || [];
+  const assignments = data?.data || data?.assignments || [];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8 animate-fadeIn">
@@ -33,10 +33,10 @@ export const StudentTestListPage: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>Smart Exam & Assessment Engine (Proctored)</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold !text-white text-white tracking-tight">
               My Assessment Tests
             </h1>
-            <p className="text-sm text-gray-400 mt-1 max-w-2xl">
+            <p className="text-sm text-slate-300 mt-1 max-w-2xl">
               Official institutional lab assessments and quizzes assigned to your section. Each question includes proctored behavioral integrity telemetry and strict no-reattempt policy upon successful completion.
             </p>
           </div>
@@ -77,15 +77,15 @@ export const StudentTestListPage: React.FC = () => {
 
       {/* Empty State */}
       {!isLoading && !error && assignments.length === 0 && (
-        <div className="bg-gray-900/40 border border-gray-800 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
-          <BookOpen className="w-12 h-12 text-gray-600 mb-4" />
-          <h3 className="text-lg font-semibold text-white">No Tests Assigned Yet</h3>
-          <p className="text-sm text-gray-400 max-w-md mt-1 mb-6">
+        <div className="glass-card p-12 text-center rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col items-center justify-center">
+          <BookOpen className="w-12 h-12 text-[var(--color-accent)] mb-4" />
+          <h3 className="text-lg font-semibold text-[var(--text-main)]">No Tests Assigned Yet</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-md mt-1 mb-6 font-normal">
             Your course faculty has not scheduled any assessment tests for your section yet. Once assigned, they will appear here automatically.
           </p>
           <Link
             to="/practice"
-            className="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-sm transition-all"
+            className="px-5 py-2.5 rounded-xl bg-[var(--color-accent)] hover:opacity-95 text-[#0C0F1F] font-bold text-sm transition-all"
           >
             Continue Practice Track
           </Link>

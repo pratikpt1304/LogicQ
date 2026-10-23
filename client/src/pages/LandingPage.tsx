@@ -128,7 +128,7 @@ export const LandingPage: React.FC = () => {
               <Lock className="w-4 h-4 text-amber-800 dark:text-amber-300" />
             </div>
             <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-accent)] transition-colors">
-              Pointers and functions
+              Pointers and Functions
             </h3>
             <p className="text-xs text-[var(--text-muted)] line-clamp-2">
               Addresses, dereferencing, pass-by-reference, and function pointers.
