@@ -144,17 +144,6 @@ export const SectionManagementPage: React.FC = () => {
         (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
       );
 
-      // 3. Auto-restore missing Firestore sections to backend (SKIP deleted sections)
-      for (const fsSec of firestoreSections) {
-        if (FirestoreDataService.isSectionDeleted(fsSec.id, fsSec.joinCode)) {
-          continue;
-        }
-        const existsInBackend = backendList.some((b: any) => b.joinCode === fsSec.joinCode || b.id === fsSec.id);
-        if (!existsInBackend && fsSec.sectionName && fsSec.subject) {
-          api.post('/sections', fsSec).catch(() => {});
-        }
-      }
-
       return mergedList;
     },
   });
