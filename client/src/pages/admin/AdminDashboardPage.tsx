@@ -939,238 +939,135 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Admin Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
-            <ShieldCheck className="w-8 h-8 text-purple-400" />
-            <span>LogicQ Administration Center</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
-            Platform health, problem authoring, test suites, submission monitoring, and user moderation.
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] flex items-center gap-2.5">
+              <ShieldCheck className="w-8 h-8 text-indigo-500" />
+              <span>LogicQ Administration Center</span>
+            </h1>
+            <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Platform Live
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-1 font-mono">
+            College administration, student PRN registry, coding curriculum, submissions & system diagnostics.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsCreateProblemOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Author New Problem</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => handleDownloadCsv('users', 'ALL')}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-mono text-xs font-bold border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm"
+          >
+            <Download className="w-4 h-4 text-emerald-500" />
+            <span>Export Roster (CSV)</span>
+          </button>
+          <button
+            onClick={() => setIsCreateProblemOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-500/20 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Author New Problem</span>
+          </button>
+        </div>
       </div>
 
-      {/* Single-Admin Alert Warning (Enforces minimum 2 admins system safety) */}
-      {overview?.isSingleAdminAlert && (
-        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 flex items-center justify-between gap-3 text-amber-950 dark:text-amber-200 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-amber-200 dark:bg-amber-500/20 text-amber-900 dark:text-amber-400 font-bold text-lg">⚠️</span>
-            <div>
-              <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-950 dark:text-amber-300">
-                System Invariant Warning: Only 1 Active Administrator
-              </h4>
-              <p className="text-xs text-amber-900/90 dark:text-amber-200/90 mt-0.5 font-mono">
-                LogicQ policy mandates maintaining at least 2 active administrators to prevent administrative lockouts. Please appoint another administrator from the User Roster.
-              </p>
-            </div>
+      {/* 4 Clean Overview KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Total Enrolled</span>
+            <Users className="w-4 h-4 text-indigo-500" />
           </div>
-          <button
-            onClick={() => setActiveTab('users')}
-            className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 whitespace-nowrap"
-          >
-            Manage Admins
-          </button>
-        </div>
-      )}
-
-
-
-      {/* Daily Challenge System Pause Banner */}
-      {dailySystemData?.data?.dailyChallengePaused ? (
-        <div data-testid="admin-daily-paused-banner" className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="p-2.5 rounded-xl bg-amber-200/60 dark:bg-amber-500/25 text-amber-800 dark:text-amber-400 font-bold text-xl">⏸️</span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xs font-bold uppercase font-mono tracking-wider text-amber-950 dark:text-amber-300">
-                  Daily System is PAUSED
-                </h4>
-                {dailySystemData?.data?.pausedAt && (
-                  <span className="text-xs font-mono font-medium text-amber-850 dark:text-slate-300">
-                    (since {new Date(dailySystemData.data.pausedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST)
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-amber-900 dark:text-amber-100/90 mt-1 font-mono font-medium leading-relaxed">
-                {dailySystemData?.data?.pauseReason || 'Daily challenge pool transitioning to book-only curriculum.'}
-              </p>
-            </div>
-          </div>
-          <button
-            data-testid="admin-resume-daily-button"
-            onClick={() => {
-              setDailyAdminPassword('');
-              setDailyAdminReason('');
-              setDailyResumeMode('NEXT_1700');
-              setIsResumeModalOpen(true);
-            }}
-            className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 shadow-md whitespace-nowrap transition-all"
-          >
-            Resume Daily System...
-          </button>
-        </div>
-      ) : (
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-white/[0.08] flex items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Daily System is LIVE ({dailySystemData?.data?.scheduledCount || 0} scheduled)</span>
-          </div>
-          <button
-            onClick={() => {
-              setDailyAdminPassword('');
-              setDailyAdminReason('');
-              setIsPauseModalOpen(true);
-            }}
-            className="px-3 py-1 rounded-lg text-xs font-mono text-amber-400 hover:bg-amber-500/10 border border-amber-500/30"
-          >
-            Pause System
-          </button>
-        </div>
-      )}
-
-      {/* Analytics Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
-          <span className="text-[11px] font-mono text-slate-400 block mb-1">REGISTERED USERS</span>
-          <span className="text-2xl font-extrabold text-white font-mono">
+          <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
             {Math.max(overview?.totalUsers || 0, users.length, firestoreUsersData?.length || 0)}
           </span>
+          <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">Active in PRN Registry</span>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
-          <span className="text-[11px] font-mono text-slate-400 block mb-1">TOTAL PROBLEMS</span>
-          <span className="text-2xl font-extrabold text-cyan-400 font-mono">
+        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Problem Bank</span>
+            <Code2 className="w-4 h-4 text-cyan-500" />
+          </div>
+          <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
             {overview?.totalProblems || rawProblems.length}
           </span>
+          <span className="text-[11px] font-mono text-[var(--muted-foreground)] mt-1 block">C Challenges & Modules</span>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
-          <span className="text-[11px] font-mono text-slate-400 block mb-1">GLOBAL SUBMISSIONS</span>
-          <span className="text-2xl font-extrabold text-purple-400 font-mono">
-            {overview?.totalSubmissions || 0}
+        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Global Submissions</span>
+            <Activity className="w-4 h-4 text-purple-500" />
+          </div>
+          <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
+            {overview?.totalSubmissions || submissions.length || 0}
           </span>
+          <span className="text-[11px] font-mono text-purple-600 dark:text-purple-400 mt-1 block">Evaluated Code Runs</span>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
-          <span className="text-[11px] font-mono text-slate-400 block mb-1">ACCEPTANCE RATE</span>
-          <span className="text-2xl font-extrabold text-emerald-400 font-mono">
-            {overview?.acceptanceRate || 0}%
+        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Compiler & Judge</span>
+            <Zap className="w-4 h-4 text-emerald-500" />
+          </div>
+          <span className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block mt-2 flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            {healthData?.judge?.ready !== false ? 'Online (GCC 14)' : 'Ready'}
           </span>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl border border-white/[0.08]" data-testid="admin-drive-connected-stat">
-          <span className="text-[11px] font-mono text-slate-400 block mb-1">DRIVE CONNECTED</span>
-          <span className="text-2xl font-extrabold text-blue-400 font-mono">
-            {overview?.driveConnectedCount || 0}
-          </span>
+          <span className="text-[11px] font-mono text-[var(--muted-foreground)] mt-1 block">C11 Isolated Sandbox</span>
         </div>
       </div>
 
-      {/* Admin Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.08] pb-3 text-xs font-mono">
+      {/* 4 Clean Primary Admin Navigation Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3 text-xs font-mono">
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
             activeTab === 'users'
-              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
+              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
+              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
           }`}
         >
-          User Roster ({users.length})
+          <Users className="w-4 h-4" />
+          <span>Student & Faculty Directory ({users.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('problems')}
-          className={`px-4 py-2 rounded-xl transition-colors ${
-            activeTab === 'problems'
-              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            activeTab === 'problems' || activeTab === 'practice'
+              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
+              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
           }`}
         >
-          Problems & Test Cases ({problems.length})
+          <Code2 className="w-4 h-4" />
+          <span>Problem Bank ({problems.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('submissions')}
-          className={`px-4 py-2 rounded-xl transition-colors ${
-            activeTab === 'submissions'
-              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            activeTab === 'submissions' || activeTab === 'anticheat'
+              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
+              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
           }`}
         >
-          Submissions Live Stream ({submissions.length})
+          <ShieldAlert className="w-4 h-4 text-rose-400" />
+          <span>Submissions & Anti-Cheat ({submissions.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('uploads')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'uploads'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
+          onClick={() => setActiveTab('system')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            activeTab === 'system'
+              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
+              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
           }`}
         >
-          <Upload className="w-3.5 h-3.5" />
-          <span>Review Uploads ({uploads.length})</span>
-        </button>
-
-
-
-
-        <button
-          onClick={() => setActiveTab('practice')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'practice'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Code2 className="w-3.5 h-3.5" />
-          <span>Practice Curriculum (4 Modules / 80 Problems)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('daily')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'daily'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Trophy className="w-3.5 h-3.5" />
-          <span>Daily Results</span>
-        </button>
-
-
-
-        <button
-          onClick={() => setActiveTab('anticheat')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'anticheat'
-              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>Anti-Cheat & Security</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('sections')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'sections'
-              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span>Sections & Rosters</span>
+          <Activity className="w-4 h-4 text-emerald-400" />
+          <span>System & Compiler Health</span>
         </button>
       </div>
 
@@ -1955,6 +1852,28 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Problems */}
       {activeTab === 'problems' && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={() => setActiveTab('problems')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                activeTab === 'problems'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              }`}
+            >
+              📚 All Problems & Test Cases ({problems.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('practice')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                (activeTab as any) === 'practice'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              }`}
+            >
+              🧩 4 Practice Modules (80 Problems)
+            </button>
+          </div>
           <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
@@ -2268,8 +2187,32 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Tab: Submissions Live Stream */}
-      {activeTab === 'submissions' && (
-        <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+      {(activeTab === 'submissions' || activeTab === 'anticheat') && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('submissions')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                activeTab === 'submissions'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              }`}
+            >
+              ⚡ Live Submissions Stream ({submissions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('anticheat')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                activeTab === 'anticheat'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              }`}
+            >
+              🚨 Anti-Cheat & Telemetry Alerts
+            </button>
+          </div>
+          {activeTab === 'submissions' && (
+            <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
           {submissions.length === 0 ? (
             <div className="p-12 text-center text-xs font-mono text-slate-500">
               No live submissions recorded yet. Incoming evaluations from challengers will stream here automatically.
@@ -2383,6 +2326,11 @@ export const AdminDashboardPage: React.FC = () => {
           )}
         </div>
       )}
+      {activeTab === 'anticheat' && (
+        <AdminAntiCheatSecurity />
+      )}
+    </div>
+  )}
 
       {/* Tab: Review Uploads */}
       {activeTab === 'uploads' && (
@@ -3818,10 +3766,7 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Anti-Cheat & Sandbox Security Audit */}
-      {activeTab === 'anticheat' && (
-        <AdminAntiCheatSecurity />
-      )}
+{/* Anti-Cheat moved to Submissions & Anti-Cheat tab */}
 
       {/* Tab: Sections & Student Roster Management */}
       {activeTab === 'sections' && (
