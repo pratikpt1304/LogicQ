@@ -26,10 +26,10 @@ export const ENV = {
   REDIS_URL: process.env.REDIS_URL || '',
 
   // Mail
-  MAIL_PROVIDER: (process.env.MAIL_PROVIDER || 'console') as 'console' | 'smtp',
-  SMTP_HOST: process.env.SMTP_HOST || '',
-  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
-  SMTP_USER: process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.SMTP_PASS || '',
-  MAIL_FROM: process.env.MAIL_FROM || 'LogicQ Arena <no-reply@logicq.io>',
+  MAIL_PROVIDER: (process.env.MAIL_PROVIDER || 'smtp') as 'console' | 'smtp',
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '465', 10),
+  SMTP_USER: process.env.SMTP_USER || 'logicqarena@gmail.com',
+  SMTP_PASS: process.env.SMTP_PASS || 'twzlhqrtshcafwvr',
+  MAIL_FROM: process.env.MAIL_FROM || 'LogicQ Arena <logicqarena@gmail.com>',
 };
