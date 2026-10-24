@@ -29,11 +29,12 @@ const STORAGE_KEYS = {
   PRACTICE_CUSTOM_PROBLEMS: 'logicq_fallback_practice_custom_problems_v1',
 };
 
-import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
+import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { KANETKAR_BOOK_PROBLEMS } from '../data/kanetkar-book-bank.js';
 
 const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
@@ -41,6 +42,7 @@ const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
   ...PRACTICE_MODULE_2_PROBLEMS,
   ...PRACTICE_MODULE_3_PROBLEMS,
   ...PRACTICE_MODULE_4_PROBLEMS,
+  ...PRACTICE_MODULE_5_PROBLEMS,
 ];
 
 function getStoredPracticeModules(): PracticeModuleConfig[] {
@@ -1824,6 +1826,12 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       if (idx === 0) {
         isUnlocked = true;
         requirementText = 'Unlocked by default';
+      } else if (m.requiresAdminUnlock || m.order === 5) {
+        const isModule5AdminUnlocked = isModule5UnlockedByAdmin();
+        isUnlocked = isModule5AdminUnlocked || isAdmin;
+        requirementText = isUnlocked
+          ? 'Unlocked by Instructor'
+          : 'Locked by Instructor / Admin for all students';
       } else if (previousModuleTotal < (practiceModules[idx - 1].totalQuestions || 20)) {
         isUnlocked = false;
         requirementText = `${prevTitle} is coming soon (incomplete curriculum)`;

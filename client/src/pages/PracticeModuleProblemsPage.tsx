@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
 import { useAuth } from '../context/AuthContext.js';
-import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -38,11 +38,40 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD' | 'UNSOLVED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const { data: modulesData } = useQuery({
+    queryKey: ['practice-modules'],
+    queryFn: () => api.get('/practice/modules'),
+  });
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['practice-module-problems', moduleSlug],
     queryFn: () => api.get(`/practice/modules/${moduleSlug}/problems`),
     retry: false,
   });
+
+  const allModules = modulesData?.data?.modules || [];
+  const targetModuleIdx = PRACTICE_CONFIG.MODULES.findIndex((m) => m.slug === moduleSlug);
+  const targetModule = targetModuleIdx >= 0 ? PRACTICE_CONFIG.MODULES[targetModuleIdx] : null;
+
+  let isLockedByProgression = false;
+  let lockReason = '';
+
+  if (!isAdmin && targetModuleIdx > 0) {
+    if (targetModule?.order === 5 || targetModule?.requiresAdminUnlock) {
+      if (!isModule5UnlockedByAdmin()) {
+        isLockedByProgression = true;
+        lockReason = 'Module 5 is locked by your Instructor / Admin for all students.';
+      }
+    } else {
+      const prevModuleSlug = PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.slug;
+      const prevMod = allModules.find((m: any) => m.slug === prevModuleSlug);
+      const prevSolved = prevMod?.solvedCount ?? 0;
+      if (prevSolved < 20) {
+        isLockedByProgression = true;
+        lockReason = `You must solve all 20 questions in Module ${targetModuleIdx} (${PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.title}) before unlocking this module (${prevSolved}/20 solved).`;
+      }
+    }
+  }
 
   const moduleInfo = data?.data?.module;
   const problems: PracticeProblemRow[] = data?.data?.problems || [];
@@ -59,9 +88,9 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     return true;
   });
 
-  if (error) {
+  if (isLockedByProgression || error) {
     const errObj = error as any;
-    if (errObj?.status === 403 || errObj?.code === 'MODULE_LOCKED') {
+    if (isLockedByProgression || errObj?.status === 403 || errObj?.code === 'MODULE_LOCKED') {
       return (
         <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
@@ -69,7 +98,7 @@ export const PracticeModuleProblemsPage: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-[var(--text-main)]">Module Locked</h2>
           <p className="text-sm text-[var(--text-muted)]">
-            {errObj.message || `You must solve all ${PRACTICE_CONFIG.practiceUnlockThreshold} questions in the previous module to unlock this module.`}
+            {lockReason || errObj?.message || `You must solve all ${PRACTICE_CONFIG.practiceUnlockThreshold} questions in the previous module to unlock this module.`}
           </p>
           <div className="pt-2">
             <Link

@@ -6,6 +6,7 @@ export interface PracticeModuleConfig {
   description: string;
   requiredSolvedToUnlock: number; // Required solved count in previous module to unlock this one (0 for module 1)
   totalQuestions: number;
+  requiresAdminUnlock?: boolean;
   distribution: {
     EASY: number;
     MEDIUM: number;
@@ -60,6 +61,17 @@ export const PRACTICE_CONFIG = {
       requiredSolvedToUnlock: 20,
       totalQuestions: 20,
       distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
+    },
+    {
+      id: 'module-5',
+      slug: 'advanced-competitive-c',
+      title: 'Competitive Mastery & Capstone Arena',
+      order: 5,
+      description: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
+      requiredSolvedToUnlock: 20,
+      totalQuestions: 20,
+      requiresAdminUnlock: true,
+      distribution: { EASY: 4, MEDIUM: 10, HARD: 6 },
     },
   ] as PracticeModuleConfig[],
 };

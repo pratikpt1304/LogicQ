@@ -6,6 +6,7 @@ export interface PracticeModuleConfig {
   description: string;
   requiredSolvedToUnlock: number;
   totalQuestions: number;
+  requiresAdminUnlock?: boolean;
   distribution: {
     EASY: number;
     MEDIUM: number;
@@ -61,8 +62,33 @@ export const PRACTICE_CONFIG = {
       totalQuestions: 20,
       distribution: { EASY: 8, MEDIUM: 8, HARD: 4 },
     },
+    {
+      id: 'module-5',
+      slug: 'advanced-competitive-c',
+      title: 'Competitive Mastery & Capstone Arena',
+      order: 5,
+      description: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
+      requiredSolvedToUnlock: 20,
+      totalQuestions: 20,
+      requiresAdminUnlock: true,
+      distribution: { EASY: 4, MEDIUM: 10, HARD: 6 },
+    },
   ] as PracticeModuleConfig[],
 };
+
+export function isModule5UnlockedByAdmin(): boolean {
+  try {
+    return localStorage.getItem('logicq_module5_unlocked') === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setModule5UnlockedByAdmin(unlocked: boolean): void {
+  try {
+    localStorage.setItem('logicq_module5_unlocked', unlocked ? 'true' : 'false');
+  } catch {}
+}
 
 export function getModuleRequirementText(
   prevModuleTitle: string,
