@@ -81,9 +81,20 @@ export class SectionService {
   }
 
   /**
-   * Fetch all sections managed by a faculty member with enrolled student counts.
+   * Fetch all sections managed by a faculty member or all sections if admin.
    */
-  static async getFacultySections(facultyId: string) {
+  static async getFacultySections(facultyId: string, isAdmin = false) {
+    if (isAdmin) {
+      return prisma.section.findMany({
+        include: {
+          _count: {
+            select: { students: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
     return prisma.section.findMany({
       where: { facultyId },
       include: {

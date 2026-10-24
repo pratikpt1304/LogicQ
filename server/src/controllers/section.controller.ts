@@ -59,7 +59,8 @@ export class SectionController {
     try {
       const user = (req as any).user;
       const facultyId = user.userId || user.id;
-      const sections = await SectionService.getFacultySections(facultyId);
+      const isAdmin = user.role === 'ADMIN';
+      const sections = await SectionService.getFacultySections(facultyId, isAdmin);
       return res.json({ success: true, data: sections, sections });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message || 'Failed to fetch sections.' });
