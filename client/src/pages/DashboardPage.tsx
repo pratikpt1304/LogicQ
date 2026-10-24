@@ -30,7 +30,8 @@ import {
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { user, isAdmin, isFaculty, isChecker, refreshUser } = useAuth();
+  const isStudent = !isFaculty && !isAdmin;
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
   const [isDriveCardDismissed, setIsDriveCardDismissed] = useState<boolean>(() => {
@@ -200,6 +201,244 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* EXECUTIVE ADMIN & FACULTY HOME DASHBOARD */}
+      {!isStudent ? (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* Welcome & Overview Header */}
+          <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-extrabold shadow-lg shrink-0 ${
+                  isAdmin
+                    ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-[#0C0F1F]'
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
+                }`}>
+                  {isAdmin ? 'A' : 'F'}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)]">
+                      Welcome back, {user?.displayName || user?.fullName || (isAdmin ? 'Administrator' : 'Instructor')}
+                    </h1>
+                    {isAdmin ? (
+                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
+                        SYSTEM ADMINISTRATOR
+                      </span>
+                    ) : (
+                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider">
+                        FACULTY INSTRUCTOR
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-[var(--text-muted)] font-mono">
+                    {user?.college || 'Sanjivani University'} • Institutional Operations & Cohort Command Center
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0">
+                {isAdmin ? (
+                  <Link
+                    to="/admin"
+                    className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-sm transition-all flex items-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Admin Console</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ) : (
+                  <Link
+                    to="/faculty/tests"
+                    className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm transition-all flex items-center gap-2"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Create Test</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Metrics at a Glance */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
+              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">PLATFORM ROLE</span>
+              <span className="text-xl font-extrabold text-[var(--text-main)] font-mono flex items-center gap-1.5">
+                <ShieldCheck className="w-5 h-5 text-amber-400" />
+                {isAdmin ? 'Super Admin' : 'Course Faculty'}
+              </span>
+              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Full cohort authority</p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
+              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">CLOUD DATABASE</span>
+              <span className="text-xl font-extrabold text-[#46D9A0] font-mono flex items-center gap-1.5">
+                <CheckCircle2 className="w-5 h-5" />
+                Firestore Active
+              </span>
+              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Real-time sync operational</p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
+              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">C CURRICULUM</span>
+              <span className="text-xl font-extrabold text-[var(--color-accent)] font-mono">
+                80 Problems
+              </span>
+              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">4 Modules + Capstone</p>
+            </div>
+
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
+              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">SANDBOX JUDGE</span>
+              <span className="text-xl font-extrabold text-[#E8EAF6] font-mono flex items-center gap-1.5">
+                <Zap className="w-5 h-5 text-amber-400" />
+                Local GCC C11
+              </span>
+              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Isolated test evaluation</p>
+            </div>
+          </div>
+
+          {/* Institutional Operations Launchpad */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--color-accent)] flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                Institutional Operations Hub
+              </h2>
+              <span className="text-xs text-[var(--text-muted)] font-mono">Quick Access Workspaces</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* Sections & Rosters */}
+              <Link
+                to="/faculty/sections"
+                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-indigo-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Sections & Rosters</h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Create academic cohorts, distribute 6-digit section codes, and manage enrolled student rosters.
+                  </p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-indigo-400 font-semibold">
+                  <span>Manage Classrooms</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Tests & Examinations */}
+              <Link
+                to="/faculty/tests"
+                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-cyan-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Create & Assign Tests</h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Schedule lab practicals and exams with customizable question counts, time windows, and difficulty ratios.
+                  </p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-cyan-400 font-semibold">
+                  <span>Open Test Suite</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Question Bank & AI */}
+              <Link
+                to="/faculty/questions"
+                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-purple-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Question Bank & AI</h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Browse the 80-problem repository, author custom C coding challenges, and generate test cases with Gemini AI.
+                  </p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-purple-400 font-semibold">
+                  <span>Author Problems</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Cohort Analytics */}
+              <Link
+                to="/faculty/analytics"
+                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                    <TrendingUp className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Cohort Analytics</h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    View institutional pass rates, time-to-solve distribution curves, and real-time student submissions.
+                  </p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-emerald-400 font-semibold">
+                  <span>View Reports</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Full Admin Console (Admin only) */}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-amber-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Platform Admin Console</h3>
+                    <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                      Comprehensive user roster administration, system health monitoring, and global configuration overrides.
+                    </p>
+                  </div>
+                  <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-amber-400 font-semibold">
+                    <span>Admin Operations</span>
+                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                  </div>
+                </Link>
+              )}
+
+              {/* Integrity & Evaluator Reviews */}
+              {(isAdmin || isChecker) && (
+                <Link
+                  to="/checker/reviews"
+                  className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-rose-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Integrity & Viva Reviews</h3>
+                    <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                      Audit high-risk submission attempts, review flagged viva sessions, and finalize student marks.
+                    </p>
+                  </div>
+                  <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-rose-400 font-semibold">
+                    <span>Review Queue</span>
+                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* STANDARD STUDENT CHALLENGE & PRACTICE DASHBOARD */
+        <div className="space-y-8 animate-in fade-in duration-200">
+
       {/* Welcome & Overview Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -663,6 +902,8 @@ export const DashboardPage: React.FC = () => {
           <div className="text-[11px] text-[var(--text-muted)] mt-1">Automatic freeze protects 1 missed challenge day per 7-day rolling window</div>
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 };
