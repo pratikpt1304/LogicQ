@@ -287,7 +287,7 @@ export class OtpService {
   }> {
     const cleanPrn = prn.trim().toUpperCase();
     const cleanEmail = email.trim().toLowerCase();
-    const cleanMobile = mobile.replace(/[^0-9]/g, '');
+    const cleanMobile = mobile ? mobile.replace(/[^0-9]/g, '') : '';
 
     // 1. Check if PRN is already bound to a different email or mobile
     const existingPrnUser = await prisma.user.findFirst({
