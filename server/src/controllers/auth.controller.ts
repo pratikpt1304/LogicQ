@@ -182,7 +182,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax',
     path: '/',
-    maxAge: 15 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
   res.cookie('refreshToken', refreshToken, {

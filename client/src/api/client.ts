@@ -25,6 +25,11 @@ export interface LogicQApiError extends Error {
 }
 
 export async function apiRequest<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('logicq_last_activity', String(Date.now()));
+    }
+  } catch {}
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_BASE}${cleanEndpoint}`;
 

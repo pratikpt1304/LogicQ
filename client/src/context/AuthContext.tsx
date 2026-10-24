@@ -60,12 +60,13 @@ interface AuthContextType {
 // Inactivity Limits (Master Spec & Logout Audit):
 // - Students: 7 days idle timeout (replaces overly aggressive 30m)
 // - Checkers: 8 hours idle timeout
-// - Admins: 2 hours idle timeout (replaces legacy 30m)
+// - Admins: 4 hours idle timeout (replaces legacy 30m / 2h short window)
+// - Faculty: 4 hours idle timeout
 export const STUDENT_INACTIVITY_LIMIT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const CHECKER_INACTIVITY_LIMIT_MS = 8 * 60 * 60 * 1000; // 8 hours
-export const FACULTY_INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours
-export const ADMIN_INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours
-export const IDLE_WARNING_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes pre-warning
+export const FACULTY_INACTIVITY_LIMIT_MS = 4 * 60 * 60 * 1000; // 4 hours
+export const ADMIN_INACTIVITY_LIMIT_MS = 4 * 60 * 60 * 1000; // 4 hours generous uninterrupted admin session (>= 2 hrs)
+export const IDLE_WARNING_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes pre-warning
 
 export type LogoutReason =
   | 'manual'
@@ -538,10 +539,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'pointerdown'];
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'pointerdown', 'click', 'focus'];
     events.forEach((ev) => window.addEventListener(ev, handleUserInteraction, { passive: true }));
 
-    // Periodic check for inactivity timeout and 2-minute pre-warning banner
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const cached = getCachedUser();
+        if (cached && !isSessionExpiredByInactivity(cached)) {
+          lastActivityRecordedRef.current = Date.now();
+          recordUserActivity();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic check for inactivity timeout and 5-minute pre-warning banner
     const interval = setInterval(() => {
       const cached = getCachedUser();
       if (!cached) {
@@ -567,6 +579,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       events.forEach((ev) => window.removeEventListener(ev, handleUserInteraction));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(interval);
     };
   }, [idleWarningSeconds, logout]);
@@ -758,17 +771,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (credentialUser && (hasToken || document.cookie.includes('__session'))) {
           if (!isSessionExpiredByInactivity(credentialUser)) {
             recordUserActivity();
-            const synced = await syncWithServer(null);
-            if (synced && isMountedRef.current) {
-              setUser(synced);
-              setAuthState('signedIn');
-              return;
-            } else if (credentialUser && !navigator.onLine && isMountedRef.current) {
-              // Retain offline session
+            if (isMountedRef.current) {
               setUser(credentialUser);
               setAuthState('signedIn');
-              return;
             }
+            try {
+              const synced = await syncWithServer(null);
+              if (synced && isMountedRef.current) {
+                setUser(synced);
+                setAuthState('signedIn');
+              }
+            } catch {
+              // Retain active credential session during transient network / server spinup
+            }
+            return;
           }
         }
 

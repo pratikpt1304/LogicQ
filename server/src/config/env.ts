@@ -12,7 +12,7 @@ export const ENV = {
   // JWT
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'logicq_super_secret_access_token_jwt_key_2026',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'logicq_super_secret_refresh_token_jwt_key_2026',
-  JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+  JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '24h',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
   // Judge
