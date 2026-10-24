@@ -558,7 +558,7 @@ export const completeProfile = async (req: AuthRequest, res: Response): Promise<
             ...(nameToSave
               ? {
                   fullName: nameToSave,
-                  displayName: nameToSave.slice(0, 20),
+                  displayName: nameToSave.slice(0, DISPLAY_NAME_MAX),
                 }
               : {}),
             profileComplete: true,

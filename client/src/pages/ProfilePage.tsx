@@ -787,10 +787,12 @@ export const ProfilePage: React.FC = () => {
   }
 
   const publicLabel = formatPublicDisplayName(profile);
+  const ownPrn = isOwnProfile ? profile.prn || currentUser?.prn : null;
   const ownMaskedPrn = isOwnProfile ? profile.maskedPrn || maskPrn(profile.prn) : null;
+  const ownPrnDisplay = ownPrn || ownMaskedPrn;
   const headerTitle = isOwnProfile
     ? profile.displayName ||
-      [profile.department, profile.year, ownMaskedPrn].filter(Boolean).join(' • ') ||
+      [profile.department, profile.year, ownPrnDisplay].filter(Boolean).join(' • ') ||
       publicLabel
     : publicLabel;
 
@@ -1104,19 +1106,15 @@ export const ProfilePage: React.FC = () => {
                 <span className="text-xs font-mono font-bold text-[#8B9BFF] bg-[#8B9BFF]/15 border border-[#8B9BFF]/40 px-2.5 py-0.5 rounded">
                   {profile.rank ? `RANK #${profile.rank}` : 'NOT RANKED YET'}
                 </span>
-                {isOwnProfile && ownMaskedPrn && (
+                {isOwnProfile && ownPrnDisplay && (
                   <span
                     data-testid="own-masked-prn"
                     className="text-xs font-mono font-semibold text-[#46D9A0] bg-[#46D9A0]/10 border border-[#46D9A0]/30 px-2.5 py-0.5 rounded"
                   >
-                    PRN: {ownMaskedPrn}
+                    PRN: {ownPrnDisplay}
                   </span>
                 )}
               </div>
-
-              <p className="text-xs font-mono text-[#9AA1C4]">
-                Public Display Label: <strong className="text-[#E8EAF6]">{publicLabel}</strong>
-              </p>
 
               {/* Academic Tags: College, Department, Year, Division */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
@@ -1781,7 +1779,7 @@ export const ProfilePage: React.FC = () => {
                       <div className="flex items-center gap-1.5 text-[#9AA1C4]">
                         <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
                         <span>PRN:</span>
-                        <span className="text-[#E8EAF6] font-bold">{ownMaskedPrn || '••••••'}</span>
+                        <span className="text-[#E8EAF6] font-bold">{ownPrnDisplay || '••••••'}</span>
                       </div>
 
                       {isOwnProfile && (
