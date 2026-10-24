@@ -55,13 +55,22 @@ export const Navbar: React.FC = () => {
     return location.pathname === path;
   };
 
-  // Signed-in navbar items in exact canonical order: Home, Daily Challenge, Practice, Leaderboard
-  const appNavLinks = [
-    { label: 'Home', path: '/dashboard', icon: Home },
-    { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
-    { label: 'Practice', path: '/practice', icon: Code2 },
-    { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
-  ];
+  // Signed-in navbar items: Students see learning modules, Admin/Faculty see instructor/management links
+  const appNavLinks = isStudent
+    ? [
+        { label: 'Home', path: '/dashboard', icon: Home },
+        { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
+        { label: 'Practice', path: '/practice', icon: Code2 },
+        { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
+      ]
+    : [
+        { label: 'Dashboard', path: '/dashboard', icon: Home },
+        { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
+        { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
+        { label: 'Question Bank', path: '/faculty/questions', icon: Sparkles },
+        ...(isAdmin ? [{ label: 'Admin Console', path: '/admin', icon: ShieldCheck }] : []),
+        { label: 'Analytics', path: '/faculty/analytics', icon: Brain },
+      ];
 
   const handleLogout = async () => {
     await clearPwaUserCachesAndDrafts();

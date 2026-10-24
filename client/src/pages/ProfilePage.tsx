@@ -59,7 +59,7 @@ import {
 
 export const ProfilePage: React.FC = () => {
   const { identifier: paramIdentifier } = useParams<{ identifier?: string }>();
-  const { user: currentUser, logout, refreshUser } = useAuth();
+  const { user: currentUser, isAdmin, isFaculty, isChecker, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -651,8 +651,282 @@ export const ProfilePage: React.FC = () => {
 
   const solvedByDiff = profile.solvedByDifficulty || profile.difficultyBreakdown || {};
 
+  const isAdminProfile = profile.role === 'ADMIN' || (isOwnProfile && (currentUser?.role === 'ADMIN' || isAdmin));
+  const isFacultyProfile = !isAdminProfile && (profile.role === 'FACULTY' || (isOwnProfile && (currentUser?.role === 'FACULTY' || isFaculty)));
+  const isAdminOrFaculty = isAdminProfile || isFacultyProfile;
+
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+      {/* DEDICATED ADMIN / FACULTY PROFILE HUB */}
+      {isAdminOrFaculty ? (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* Header Banner */}
+          <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl font-extrabold shadow-xl font-mono shrink-0 ${
+                  isAdminProfile
+                    ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-[#0C0F1F]'
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
+                }`}>
+                  {isAdminProfile ? 'A' : 'F'}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-[#E8EAF6]">
+                      {profile.displayName || profile.fullName || (isAdminProfile ? 'System Administrator' : 'Faculty Instructor')}
+                    </h1>
+                    {isAdminProfile ? (
+                      <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/15 border border-amber-500/40 px-2.5 py-0.5 rounded">
+                        SYSTEM ADMINISTRATOR
+                      </span>
+                    ) : (
+                      <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/15 border border-indigo-500/40 px-2.5 py-0.5 rounded">
+                        FACULTY INSTRUCTOR
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs font-mono text-[#9AA1C4]">
+                    Account Identifier: <strong className="text-[#E8EAF6]">{profile.email || currentUser?.email || `@${profile.username}`}</strong>
+                  </p>
+
+                  {/* Institutional Affiliation (NO Year or Division) */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]">
+                      <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                      <span>{profile.college || 'Sanjivani University'}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]">
+                      <GraduationCap className="w-3.5 h-3.5 text-[#46D9A0]" />
+                      <span>{profile.department || 'Department of Computer Engineering'}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#9AA1C4]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Authorized Academic Staff</span>
+                    </span>
+                  </div>
+
+                  {profile.bio && (
+                    <p className="text-sm text-[#E8EAF6] mt-2 max-w-xl leading-relaxed font-sans">
+                      {profile.bio}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {isOwnProfile && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    data-testid="edit-profile-btn"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                    <span>Profile Settings</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportData}
+                    data-testid="export-data-btn"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#46D9A0]" />
+                    <span>Export Data</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Administrative Command Center Cards */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--color-accent)] flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Administrative Command Center
+              </h2>
+              <span className="text-xs text-[var(--text-muted)] font-mono">Academic & Cohort Controls</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Sections & Rosters */}
+              <Link
+                to="/faculty/sections"
+                className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-indigo-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Sections & Rosters</h3>
+                  <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                    Manage student cohorts, distribute section join codes, and inspect enrolled student rosters.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-indigo-400 font-semibold">
+                  <span>Open Sections</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Assign & Manage Tests */}
+              <Link
+                to="/faculty/tests"
+                className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-cyan-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <Code2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Assign & Manage Tests</h3>
+                  <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                    Configure examinations, test durations, difficulty ratios (Easy/Medium/Hard), and section rosters.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-cyan-400 font-semibold">
+                  <span>Manage Tests</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Question Bank & AI */}
+              <Link
+                to="/faculty/questions"
+                className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-purple-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Question Bank & AI</h3>
+                  <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                    Author custom C programming challenges and auto-generate hidden test cases using Gemini AI.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-purple-400 font-semibold">
+                  <span>Author Questions</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Cohort Analytics */}
+              <Link
+                to="/faculty/analytics"
+                className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-emerald-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Cohort Analytics</h3>
+                  <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                    Monitor institutional student engagement, test completion rates, and academic performance curves.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-emerald-400 font-semibold">
+                  <span>View Analytics</span>
+                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                </div>
+              </Link>
+
+              {/* Platform Admin Console (Admin only) */}
+              {isAdminProfile && (
+                <Link
+                  to="/admin"
+                  className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-amber-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Platform Admin Console</h3>
+                    <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                      Manage global platform configurations, faculty privileges, system health, and test windows.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-amber-400 font-semibold">
+                    <span>Admin Console</span>
+                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                  </div>
+                </Link>
+              )}
+
+              {/* Integrity & Evaluator Reviews */}
+              {(isAdminProfile || isChecker) && (
+                <Link
+                  to="/checker/reviews"
+                  className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-rose-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Integrity & Viva Reviews</h3>
+                    <p className="text-xs text-[#9AA1C4] leading-relaxed">
+                      Audit high-risk submission attempts, review flagged viva sessions, and finalize student scores.
+                    </p>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-rose-400 font-semibold">
+                    <span>Review Queue</span>
+                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Infrastructure & Security Status */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--color-accent)] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              Infrastructure & Security Status
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+                <span className="text-xs font-mono text-[#9AA1C4] block mb-1">ACCESS PRIVILEGE</span>
+                <span className="text-base font-extrabold text-amber-400 font-mono">
+                  {isAdminProfile ? 'Super Administrator' : 'Faculty Instructor'}
+                </span>
+                <p className="text-[11px] text-[#9AA1C4] font-mono mt-1">Full management permissions</p>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+                <span className="text-xs font-mono text-[#9AA1C4] block mb-1">DATA REPOSITORY</span>
+                <span className="text-base font-extrabold text-[#46D9A0] font-mono flex items-center gap-1.5">
+                  <Cloud className="w-4 h-4" />
+                  Cloud Firestore
+                </span>
+                <p className="text-[11px] text-[#9AA1C4] font-mono mt-1">Primary secure cloud storage</p>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+                <span className="text-xs font-mono text-[#9AA1C4] block mb-1">ACTIVE CURRICULUM</span>
+                <span className="text-base font-extrabold text-[#8B9BFF] font-mono">
+                  80 C Problems + Capstone
+                </span>
+                <p className="text-[11px] text-[#9AA1C4] font-mono mt-1">Modules 1–4 auto-seeded</p>
+              </div>
+
+              <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
+                <span className="text-xs font-mono text-[#9AA1C4] block mb-1">CODE JUDGE ENGINE</span>
+                <span className="text-base font-extrabold text-[#E8EAF6] font-mono">
+                  C11 Local GCC Judge
+                </span>
+                <p className="text-[11px] text-[#9AA1C4] font-mono mt-1">Sandboxed execution active</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* STANDARD STUDENT PROFILE VIEW */
+        <div className="space-y-8">
+
       {/* Profile Header Banner */}
       <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -1417,6 +1691,8 @@ export const ProfilePage: React.FC = () => {
       {(isOwnProfile || currentUser?.role === 'ADMIN') && profile && (
         <PracticeReportView user={profile} />
       )}
+        </div>
+      )}
 
       {/* View Submitted Code Modal */}
       {viewCodeSubmission && (
@@ -1554,70 +1830,94 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* PRN Row with Monthly Self-Service Change Option & Locked College */}
-                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-[#9AA1C4]">
-                      <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                      <span>PRN (Permanent Academic ID):</span>
-                      <span className="text-[#E8EAF6] font-bold ml-1">{ownMaskedPrn || '••••••'}</span>
-                    </div>
+                {!isAdminOrFaculty ? (
+                  /* Student PRN Row with Monthly Self-Service Change Option & Locked College */
+                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[#9AA1C4]">
+                        <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                        <span>PRN (Permanent Academic ID):</span>
+                        <span className="text-[#E8EAF6] font-bold ml-1">{ownMaskedPrn || '••••••'}</span>
+                      </div>
 
-                    {isOwnProfile && (
-                      <div>
-                        {(() => {
-                          const cooldown = getPrnChangeCooldownStatus(profile.prnChangedAt);
-                          if (cooldown.isEligible) {
+                      {isOwnProfile && (
+                        <div>
+                          {(() => {
+                            const cooldown = getPrnChangeCooldownStatus(profile.prnChangedAt);
+                            if (cooldown.isEligible) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPrnError(null);
+                                    setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
+                                    setIsPrnModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-[#8B9BFF]/20 hover:bg-[#8B9BFF]/30 text-[#8B9BFF] border border-[#8B9BFF]/40 text-xs font-bold transition-colors"
+                                >
+                                  Change PRN
+                                </button>
+                              );
+                            }
+                            const dateStr = cooldown.nextAllowedDate
+                              ? cooldown.nextAllowedDate.toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
+                              : '30 days';
                             return (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setPrnError(null);
-                                  setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
-                                  setIsPrnModalOpen(true);
-                                }}
-                                className="px-2.5 py-1 rounded bg-[#8B9BFF]/20 hover:bg-[#8B9BFF]/30 text-[#8B9BFF] border border-[#8B9BFF]/40 text-xs font-bold transition-colors"
+                                disabled
+                                className="px-2.5 py-1 rounded bg-[#252C4F]/40 text-[#9AA1C4] border border-[#252C4F] text-xs cursor-not-allowed"
+                                title={`Cooldown active: ${cooldown.daysRemaining} days remaining`}
                               >
-                                Change PRN
+                                Available again on {dateStr}
                               </button>
                             );
-                          }
-                          const dateStr = cooldown.nextAllowedDate
-                            ? cooldown.nextAllowedDate.toLocaleDateString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })
-                            : '30 days';
-                          return (
-                            <button
-                              type="button"
-                              disabled
-                              className="px-2.5 py-1 rounded bg-[#252C4F]/40 text-[#9AA1C4] border border-[#252C4F] text-xs cursor-not-allowed"
-                              title={`Cooldown active: ${cooldown.daysRemaining} days remaining`}
-                            >
-                              Available again on {dateStr}
-                            </button>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
+                          })()}
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="flex items-center justify-between text-[#9AA1C4]">
-                    <span className="flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                      <span>College (Locked)</span>
-                    </span>
-                    <span className="text-[#E8EAF6] font-semibold">
-                      {profile.college || 'Sanjivani University'}
-                    </span>
-                  </div>
+                    <div className="flex items-center justify-between text-[#9AA1C4]">
+                      <span className="flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                        <span>College (Locked)</span>
+                      </span>
+                      <span className="text-[#E8EAF6] font-semibold">
+                        {profile.college || 'Sanjivani University'}
+                      </span>
+                    </div>
 
-                  <p className="text-[11px] text-[#9AA1C4] pt-1 leading-normal border-t border-[#252C4F]/50">
-                    You can change your PRN once every 30 days. College is permanently locked to Sanjivani University.
-                  </p>
-                </div>
+                    <p className="text-[11px] text-[#9AA1C4] pt-1 leading-normal border-t border-[#252C4F]/50">
+                      You can change your PRN once every 30 days. College is permanently locked to Sanjivani University.
+                    </p>
+                  </div>
+                ) : (
+                  /* Admin/Faculty Authority Info */
+                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 text-xs font-mono">
+                    <div className="flex items-center justify-between text-[#9AA1C4]">
+                      <span className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Account Role:</span>
+                      </span>
+                      <span className="text-[#E8EAF6] font-bold">
+                        {isAdminProfile ? 'System Administrator' : 'Faculty Member'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[#9AA1C4]">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                        <span>Institution:</span>
+                      </span>
+                      <span className="text-[#E8EAF6] font-semibold">
+                        {profile.college || 'Sanjivani University'}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Optional Public Display Name (3-20 chars) */}
                 <div>
@@ -1642,7 +1942,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
 
                 {/* Department & Year */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                   <div>
                     <label
                       htmlFor="edit-department"
@@ -1664,26 +1964,28 @@ export const ProfilePage: React.FC = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="edit-year"
-                      className="block text-xs font-mono text-[#E8EAF6] mb-1"
-                    >
-                      ACADEMIC YEAR
-                    </label>
-                    <select
-                      id="edit-year"
-                      value={editForm.year}
-                      onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
-                    >
-                      {ALLOWED_YEARS.map((yr) => (
-                        <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
-                          {yr}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {!isAdminOrFaculty && (
+                    <div>
+                      <label
+                        htmlFor="edit-year"
+                        className="block text-xs font-mono text-[#E8EAF6] mb-1"
+                      >
+                        ACADEMIC YEAR
+                      </label>
+                      <select
+                        id="edit-year"
+                        value={editForm.year}
+                        onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
+                      >
+                        {ALLOWED_YEARS.map((yr) => (
+                          <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
+                            {yr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Division */}
