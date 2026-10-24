@@ -1,6 +1,6 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check, Upload } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
 
@@ -13,6 +13,8 @@ interface CodeEditorProps {
   isSubmitting?: boolean;
   isRunning?: boolean;
   readOnly?: boolean;
+  disableCopyPaste?: boolean;
+  onBlockedAction?: (action: 'copy' | 'paste' | 'cut' | 'contextmenu') => void;
 }
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
@@ -100,7 +102,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   isSubmitting,
   isRunning,
   readOnly = false,
+  disableCopyPaste = true,
+  onBlockedAction,
 }) => {
+  const disableCopyPasteRef = React.useRef(disableCopyPaste);
+  const onBlockedActionRef = React.useRef(onBlockedAction);
+  disableCopyPasteRef.current = disableCopyPaste;
+  onBlockedActionRef.current = onBlockedAction;
   const { theme } = useTheme();
   const [copied, setCopied] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -144,6 +152,35 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       cursorBlinking: 'smooth',
       smoothScrolling: true,
       readOnly: Boolean(readOnly),
+      contextmenu: !disableCopyPaste,
+    });
+
+    editor.onKeyDown((e: any) => {
+      if (disableCopyPasteRef.current) {
+        // Ctrl+V or Cmd+V (Paste)
+        if ((e.ctrlKey || e.metaKey) && (e.keyCode === 52 || e.code === 'KeyV' || e.browserEvent?.key === 'v' || e.browserEvent?.key === 'V')) {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.error('🚫 Copy-paste is disabled! Type your code manually.');
+          onBlockedActionRef.current?.('paste');
+          return;
+        }
+        // Ctrl+C or Cmd+C (Copy)
+        if ((e.ctrlKey || e.metaKey) && (e.keyCode === 33 || e.code === 'KeyC' || e.browserEvent?.key === 'c' || e.browserEvent?.key === 'C')) {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.error('🚫 Copying code is disabled.');
+          onBlockedActionRef.current?.('copy');
+          return;
+        }
+        // Ctrl+X or Cmd+X (Cut)
+        if ((e.ctrlKey || e.metaKey) && (e.keyCode === 54 || e.code === 'KeyX' || e.browserEvent?.key === 'x' || e.browserEvent?.key === 'X')) {
+          e.preventDefault();
+          e.stopPropagation();
+          onBlockedActionRef.current?.('cut');
+          return;
+        }
+      }
     });
 
     editorRef.current = editor;
@@ -350,27 +387,80 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Copy code to clipboard"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-[var(--color-success)]" />
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
-            <span>{copied ? 'Copied' : 'Copy'}</span>
-          </button>
+          {disableCopyPaste ? (
+            <span
+              title="Copy-paste is disabled during assessment"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-slate-400 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-md opacity-75 cursor-not-allowed select-none"
+            >
+              <Lock className="w-3 h-3 text-amber-400" />
+              <span>Copy Blocked</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCopy}
+              title="Copy code to clipboard"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-[var(--color-success)]" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Editor Main Canvas with Drag & Drop */}
+      {/* Editor Main Canvas with Anti-Cheat Clipboard Blocking */}
       <div
         ref={containerRef}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
+        onDragOver={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            return;
+          }
+          handleDragOver(e);
+        }}
+        onDrop={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            e.stopPropagation();
+            toast.error('🚫 File drop is disabled during assessment.');
+            return;
+          }
+          handleDrop(e);
+        }}
+        onPaste={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            e.stopPropagation();
+            toast.error('🚫 Paste is disabled! Type code manually.');
+            onBlockedAction?.('paste');
+          }
+        }}
+        onCopy={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            e.stopPropagation();
+            toast.error('🚫 Copying is disabled.');
+            onBlockedAction?.('copy');
+          }
+        }}
+        onCut={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            e.stopPropagation();
+            onBlockedAction?.('cut');
+          }
+        }}
+        onContextMenu={(e) => {
+          if (disableCopyPaste) {
+            e.preventDefault();
+            onBlockedAction?.('contextmenu');
+          }
+        }}
         data-testid="monaco-editor-canvas"
         className="flex-1 min-h-[160px] relative overflow-hidden overscroll-contain"
       />

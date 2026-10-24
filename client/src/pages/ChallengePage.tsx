@@ -30,6 +30,10 @@ import {
   WifiOff,
   AlertCircle,
   Cloud,
+  Maximize2,
+  Minimize2,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -79,6 +83,52 @@ export const ChallengePage: React.FC = () => {
   const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Anti-Cheat & Proctoring State
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const [isWorkspaceLocked, setIsWorkspaceLocked] = useState(false);
+  const MAX_TAB_SWITCHES = 3;
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      toast.error('Unable to toggle fullscreen.');
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_TAB_SWITCHES) {
+            setIsWorkspaceLocked(true);
+          }
+          return next;
+        });
+        setShowTabSwitchWarning(true);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Track online/offline state for mobile PWA resilience
   useEffect(() => {

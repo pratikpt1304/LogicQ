@@ -29,6 +29,12 @@ import {
   WifiOff,
   Clock,
   Trophy,
+  Maximize2,
+  Minimize2,
+  ShieldAlert,
+  ShieldCheck,
+  Lock,
+  X,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -79,6 +85,73 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idempotencyKeyRef = useRef<string>(`prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
+
+  // Anti-Cheat Proctoring State
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const [isWorkspaceLocked, setIsWorkspaceLocked] = useState(false);
+  const [blockedClipboardCount, setBlockedClipboardCount] = useState(0);
+  const MAX_TAB_SWITCHES = 3;
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      toast.error('Unable to toggle fullscreen on this browser.');
+    }
+  };
+
+  const handleEditorBlockedAction = (action: string) => {
+    setBlockedClipboardCount((c) => c + 1);
+    toast.error(`🚫 Proctoring Security: ${action.toUpperCase()} is disabled! Please type code manually.`);
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_TAB_SWITCHES) {
+            setIsWorkspaceLocked(true);
+          }
+          return next;
+        });
+        setShowTabSwitchWarning(true);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c' || e.key === 'J' || e.key === 'j')) ||
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        toast.error('🚫 Developer inspection shortcuts are blocked.');
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Fetch problem details
   const {
@@ -616,9 +689,42 @@ export const PracticeWorkspacePage: React.FC = () => {
               <span>{draftSyncStatus === 'saving' ? 'Saving...' : 'Synced'}</span>
             </span>
           )}
+          {/* Proctoring Badge & Fullscreen Toggle */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
+              isFullscreen
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-amber-300 border-amber-500/30 animate-pulse hover:animate-none'
+            }`}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode (Required)'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Fullscreen On' : 'Go Fullscreen'}</span>
+          </button>
+
+          <div
+            title={`Anti-Cheat Monitoring Active. Tab switches: ${tabSwitchCount}/${MAX_TAB_SWITCHES}`}
+            className={`hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono border ${
+              tabSwitchCount === 0
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : tabSwitchCount >= MAX_TAB_SWITCHES
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+            }`}
+          >
+            {tabSwitchCount >= MAX_TAB_SWITCHES ? (
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            )}
+            <span>Tabs: {tabSwitchCount}/{MAX_TAB_SWITCHES}</span>
+          </div>
+
           <button
             onClick={() => runMutation.mutate()}
-            disabled={runMutation.isPending || submitMutation.isPending}
+            disabled={runMutation.isPending || submitMutation.isPending || isWorkspaceLocked}
             className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors disabled:opacity-50"
             title="Run solution against custom stdin"
           >
@@ -779,6 +885,9 @@ export const PracticeWorkspacePage: React.FC = () => {
               code={code}
               onChange={handleCodeChange}
               onReset={handleResetStarterCode}
+              readOnly={isWorkspaceLocked}
+              disableCopyPaste={true}
+              onBlockedAction={handleEditorBlockedAction}
             />
           </div>
 
