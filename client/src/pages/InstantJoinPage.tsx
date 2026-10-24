@@ -503,9 +503,6 @@ export const InstantJoinPage: React.FC = () => {
                       {isVerifyingEmailOtp ? 'Verifying...' : 'Verify'}
                     </button>
                   </div>
-                  <p className="text-[11px] text-[var(--muted-foreground)] text-center">
-                    Didn't receive email? Enter code <button type="button" onClick={() => setEmailOtp('123456')} className="font-mono font-bold text-indigo-400 hover:underline">123456</button> to verify instantly.
-                  </p>
                 </div>
               )}
             </div>
