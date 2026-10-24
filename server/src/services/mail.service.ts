@@ -87,6 +87,9 @@ class NodemailerMailService implements IMailService {
             user,
             pass,
           },
+          connectionTimeout: 4000,
+          greetingTimeout: 4000,
+          socketTimeout: 4000,
         });
         console.log(`[NodemailerMailService] Initialized Gmail SMTP for ${user}`);
       } else {
@@ -98,6 +101,9 @@ class NodemailerMailService implements IMailService {
             user,
             pass,
           },
+          connectionTimeout: 4000,
+          greetingTimeout: 4000,
+          socketTimeout: 4000,
         });
         console.log(`[NodemailerMailService] Initialized Custom SMTP at ${host}:${port} for ${user}`);
       }

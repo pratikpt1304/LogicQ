@@ -64,8 +64,8 @@ export class OtpService {
       },
     });
 
-    // 4. Send Email
-    await mailService.sendMail({
+    // 4. Send Email asynchronously with background error handling so HTTP response returns instantly
+    mailService.sendMail({
       to: cleanEmail,
       subject: `[LogicQ] Your Email Verification Code: ${rawOtp}`,
       html: `
@@ -79,6 +79,8 @@ export class OtpService {
         </div>
       `,
       text: `Your LogicQ Email Verification Code is: ${rawOtp} (valid for ${OTP_EXPIRY_MINUTES} minutes).`,
+    }).catch((err) => {
+      console.error(`[OtpService] Background mail dispatch error for ${cleanEmail}:`, err?.message || err);
     });
 
     return {

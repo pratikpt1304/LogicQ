@@ -208,6 +208,11 @@ async function refreshAuthSession(): Promise<string | null> {
 
   if (!response.ok || !data) {
     if (cleanEndpoint.includes('-otp')) {
+      if (data && data.message) {
+        const err = new Error(data.message) as LogicQApiError;
+        err.status = response.status;
+        throw err;
+      }
       try {
         const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
         if (fallbackRes && typeof fallbackRes === 'object') {
