@@ -149,6 +149,21 @@ export class SectionService {
   }
 
   /**
+   * Delete an academic section (ADMIN-ONLY).
+   */
+  static async deleteSection(sectionId: string, isAdmin: boolean) {
+    if (!isAdmin) {
+      throw new Error('Access denied: Only platform administrators can delete sections.');
+    }
+    const section = await prisma.section.findUnique({ where: { id: sectionId } });
+    if (!section) {
+      throw new Error('Section not found.');
+    }
+    await prisma.section.delete({ where: { id: sectionId } });
+    return { success: true, message: `Section "${section.sectionName}" and all associated enrollments have been deleted successfully.` };
+  }
+
+  /**
    * Public info for student join page (Section 13).
    */
   static async getSectionByTokenOrCode(tokenOrCode: string) {

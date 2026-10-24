@@ -336,7 +336,8 @@ export async function autoSeedDatabase(): Promise<void> {
       },
     });
 
-    if (!existingSection) {
+    const totalSections = await prisma.section.count();
+    if (totalSections === 0 && !existingSection) {
       await prisma.section.create({
         data: {
           institution: 'Sanjivani University',

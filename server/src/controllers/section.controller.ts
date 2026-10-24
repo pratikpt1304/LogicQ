@@ -88,6 +88,30 @@ export class SectionController {
   }
 
   /**
+   * DELETE /api/sections/:id - Admin-Only Delete Section
+   */
+  static async deleteSection(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const isAdmin = user?.role === 'ADMIN';
+      if (!isAdmin) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Only administrators have permission to delete academic sections.',
+        });
+      }
+      const sectionId = req.params.id;
+      const result = await SectionService.deleteSection(sectionId, isAdmin);
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(err.message.includes('Access denied') ? 403 : 500).json({
+        success: false,
+        message: err.message || 'Failed to delete section.',
+      });
+    }
+  }
+
+  /**
    * GET /api/sections/join-info/:tokenOrCode - Public Join Info for Student (Section 13)
    */
   static async getPublicJoinInfo(req: Request, res: Response) {

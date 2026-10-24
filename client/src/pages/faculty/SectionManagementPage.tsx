@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
@@ -22,6 +23,7 @@ import {
   RefreshCw,
   Search,
   Award,
+  Trash2,
 } from 'lucide-react';
 
 interface StudentRosterItem {
@@ -60,7 +62,39 @@ interface SectionItem {
 }
 
 export const SectionManagementPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const queryClient = useQueryClient();
+
+  // Delete section mutation (ADMIN ONLY)
+  const deleteMutation = useMutation({
+    mutationFn: async (sectionId: string) => {
+      return await api.delete(`/sections/${sectionId}`);
+    },
+    onSuccess: (res: any) => {
+      toast.success(res?.message || 'Section deleted successfully.');
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      if (selectedSection?.id) {
+        setSelectedSection(null);
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to delete section.');
+    },
+  });
+
+  const handleDeleteSection = (sec: SectionItem) => {
+    if (!isAdmin) {
+      toast.error('Only administrators can delete academic sections.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `[ADMIN ACTION] Are you sure you want to permanently delete section "${sec.sectionName}" (${sec.subject})?\n\nThis will drop all enrolled student links and test assignments.`
+    );
+    if (confirmed) {
+      deleteMutation.mutate(sec.id);
+    }
+  };
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<SectionItem | null>(null);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
@@ -354,6 +388,16 @@ export const SectionManagementPage: React.FC = () => {
                     >
                       <Eye className="w-4 h-4" />
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDeleteSection(section)}
+                        disabled={deleteMutation.isPending}
+                        className="p-1.5 text-xs rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 transition cursor-pointer"
+                        title="Delete Section (Admin Only)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
