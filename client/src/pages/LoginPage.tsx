@@ -13,7 +13,6 @@ import {
   Clock,
   KeyRound,
   RefreshCw,
-  Phone,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -63,7 +62,7 @@ export const LoginPage: React.FC = () => {
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!identifier.trim()) {
-      setError('Please enter your enrolled institutional email or mobile number.');
+      setError('Please enter your enrolled institutional email address.');
       return;
     }
 
@@ -78,7 +77,7 @@ export const LoginPage: React.FC = () => {
         setOtpCode('');
         setStep('otp');
         setCooldown(res.cooldownRemaining || 60);
-        setInfoMessage(res.message || 'A 6-digit verification code has been dispatched to your contact.');
+        setInfoMessage(res.message || 'A 6-digit verification code has been sent to your email.');
 
         toast.success('Verification code dispatched', {
           description: `Please check ${res.target || identifier.trim()} for your 6-digit OTP.`,
@@ -128,7 +127,7 @@ export const LoginPage: React.FC = () => {
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">
             {step === 'identifier'
-              ? 'Passwordless OTP verification for enrolled students & faculty'
+              ? 'Passwordless Email OTP verification for enrolled students & faculty'
               : `Enter the 6-digit code sent to ${targetDisplay}`}
           </p>
         </div>
@@ -139,7 +138,7 @@ export const LoginPage: React.FC = () => {
           <div className="mb-5 flex items-center justify-between pb-3 border-b border-[var(--border-line)] text-xs font-mono">
             <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 font-semibold">
               <ShieldCheck className="w-4 h-4" />
-              <span>Strict OTP Verification</span>
+              <span>Institutional Email OTP Verification</span>
             </div>
             <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-line)]">
               Authorized Roster Only
@@ -178,7 +177,7 @@ export const LoginPage: React.FC = () => {
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
                 <label className="block text-xs font-mono text-[var(--text-main)] mb-1.5 font-bold tracking-wider">
-                  REGISTERED EMAIL OR MOBILE NUMBER
+                  REGISTERED INSTITUTIONAL EMAIL
                 </label>
                 <div className="relative">
                   <input
@@ -187,13 +186,13 @@ export const LoginPage: React.FC = () => {
                     autoFocus
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="student@sanjivani.org.in or 9876543210"
+                    placeholder="student@sanjivani.org.in or your.email@gmail.com"
                     className="w-full pl-9 pr-3 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] font-mono transition-colors"
                   />
                   <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
                 </div>
                 <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-relaxed font-mono">
-                  Enter the email address or phone number enrolled in your official course section.
+                  Enter the registered email address enrolled in your official course section.
                 </p>
               </div>
 

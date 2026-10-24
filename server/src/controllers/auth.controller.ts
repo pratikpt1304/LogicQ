@@ -994,7 +994,7 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
   try {
     const { identifier } = req.body;
     if (!identifier || typeof identifier !== 'string') {
-      res.status(400).json({ success: false, message: 'Please enter a valid registered email or mobile number.' });
+      res.status(400).json({ success: false, message: 'Please enter a valid registered institutional email address.' });
       return;
     }
 
