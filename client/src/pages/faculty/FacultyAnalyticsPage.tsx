@@ -6,17 +6,12 @@ import { toast } from 'sonner';
 import {
   Users,
   Award,
-  ShieldCheck,
-  ShieldAlert,
   Brain,
   Download,
   AlertTriangle,
   Search,
-  BookOpen,
   CheckCircle2,
-  Clock,
   Sparkles,
-  ChevronRight,
   Eye,
   FileCode,
   TrendingUp,
@@ -52,7 +47,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions
-  const { data: analyticsData, isLoading, refetch } = useQuery({
+  const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['faculty-analytics-hub-data'],
     queryFn: async () => {
       // Parallel fetch from Firestore & Backend
@@ -276,44 +271,42 @@ export const FacultyAnalyticsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="w-9 h-9 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin mx-auto" />
-        <p className="text-sm text-gray-400 font-sans">Loading classroom performance intelligence...</p>
+        <div className="w-9 h-9 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
+        <p className="text-sm text-[var(--muted-foreground)] font-sans">Loading classroom performance intelligence...</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-sans">
-      {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-gray-900 via-gray-900 to-indigo-950/60 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+      {/* 1. Header Banner with high contrast for both light and dark mode */}
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
               <Brain className="w-3.5 h-3.5" />
               <span>Faculty Assessment & Continuous Evaluation Hub</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] tracking-tight">
               Classroom Performance & Code Intelligence
             </h1>
-            <p className="text-gray-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
+            <p className="text-[var(--muted-foreground)] text-xs sm:text-sm max-w-2xl leading-relaxed">
               Track student daily C programming progress, identify concept gaps before exams, inspect actual code submissions, and export grade rosters.
             </p>
           </div>
 
           {/* Section Filter & Export CSV */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-black/60 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white">
-              <Filter className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="flex items-center gap-2 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs">
+              <Filter className="w-3.5 h-3.5 text-indigo-500" />
               <select
                 value={selectedSectionId}
                 onChange={(e) => setSelectedSectionId(e.target.value)}
-                className="bg-transparent text-white text-xs font-medium focus:outline-none cursor-pointer"
+                className="bg-transparent text-[var(--foreground)] text-xs font-medium focus:outline-none cursor-pointer"
               >
-                <option value="ALL" className="bg-gray-900 text-white">All Academic Sections</option>
+                <option value="ALL" className="bg-[var(--card)] text-[var(--foreground)]">All Academic Sections</option>
                 {(analyticsData?.sections || []).map((sec: any) => (
-                  <option key={sec.id} value={sec.id} className="bg-gray-900 text-white">
+                  <option key={sec.id} value={sec.id} className="bg-[var(--card)] text-[var(--foreground)]">
                     {sec.name} ({sec.course})
                   </option>
                 ))}
@@ -323,7 +316,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
             <button
               onClick={handleExportRoster}
               disabled={isExportingCsv || filteredStudents.length === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>{isExportingCsv ? 'Exporting...' : 'Export Marks (CSV)'}</span>
@@ -335,91 +328,91 @@ export const FacultyAnalyticsPage: React.FC = () => {
       {/* 2. Top 4 Primary Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Enrolled */}
-        <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-5 space-y-2 hover:border-gray-700 transition">
-          <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-2 hover:border-[var(--accent)]/40 shadow-sm transition">
+          <div className="flex items-center justify-between text-[var(--muted-foreground)] text-xs font-medium">
             <span>Enrolled Students</span>
-            <Users className="w-4 h-4 text-cyan-400" />
+            <Users className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="text-3xl font-black text-white font-mono">
+          <div className="text-3xl font-black text-[var(--foreground)] font-mono">
             {metrics.totalEnrolled}
           </div>
-          <p className="text-[11px] text-gray-400 flex items-center gap-1">
-            <span className="text-cyan-400 font-semibold">{analyticsData?.sections?.length || 1} sections</span> monitored
+          <p className="text-[11px] text-[var(--muted-foreground)] flex items-center gap-1">
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{analyticsData?.sections?.length || 1} sections</span> monitored
           </p>
         </div>
 
         {/* Card 2: Active Solvers */}
-        <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-5 space-y-2 hover:border-gray-700 transition">
-          <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-2 hover:border-[var(--accent)]/40 shadow-sm transition">
+          <div className="flex items-center justify-between text-[var(--muted-foreground)] text-xs font-medium">
             <span>Active Solvers</span>
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-3xl font-black text-emerald-400 font-mono">
+          <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
             {metrics.activeSolvers}
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-[var(--muted-foreground)]">
             {metrics.totalEnrolled > 0 ? Math.round((metrics.activeSolvers / metrics.totalEnrolled) * 100) : 0}% solving daily challenges
           </p>
         </div>
 
         {/* Card 3: Needs Help */}
-        <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-5 space-y-2 hover:border-gray-700 transition">
-          <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-2 hover:border-[var(--accent)]/40 shadow-sm transition">
+          <div className="flex items-center justify-between text-[var(--muted-foreground)] text-xs font-medium">
             <span>Needs Assistance</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-3xl font-black text-amber-400 font-mono">
+          <div className="text-3xl font-black text-amber-600 dark:text-amber-400 font-mono">
             {metrics.needsHelp}
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-[var(--muted-foreground)]">
             Low activity or multiple test failures
           </p>
         </div>
 
         {/* Card 4: Average Score */}
-        <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-5 space-y-2 hover:border-gray-700 transition">
-          <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-2 hover:border-[var(--accent)]/40 shadow-sm transition">
+          <div className="flex items-center justify-between text-[var(--muted-foreground)] text-xs font-medium">
             <span>Average Points</span>
-            <Award className="w-4 h-4 text-indigo-400" />
+            <Award className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="text-3xl font-black text-indigo-400 font-mono">
-            {metrics.avgScore} <span className="text-xs font-normal text-gray-500">PTS</span>
+          <div className="text-3xl font-black text-[var(--foreground)] font-mono">
+            {metrics.avgScore} <span className="text-xs font-normal text-[var(--muted-foreground)]">PTS</span>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-[var(--muted-foreground)]">
             Cohort average challenge score
           </p>
         </div>
       </div>
 
       {/* 3. Diagnostic Alert: Topics Needing Discussion in Lecture */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-base font-bold text-white">
+            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <h2 className="text-base font-bold text-[var(--foreground)]">
               Classroom Diagnostic: Concepts Needing Attention in Next Lecture
             </h2>
           </div>
-          <span className="text-[11px] text-gray-400">
+          <span className="text-[11px] text-[var(--muted-foreground)]">
             Based on student compiler errors and test case failure rates
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {(analyticsData?.flaggedQuestions || []).map((q: any) => (
-            <div key={q.problemId} className="p-4 rounded-xl bg-black/40 border border-gray-800 hover:border-gray-700 transition space-y-3">
+            <div key={q.problemId} className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--accent)]/30 transition space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-bold text-white text-xs sm:text-sm">{q.title}</h3>
-                  <p className="text-[11px] text-amber-400 font-medium mt-0.5">{q.flagReason}</p>
+                  <h3 className="font-bold text-[var(--foreground)] text-xs sm:text-sm">{q.title}</h3>
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">{q.flagReason}</p>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold font-mono whitespace-nowrap">
+                <span className="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-bold font-mono whitespace-nowrap">
                   {q.failureRate}% Failure Rate
                 </span>
               </div>
-              <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800/60">
+              <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground)] pt-1 border-t border-[var(--border)]/60">
                 <span>{q.attempts} students attempted</span>
-                <span className="text-cyan-400 font-medium">Recommended for live whiteboard demo</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-medium">Recommended for live whiteboard demo</span>
               </div>
             </div>
           ))}
@@ -427,24 +420,24 @@ export const FacultyAnalyticsPage: React.FC = () => {
       </div>
 
       {/* 4. Student Roster Table & Quick Investigation */}
-      <div className="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
-            <h2 className="text-base font-bold text-white">Student Academic & Integrity Roster</h2>
-            <p className="text-xs text-gray-400">
+            <h2 className="text-base font-bold text-[var(--foreground)]">Student Academic & Integrity Roster</h2>
+            <p className="text-xs text-[var(--muted-foreground)]">
               Click on any student to inspect their submitted C code, test cases, and activity audit trail.
             </p>
           </div>
 
           {/* Search Box */}
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
             <input
               type="text"
               placeholder="Search Name, PRN (e.g. 2126PMIF1057)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-700 bg-black/50 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 font-mono"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
         </div>
@@ -455,8 +448,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
             onClick={() => setActiveFilterTab('ALL')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeFilterTab === 'ALL'
-                ? 'bg-cyan-600 text-white'
-                : 'bg-gray-800/60 text-gray-400 hover:text-white'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
             }`}
           >
             All Students ({analyticsData?.students?.length || 0})
@@ -466,7 +459,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeFilterTab === 'CONSISTENT'
                 ? 'bg-emerald-600 text-white'
-                : 'bg-gray-800/60 text-gray-400 hover:text-white'
+                : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
             }`}
           >
             🟢 Consistent Solvers ({analyticsData?.students?.filter((s) => s.statusCategory === 'CONSISTENT').length || 0})
@@ -476,7 +469,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeFilterTab === 'NEEDS_HELP'
                 ? 'bg-amber-600 text-white'
-                : 'bg-gray-800/60 text-gray-400 hover:text-white'
+                : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
             }`}
           >
             🟡 Needs Assistance ({analyticsData?.students?.filter((s) => s.statusCategory === 'NEEDS_HELP').length || 0})
@@ -486,15 +479,15 @@ export const FacultyAnalyticsPage: React.FC = () => {
         {/* Students Table */}
         {filteredStudents.length === 0 ? (
           <div className="py-12 text-center space-y-2">
-            <Users className="w-8 h-8 text-gray-600 mx-auto" />
-            <p className="text-sm font-semibold text-gray-300">No students found matching your criteria</p>
-            <p className="text-xs text-gray-500">Try adjusting your search query or section filter.</p>
+            <Users className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
+            <p className="text-sm font-semibold text-[var(--foreground)]">No students found matching your criteria</p>
+            <p className="text-xs text-[var(--muted-foreground)]">Try adjusting your search query or section filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-gray-800 text-gray-400 font-mono uppercase tracking-wider text-[11px]">
+                <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Student Name</th>
                   <th className="py-3 px-4">PRN / Roll No</th>
                   <th className="py-3 px-4">Department</th>
@@ -504,40 +497,40 @@ export const FacultyAnalyticsPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/60 font-sans">
+              <tbody className="divide-y divide-[var(--border)]/60 font-sans">
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-white/[0.02] transition">
+                  <tr key={student.id} className="hover:bg-[var(--accent)]/5 transition">
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">{student.fullName}</div>
-                      <div className="text-[11px] text-gray-400 font-mono">{student.email}</div>
+                      <div className="font-semibold text-[var(--foreground)]">{student.fullName}</div>
+                      <div className="text-[11px] text-[var(--muted-foreground)] font-mono">{student.email}</div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-cyan-400">
+                    <td className="py-3.5 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
                       {student.prn}
                     </td>
-                    <td className="py-3.5 px-4 text-gray-300">
+                    <td className="py-3.5 px-4 text-[var(--foreground)]">
                       {student.department} • Year {student.year}
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-indigo-400">
+                    <td className="py-3.5 px-4 font-mono font-bold text-[var(--foreground)]">
                       {student.totalPoints} PTS
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       {student.currentStreak > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-amber-400 font-bold">
+                        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
                           <Flame className="w-3.5 h-3.5" />
                           {student.currentStreak}d
                         </span>
                       ) : (
-                        <span className="text-gray-500">0d</span>
+                        <span className="text-[var(--muted-foreground)]">0d</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4">
                       {student.statusCategory === 'CONSISTENT' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                           <CheckCircle2 className="w-3 h-3" />
                           On Track
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                           <AlertTriangle className="w-3 h-3" />
                           Needs Help
                         </span>
@@ -546,7 +539,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => setSelectedStudentForInspect(student.prn || student.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/30 font-semibold text-xs transition cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold text-xs transition cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Inspect Code</span>
@@ -562,20 +555,20 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
       {/* 5. Student Code & Performance Inspection Modal / Drawer */}
       {selectedStudentForInspect && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-black/40">
+            <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
               <div className="flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-cyan-400" />
+                <Code2 className="w-5 h-5 text-indigo-500" />
                 <div>
-                  <h3 className="font-bold text-white text-base">Candidate Inspection & Code Snapshot</h3>
-                  <p className="text-xs text-gray-400">PRN: <span className="font-mono text-cyan-400 font-bold">{selectedStudentForInspect}</span></p>
+                  <h3 className="font-bold text-[var(--foreground)] text-base">Candidate Inspection & Code Snapshot</h3>
+                  <p className="text-xs text-[var(--muted-foreground)]">PRN: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{selectedStudentForInspect}</span></p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedStudentForInspect(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition cursor-pointer"
+                className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -585,31 +578,31 @@ export const FacultyAnalyticsPage: React.FC = () => {
             <div className="p-6 overflow-y-auto space-y-6">
               {isDeepDiveLoading ? (
                 <div className="py-16 text-center space-y-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin mx-auto" />
-                  <p className="text-xs text-gray-400">Loading student code submissions & audit record...</p>
+                  <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
+                  <p className="text-xs text-[var(--muted-foreground)]">Loading student code submissions & audit record...</p>
                 </div>
               ) : !deepDiveData?.student ? (
-                <div className="py-12 text-center text-gray-400">
+                <div className="py-12 text-center text-[var(--muted-foreground)]">
                   Unable to load records for this student.
                 </div>
               ) : (
                 <>
                   {/* Candidate Profile Summary */}
-                  <div className="p-4 rounded-xl bg-black/40 border border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <h4 className="font-bold text-white text-sm">{deepDiveData.student.fullName}</h4>
-                      <p className="text-xs text-gray-400">
+                      <h4 className="font-bold text-[var(--foreground)] text-sm">{deepDiveData.student.fullName}</h4>
+                      <p className="text-xs text-[var(--muted-foreground)]">
                         {deepDiveData.student.email} • {deepDiveData.student.department} (Year {deepDiveData.student.year})
                       </p>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-mono">
                       <div>
-                        <span className="text-gray-400">Points: </span>
-                        <span className="text-cyan-400 font-bold">{deepDiveData.student.totalPoints || 0} PTS</span>
+                        <span className="text-[var(--muted-foreground)]">Points: </span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">{deepDiveData.student.totalPoints || 0} PTS</span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Streak: </span>
-                        <span className="text-amber-400 font-bold">{deepDiveData.student.currentStreak || 0} days</span>
+                        <span className="text-[var(--muted-foreground)]">Streak: </span>
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">{deepDiveData.student.currentStreak || 0} days</span>
                       </div>
                     </div>
                   </div>
@@ -617,41 +610,41 @@ export const FacultyAnalyticsPage: React.FC = () => {
                   {/* Recent Practice Submissions */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <FileCode className="w-4 h-4 text-emerald-400" />
-                      <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                      <FileCode className="w-4 h-4 text-emerald-500" />
+                      <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
                         Practice C Code Submissions ({(deepDiveData.submissions || []).length})
                       </h4>
                     </div>
 
                     {(!deepDiveData.submissions || deepDiveData.submissions.length === 0) ? (
-                      <div className="p-6 bg-black/20 rounded-xl border border-gray-800/80 text-center text-gray-500 text-xs italic">
+                      <div className="p-6 bg-[var(--background)] rounded-xl border border-[var(--border)] text-center text-[var(--muted-foreground)] text-xs italic">
                         No code submissions recorded yet for this candidate.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {deepDiveData.submissions.map((sub: any) => (
-                          <div key={sub.id} className="p-3.5 bg-black/50 rounded-xl border border-gray-800 space-y-2 text-xs">
+                          <div key={sub.id} className="p-3.5 bg-[var(--background)] border border-[var(--border)] rounded-xl space-y-2 text-xs">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                               <div className="flex items-center gap-2">
                                 <span
                                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                     sub.verdict === 'ACCEPTED'
-                                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                                       : sub.verdict === 'WRONG_ANSWER'
-                                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                                      : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
                                   }`}
                                 >
                                   {sub.verdict || 'SUBMITTED'}
                                 </span>
-                                <span className="font-semibold text-white">
+                                <span className="font-semibold text-[var(--foreground)]">
                                   {sub.problem?.title || 'Practice Challenge'}
                                 </span>
-                                <span className="text-gray-500 text-[10px] font-mono">
+                                <span className="text-[var(--muted-foreground)] text-[10px] font-mono">
                                   ({sub.problem?.difficulty || 'C PRACTICE'})
                                 </span>
                               </div>
-                              <div className="text-gray-400 text-[11px] font-mono">
+                              <div className="text-[var(--muted-foreground)] text-[11px] font-mono">
                                 {sub.runtimeMs !== null && sub.runtimeMs !== undefined && (
                                   <span className="mr-3">{sub.runtimeMs}ms</span>
                                 )}
@@ -661,11 +654,11 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
                             {sub.code && (
                               <details className="mt-2 text-[11px]">
-                                <summary className="text-cyan-400 cursor-pointer hover:underline flex items-center gap-1 font-medium">
+                                <summary className="text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline flex items-center gap-1 font-medium">
                                   <Eye className="w-3 h-3" />
                                   <span>Inspect Submitted C Source Code</span>
                                 </summary>
-                                <pre className="mt-2 p-3 bg-black rounded-lg border border-gray-800 text-gray-200 font-mono text-[10px] overflow-x-auto max-h-56 leading-relaxed">
+                                <pre className="mt-2 p-3 bg-[#0C0F1F] rounded-lg border border-gray-800 text-gray-200 font-mono text-[10px] overflow-x-auto max-h-56 leading-relaxed">
                                   {sub.code}
                                 </pre>
                               </details>
@@ -678,17 +671,17 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
                   {/* Assigned Tests (if any) */}
                   {(deepDiveData.assignments || []).length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-gray-800">
-                      <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                    <div className="space-y-3 pt-4 border-t border-[var(--border)]">
+                      <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
                         Assigned Assessment Tests
                       </h4>
                       <div className="space-y-2">
                         {deepDiveData.assignments.map((asgn: any) => (
-                          <div key={asgn.id} className="p-3 bg-black/40 rounded-xl border border-gray-800 flex items-center justify-between text-xs">
-                            <span className="font-semibold text-white">{asgn.test?.title}</span>
+                          <div key={asgn.id} className="p-3 bg-[var(--background)] rounded-xl border border-[var(--border)] flex items-center justify-between text-xs">
+                            <span className="font-semibold text-[var(--foreground)]">{asgn.test?.title}</span>
                             <div className="flex items-center gap-3">
-                              <span className="text-emerald-400 font-bold">Score: {asgn.academicScore}</span>
-                              <span className="text-gray-400">Risk: {asgn.integrityRisk}</span>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Score: {asgn.academicScore}</span>
+                              <span className="text-[var(--muted-foreground)]">Risk: {asgn.integrityRisk}</span>
                             </div>
                           </div>
                         ))}
@@ -700,10 +693,10 @@ export const FacultyAnalyticsPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-gray-800 flex justify-end bg-black/30">
+            <div className="p-4 border-t border-[var(--border)] flex justify-end bg-[var(--background)]">
               <button
                 onClick={() => setSelectedStudentForInspect(null)}
-                className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold transition cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer"
               >
                 Close Inspection
               </button>

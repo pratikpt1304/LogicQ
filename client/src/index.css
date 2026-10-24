@@ -542,11 +542,25 @@
 }
 
 /* Light Mode Contrast Protections: Ensures text-white and light gray never wash out on light surfaces */
-html.light .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
-html[data-theme='light'] .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
+html.light .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']):not([class*='bg-gray-']):not([class*='bg-black']):not([class*='bg-slate-']):not([class*='bg-zinc-']),
+html[data-theme='light'] .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']):not([class*='bg-gray-']):not([class*='bg-black']):not([class*='bg-slate-']):not([class*='bg-zinc-']),
 html.light .glass-card .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
 html[data-theme='light'] .glass-card .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']) {
   color: var(--text-main) !important;
+}
+
+/* Explicit protection: text-white inside dark containers or buttons ALWAYS stays white */
+html.light [class*='bg-gray-9'] .text-white,
+html.light [class*='bg-black'] .text-white,
+html.light [class*='bg-indigo-9'] .text-white,
+html.light [class*='bg-slate-9'] .text-white,
+html.light [class*='bg-gradient-'] .text-white,
+html[data-theme='light'] [class*='bg-gray-9'] .text-white,
+html[data-theme='light'] [class*='bg-black'] .text-white,
+html[data-theme='light'] [class*='bg-indigo-9'] .text-white,
+html[data-theme='light'] [class*='bg-slate-9'] .text-white,
+html[data-theme='light'] [class*='bg-gradient-'] .text-white {
+  color: #FFFFFF !important;
 }
 
 html.light table th,
