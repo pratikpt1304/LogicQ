@@ -243,16 +243,6 @@ export const LoginPage: React.FC = () => {
                   />
                   <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
                 </div>
-                <div className="mt-2 flex items-center justify-between px-3 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-mono text-cyan-700 dark:text-cyan-300">
-                  <span>Instant Testing Code: <strong className="font-bold tracking-wider">123456</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => setOtpCode('123456')}
-                    className="px-2 py-0.5 rounded bg-cyan-500 text-white font-bold text-[10px] hover:bg-cyan-400 cursor-pointer"
-                  >
-                    Auto-Fill
-                  </button>
-                </div>
               </div>
 
               <button
