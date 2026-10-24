@@ -221,6 +221,20 @@ export const ADMIN_EMAILS = [
   'ipverse1918@gmail.com',
 ];
 
+export const WALKTHROUGH_EMAILS = [
+  'admin@logicq.io',
+  'faculty@logicq.io',
+  'student@logicq.io',
+  'hariprasathset@sanjivani.edu.in',
+  'thoratpratik2323@gmail.com',
+  'logicqarena@gmail.com',
+];
+
+export function isWalkthroughAccount(email?: string | null): boolean {
+  if (!email) return false;
+  return WALKTHROUGH_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export function isExplicitAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
@@ -259,6 +273,51 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         }
         return u;
       });
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
+        sanitized.push({
+          id: 'faculty-walkthrough-1',
+          username: 'faculty_demo',
+          email: 'faculty@logicq.io',
+          fullName: 'Prof. Demo Faculty (Walkthrough)',
+          displayName: 'Prof. Demo Faculty',
+          role: 'FACULTY',
+          college: 'Sanjivani University',
+          department: 'CSE',
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          password: 'password123',
+          isBanned: false,
+          shortId: 'FAC1',
+          createdAt: new Date().toISOString(),
+        } as any);
+        migrated = true;
+      }
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'student@logicq.io')) {
+        sanitized.push({
+          id: 'student-walkthrough-1',
+          username: 'student_demo',
+          email: 'student@logicq.io',
+          prn: '2024BCSE0001',
+          fullName: 'Demo Student (Walkthrough)',
+          displayName: 'Demo Student',
+          role: 'STUDENT',
+          college: 'Sanjivani University',
+          department: 'CSE',
+          year: 'FY',
+          division: 'A',
+          profileComplete: true,
+          totalPoints: 120,
+          currentStreak: 3,
+          longestStreak: 5,
+          password: 'password123',
+          isBanned: false,
+          shortId: '0001',
+          createdAt: new Date().toISOString(),
+        } as any);
+        migrated = true;
+      }
       if (migrated) {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
       }
@@ -268,6 +327,45 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     // ignore
   }
   const seeded: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = [
+    {
+      id: 'faculty-walkthrough-1',
+      username: 'faculty_demo',
+      email: 'faculty@logicq.io',
+      fullName: 'Prof. Demo Faculty (Walkthrough)',
+      displayName: 'Prof. Demo Faculty',
+      role: 'FACULTY',
+      college: 'Sanjivani University',
+      department: 'CSE',
+      profileComplete: true,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      password: 'password123',
+      isBanned: false,
+      shortId: 'FAC1',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'student-walkthrough-1',
+      username: 'student_demo',
+      email: 'student@logicq.io',
+      prn: '2024BCSE0001',
+      fullName: 'Demo Student (Walkthrough)',
+      displayName: 'Demo Student',
+      role: 'STUDENT',
+      college: 'Sanjivani University',
+      department: 'CSE',
+      year: 'FY',
+      division: 'A',
+      profileComplete: true,
+      totalPoints: 120,
+      currentStreak: 3,
+      longestStreak: 5,
+      password: 'password123',
+      isBanned: false,
+      shortId: '0001',
+      createdAt: new Date().toISOString(),
+    },
     {
       id: 'admin-1',
       username: 'admin',

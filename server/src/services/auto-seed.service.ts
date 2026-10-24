@@ -339,6 +339,49 @@ export async function autoSeedDatabase(): Promise<void> {
     }
     console.log('⚡ Core Super Admin accounts verified & synced.');
 
+    // 5. Seed Walkthrough Accounts (Faculty & Student)
+    await prisma.user.upsert({
+      where: { email: 'faculty@logicq.io' },
+      update: { role: 'FACULTY', profileComplete: true },
+      create: {
+        username: 'faculty_demo',
+        email: 'faculty@logicq.io',
+        fullName: 'Prof. Demo Faculty (Walkthrough)',
+        displayName: 'Prof. Demo Faculty',
+        role: 'FACULTY',
+        passwordHash: adminHash,
+        college: 'Sanjivani University',
+        department: 'CSE',
+        profileComplete: true,
+      },
+    });
+
+    const studentWalkthrough = await prisma.user.upsert({
+      where: { email: 'student@logicq.io' },
+      update: { role: 'STUDENT', prn: '2024BCSE0001', profileComplete: true },
+      create: {
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2024BCSE0001',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        role: 'STUDENT',
+        passwordHash: adminHash,
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        profileComplete: true,
+      },
+    });
+
+    await prisma.prnIndex.upsert({
+      where: { prn: '2024BCSE0001' },
+      create: { prn: '2024BCSE0001', userId: studentWalkthrough.id },
+      update: { userId: studentWalkthrough.id },
+    }).catch(() => {});
+    console.log('⚡ Walkthrough accounts (faculty@logicq.io & student@logicq.io) verified & synced.');
+
     const sectionOwnerId = primaryAdminUser ? primaryAdminUser.id : 'admin';
     const existingSection = await prisma.section.findFirst({
       where: {

@@ -204,6 +204,20 @@ export const ADMIN_EMAILS = [
   'ipverse1918@gmail.com',
 ];
 
+export const WALKTHROUGH_EMAILS = [
+  'admin@logicq.io',
+  'faculty@logicq.io',
+  'student@logicq.io',
+  'hariprasathset@sanjivani.edu.in',
+  'thoratpratik2323@gmail.com',
+  'logicqarena@gmail.com',
+];
+
+export function isWalkthroughAccount(email?: string | null): boolean {
+  if (!email) return false;
+  return WALKTHROUGH_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export function isExplicitAdminEmail(email?: string | null): boolean {
   if (!email) return false;
   return ADMIN_EMAILS.includes(email.trim().toLowerCase());
@@ -994,6 +1008,72 @@ export const getSessionEvents = async (req: AuthRequest, res: Response): Promise
 /**
  * POST /api/auth/send-login-otp - Send 6-digit OTP to enrolled student/faculty/admin
  */
+
+async function ensureWalkthroughOrAdminUser(cleanId: string) {
+  const lower = cleanId.toLowerCase().trim();
+  if (lower === 'faculty@logicq.io') {
+    return await prisma.user.upsert({
+      where: { email: 'faculty@logicq.io' },
+      update: { role: 'FACULTY', profileComplete: true },
+      create: {
+        username: 'faculty_demo',
+        email: 'faculty@logicq.io',
+        role: 'FACULTY',
+        fullName: 'Prof. Demo Faculty (Faculty Walkthrough)',
+        displayName: 'Prof. Demo Faculty',
+        passwordHash: await bcrypt.hash('FacultyWalkthrough123!', 10),
+        college: 'Sanjivani University',
+        department: 'CSE',
+        profileComplete: true,
+      },
+    });
+  }
+  if (lower === 'student@logicq.io' || cleanId.toUpperCase() === '2024BCSE0001') {
+    const studentUser = await prisma.user.upsert({
+      where: { email: 'student@logicq.io' },
+      update: { role: 'STUDENT', prn: '2024BCSE0001', profileComplete: true },
+      create: {
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2024BCSE0001',
+        role: 'STUDENT',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        passwordHash: await bcrypt.hash('StudentWalkthrough123!', 10),
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'FY',
+        division: 'A',
+        profileComplete: true,
+      },
+    });
+    await prisma.prnIndex.upsert({
+      where: { prn: '2024BCSE0001' },
+      create: { prn: '2024BCSE0001', userId: studentUser.id },
+      update: { userId: studentUser.id },
+    }).catch(() => {});
+    return studentUser;
+  }
+  if (isExplicitAdminEmail(lower)) {
+    return await prisma.user.upsert({
+      where: { email: lower },
+      update: { role: 'ADMIN', profileComplete: true },
+      create: {
+        username: lower.split('@')[0],
+        email: lower,
+        role: 'ADMIN',
+        fullName: lower.includes('thorat') ? 'Pratik Thorat' : (lower.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator'),
+        displayName: lower.includes('thorat') ? 'Pratik Thorat (Admin)' : (lower.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin'),
+        passwordHash: await bcrypt.hash('AdminPassword123!', 10),
+        college: 'Sanjivani University',
+        department: 'CSE',
+        profileComplete: true,
+      },
+    });
+  }
+  return null;
+}
+
 export const sendLoginOtp = async (req: Request, res: Response): Promise<void> => {
   try {
     const { identifier } = req.body;
@@ -1019,22 +1099,8 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       },
     });
 
-    if (!user && isExplicitAdminEmail(cleanId)) {
-      user = await prisma.user.upsert({
-        where: { email: cleanId.toLowerCase() },
-        update: { role: 'ADMIN', profileComplete: true },
-        create: {
-          username: cleanId.split('@')[0],
-          email: cleanId.toLowerCase(),
-          role: 'ADMIN',
-          fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
-          displayName: cleanId.includes('thorat') ? 'Pratik Thorat (Admin)' : 'Admin',
-          passwordHash: await bcrypt.hash('AdminPassword123!', 10),
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-        },
-      });
+    if (!user) {
+      user = await ensureWalkthroughOrAdminUser(cleanId);
     }
 
     // Auto-restore enrolled student if verified record from cloud store was passed
@@ -1099,6 +1165,19 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    if (isWalkthroughAccount(user.email)) {
+      const targetEmail = user.email;
+      const ip = req.ip || req.socket.remoteAddress;
+      OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip).catch(() => {});
+      res.json({
+        success: true,
+        message: `Walkthrough access ready for ${targetEmail} (Master Code: 123456)`,
+        target: targetEmail,
+        cooldownRemaining: 60,
+      });
+      return;
+    }
+
     const targetEmail = user.email;
     const ip = req.ip || req.socket.remoteAddress;
     const otpResult = await OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip);
@@ -1150,22 +1229,8 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       },
     });
 
-    if (!user && isExplicitAdminEmail(cleanId)) {
-      user = await prisma.user.upsert({
-        where: { email: cleanId.toLowerCase() },
-        update: { role: 'ADMIN', profileComplete: true },
-        create: {
-          username: cleanId.split('@')[0],
-          email: cleanId.toLowerCase(),
-          role: 'ADMIN',
-          fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
-          displayName: cleanId.includes('thorat') ? 'Pratik Thorat (Admin)' : 'Admin',
-          passwordHash: await bcrypt.hash('AdminPassword123!', 10),
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-        },
-      });
+    if (!user) {
+      user = await ensureWalkthroughOrAdminUser(cleanId);
     }
 
     // Auto-restore enrolled student if verified record from cloud store was passed
@@ -1231,7 +1296,7 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
     }
 
     // Allow master OTP for Super Admin in development / operational environments
-    const isMasterOtp = (cleanCode === '123456' || cleanCode === '999999') && (user.role === 'ADMIN' || process.env.NODE_ENV !== 'production');
+    const isMasterOtp = (cleanCode === '123456' || cleanCode === '999999') && (user.role === 'ADMIN' || isWalkthroughAccount(user.email) || process.env.NODE_ENV !== 'production');
 
     if (!isMasterOtp) {
       const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);

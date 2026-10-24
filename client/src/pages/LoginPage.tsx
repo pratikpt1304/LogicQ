@@ -92,6 +92,30 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleQuickLogin = async (demoEmail: string) => {
+    setIdentifier(demoEmail);
+    setError(null);
+    setLoading(true);
+    try {
+      // Direct login with master OTP 123456
+      await loginWithOtp(demoEmail, '123456');
+      toast.success(`Identity verified! Logged in as ${demoEmail}`);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      try {
+        const res = await sendLoginOtp(demoEmail);
+        setTargetDisplay(res?.target || demoEmail);
+        setOtpCode('123456');
+        setStep('otp');
+        setInfoMessage(`Walkthrough access: Master OTP 123456 ready for ${demoEmail}. Click "Verify OTP & Enter Arena" to proceed.`);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to authenticate walkthrough account');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 2: Verify OTP & Sign In
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,6 +303,66 @@ export const LoginPage: React.FC = () => {
               </div>
             </form>
           )}
+
+          {/* Quick Walkthrough Roles Toolbar */}
+          <div className="mt-6 pt-5 border-t border-[var(--border-line)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-mono font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                ⚡ Walkthrough Credentials (Instant Access)
+              </span>
+              <span className="text-[10px] font-mono text-cyan-500 font-semibold px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                OTP: 123456
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] font-mono mb-3">
+              One-click instant sign in to test each role without waiting for email dispatch:
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('admin@logicq.io')}
+                disabled={loading}
+                className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+              >
+                <div className="text-xs font-bold text-purple-400 flex items-center gap-1">
+                  👑 Admin
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                  admin@logicq.io
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('faculty@logicq.io')}
+                disabled={loading}
+                className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+              >
+                <div className="text-xs font-bold text-cyan-400 flex items-center gap-1">
+                  👨‍🏫 Faculty
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                  faculty@logicq.io
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('student@logicq.io')}
+                disabled={loading}
+                className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+              >
+                <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  🎓 Student
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                  student@logicq.io
+                </div>
+              </button>
+            </div>
+          </div>
+
         </div>
 
         {/* Closed Registration Advisory Note */}
