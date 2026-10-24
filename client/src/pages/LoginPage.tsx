@@ -13,6 +13,7 @@ import {
   Clock,
   KeyRound,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -304,12 +305,18 @@ export const LoginPage: React.FC = () => {
             </form>
           )}
 
-          {/* Quick Walkthrough Roles Toolbar */}
-          <div className="mt-6 pt-5 border-t border-[var(--border-line)]">
+        </div>
+
+        {/* Collapsible Walkthrough / Demo Testing Roles */}
+        <details className="mt-4 text-center group">
+          <summary className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer select-none transition-colors py-1.5 px-3 rounded-lg hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)]">
+            <span>⚡ Demo & Testing Roles (Walkthrough Access)</span>
+            <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-3 p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-left shadow-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-mono font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                ⚡ Walkthrough Credentials (Instant Access)
+              <span className="text-[11px] font-mono font-bold text-[var(--text-main)]">
+                Instant Test Sign In
               </span>
               <span className="text-[10px] font-mono text-cyan-500 font-semibold px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
                 OTP: 123456
@@ -323,7 +330,7 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('admin@logicq.io')}
                 disabled={loading}
-                className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+                className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
               >
                 <div className="text-xs font-bold text-purple-400 flex items-center gap-1">
                   👑 Admin
@@ -337,7 +344,7 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('faculty@logicq.io')}
                 disabled={loading}
-                className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+                className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
               >
                 <div className="text-xs font-bold text-cyan-400 flex items-center gap-1">
                   👨‍🏫 Faculty
@@ -351,7 +358,7 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => handleQuickLogin('student@logicq.io')}
                 disabled={loading}
-                className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all group disabled:opacity-50 cursor-pointer"
+                className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
               >
                 <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                   🎓 Student
@@ -362,8 +369,7 @@ export const LoginPage: React.FC = () => {
               </button>
             </div>
           </div>
-
-        </div>
+        </details>
 
         {/* Closed Registration Advisory Note */}
         <div className="glass-card mt-6 p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-center text-xs text-[var(--text-muted)] leading-relaxed font-mono">
