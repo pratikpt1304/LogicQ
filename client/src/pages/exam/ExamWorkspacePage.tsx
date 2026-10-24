@@ -347,26 +347,26 @@ export const ExamWorkspacePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col">
       {/* Top Proctoring & Institutional Header Bar */}
-      <header className="bg-gray-900 border-b border-gray-800 px-4 py-2.5 flex items-center justify-between text-xs font-mono">
+      <header className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2.5 flex items-center justify-between text-xs font-mono">
         <div className="flex items-center gap-3">
           <Link
             to="/student/tests"
-            className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">My Tests</span>
           </Link>
-          <span className="text-gray-700">|</span>
+          <span className="text-[var(--text-muted)] opacity-50">|</span>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold text-white truncate max-w-[200px] sm:max-w-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-[var(--text-main)] truncate max-w-[200px] sm:max-w-xs">
               {problemData?.title || 'Loading Question...'}
             </span>
           </div>
           {variantId && (
-            <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-[11px]">
+            <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 text-[11px]">
               Variant: {variantId}
             </span>
           )}
@@ -378,13 +378,13 @@ export const ExamWorkspacePage: React.FC = () => {
           <div
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${
               isWithinPrescribedTime
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
             <span className="font-bold">{formatTime(elapsedSec)}</span>
-            <span className="hidden lg:inline text-[10px] text-gray-400">
+            <span className="hidden lg:inline text-[10px] text-[var(--text-muted)]">
               / max {problemData?.expectedTimeMax ?? 8}m ({isWithinPrescribedTime ? '1.0 Mark' : '0.5 Mark'})
             </span>
           </div>
@@ -392,7 +392,7 @@ export const ExamWorkspacePage: React.FC = () => {
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-main)] transition-colors"
             title="Toggle Proctoring Fullscreen Mode"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -403,16 +403,16 @@ export const ExamWorkspacePage: React.FC = () => {
 
       {/* Permanent Locked Banner (Section 7) */}
       {isLocked && (
-        <div className="bg-gradient-to-r from-emerald-950 via-gray-900 to-emerald-950 border-b border-emerald-600/40 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5 text-emerald-300 font-mono">
-            <Lock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 font-mono">
+            <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             <span>
               <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under institutional examination policy, no reattempts, edits, or resets are permitted.
             </span>
           </div>
           <Link
             to="/student/tests"
-            className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold font-mono text-xs transition-colors whitespace-nowrap"
+            className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
           >
             Next Question in Test →
           </Link>
@@ -422,21 +422,21 @@ export const ExamWorkspacePage: React.FC = () => {
       {/* Main Two-Pane Split Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Pane: Question Statement & Visible Test Cases (Section 6) */}
-        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-gray-800 space-y-6">
+        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-gray-400 mb-2">
+            <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] mb-2">
               <span>{problemData?.module}</span>
               <span>•</span>
               <span>{problemData?.difficulty} (Expected: {problemData?.expectedTimeMin}-{problemData?.expectedTimeMax} mins)</span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-[var(--text-main)] tracking-tight">
               {problemData?.title}
             </h1>
           </div>
 
           {problemData?.scenario && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-300 leading-relaxed">
-              <div className="text-xs font-mono text-cyan-400 font-semibold mb-1 uppercase tracking-wider">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-4 text-sm text-[var(--text-main)] leading-relaxed">
+              <div className="text-xs font-mono text-cyan-600 dark:text-cyan-400 font-semibold mb-1 uppercase tracking-wider">
                 Engineering Scenario
               </div>
               {problemData.scenario}
@@ -444,18 +444,18 @@ export const ExamWorkspacePage: React.FC = () => {
           )}
 
           {problemData?.description && (
-            <div className="prose prose-invert max-w-none text-sm text-gray-300">
+            <div className="prose dark:prose-invert max-w-none text-sm text-[var(--text-main)]">
               <StatementMarkdown content={problemData.description} />
             </div>
           )}
 
           {/* Visible Test Cases (Section 6: Exactly 2 visible sample tests) */}
-          <div className="space-y-4 pt-4 border-t border-gray-800">
+          <div className="space-y-4 pt-4 border-t border-[var(--border-line)]">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+              <h3 className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
                 Visible Test Cases (2 Sample Tests)
               </h3>
-              <span className="text-[11px] font-mono text-gray-500">
+              <span className="text-[11px] font-mono text-[var(--text-muted)]">
                 Hidden Test 3 executed server-side
               </span>
             </div>
@@ -463,21 +463,21 @@ export const ExamWorkspacePage: React.FC = () => {
             {problemData?.visibleTestCases?.map((tc: any, idx: number) => (
               <div
                 key={tc.id || idx}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-4 font-mono text-xs space-y-2"
+                className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-4 font-mono text-xs space-y-2"
               >
-                <div className="flex items-center justify-between text-gray-400">
-                  <span className="font-semibold text-gray-200">Sample Test Case #{idx + 1}</span>
-                  <span className="text-[11px] text-emerald-400">Visible</span>
+                <div className="flex items-center justify-between text-[var(--text-muted)]">
+                  <span className="font-semibold text-[var(--text-main)]">Sample Test Case #{idx + 1}</span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Visible</span>
                 </div>
                 <div>
-                  <div className="text-gray-500 text-[11px]">Input:</div>
-                  <pre className="bg-black/60 p-2 rounded text-gray-200 mt-0.5 overflow-x-auto">
+                  <div className="text-[var(--text-muted)] text-[11px]">Input:</div>
+                  <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] p-2 rounded text-[var(--text-main)] mt-0.5 overflow-x-auto">
                     {tc.input}
                   </pre>
                 </div>
                 <div>
-                  <div className="text-gray-500 text-[11px]">Expected Output:</div>
-                  <pre className="bg-black/60 p-2 rounded text-gray-200 mt-0.5 overflow-x-auto">
+                  <div className="text-[var(--text-muted)] text-[11px]">Expected Output:</div>
+                  <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] p-2 rounded text-[var(--text-main)] mt-0.5 overflow-x-auto">
                     {tc.expectedOutput}
                   </pre>
                 </div>
@@ -487,24 +487,24 @@ export const ExamWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right Pane: Code Editor & Execution Panel */}
-        <div className="w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 border-gray-800 bg-gray-950">
+        <div className="w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 border-[var(--border-line)] bg-[var(--bg-base)]">
           {/* Editor Header Bar */}
-          <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex items-center justify-between text-xs font-mono">
-            <span className="text-gray-400 font-semibold">C11 Editor (GCC Sandbox)</span>
+          <div className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2 flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--text-muted)] font-semibold">C11 Editor (GCC Sandbox)</span>
             <div className="flex items-center gap-2">
               <button
                 disabled={isLocked || runMutation.isPending || submitMutation.isPending}
                 onClick={() => runMutation.mutate()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 text-[var(--text-main)] font-medium transition-colors"
               >
-                <Play className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+                <Play className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 fill-cyan-600 dark:fill-cyan-400" />
                 <span>{runMutation.isPending ? 'Running...' : 'Run Visible Tests'}</span>
               </button>
 
               <button
                 disabled={isLocked || runMutation.isPending || submitMutation.isPending}
                 onClick={() => submitMutation.mutate()}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors shadow-lg shadow-emerald-900/30"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors shadow-md shadow-emerald-900/20"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
@@ -530,16 +530,16 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
 
           {/* Bottom Execution & Telemetry Results Drawer */}
-          <div className="h-56 border-t border-gray-800 bg-gray-900 flex flex-col font-mono text-xs">
+          <div className="h-56 border-t border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col font-mono text-xs">
             {/* Tabs */}
-            <div className="flex items-center justify-between border-b border-gray-800 px-3 bg-gray-950">
+            <div className="flex items-center justify-between border-b border-[var(--border-line)] px-3 bg-[var(--bg-surface)]">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveBottomTab('tests')}
                   className={`px-3 py-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
                     activeBottomTab === 'tests'
-                      ? 'border-cyan-500 text-white'
-                      : 'border-transparent text-gray-400 hover:text-gray-200'
+                      ? 'border-cyan-500 text-[var(--text-main)]'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -549,8 +549,8 @@ export const ExamWorkspacePage: React.FC = () => {
                   onClick={() => setActiveBottomTab('telemetry')}
                   className={`px-3 py-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
                     activeBottomTab === 'telemetry'
-                      ? 'border-cyan-500 text-white'
-                      : 'border-transparent text-gray-400 hover:text-gray-200'
+                      ? 'border-cyan-500 text-[var(--text-main)]'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
@@ -559,7 +559,7 @@ export const ExamWorkspacePage: React.FC = () => {
               </div>
 
               {testResults.length > 0 && (
-                <div className="text-[11px] text-gray-400">
+                <div className="text-[11px] text-[var(--text-muted)]">
                   Passed: {testResults.filter((t) => t.passed).length} / {testResults.length}
                 </div>
               )}
@@ -569,7 +569,7 @@ export const ExamWorkspacePage: React.FC = () => {
             <div className="flex-1 p-3 overflow-y-auto">
               {activeBottomTab === 'tests' ? (
                 testResults.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                  <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-xs">
                     Press "Run Visible Tests" to evaluate against sample test cases 1 & 2.
                   </div>
                 ) : (
@@ -579,16 +579,16 @@ export const ExamWorkspacePage: React.FC = () => {
                         key={idx}
                         className={`p-3 rounded-lg border text-xs space-y-1.5 ${
                           tr.passed
-                            ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
-                            : 'bg-red-950/20 border-red-500/30 text-red-200'
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-200'
+                            : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-200'
                         }`}
                       >
                         <div className="flex items-center justify-between font-bold">
                           <span className="flex items-center gap-1.5">
                             {tr.passed ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             ) : (
-                              <XCircle className="w-3.5 h-3.5 text-red-400" />
+                              <XCircle className="w-3.5 h-3.5 text-red-500" />
                             )}
                             Test Case #{tr.testIndex} {tr.isHidden ? '(Hidden Server-Side Test)' : '(Visible)'}
                           </span>
@@ -596,12 +596,12 @@ export const ExamWorkspacePage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                           <div>
-                            <span className="text-gray-400">Expected:</span>
-                            <pre className="bg-black/50 p-1 rounded mt-0.5">{tr.expectedOutput}</pre>
+                            <span className="text-[var(--text-muted)]">Expected:</span>
+                            <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] text-[var(--text-main)] p-1 rounded mt-0.5">{tr.expectedOutput}</pre>
                           </div>
                           <div>
-                            <span className="text-gray-400">Actual:</span>
-                            <pre className="bg-black/50 p-1 rounded mt-0.5">{tr.actualOutput}</pre>
+                            <span className="text-[var(--text-muted)]">Actual:</span>
+                            <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] text-[var(--text-main)] p-1 rounded mt-0.5">{tr.actualOutput}</pre>
                           </div>
                         </div>
                       </div>
@@ -611,33 +611,33 @@ export const ExamWorkspacePage: React.FC = () => {
               ) : (
                 /* Telemetry Panel (Sections 20 - 28) */
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Tab Switches</div>
-                    <div className="text-sm font-bold text-white mt-1">{tabSwitchCount}</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Tab Switches</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{tabSwitchCount}</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Fullscreen Exits</div>
-                    <div className="text-sm font-bold text-white mt-1">{fullScreenExitCount}</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Fullscreen Exits</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{fullScreenExitCount}</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Clipboard Blocked</div>
-                    <div className="text-sm font-bold text-white mt-1">{copyPasteAttempts + cutAttempts}</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Clipboard Blocked</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{copyPasteAttempts + cutAttempts}</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Largest Burst</div>
-                    <div className="text-sm font-bold text-white mt-1">{largestBurstChars} chars</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Largest Burst</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{largestBurstChars} chars</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Total Keystrokes</div>
-                    <div className="text-sm font-bold text-white mt-1">{totalKeystrokes}</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Total Keystrokes</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{totalKeystrokes}</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Active Work Time</div>
-                    <div className="text-sm font-bold text-white mt-1">{activeSec}s</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Active Work Time</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{activeSec}s</div>
                   </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Focus Loss Duration</div>
-                    <div className="text-sm font-bold text-white mt-1">{(totalFocusLossMsRef.current / 1000).toFixed(1)}s</div>
+                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
+                    <div className="text-[var(--text-muted)] text-[10px]">Focus Loss Duration</div>
+                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{(totalFocusLossMsRef.current / 1000).toFixed(1)}s</div>
                   </div>
                   <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
                     <div className="text-gray-500 text-[10px]">Proctoring Mode</div>

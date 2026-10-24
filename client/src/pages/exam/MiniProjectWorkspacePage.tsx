@@ -83,17 +83,17 @@ export const MiniProjectWorkspacePage: React.FC = () => {
 
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center font-mono space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto">
           <Lock className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold border border-amber-500/20">
+          <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-500/20">
             Section 36 & 37 Protocol
           </span>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-[var(--text-main)] tracking-tight">
             Mini-Project Inactive
           </h1>
-          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
+          <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
             {isInactive
               ? 'Under institutional curriculum policy, the integrated mini-project is initially inactive and can only be activated individually by your course faculty mentor.'
               : ((error as any)?.message || 'Unable to access this mini-project.')}
@@ -110,13 +110,13 @@ export const MiniProjectWorkspacePage: React.FC = () => {
                 toast.error(e.message || 'Activation failed');
               }
             }}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold text-xs shadow-md shadow-cyan-950/30 transition-all"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-950/20 transition-all"
           >
             Activate Practice Mode (Self-Paced)
           </button>
           <Link
             to="/student/tests"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-xs transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] font-medium text-xs transition-colors shadow-sm"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to My Tests</span>
@@ -135,26 +135,26 @@ export const MiniProjectWorkspacePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-mono text-xs">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col font-mono text-xs">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
+      <header className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/student/tests" className="text-gray-400 hover:text-white transition-colors">
+          <Link to="/student/tests" className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <span className="text-gray-700">|</span>
+          <span className="text-[var(--text-muted)] opacity-50">|</span>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold text-white text-sm">{project.title}</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-bold text-[var(--text-main)] text-sm">{project.title}</span>
           </div>
-          <span className="px-2.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          <span className="px-2.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400">
             20 Marks Total (Section 35)
           </span>
         </div>
 
         <div className="flex items-center gap-4">
           {isSubmitted && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">
               <Award className="w-3.5 h-3.5" />
               <span>Score: {score} / 20 Marks</span>
             </div>
@@ -162,7 +162,7 @@ export const MiniProjectWorkspacePage: React.FC = () => {
           <button
             disabled={isSubmitted || submitMutation.isPending}
             onClick={() => submitMutation.mutate()}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold transition-colors shadow-lg shadow-emerald-900/30"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold transition-colors shadow-md shadow-emerald-900/20"
           >
             <Send className="w-3.5 h-3.5" />
             <span>{submitMutation.isPending ? 'Evaluating...' : isSubmitted ? 'Submitted' : 'Submit Mini-Project'}</span>
@@ -173,34 +173,34 @@ export const MiniProjectWorkspacePage: React.FC = () => {
       {/* Main Two-Pane Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Project Scenario & 4-Competency Rubric (Section 35) */}
-        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-gray-800 space-y-6">
+        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6">
           <div className="space-y-2">
-            <div className="text-gray-400">Module: {project.moduleId}</div>
-            <h1 className="text-xl font-bold text-white tracking-tight">{project.title}</h1>
+            <div className="text-[var(--text-muted)]">Module: {project.moduleId}</div>
+            <h1 className="text-xl font-bold text-[var(--text-main)] tracking-tight">{project.title}</h1>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2">
-            <div className="text-cyan-400 font-bold uppercase tracking-wider text-[11px]">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-4 space-y-2">
+            <div className="text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-wider text-[11px]">
               Real-World Engineering Scenario
             </div>
-            <p className="text-gray-300 leading-relaxed font-sans text-sm">
+            <p className="text-[var(--text-main)] leading-relaxed font-sans text-sm">
               {project.scenario}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="text-gray-300 font-bold uppercase tracking-wider text-[11px]">
+            <div className="text-[var(--text-main)] font-bold uppercase tracking-wider text-[11px]">
               Technical Requirements
             </div>
-            <div className="bg-black/50 border border-gray-800 rounded-xl p-4 text-gray-300 font-sans text-sm whitespace-pre-line leading-relaxed">
+            <div className="bg-[var(--bg-base)] border border-[var(--border-line)] rounded-xl p-4 text-[var(--text-main)] font-sans text-sm whitespace-pre-line leading-relaxed">
               {project.requirements}
             </div>
           </div>
 
           {/* Rubric Breakdown (Section 35: 4 competencies x 5 marks each = 20) */}
-          <div className="space-y-3 pt-4 border-t border-gray-800">
+          <div className="space-y-3 pt-4 border-t border-[var(--border-line)]">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white uppercase tracking-wider text-[11px]">
+              <h3 className="font-bold text-[var(--text-main)] uppercase tracking-wider text-[11px]">
                 Evaluation Rubric (4 Sections x 5 Marks = 20 Marks)
               </h3>
             </div>
@@ -211,15 +211,15 @@ export const MiniProjectWorkspacePage: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col justify-between"
+                    className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-3 flex flex-col justify-between"
                   >
-                    <div className="text-gray-400 text-[11px] font-sans">{r.competency}</div>
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-800/80 mt-2 font-mono font-bold">
-                      <span className="text-gray-500">Max: {r.maxMarks}</span>
+                    <div className="text-[var(--text-muted)] text-[11px] font-sans">{r.competency}</div>
+                    <div className="flex items-center justify-between pt-2 border-t border-[var(--border-line)] mt-2 font-mono font-bold">
+                      <span className="text-[var(--text-muted)]">Max: {r.maxMarks}</span>
                       {achieved !== null && achieved !== undefined ? (
-                        <span className="text-emerald-400 font-bold">Awarded: {String(achieved)}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">Awarded: {String(achieved)}</span>
                       ) : (
-                        <span className="text-gray-600">Pending</span>
+                        <span className="text-[var(--text-muted)] opacity-60">Pending</span>
                       )}
                     </div>
                   </div>
@@ -230,8 +230,8 @@ export const MiniProjectWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right: Code Editor */}
-        <div className="w-full lg:w-1/2 flex flex-col bg-gray-950">
-          <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex items-center justify-between text-gray-400 font-semibold">
+        <div className="w-full lg:w-1/2 flex flex-col bg-[var(--bg-base)]">
+          <div className="bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-4 py-2 flex items-center justify-between text-[var(--text-muted)] font-semibold">
             <span>Modular C Architecture Editor</span>
             <span>C11 Standard</span>
           </div>
