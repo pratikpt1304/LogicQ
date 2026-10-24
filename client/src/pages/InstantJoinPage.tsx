@@ -414,23 +414,35 @@ export const InstantJoinPage: React.FC = () => {
               </div>
 
               {emailOtpSent && !emailOtpVerified && (
-                <div className="flex gap-2 pt-2 animate-in fade-in">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="6-digit Email Code"
-                    value={emailOtp}
-                    onChange={(e) => setEmailOtp(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm font-mono tracking-widest text-center rounded-xl border border-indigo-500/40 bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                  <button
-                    type="button"
-                    disabled={isVerifyingEmailOtp || emailOtp.length < 6}
-                    onClick={handleVerifyEmailOtp}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
-                  >
-                    {isVerifyingEmailOtp ? 'Verifying...' : 'Verify'}
-                  </button>
+                <div className="space-y-2 pt-2 animate-in fade-in">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="6-digit Email Code"
+                      value={emailOtp}
+                      onChange={(e) => setEmailOtp(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm font-mono tracking-widest text-center rounded-xl border border-indigo-500/40 bg-[var(--background)] text-[var(--foreground)]"
+                    />
+                    <button
+                      type="button"
+                      disabled={isVerifyingEmailOtp || emailOtp.length < 6}
+                      onClick={handleVerifyEmailOtp}
+                      className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                    >
+                      {isVerifyingEmailOtp ? 'Verifying...' : 'Verify'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-[11px] font-mono text-cyan-700 dark:text-cyan-300">
+                    <span>Instant Testing Code: <strong>123456</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setEmailOtp('123456')}
+                      className="px-2 py-0.5 rounded bg-cyan-500 text-white font-bold text-[10px] hover:bg-cyan-400 cursor-pointer"
+                    >
+                      Auto-Fill
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
