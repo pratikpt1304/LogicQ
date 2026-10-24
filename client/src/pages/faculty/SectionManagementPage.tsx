@@ -491,7 +491,7 @@ export const SectionManagementPage: React.FC = () => {
                     <div className="flex items-center gap-3">
                       {/* Stylized Division Badge */}
                       <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-mono font-bold text-indigo-400 text-sm shadow-inner shrink-0">
-                        {section.sectionName.slice(0, 5).toUpperCase()}
+                        {(section.sectionName || section.subject || 'SEC').slice(0, 5).toUpperCase()}
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-[var(--foreground)] line-clamp-1">
@@ -625,7 +625,7 @@ export const SectionManagementPage: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold font-mono">
-                {selectedSection.sectionName.slice(0, 3).toUpperCase()}
+                {(selectedSection.sectionName || selectedSection.subject || 'SEC').slice(0, 3).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2">

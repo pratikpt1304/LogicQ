@@ -893,7 +893,7 @@ export const ProfilePage: React.FC = () => {
                 </Link>
               </div>
 
-              {adminSections.length === 0 ? (
+              {(!Array.isArray(adminSections) || adminSections.length === 0) ? (
                 <div className="py-8 text-center space-y-2">
                   <p className="text-xs text-[var(--text-muted)]">No classroom sections managed yet.</p>
                   <Link
@@ -905,20 +905,23 @@ export const ProfilePage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {adminSections.slice(0, 4).map((sec: any) => {
-                    const studentCount = sec._count?.students ?? sec.students?.length ?? 0;
+                  {(Array.isArray(adminSections) ? adminSections : []).slice(0, 4).map((sec: any) => {
+                    const studentCount = sec?._count?.students ?? sec?.students?.length ?? 0;
+                    const sName = sec?.sectionName || sec?.name || 'Section';
+                    const subj = sec?.subject || 'C Programming';
+                    const jCode = sec?.joinCode || 'LQ-JOIN';
                     return (
                       <div
-                        key={sec.id}
+                        key={sec?.id || jCode}
                         className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/40 transition"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                            {sec.sectionName.slice(0, 3).toUpperCase()}
+                            {sName.slice(0, 3).toUpperCase()}
                           </div>
                           <div>
                             <div className="font-semibold text-sm text-[var(--text-main)]">
-                              {sec.sectionName} — {sec.subject}
+                              {sName} — {subj}
                             </div>
                             <div className="text-[11px] text-[var(--text-muted)]">
                               {studentCount} student{studentCount === 1 ? '' : 's'} enrolled
@@ -928,12 +931,12 @@ export const ProfilePage: React.FC = () => {
 
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleCopySectionCode(sec.joinCode, `profile-sec-${sec.id}`)}
+                            onClick={() => handleCopySectionCode(jCode, `profile-sec-${sec?.id || jCode}`)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-md font-mono text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
                             title="Copy Section Code"
                           >
-                            <span>{sec.joinCode}</span>
-                            {copiedSectionCode === `profile-sec-${sec.id}` ? (
+                            <span>{jCode}</span>
+                            {copiedSectionCode === `profile-sec-${sec?.id || jCode}` ? (
                               <Check className="w-3.5 h-3.5 text-emerald-400" />
                             ) : (
                               <Copy className="w-3.5 h-3.5" />
@@ -953,7 +956,7 @@ export const ProfilePage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Code2 className="w-5 h-5 text-cyan-400" />
                   <h3 className="text-base font-bold text-[var(--text-main)]">
-                    Authored Tests & Practicals ({adminTests.length})
+                    Authored Tests & Practicals ({Array.isArray(adminTests) ? adminTests.length : 0})
                   </h3>
                 </div>
                 <Link
@@ -965,7 +968,7 @@ export const ProfilePage: React.FC = () => {
                 </Link>
               </div>
 
-              {adminTests.length === 0 ? (
+              {(!Array.isArray(adminTests) || adminTests.length === 0) ? (
                 <div className="py-8 text-center space-y-2">
                   <p className="text-xs text-[var(--text-muted)]">No assessment tests created yet.</p>
                   <Link
@@ -977,30 +980,30 @@ export const ProfilePage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {adminTests.slice(0, 4).map((test: any) => (
+                  {(Array.isArray(adminTests) ? adminTests : []).slice(0, 4).map((test: any) => (
                     <div
-                      key={test.id}
+                      key={test?.id || Math.random()}
                       className="flex items-center justify-between p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 transition"
                     >
                       <div>
                         <div className="font-semibold text-sm text-[var(--text-main)]">
-                          {test.title}
+                          {test?.title || 'Assessment Test'}
                         </div>
                         <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5 font-mono">
-                          <span>{test.durationMinutes || 60} mins</span>
+                          <span>{test?.durationMinutes || 60} mins</span>
                           <span>•</span>
-                          <span>{test.totalQuestions || test.questions?.length || 2} Problems</span>
+                          <span>{test?.totalQuestions || test?.questions?.length || 2} Problems</span>
                         </div>
                       </div>
 
                       <span
                         className={`text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full ${
-                          test.status === 'PUBLISHED'
+                          test?.status === 'PUBLISHED'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         }`}
                       >
-                        {test.status || 'ACTIVE'}
+                        {test?.status || 'ACTIVE'}
                       </span>
                     </div>
                   ))}

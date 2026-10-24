@@ -158,13 +158,17 @@ export const DashboardPage: React.FC = () => {
     },
   });
 
-  const totalEnrolledAcrossSections = facultySections.reduce((acc: number, s: any) => {
-    return acc + (s._count?.students ?? s.students?.length ?? 0);
+  const sectionsList: any[] = Array.isArray(facultySections) ? facultySections : [];
+  const testsList: any[] = Array.isArray(facultyTests) ? facultyTests : [];
+  const submissionsList: any[] = Array.isArray(recentSubmissions) ? recentSubmissions : [];
+
+  const totalEnrolledAcrossSections = sectionsList.reduce((acc: number, s: any) => {
+    return acc + (s?._count?.students ?? s?.students?.length ?? 0);
   }, 0);
   const displayTotalStudents = globalStats?.totalUsers || totalEnrolledAcrossSections || 0;
-  const activeSectionsCount = facultySections.length;
-  const activeTestsCount = facultyTests.length;
-  const totalSubmissionsCount = globalStats?.totalSubmissions || recentSubmissions.length || 0;
+  const activeSectionsCount = sectionsList.length;
+  const activeTestsCount = testsList.length;
+  const totalSubmissionsCount = globalStats?.totalSubmissions || submissionsList.length || 0;
 
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
@@ -448,7 +452,7 @@ export const DashboardPage: React.FC = () => {
                   </Link>
                 </div>
 
-                {facultySections.length === 0 ? (
+                {sectionsList.length === 0 ? (
                   <div className="py-8 text-center space-y-3">
                     <p className="text-xs text-[var(--text-muted)]">No classroom sections created yet.</p>
                     <Link
@@ -461,35 +465,38 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {facultySections.slice(0, 4).map((sec: any) => {
-                      const count = sec._count?.students ?? sec.students?.length ?? 0;
+                    {sectionsList.slice(0, 4).map((sec: any) => {
+                      const count = sec?._count?.students ?? sec?.students?.length ?? 0;
+                      const sName = sec?.sectionName || sec?.name || 'Section';
+                      const subj = sec?.subject || 'C Programming';
+                      const jCode = sec?.joinCode || 'LQ-JOIN';
                       return (
                         <div
-                          key={sec.id}
+                          key={sec?.id || jCode}
                           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/40 transition"
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                              {sec.sectionName.slice(0, 3).toUpperCase()}
+                              {sName.slice(0, 3).toUpperCase()}
                             </div>
                             <div>
                               <div className="font-semibold text-sm text-[var(--text-main)]">
-                                {sec.sectionName} — {sec.subject}
+                                {sName} — {subj}
                               </div>
                               <div className="text-[11px] text-[var(--text-muted)]">
-                                {sec.course} • {count} student{count === 1 ? '' : 's'} enrolled
+                                {sec?.course || 'Engineering'} • {count} student{count === 1 ? '' : 's'} enrolled
                               </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-end sm:self-center">
                             <button
-                              onClick={() => handleCopyCode(sec.joinCode, `code-${sec.id}`)}
+                              onClick={() => handleCopyCode(jCode, `code-${sec?.id || jCode}`)}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
                               title="Copy Join Code"
                             >
-                              <span>{sec.joinCode}</span>
-                              {copiedCodeKey === `code-${sec.id}` ? (
+                              <span>{jCode}</span>
+                              {copiedCodeKey === `code-${sec?.id || jCode}` ? (
                                 <Check className="w-3.5 h-3.5 text-emerald-400" />
                               ) : (
                                 <Copy className="w-3.5 h-3.5" />
@@ -528,7 +535,7 @@ export const DashboardPage: React.FC = () => {
                   </Link>
                 </div>
 
-                {facultyTests.length === 0 ? (
+                {testsList.length === 0 ? (
                   <div className="py-8 text-center space-y-3">
                     <p className="text-xs text-[var(--text-muted)]">No assessment tests created yet.</p>
                     <Link
@@ -541,34 +548,34 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {facultyTests.slice(0, 4).map((test: any) => (
+                    {testsList.slice(0, 4).map((test: any) => (
                       <div
-                        key={test.id}
+                        key={test?.id || Math.random()}
                         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 transition"
                       >
                         <div>
                           <div className="font-semibold text-sm text-[var(--text-main)]">
-                            {test.title}
+                            {test?.title || 'Assessment Test'}
                           </div>
                           <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3 text-[var(--text-muted)]" />
-                              {test.durationMinutes || 60} mins
+                              {test?.durationMinutes || 60} mins
                             </span>
                             <span>•</span>
-                            <span>{test.totalQuestions || test.questions?.length || 2} Problems</span>
+                            <span>{test?.totalQuestions || test?.questions?.length || 2} Problems</span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2">
                           <span
                             className={`text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full ${
-                              test.status === 'PUBLISHED'
+                              test?.status === 'PUBLISHED'
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                 : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             }`}
                           >
-                            {test.status || 'ACTIVE'}
+                            {test?.status || 'ACTIVE'}
                           </span>
                           <Link
                             to="/faculty/tests"
@@ -649,27 +656,27 @@ export const DashboardPage: React.FC = () => {
                   <span className="text-[11px] font-mono text-[var(--text-muted)]">Recent Submissions</span>
                 </div>
 
-                {recentSubmissions.length === 0 ? (
+                {submissionsList.length === 0 ? (
                   <div className="py-6 text-center space-y-1.5">
                     <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto opacity-50" />
                     <p className="text-xs text-[var(--text-muted)]">Compiler sandbox ready for evaluation.</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {recentSubmissions.slice(0, 5).map((sub: any) => {
-                      const verdict = sub.verdict || 'PENDING';
+                    {submissionsList.slice(0, 5).map((sub: any) => {
+                      const verdict = sub?.verdict || 'PENDING';
                       const isAcc = verdict === 'ACCEPTED';
                       return (
                         <div
-                          key={sub.id}
+                          key={sub?.id || Math.random()}
                           className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs"
                         >
                           <div className="space-y-0.5 truncate max-w-[65%]">
                             <div className="font-semibold text-[var(--text-main)] truncate">
-                              {sub.user?.fullName || sub.user?.username || 'Student'}
+                              {sub?.user?.fullName || sub?.user?.username || 'Student'}
                             </div>
                             <div className="text-[10px] text-[var(--text-muted)] truncate font-mono">
-                              {sub.problem?.title || 'C Program'}
+                              {sub?.problem?.title || 'C Program'}
                             </div>
                           </div>
 
