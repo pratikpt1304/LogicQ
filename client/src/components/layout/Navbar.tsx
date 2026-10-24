@@ -122,44 +122,25 @@ export const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-2.5">
           {user ? (
             <>
-              {/* Daily Streak Pill */}
-              <div
-                title="Current Daily Challenge Streak"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
-              >
-                <Flame className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
-                <span>{user.currentStreak}d streak</span>
-              </div>
+              {/* Student Gamification Stats (Only visible to Students) */}
+              {isStudent && (
+                <>
+                  <div
+                    title="Current Daily Challenge Streak"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
+                  >
+                    <Flame className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
+                    <span>{user.currentStreak}d streak</span>
+                  </div>
 
-              {/* Total Points Pill */}
-              <div
-                title="Total LogicQ Score"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold"
-              >
-                <span>PTS</span>
-                <span>{user.totalPoints}</span>
-              </div>
-
-              {/* Admin Gateway Pill */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold hover:bg-[var(--bg-surface-hover)] transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
-                  <span>Admin</span>
-                </Link>
-              )}
-
-              {/* Faculty Gateway Pill */}
-              {isFaculty && (
-                <Link
-                  to="/faculty/sections"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-indigo-400 text-xs font-mono font-semibold hover:bg-[var(--bg-surface-hover)] transition-colors"
-                >
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>Faculty</span>
-                </Link>
+                  <div
+                    title="Total LogicQ Score"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold"
+                  >
+                    <span>PTS</span>
+                    <span>{user.totalPoints}</span>
+                  </div>
+                </>
               )}
 
               {/* Theme Toggle Button */}
@@ -470,8 +451,10 @@ export const Navbar: React.FC = () => {
             {user ? (
               <>
                 <div className="flex items-center justify-between px-3 py-1 text-xs font-mono text-[var(--text-muted)]">
-                  <span>{user.maskedPrn || user.displayName || 'Student'}</span>
-                  <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
+                  <span>{user.maskedPrn || user.displayName || (isAdmin ? 'Admin' : isFaculty ? 'Faculty' : 'Student')}</span>
+                  {isStudent && (
+                    <span className="text-[var(--color-accent)] font-bold">{user.totalPoints} PTS</span>
+                  )}
                 </div>
                 <Link
                   to="/profile"
