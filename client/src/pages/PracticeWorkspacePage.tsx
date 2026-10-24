@@ -35,6 +35,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Lock,
+  Bookmark,
+  FileText,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -44,6 +46,11 @@ import {
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 import { PracticeTimer, PracticeTimerHandle } from '../components/practice/PracticeTimer.js';
+import { JeeQuestionPalette } from '../components/practice/JeeQuestionPalette.js';
+import { JeeSubmitModal } from '../components/practice/JeeSubmitModal.js';
+import { JeeQuestionPaperModal } from '../components/practice/JeeQuestionPaperModal.js';
+import { JeeInstructionsModal } from '../components/practice/JeeInstructionsModal.js';
+import { PRACTICE_CONFIG } from '../config/practice.config.js';
 
 interface ExecutionErrorState {
   message: string;
@@ -68,6 +75,33 @@ export const PracticeWorkspacePage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
+  const [isPaletteDrawerOpen, setIsPaletteDrawerOpen] = useState(false);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [isQuestionPaperOpen, setIsQuestionPaperOpen] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+
+  // JEE Module Tracking State
+  const [markedForReview, setMarkedForReview] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`logicq_marked_${moduleSlug}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [visitedProblems, setVisitedProblems] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`logicq_visited_${moduleSlug}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [solvedSlugs, setSolvedSlugs] = useState<Set<string>>(new Set());
+  const sessionCodeMapRef = useRef<Record<string, string>>({});
   const [code, setCode] = useState<string>('');
   const [customInput, setCustomInput] = useState<string>('');
   const [runResult, setRunResult] = useState<any | null>(null);
@@ -248,8 +282,129 @@ export const PracticeWorkspacePage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
+  
+  const moduleConfig = PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug) || {
+    title: 'Control Structures',
+    order: 1,
+    slug: moduleSlug || 'control-structures',
+    totalQuestions: 20,
+  };
+
+  const problem = responseData?.data?.problem;
+  const userProgress = responseData?.data?.userProgress;
+  const previousAttempts = (userProgress?.attemptsCount || userProgress?.attempts || 0);
+  const currentAttempt = previousAttempts + 1;
+
   const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
   const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
+  
+  // Track visited questions whenever problemSlug changes
+  useEffect(() => {
+    if (problemSlug) {
+      setVisitedProblems((prev) => {
+        if (prev.has(problemSlug)) return prev;
+        const next = new Set(prev);
+        next.add(problemSlug);
+        try {
+          localStorage.setItem(`logicq_visited_${moduleSlug}`, JSON.stringify([...next]));
+        } catch {}
+        return next;
+      });
+    }
+  }, [problemSlug, moduleSlug]);
+
+  // Sync solved problems
+  useEffect(() => {
+    if (moduleProblems && moduleProblems.length > 0) {
+      setSolvedSlugs((prev) => {
+        const next = new Set(prev);
+        moduleProblems.forEach((p: any) => {
+          if (p.isSolved) next.add(p.slug);
+        });
+        if (userProgress?.isSolved && problemSlug) {
+          next.add(problemSlug);
+        }
+        return next;
+      });
+    }
+  }, [moduleProblems, userProgress, problemSlug]);
+
+  // Fast switching handler that preserves current code in memory & storage
+  const handleSelectProblem = (targetSlug: string) => {
+    if (problem?.slug) {
+      sessionCodeMapRef.current[problem.slug] = code;
+    }
+    navigate(`/practice/${moduleSlug}/${targetSlug}`);
+  };
+
+  const handleMarkForReviewAndNext = () => {
+    if (!problemSlug) return;
+    setMarkedForReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(problemSlug)) {
+        next.delete(problemSlug);
+        toast.info(`Removed review bookmark from Q#${problem?.moduleOrder || ''}`);
+      } else {
+        next.add(problemSlug);
+        toast.success(`Q#${problem?.moduleOrder || ''} marked for review 🔖`);
+      }
+      try {
+        localStorage.setItem(`logicq_marked_${moduleSlug}`, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+
+    if (nextProblem) {
+      handleSelectProblem(nextProblem.slug);
+    } else {
+      toast.info('You are at the final question. Review your palette or submit.');
+    }
+  };
+
+  const handleClearResponse = () => {
+    if (problem?.starterCode) {
+      const clean = cleanDraftCode(problem.starterCode);
+      setCode(clean);
+      handleCodeChange(clean);
+      setRunResult(null);
+      setSubmissionResult(null);
+      setExecutionError(null);
+      toast.info('Editor cleared. Reverted to starter code.');
+    }
+  };
+
+  const handleSaveAndNext = async () => {
+    if (code.trim()) {
+      try {
+        const res: any = await submitMutation.mutateAsync();
+        const sub = res?.data?.submission;
+        if (sub?.verdict === 'ACCEPTED') {
+          setSolvedSlugs((prev) => new Set(prev).add(problemSlug || ''));
+          if (nextProblem) {
+            handleSelectProblem(nextProblem.slug);
+          } else {
+            setIsSubmitModalOpen(true);
+          }
+          return;
+        }
+      } catch {}
+    }
+
+    if (nextProblem) {
+      handleSelectProblem(nextProblem.slug);
+    } else {
+      setIsSubmitModalOpen(true);
+    }
+  };
+
+  const handleConfirmFinalSubmit = async () => {
+    try {
+      await api.post('/practice/complete-module', { moduleSlug });
+    } catch {}
+    queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+    queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
+  };
+
   const prevProblem = currentProblemIndex > 0 ? moduleProblems[currentProblemIndex - 1] : null;
   const nextProblem =
     currentProblemIndex >= 0 && currentProblemIndex < moduleProblems.length - 1
@@ -279,11 +434,6 @@ export const PracticeWorkspacePage: React.FC = () => {
     setActiveBottomTab('custom');
   }, [problemSlug]);
 
-  const problem = responseData?.data?.problem;
-  const userProgress = responseData?.data?.userProgress;
-  const previousAttempts = (userProgress?.attemptsCount || userProgress?.attempts || 0);
-  const currentAttempt = previousAttempts + 1;
-
   // Restore local draft or starter code, then sync cloud draft
   useEffect(() => {
     if (problem && problem.id !== initializedProblemIdRef.current) {
@@ -293,7 +443,10 @@ export const PracticeWorkspacePage: React.FC = () => {
       const localDraft = DraftSyncService.getLocalDraft(problem.slug, true);
       let initialCode = cleanDraftCode(problem.starterCode);
 
-      if (localDraft?.code) {
+      if (sessionCodeMapRef.current[problem.slug]) {
+        initialCode = sessionCodeMapRef.current[problem.slug];
+        setCode(initialCode);
+      } else if (localDraft?.code) {
         initialCode = cleanDraftCode(localDraft.code);
         setCode(initialCode);
       } else {
@@ -327,6 +480,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const handleCodeChange = (nextCode: string) => {
     setCode(nextCode);
     if (problem?.slug) {
+      sessionCodeMapRef.current[problem.slug] = nextCode;
       const draftObj: DraftData = {
         problemId: problem.id,
         problemSlug: problem.slug,
@@ -444,6 +598,9 @@ export const PracticeWorkspacePage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['practice-problem', problemSlug] });
     queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
     queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+    if (problemSlug) {
+      setSolvedSlugs((prev) => new Set(prev).add(problemSlug));
+    }
 
     const sec = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
     const timeFormatted = sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : sec > 0 ? `${sec}s` : '< 1m';
@@ -625,158 +782,58 @@ export const PracticeWorkspacePage: React.FC = () => {
           </button>
         </div>
       )}
-      {/* Top Workspace Header */}
-      <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/60 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-          <Link
-            to={`/practice/${moduleSlug}`}
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors shrink-0"
-            title="Back to module problems"
+      {/* Top JEE CBT Exam Header */}
+      <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsExitConfirmOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-rose-400 transition shrink-0"
+            title="Exit test session and return to modules"
           >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exit Test</span>
+          </button>
 
           <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
 
-          {/* Prev / Next Chevrons */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              type="button"
-              disabled={!prevProblem}
-              onClick={() => prevProblem && navigate(`/practice/${moduleSlug}/${prevProblem.slug}`)}
-              className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              title={prevProblem ? `Previous: #${prevProblem.moduleOrder} ${prevProblem.title}` : 'First problem'}
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              disabled={!nextProblem}
-              onClick={() => nextProblem && navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
-              className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              title={nextProblem ? `Next: #${nextProblem.moduleOrder} ${nextProblem.title}` : 'Last problem'}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          {/* Module & Question Identity */}
+          <div className="min-w-0 flex items-center gap-2">
+            <span className="hidden md:inline px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[11px] font-mono font-bold shrink-0">
+              MOD {moduleConfig.order}
+            </span>
+            <span className="font-mono text-xs font-bold text-[var(--text-main)] truncate max-w-[130px] sm:max-w-[200px]">
+              {moduleConfig.title}
+            </span>
+            <span className="text-xs font-mono text-indigo-400 font-bold px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25 shrink-0">
+              Q{problem.moduleOrder} of {moduleProblems.length || 20}
+            </span>
           </div>
 
-          <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
-
-          {/* Problem Selector Dropdown */}
-          <div className="relative" ref={pickerRef}>
+          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => setIsProblemPickerOpen((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] transition-colors"
-              title="Select Question from Module"
+              onClick={() => setIsQuestionPaperOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+              title="View complete question paper"
             >
-              <span className="text-[var(--accent)] font-bold">#{problem.moduleOrder}</span>
-              <span className="hidden sm:inline font-sans font-medium truncate max-w-[120px] md:max-w-[200px]">
-                {problem.title}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+              <FileText className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Question Paper</span>
             </button>
-
-            {isProblemPickerOpen && (
-              <div className="absolute left-0 top-full mt-1 w-72 sm:w-80 max-h-96 overflow-y-auto rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] shadow-2xl z-50 p-1.5 space-y-1">
-                <div className="px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-line)] flex items-center justify-between">
-                  <span>Module Questions ({moduleProblems.length})</span>
-                  <span>Select to switch</span>
-                </div>
-                {moduleProblems.map((p: any) => {
-                  const isCurrent = p.slug === problemSlug;
-                  return (
-                    <button
-                      key={p.id || p.slug}
-                      type="button"
-                      onClick={() => {
-                        setIsProblemPickerOpen(false);
-                        if (!isCurrent) {
-                          navigate(`/practice/${moduleSlug}/${p.slug}`);
-                        }
-                      }}
-                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs transition-colors ${
-                        isCurrent
-                          ? 'bg-[var(--accent)]/15 text-[var(--accent)] font-semibold border border-[var(--accent)]/30'
-                          : 'hover:bg-[var(--bg-panel)] text-[var(--text-main)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono text-[11px] text-[var(--text-muted)] w-5 shrink-0">
-                          #{p.moduleOrder}
-                        </span>
-                        <span className="truncate">{p.title}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {p.isSolved && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        )}
-                        <DifficultyBadge difficulty={p.difficulty as any} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Active Attempt Badge */}
-          <span
-            className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border shrink-0 bg-indigo-500/10 text-indigo-400 border-indigo-500/30 font-bold"
-            title={`Active Attempt: Attempt #${currentAttempt} (${previousAttempts} prior submission${previousAttempts === 1 ? '' : 's'})`}
-          >
-            <span>Attempt #{currentAttempt}</span>
-            {previousAttempts > 0 && (
-              <span className="text-[10px] text-[var(--text-muted)] font-normal hidden sm:inline">
-                ({previousAttempts} prior)
-              </span>
-            )}
-          </span>
-
-          <div className="hidden lg:flex items-center gap-1.5 min-w-0">
-            <DifficultyBadge difficulty={problem.difficulty as any} />
-            {(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
-              <>
-                <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Solved</span>
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 shrink-0" title="Total attempts on this problem">
-                  <span>
-                    {(userProgress?.attemptsCount || userProgress?.attempts || 1)}{' '}
-                    {(userProgress?.attemptsCount || userProgress?.attempts || 1) === 1 ? 'Attempt' : 'Attempts'}
-                  </span>
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0" title="Time taken to solve">
-                  <Clock className="w-3 h-3" />
-                  <span>
-                    {(() => {
-                      const s = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
-                      if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
-                      if (s > 0) return `${s}s`;
-                      return '< 1m';
-                    })()}
-                  </span>
-                </span>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsInstructionsOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+              title="Test rules & palette guide"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>Instructions</span>
+            </button>
           </div>
         </div>
 
-        {/* Action Buttons & Timer */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {nextProblem && (userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
-            <button
-              onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
-              className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-xs font-bold text-[#0C0F1F] shadow-sm shadow-emerald-500/20 transition-all animate-pulse hover:animate-none"
-              title={`Next Question: #${nextProblem.moduleOrder} ${nextProblem.title}`}
-            >
-              <span className="hidden sm:inline">Next Question</span>
-              <span className="sm:hidden">Next</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-
+        {/* Right Utility: Timer, Proctoring, and Mobile Palette Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
           {problem && (
             <PracticeTimer
               ref={practiceTimerRef}
@@ -787,71 +844,41 @@ export const PracticeWorkspacePage: React.FC = () => {
               hideTimerPreference={Boolean(user?.hidePracticeTimer)}
             />
           )}
-          {user?.id && (
-            <span className="hidden lg:flex items-center gap-1 text-[11px] font-mono text-[var(--text-muted)] pr-2 border-r border-[var(--border-line)]">
-              <Cloud
-                className={`w-3.5 h-3.5 ${
-                  draftSyncStatus === 'saving'
-                    ? 'text-amber-400 animate-pulse'
-                    : 'text-emerald-400'
-                }`}
-              />
-              <span>{draftSyncStatus === 'saving' ? 'Saving...' : 'Synced'}</span>
-            </span>
-          )}
+
           {/* Proctoring Badge & Fullscreen Toggle */}
           <button
             type="button"
             onClick={toggleFullscreen}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
               isFullscreen
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40 animate-pulse hover:animate-none'
+                : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40 animate-pulse'
             }`}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode (Required in Proctored Mode)'}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Fullscreen On' : 'Go Fullscreen'}</span>
+            <span className="hidden sm:inline">{isFullscreen ? 'Fullscreen' : 'Go Fullscreen'}</span>
           </button>
 
           {/* Tab Switch Counter Badge */}
-          {tabSwitchCount > 0 ? (
+          {tabSwitchCount > 0 && (
             <span
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 shadow-sm shadow-rose-500/20 animate-pulse"
-              title={`${tabSwitchCount} tab switch / window focus loss event(s) detected! Logged for anti-cheat audit.`}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 animate-pulse"
+              title={`${tabSwitchCount} tab switch(es) detected`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Switches: {tabSwitchCount}</span>
-            </span>
-          ) : (
-            <span
-              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
-              title="Tab Guard active - zero tab switches detected"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Tab Guard: 0</span>
+              <span>${tabSwitchCount}</span>
             </span>
           )}
 
+          {/* Mobile Question Palette Drawer Toggle */}
           <button
-            onClick={() => runMutation.mutate()}
-            disabled={runMutation.isPending || submitMutation.isPending}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors disabled:opacity-50"
-            title="Run solution against custom stdin"
+            type="button"
+            onClick={() => setIsPaletteDrawerOpen(true)}
+            className="xl:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-mono text-xs font-bold hover:bg-cyan-500/25 transition cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
-            <span className="hidden sm:inline">{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
-            <span className="sm:hidden">{runMutation.isPending ? '...' : 'Run'}</span>
-          </button>
-
-          <button
-            onClick={() => submitMutation.mutate()}
-            disabled={submitMutation.isPending || runMutation.isPending}
-            className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-xs font-bold text-white shadow-sm shadow-[var(--accent)]/20 transition-all disabled:opacity-50"
-            title="Submit solution for judging against test cases"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>{submitMutation.isPending ? 'Submitting...' : 'Submit'}</span>
+            <Layers className="w-3.5 h-3.5" />
+            <span>Palette ({solvedSlugs.size}/{moduleProblems.length || 20})</span>
           </button>
         </div>
       </div>
@@ -1381,9 +1408,208 @@ export const PracticeWorkspacePage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Right Pane: Authentic JEE Question Palette (Desktop XL+) */}
+        <div className="hidden xl:flex w-72 2xl:w-80 flex-col shrink-0 border-l border-[var(--border-line)] h-full overflow-hidden">
+          <JeeQuestionPalette
+            moduleTitle={moduleConfig.title}
+            moduleOrder={moduleConfig.order}
+            problems={moduleProblems}
+            currentProblemSlug={problemSlug || ''}
+            visitedProblems={visitedProblems}
+            markedForReview={markedForReview}
+            solvedSlugs={solvedSlugs}
+            onSelectProblem={handleSelectProblem}
+            onSubmitTest={() => setIsSubmitModalOpen(true)}
+            user={user}
+            onOpenQuestionPaper={() => setIsQuestionPaperOpen(true)}
+            onOpenInstructions={() => setIsInstructionsOpen(true)}
+          />
+        </div>
       </div>
 
-      {/* Mandatory Proctored Fullscreen Modal */}
+      {/* Pinned Bottom JEE CBT Action Bar */}
+      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClearResponse}
+            className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+            title="Clear editor and revert to starter template"
+          >
+            <RotateCcw className="w-3.5 h-3.5 inline mr-1" />
+            <span className="hidden sm:inline">Clear Response</span>
+            <span className="sm:hidden">Clear</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMarkForReviewAndNext}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+              markedForReview.has(problemSlug || '')
+                ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30'
+            }`}
+            title="Mark question for review and move to next"
+          >
+            <Bookmark className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">
+              {markedForReview.has(problemSlug || '') ? 'Unmark Review & Next' : 'Mark for Review & Next'}
+            </span>
+            <span className="sm:hidden">Review &amp; Next</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!prevProblem}
+            onClick={() => prevProblem && handleSelectProblem(prevProblem.slug)}
+            className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Previous</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveAndNext}
+            disabled={submitMutation.isPending || runMutation.isPending}
+            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            title="Save & Submit solution, then advance to next question"
+          >
+            <span>{submitMutation.isPending ? 'Submitting...' : 'Save & Next'}</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsSubmitModalOpen(true)}
+            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer ml-1 sm:ml-2"
+            title="Submit entire module test"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">SUBMIT MODULE TEST</span>
+            <span className="md:hidden">SUBMIT</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Slide-Over Question Palette Drawer */}
+      {isPaletteDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm xl:hidden animate-in fade-in duration-150">
+          <div className="w-80 max-w-[85vw] h-full shadow-2xl animate-in slide-in-from-right duration-200">
+            <JeeQuestionPalette
+              moduleTitle={moduleConfig.title}
+              moduleOrder={moduleConfig.order}
+              problems={moduleProblems}
+              currentProblemSlug={problemSlug || ''}
+              visitedProblems={visitedProblems}
+              markedForReview={markedForReview}
+              solvedSlugs={solvedSlugs}
+              onSelectProblem={handleSelectProblem}
+              onSubmitTest={() => {
+                setIsPaletteDrawerOpen(false);
+                setIsSubmitModalOpen(true);
+              }}
+              user={user}
+              onOpenQuestionPaper={() => {
+                setIsPaletteDrawerOpen(false);
+                setIsQuestionPaperOpen(true);
+              }}
+              onOpenInstructions={() => {
+                setIsPaletteDrawerOpen(false);
+                setIsInstructionsOpen(true);
+              }}
+              isMobileDrawer={true}
+              onCloseMobileDrawer={() => setIsPaletteDrawerOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* JEE Assessment Modals */}
+      <JeeSubmitModal
+        isOpen={isSubmitModalOpen}
+        onClose={() => setIsSubmitModalOpen(false)}
+        moduleTitle={moduleConfig.title}
+        moduleOrder={moduleConfig.order}
+        problems={moduleProblems}
+        solvedSlugs={solvedSlugs}
+        markedForReview={markedForReview}
+        visitedProblems={visitedProblems}
+        user={user}
+        onConfirmSubmit={handleConfirmFinalSubmit}
+        onGoToNextModule={() => {
+          const nextMod = PRACTICE_CONFIG.MODULES.find((m) => m.order === moduleConfig.order + 1);
+          if (nextMod) {
+            navigate(`/practice/${nextMod.slug}`);
+          } else {
+            navigate('/practice');
+          }
+        }}
+        onBackToModules={() => navigate('/practice')}
+      />
+
+      <JeeQuestionPaperModal
+        isOpen={isQuestionPaperOpen}
+        onClose={() => setIsQuestionPaperOpen(false)}
+        moduleTitle={moduleConfig.title}
+        moduleOrder={moduleConfig.order}
+        problems={moduleProblems}
+        currentProblemSlug={problemSlug || ''}
+        solvedSlugs={solvedSlugs}
+        markedForReview={markedForReview}
+        visitedProblems={visitedProblems}
+        onSelectProblem={handleSelectProblem}
+      />
+
+      <JeeInstructionsModal
+        isOpen={isInstructionsOpen}
+        onClose={() => setIsInstructionsOpen(false)}
+        moduleTitle={moduleConfig.title}
+        moduleOrder={moduleConfig.order}
+      />
+
+      {/* Exit Test Confirmation Modal */}
+      {isExitConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-main)] font-mono">
+                Exit Test Session?
+              </h3>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] font-mono leading-relaxed">
+              Your code and verified solutions are automatically preserved in the cloud. You can return and continue this test session anytime.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsExitConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExitConfirmOpen(false);
+                  navigate('/practice');
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 text-xs font-mono font-bold transition cursor-pointer"
+              >
+                Yes, Exit Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+{/* Mandatory Proctored Fullscreen Modal */}
       {showFullscreenModal && !isFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="glass-card max-w-md w-full p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] shadow-2xl space-y-5 text-center animate-in fade-in zoom-in-95 duration-200">

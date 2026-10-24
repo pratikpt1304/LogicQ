@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
@@ -34,6 +34,7 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const { moduleSlug } = useParams<{ moduleSlug: string }>();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const navigate = useNavigate();
 
   const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD' | 'UNSOLVED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +76,16 @@ export const PracticeModuleProblemsPage: React.FC = () => {
 
   const moduleInfo = data?.data?.module;
   const problems: PracticeProblemRow[] = data?.data?.problems || [];
+
+  // Automatically launch into direct JEE CBT Test Mode
+  React.useEffect(() => {
+    if (!isLockedByProgression && problems && problems.length > 0) {
+      const firstUnsolved = problems.find((p) => !p.isSolved) || problems[0];
+      if (firstUnsolved?.slug) {
+        navigate(`/practice/${moduleSlug}/${firstUnsolved.slug}`, { replace: true });
+      }
+    }
+  }, [problems, isLockedByProgression, moduleSlug, navigate]);
 
   const filteredProblems = problems.filter((p) => {
     if (filterDifficulty === 'EASY' && p.difficulty !== 'EASY') return false;
