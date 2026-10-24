@@ -310,7 +310,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       });
     } else {
       toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🏆`, {
-        description: 'You have solved all 10 problems in this module!',
+        description: 'You have solved all 20 problems in this module!',
         action: {
           label: 'Back to Modules',
           onClick: () => navigate('/practice'),

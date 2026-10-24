@@ -157,8 +157,8 @@ export const PracticeModulesPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {modules.map((mod) => {
-            const isComingSoon = Boolean(mod.isComingSoon || mod.totalQuestions < 10);
-            const isCompleted = !isComingSoon && mod.totalQuestions >= 10 && mod.solvedCount >= mod.totalQuestions;
+            const isComingSoon = Boolean(mod.isComingSoon || mod.totalQuestions === 0);
+            const isCompleted = !isComingSoon && mod.totalQuestions > 0 && mod.solvedCount >= mod.totalQuestions;
             const isClickable = mod.isUnlocked || isAdmin;
 
             const cardContent = (
@@ -240,7 +240,7 @@ export const PracticeModulesPage: React.FC = () => {
                         Coming soon
                       </span>
                       <span className="text-[var(--text-muted)] text-[10px]">
-                        ({mod.totalQuestions}/10 questions published)
+                        ({mod.totalQuestions}/20 questions published)
                       </span>
                     </div>
                   ) : (

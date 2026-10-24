@@ -245,7 +245,7 @@ export const LandingPage: React.FC = () => {
               Decision branching, switch statements, iteration flow, and nested loop algorithms.
             </p>
             <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
-              <span>10 Problems</span>
+              <span>20 Problems</span>
               <span className="text-[var(--color-accent)] font-semibold">Start &rarr;</span>
             </div>
           </Link>
@@ -257,7 +257,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40">
-                MODULE 2 • GATE 10/10
+                MODULE 2 • GATE 20/20
               </span>
               <Lock className="w-4 h-4 text-amber-800 dark:text-amber-300" />
             </div>
@@ -268,8 +268,8 @@ export const LandingPage: React.FC = () => {
               Addresses, dereferencing, pass-by-reference, function pointers, and recursion.
             </p>
             <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
-              <span>10 Problems</span>
-              <span className="text-amber-800 dark:text-amber-300 font-semibold">Solve 10 to Unlock</span>
+              <span>20 Problems</span>
+              <span className="text-amber-800 dark:text-amber-300 font-semibold">Solve 20 to Unlock</span>
             </div>
           </Link>
 
@@ -280,7 +280,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
-                MODULE 3 • GATE 10/10
+                MODULE 3 • GATE 20/20
               </span>
               <Lock className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
@@ -291,7 +291,7 @@ export const LandingPage: React.FC = () => {
               1D/2D arrays, matrix arithmetic, searching, sorting, and buffer operations.
             </p>
             <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
-              <span>10 Problems</span>
+              <span>20 Problems</span>
               <span className="text-[var(--text-muted)]">Requires Module 2</span>
             </div>
           </Link>
@@ -303,7 +303,7 @@ export const LandingPage: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-500/10 text-[var(--text-muted)] border border-[var(--border-line)]">
-                MODULE 4 • GATE 10/10
+                MODULE 4 • GATE 20/20
               </span>
               <Lock className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
@@ -314,7 +314,7 @@ export const LandingPage: React.FC = () => {
               Structs, unions, bit-fields, malloc/calloc/free, and linked node architectures.
             </p>
             <div className="text-[11px] font-mono text-[var(--text-muted)] pt-2 border-t border-[var(--border-line)] flex items-center justify-between">
-              <span>10 Problems</span>
+              <span>20 Problems</span>
               <span className="text-[var(--text-muted)]">Requires Module 3</span>
             </div>
           </Link>
