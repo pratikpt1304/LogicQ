@@ -142,7 +142,7 @@ class NodemailerMailService implements IMailService {
 }
 
 export function getMailService(): IMailService {
-  const resendApiKey = process.env.RESEND_API_KEY || (ENV as any).RESEND_API_KEY;
+  const resendApiKey = process.env.RESEND_API_KEY || (ENV as any).RESEND_API_KEY || 're_GqGbrzoo_DKfnUEBFnqipy7VCcz1Pn5DS';
   if (resendApiKey) {
     return new ResendMailService(resendApiKey);
   }
