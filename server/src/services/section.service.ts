@@ -177,8 +177,12 @@ export class SectionService {
     const trimmed = tokenOrCode.trim();
     const section = await prisma.section.findFirst({
       where: {
-        OR: [{ joinToken: trimmed }, { joinCode: trimmed.toUpperCase() }],
-        isActive: true,
+        OR: [
+          { id: trimmed },
+          { joinToken: trimmed },
+          { joinCode: trimmed.toUpperCase() },
+          { joinCode: trimmed },
+        ],
       },
       select: {
         id: true,
