@@ -31,6 +31,14 @@
     --shadow-card: 0 4px 16px -2px rgba(12, 15, 31, 0.08);
     --scrollbar-track: #EEF1F8;
     --scrollbar-thumb: #9AA1C4;
+    --card: #FFFFFF;
+    --card-foreground: #0C0F1F;
+    --background: #F4F6FB;
+    --foreground: #0C0F1F;
+    --muted: #EEF1F8;
+    --muted-foreground: #434C6E;
+    --border: #CBD2E6;
+    --accent: #3643D0;
   }
 
   /* Dark Theme Tokens (Exact LogicQ Brand Specification, WCAG AA >= 4.5:1) */
@@ -60,6 +68,14 @@
     --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
     --scrollbar-track: #0C0F1F;
     --scrollbar-thumb: #252C4F;
+    --card: #141932;
+    --card-foreground: #E8EAF6;
+    --background: #0C0F1F;
+    --foreground: #E8EAF6;
+    --muted: #181E3C;
+    --muted-foreground: #9AA1C4;
+    --border: #252C4F;
+    --accent: #8B9BFF;
   }
 
   html {

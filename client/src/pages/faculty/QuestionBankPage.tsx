@@ -379,7 +379,7 @@ export const QuestionBankPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-[var(--foreground)]">AI Question Generator (Section 16)</h3>
+                <h3 className="text-lg font-bold text-[var(--foreground)]">AI Question Generator</h3>
               </div>
               <button
                 onClick={() => setIsAiModalOpen(false)}
@@ -496,21 +496,21 @@ export const QuestionBankPage: React.FC = () => {
         </div>
       )}
 
-      {/* QUESTION INSPECT / DETAILS MODAL */}
+      {/* QUESTION INSPECT / DETAILS MODAL (High-Contrast, Opaque Background) */}
       {inspectQuestion && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl animate-in fade-in">
-            <div className="flex items-start justify-between border-b border-[var(--border)] pb-3">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] text-[var(--text-main)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl animate-in fade-in">
+            <div className="flex items-start justify-between border-b border-[var(--border-line)] pb-4">
               <div>
-                <span className="text-[10px] font-mono uppercase text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-mono uppercase text-indigo-400 font-bold bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 rounded-full">
                   {inspectQuestion.module} • {inspectQuestion.section}
                 </span>
-                <h3 className="text-xl font-bold text-[var(--foreground)] mt-2">{inspectQuestion.title}</h3>
-                <p className="text-xs text-[var(--muted-foreground)]">{inspectQuestion.topic}</p>
+                <h3 className="text-xl font-bold text-[var(--text-main)] mt-2">{inspectQuestion.title}</h3>
+                <p className="text-xs text-[var(--text-muted)] font-mono">{inspectQuestion.topic}</p>
               </div>
               <button
                 onClick={() => setInspectQuestion(null)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm"
+                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] rounded-lg hover:bg-[var(--bg-surface)] transition-colors text-sm"
               >
                 ✕
               </button>
@@ -518,12 +518,12 @@ export const QuestionBankPage: React.FC = () => {
 
             {/* Problem Statement Preview */}
             <div className="space-y-2 text-xs">
-              <h4 className="font-bold text-[var(--foreground)] uppercase font-mono tracking-wider">
+              <h4 className="font-bold text-[var(--text-main)] uppercase font-mono tracking-wider">
                 Problem Description
               </h4>
-              <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] font-sans whitespace-pre-wrap">
+              <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] font-sans whitespace-pre-wrap leading-relaxed text-sm">
                 {inspectQuestion.scenario && (
-                  <p className="text-indigo-300 font-medium italic mb-2">Scenario: {inspectQuestion.scenario}</p>
+                  <p className="text-indigo-400 font-semibold italic mb-2">Scenario: {inspectQuestion.scenario}</p>
                 )}
                 {inspectQuestion.description || inspectQuestion.problemStatement}
               </div>
@@ -531,47 +531,53 @@ export const QuestionBankPage: React.FC = () => {
 
             {/* Test Cases (2 Visible + 1 Hidden) */}
             <div className="space-y-3">
-              <h4 className="font-bold text-xs text-[var(--foreground)] uppercase font-mono tracking-wider">
+              <h4 className="font-bold text-xs text-[var(--text-main)] uppercase font-mono tracking-wider">
                 Test Cases (2 Visible + 1 Hidden Server-Side)
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-1 text-xs">
-                  <span className="font-bold text-emerald-400 text-[11px] block">Test Case 1 (Visible)</span>
-                  <div className="font-mono text-[11px] text-[var(--muted-foreground)]">
-                    In: {inspectQuestion.testCases?.[0]?.input || 'Sample Input 1'}
+                <div className="p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-2 text-xs">
+                  <span className="font-bold text-emerald-500 text-xs block">Test Case 1 (Visible)</span>
+                  <div className="font-mono text-xs text-[var(--text-muted)] bg-[var(--bg-panel)] p-2 rounded-lg border border-[var(--border-line)] break-all">
+                    <span className="text-[10px] text-[var(--text-muted)] font-semibold block uppercase">Input</span>
+                    {inspectQuestion.testCases?.[0]?.input || 'Sample Input 1'}
                   </div>
-                  <div className="font-mono text-[11px] text-[var(--foreground)] font-bold">
-                    Out: {inspectQuestion.testCases?.[0]?.expectedOutput || 'Sample Output 1'}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-1 text-xs">
-                  <span className="font-bold text-emerald-400 text-[11px] block">Test Case 2 (Visible)</span>
-                  <div className="font-mono text-[11px] text-[var(--muted-foreground)]">
-                    In: {inspectQuestion.testCases?.[1]?.input || 'Sample Input 2'}
-                  </div>
-                  <div className="font-mono text-[11px] text-[var(--foreground)] font-bold">
-                    Out: {inspectQuestion.testCases?.[1]?.expectedOutput || 'Sample Output 2'}
+                  <div className="font-mono text-xs text-[var(--text-main)] font-bold bg-[var(--bg-panel)] p-2 rounded-lg border border-[var(--border-line)] break-all">
+                    <span className="text-[10px] text-[var(--text-muted)] font-semibold block uppercase">Output</span>
+                    {inspectQuestion.testCases?.[0]?.expectedOutput || 'Sample Output 1'}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-1 text-xs">
-                  <span className="font-bold text-indigo-400 text-[11px] block">Test Case 3 (Hidden Server-Side)</span>
-                  <div className="font-mono text-[11px] text-[var(--muted-foreground)]">
-                    In: {inspectQuestion.testCases?.[2]?.input || 'Hidden Boundary Input'}
+                <div className="p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-2 text-xs">
+                  <span className="font-bold text-emerald-500 text-xs block">Test Case 2 (Visible)</span>
+                  <div className="font-mono text-xs text-[var(--text-muted)] bg-[var(--bg-panel)] p-2 rounded-lg border border-[var(--border-line)] break-all">
+                    <span className="text-[10px] text-[var(--text-muted)] font-semibold block uppercase">Input</span>
+                    {inspectQuestion.testCases?.[1]?.input || 'Sample Input 2'}
                   </div>
-                  <div className="font-mono text-[11px] text-[var(--foreground)] font-bold">
-                    Out: {inspectQuestion.testCases?.[2]?.expectedOutput || 'Hidden Boundary Output'}
+                  <div className="font-mono text-xs text-[var(--text-main)] font-bold bg-[var(--bg-panel)] p-2 rounded-lg border border-[var(--border-line)] break-all">
+                    <span className="text-[10px] text-[var(--text-muted)] font-semibold block uppercase">Output</span>
+                    {inspectQuestion.testCases?.[1]?.expectedOutput || 'Sample Output 2'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 space-y-2 text-xs">
+                  <span className="font-bold text-indigo-400 text-xs block">Test Case 3 (Hidden Server-Side)</span>
+                  <div className="font-mono text-xs text-indigo-300 bg-[var(--bg-panel)] p-2 rounded-lg border border-indigo-500/30 break-all">
+                    <span className="text-[10px] text-indigo-400 font-semibold block uppercase">Input</span>
+                    {inspectQuestion.testCases?.[2]?.input || 'Hidden Boundary Input'}
+                  </div>
+                  <div className="font-mono text-xs text-indigo-200 font-bold bg-[var(--bg-panel)] p-2 rounded-lg border border-indigo-500/30 break-all">
+                    <span className="text-[10px] text-indigo-400 font-semibold block uppercase">Output</span>
+                    {inspectQuestion.testCases?.[2]?.expectedOutput || 'Hidden Boundary Output'}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-line)]">
               <button
                 type="button"
                 onClick={() => setInspectQuestion(null)}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)]"
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-colors"
               >
                 Close
               </button>
@@ -580,7 +586,7 @@ export const QuestionBankPage: React.FC = () => {
                   type="button"
                   disabled={approveMutation.isPending}
                   onClick={() => approveMutation.mutate(inspectQuestion.id)}
-                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white"
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors"
                 >
                   Approve Question for Tests
                 </button>
