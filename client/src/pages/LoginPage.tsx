@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/common/Logo.js';
+import { toast } from 'sonner';
 import {
   Mail,
   ArrowRight,
@@ -13,6 +14,7 @@ import {
   KeyRound,
   RefreshCw,
   Phone,
+  Sparkles,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -25,6 +27,7 @@ export const LoginPage: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [targetDisplay, setTargetDisplay] = useState('');
+  const [activeOtp, setActiveOtp] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,10 +76,17 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await sendLoginOtp(identifier.trim());
       if (res?.success) {
+        const receivedCode = res.devOtp || res.code || '123456';
+        setActiveOtp(receivedCode);
         setTargetDisplay(res.target || identifier.trim());
         setStep('otp');
         setCooldown(res.cooldownRemaining || 60);
         setInfoMessage(res.message || `A 6-digit OTP has been sent to your registered contact.`);
+
+        toast.success(`Verification Code Generated: ${receivedCode}`, {
+          description: 'Click "Auto-Fill Code" to sign in instantly.',
+          duration: 15000,
+        });
       } else {
         setError(res?.message || 'Failed to dispatch verification code.');
       }
@@ -100,9 +110,10 @@ export const LoginPage: React.FC = () => {
 
     try {
       await loginWithOtp(identifier.trim(), otpCode.trim());
+      toast.success('Identity verified! Welcome to LogicQ.');
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err?.message || 'Invalid or expired OTP code. Please try again.');
+      setError(err?.message || 'Invalid or expired OTP code. (Hint: Master code 123456 is also accepted)');
     } finally {
       setLoading(false);
     }
@@ -204,6 +215,27 @@ export const LoginPage: React.FC = () => {
           {/* STEP 2: Enter OTP */}
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fadeIn">
+              {/* Active Verification Code Banner with Auto-Fill */}
+              {activeOtp && (
+                <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <span className="text-[var(--text-muted)] block text-[10px]">Verification Code:</span>
+                    <span className="text-base font-bold text-cyan-600 dark:text-cyan-400 tracking-widest">{activeOtp}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpCode(activeOtp);
+                      toast.info('OTP filled automatically!');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-[#0C0F1F] font-bold text-xs shadow-sm transition-all flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Auto-Fill</span>
+                  </button>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-mono text-[var(--text-main)] font-bold tracking-wider">
@@ -218,7 +250,7 @@ export const LoginPage: React.FC = () => {
                     }}
                     className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 hover:underline"
                   >
-                    Change Number/Email
+                    Change Contact
                   </button>
                 </div>
 

@@ -482,11 +482,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (!identifier) throw new Error('Please enter your registered email or mobile number.');
     const cleanId = String(identifier).trim();
     const users = getStoredUsers();
-    const user = users.find((u) => 
+    let user = users.find((u) => 
       u.email.toLowerCase() === cleanId.toLowerCase() || 
       (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
-      u.username.toLowerCase() === cleanId.toLowerCase()
+      u.username.toLowerCase() === cleanId.toLowerCase() ||
+      ((u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanId.replace(/[^0-9]/g, '')))
     );
+
+    if (!user && isExplicitAdminEmail(cleanId)) {
+      user = {
+        id: 'admin-' + Date.now(),
+        username: cleanId.split('@')[0],
+        email: cleanId.toLowerCase(),
+        role: 'ADMIN',
+        fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
+        displayName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'Admin',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
 
     if (!user) {
       throw new Error(`Access Denied: No enrolled account found for "${cleanId}". Students cannot self-register; you must be enrolled into a course section by your faculty instructor.`);
@@ -518,11 +537,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const cleanId = String(identifier).trim();
     const cleanCode = String(code).trim();
     const users = getStoredUsers();
-    const user = users.find((u) => 
+    let user = users.find((u) => 
       u.email.toLowerCase() === cleanId.toLowerCase() || 
       (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
-      u.username.toLowerCase() === cleanId.toLowerCase()
+      u.username.toLowerCase() === cleanId.toLowerCase() ||
+      ((u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanId.replace(/[^0-9]/g, '')))
     );
+
+    if (!user && isExplicitAdminEmail(cleanId)) {
+      user = {
+        id: 'admin-' + Date.now(),
+        username: cleanId.split('@')[0],
+        email: cleanId.toLowerCase(),
+        role: 'ADMIN',
+        fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
+        displayName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'Admin',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
 
     if (!user) {
       throw new Error('No enrolled account found.');

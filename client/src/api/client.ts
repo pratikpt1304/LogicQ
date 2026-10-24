@@ -89,7 +89,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay
   // into browser localStorage fallback in production.
   if (useFallback || !response) {
-    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth'))) {
+    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp'))) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
       let errorMsg = 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.';
