@@ -14,6 +14,8 @@ import {
   Layers,
   Eye,
   ShieldCheck,
+  Target,
+  ArrowRight,
 } from 'lucide-react';
 
 interface PracticeModuleItem {
@@ -55,81 +57,89 @@ export const PracticeModulesPage: React.FC = () => {
 
   const assignedTests = testsData?.data || testsData?.assignments || [];
 
+  const totalProblems = modules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 80;
+  const totalSolved = modules.reduce((acc, m) => acc + (m.solvedCount || 0), 0);
+  const overallPercent = Math.round((totalSolved / totalProblems) * 100);
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[var(--border-line)] pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-1">
-            <BookOpen className="w-4 h-4" />
-            <span>SYLLABUS MASTERY TRACK</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-            Practice Modules
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1.5 max-w-2xl">
-            Sharpen your core C programming competencies with 4 sequentially unlocking curriculum modules.
-            Solve all {PRACTICE_CONFIG.practiceUnlockThreshold} questions in each module to unlock the next one.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {isAdmin && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-400">
-              <Eye className="w-4 h-4" />
-              <span>Admin Preview Enabled</span>
+      {/* Clean Practice Header with Overall Progress */}
+      <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-1">
+              <BookOpen className="w-4 h-4" />
+              <span>SYLLABUS MASTERY TRACK</span>
             </div>
-          )}
-          <Link
-            to="/student/tests"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] transition-colors group"
-          >
-            <ShieldCheck className="w-4 h-4 text-cyan-400" />
-            <span>Assigned Tests</span>
-            {assignedTests.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[10px] border border-cyan-500/30">
-                {assignedTests.length}
-              </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
+              C Programming Practice Modules
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-mono">
+              Core curriculum exercises from foundational control structures to dynamic heap allocation.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-400">
+                <Eye className="w-4 h-4" />
+                <span>Admin Mode</span>
+              </div>
             )}
-          </Link>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)]">
-            <Code2 className="w-4 h-4 text-[var(--accent)]" />
-            <span>80 Total Practice Problems</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Active Institutional Lab Assessment Banner */}
-      {assignedTests.length > 0 && (
-        <div className="glass-card p-5 sm:p-6 rounded-2xl border-2 border-cyan-500/40 bg-gradient-to-r from-cyan-950/20 via-[var(--bg-panel)] to-blue-950/15 shadow-xl space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 flex-shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold mb-1">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  <span>ACTIVE LAB ASSESSMENT ASSIGNED</span>
-                </div>
-                <h2 className="text-base font-bold text-[var(--text-main)] tracking-tight">
-                  {assignedTests[0]?.test?.testName || 'Institutional Assessment Test'}
-                </h2>
-                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                  Section: {assignedTests[0]?.test?.section?.sectionName || 'Enrolled Section'} • {assignedTests.length} Test{assignedTests.length > 1 ? 's' : ''} Available • Zero-Reattempt Evaluation
-                </p>
-              </div>
-            </div>
             <Link
               to="/student/tests"
-              className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#0C0F1F] font-bold text-xs font-mono transition-all flex items-center justify-center gap-2 shadow-md flex-shrink-0"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-indigo-600/20"
             >
-              <span>Go to Assessment Workspace</span>
-              <ChevronRight className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
+              <span>Assigned Tests</span>
+              {assignedTests.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white font-bold text-[10px]">
+                  {assignedTests.length}
+                </span>
+              )}
             </Link>
           </div>
         </div>
-      )}
+
+        {/* Overall Progress Bar */}
+        <div className="p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-2.5">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="font-bold text-[var(--text-main)] flex items-center gap-2">
+              <Target className="w-4 h-4 text-emerald-400" />
+              <span>Total Solved: {totalSolved} / {totalProblems} Problems ({overallPercent}%)</span>
+            </span>
+            <span className="text-[var(--text-muted)] font-semibold">
+              {totalProblems - totalSolved} remaining
+            </span>
+          </div>
+
+          <div className="w-full bg-[var(--bg-panel)] h-2.5 rounded-full overflow-hidden border border-[var(--border-line)]/40">
+            <div
+              className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(overallPercent, 2)}%` }}
+            />
+          </div>
+
+          {/* Core Categories */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono">
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] text-cyan-400 border border-cyan-500/20 font-semibold">
+              ⚡ Branching &amp; Decisions
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] text-emerald-400 border border-emerald-500/20 font-semibold">
+              🔁 Loops &amp; Iteration
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] text-indigo-400 border border-indigo-500/20 font-semibold">
+              📊 Arrays &amp; Matrices
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] text-purple-400 border border-purple-500/20 font-semibold">
+              🎯 Pointers &amp; Functions
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] text-amber-400 border border-amber-500/20 font-semibold">
+              🧠 Structs &amp; Dynamic Memory
+            </span>
+          </div>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -157,17 +167,14 @@ export const PracticeModulesPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {modules.map((mod) => {
-            const isComingSoon = Boolean(mod.isComingSoon || mod.totalQuestions === 0);
-            const isCompleted = !isComingSoon && mod.totalQuestions > 0 && mod.solvedCount >= mod.totalQuestions;
-            const isClickable = mod.isUnlocked || isAdmin;
+            const isCompleted = mod.totalQuestions > 0 && mod.solvedCount >= mod.totalQuestions;
+            const percent = mod.progressPercent || 0;
 
-            const cardContent = (
-              <div
-                className={`relative h-full flex flex-col justify-between p-6 rounded-2xl border transition-all duration-200 ${
-                  isClickable
-                    ? 'glass-card border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:shadow-lg hover:shadow-[var(--accent)]/5 group cursor-pointer'
-                    : 'bg-[var(--bg-surface)]/40 border-[var(--border-line)] opacity-75 cursor-not-allowed select-none'
-                }`}
+            return (
+              <Link
+                key={mod.id}
+                to={`/practice/${mod.slug}`}
+                className="glass-card border border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:shadow-lg hover:shadow-[var(--accent)]/5 rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between group cursor-pointer"
               >
                 {/* Header row */}
                 <div>
@@ -176,27 +183,15 @@ export const PracticeModulesPage: React.FC = () => {
                       MODULE {mod.order}
                     </span>
 
-                    {mod.isUnlocked ? (
-                      isCompleted ? (
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>COMPLETED</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
-                          <span>View Problems</span>
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                        </span>
-                      )
-                    ) : isAdmin ? (
-                      <span className="flex items-center gap-1.5 text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/40">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>PREVIEW (ADMIN)</span>
+                    {isCompleted ? (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>COMPLETED</span>
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>LOCKED</span>
+                      <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
+                        <span>View Problems</span>
+                        <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                       </span>
                     )}
                   </div>
@@ -204,67 +199,45 @@ export const PracticeModulesPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors">
                     {mod.title}
                   </h2>
-                  <p className="text-xs text-[var(--text-muted)] mt-1.5 line-clamp-2">
+                  <p className="text-xs text-[var(--text-muted)] mt-1.5 line-clamp-2 leading-relaxed">
                     {mod.description}
                   </p>
                 </div>
 
-                {/* Footer progress & unlock condition */}
+                {/* Footer progress & breakdown */}
                 <div className="mt-6 pt-4 border-t border-[var(--border-line)]/60 space-y-3">
-                  {mod.isUnlocked ? (
-                    <div>
-                      <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                        <span className="text-[var(--text-muted)]">Progress</span>
-                        <span className="text-[var(--text-main)] font-semibold">
-                          {mod.solvedCount} / {mod.totalQuestions} solved ({mod.progressPercent}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[var(--bg-surface)] overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[var(--accent)] to-emerald-400 transition-all duration-300 rounded-full"
-                          style={{ width: `${mod.progressPercent}%` }}
-                        />
-                      </div>
+                  <div>
+                    <div className="flex items-center justify-between text-xs font-mono mb-1.5">
+                      <span className="text-[var(--text-muted)]">Progress</span>
+                      <span className="text-[var(--text-main)] font-semibold">
+                        {mod.solvedCount} / {mod.totalQuestions} solved ({percent}%)
+                      </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-xs font-mono font-medium px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/30 text-amber-950 dark:text-amber-200 shadow-sm">
-                      <Lock className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400" />
-                      <span className="font-semibold text-amber-950 dark:text-amber-200">{mod.requirementText}</span>
+                    <div className="w-full h-2 rounded-full bg-[var(--bg-surface)] overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[var(--accent)] to-emerald-400 transition-all duration-300 rounded-full"
+                        style={{ width: `${percent}%` }}
+                      />
                     </div>
-                  )}
+                  </div>
 
-                  {/* Difficulty composition pill badges or Coming Soon */}
-                  {isComingSoon ? (
-                    <div className="flex items-center gap-2 pt-1 text-[11px] font-mono">
-                      <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/30 font-semibold">
-                        Coming soon
-                      </span>
-                      <span className="text-[var(--text-muted)] text-[10px]">
-                        ({mod.totalQuestions}/20 questions published)
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 pt-1 text-[11px] font-mono text-[var(--text-muted)]">
+                  {/* Difficulty composition pill badges */}
+                  <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-[var(--text-muted)]">
+                    <div className="flex items-center gap-2">
                       <span className="text-emerald-400">{mod.distribution?.EASY ?? 0} Easy</span>
                       <span>•</span>
                       <span className="text-amber-400">{mod.distribution?.MEDIUM ?? 0} Med</span>
                       <span>•</span>
                       <span className="text-rose-400">{mod.distribution?.HARD ?? 0} Hard</span>
                     </div>
-                  )}
+                    <span className="text-[var(--accent)] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                      <span>Practice</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </Link>
             );
-
-            if (isClickable) {
-              return (
-                <Link key={mod.id} to={`/practice/${mod.slug}`}>
-                  {cardContent}
-                </Link>
-              );
-            }
-
-            return <div key={mod.id}>{cardContent}</div>;
           })}
         </div>
       )}

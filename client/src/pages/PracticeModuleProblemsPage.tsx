@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -14,6 +14,7 @@ import {
   BookOpen,
   AlertCircle,
   Eye,
+  Search,
 } from 'lucide-react';
 
 interface PracticeProblemRow {
@@ -34,6 +35,9 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
+  const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD' | 'UNSOLVED'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['practice-module-problems', moduleSlug],
     queryFn: () => api.get(`/practice/modules/${moduleSlug}/problems`),
@@ -42,6 +46,18 @@ export const PracticeModuleProblemsPage: React.FC = () => {
 
   const moduleInfo = data?.data?.module;
   const problems: PracticeProblemRow[] = data?.data?.problems || [];
+
+  const filteredProblems = problems.filter((p) => {
+    if (filterDifficulty === 'EASY' && p.difficulty !== 'EASY') return false;
+    if (filterDifficulty === 'MEDIUM' && p.difficulty !== 'MEDIUM') return false;
+    if (filterDifficulty === 'HARD' && p.difficulty !== 'HARD') return false;
+    if (filterDifficulty === 'UNSOLVED' && p.isSolved) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return p.title.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   if (error) {
     const errObj = error as any;
@@ -109,9 +125,82 @@ export const PracticeModuleProblemsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)] shrink-0">
+          <div className="px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] font-semibold shrink-0">
             <span>{problems.filter((p) => p.isSolved).length} of {problems.length} Solved</span>
           </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-mono">
+          <button
+            type="button"
+            onClick={() => setFilterDifficulty('ALL')}
+            className={`px-3 py-1.5 rounded-lg border transition ${
+              filterDifficulty === 'ALL'
+                ? 'bg-[var(--accent)] text-[#0C0F1F] font-bold border-transparent'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            All ({problems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterDifficulty('EASY')}
+            className={`px-3 py-1.5 rounded-lg border transition ${
+              filterDifficulty === 'EASY'
+                ? 'bg-emerald-500 text-white font-bold border-transparent'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            Easy ({problems.filter((p) => p.difficulty === 'EASY').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterDifficulty('MEDIUM')}
+            className={`px-3 py-1.5 rounded-lg border transition ${
+              filterDifficulty === 'MEDIUM'
+                ? 'bg-amber-500 text-white font-bold border-transparent'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            Medium ({problems.filter((p) => p.difficulty === 'MEDIUM').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterDifficulty('HARD')}
+            className={`px-3 py-1.5 rounded-lg border transition ${
+              filterDifficulty === 'HARD'
+                ? 'bg-rose-500 text-white font-bold border-transparent'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            Hard ({problems.filter((p) => p.difficulty === 'HARD').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterDifficulty('UNSOLVED')}
+            className={`px-3 py-1.5 rounded-lg border transition ${
+              filterDifficulty === 'UNSOLVED'
+                ? 'bg-indigo-600 text-white font-bold border-transparent'
+                : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            Unsolved ({problems.filter((p) => !p.isSolved).length})
+          </button>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative sm:w-64">
+          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search problems..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] font-mono"
+          />
         </div>
       </div>
 
@@ -127,13 +216,13 @@ export const PracticeModuleProblemsPage: React.FC = () => {
             </div>
           ))}
         </div>
-      ) : problems.length === 0 ? (
-        <div className="p-8 text-center glass-card rounded-2xl border border-[var(--border-line)] text-[var(--text-muted)]">
-          No practice problems available in this module yet.
+      ) : filteredProblems.length === 0 ? (
+        <div className="p-8 text-center glass-card rounded-2xl border border-[var(--border-line)] text-[var(--text-muted)] font-mono text-xs">
+          No practice problems match your filter.
         </div>
       ) : (
         <div className="space-y-3">
-          {problems.map((prob) => (
+          {filteredProblems.map((prob) => (
             <Link
               key={prob.id}
               to={`/practice/${moduleSlug}/${prob.slug}`}
@@ -167,21 +256,17 @@ export const PracticeModuleProblemsPage: React.FC = () => {
 
               <div className="flex items-center gap-3 shrink-0">
                 <DifficultyBadge difficulty={prob.difficulty as any} />
-                <span
-                  className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
-                    prob.status === 'SOLVED'
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                      : prob.status === 'ATTEMPTED'
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                      : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-line)]'
-                  }`}
-                >
-                  {prob.status === 'SOLVED'
-                    ? 'SOLVED'
-                    : prob.status === 'ATTEMPTED'
-                    ? 'ATTEMPTED'
-                    : 'NEW'}
-                </span>
+                {prob.status === 'SOLVED' && (
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>SOLVED</span>
+                  </span>
+                )}
+                {prob.status === 'ATTEMPTED' && (
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                    ATTEMPTED
+                  </span>
+                )}
                 <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all" />
               </div>
             </Link>

@@ -31,9 +31,6 @@ import {
   Trophy,
   Maximize2,
   Minimize2,
-  ShieldAlert,
-  ShieldCheck,
-  Lock,
   X,
 } from 'lucide-react';
 import {
@@ -86,13 +83,8 @@ export const PracticeWorkspacePage: React.FC = () => {
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idempotencyKeyRef = useRef<string>(`prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
-  // Anti-Cheat Proctoring State
+  // Fullscreen Workspace Support
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
-  const [isWorkspaceLocked, setIsWorkspaceLocked] = useState(false);
-  const [blockedClipboardCount, setBlockedClipboardCount] = useState(0);
-  const MAX_TAB_SWITCHES = 3;
 
   const toggleFullscreen = async () => {
     try {
@@ -106,50 +98,15 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   };
 
-  const handleEditorBlockedAction = (action: string) => {
-    setBlockedClipboardCount((c) => c + 1);
-    toast.error(`🚫 Proctoring Security: ${action.toUpperCase()} is disabled! Please type code manually.`);
-  };
-
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
     };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setTabSwitchCount((prev) => {
-          const next = prev + 1;
-          if (next >= MAX_TAB_SWITCHES) {
-            setIsWorkspaceLocked(true);
-          }
-          return next;
-        });
-        setShowTabSwitchWarning(true);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c' || e.key === 'J' || e.key === 'j')) ||
-        (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-        toast.error('🚫 Developer inspection shortcuts are blocked.');
-      }
-    };
-
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -705,26 +662,16 @@ export const PracticeWorkspacePage: React.FC = () => {
           </button>
 
           <div
-            title={`Anti-Cheat Monitoring Active. Tab switches: ${tabSwitchCount}/${MAX_TAB_SWITCHES}`}
-            className={`hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono border ${
-              tabSwitchCount === 0
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : tabSwitchCount >= MAX_TAB_SWITCHES
-                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-            }`}
+            title="Practice environment with instant feedback"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
           >
-            {tabSwitchCount >= MAX_TAB_SWITCHES ? (
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-            ) : (
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            )}
-            <span>Tabs: {tabSwitchCount}/{MAX_TAB_SWITCHES}</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Practice Mode • GCC 14</span>
           </div>
 
           <button
             onClick={() => runMutation.mutate()}
-            disabled={runMutation.isPending || submitMutation.isPending || isWorkspaceLocked}
+            disabled={runMutation.isPending || submitMutation.isPending}
             className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] transition-colors disabled:opacity-50"
             title="Run solution against custom stdin"
           >
@@ -885,9 +832,8 @@ export const PracticeWorkspacePage: React.FC = () => {
               code={code}
               onChange={handleCodeChange}
               onReset={handleResetStarterCode}
-              readOnly={isWorkspaceLocked}
-              disableCopyPaste={true}
-              onBlockedAction={handleEditorBlockedAction}
+              readOnly={false}
+              disableCopyPaste={false}
             />
           </div>
 
@@ -1040,47 +986,107 @@ export const PracticeWorkspacePage: React.FC = () => {
                             {submissionResult.compileOutput}
                           </pre>
                         )}
-                        {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (
-                          <div className="space-y-1.5 pt-2">
-                            <span className="text-[10px] uppercase text-[var(--text-muted)] block font-semibold">
-                              Test Cases Evaluation:
-                            </span>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {submissionResult.testCaseResults.map((tc: any, i: number) => {
-                                const isPassed = tc.passed ?? (tc.verdict === 'ACCEPTED');
-                                return (
-                                  <div
-                                    key={i}
-                                    className={`p-2 rounded-lg border flex items-center justify-between text-xs ${
-                                      isPassed
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                    }`}
-                                  >
-                                    <span className="font-medium text-[var(--text-muted)]">Test #{i + 1}</span>
-                                    {tc.verdict ? (
-                                      <VerdictBadge verdict={tc.verdict} size="sm" />
-                                    ) : (
-                                      <span className="font-bold font-mono">{isPassed ? 'PASS' : 'FAIL'}</span>
+                        {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (() => {
+                          const testCases = submissionResult.testCaseResults;
+                          const sampleCount = problem?.testCases?.length || Math.min(2, testCases.length);
+                          const sampleResults = testCases.slice(0, sampleCount);
+                          const hiddenResults = testCases.slice(sampleCount);
+                          const hiddenTotal = hiddenResults.length;
+                          const hiddenPassed = hiddenResults.filter((tc: any) => tc.passed ?? (tc.verdict === 'ACCEPTED')).length;
+                          const isAllHiddenPassed = hiddenTotal > 0 && hiddenPassed === hiddenTotal;
+
+                          return (
+                            <div className="space-y-2 pt-1 font-mono">
+                              <span className="text-[10px] uppercase text-[var(--text-muted)] block font-semibold tracking-wider font-sans">
+                                Test Case Results:
+                              </span>
+
+                              {/* Sample Test Cases */}
+                              <div className="space-y-1.5">
+                                {sampleResults.map((tc: any, idx: number) => {
+                                  const isPassed = tc.passed ?? (tc.verdict === 'ACCEPTED');
+                                  const runtimeSec = tc.runtimeMs != null
+                                    ? (tc.runtimeMs / 1000).toFixed(2)
+                                    : '0.01';
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                                        isPassed
+                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                                          : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-[var(--text-main)]">
+                                          Sample {idx + 1}:
+                                        </span>
+                                        <span className="font-bold">
+                                          {isPassed ? 'PASS ✅' : 'FAIL ❌'}
+                                        </span>
+                                        {!isPassed && tc.verdict && tc.verdict !== 'WRONG_ANSWER' && (
+                                          <span className="text-[11px] opacity-80">
+                                            ({tc.verdict})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] text-[var(--text-muted)]">
+                                        ({runtimeSec}s)
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Hidden Test Cases */}
+                              {hiddenTotal > 0 && (
+                                <div
+                                  className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                                    isAllHiddenPassed
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-[var(--text-main)]">
+                                      Hidden Test Cases:
+                                    </span>
+                                    <span className="font-bold">
+                                      Passed {hiddenPassed}/{hiddenTotal} {isAllHiddenPassed ? '✅' : '❌'}
+                                    </span>
+                                    {isAllHiddenPassed && (
+                                      <span className="text-emerald-400 font-bold ml-1">
+                                        (+{problem?.points || 20} PTS)
+                                      </span>
                                     )}
                                   </div>
-                                );
-                              })}
+                                  <span className="text-[11px] text-[var(--text-muted)]">
+                                    {isAllHiddenPassed
+                                      ? 'All hidden checks passed'
+                                      : `${hiddenTotal - hiddenPassed} hidden check(s) failed`}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Diagnostic guidance if any sample failed */}
+                              {sampleResults.some((tc: any) => !(tc.passed ?? (tc.verdict === 'ACCEPTED')) && tc.stderr) && (
+                                <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs mt-2 space-y-1">
+                                  <span className="font-semibold block text-[11px] uppercase tracking-wider text-amber-400 font-sans">
+                                    Diagnostic Guidance:
+                                  </span>
+                                  {sampleResults
+                                    .filter((tc: any) => !(tc.passed ?? (tc.verdict === 'ACCEPTED')) && tc.stderr)
+                                    .map((tc: any, idx: number) => (
+                                      <div key={idx} className="text-[11px] leading-relaxed">
+                                        • Sample #{tc.orderIndex != null ? tc.orderIndex + 1 : idx + 1}: {tc.stderr}
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
-                            {submissionResult.testCaseResults.some((tc: any) => !tc.passed && tc.verdict !== 'ACCEPTED' && tc.stderr) && (
-                              <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs mt-2 space-y-1">
-                                <span className="font-semibold block text-[11px] uppercase tracking-wider text-amber-400">Judge Diagnostic Guidance:</span>
-                                {submissionResult.testCaseResults
-                                  .filter((tc: any) => !tc.passed && tc.verdict !== 'ACCEPTED' && tc.stderr)
-                                  .map((tc: any, idx: number) => (
-                                    <div key={idx} className="font-mono text-[11px] leading-relaxed">
-                                      • Test #{tc.orderIndex != null ? tc.orderIndex + 1 : idx + 1}: {tc.stderr}
-                                    </div>
-                                  ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {submissionResult.verdict === 'ACCEPTED' && (
                           <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
@@ -1136,25 +1142,50 @@ export const PracticeWorkspacePage: React.FC = () => {
                         )}
                       </div>
                     ) : runResult ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[var(--text-muted)]">Run Result:</span>
-                          <VerdictBadge verdict={runResult.verdict} />
+                      <div className="space-y-2.5 font-mono">
+                        <div className="p-3 rounded-xl border flex items-center justify-between text-xs bg-[var(--bg-main)] border-[var(--border-line)]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[var(--text-muted)] font-sans">
+                              Run Result:
+                            </span>
+                            <span
+                              className={`font-bold ${
+                                runResult.verdict === 'ACCEPTED' ? 'text-emerald-400' : 'text-amber-400'
+                              }`}
+                            >
+                              {runResult.verdict === 'ACCEPTED' ? 'PASS ✅' : `${runResult.verdict} ⚠️`}
+                            </span>
+                          </div>
+                          {runResult.runtimeMs != null && (
+                            <span className="text-[11px] text-[var(--text-muted)]">
+                              ({((runResult.runtimeMs || 0) / 1000).toFixed(2)}s)
+                            </span>
+                          )}
                         </div>
+                        {runResult.compileOutput && (
+                          <div>
+                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
+                              Compilation Output:
+                            </span>
+                            <pre className="p-2.5 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 whitespace-pre-wrap max-h-24 overflow-y-auto text-xs">
+                              {runResult.compileOutput}
+                            </pre>
+                          </div>
+                        )}
                         <div>
-                          <span className="text-[10px] text-[var(--text-muted)] uppercase block">
+                          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
                             Standard Output:
                           </span>
-                          <pre className="p-2 rounded bg-[var(--bg-main)] text-emerald-400 whitespace-pre-wrap max-h-24 overflow-y-auto">
+                          <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-400 whitespace-pre-wrap max-h-36 overflow-y-auto border border-[var(--border-line)] text-xs">
                             {runResult.stdout || '(no standard output)'}
                           </pre>
                         </div>
                         {runResult.stderr && (
                           <div>
-                            <span className="text-[10px] text-[var(--text-muted)] uppercase block">
+                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
                               Standard Error:
                             </span>
-                            <pre className="p-2 rounded bg-[var(--bg-main)] text-rose-400 whitespace-pre-wrap max-h-20 overflow-y-auto">
+                            <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-rose-400 whitespace-pre-wrap max-h-24 overflow-y-auto border border-[var(--border-line)] text-xs">
                               {runResult.stderr}
                             </pre>
                           </div>
