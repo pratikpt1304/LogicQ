@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
         setError(res?.message || 'Failed to dispatch verification code.');
       }
     } catch (err: any) {
-      setError(err?.message || 'Unable to find an enrolled account. Contact your faculty instructor.');
+      setError(err?.message || 'You are not registered yet on LogicQ. Contact your course instructor or administrator for credentials.');
     } finally {
       setLoading(false);
     }

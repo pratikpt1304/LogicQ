@@ -1036,7 +1036,7 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
     if (!user) {
       res.status(404).json({
         success: false,
-        message: `Access Denied: No enrolled account found for "${cleanId}". Students cannot self-register; you must be enrolled into a course section by your faculty instructor.`,
+        message: `You are not registered yet on LogicQ. Only enrolled students and faculty can sign in. Please contact your course instructor or administrator for credentials.`,
       });
       return;
     }
