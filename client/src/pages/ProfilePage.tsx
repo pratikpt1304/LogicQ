@@ -856,27 +856,7 @@ export const ProfilePage: React.FC = () => {
                 </Link>
               )}
 
-              {/* Integrity & Evaluator Reviews */}
-              {(isAdminProfile || isChecker) && (
-                <Link
-                  to="/checker/reviews"
-                  className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932] hover:border-rose-500/50 hover:bg-[#181F3D] transition-all group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-bold text-sm text-[#E8EAF6] mb-1">Integrity & Viva Reviews</h3>
-                    <p className="text-xs text-[#9AA1C4] leading-relaxed">
-                      Audit high-risk submission attempts, review flagged viva sessions, and finalize student scores.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-[#252C4F]/50 flex items-center justify-between text-xs font-mono text-rose-400 font-semibold">
-                    <span>Review Queue</span>
-                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                  </div>
-                </Link>
-              )}
+
             </div>
           </div>
 

@@ -325,16 +325,7 @@ export const Navbar: React.FC = () => {
                               <span>Admin Dashboard</span>
                             </Link>
                           )}
-                          {(isChecker || isAdmin) && (
-                            <Link
-                              to="/checker/reviews"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Evaluator Reviews</span>
-                            </Link>
-                          )}
+
                         </div>
                       )}
 
@@ -524,15 +515,7 @@ export const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
-                {(isChecker || isAdmin) && (
-                  <Link
-                    to="/checker/reviews"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-emerald-400 hover:bg-[var(--bg-surface)]"
-                  >
-                    My Reviews (Checker)
-                  </Link>
-                )}
+
                 <button
                   type="button"
                   onClick={handleLogout}

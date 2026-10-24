@@ -411,27 +411,7 @@ export const DashboardPage: React.FC = () => {
                 </Link>
               )}
 
-              {/* Integrity & Evaluator Reviews */}
-              {(isAdmin || isChecker) && (
-                <Link
-                  to="/checker/reviews"
-                  className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-rose-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                      <CheckCircle2 className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Integrity & Viva Reviews</h3>
-                    <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                      Audit high-risk submission attempts, review flagged viva sessions, and finalize student marks.
-                    </p>
-                  </div>
-                  <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-rose-400 font-semibold">
-                    <span>Review Queue</span>
-                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                  </div>
-                </Link>
-              )}
+
             </div>
           </div>
         </div>

@@ -975,17 +975,7 @@ export const AdminDashboardPage: React.FC = () => {
           <span>Review Uploads ({uploads.length})</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('checkers')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'checkers'
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Checkers Workload ({checkers.length})</span>
-        </button>
+
 
 
         <button
@@ -1012,17 +1002,7 @@ export const AdminDashboardPage: React.FC = () => {
           <span>Daily Results</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('system')}
-          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
-            activeTab === 'system'
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Activity className="w-3.5 h-3.5" />
-          <span>System & Judge Health</span>
-        </button>
+
 
         <button
           onClick={() => setActiveTab('anticheat')}
@@ -2514,12 +2494,11 @@ export const AdminDashboardPage: React.FC = () => {
                           })
                         }
                         className="px-2 py-1 rounded bg-dark-850 border border-dark-700 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400"
-                        title="Change role (Admin, Checker, Student)"
+                        title="Change role (Admin, Faculty, Student)"
                       >
                         <option value="STUDENT">STUDENT</option>
                         <option value="FACULTY">FACULTY</option>
-                        <option value="CHECKER">CHECKER</option>
-                        <option value="ADMIN">ADMIN</option>
+                                                <option value="ADMIN">ADMIN</option>
                       </select>
                     </td>
                   </tr>
