@@ -520,15 +520,74 @@ export const AdminDashboardPage: React.FC = () => {
   const submissions = submissionsData?.data?.submissions || [];
   const uploads = uploadsData?.data?.uploads || [];
 
-  // Resilient merged users list: combines backend users with Firestore users so students NEVER disappear
+  // Resilient merged users list: combines backend users with Firestore users and enriches names
   const users = React.useMemo(() => {
     const backendUsers = usersData?.data?.users || [];
-    if (!firestoreUsersData || firestoreUsersData.length === 0) return backendUsers;
-    const backendEmails = new Set(backendUsers.map((u: any) => u.email?.toLowerCase()));
-    const missingFromBackend = firestoreUsersData.filter(
-      (fu) => fu.email && !backendEmails.has(fu.email.toLowerCase())
-    );
-    let merged = [...backendUsers, ...missingFromBackend];
+    const fUsers: any[] = firestoreUsersData || [];
+
+    const isCuid = (val?: string | null) =>
+      Boolean(val && typeof val === 'string' && val.length === 25 && val.startsWith('c'));
+
+    // 1. Enrich backend users with Firestore real names & clean handles
+    const enrichedBackend = backendUsers.map((bu: any) => {
+      const buEmail = bu.email?.toLowerCase().trim();
+      const buPrn = bu.prn?.toUpperCase().trim();
+      const fu = fUsers.find(
+        (f: any) =>
+          (buEmail && f.email?.toLowerCase().trim() === buEmail) ||
+          (buPrn && f.prn?.toUpperCase().trim() === buPrn)
+      );
+
+      const resolvedName =
+        (fu?.fullName && !isCuid(fu.fullName) ? fu.fullName : '') ||
+        (fu?.name && !isCuid(fu.name) ? fu.name : '') ||
+        (bu.fullName && !isCuid(bu.fullName) ? bu.fullName : '') ||
+        (fu?.displayName && !isCuid(fu.displayName) ? fu.displayName : '') ||
+        (bu.displayName && !isCuid(bu.displayName) ? bu.displayName : '') ||
+        (bu.prn ? `Student ${bu.prn.slice(-4)}` : (bu.email ? bu.email.split('@')[0] : 'Student'));
+
+      const cleanUsername =
+        (!isCuid(bu.username) && bu.username) ? bu.username :
+        (fu?.username && !isCuid(fu.username) ? fu.username :
+        (bu.email ? bu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_')));
+
+      return {
+        ...(fu || {}),
+        ...bu,
+        fullName: resolvedName,
+        displayName: resolvedName,
+        username: bu.username,
+        cleanUsername,
+        department: bu.department || fu?.department || '—',
+        year: bu.year || fu?.year || '—',
+        division: bu.division || fu?.division || null,
+        college: bu.college || fu?.college || 'Sanjivani University',
+        prn: bu.prn || fu?.prn,
+      };
+    });
+
+    // 2. Add any Firestore users not present in backend
+    const backendEmails = new Set(enrichedBackend.map((u: any) => u.email?.toLowerCase().trim()).filter(Boolean));
+    const missingFromBackend = fUsers.filter(
+      (fu: any) => fu.email && !backendEmails.has(fu.email.toLowerCase().trim())
+    ).map((fu: any) => {
+      const resolvedName =
+        (fu.fullName && !isCuid(fu.fullName) ? fu.fullName : '') ||
+        (fu.name && !isCuid(fu.name) ? fu.name : '') ||
+        (fu.displayName && !isCuid(fu.displayName) ? fu.displayName : '') ||
+        (fu.prn ? `Student ${fu.prn.slice(-4)}` : (fu.email ? fu.email.split('@')[0] : 'Student'));
+      const cleanUsername = isCuid(fu.username)
+        ? (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'))
+        : (fu.username || fu.email?.split('@')[0] || 'student');
+      return {
+        ...fu,
+        fullName: resolvedName,
+        displayName: resolvedName,
+        cleanUsername,
+      };
+    });
+
+    let merged = [...enrichedBackend, ...missingFromBackend];
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
       merged = merged.filter(

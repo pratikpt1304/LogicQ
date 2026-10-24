@@ -540,3 +540,27 @@
     background: #FFFFFF !important;
   }
 }
+
+/* Light Mode Contrast Protections: Ensures text-white and light gray never wash out on light surfaces */
+html.light .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
+html[data-theme='light'] .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
+html.light .glass-card .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']),
+html[data-theme='light'] .glass-card .text-white:not([class*='bg-indigo-']):not([class*='bg-purple-']):not([class*='bg-cyan-']):not([class*='bg-emerald-']):not([class*='bg-rose-']):not([class*='bg-blue-']):not([class*='bg-gradient-']) {
+  color: var(--text-main) !important;
+}
+
+html.light table th,
+html[data-theme='light'] table th {
+  color: var(--text-muted) !important;
+}
+
+html.light table td,
+html[data-theme='light'] table td {
+  color: var(--text-main) !important;
+}
+
+html.light table thead,
+html[data-theme='light'] table thead {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-line) !important;
+}
