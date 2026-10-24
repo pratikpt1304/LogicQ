@@ -28,6 +28,7 @@ import {
   Eye,
   Sliders,
   Download,
+  GraduationCap,
   Edit3,
   Search,
   Upload,
@@ -74,6 +75,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Filter States for Users & Submissions & Uploads
   const [filterSearch, setFilterSearch] = useState('');
+  const [filterSectionId, setFilterSectionId] = useState('ALL');
   const [filterCollege, setFilterCollege] = useState('ALL');
   const [filterDepartment, setFilterDepartment] = useState('ALL');
   const [filterYear, setFilterYear] = useState('ALL');
@@ -328,6 +330,7 @@ export const AdminDashboardPage: React.FC = () => {
     const params = new URLSearchParams();
     params.set('limit', '50');
     if (filterSearch.trim()) params.set('search', filterSearch.trim());
+    if (filterSectionId !== 'ALL') params.set('sectionId', filterSectionId);
     if (filterCollege !== 'ALL') params.set('college', filterCollege);
     if (filterDepartment !== 'ALL') params.set('department', filterDepartment);
     if (filterYear !== 'ALL') params.set('year', filterYear);
@@ -371,11 +374,30 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get(`/admin/uploads?${buildFilterQuery()}`),
   });
 
+  // Fetch Sections for filtering
+  const { data: sectionsData } = useQuery({
+    queryKey: ['admin-sections-list'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/sections');
+        if (res?.data?.sections && res.data.sections.length > 0) {
+          return res.data.sections;
+        }
+      } catch {
+        // fallback
+      }
+      return await FirestoreDataService.getSectionsFromFirestore();
+    },
+    staleTime: 60000,
+  });
+  const sectionsList: any[] = sectionsData || [];
+
   // Fetch Users from Backend
   const { data: usersData } = useQuery({
     queryKey: [
       'admin-users',
       filterSearch,
+      filterSectionId,
       filterCollege,
       filterDepartment,
       filterYear,
@@ -459,8 +481,17 @@ export const AdminDashboardPage: React.FC = () => {
           u.prn?.toLowerCase().includes(q) ||
           u.email?.toLowerCase().includes(q) ||
           u.displayName?.toLowerCase().includes(q) ||
-          u.fullName?.toLowerCase().includes(q)
+          u.fullName?.toLowerCase().includes(q) ||
+          u.username?.toLowerCase().includes(q)
       );
+    }
+    if (filterSectionId && filterSectionId !== 'ALL') {
+      merged = merged.filter((u: any) => {
+        if (u.sectionId === filterSectionId) return true;
+        if (Array.isArray(u.sections) && u.sections.some((s: any) => s.id === filterSectionId)) return true;
+        if (Array.isArray(u.enrolledSections) && u.enrolledSections.some((es: any) => es.sectionId === filterSectionId || es.section?.id === filterSectionId)) return true;
+        return false;
+      });
     }
     if (filterDepartment && filterDepartment !== 'ALL') {
       merged = merged.filter((u) => u.department === filterDepartment);
@@ -472,7 +503,7 @@ export const AdminDashboardPage: React.FC = () => {
       merged = merged.filter((u) => u.division === filterDivision.toUpperCase());
     }
     return merged;
-  }, [usersData, firestoreUsersData, filterSearch, filterDepartment, filterYear, filterDivision]);
+  }, [usersData, firestoreUsersData, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision]);
 
   const checkers = checkersData?.data?.checkers || [];
 
@@ -895,7 +926,7 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
           <span className="text-[11px] font-mono text-slate-400 block mb-1">REGISTERED USERS</span>
           <span className="text-2xl font-extrabold text-white font-mono">
-            {overview?.totalUsers || 0}
+            {Math.max(overview?.totalUsers || 0, users.length, firestoreUsersData?.length || 0)}
           </span>
         </div>
 
@@ -1551,102 +1582,168 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Academic Filters & CSV Export Bar for Users, Submissions & Uploads */}
       {(activeTab === 'users' || activeTab === 'submissions' || activeTab === 'uploads') && (
         <div className="glass-card rounded-2xl border border-white/[0.08] p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div>
-              <label htmlFor="admin-search" className="block text-xs font-mono text-slate-400 mb-1">
-                Search PRN / Email / ID
-              </label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          {activeTab === 'users' ? (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              <div className="md:col-span-6">
+                <label htmlFor="admin-search" className="block text-xs font-mono text-slate-400 mb-1">
+                  Search PRN / Email / Name
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="admin-search"
+                    type="text"
+                    inputMode="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={filterSearch}
+                    onChange={(e) => setFilterSearch(e.target.value)}
+                    placeholder="PRN, email, display name..."
+                    className="w-full pl-8 pr-8 py-2 rounded-xl bg-dark-950 border border-dark-700 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                  />
+                  {filterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-mono"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-6">
+                <label htmlFor="admin-filter-section" className="block text-xs font-mono text-slate-400 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-bold text-cyan-400">
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    Filter by Academic Section
+                  </span>
+                  {filterSectionId !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterSectionId('ALL')}
+                      className="text-[10px] text-amber-400 hover:underline"
+                    >
+                      Reset to All
+                    </button>
+                  )}
+                </label>
+                <select
+                  id="admin-filter-section"
+                  value={filterSectionId}
+                  onChange={(e) => setFilterSectionId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-dark-950 border border-cyan-500/30 text-xs font-mono text-cyan-200 focus:outline-none focus:border-cyan-400 transition"
+                >
+                  <option value="ALL">All Academic Sections ({sectionsList.length} sections)</option>
+                  {sectionsList.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.sectionName || `${s.course} - ${s.subject}`} [{s.joinCode || 'CODE'}]
+                      {s._count?.students || s.studentCount ? ` · ${s._count?.students || s.studentCount} students` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label htmlFor="admin-search" className="block text-xs font-mono text-slate-400 mb-1">
+                  Search PRN / Email / ID
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="admin-search"
+                    type="text"
+                    inputMode="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={filterSearch}
+                    onChange={(e) => setFilterSearch(e.target.value)}
+                    placeholder="PRN, email, display name..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="admin-filter-college" className="block text-xs font-mono text-slate-400 mb-1">
+                  College
+                </label>
+                <select
+                  id="admin-filter-college"
+                  value={filterCollege}
+                  onChange={(e) => setFilterCollege(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
+                >
+                  <option value="ALL">All Colleges</option>
+                  {ALLOWED_COLLEGES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="admin-filter-dept" className="block text-xs font-mono text-slate-400 mb-1">
+                  Department
+                </label>
+                <select
+                  id="admin-filter-dept"
+                  value={filterDepartment}
+                  onChange={(e) => setFilterDepartment(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
+                >
+                  <option value="ALL">All Departments</option>
+                  {ALLOWED_DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="admin-filter-year" className="block text-xs font-mono text-slate-400 mb-1">
+                  Year
+                </label>
+                <select
+                  id="admin-filter-year"
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
+                >
+                  <option value="ALL">All Years</option>
+                  {ALLOWED_YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="admin-filter-div" className="block text-xs font-mono text-slate-400 mb-1">
+                  Division
+                </label>
                 <input
-                  id="admin-search"
+                  id="admin-filter-div"
                   type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={filterSearch}
-                  onChange={(e) => setFilterSearch(e.target.value)}
-                  placeholder="PRN, email, display name..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
+                  maxLength={3}
+                  value={filterDivision}
+                  onChange={(e) =>
+                    setFilterDivision(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())
+                  }
+                  placeholder="e.g. A, B, C1"
+                  className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
                 />
               </div>
             </div>
-
-            <div>
-              <label htmlFor="admin-filter-college" className="block text-xs font-mono text-slate-400 mb-1">
-                College
-              </label>
-              <select
-                id="admin-filter-college"
-                value={filterCollege}
-                onChange={(e) => setFilterCollege(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
-              >
-                <option value="ALL">All Colleges</option>
-                {ALLOWED_COLLEGES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="admin-filter-dept" className="block text-xs font-mono text-slate-400 mb-1">
-                Department
-              </label>
-              <select
-                id="admin-filter-dept"
-                value={filterDepartment}
-                onChange={(e) => setFilterDepartment(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
-              >
-                <option value="ALL">All Departments</option>
-                {ALLOWED_DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="admin-filter-year" className="block text-xs font-mono text-slate-400 mb-1">
-                Year
-              </label>
-              <select
-                id="admin-filter-year"
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
-              >
-                <option value="ALL">All Years</option>
-                {ALLOWED_YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="admin-filter-div" className="block text-xs font-mono text-slate-400 mb-1">
-                Division
-              </label>
-              <input
-                id="admin-filter-div"
-                type="text"
-                maxLength={3}
-                value={filterDivision}
-                onChange={(e) =>
-                  setFilterDivision(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())
-                }
-                placeholder="e.g. A, B, C1"
-                className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
-              />
-            </div>
-          </div>
+          )}
 
           {activeTab === 'uploads' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/[0.06]">
@@ -2407,9 +2504,8 @@ export const AdminDashboardPage: React.FC = () => {
               <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
                 <tr>
                   <th className="px-4 py-3.5">PRN & Student</th>
-                  <th className="px-4 py-3.5">College</th>
-                  <th className="px-4 py-3.5">Department</th>
-                  <th className="px-4 py-3.5">Year / Div</th>
+                  <th className="px-4 py-3.5">Academic Section</th>
+                  <th className="px-4 py-3.5">Department & Year</th>
                   <th className="px-4 py-3.5">Email</th>
                   <th className="px-4 py-3.5">Score & Streak</th>
                   <th className="px-4 py-3.5">Status</th>
@@ -2449,15 +2545,33 @@ export const AdminDashboardPage: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-slate-300">
-                      {u.college || 'Sanjivani University'}
+                    <td className="px-4 py-4">
+                      {u.sections && u.sections.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {u.sections.map((sec: any) => (
+                            <span
+                              key={sec.id}
+                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                              title={`Join Code: ${sec.joinCode || '—'}`}
+                            >
+                              {sec.sectionName || sec.joinCode || 'Section'}
+                            </span>
+                          ))}
+                        </div>
+                      ) : u.sectionName || u.sectionId ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          {u.sectionName || u.sectionId}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-[11px] font-mono italic">Not assigned</span>
+                      )}
                     </td>
-                    <td className="px-4 py-4 text-cyan-400 font-semibold">
-                      {u.department || '—'}
-                    </td>
                     <td className="px-4 py-4 text-slate-300">
-                      {u.year || '—'}
-                      {u.division ? ` • Div ${u.division}` : ''}
+                      <span className="text-cyan-400 font-semibold block">{u.department || '—'}</span>
+                      <span className="text-[11px] text-slate-400 block">
+                        {u.year || '—'}
+                        {u.division ? ` • Div ${u.division}` : ''}
+                      </span>
                     </td>
                     <td className="px-4 py-4 text-slate-400">{u.email}</td>
                     <td className="px-4 py-4">

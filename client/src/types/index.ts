@@ -42,6 +42,9 @@ export interface User {
   themePreference?: 'light' | 'dark' | 'system' | null;
   hidePracticeTimer?: boolean | null;
   storagePreference?: 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE' | null;
+  sectionId?: string | null;
+  sectionName?: string | null;
+  sections?: Array<{ id: string; sectionName: string; joinCode?: string; subject?: string; course?: string }>;
   createdAt?: string;
 }
 

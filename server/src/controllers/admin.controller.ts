@@ -1036,6 +1036,7 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const year = (req.query.year as string | undefined)?.trim();
     const division = (req.query.division as string | undefined)?.trim();
     const college = (req.query.college as string | undefined)?.trim();
+    const sectionId = (req.query.sectionId as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -1043,6 +1044,9 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     if (year && year !== 'ALL') where.year = year;
     if (division && division !== 'ALL') where.division = division.toUpperCase();
     if (college && college !== 'ALL') where.college = college;
+    if (sectionId && sectionId !== 'ALL') {
+      where.enrolledSections = { some: { sectionId } };
+    }
 
     if (search) {
       where.OR = [
@@ -1086,6 +1090,19 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
             orderBy: { createdAt: 'desc' },
             take: 10,
           },
+          enrolledSections: {
+            include: {
+              section: {
+                select: {
+                  id: true,
+                  sectionName: true,
+                  joinCode: true,
+                  subject: true,
+                  course: true,
+                },
+              },
+            },
+          },
           _count: {
             select: { submissions: true },
           },
@@ -1104,6 +1121,13 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
             prnNextAllowedDate: cooldown.nextAllowedDate?.toISOString() || null,
             isPrnChangeEligible: cooldown.isEligible,
             submissionCount: u._count.submissions,
+            sections: u.enrolledSections?.map((es: any) => ({
+              id: es.section.id,
+              sectionName: es.section.sectionName,
+              joinCode: es.section.joinCode,
+              subject: es.section.subject,
+              course: es.section.course,
+            })) || [],
           };
         }),
         pagination: {
@@ -2505,6 +2529,24 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
             update: { userId: existing.id },
           }).catch(() => {});
         }
+        if (u.sectionId) {
+          await prisma.sectionStudent.upsert({
+            where: {
+              sectionId_studentId: {
+                sectionId: u.sectionId,
+                studentId: existing.id,
+              },
+            },
+            create: {
+              sectionId: u.sectionId,
+              studentId: existing.id,
+              prn: prn || existing.prn || 'UNKNOWN',
+              status: 'ENROLLED',
+              joinedVia: 'EXCEL_IMPORT',
+            },
+            update: { status: 'ENROLLED' },
+          }).catch(() => {});
+        }
         syncedCount++;
       } else {
         const shortId = prn ? prn.slice(-4) : crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -2538,6 +2580,24 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
             where: { prn },
             create: { prn, userId: newUser.id },
             update: { userId: newUser.id },
+          }).catch(() => {});
+        }
+        if (u.sectionId) {
+          await prisma.sectionStudent.upsert({
+            where: {
+              sectionId_studentId: {
+                sectionId: u.sectionId,
+                studentId: newUser.id,
+              },
+            },
+            create: {
+              sectionId: u.sectionId,
+              studentId: newUser.id,
+              prn: prn || 'UNKNOWN',
+              status: 'ENROLLED',
+              joinedVia: 'EXCEL_IMPORT',
+            },
+            update: { status: 'ENROLLED' },
           }).catch(() => {});
         }
         syncedCount++;

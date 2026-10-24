@@ -524,29 +524,83 @@ export class FirestoreDataService {
       isPrnChangeEligible: Boolean(data.isPrnChangeEligible),
       themePreference: data.themePreference || null,
       storagePreference: data.storagePreference || null,
+      sectionId: data.sectionId || null,
+      sectionName: data.sectionName || null,
+      sections: data.sections || (data.sectionId ? [{ id: data.sectionId, sectionName: data.sectionName || 'Enrolled Section' }] : []),
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
     };
   }
 
   /**
-   * Fetches all registered student profiles directly from Firestore (Admin only)
+   * Fetches all registered and enrolled student profiles directly from Firestore (Admin only)
    */
   public static async getAllFirestoreUsers(): Promise<User[]> {
+    const list: User[] = [];
+    const seenEmails = new Set<string>();
+    const seenPrns = new Set<string>();
+
+    // 1. Fetch from 'users' collection
     try {
       const snap = await getDocs(collection(db, 'users'));
-      const list: User[] = [];
       snap.forEach((d) => {
         const raw = d.data();
         if (!raw) return;
         const mapped = FirestoreDataService.mapDocToUser(d.id, raw);
         list.push(mapped);
+        if (mapped.email) seenEmails.add(mapped.email.toLowerCase());
+        if (mapped.prn) seenPrns.add(mapped.prn.toUpperCase());
       });
-      return list;
     } catch (err) {
-      console.warn('getAllFirestoreUsers error from users collection, trying publicProfiles fallback:', err);
+      console.warn('getAllFirestoreUsers: users collection read skipped/failed:', err);
+    }
+
+    // 2. Fetch from 'enrolled_students' collection (guarantees enrolled students are visible in admin roster)
+    try {
+      const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
+      enrolledSnap.forEach((d) => {
+        const raw = d.data();
+        if (!raw) return;
+        const email = (raw.email || '').toLowerCase().trim();
+        const prn = raw.prn ? String(raw.prn).toUpperCase().trim() : null;
+        if ((email && seenEmails.has(email)) || (prn && seenPrns.has(prn))) {
+          return;
+        }
+        if (email) seenEmails.add(email);
+        if (prn) seenPrns.add(prn);
+
+        const shortId = prn ? prn.slice(-4) : '0000';
+        list.push({
+          id: d.id,
+          username: raw.username || (email ? email.split('@')[0] : `stu_${shortId}`),
+          email,
+          prn,
+          maskedPrn: prn ? `••••••••${shortId}` : '••••••••',
+          shortId,
+          fullName: raw.name || raw.fullName || `Student ${shortId}`,
+          displayName: raw.displayName || raw.name || `Student ${shortId}`,
+          publicDisplayName: raw.displayName || raw.name || `Student ${shortId}`,
+          role: 'STUDENT',
+          college: raw.college || 'Sanjivani University',
+          department: raw.department || 'CSE',
+          year: raw.year || 'SY',
+          division: raw.division || null,
+          sectionId: raw.sectionId || null,
+          sectionName: raw.sectionName || null,
+          profileComplete: true,
+          totalPoints: Number(raw.totalPoints || 0),
+          currentStreak: Number(raw.currentStreak || 0),
+          longestStreak: Number(raw.longestStreak || 0),
+          createdAt: raw.enrolledAt?.toDate ? raw.enrolledAt.toDate().toISOString() : new Date().toISOString(),
+        } as any);
+      });
+    } catch (err) {
+      console.warn('getAllFirestoreUsers: enrolled_students collection read skipped/failed:', err);
+    }
+
+    // 3. Fallback: If empty, try publicProfiles
+    if (list.length === 0) {
       try {
         const pubSnap = await getDocs(collection(db, 'publicProfiles'));
-        const list: User[] = [];
         pubSnap.forEach((d) => {
           const raw = d.data();
           if (!raw) return;
@@ -560,7 +614,6 @@ export class FirestoreDataService {
             fullName: raw.displayName || 'Student',
             displayName: raw.displayName || null,
             publicDisplayName: raw.displayName || 'Student',
-            ownIdentityLabel: null,
             role: raw.role || 'STUDENT',
             college: raw.college || 'Sanjivani University',
             department: raw.department || null,
@@ -573,12 +626,12 @@ export class FirestoreDataService {
             createdAt: new Date().toISOString(),
           } as User);
         });
-        return list;
       } catch (pubErr) {
         console.warn('getAllFirestoreUsers publicProfiles fallback failed:', pubErr);
-        return [];
       }
     }
+
+    return list;
   }
 
   /**
