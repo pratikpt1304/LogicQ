@@ -53,6 +53,7 @@ import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnal
 import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSecurity.js';
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 import { SectionManagementPage } from '../faculty/SectionManagementPage.js';
+import { StudentActivityInspectorModal } from '../../components/admin/StudentActivityInspectorModal.js';
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -3775,327 +3776,43 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Student Activity Inspector Modal */}
       {selectedActivityUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-4xl glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[92vh] space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-line)]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-[var(--text-main)] font-mono">
-                      {selectedActivityUser.displayName || selectedActivityUser.fullName || selectedActivityUser.username}
-                    </h3>
-                    <span className="text-xs text-[var(--text-muted)] font-mono">
-                      (@{selectedActivityUser.username})
-                    </span>
-                    {selectedActivityUser.isBanned ? (
-                      <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-mono">
-                        BANNED
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono">
-                        {selectedActivityUser.role}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)] font-mono font-medium">
-                    {selectedActivityUser.email}
-                  </p>
-                </div>
-              </div>
-
-              {/* Top Action Buttons: Download CSV, Edit PRN, Ban/Unban, Close */}
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadSingleStudentCsv(selectedActivityUser)}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono font-bold text-emerald-400 hover:bg-emerald-500/20 transition flex items-center gap-1.5"
-                  title="Download student dossier CSV"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Student CSV</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingAcademicUser(selectedActivityUser);
-                    setAcademicEditForm({
-                      prn: selectedActivityUser.prn || '',
-                      college: selectedActivityUser.college || 'Sanjivani University',
-                      department: selectedActivityUser.department || 'CSE',
-                      year: selectedActivityUser.year || 'FY',
-                      division: selectedActivityUser.division || '',
-                      adminPassword: '',
-                      reason: '',
-                    });
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs font-mono font-bold text-cyan-400 hover:bg-cyan-500/20 transition flex items-center gap-1.5"
-                  title="Audited PRN and College edit"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit PRN</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newBanStatus = !selectedActivityUser.isBanned;
-                    if (
-                      window.confirm(
-                        `Are you sure you want to ${
-                          newBanStatus ? 'BAN' : 'UNBAN'
-                        } student ${selectedActivityUser.displayName || selectedActivityUser.username}?`
-                      )
-                    ) {
-                      banMutation.mutate({
-                        id: selectedActivityUser.id,
-                        isBanned: newBanStatus,
-                      });
-                      setSelectedActivityUser((prev: any) =>
-                        prev ? { ...prev, isBanned: newBanStatus } : null
-                      );
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition flex items-center gap-1.5 ${
-                    selectedActivityUser.isBanned
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-                      : 'bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
-                  }`}
-                  title={selectedActivityUser.isBanned ? 'Unban student' : 'Ban student'}
-                >
-                  <Ban className="w-3.5 h-3.5" />
-                  <span>{selectedActivityUser.isBanned ? 'Unban Student' : 'Ban Student'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const studentUrl = `/profile/${selectedActivityUser.username || selectedActivityUser.id}`;
-                    window.open(studentUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition flex items-center gap-1.5"
-                  title="Open student practice report and verified record in new tab"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Practice Report</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedActivityUser(null)}
-                  className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition cursor-pointer"
-                  title="Close inspector"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Academic Profile & Summary Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
-                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">PRN</span>
-                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                  {revealedPrns[selectedActivityUser.id] ||
-                    selectedActivityUser.maskedPrn ||
-                    selectedActivityUser.prn ||
-                    '—'}
-                </span>
-              </div>
-              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
-                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">College & Dept</span>
-                <span className="text-xs font-mono text-[var(--text-main)] font-bold">
-                  {selectedActivityUser.department || '—'}
-                </span>
-                <span className="text-[10px] text-[var(--text-muted)] block font-medium">
-                  {selectedActivityUser.college || 'Sanjivani'}
-                </span>
-              </div>
-              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
-                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">Year / Div</span>
-                <span className="text-xs font-mono text-[var(--text-main)] font-bold">
-                  {selectedActivityUser.year || '—'} {selectedActivityUser.division ? `• Div ${selectedActivityUser.division}` : ''}
-                </span>
-              </div>
-              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
-                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">Points & Streak</span>
-                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                  {selectedActivityUser.totalPoints || 0} PTS
-                </span>
-                <span className="text-[10px] text-orange-600 dark:text-orange-400 block font-mono font-bold">
-                  {selectedActivityUser.currentStreak || 0}d streak
-                </span>
-              </div>
-            </div>
-
-            {/* Submissions Activity Table */}
-            {(() => {
-              const studentSubmissions = submissions.filter(
-                (s: any) =>
-                  s.userId === selectedActivityUser.id ||
-                  s.user?.id === selectedActivityUser.id ||
-                  s.user?.email === selectedActivityUser.email
+        <StudentActivityInspectorModal
+          user={selectedActivityUser}
+          onClose={() => setSelectedActivityUser(null)}
+          onEditAcademic={(u) => {
+            setEditingAcademicUser(u);
+            setAcademicEditForm({
+              prn: u.prn || '',
+              college: u.college || 'Sanjivani University',
+              department: u.department || 'CSE',
+              year: u.year || 'FY',
+              division: u.division || '',
+              adminPassword: '',
+              reason: '',
+            });
+          }}
+          onBanToggle={(u) => {
+            const newBanStatus = !u.isBanned;
+            if (
+              window.confirm(
+                `Are you sure you want to ${newBanStatus ? 'BAN' : 'UNBAN'} student ${
+                  u.displayName || u.username
+                }?`
+              )
+            ) {
+              banMutation.mutate({
+                id: u.id,
+                isBanned: newBanStatus,
+              });
+              setSelectedActivityUser((prev: any) =>
+                prev ? { ...prev, isBanned: newBanStatus } : null
               );
-              return (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                      <span>Code Submissions Activity ({studentSubmissions.length})</span>
-                    </h4>
-                  </div>
-                  {studentSubmissions.length === 0 ? (
-                    <div className="p-4 rounded-xl border border-dashed border-[var(--border-line)] bg-[var(--bg-surface)] text-center text-xs font-mono text-[var(--text-muted)]">
-                      No code submissions recorded for this student yet.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-xl border border-[var(--border-line)]">
-                      <table className="w-full text-left text-xs font-mono">
-                        <thead className="bg-[var(--bg-surface)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-line)] font-bold">
-                          <tr>
-                            <th className="px-3 py-2.5">Date</th>
-                            <th className="px-3 py-2.5">Challenge</th>
-                            <th className="px-3 py-2.5">Verdict</th>
-                            <th className="px-3 py-2.5">Runtime / Mem</th>
-                            <th className="px-3 py-2.5">Points</th>
-                            <th className="px-3 py-2.5 text-right">Inspect</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-line)]">
-                          {studentSubmissions.map((sub: any) => (
-                            <tr key={sub.id} className="hover:bg-[var(--bg-surface-hover)]">
-                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
-                                {new Date(sub.submittedAt || sub.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-main)] font-medium">
-                                {sub.problem?.title || sub.problemTitle || sub.problemSlug || sub.problemId || 'Challenge'}
-                              </td>
-                              <td className="px-3 py-2">
-                                <VerdictBadge verdict={sub.verdict || sub.status} />
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
-                                {sub.executionTimeMs ?? sub.executionTime ?? '—'} ms / {sub.memoryUsedKb ?? sub.memoryKb ?? '—'} KB
-                              </td>
-                              <td className="px-3 py-2 text-amber-600 dark:text-amber-400 font-bold">
-                                +{sub.pointsAwarded ?? sub.points ?? 0}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {(sub.code || sub.sourceCode) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedSubmissionCode(sub.code || sub.sourceCode)}
-                                    className="px-2 py-0.5 rounded text-[11px] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-cyan-600 dark:text-cyan-300 font-mono border border-[var(--border-line)]"
-                                  >
-                                    Code
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Uploaded Files Activity Table */}
-            {(() => {
-              const studentUploads = uploads.filter(
-                (up: any) =>
-                  up.userId === selectedActivityUser.id ||
-                  up.user?.id === selectedActivityUser.id ||
-                  up.user?.email === selectedActivityUser.email
-              );
-              return (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
-                      <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      <span>Uploaded Files & Handwritten Assignments ({studentUploads.length})</span>
-                    </h4>
-                  </div>
-                  {studentUploads.length === 0 ? (
-                    <div className="p-4 rounded-xl border border-dashed border-[var(--border-line)] bg-[var(--bg-surface)] text-center text-xs font-mono text-[var(--text-muted)]">
-                      No uploaded assignment submissions recorded for this student yet.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-xl border border-[var(--border-line)]">
-                      <table className="w-full text-left text-xs font-mono">
-                        <thead className="bg-[var(--bg-surface)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-line)] font-bold">
-                          <tr>
-                            <th className="px-3 py-2.5">Date</th>
-                            <th className="px-3 py-2.5">Filename / Challenge</th>
-                            <th className="px-3 py-2.5">Status</th>
-                            <th className="px-3 py-2.5">Suspicion</th>
-                            <th className="px-3 py-2.5">Score Awarded</th>
-                            <th className="px-3 py-2.5">Comment</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-line)]">
-                          {studentUploads.map((up: any) => (
-                            <tr key={up.id} className="hover:bg-[var(--bg-surface-hover)]">
-                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
-                                {new Date(up.submittedAt || up.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-main)] font-medium">
-                                {up.originalFilename || up.filename || up.problemTitle || 'Uploaded File'}
-                              </td>
-                              <td className="px-3 py-2">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] border ${
-                                    up.status === 'APPROVED'
-                                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                      : up.status === 'REJECTED'
-                                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                                  }`}
-                                >
-                                  {up.status || 'PENDING'}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2">
-                                {up.suspicionFlag ? (
-                                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] flex items-center gap-1 w-fit">
-                                    <Flag className="w-3 h-3" /> FLAGGED
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-500 text-[10px]">CLEAR</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 text-amber-400 font-bold">
-                                {up.pointsAwarded != null ? `+${up.pointsAwarded}` : '—'}
-                              </td>
-                              <td className="px-3 py-2 text-slate-400 text-[11px] truncate max-w-xs">
-                                {up.reviewerComment || '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Modal Footer */}
-            <div className="flex justify-end pt-4 border-t border-[var(--border-line)]">
-              <button
-                type="button"
-                onClick={() => setSelectedActivityUser(null)}
-                className="px-4 py-2 rounded-lg font-mono text-xs font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] transition cursor-pointer"
-              >
-                Close Activity Inspector
-              </button>
-            </div>
-          </div>
-        </div>
+            }
+          }}
+          onInspectCode={(code) => setSelectedSubmissionCode(code)}
+          onDownloadCsv={(u) => handleDownloadSingleStudentCsv(u)}
+          revealedPrn={revealedPrns[selectedActivityUser.id]}
+        />
       )}
 
       {/* Audited Admin PRN & College Edit Modal */}
