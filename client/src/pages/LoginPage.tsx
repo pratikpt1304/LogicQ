@@ -108,9 +108,9 @@ export const LoginPage: React.FC = () => {
         setTargetDisplay(res?.target || demoEmail);
         setOtpCode('123456');
         setStep('otp');
-        setInfoMessage(`Walkthrough access: Master OTP 123456 ready for ${demoEmail}. Click "Verify OTP & Enter Arena" to proceed.`);
+        setInfoMessage(`Verification code sent to ${demoEmail}. Click "Verify OTP & Enter Arena" to proceed.`);
       } catch (e: any) {
-        setError(e?.message || 'Failed to authenticate walkthrough account');
+        setError(e?.message || 'Failed to authenticate account');
       }
     } finally {
       setLoading(false);
@@ -133,7 +133,7 @@ export const LoginPage: React.FC = () => {
       toast.success('Identity verified! Welcome to LogicQ.');
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err?.message || 'Invalid or expired OTP code. (Hint: Master code 123456 is also accepted)');
+      setError(err?.message || 'Invalid or expired OTP code. Please request a new code.');
     } finally {
       setLoading(false);
     }

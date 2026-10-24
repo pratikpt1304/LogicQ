@@ -1163,19 +1163,6 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    if (isWalkthroughAccount(user.email)) {
-      const targetEmail = user.email;
-      const ip = req.ip || req.socket.remoteAddress;
-      OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip).catch(() => {});
-      res.json({
-        success: true,
-        message: `Walkthrough access ready for ${targetEmail} (Master Code: 123456)`,
-        target: targetEmail,
-        cooldownRemaining: 60,
-      });
-      return;
-    }
-
     const targetEmail = user.email;
     const ip = req.ip || req.socket.remoteAddress;
     const otpResult = await OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip);
