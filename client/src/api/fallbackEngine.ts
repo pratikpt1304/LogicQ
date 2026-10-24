@@ -688,6 +688,16 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (found.isBanned) {
       throw new Error('Your account has been suspended by an administrator.');
     }
+    if (found && body.firestoreProfile) {
+      if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
+      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (body.firestoreProfile.year) found.year = body.firestoreProfile.year;
+      if (body.firestoreProfile.division) found.division = body.firestoreProfile.division;
+      if (body.firestoreProfile.bio) found.bio = body.firestoreProfile.bio;
+      if (body.firestoreProfile.prn) found.prn = body.firestoreProfile.prn;
+      if (body.firestoreProfile.totalPoints !== undefined) found.totalPoints = Math.max(found.totalPoints || 0, body.firestoreProfile.totalPoints);
+      saveStoredUsers(users);
+    }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
     const { password: _, ...safeUser } = found;
     return {
@@ -732,6 +742,16 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     if (found.isBanned) {
       throw new Error('Your account has been suspended by an administrator.');
+    }
+    if (found && body.firestoreProfile) {
+      if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
+      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (body.firestoreProfile.year) found.year = body.firestoreProfile.year;
+      if (body.firestoreProfile.division) found.division = body.firestoreProfile.division;
+      if (body.firestoreProfile.bio) found.bio = body.firestoreProfile.bio;
+      if (body.firestoreProfile.prn) found.prn = body.firestoreProfile.prn;
+      if (body.firestoreProfile.totalPoints !== undefined) found.totalPoints = Math.max(found.totalPoints || 0, body.firestoreProfile.totalPoints);
+      saveStoredUsers(users);
     }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
     const { password: _, ...safeUser } = found;
@@ -1098,7 +1118,12 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
 
     const users = getStoredUsers();
-    const idx = users.findIndex((u) => u.id === current.id);
+    const idx = users.findIndex(
+      (u) =>
+        u.id === current.id ||
+        (current.email && u.email && u.email.toLowerCase() === current.email.toLowerCase()) ||
+        (current.prn && u.prn && u.prn === current.prn)
+    );
     const existing = idx !== -1 ? users[idx] : current;
 
     const shortId = existing.shortId || generateShortId(existing.id);
@@ -1117,8 +1142,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
     if (idx !== -1) {
       users[idx] = updatedUser;
-      saveStoredUsers(users);
+    } else {
+      users.push(updatedUser);
     }
+    saveStoredUsers(users);
 
     // Persist to current user cache
     try {
@@ -1304,20 +1331,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error('Challenger not found');
     }
 
-    const isOwner = Boolean(current && current.id === target.id);
+    const isOwner = Boolean(
+      current &&
+        (current.id === target.id ||
+          (current.email && target.email && current.email.toLowerCase() === target.email.toLowerCase()) ||
+          (current.prn && target.prn && current.prn === target.prn))
+    );
+    const effectiveDisplayName = target.displayName || (isOwner ? (current?.displayName || current?.fullName) : null);
+    const effectiveDepartment = target.department || (isOwner ? current?.department : null);
+    const effectiveYear = target.year || (isOwner ? current?.year : null);
+    const effectiveDivision = target.division || (isOwner ? current?.division : null);
+    const effectiveBio = target.bio || (isOwner ? current?.bio : null);
     const subs = getStoredSubmissions().filter((s) => s.userId === target.id);
     const shortId = target.shortId || generateShortId(target.id);
     const publicDisplayName = formatPublicDisplayName({
-      displayName: target.displayName,
+      displayName: effectiveDisplayName,
       shortId,
       id: target.id,
     });
-    const ownMaskedPrn = isOwner ? maskPrn(target.prn) : undefined;
+    const ownMaskedPrn = isOwner ? maskPrn(target.prn || current?.prn) : undefined;
     const ownIdentityLabel = isOwner
       ? formatOwnIdentityLabel({
-          department: target.department,
-          year: target.year,
-          prn: target.prn,
+          department: effectiveDepartment,
+          year: effectiveYear,
+          prn: target.prn || current?.prn,
           maskedPrn: ownMaskedPrn,
         })
       : undefined;
@@ -1340,15 +1377,15 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         user: {
           id: target.id,
           username: target.username,
-          displayName: target.displayName,
+          displayName: effectiveDisplayName,
           publicDisplayName,
           shortId,
-          fullName: isOwner ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+          fullName: isOwner ? (effectiveDisplayName || ownIdentityLabel || publicDisplayName) : publicDisplayName,
           college: target.college || 'Sanjivani University',
-          department: target.department,
-          year: target.year,
-          division: target.division,
-          bio: target.bio,
+          department: effectiveDepartment,
+          year: effectiveYear,
+          division: effectiveDivision,
+          bio: effectiveBio,
           avatarUrl: target.avatarUrl,
           role: target.role,
           totalPoints: target.totalPoints || 0,

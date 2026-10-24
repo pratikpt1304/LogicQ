@@ -234,8 +234,9 @@ export class FirestoreDataService {
       themePreference: 'light' | 'dark' | 'system';
     }>
   ): Promise<void> {
-    if (!uid) throw new Error('Unauthenticated');
-    const userRef = doc(db, 'users', uid);
+    const targetUid = auth.currentUser?.uid || uid;
+    if (!targetUid) throw new Error('Unauthenticated');
+    const userRef = doc(db, 'users', targetUid);
 
     const safePayload: Record<string, any> = {
       updatedAt: serverTimestamp(),
@@ -250,7 +251,22 @@ export class FirestoreDataService {
     if (updates.storagePreference !== undefined) safePayload.storagePreference = updates.storagePreference;
     if (updates.themePreference !== undefined) safePayload.themePreference = updates.themePreference;
 
-    await updateDoc(userRef, safePayload);
+    await setDoc(userRef, safePayload, { merge: true });
+
+    // Also update non-PII publicProfiles mirror
+    try {
+      const publicRef = doc(db, 'publicProfiles', targetUid);
+      const publicPayload: Record<string, any> = {
+        updatedAt: serverTimestamp(),
+      };
+      if (updates.displayName !== undefined) publicPayload.displayName = updates.displayName;
+      if (updates.department !== undefined) publicPayload.department = updates.department;
+      if (updates.year !== undefined) publicPayload.year = updates.year;
+      if (updates.division !== undefined) publicPayload.division = updates.division;
+      await setDoc(publicRef, publicPayload, { merge: true });
+    } catch {
+      // non-fatal mirror update
+    }
   }
 
   /**

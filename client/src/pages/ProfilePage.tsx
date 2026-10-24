@@ -400,9 +400,50 @@ export const ProfilePage: React.FC = () => {
             (localStorage.getItem('logicq_storage_preference') as any) ||
             'FIRESTORE_FALLBACK';
 
+          const resolvedDisplayName =
+            fsUser?.displayName ||
+            serverUser?.displayName ||
+            currentUser?.displayName ||
+            fsUser?.fullName ||
+            serverUser?.fullName ||
+            currentUser?.fullName ||
+            auth.currentUser?.displayName ||
+            null;
+
+          const resolvedDepartment =
+            fsUser?.department ||
+            serverUser?.department ||
+            currentUser?.department ||
+            null;
+
+          const resolvedYear =
+            fsUser?.year ||
+            serverUser?.year ||
+            currentUser?.year ||
+            null;
+
+          const resolvedDivision =
+            fsUser?.division ||
+            serverUser?.division ||
+            currentUser?.division ||
+            null;
+
+          const resolvedBio =
+            fsUser?.bio ||
+            serverUser?.bio ||
+            currentUser?.bio ||
+            null;
+
           serverUser = {
+            ...currentUser,
             ...serverUser,
             ...(fsUser || {}),
+            displayName: resolvedDisplayName,
+            fullName: resolvedDisplayName || serverUser?.fullName || currentUser?.fullName || 'Student',
+            department: resolvedDepartment,
+            year: resolvedYear,
+            division: resolvedDivision,
+            bio: resolvedBio,
             totalPoints: authoritativePoints,
             currentStreak: authoritativeCurrentStreak,
             longestStreak: authoritativeLongestStreak,
@@ -484,23 +525,29 @@ export const ProfilePage: React.FC = () => {
   });
 
   const handleOpenEdit = () => {
-    if (profile) {
+    if (profile || currentUser) {
       setEditError(null);
       setProfileWorkspaceBlockMsg(null);
       const activeStorage =
-        profile.storagePreference ||
+        profile?.storagePreference ||
         currentUser?.storagePreference ||
         (localStorage.getItem('logicq_storage_preference') as any) ||
         'FIRESTORE_FALLBACK';
 
       setEditForm({
-        displayName: profile.displayName || '',
-        department: profile.department || ALLOWED_DEPARTMENTS[0],
-        year: profile.year || ALLOWED_YEARS[0],
-        division: profile.division || '',
-        bio: profile.bio || '',
+        displayName:
+          profile?.displayName ||
+          currentUser?.displayName ||
+          profile?.fullName ||
+          currentUser?.fullName ||
+          auth.currentUser?.displayName ||
+          '',
+        department: profile?.department || currentUser?.department || ALLOWED_DEPARTMENTS[0],
+        year: profile?.year || currentUser?.year || ALLOWED_YEARS[0],
+        division: profile?.division || currentUser?.division || '',
+        bio: profile?.bio || currentUser?.bio || '',
         storagePreference: activeStorage,
-        hidePracticeTimer: Boolean(profile.hidePracticeTimer ?? currentUser?.hidePracticeTimer),
+        hidePracticeTimer: Boolean((profile?.hidePracticeTimer ?? currentUser?.hidePracticeTimer)),
       });
       setIsEditOpen(true);
     }
@@ -618,6 +665,20 @@ export const ProfilePage: React.FC = () => {
     }
     try {
       localStorage.setItem('logicq_storage_preference', editForm.storagePreference);
+      const activeRaw = localStorage.getItem('logicq_active_user');
+      const activeObj = activeRaw ? JSON.parse(activeRaw) : {};
+      const mergedActive = {
+        ...activeObj,
+        displayName: trimmedDisplay || activeObj.displayName || null,
+        fullName: trimmedDisplay || activeObj.fullName || 'Student',
+        department: editForm.department,
+        year: editForm.year,
+        division: trimmedDiv || null,
+        bio: editForm.bio.trim() || null,
+        storagePreference: editForm.storagePreference,
+        hidePracticeTimer: editForm.hidePracticeTimer,
+      };
+      localStorage.setItem('logicq_active_user', JSON.stringify(mergedActive));
     } catch {}
 
     updateMutation.mutate({
@@ -787,14 +848,23 @@ export const ProfilePage: React.FC = () => {
   }
 
   const publicLabel = formatPublicDisplayName(profile);
-  const ownPrn = isOwnProfile ? profile.prn || currentUser?.prn : null;
-  const ownMaskedPrn = isOwnProfile ? profile.maskedPrn || maskPrn(profile.prn) : null;
+  const ownPrn = isOwnProfile ? profile?.prn || currentUser?.prn : null;
+  const ownMaskedPrn = isOwnProfile ? profile?.maskedPrn || maskPrn(profile?.prn || currentUser?.prn) : null;
   const ownPrnDisplay = ownPrn || ownMaskedPrn;
+
+  const resolvedDisplayName =
+    profile?.displayName ||
+    currentUser?.displayName ||
+    profile?.fullName ||
+    currentUser?.fullName ||
+    auth.currentUser?.displayName ||
+    null;
+
   const headerTitle = isOwnProfile
-    ? profile.displayName ||
-      [profile.department, profile.year, ownPrnDisplay].filter(Boolean).join(' • ') ||
+    ? resolvedDisplayName ||
+      [profile?.department || currentUser?.department, profile?.year || currentUser?.year, ownPrnDisplay].filter(Boolean).join(' • ') ||
       publicLabel
-    : publicLabel;
+    : profile?.displayName || publicLabel;
 
   const solvedByDiff = profile.solvedByDifficulty || profile.difficultyBreakdown || {};
 
@@ -1097,14 +1167,14 @@ export const ProfilePage: React.FC = () => {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#8B9BFF] flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-[#0C0F1F] shadow-xl font-mono shrink-0">
-              {(publicLabel || 'S').charAt(0).toUpperCase()}
+              {((resolvedDisplayName || publicLabel || 'S')[0] || 'S').toUpperCase()}
             </div>
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-extrabold text-[#E8EAF6]">{headerTitle}</h1>
                 <span className="text-xs font-mono font-bold text-[#8B9BFF] bg-[#8B9BFF]/15 border border-[#8B9BFF]/40 px-2.5 py-0.5 rounded">
-                  {profile.rank ? `RANK #${profile.rank}` : 'NOT RANKED YET'}
+                  {profile?.rank ? `RANK #${profile.rank}` : 'NOT RANKED YET'}
                 </span>
                 {isOwnProfile && ownPrnDisplay && (
                   <span
@@ -1120,40 +1190,40 @@ export const ProfilePage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]">
                   <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                  <span>{profile.college || 'Sanjivani University'}</span>
+                  <span>{profile?.college || currentUser?.college || 'Sanjivani University'}</span>
                 </span>
-                {profile.department && (
+                {(profile?.department || currentUser?.department) && (
                   <span
                     data-testid="profile-department"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
                   >
                     <GraduationCap className="w-3.5 h-3.5 text-[#46D9A0]" />
-                    <span>{profile.department}</span>
+                    <span>{profile?.department || currentUser?.department}</span>
                   </span>
                 )}
-                {profile.year && (
+                {(profile?.year || currentUser?.year) && (
                   <span
                     data-testid="profile-year"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
                   >
                     <Calendar className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                    <span>Year: {profile.year}</span>
+                    <span>Year: {profile?.year || currentUser?.year}</span>
                   </span>
                 )}
-                {profile.division && (
+                {(profile?.division || currentUser?.division) && (
                   <span
                     data-testid="profile-division"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
                   >
                     <Layers className="w-3.5 h-3.5 text-[#9AA1C4]" />
-                    <span>Div: {profile.division}</span>
+                    <span>Div: {profile?.division || currentUser?.division}</span>
                   </span>
                 )}
               </div>
 
-              {profile.bio && (
+              {(profile?.bio || currentUser?.bio) && (
                 <p className="text-sm text-[#E8EAF6] mt-2 max-w-xl leading-relaxed font-sans">
-                  {profile.bio}
+                  {profile?.bio || currentUser?.bio}
                 </p>
               )}
             </div>
