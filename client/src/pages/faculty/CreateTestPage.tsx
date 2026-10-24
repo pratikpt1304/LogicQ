@@ -27,7 +27,7 @@ export const CreateTestPage: React.FC = () => {
   const [form, setForm] = useState({
     title: 'Mid-Term Assessment: C Control & Arrays',
     sectionId: '',
-    moduleId: 'Module 1 - C Fundamentals',
+    moduleId: 'All Modules - Comprehensive Full Syllabus',
     instructions: 'Strict time-based evaluation. 1 mark per question. No reattempts permitted once submitted.',
     durationMinutes: 60,
     questionCount: 20,
@@ -249,17 +249,23 @@ export const CreateTestPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Module</label>
+                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                    Question Syllabus / Topic Pool
+                  </label>
                   <select
                     value={form.moduleId}
                     onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-mono"
                   >
-                    <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals</option>
-                    <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions</option>
-                    <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory</option>
-                    <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity</option>
+                    <option value="All Modules - Comprehensive Full Syllabus">All Modules (Full Syllabus Mid-Term / Final)</option>
+                    <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals (Variables, Loops, Conditions)</option>
+                    <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions (Pointers, Memory, Recursion)</option>
+                    <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory (Structs, Dynamic Allocation)</option>
+                    <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity (Arrays, Searching, Sorting)</option>
                   </select>
+                  <span className="text-[10px] text-[var(--muted-foreground)] mt-1 block">
+                    Questions is syllabus se pick honge. Test student ke <b>Tests (Exam)</b> portal par live appear hoga.
+                  </span>
                 </div>
               </div>
 
