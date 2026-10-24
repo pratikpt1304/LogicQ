@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { SectionController } from '../controllers/section.controller.js';
+import { OtpController } from '../controllers/otp.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 
@@ -8,6 +9,8 @@ export const sectionRoutes = Router();
 // Public routes for student instant join
 sectionRoutes.get('/join-info/:tokenOrCode', SectionController.getPublicJoinInfo);
 sectionRoutes.post('/instant-join', SectionController.instantJoin);
+sectionRoutes.post('/send-email-otp', OtpController.sendEmailOtp);
+sectionRoutes.post('/verify-email-otp', OtpController.verifyEmailOtp);
 
 // Faculty & Admin authenticated routes
 sectionRoutes.post('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.createSection);

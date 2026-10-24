@@ -101,7 +101,7 @@ export const InstantJoinPage: React.FC = () => {
 
     setIsSendingEmailOtp(true);
     try {
-      const res = await api.post('/sections/send-email-otp', {
+      const res = await api.post('/otp/send-email', {
         email: email.trim().toLowerCase(),
         prn: prn.trim().toUpperCase(),
       });
@@ -128,7 +128,7 @@ export const InstantJoinPage: React.FC = () => {
 
     setIsVerifyingEmailOtp(true);
     try {
-      const res = await api.post('/sections/verify-email-otp', {
+      const res = await api.post('/otp/verify-email', {
         email: email.trim().toLowerCase(),
         code: emailOtp.trim(),
         prn: prn.trim().toUpperCase(),
