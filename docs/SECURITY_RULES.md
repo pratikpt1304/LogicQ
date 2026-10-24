@@ -170,10 +170,26 @@ service cloud.firestore {
         request.auth.token.role == 'ADMIN'
         || (request.auth.token.email is string && request.auth.token.email.lower() in [
           'admin@logicq.io',
+          'hariprasathset@sanjivani.edu.in',
           'logicq1304@gmail.com',
           'ipworker1908@gmail.com',
           'ipverse1918@gmail.com'
         ])
+      );
+    }
+
+    function isInstitutionalEmail(email) {
+      return email is string && (
+        email.lower().matches('^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\\.)?(sanjivani\\.edu\\.in|sanjivani\\.org\\.in|sanjivanicoe\\.org\\.in|logicq\\.io)$')
+      );
+    }
+
+    function isFaculty() {
+      return isAuthenticated() && (
+        isAdmin() || (
+          (request.auth.token.role == 'FACULTY' || request.auth.token.role == 'TEACHER' || request.auth.token.role == 'INSTRUCTOR' || request.auth.token.isFaculty == true)
+          && isInstitutionalEmail(request.auth.token.email)
+        )
       );
     }
 
@@ -571,6 +587,129 @@ service cloud.firestore {
     match /system_alerts/{alertId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. ACADEMIC SECTIONS & ENROLLED STUDENTS
+    // -------------------------------------------------------------------------
+    function isValidSection(data) {
+      let allowedKeys = [
+        'id', 'sectionId', 'sectionName', 'name', 'course', 'subject',
+        'institution', 'academicYear', 'semester', 'facultyId', 'facultyEmail', 'facultyName',
+        'description', 'joinCode', 'joinToken', 'isActive',
+        'startDate', 'endDate', 'createdAt', 'updatedAt', 'studentsCount'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && ('sectionName' in data ? (data.sectionName is string && data.sectionName.size() >= 1 && data.sectionName.size() <= 100) : (data.name is string && data.name.size() >= 1 && data.name.size() <= 100))
+        && data.course is string && data.course.size() >= 1 && data.course.size() <= 100
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 100
+        && (!('institution' in data) || (data.institution is string && data.institution.size() <= 100))
+        && (!('academicYear' in data) || (data.academicYear is string && data.academicYear.size() <= 50))
+        && (!('semester' in data) || (data.semester is string && data.semester.size() <= 50))
+        && (!('facultyId' in data) || (data.facultyId is string && data.facultyId.size() <= 128))
+        && (!('facultyEmail' in data) || (data.facultyEmail is string && data.facultyEmail.size() <= 150))
+        && (!('facultyName' in data) || (data.facultyName is string && data.facultyName.size() <= 100))
+        && (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 1000))
+        && (!('joinCode' in data) || (data.joinCode is string && data.joinCode.size() <= 32))
+        && (!('joinToken' in data) || (data.joinToken is string && data.joinToken.size() <= 128))
+        && (!('isActive' in data) || data.isActive is bool)
+        && (!('studentsCount' in data) || data.studentsCount is int);
+    }
+
+    function isValidSectionStudent(data) {
+      let allowedKeys = [
+        'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
+        'displayName', 'email', 'mobile', 'status', 'joinedVia',
+        'enrolledAt', 'createdAt', 'updatedAt'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+        && (!('uid' in data) || (data.uid is string && data.uid.size() <= 128))
+        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 30))
+        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
+        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
+        && (!('mobile' in data) || data.mobile == null || (data.mobile is string && data.mobile.size() <= 25))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50));
+    }
+
+    function isStudentMembershipOwner(studentId) {
+      return isAuthenticated() && (
+        request.auth.uid == studentId
+        || (resource != null && 'studentId' in resource.data && resource.data.studentId == request.auth.uid)
+        || (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
+        || (resource != null && 'uid' in resource.data && resource.data.uid == request.auth.uid)
+        || (resource != null && 'email' in resource.data && request.auth.token.email is string && resource.data.email.lower() == request.auth.token.email.lower())
+      );
+    }
+
+    function isStudentMembershipCreate(studentId) {
+      return isAuthenticated() && (
+        request.auth.uid == studentId
+        || ('studentId' in request.resource.data && request.resource.data.studentId == request.auth.uid)
+        || ('userId' in request.resource.data && request.resource.data.userId == request.auth.uid)
+        || ('uid' in request.resource.data && request.resource.data.uid == request.auth.uid)
+        || ('email' in request.resource.data && request.auth.token.email is string && request.resource.data.email.lower() == request.auth.token.email.lower())
+      );
+    }
+
+    match /sections/{sectionId} {
+      allow read: if isAuthenticated();
+      allow create: if isFaculty() && isValidSection(request.resource.data);
+      allow update: if isFaculty() && isValidSection(request.resource.data);
+      allow delete: if isFaculty();
+
+      match /students/{studentId} {
+        allow read: if isFaculty() || isStudentMembershipOwner(studentId);
+        allow create: if (isFaculty() && isValidSectionStudent(request.resource.data))
+          || (isStudentMembershipCreate(studentId) && isValidSectionStudent(request.resource.data));
+        allow update: if isFaculty() && isValidSectionStudent(request.resource.data);
+        allow delete: if isFaculty();
+      }
+    }
+
+    function isValidEnrolledStudent(data) {
+      let allowedKeys = [
+        'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
+        'displayName', 'email', 'mobile', 'sectionId', 'institution',
+        'course', 'subject', 'status', 'enrolledAt', 'createdAt', 'updatedAt'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+        && (!('uid' in data) || (data.uid is string && data.uid.size() <= 128))
+        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 30))
+        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
+        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
+        && (!('mobile' in data) || data.mobile == null || (data.mobile is string && data.mobile.size() <= 25))
+        && (!('sectionId' in data) || (data.sectionId is string && data.sectionId.size() <= 100))
+        && (!('institution' in data) || (data.institution is string && data.institution.size() <= 100))
+        && (!('course' in data) || (data.course is string && data.course.size() <= 100))
+        && (!('subject' in data) || (data.subject is string && data.subject.size() <= 100))
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50));
+    }
+
+    function isOwnEnrolledStudentRecord(studentId) {
+      return isAuthenticated() && (
+        studentId == request.auth.uid
+        || (request.auth.token.email is string && studentId.lower() == request.auth.token.email.lower())
+        || (resource != null && 'uid' in resource.data && resource.data.uid == request.auth.uid)
+        || (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
+        || (resource != null && 'studentId' in resource.data && resource.data.studentId == request.auth.uid)
+        || (resource != null && 'email' in resource.data && request.auth.token.email is string && resource.data.email.lower() == request.auth.token.email.lower())
+      );
+    }
+
+    match /enrolled_students/{studentId} {
+      allow read: if isFaculty() || isOwnEnrolledStudentRecord(studentId);
+      allow create: if isFaculty() && isValidEnrolledStudent(request.resource.data);
+      allow update: if isFaculty() && isValidEnrolledStudent(request.resource.data);
+      allow delete: if isFaculty();
     }
   }
 }

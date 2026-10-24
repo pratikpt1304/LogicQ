@@ -198,6 +198,7 @@ export const ADMIN_EMAILS = [
   'admin@logicq.io',
   'thoratpratik2323@gmail.com',
   'logicqarena@gmail.com',
+  'hariprasathset@sanjivani.edu.in',
   'logicq1304@gmail.com',
   'ipworker1908@gmail.com',
   'ipverse1918@gmail.com',
@@ -433,7 +434,7 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    const payload = { userId: user.id, role: user.role, username: user.username };
+    const payload = { userId: user.id, role: user.role, username: user.username, email: user.email, prn: user.prn || undefined };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -619,7 +620,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const payload = { userId: user.id, role: user.role, username: user.username };
+    const payload = { userId: user.id, role: user.role, username: user.username, email: user.email, prn: user.prn || undefined };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -723,6 +724,8 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       userId: storedToken.user.id,
       role: storedToken.user.role,
       username: storedToken.user.username,
+      email: storedToken.user.email,
+      prn: storedToken.user.prn || undefined,
     };
 
     const newAccessToken = generateAccessToken(payload);
@@ -1034,6 +1037,52 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       });
     }
 
+    // Auto-restore enrolled student if verified record from cloud store was passed
+    const studentRecord = req.body.studentRecord || req.body.enrolledStudent || req.body.profile;
+    if (!user && studentRecord && (studentRecord.email || cleanId.includes('@'))) {
+      const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
+      const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : null);
+      const shortId = prnToUse ? prnToUse.slice(-4) : crypto.randomBytes(2).toString('hex').toUpperCase();
+      const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+      const username = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const placeholderHash = await bcrypt.hash('AutoEnrolledStudentPass123!', 10);
+
+      user = await prisma.user.upsert({
+        where: { email: emailToUse },
+        update: {
+          prn: prnToUse || undefined,
+          fullName: studentRecord.name || studentRecord.fullName || undefined,
+          department: studentRecord.department || undefined,
+          year: studentRecord.year || undefined,
+          division: studentRecord.division || undefined,
+        },
+        create: {
+          username,
+          email: emailToUse,
+          prn: prnToUse,
+          fullName: studentRecord.name || studentRecord.fullName || `Student ${shortId}`,
+          displayName: studentRecord.displayName || studentRecord.name || `Student ${shortId}`,
+          mobile: studentRecord.mobile || null,
+          role: 'STUDENT',
+          accountState: 'ACTIVE',
+          profileComplete: true,
+          college: studentRecord.college || 'Sanjivani University',
+          department: studentRecord.department || 'CSE',
+          year: studentRecord.year || 'SY',
+          division: studentRecord.division || null,
+          passwordHash: placeholderHash,
+        },
+      });
+
+      if (prnToUse) {
+        await prisma.prnIndex.upsert({
+          where: { prn: prnToUse },
+          create: { prn: prnToUse, userId: user.id },
+          update: { userId: user.id },
+        }).catch(() => {});
+      }
+    }
+
     if (!user) {
       res.status(404).json({
         success: false,
@@ -1119,6 +1168,52 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       });
     }
 
+    // Auto-restore enrolled student if verified record from cloud store was passed
+    const studentRecord = req.body.studentRecord || req.body.enrolledStudent || req.body.profile;
+    if (!user && studentRecord && (studentRecord.email || cleanId.includes('@'))) {
+      const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
+      const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : null);
+      const shortId = prnToUse ? prnToUse.slice(-4) : crypto.randomBytes(2).toString('hex').toUpperCase();
+      const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+      const username = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const placeholderHash = await bcrypt.hash('AutoEnrolledStudentPass123!', 10);
+
+      user = await prisma.user.upsert({
+        where: { email: emailToUse },
+        update: {
+          prn: prnToUse || undefined,
+          fullName: studentRecord.name || studentRecord.fullName || undefined,
+          department: studentRecord.department || undefined,
+          year: studentRecord.year || undefined,
+          division: studentRecord.division || undefined,
+        },
+        create: {
+          username,
+          email: emailToUse,
+          prn: prnToUse,
+          fullName: studentRecord.name || studentRecord.fullName || `Student ${shortId}`,
+          displayName: studentRecord.displayName || studentRecord.name || `Student ${shortId}`,
+          mobile: studentRecord.mobile || null,
+          role: 'STUDENT',
+          accountState: 'ACTIVE',
+          profileComplete: true,
+          college: studentRecord.college || 'Sanjivani University',
+          department: studentRecord.department || 'CSE',
+          year: studentRecord.year || 'SY',
+          division: studentRecord.division || null,
+          passwordHash: placeholderHash,
+        },
+      });
+
+      if (prnToUse) {
+        await prisma.prnIndex.upsert({
+          where: { prn: prnToUse },
+          create: { prn: prnToUse, userId: user.id },
+          update: { userId: user.id },
+        }).catch(() => {});
+      }
+    }
+
     if (!user) {
       res.status(404).json({
         success: false,
@@ -1146,7 +1241,7 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    const payload = { userId: user.id, role: user.role, username: user.username };
+    const payload = { userId: user.id, role: user.role, username: user.username, email: user.email, prn: user.prn || undefined };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 

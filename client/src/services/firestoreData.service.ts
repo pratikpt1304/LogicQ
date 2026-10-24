@@ -580,4 +580,125 @@ export class FirestoreDataService {
       }
     }
   }
+
+  /**
+   * Persists an academic section to Firestore so it survives server restarts.
+   */
+  public static async saveSectionToFirestore(section: any): Promise<void> {
+    try {
+      const sectionId = section.id || section.joinToken || `sec_${Date.now()}`;
+      const secRef = doc(db, 'sections', sectionId);
+      await setDoc(
+        secRef,
+        {
+          id: sectionId,
+          institution: section.institution || 'Sanjivani University',
+          course: section.course || 'B.Tech CSE',
+          subject: section.subject || 'C Programming',
+          academicYear: section.academicYear || '2026-2027',
+          semester: section.semester || 'Semester 1',
+          sectionName: section.sectionName || 'Div A',
+          description: section.description || null,
+          joinCode: section.joinCode,
+          joinToken: section.joinToken,
+          facultyId: section.facultyId || null,
+          isActive: section.isActive !== false,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('saveSectionToFirestore error:', err);
+    }
+  }
+
+  /**
+   * Loads all sections persisted in Firestore.
+   */
+  public static async getSectionsFromFirestore(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'sections'));
+      const sections: any[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data) sections.push({ id: d.id, ...data });
+      });
+      return sections;
+    } catch (err) {
+      console.warn('getSectionsFromFirestore error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Persists enrolled students to Firestore under 'enrolled_students' collection.
+   */
+  public static async saveEnrolledStudentsToFirestore(sectionId: string, students: any[]): Promise<void> {
+    try {
+      const batch = writeBatch(db);
+      for (const s of students) {
+        if (!s.email && !s.prn) continue;
+        const key = (s.email || s.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const docRef = doc(db, 'enrolled_students', key);
+        batch.set(
+          docRef,
+          {
+            name: s.name || s.fullName || 'Student',
+            fullName: s.name || s.fullName || 'Student',
+            prn: s.prn ? String(s.prn).trim().toUpperCase() : null,
+            email: s.email ? String(s.email).trim().toLowerCase() : null,
+            mobile: s.mobile ? String(s.mobile).trim() : null,
+            sectionId,
+            college: s.college || 'Sanjivani University',
+            department: s.department || 'CSE',
+            year: s.year || 'SY',
+            division: s.division || null,
+            enrolledAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+      await batch.commit();
+    } catch (err) {
+      console.warn('saveEnrolledStudentsToFirestore error:', err);
+    }
+  }
+
+  /**
+   * Finds an enrolled student by email, PRN, or mobile.
+   */
+  public static async findEnrolledStudentInFirestore(identifier: string): Promise<any | null> {
+    try {
+      const clean = identifier.trim().toLowerCase();
+      const docKey = clean.replace(/[^a-z0-9]/g, '_');
+      const directDoc = await getDoc(doc(db, 'enrolled_students', docKey));
+      if (directDoc.exists()) {
+        return directDoc.data();
+      }
+
+      const emailQ = query(collection(db, 'enrolled_students'), where('email', '==', clean));
+      const emailSnap = await getDocs(emailQ);
+      if (!emailSnap.empty) {
+        return emailSnap.docs[0].data();
+      }
+
+      const prnClean = identifier.trim().toUpperCase();
+      const prnQ = query(collection(db, 'enrolled_students'), where('prn', '==', prnClean));
+      const prnSnap = await getDocs(prnQ);
+      if (!prnSnap.empty) {
+        return prnSnap.docs[0].data();
+      }
+
+      const userQ = query(collection(db, 'users'), where('email', '==', clean));
+      const userSnap = await getDocs(userQ);
+      if (!userSnap.empty) {
+        return userSnap.docs[0].data();
+      }
+
+      return null;
+    } catch (err) {
+      console.warn('findEnrolledStudentInFirestore error:', err);
+      return null;
+    }
+  }
 }

@@ -291,37 +291,43 @@ export async function autoSeedDatabase(): Promise<void> {
     // 6. Ensure Core Admins and Canonical Section Exist in Database
     const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'AdminPassword123!', 10);
 
-    const adminEmail = 'admin@logicq.io';
-    let existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
-    if (!existingAdmin) {
-      existingAdmin = await prisma.user.create({
-        data: {
-          username: 'admin',
-          email: adminEmail,
-          fullName: 'LogicQ Administrator',
-          passwordHash: adminHash,
-          role: 'ADMIN',
-          bio: 'Core Platform Administrator & Judge Maintainer',
-          college: 'LogicQ Operations',
-        },
-      });
-    }
+    const coreAdmins = [
+      {
+        email: 'thoratpratik2323@gmail.com',
+        username: 'pratik_thorat',
+        fullName: 'Pratik Thorat',
+        displayName: 'Pratik Thorat (Admin)',
+      },
+      {
+        email: 'logicqarena@gmail.com',
+        username: 'logicqarena',
+        fullName: 'LogicQ Arena Admin',
+        displayName: 'LogicQ Arena (Admin)',
+      },
+      {
+        email: 'hariprasathset@sanjivani.edu.in',
+        username: 'hariprasath',
+        fullName: 'Dr. Hari Prasath',
+        displayName: 'Dr. Hari Prasath (Admin)',
+      },
+      {
+        email: 'admin@logicq.io',
+        username: 'admin',
+        fullName: 'LogicQ Administrator',
+        displayName: 'Administrator',
+      },
+    ];
 
-    // Ensure Super Admin privileges for primary admin accounts
-    await prisma.user.updateMany({
-      where: { email: { in: ['thoratpratik2323@gmail.com', 'logicqarena@gmail.com'] } },
-      data: { role: 'ADMIN', profileComplete: true },
-    });
-
-    const arenaEmail = 'logicqarena@gmail.com';
-    let arenaAdmin = await prisma.user.findUnique({ where: { email: arenaEmail } });
-    if (!arenaAdmin) {
-      arenaAdmin = await prisma.user.create({
-        data: {
-          username: 'logicqarena',
-          email: arenaEmail,
-          fullName: 'LogicQ Arena Admin',
-          displayName: 'LogicQ Arena (Admin)',
+    let primaryAdminUser: any = null;
+    for (const adm of coreAdmins) {
+      const u = await prisma.user.upsert({
+        where: { email: adm.email },
+        update: { role: 'ADMIN', profileComplete: true },
+        create: {
+          username: adm.username,
+          email: adm.email,
+          fullName: adm.fullName,
+          displayName: adm.displayName,
           role: 'ADMIN',
           passwordHash: adminHash,
           college: 'Sanjivani University',
@@ -329,15 +335,11 @@ export async function autoSeedDatabase(): Promise<void> {
           profileComplete: true,
         },
       });
-      console.log('⚡ Auto-seeded Super Admin account (logicqarena@gmail.com).');
-    } else if (arenaAdmin.role !== 'ADMIN') {
-      arenaAdmin = await prisma.user.update({
-        where: { email: arenaEmail },
-        data: { role: 'ADMIN', profileComplete: true },
-      });
+      if (!primaryAdminUser) primaryAdminUser = u;
     }
+    console.log('⚡ Core Super Admin accounts verified & synced.');
 
-    const sectionOwnerId = arenaAdmin ? arenaAdmin.id : existingAdmin.id;
+    const sectionOwnerId = primaryAdminUser ? primaryAdminUser.id : 'admin';
     const existingSection = await prisma.section.findFirst({
       where: {
         OR: [

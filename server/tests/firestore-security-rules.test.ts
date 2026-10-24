@@ -46,6 +46,7 @@ class RulesEvaluator {
     if (typeof email === 'string') {
       const adminEmails = [
         'admin@logicq.io',
+        'hariprasathset@sanjivani.edu.in',
         'logicq1304@gmail.com',
         'ipworker1908@gmail.com',
         'ipverse1918@gmail.com',
@@ -53,6 +54,161 @@ class RulesEvaluator {
       return adminEmails.includes(email.toLowerCase());
     }
     return false;
+  }
+
+  static isInstitutionalEmail(email?: string): boolean {
+    if (typeof email !== 'string') return false;
+    return /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.)?(sanjivani\.edu\.in|sanjivani\.org\.in|sanjivanicoe\.org\.in|logicq\.io)$/i.test(email);
+  }
+
+  static isFaculty(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    if (RulesEvaluator.isAdmin(ctx)) return true;
+    const role = ctx.auth.token?.role;
+    const isFacultyRole = role === 'FACULTY' || role === 'TEACHER' || role === 'INSTRUCTOR' || ctx.auth.token?.isFaculty === true;
+    return isFacultyRole && RulesEvaluator.isInstitutionalEmail(ctx.auth.token?.email);
+  }
+
+  static evaluateSectionRead(ctx: FirestoreRuleContext): boolean {
+    return ctx.auth !== null;
+  }
+
+  static evaluateSectionCreate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidSection(data);
+  }
+
+  static evaluateSectionUpdate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidSection(data);
+  }
+
+  static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx);
+  }
+
+  static isValidSection(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'sectionId', 'sectionName', 'name', 'course', 'subject',
+      'institution', 'academicYear', 'semester', 'facultyId', 'facultyEmail', 'facultyName',
+      'description', 'joinCode', 'joinToken', 'isActive',
+      'startDate', 'endDate', 'createdAt', 'updatedAt', 'studentsCount'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    const name = data.sectionName || data.name;
+    if (typeof name !== 'string' || name.length < 1 || name.length > 100) return false;
+    if (typeof data.course !== 'string' || data.course.length < 1 || data.course.length > 100) return false;
+    if (typeof data.subject !== 'string' || data.subject.length < 1 || data.subject.length > 100) return false;
+    return true;
+  }
+
+  static evaluateSectionStudentRead(ctx: FirestoreRuleContext, studentId: string): boolean {
+    if (!ctx.auth) return false;
+    if (RulesEvaluator.isFaculty(ctx)) return true;
+    const res = ctx.resource?.data;
+    const authUid = ctx.auth.uid;
+    const authEmail = ctx.auth.token?.email?.toLowerCase();
+    return (
+      authUid === studentId ||
+      (res && res.studentId === authUid) ||
+      (res && res.userId === authUid) ||
+      (res && res.uid === authUid) ||
+      (res && typeof res.email === 'string' && res.email.toLowerCase() === authEmail)
+    );
+  }
+
+  static evaluateSectionStudentCreate(ctx: FirestoreRuleContext, studentId: string): boolean {
+    if (!ctx.auth) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    if (!RulesEvaluator.isValidSectionStudent(data)) return false;
+    if (RulesEvaluator.isFaculty(ctx)) return true;
+
+    const authUid = ctx.auth.uid;
+    const authEmail = ctx.auth.token?.email?.toLowerCase();
+    const isOwner = (
+      authUid === studentId ||
+      data.studentId === authUid ||
+      data.userId === authUid ||
+      data.uid === authUid ||
+      (typeof data.email === 'string' && data.email.toLowerCase() === authEmail)
+    );
+    return isOwner;
+  }
+
+  static evaluateSectionStudentUpdate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidSectionStudent(data);
+  }
+
+  static evaluateSectionStudentDelete(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx);
+  }
+
+  static isValidSectionStudent(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
+      'displayName', 'email', 'mobile', 'status', 'joinedVia',
+      'enrolledAt', 'createdAt', 'updatedAt'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    return true;
+  }
+
+  static evaluateEnrolledStudentRead(ctx: FirestoreRuleContext, studentId: string): boolean {
+    if (!ctx.auth) return false;
+    if (RulesEvaluator.isFaculty(ctx)) return true;
+    const res = ctx.resource?.data;
+    const authUid = ctx.auth.uid;
+    const authEmail = ctx.auth.token?.email?.toLowerCase();
+    return (
+      authUid === studentId ||
+      (typeof authEmail === 'string' && studentId.toLowerCase() === authEmail) ||
+      (res && res.uid === authUid) ||
+      (res && res.userId === authUid) ||
+      (res && res.studentId === authUid) ||
+      (res && typeof res.email === 'string' && res.email.toLowerCase() === authEmail)
+    );
+  }
+
+  static evaluateEnrolledStudentCreate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidEnrolledStudent(data);
+  }
+
+  static evaluateEnrolledStudentUpdate(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    return RulesEvaluator.isValidEnrolledStudent(data);
+  }
+
+  static evaluateEnrolledStudentDelete(ctx: FirestoreRuleContext): boolean {
+    return RulesEvaluator.isFaculty(ctx);
+  }
+
+  static isValidEnrolledStudent(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
+      'displayName', 'email', 'mobile', 'sectionId', 'institution',
+      'course', 'subject', 'status', 'enrolledAt', 'createdAt', 'updatedAt'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    return true;
   }
 
   static evaluateUserSelfUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {

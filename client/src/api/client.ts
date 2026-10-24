@@ -82,13 +82,30 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   let response: Response | null = null;
   let useFallback = false;
 
-  try {
-    response = await fetch(url, config);
-    if (!isJsonResponse(response)) {
+  // Resilient retry loop to smoothly absorb Render free tier cold-starts (502/503/504)
+  const maxAttempts = (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice')) ? 3 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      response = await fetch(url, config);
+      if (response && (response.status === 502 || response.status === 503 || response.status === 504) && attempt < maxAttempts) {
+        await new Promise((res) => setTimeout(res, 2000 * attempt));
+        continue;
+      }
+      if (!isJsonResponse(response)) {
+        if (attempt < maxAttempts) {
+          await new Promise((res) => setTimeout(res, 2000 * attempt));
+          continue;
+        }
+        useFallback = true;
+      }
+      break;
+    } catch {
+      if (attempt < maxAttempts) {
+        await new Promise((res) => setTimeout(res, 2000 * attempt));
+        continue;
+      }
       useFallback = true;
     }
-  } catch {
-    useFallback = true;
   }
 
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay

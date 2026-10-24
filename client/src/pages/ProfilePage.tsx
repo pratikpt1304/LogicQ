@@ -135,25 +135,40 @@ export const ProfilePage: React.FC = () => {
         serverUser = res?.data?.user;
       } catch (err) {
         if (isOwnProfile) {
-          const effectiveUid = auth.currentUser?.uid || currentUser?.id || '';
-          const fsUser = await FirestoreDataService.getUserProfile(effectiveUid);
-          if (fsUser) {
-            serverUser = fsUser;
+          if (auth.currentUser) {
+            try {
+              const fsUser = await FirestoreDataService.getUserProfile(auth.currentUser.uid);
+              if (fsUser) serverUser = fsUser;
+            } catch {}
+          }
+          if (!serverUser && currentUser) {
+            serverUser = currentUser;
           }
         }
-        if (!serverUser) throw err;
+        if (!serverUser) {
+          if (currentUser && isOwnProfile) {
+            return { user: currentUser };
+          }
+          throw err;
+        }
       }
 
       // If viewing own profile or profile matches current user, ensure stats persistence
       if (isOwnProfile) {
         try {
           const effectiveUid = auth.currentUser?.uid || currentUser?.id || '';
-          const [fsUser, fsBackup, fsPractice, fsSubmissions] = await Promise.all([
-            FirestoreDataService.getUserProfile(effectiveUid).catch(() => null),
-            FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null),
-            FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null),
-            FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []),
-          ]);
+          let fsUser = null;
+          let fsBackup = null;
+          let fsPractice = null;
+          let fsSubmissions: any[] = [];
+          if (auth.currentUser) {
+            [fsUser, fsBackup, fsPractice, fsSubmissions] = await Promise.all([
+              FirestoreDataService.getUserProfile(effectiveUid).catch(() => null),
+              FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null),
+              FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null),
+              FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []),
+            ]);
+          }
 
           // Calculate solved problems from local storage fallback as well
           let localSolvedCount = 0;

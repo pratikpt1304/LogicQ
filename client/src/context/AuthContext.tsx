@@ -577,10 +577,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 1000);
 
+    // Keep Render server warm so users never suffer 50-90s cold boots or spin-downs while using LogicQ
+    const warmPing = setInterval(() => {
+      fetch(`${(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')}/health`, { method: 'GET' }).catch(() => {});
+    }, 4 * 60 * 1000); // Ping every 4 minutes (well within Render's 15-minute idle window)
+
     return () => {
       events.forEach((ev) => window.removeEventListener(ev, handleUserInteraction));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(interval);
+      clearInterval(warmPing);
     };
   }, [idleWarningSeconds, logout]);
 
@@ -977,11 +983,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendLoginOtp = async (identifier: string): Promise<any> => {
-    return await api.post('/auth/send-login-otp', { identifier });
+    let studentRecord: any = null;
+    try {
+      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(identifier);
+    } catch {
+      // ignore
+    }
+    return await api.post('/auth/send-login-otp', { identifier, studentRecord });
   };
 
   const loginWithOtp = async (identifier: string, code: string): Promise<User> => {
-    const res = await api.post('/auth/verify-login-otp', { identifier, code });
+    let studentRecord: any = null;
+    try {
+      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(identifier);
+    } catch {
+      // ignore
+    }
+    const res = await api.post('/auth/verify-login-otp', { identifier, code, studentRecord });
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'OTP verification failed');
     }

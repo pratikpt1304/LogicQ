@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import {
@@ -118,24 +119,51 @@ export const SectionManagementPage: React.FC = () => {
     description: '',
   });
 
-  // Fetch sections
+  // Fetch sections (with resilient Firestore fallback)
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['faculty-sections'],
     queryFn: async () => {
-      const res = await api.get('/sections');
-      return res.sections || res.data || [];
+      try {
+        const res = await api.get('/sections');
+        const list = res.sections || res.data || [];
+        if (Array.isArray(list) && list.length > 0) {
+          list.forEach((s: any) => FirestoreDataService.saveSectionToFirestore(s).catch(() => {}));
+          return list;
+        }
+      } catch (err) {
+        console.warn('Backend /sections failed, falling back to Firestore:', err);
+      }
+      const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
+      return firestoreSections || [];
     },
   });
 
   const sections: SectionItem[] = Array.isArray(data) ? data : [];
 
-  // Create section mutation
+  // Create section mutation (dual-write to Backend & Cloud Firestore)
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {
-      return await api.post('/sections', payload);
+      let createdSection: any = null;
+      try {
+        const res = await api.post('/sections', payload);
+        createdSection = res.data || res.section || res;
+      } catch (err) {
+        console.warn('Backend section creation failed, saving to Firestore:', err);
+        createdSection = {
+          ...payload,
+          id: `sec_${Date.now()}`,
+          joinCode: `LQ-${Math.random().toString(36).slice(-4).toUpperCase()}`,
+          joinToken: crypto.randomUUID(),
+          isActive: true,
+        };
+      }
+      if (createdSection) {
+        await FirestoreDataService.saveSectionToFirestore(createdSection);
+      }
+      return createdSection;
     },
     onSuccess: (res) => {
-      toast.success(res.message || 'Section created successfully!');
+      toast.success(res?.message || 'Section created successfully!');
       setIsCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
     },
@@ -144,9 +172,12 @@ export const SectionManagementPage: React.FC = () => {
     },
   });
 
-  // Excel commit mutation
+  // Excel commit mutation (dual-write to Backend & Cloud Firestore)
   const commitImportMutation = useMutation({
     mutationFn: async ({ sectionId, students }: { sectionId: string; students: any[] }) => {
+      // 1. Save to persistent Firestore so students NEVER disappear on Render restart
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(sectionId, students);
+      // 2. Commit to backend database
       return await api.post(`/sections/${sectionId}/import-students`, { students });
     },
     onSuccess: (res) => {

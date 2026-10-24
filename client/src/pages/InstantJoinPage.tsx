@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import {
@@ -172,6 +173,11 @@ export const InstantJoinPage: React.FC = () => {
       });
 
       if (res.success) {
+        FirestoreDataService.saveEnrolledStudentsToFirestore(section?.id || 'instant', [{
+          name: name.trim(),
+          prn: prn.trim().toUpperCase(),
+          email: email.trim().toLowerCase(),
+        }]).catch(() => {});
         setJoinedSuccess(true);
         confetti({
           particleCount: 100,
