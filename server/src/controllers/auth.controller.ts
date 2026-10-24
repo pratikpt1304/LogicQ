@@ -1065,8 +1065,6 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       message: `6-digit verification OTP sent to ${maskedTarget}`,
       target: maskedTarget,
       cooldownRemaining: otpResult.cooldownRemaining || 60,
-      devOtp: otpResult.code || '123456',
-      code: otpResult.code || '123456',
     });
   } catch (err: any) {
     console.error('sendLoginOtp error:', err);

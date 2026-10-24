@@ -14,7 +14,6 @@ import {
   KeyRound,
   RefreshCw,
   Phone,
-  Sparkles,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -27,7 +26,6 @@ export const LoginPage: React.FC = () => {
   const [identifier, setIdentifier] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [targetDisplay, setTargetDisplay] = useState('');
-  const [activeOtp, setActiveOtp] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,17 +74,14 @@ export const LoginPage: React.FC = () => {
     try {
       const res = await sendLoginOtp(identifier.trim());
       if (res?.success) {
-        const receivedCode = res.devOtp || res.code || '123456';
-        setActiveOtp(receivedCode);
-        setOtpCode(receivedCode);
         setTargetDisplay(res.target || identifier.trim());
+        setOtpCode('');
         setStep('otp');
         setCooldown(res.cooldownRemaining || 60);
-        setInfoMessage(res.message || `A 6-digit OTP has been sent to your registered contact.`);
+        setInfoMessage(res.message || 'A 6-digit verification code has been dispatched to your contact.');
 
-        toast.success(`Verification Code Generated: ${receivedCode}`, {
-          description: 'Click "Auto-Fill Code" to sign in instantly.',
-          duration: 15000,
+        toast.success('Verification code dispatched', {
+          description: `Please check ${res.target || identifier.trim()} for your 6-digit OTP.`,
         });
       } else {
         setError(res?.message || 'Failed to dispatch verification code.');
@@ -216,26 +211,7 @@ export const LoginPage: React.FC = () => {
           {/* STEP 2: Enter OTP */}
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fadeIn">
-              {/* Active Verification Code Banner with Auto-Fill */}
-              {activeOtp && (
-                <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between text-xs font-mono">
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[10px]">Verification Code:</span>
-                    <span className="text-base font-bold text-cyan-600 dark:text-cyan-400 tracking-widest">{activeOtp}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOtpCode(activeOtp);
-                      toast.info('OTP filled automatically!');
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-[#0C0F1F] font-bold text-xs shadow-sm transition-all flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Auto-Fill</span>
-                  </button>
-                </div>
-              )}
+
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
