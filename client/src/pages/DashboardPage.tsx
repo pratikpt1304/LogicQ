@@ -27,6 +27,14 @@ import {
   ShieldCheck,
   AlertCircle,
   Download,
+  Users,
+  Plus,
+  Copy,
+  Check,
+  ExternalLink,
+  Activity,
+  GraduationCap,
+  Clock,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -65,6 +73,98 @@ export const DashboardPage: React.FC = () => {
   const dailyProblem = dailyData?.data?.problem;
   const isDailySolved = dailyData?.data?.userStatus?.isSolved;
   const secondsLeft = dailyData?.data?.secondsUntilNextReset;
+
+  // Faculty / Admin state & queries
+  const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
+
+  const handleCopyCode = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCodeKey(key);
+    toast.success('Join Code copied!');
+    setTimeout(() => setCopiedCodeKey(null), 2000);
+  };
+
+  // 1. Fetch Faculty / Admin Sections
+  const { data: facultySections = [] } = useQuery({
+    queryKey: ['faculty-dashboard-sections'],
+    enabled: !isStudent,
+    queryFn: async () => {
+      let backendList: any[] = [];
+      try {
+        const res = await api.get('/sections');
+        backendList = res.sections || res.data || [];
+      } catch (err) {
+        console.warn('Dashboard /sections failed:', err);
+      }
+      const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
+      const sectionMap = new Map<string, any>();
+      backendList.forEach((s: any) => {
+        const key = s.joinCode || s.id;
+        if (key) sectionMap.set(key, s);
+      });
+      firestoreSections.forEach((s: any) => {
+        const key = s.joinCode || s.id;
+        if (key) {
+          const existing = sectionMap.get(key) || {};
+          sectionMap.set(key, { ...existing, ...s });
+        }
+      });
+      return Array.from(sectionMap.values()).filter(
+        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+      );
+    },
+  });
+
+  // 2. Fetch Faculty / Admin Tests
+  const { data: facultyTests = [] } = useQuery({
+    queryKey: ['faculty-dashboard-tests'],
+    enabled: !isStudent,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/assessment-tests');
+        return res.data || res.tests || [];
+      } catch (err) {
+        console.warn('Dashboard /assessment-tests failed:', err);
+        return [];
+      }
+    },
+  });
+
+  // 3. Fetch Admin / Global Stats (if admin)
+  const { data: globalStats } = useQuery({
+    queryKey: ['faculty-dashboard-global-stats'],
+    enabled: !isStudent,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/admin/stats');
+        return res.data || res;
+      } catch {
+        return null;
+      }
+    },
+  });
+
+  // 4. Fetch Recent Live Submissions
+  const { data: recentSubmissions = [] } = useQuery({
+    queryKey: ['faculty-dashboard-recent-submissions'],
+    enabled: !isStudent,
+    queryFn: async () => {
+      try {
+        const res = await api.get('/admin/submissions?limit=6');
+        return res.submissions || res.data || [];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const totalEnrolledAcrossSections = facultySections.reduce((acc: number, s: any) => {
+    return acc + (s._count?.students ?? s.students?.length ?? 0);
+  }, 0);
+  const displayTotalStudents = globalStats?.totalUsers || totalEnrolledAcrossSections || 0;
+  const activeSectionsCount = facultySections.length;
+  const activeTestsCount = facultyTests.length;
+  const totalSubmissionsCount = globalStats?.totalSubmissions || recentSubmissions.length || 0;
 
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
@@ -205,155 +305,391 @@ export const DashboardPage: React.FC = () => {
       {!isStudent ? (
         <div className="space-y-8 animate-in fade-in duration-200">
           {/* Welcome & Overview Header */}
-          <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl relative overflow-hidden">
+          <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl relative overflow-hidden">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex items-start sm:items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-extrabold shadow-lg shrink-0 ${
-                  isAdmin
-                    ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-[#0C0F1F]'
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
-                }`}>
-                  {isAdmin ? 'A' : 'F'}
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-extrabold shadow-md shrink-0 ${
+                    isAdmin
+                      ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-[#0C0F1F]'
+                      : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
+                  }`}
+                >
+                  {(user?.displayName || user?.fullName || (isAdmin ? 'Admin' : 'Faculty'))[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)]">
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)]">
                       Welcome back, {user?.displayName || user?.fullName || (isAdmin ? 'Administrator' : 'Instructor')}
                     </h1>
                     {isAdmin ? (
-                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
-                        SYSTEM ADMINISTRATOR
+                      <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
+                        ADMINISTRATOR
                       </span>
                     ) : (
-                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider">
+                      <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider">
                         FACULTY INSTRUCTOR
                       </span>
                     )}
                   </div>
-                  <p className="text-xs sm:text-sm text-[var(--text-muted)] font-mono">
-                    {user?.college || 'Sanjivani University'} • Institutional Operations & Cohort Command Center
+                  <p className="text-xs text-[var(--text-muted)] font-mono">
+                    Academic Year 2026-2027 • LogicQ Programming & Examination Portal
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 shrink-0">
-                {isAdmin ? (
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <Link
+                  to="/faculty/tests"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Test</span>
+                </Link>
+                <Link
+                  to="/faculty/sections"
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-[var(--border-line)] hover:bg-[var(--bg-surface)] text-[var(--text-main)] transition-all flex items-center gap-1.5"
+                >
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>New Section</span>
+                </Link>
+                {isAdmin && (
                   <Link
                     to="/admin"
-                    className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-sm transition-all flex items-center gap-2"
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5"
                   >
-                    <ShieldCheck className="w-4 h-4" />
+                    <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Admin Console</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                ) : (
-                  <Link
-                    to="/faculty/tests"
-                    className="px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm transition-all flex items-center gap-2"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Create Test</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Institutional Operations Launchpad */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--color-accent)] flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                Institutional Operations Hub
-              </h2>
-              <span className="text-xs text-[var(--text-muted)] font-mono">Quick Access Workspaces</span>
+          {/* 4 Quick Metric KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Students */}
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+                <span>ENROLLED STUDENTS</span>
+                <Users className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="text-2xl font-extrabold text-[var(--text-main)] font-mono">
+                {displayTotalStudents}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Active students across classroom cohorts
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {/* Sections & Rosters */}
-              <Link
-                to="/faculty/sections"
-                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-indigo-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Sections & Rosters</h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    Create academic cohorts, distribute 6-digit section codes, and manage enrolled student rosters.
-                  </p>
-                </div>
-                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-indigo-400 font-semibold">
-                  <span>Manage Classrooms</span>
-                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                </div>
-              </Link>
+            {/* Active Sections */}
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+                <span>ACTIVE DIVISIONS</span>
+                <GraduationCap className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="text-2xl font-extrabold text-purple-400 font-mono">
+                {activeSectionsCount}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Classroom sections with join codes
+              </p>
+            </div>
 
-              {/* Tests & Examinations */}
-              <Link
-                to="/faculty/tests"
-                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-cyan-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Create & Assign Tests</h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    Schedule lab practicals and exams with customizable question counts, time windows, and difficulty ratios.
-                  </p>
-                </div>
-                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-cyan-400 font-semibold">
-                  <span>Open Test Suite</span>
-                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                </div>
-              </Link>
+            {/* Scheduled Tests */}
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+                <span>ASSESSMENT TESTS</span>
+                <Calendar className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-2xl font-extrabold text-cyan-400 font-mono">
+                {activeTestsCount}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Scheduled exams and lab practicals
+              </p>
+            </div>
 
-              {/* Cohort Analytics */}
-              <Link
-                to="/faculty/analytics"
-                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                    <TrendingUp className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Cohort Analytics</h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    View institutional pass rates, time-to-solve distribution curves, and real-time student submissions.
-                  </p>
-                </div>
-                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-emerald-400 font-semibold">
-                  <span>View Reports</span>
-                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                </div>
-              </Link>
+            {/* Compiler Sandbox Health */}
+            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
+                <span>GCC 14 SANDBOX</span>
+                <Zap className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-lg font-extrabold text-emerald-400 font-mono flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Judge Online</span>
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Isolated evaluation for C programs
+              </p>
+            </div>
+          </div>
 
-              {/* Full Admin Console (Admin only) */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-amber-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                      <ShieldCheck className="w-6 h-6" />
+          {/* Two-Column Working Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Sections & Tests (7 cols) */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Classroom Sections & Quick Join Codes */}
+              <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-indigo-400" />
+                    <h2 className="text-base font-bold text-[var(--text-main)]">
+                      Classroom Sections & Join Codes
+                    </h2>
+                  </div>
+                  <Link
+                    to="/faculty/sections"
+                    className="text-xs font-mono font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                  >
+                    <span>Manage Sections</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {facultySections.length === 0 ? (
+                  <div className="py-8 text-center space-y-3">
+                    <p className="text-xs text-[var(--text-muted)]">No classroom sections created yet.</p>
+                    <Link
+                      to="/faculty/sections"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create First Section</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {facultySections.slice(0, 4).map((sec: any) => {
+                      const count = sec._count?.students ?? sec.students?.length ?? 0;
+                      return (
+                        <div
+                          key={sec.id}
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/40 transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                              {sec.sectionName.slice(0, 3).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-sm text-[var(--text-main)]">
+                                {sec.sectionName} — {sec.subject}
+                              </div>
+                              <div className="text-[11px] text-[var(--text-muted)]">
+                                {sec.course} • {count} student{count === 1 ? '' : 's'} enrolled
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                              onClick={() => handleCopyCode(sec.joinCode, `code-${sec.id}`)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
+                              title="Copy Join Code"
+                            >
+                              <span>{sec.joinCode}</span>
+                              {copiedCodeKey === `code-${sec.id}` ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <Link
+                              to="/faculty/sections"
+                              className="p-1.5 rounded-lg border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                              title="View Roster"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Scheduled Tests & Exams */}
+              <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-cyan-400" />
+                    <h2 className="text-base font-bold text-[var(--text-main)]">
+                      Assessment Tests & Lab Practicals
+                    </h2>
+                  </div>
+                  <Link
+                    to="/faculty/tests"
+                    className="text-xs font-mono font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                  >
+                    <span>Manage Tests</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                {facultyTests.length === 0 ? (
+                  <div className="py-8 text-center space-y-3">
+                    <p className="text-xs text-[var(--text-muted)]">No assessment tests created yet.</p>
+                    <Link
+                      to="/faculty/tests"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create First Test</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {facultyTests.slice(0, 4).map((test: any) => (
+                      <div
+                        key={test.id}
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 transition"
+                      >
+                        <div>
+                          <div className="font-semibold text-sm text-[var(--text-main)]">
+                            {test.title}
+                          </div>
+                          <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-[var(--text-muted)]" />
+                              {test.durationMinutes || 60} mins
+                            </span>
+                            <span>•</span>
+                            <span>{test.totalQuestions || test.questions?.length || 2} Problems</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full ${
+                              test.status === 'PUBLISHED'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}
+                          >
+                            {test.status || 'ACTIVE'}
+                          </span>
+                          <Link
+                            to="/faculty/tests"
+                            className="p-1.5 rounded-lg border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Quick Workspaces + Live Submissions (5 cols) */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Quick Workspaces Launchpad */}
+              <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-3">
+                <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Quick Access Workspaces
+                </h2>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Link
+                    to="/faculty/tests"
+                    className="p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/50 hover:bg-cyan-500/5 transition flex flex-col justify-between"
+                  >
+                    <Calendar className="w-5 h-5 text-cyan-400 mb-2" />
+                    <div>
+                      <div className="font-bold text-xs text-[var(--text-main)]">Create Test</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">Schedule exam</div>
                     </div>
-                    <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Platform Admin Console</h3>
-                    <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                      Comprehensive user roster administration, system health monitoring, and global configuration overrides.
-                    </p>
-                  </div>
-                  <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-amber-400 font-semibold">
-                    <span>Admin Operations</span>
-                    <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                  </div>
-                </Link>
-              )}
+                  </Link>
 
+                  <Link
+                    to="/faculty/sections"
+                    className="p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/50 hover:bg-indigo-500/5 transition flex flex-col justify-between"
+                  >
+                    <GraduationCap className="w-5 h-5 text-indigo-400 mb-2" />
+                    <div>
+                      <div className="font-bold text-xs text-[var(--text-main)]">Class Sections</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">Rosters & codes</div>
+                    </div>
+                  </Link>
 
+                  <Link
+                    to="/faculty/analytics"
+                    className="p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-emerald-500/50 hover:bg-emerald-500/5 transition flex flex-col justify-between"
+                  >
+                    <TrendingUp className="w-5 h-5 text-emerald-400 mb-2" />
+                    <div>
+                      <div className="font-bold text-xs text-[var(--text-main)]">Cohort Analytics</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">Pass rates</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/faculty/questions"
+                    className="p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-purple-500/50 hover:bg-purple-500/5 transition flex flex-col justify-between"
+                  >
+                    <BookOpen className="w-5 h-5 text-purple-400 mb-2" />
+                    <div>
+                      <div className="font-bold text-xs text-[var(--text-main)]">Question Bank</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">AI Generator</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Live Activity & Submissions Stream */}
+              <div className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-emerald-400" />
+                    <h2 className="text-sm font-bold text-[var(--text-main)]">Live Student Activity</h2>
+                  </div>
+                  <span className="text-[11px] font-mono text-[var(--text-muted)]">Recent Submissions</span>
+                </div>
+
+                {recentSubmissions.length === 0 ? (
+                  <div className="py-6 text-center space-y-1.5">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto opacity-50" />
+                    <p className="text-xs text-[var(--text-muted)]">Compiler sandbox ready for evaluation.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {recentSubmissions.slice(0, 5).map((sub: any) => {
+                      const verdict = sub.verdict || 'PENDING';
+                      const isAcc = verdict === 'ACCEPTED';
+                      return (
+                        <div
+                          key={sub.id}
+                          className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs"
+                        >
+                          <div className="space-y-0.5 truncate max-w-[65%]">
+                            <div className="font-semibold text-[var(--text-main)] truncate">
+                              {sub.user?.fullName || sub.user?.username || 'Student'}
+                            </div>
+                            <div className="text-[10px] text-[var(--text-muted)] truncate font-mono">
+                              {sub.problem?.title || 'C Program'}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span
+                              className={`inline-block font-mono text-[10px] font-bold px-2 py-0.5 rounded ${
+                                isAcc
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}
+                            >
+                              {verdict}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
