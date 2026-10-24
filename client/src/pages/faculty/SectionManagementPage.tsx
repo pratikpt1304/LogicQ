@@ -119,22 +119,49 @@ export const SectionManagementPage: React.FC = () => {
     description: '',
   });
 
-  // Fetch sections (with resilient Firestore fallback)
+  // Fetch sections (combines backend with persistent Firestore so user sections NEVER disappear)
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['faculty-sections'],
     queryFn: async () => {
+      let backendList: any[] = [];
       try {
         const res = await api.get('/sections');
-        const list = res.sections || res.data || [];
-        if (Array.isArray(list) && list.length > 0) {
-          list.forEach((s: any) => FirestoreDataService.saveSectionToFirestore(s).catch(() => {}));
-          return list;
-        }
+        backendList = res.sections || res.data || [];
       } catch (err) {
-        console.warn('Backend /sections failed, falling back to Firestore:', err);
+        console.warn('Backend /sections failed:', err);
       }
+
       const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
-      return firestoreSections || [];
+
+      // Merge both backend & Firestore: Map by joinCode or id
+      const sectionMap = new Map<string, SectionItem>();
+
+      // 1. Put backend sections
+      backendList.forEach((s: any) => {
+        const key = s.joinCode || s.id;
+        if (key) sectionMap.set(key, s);
+      });
+
+      // 2. Put / overlay Firestore sections (ensures user-created sections are NEVER dropped)
+      firestoreSections.forEach((s: any) => {
+        const key = s.joinCode || s.id;
+        if (key) {
+          const existing = sectionMap.get(key) || {};
+          sectionMap.set(key, { ...existing, ...s });
+        }
+      });
+
+      const mergedList = Array.from(sectionMap.values());
+
+      // 3. Auto-restore any missing Firestore sections to backend database
+      for (const fsSec of firestoreSections) {
+        const existsInBackend = backendList.some((b: any) => b.joinCode === fsSec.joinCode || b.id === fsSec.id);
+        if (!existsInBackend && fsSec.sectionName && fsSec.subject) {
+          api.post('/sections', fsSec).catch(() => {});
+        }
+      }
+
+      return mergedList;
     },
   });
 

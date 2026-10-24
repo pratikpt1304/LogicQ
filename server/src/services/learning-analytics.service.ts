@@ -254,21 +254,34 @@ export class LearningAnalyticsService {
   /**
    * Faculty Student Deep Dive (Section 52 & 53).
    */
-  static async getStudentDeepDive(studentId: string) {
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
+  static async getStudentDeepDive(identifier: string) {
+    const clean = String(identifier || '').trim();
+    const student = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: clean },
+          { prn: clean.toUpperCase() },
+          { email: clean.toLowerCase() },
+          { username: clean },
+        ],
+      },
       select: {
         id: true,
         fullName: true,
+        displayName: true,
         prn: true,
         email: true,
         department: true,
         year: true,
         division: true,
+        totalPoints: true,
+        currentStreak: true,
       },
     });
 
-    if (!student) throw new Error('Student not found.');
+    if (!student) throw new Error(`Student not found for "${clean}". Please enter a valid PRN, email, or username.`);
+
+    const studentId = student.id;
 
     const assignments = await prisma.assessmentTestAssignment.findMany({
       where: { studentId },
@@ -291,6 +304,22 @@ export class LearningAnalyticsService {
       },
     });
 
+    const submissions = await prisma.submission.findMany({
+      where: { userId: studentId },
+      include: {
+        problem: {
+          select: {
+            id: true,
+            title: true,
+            difficulty: true,
+            category: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
     const miniProjects = await prisma.studentMiniProjectAccess.findMany({
       where: { studentId },
       include: { miniProject: true },
@@ -299,6 +328,7 @@ export class LearningAnalyticsService {
     return {
       student,
       assignments,
+      submissions,
       miniProjects,
     };
   }

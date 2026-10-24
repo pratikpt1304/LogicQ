@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import {
   Users,
@@ -44,17 +45,106 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [studentSearchPrn, setStudentSearchPrn] = useState<string>('');
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
-  // Overview query
+  // Overview query (merges backend overview with persistent Firestore sections)
   const { data, isLoading, error } = useQuery({
     queryKey: ['faculty-overview-analytics'],
-    queryFn: () => api.get('/analytics/faculty/overview'),
+    queryFn: async () => {
+      let backendData: any = null;
+      try {
+        const res = await api.get('/analytics/faculty/overview');
+        backendData = res?.data;
+      } catch (err) {
+        console.warn('Backend /analytics/faculty/overview failed:', err);
+      }
+
+      const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
+
+      if (!backendData) {
+        return {
+          data: {
+            topCards: {
+              totalSections: firestoreSections.length,
+              totalStudents: 0,
+              activeTestsCount: 0,
+              avgAcademicScore: 0,
+              avgIntegrityScore: 100,
+              studentsNeedingSupport: 0,
+              advancedStudents: 0,
+              studentsRequiringReview: 0,
+            },
+            flaggedQuestions: [],
+            sections: firestoreSections.map((s: any) => ({
+              sectionId: s.id,
+              sectionName: s.sectionName || s.subject,
+              course: s.course || 'B.Tech CSE',
+              studentCount: s.students?.length || s._count?.students || 0,
+              testCount: 0,
+            })),
+          },
+        };
+      }
+
+      // Merge Firestore sections into backend sections so user-created sections are ALWAYS visible!
+      const secMap = new Map<string, any>();
+      (backendData.sections || []).forEach((s: any) => secMap.set(s.sectionId || s.id || s.sectionName, s));
+      firestoreSections.forEach((fs: any) => {
+        const key = fs.id || fs.sectionId || fs.sectionName;
+        if (!secMap.has(key)) {
+          secMap.set(key, {
+            sectionId: fs.id || key,
+            sectionName: fs.sectionName || fs.subject,
+            course: fs.course || 'B.Tech CSE',
+            studentCount: fs.students?.length || fs._count?.students || 0,
+            testCount: 0,
+          });
+        }
+      });
+
+      backendData.sections = Array.from(secMap.values());
+      backendData.topCards.totalSections = backendData.sections.length;
+
+      return { data: backendData };
+    },
     refetchOnWindowFocus: false,
   });
 
-  // Deep dive query
+  // Deep dive query (supports PRN, Email, Username with Firestore fallback)
   const { data: deepDiveData, isLoading: isDeepDiveLoading } = useQuery({
     queryKey: ['student-deep-dive', deepDiveStudentId],
-    queryFn: () => api.get(`/analytics/faculty/student-deep-dive/${deepDiveStudentId}`),
+    queryFn: async () => {
+      if (!deepDiveStudentId) return null;
+      try {
+        const res = await api.get(`/analytics/faculty/student-deep-dive/${encodeURIComponent(deepDiveStudentId)}`);
+        if (res?.data?.student) return res;
+      } catch (err) {
+        console.warn('Backend deep dive lookup failed, checking Firestore:', err);
+      }
+
+      // Resilient fallback to Firestore
+      const fsStudent = await FirestoreDataService.findEnrolledStudentInFirestore(deepDiveStudentId);
+      if (fsStudent) {
+        return {
+          data: {
+            student: {
+              id: fsStudent.id || fsStudent.uid || 'fs_student',
+              fullName: fsStudent.fullName || fsStudent.name || `Student ${fsStudent.prn?.slice(-4) || ''}`,
+              prn: fsStudent.prn || deepDiveStudentId,
+              email: fsStudent.email || '',
+              department: fsStudent.department || 'CSE',
+              year: fsStudent.year || 'FY',
+              division: fsStudent.division || '—',
+              totalPoints: fsStudent.totalPoints || 0,
+              currentStreak: fsStudent.currentStreak || 0,
+            },
+            assignments: [],
+            submissions: [],
+            miniProjects: [],
+          },
+        };
+      }
+
+      throw new Error(`No student found matching PRN or Email "${deepDiveStudentId}".`);
+    },
     enabled: Boolean(deepDiveStudentId),
   });
 
@@ -299,26 +389,30 @@ export const FacultyAnalyticsPage: React.FC = () => {
           Inspect candidate code submissions, viva oral explanations, burst telemetry, and tab switches.
         </p>
 
-        <div className="flex gap-2 max-w-md">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (studentSearchPrn.trim()) {
+              setDeepDiveStudentId(studentSearchPrn.trim());
+            }
+          }}
+          className="flex gap-2 max-w-lg"
+        >
           <input
             type="text"
-            placeholder="Enter Student ID..."
+            required
+            placeholder="Enter Student PRN (e.g. 2126PMIF1057), Email, or ID..."
             value={studentSearchPrn}
             onChange={(e) => setStudentSearchPrn(e.target.value)}
             className="flex-1 bg-black/50 border border-gray-800 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-cyan-400 font-mono"
           />
           <button
-            type="button"
-            onClick={() => {
-              if (studentSearchPrn.trim()) {
-                setDeepDiveStudentId(studentSearchPrn.trim());
-              }
-            }}
-            className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-sans text-xs font-semibold transition-colors"
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-sans text-xs font-semibold transition-colors cursor-pointer"
           >
             Investigate
           </button>
-        </div>
+        </form>
 
         {isDeepDiveLoading && (
           <div className="p-8 text-center text-gray-400 space-y-2">
@@ -333,14 +427,17 @@ export const FacultyAnalyticsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-800 gap-2">
               <div>
                 <h3 className="text-base font-bold text-white font-sans">
-                  {deepDiveData.data.student.fullName}
+                  {deepDiveData.data.student.fullName || deepDiveData.data.student.displayName || 'Enrolled Student'}
                 </h3>
                 <p className="text-gray-400 text-xs">
-                  PRN: <span className="text-cyan-400 font-semibold">{deepDiveData.data.student.prn}</span> | Email: {deepDiveData.data.student.email}
+                  PRN: <span className="text-cyan-400 font-semibold">{deepDiveData.data.student.prn || '—'}</span> | Email: {deepDiveData.data.student.email}
                 </p>
               </div>
-              <div className="text-right text-[11px] text-gray-400">
-                Dept: {deepDiveData.data.student.department} | Year: {deepDiveData.data.student.year}
+              <div className="text-left sm:text-right text-[11px] text-gray-400 space-y-1">
+                <div>Dept: {deepDiveData.data.student.department || '—'} | Year: {deepDiveData.data.student.year || '—'}</div>
+                <div className="text-amber-400 font-bold">
+                  {deepDiveData.data.student.totalPoints || 0} PTS • {deepDiveData.data.student.currentStreak || 0}d streak
+                </div>
               </div>
             </div>
 
