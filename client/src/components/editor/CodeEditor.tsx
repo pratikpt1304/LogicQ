@@ -352,7 +352,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {!readOnly && (
+          {!readOnly && !disableCopyPaste && (
             <>
               <input
                 ref={fileInputRef}

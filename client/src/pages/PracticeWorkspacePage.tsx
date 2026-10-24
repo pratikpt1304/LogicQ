@@ -32,6 +32,9 @@ import {
   Maximize2,
   Minimize2,
   X,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -83,8 +86,24 @@ export const PracticeWorkspacePage: React.FC = () => {
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idempotencyKeyRef = useRef<string>(`prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
-  // Fullscreen Workspace Support
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Proctored Anti-Cheat & Fullscreen State
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [fullscreenExits, setFullscreenExits] = useState(0);
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const lastTabSwitchToastRef = useRef<number>(0);
+
+  const requestFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreen(true);
+      setShowFullscreenModal(false);
+    } catch {
+      toast.error('Unable to enter fullscreen mode. Please grant browser permissions.');
+    }
+  };
 
   const toggleFullscreen = async () => {
     try {
@@ -98,15 +117,114 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   };
 
+  // Auto Fullscreen Enforcement on Question Open
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen()
+          .then(() => {
+            setIsFullscreen(true);
+            setShowFullscreenModal(false);
+          })
+          .catch(() => {
+            // Browser policy blocked automatic fullscreen without user interaction -> show modal prompt
+            setShowFullscreenModal(true);
+          });
+      } else {
+        setIsFullscreen(true);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [problemSlug]);
+
+  // Fullscreen Exit Detection
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
+      if (!active) {
+        setFullscreenExits((prev) => {
+          const next = prev + 1;
+          toast.error(`⚠️ Fullscreen exited! (Exit #${next}) Fullscreen is required in proctored mode.`, {
+            duration: 6000,
+          });
+          setShowFullscreenModal(true);
+          return next;
+        });
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Anti-Cheat: Tab Switch & Window Focus Loss Detection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount((prev) => prev + 1);
+      } else {
+        const now = Date.now();
+        if (now - lastTabSwitchToastRef.current > 1500) {
+          lastTabSwitchToastRef.current = now;
+          toast.error('⚠️ Tab Switch Detected! All tab switches and window unfocus events are recorded.', {
+            duration: 6000,
+          });
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      setTabSwitchCount((prev) => prev + 1);
+      const now = Date.now();
+      if (now - lastTabSwitchToastRef.current > 2000) {
+        lastTabSwitchToastRef.current = now;
+        toast.warning('⚠️ Window focus lost! Focus away from workspace is monitored.', {
+          duration: 5000,
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
+
+  // Anti-Cheat: Strict Copy-Paste & Right-Click Prevention (Document-wide)
+  useEffect(() => {
+    const blockCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      toast.error('🚫 Copying is strictly disabled in proctored mode! Type code manually.');
+    };
+    const blockCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      toast.error('🚫 Cutting text is disabled in proctored mode.');
+    };
+    const blockPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
+    };
+    const blockContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener('copy', blockCopy);
+    document.addEventListener('cut', blockCut);
+    document.addEventListener('paste', blockPaste);
+    document.addEventListener('contextmenu', blockContextMenu);
+
+    return () => {
+      document.removeEventListener('copy', blockCopy);
+      document.removeEventListener('cut', blockCut);
+      document.removeEventListener('paste', blockPaste);
+      document.removeEventListener('contextmenu', blockContextMenu);
     };
   }, []);
 
@@ -163,6 +281,8 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const problem = responseData?.data?.problem;
   const userProgress = responseData?.data?.userProgress;
+  const previousAttempts = (userProgress?.attemptsCount || userProgress?.attempts || 0);
+  const currentAttempt = previousAttempts + 1;
 
   // Restore local draft or starter code, then sync cloud draft
   useEffect(() => {
@@ -483,8 +603,28 @@ export const PracticeWorkspacePage: React.FC = () => {
   return (
     <div
       style={{ minHeight: 'calc(100dvh - var(--navbar-height, 4rem))' }}
-      className="flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden"
+      className={`flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden ${
+        isFullscreen ? 'fixed inset-0 z-50 h-screen' : ''
+      }`}
     >
+      {/* Inactive Fullscreen Warning Banner */}
+      {!isFullscreen && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-amber-300 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <span className="truncate">
+              Fullscreen is inactive{fullscreenExits > 0 ? ` (Exits: ${fullscreenExits})` : ''}. Please enter fullscreen for proctored mode.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={requestFullscreen}
+            className="px-2.5 py-1 rounded-lg bg-amber-500 text-black font-bold text-[11px] hover:bg-amber-400 transition-colors shrink-0 ml-3"
+          >
+            Go Fullscreen 🔒
+          </button>
+        </div>
+      )}
       {/* Top Workspace Header */}
       <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/60 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
@@ -580,6 +720,19 @@ export const PracticeWorkspacePage: React.FC = () => {
             )}
           </div>
 
+          {/* Active Attempt Badge */}
+          <span
+            className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border shrink-0 bg-indigo-500/10 text-indigo-400 border-indigo-500/30 font-bold"
+            title={`Active Attempt: Attempt #${currentAttempt} (${previousAttempts} prior submission${previousAttempts === 1 ? '' : 's'})`}
+          >
+            <span>Attempt #{currentAttempt}</span>
+            {previousAttempts > 0 && (
+              <span className="text-[10px] text-[var(--text-muted)] font-normal hidden sm:inline">
+                ({previousAttempts} prior)
+              </span>
+            )}
+          </span>
+
           <div className="hidden lg:flex items-center gap-1.5 min-w-0">
             <DifficultyBadge difficulty={problem.difficulty as any} />
             {(userProgress?.isSolved || submissionResult?.verdict === 'ACCEPTED') && (
@@ -653,21 +806,32 @@ export const PracticeWorkspacePage: React.FC = () => {
             className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
               isFullscreen
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-amber-300 border-amber-500/30 animate-pulse hover:animate-none'
+                : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40 animate-pulse hover:animate-none'
             }`}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode (Required)'}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode (Required in Proctored Mode)'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{isFullscreen ? 'Fullscreen On' : 'Go Fullscreen'}</span>
           </button>
 
-          <div
-            title="Practice environment with instant feedback"
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Practice Mode • GCC 14</span>
-          </div>
+          {/* Tab Switch Counter Badge */}
+          {tabSwitchCount > 0 ? (
+            <span
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 shadow-sm shadow-rose-500/20 animate-pulse"
+              title={`${tabSwitchCount} tab switch / window focus loss event(s) detected! Logged for anti-cheat audit.`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Switches: {tabSwitchCount}</span>
+            </span>
+          ) : (
+            <span
+              className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
+              title="Tab Guard active - zero tab switches detected"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Tab Guard: 0</span>
+            </span>
+          )}
 
           <button
             onClick={() => runMutation.mutate()}
@@ -753,12 +917,15 @@ export const PracticeWorkspacePage: React.FC = () => {
               <span>Time Limit: {problem.timeLimitMs}ms</span>
               <span>•</span>
               <span>Memory Limit: {problem.memoryLimitMb}MB</span>
-              {Boolean(userProgress?.attemptsCount || userProgress?.attempts) && (
+              <span>•</span>
+              <span className="text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/25">
+                Current: Attempt #{currentAttempt}
+              </span>
+              {previousAttempts > 0 && (
                 <>
                   <span>•</span>
                   <span className="text-cyan-400 font-semibold">
-                    {userProgress?.attemptsCount || userProgress?.attempts}{' '}
-                    {(userProgress?.attemptsCount || userProgress?.attempts) === 1 ? 'Attempt' : 'Attempts'}
+                    {previousAttempts} Prior {previousAttempts === 1 ? 'Attempt' : 'Attempts'}
                   </span>
                 </>
               )}
@@ -774,6 +941,18 @@ export const PracticeWorkspacePage: React.FC = () => {
                   </span>
                 </>
               )}
+            </div>
+            {/* Anti-cheat proctoring indicator bar */}
+            <div className="flex flex-wrap items-center gap-2 py-1.5 px-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[11px] font-mono text-[var(--text-muted)]">
+              <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Proctored:</span>
+              </span>
+              <span className="text-rose-400 font-medium">Copy-Paste Disabled 🚫</span>
+              <span>•</span>
+              <span className="text-amber-400 font-medium">Fullscreen Enforced 🔒</span>
+              <span>•</span>
+              <span className="text-cyan-400 font-medium">Tab Switches Audited 👁️</span>
             </div>
           </div>
 
@@ -833,7 +1012,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               onChange={handleCodeChange}
               onReset={handleResetStarterCode}
               readOnly={false}
-              disableCopyPaste={false}
+              disableCopyPaste={true}
             />
           </div>
 
@@ -1203,6 +1382,48 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Mandatory Proctored Fullscreen Modal */}
+      {showFullscreenModal && !isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass-card max-w-md w-full p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] shadow-2xl space-y-5 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
+              <Lock className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-[var(--text-main)]">
+                Proctored Fullscreen Mode
+              </h3>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                To maintain evaluation fairness and prevent cheating, practice coding requires full screen. All tab switches and window unfocus events are monitored and recorded.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-left space-y-2 text-xs font-mono text-[var(--text-muted)]">
+              <div className="flex items-center gap-2 text-amber-400 font-semibold">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Security Guidelines:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 pl-1 text-[11px]">
+                <li>Copy, paste & right-click are strictly disabled.</li>
+                <li>Tab switching & minimizing will be flagged.</li>
+                <li>Current progress: <span className="text-indigo-400 font-bold">Attempt #{currentAttempt}</span></li>
+                <li>Exiting fullscreen flags an integrity event.</li>
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              onClick={requestFullscreen}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-white font-bold text-sm shadow-lg shadow-[var(--accent)]/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>Enter Fullscreen & Begin Solving</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Draft Conflict Resolution Modal */}
       {conflictInfo && (
