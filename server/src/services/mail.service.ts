@@ -141,14 +141,75 @@ class NodemailerMailService implements IMailService {
   }
 }
 
+class GoogleAppsScriptMailService implements IMailService {
+  private url: string;
+
+  constructor(url: string) {
+    this.url = url;
+    console.log('[GoogleAppsScriptMailService] Initialized Google Apps Script Web App Dispatcher');
+  }
+
+  async sendMail(options: MailOptions): Promise<boolean> {
+    try {
+      const response = await fetch(this.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+          text: options.text || options.subject,
+        }),
+      });
+
+      console.log(`[GoogleAppsScriptMailService] Dispatched to ${options.to} (Status: ${response.status})`);
+      return response.status < 400;
+    } catch (err: any) {
+      console.error(`[GoogleAppsScriptMailService] Error sending to ${options.to}:`, err?.message || err);
+      return false;
+    }
+  }
+}
+
+class ChainedMailService implements IMailService {
+  private providers: IMailService[];
+
+  constructor(providers: IMailService[]) {
+    this.providers = providers;
+  }
+
+  async sendMail(options: MailOptions): Promise<boolean> {
+    for (const provider of this.providers) {
+      try {
+        const success = await provider.sendMail(options);
+        if (success) return true;
+      } catch {
+        console.warn('[ChainedMailService] Provider attempt failed, falling back to next provider...');
+      }
+    }
+    return false;
+  }
+}
+
 export function getMailService(): IMailService {
+  const providers: IMailService[] = [];
+
+  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL;
+  if (gasUrl) {
+    providers.push(new GoogleAppsScriptMailService(gasUrl));
+  }
+
   const resendApiKey = process.env.RESEND_API_KEY || (ENV as any).RESEND_API_KEY || 're_GqGbrzoo_DKfnUEBFnqipy7VCcz1Pn5DS';
   if (resendApiKey) {
-    return new ResendMailService(resendApiKey);
+    providers.push(new ResendMailService(resendApiKey));
   }
 
   if (ENV.MAIL_PROVIDER === 'smtp' || Boolean((ENV.SMTP_USER || process.env.SMTP_USER) && (ENV.SMTP_PASS || process.env.SMTP_PASS))) {
-    return new NodemailerMailService();
+    providers.push(new NodemailerMailService());
+  }
+
+  if (providers.length > 0) {
+    return new ChainedMailService(providers);
   }
 
   return new ConsoleMailService();
