@@ -224,11 +224,29 @@ export const SectionManagementPage: React.FC = () => {
   const refetchDetails = async (id: string) => {
     try {
       const res = await api.get(`/sections/${id}`);
-      if (res.section || res.data) {
-        setSelectedSection(res.section || res.data);
+      if (res?.section || res?.data) {
+        const sec = res.section || res.data;
+        if (!sec.students || sec.students.length === 0) {
+          const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
+          if (fsStudents.length > 0) {
+            sec.students = fsStudents;
+          }
+        }
+        setSelectedSection(sec);
+        return;
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('Backend /sections/:id failed, falling back to Firestore/local:', err);
+    }
+
+    // Resilient fallback to local state / Firestore
+    const localSec = sections.find((s) => s.id === id);
+    if (localSec) {
+      const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
+      setSelectedSection({
+        ...localSec,
+        students: fsStudents,
+      });
     }
   };
 
@@ -465,7 +483,7 @@ export const SectionManagementPage: React.FC = () => {
       )}
 
       {/* Selected Section Student Roster Drawer / View */}
-      {selectedSection && selectedSection.students && (
+      {selectedSection && (
         <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
             <div>
@@ -481,10 +499,10 @@ export const SectionManagementPage: React.FC = () => {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
                 <input
                   type="text"
-                  placeholder="Search PRN or Name..."
+                  placeholder="Search PRN, Name, or Email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                  className="pl-9 pr-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 font-mono"
                 />
               </div>
               <button
@@ -496,86 +514,122 @@ export const SectionManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">PRN / Roll No</th>
-                  <th className="py-3 px-4">Email</th>
-                  <th className="py-3 px-4">Mobile</th>
-                  <th className="py-3 px-4">State</th>
-                  <th className="py-3 px-4">Channel</th>
-                  <th className="py-3 px-4">Enrolled At</th>
-                  <th className="py-3 px-4">Capstone Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]/60 font-sans">
-                {selectedSection.students
-                  .filter(
-                    (s) =>
-                      s.prn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      (s.student.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      s.student.email.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((item) => (
-                    <tr key={item.id} className="hover:bg-[var(--accent)]/5">
-                      <td className="py-3 px-4 font-semibold text-[var(--foreground)]">
-                        {item.student.fullName || item.student.displayName || 'Pending Name'}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-indigo-400">{item.prn}</td>
-                      <td className="py-3 px-4 text-[var(--muted-foreground)]">{item.student.email}</td>
-                      <td className="py-3 px-4 font-mono text-[var(--muted-foreground)]">
-                        {item.student.mobile || '—'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                            item.student.accountState === 'ACTIVE'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}
-                        >
-                          {item.student.accountState === 'ACTIVE' ? (
-                            <CheckCircle2 className="w-3 h-3" />
-                          ) : (
-                            <AlertCircle className="w-3 h-3" />
-                          )}
-                          {item.student.accountState}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-[var(--muted-foreground)]">
-                        {item.joinedVia}
-                      </td>
-                      <td className="py-3 px-4 text-[var(--muted-foreground)]">
-                        {new Date(item.enrolledAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={async () => {
-                            try {
-                              await api.post('/mini-project/activate-individual', {
-                                miniProjectId: 'capstone-mini-project-c11',
-                                studentId: item.student.id,
-                                sectionId: selectedSection.id,
-                                activationReason: 'Faculty approved in section roster',
-                              });
-                              toast.success(`Mini-Project activated for ${item.student.fullName || item.prn}!`);
-                            } catch (err: any) {
-                              toast.error(err.message || 'Activation failed');
-                            }
-                          }}
-                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition flex items-center gap-1 whitespace-nowrap"
-                        >
-                          <Award className="w-3 h-3" />
-                          Activate Mini-Project
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+          {(!selectedSection.students || selectedSection.students.length === 0) ? (
+            <div className="p-8 text-center space-y-3">
+              <Users className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
+              <div className="text-sm font-semibold text-[var(--foreground)]">No Students Enrolled Yet</div>
+              <p className="text-xs text-[var(--muted-foreground)] max-w-md mx-auto">
+                Import your class roster using an Excel spreadsheet or share the instant join link with your students.
+              </p>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setIsExcelModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Import Excel Roster
+                </button>
+                <button
+                  onClick={() => handleCopy(window.location.origin + '/join/' + (selectedSection.joinCode || ''), 'link-' + selectedSection.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy Join Link
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">PRN / Roll No</th>
+                    <th className="py-3 px-4">Email</th>
+                    <th className="py-3 px-4">Mobile</th>
+                    <th className="py-3 px-4">State</th>
+                    <th className="py-3 px-4">Channel</th>
+                    <th className="py-3 px-4">Enrolled At</th>
+                    <th className="py-3 px-4">Capstone Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]/60 font-sans">
+                  {selectedSection.students
+                    .filter((s: any) => {
+                      const prn = (s.prn || s.student?.prn || '').toLowerCase();
+                      const name = (s.student?.fullName || s.student?.displayName || s.name || s.fullName || '').toLowerCase();
+                      const email = (s.student?.email || s.email || '').toLowerCase();
+                      const query = searchTerm.toLowerCase().trim();
+                      return !query || prn.includes(query) || name.includes(query) || email.includes(query);
+                    })
+                    .map((item: any) => {
+                      const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Enrolled Student';
+                      const studentPrn = item.prn || item.student?.prn || '—';
+                      const studentEmail = item.student?.email || item.email || '—';
+                      const studentMobile = item.student?.mobile || item.mobile || '—';
+                      const accountState = item.student?.accountState || item.status || 'ACTIVE';
+                      const studentId = item.student?.id || item.studentId || item.id || studentPrn;
+
+                      return (
+                        <tr key={item.id || studentPrn} className="hover:bg-[var(--accent)]/5">
+                          <td className="py-3 px-4 font-semibold text-[var(--foreground)]">
+                            {studentName}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-indigo-400">{studentPrn}</td>
+                          <td className="py-3 px-4 text-[var(--muted-foreground)]">{studentEmail}</td>
+                          <td className="py-3 px-4 font-mono text-[var(--muted-foreground)]">
+                            {studentMobile}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                accountState === 'ACTIVE'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              }`}
+                            >
+                              {accountState === 'ACTIVE' ? (
+                                <CheckCircle2 className="w-3 h-3" />
+                              ) : (
+                                <AlertCircle className="w-3 h-3" />
+                              )}
+                              {accountState}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-[var(--muted-foreground)]">
+                            {item.joinedVia || 'ROSTER_IMPORT'}
+                          </td>
+                          <td className="py-3 px-4 text-[var(--muted-foreground)]">
+                            {item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString() : 'Active'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.post('/mini-project/activate-individual', {
+                                    miniProjectId: 'capstone-mini-project-c11',
+                                    studentId: studentId,
+                                    sectionId: selectedSection.id,
+                                    activationReason: 'Faculty approved in section roster',
+                                  });
+                                  toast.success(`Mini-Project activated for ${studentName}!`);
+                                } catch (err: any) {
+                                  toast.error(err.message || 'Activation failed');
+                                }
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                            >
+                              <Award className="w-3 h-3" />
+                              <span>Activate Capstone</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

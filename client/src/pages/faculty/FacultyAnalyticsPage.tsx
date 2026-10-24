@@ -113,21 +113,27 @@ export const FacultyAnalyticsPage: React.FC = () => {
     queryKey: ['student-deep-dive', deepDiveStudentId],
     queryFn: async () => {
       if (!deepDiveStudentId) return null;
+      let resultData: any = null;
+
       try {
         const res = await api.get(`/analytics/faculty/student-deep-dive/${encodeURIComponent(deepDiveStudentId)}`);
-        if (res?.data?.student) return res;
+        if (res?.data?.student) {
+          resultData = res.data;
+        }
       } catch (err) {
         console.warn('Backend deep dive lookup failed, checking Firestore:', err);
       }
 
       // Resilient fallback to Firestore
-      const fsStudent = await FirestoreDataService.findEnrolledStudentInFirestore(deepDiveStudentId);
-      if (fsStudent) {
-        return {
-          data: {
+      if (!resultData?.student) {
+        const fsStudent = await FirestoreDataService.findEnrolledStudentInFirestore(deepDiveStudentId);
+        if (fsStudent) {
+          const fsSubmissions = await FirestoreDataService.getUserSubmissions(fsStudent.id || fsStudent.uid || '');
+          resultData = {
             student: {
               id: fsStudent.id || fsStudent.uid || 'fs_student',
-              fullName: fsStudent.fullName || fsStudent.name || `Student ${fsStudent.prn?.slice(-4) || ''}`,
+              fullName: fsStudent.fullName || fsStudent.name || fsStudent.displayName || `Student ${(fsStudent.prn || deepDiveStudentId).slice(-4)}`,
+              displayName: fsStudent.displayName || fsStudent.fullName || 'Student',
               prn: fsStudent.prn || deepDiveStudentId,
               email: fsStudent.email || '',
               department: fsStudent.department || 'CSE',
@@ -137,13 +143,18 @@ export const FacultyAnalyticsPage: React.FC = () => {
               currentStreak: fsStudent.currentStreak || 0,
             },
             assignments: [],
-            submissions: [],
+            submissions: fsSubmissions,
             miniProjects: [],
-          },
-        };
+          };
+        }
       }
 
-      throw new Error(`No student found matching PRN or Email "${deepDiveStudentId}".`);
+      if (!resultData?.student) {
+        toast.error(`No student found matching PRN or Email "${deepDiveStudentId}".`);
+        return null;
+      }
+
+      return { data: resultData };
     },
     enabled: Boolean(deepDiveStudentId),
   });
@@ -524,6 +535,70 @@ export const FacultyAnalyticsPage: React.FC = () => {
                     )}
                   </div>
                 ))
+              )}
+            </div>
+
+            {/* Practice Submissions & C Code Solutions */}
+            <div className="space-y-4 pt-4 border-t border-gray-800">
+              <div className="flex items-center gap-2">
+                <FileCode className="w-4 h-4 text-emerald-400" />
+                <h4 className="font-bold text-white uppercase text-[11px] tracking-wider font-sans">
+                  Recent C Code Submissions & Practice Solutions ({(deepDiveData.data.submissions || []).length})
+                </h4>
+              </div>
+
+              {(!deepDiveData.data.submissions || deepDiveData.data.submissions.length === 0) ? (
+                <div className="text-gray-500 italic text-xs">
+                  No practice submissions on record yet for this candidate.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(deepDiveData.data.submissions || []).map((sub: any) => (
+                    <div key={sub.id} className="p-3.5 bg-gray-900/80 rounded-xl border border-gray-800 space-y-2 text-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              sub.verdict === 'ACCEPTED'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : sub.verdict === 'WRONG_ANSWER'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}
+                          >
+                            {sub.verdict || 'PENDING'}
+                          </span>
+                          <span className="font-bold text-white font-sans">
+                            {sub.problem?.title || 'C Programming Challenge'}
+                          </span>
+                          <span className="text-gray-400 text-[10px] uppercase font-mono">
+                            ({sub.problem?.difficulty || 'PRACTICE'})
+                          </span>
+                        </div>
+                        <div className="text-gray-400 text-[11px] flex items-center gap-3 font-mono">
+                          {sub.runtimeMs !== null && sub.runtimeMs !== undefined && (
+                            <span>{sub.runtimeMs}ms</span>
+                          )}
+                          <span>
+                            {sub.createdAt ? new Date(sub.createdAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      {sub.code && (
+                        <details className="mt-2 text-[11px]">
+                          <summary className="text-cyan-400 cursor-pointer hover:underline flex items-center gap-1 font-sans">
+                            <Eye className="w-3 h-3" />
+                            <span>View C Source Code Snapshot</span>
+                          </summary>
+                          <pre className="mt-2 p-3 bg-black rounded-lg border border-gray-800 text-gray-200 font-mono text-[10px] overflow-x-auto max-h-56 leading-relaxed">
+                            {sub.code}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

@@ -639,55 +639,133 @@ export class FirestoreDataService {
    * Persists an academic section to Firestore so it survives server restarts.
    */
   public static async saveSectionToFirestore(section: any): Promise<void> {
+    const sectionId = section.id || section.joinToken || `sec_${Date.now()}`;
+
+    // 1. Immediately cache in resilient localStorage
     try {
-      const sectionId = section.id || section.joinToken || `sec_${Date.now()}`;
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      const filtered = existing.filter((s: any) => s.id !== sectionId && s.joinCode !== section.joinCode);
+      filtered.unshift({ ...section, id: sectionId });
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+    } catch {}
+
+    // 2. Persist to Firestore with strict non-null schema compliance
+    try {
       const secRef = doc(db, 'sections', sectionId);
-      await setDoc(
-        secRef,
-        {
-          id: sectionId,
-          institution: section.institution || 'Sanjivani University',
-          course: section.course || 'B.Tech CSE',
-          subject: section.subject || 'C Programming',
-          academicYear: section.academicYear || '2026-2027',
-          semester: section.semester || 'Semester 1',
-          sectionName: section.sectionName || 'Div A',
-          description: section.description || null,
-          joinCode: section.joinCode,
-          joinToken: section.joinToken,
-          facultyId: section.facultyId || null,
-          isActive: section.isActive !== false,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const cleanPayload: Record<string, any> = {
+        id: sectionId,
+        institution: section.institution || 'Sanjivani University',
+        course: section.course || 'B.Tech CSE',
+        subject: section.subject || 'C Programming',
+        sectionName: section.sectionName || section.name || 'Div A',
+        isActive: section.isActive !== false,
+        updatedAt: serverTimestamp(),
+      };
+      if (section.academicYear) cleanPayload.academicYear = String(section.academicYear);
+      if (section.semester) cleanPayload.semester = String(section.semester);
+      if (section.description) cleanPayload.description = String(section.description);
+      if (section.joinCode) cleanPayload.joinCode = String(section.joinCode);
+      if (section.joinToken) cleanPayload.joinToken = String(section.joinToken);
+      if (section.facultyId && typeof section.facultyId === 'string') cleanPayload.facultyId = section.facultyId;
+
+      await setDoc(secRef, cleanPayload, { merge: true });
     } catch (err) {
       console.warn('saveSectionToFirestore error:', err);
     }
   }
 
   /**
-   * Loads all sections persisted in Firestore.
+   * Loads all sections persisted in Firestore merged with persistent local cache.
    */
   public static async getSectionsFromFirestore(): Promise<any[]> {
+    const sectionMap = new Map<string, any>();
+
+    // 1. Read persistent local backup
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const localList = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(localList)) {
+        localList.forEach((s) => {
+          const key = s.id || s.joinCode || s.sectionName;
+          if (key) sectionMap.set(key, s);
+        });
+      }
+    } catch {}
+
+    // 2. Read authoritative Firestore
     try {
       const snap = await getDocs(collection(db, 'sections'));
-      const sections: any[] = [];
       snap.forEach((d) => {
         const data = d.data();
-        if (data) sections.push({ id: d.id, ...data });
+        if (data) {
+          const item: any = { id: d.id, ...data };
+          const key = item.id || item.joinCode || item.sectionName;
+          sectionMap.set(key, item);
+        }
       });
-      return sections;
     } catch (err) {
       console.warn('getSectionsFromFirestore error:', err);
-      return [];
     }
+
+    return Array.from(sectionMap.values());
+  }
+
+  /**
+   * Fetches enrolled students for a specific section from Firestore or local cache.
+   */
+  public static async getEnrolledStudentsForSection(sectionId: string): Promise<any[]> {
+    const list: any[] = [];
+    const seen = new Set<string>();
+
+    // 1. Check local backup
+    try {
+      const raw = localStorage.getItem(`logicq_section_students_${sectionId}`);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Array.isArray(cached)) {
+          cached.forEach((s) => {
+            const key = (s.prn || s.email || s.id || '').toUpperCase();
+            if (key && !seen.has(key)) {
+              seen.add(key);
+              list.push(s);
+            }
+          });
+        }
+      }
+    } catch {}
+
+    // 2. Query 'enrolled_students' where sectionId == sectionId
+    try {
+      const q = query(collection(db, 'enrolled_students'), where('sectionId', '==', sectionId));
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data) {
+          const key = (data.prn || data.email || d.id).toUpperCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push({ id: d.id, ...data });
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('getEnrolledStudentsForSection query error:', e);
+    }
+
+    return list;
   }
 
   /**
    * Persists enrolled students to Firestore under 'enrolled_students' collection.
    */
   public static async saveEnrolledStudentsToFirestore(sectionId: string, students: any[]): Promise<void> {
+    // 1. Save to localStorage backup per section
+    try {
+      localStorage.setItem(`logicq_section_students_${sectionId}`, JSON.stringify(students));
+    } catch {}
+
+    // 2. Save batch to Firestore
     try {
       const batch = writeBatch(db);
       for (const s of students) {
@@ -719,35 +797,106 @@ export class FirestoreDataService {
   }
 
   /**
-   * Finds an enrolled student by email, PRN, or mobile.
+   * Comprehensive student lookup: searches local cache, prnIndex, users collection, publicProfiles, and enrolled_students.
    */
   public static async findEnrolledStudentInFirestore(identifier: string): Promise<any | null> {
     try {
       const clean = identifier.trim().toLowerCase();
-      const docKey = clean.replace(/[^a-z0-9]/g, '_');
-      const directDoc = await getDoc(doc(db, 'enrolled_students', docKey));
-      if (directDoc.exists()) {
-        return directDoc.data();
-      }
-
-      const emailQ = query(collection(db, 'enrolled_students'), where('email', '==', clean));
-      const emailSnap = await getDocs(emailQ);
-      if (!emailSnap.empty) {
-        return emailSnap.docs[0].data();
-      }
-
       const prnClean = identifier.trim().toUpperCase();
-      const prnQ = query(collection(db, 'enrolled_students'), where('prn', '==', prnClean));
-      const prnSnap = await getDocs(prnQ);
-      if (!prnSnap.empty) {
-        return prnSnap.docs[0].data();
+
+      // 1. Check local cache / all enrolled students backup
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('logicq_section_students_')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const students = JSON.parse(raw);
+              if (Array.isArray(students)) {
+                const found = students.find(
+                  (s: any) =>
+                    (s.prn && String(s.prn).toUpperCase() === prnClean) ||
+                    (s.email && String(s.email).toLowerCase() === clean) ||
+                    (s.name && String(s.name).toLowerCase() === clean)
+                );
+                if (found) return found;
+              }
+            }
+          }
+        }
+      } catch {}
+
+      // 2. Direct lookup by prnIndex/{prnClean}
+      try {
+        const prnSnap = await getDoc(doc(db, 'prnIndex', prnClean));
+        if (prnSnap.exists()) {
+          const pData = prnSnap.data();
+          const targetUid = pData.userId || pData.uid;
+          if (targetUid) {
+            const userDoc = await getDoc(doc(db, 'users', targetUid)).catch(() => null);
+            if (userDoc && userDoc.exists()) {
+              return { id: userDoc.id, uid: userDoc.id, ...userDoc.data(), prn: prnClean };
+            }
+            const pubDoc = await getDoc(doc(db, 'publicProfiles', targetUid)).catch(() => null);
+            if (pubDoc && pubDoc.exists()) {
+              return { id: targetUid, uid: targetUid, ...pubDoc.data(), prn: prnClean };
+            }
+            return { id: targetUid, uid: targetUid, prn: prnClean, fullName: `Student ${prnClean.slice(-4)}` };
+          }
+        }
+      } catch (err) {
+        console.warn('prnIndex lookup error in findEnrolledStudent:', err);
       }
 
-      const userQ = query(collection(db, 'users'), where('email', '==', clean));
-      const userSnap = await getDocs(userQ);
-      if (!userSnap.empty) {
-        return userSnap.docs[0].data();
+      // 3. Direct lookup in 'enrolled_students' by various key formats
+      const directKeys = [
+        prnClean,
+        clean,
+        clean.replace(/[^a-z0-9]/g, '_'),
+        prnClean.replace(/[^a-zA-Z0-9]/g, '_'),
+      ];
+      for (const k of directKeys) {
+        try {
+          const directDoc = await getDoc(doc(db, 'enrolled_students', k));
+          if (directDoc.exists()) {
+            return { id: directDoc.id, ...directDoc.data() };
+          }
+        } catch {}
       }
+
+      // 4. Query enrolled_students by PRN or email
+      try {
+        const prnQ = query(collection(db, 'enrolled_students'), where('prn', '==', prnClean));
+        const prnSnap = await getDocs(prnQ);
+        if (!prnSnap.empty) {
+          return { id: prnSnap.docs[0].id, ...prnSnap.docs[0].data() };
+        }
+      } catch {}
+
+      try {
+        const emailQ = query(collection(db, 'enrolled_students'), where('email', '==', clean));
+        const emailSnap = await getDocs(emailQ);
+        if (!emailSnap.empty) {
+          return { id: emailSnap.docs[0].id, ...emailSnap.docs[0].data() };
+        }
+      } catch {}
+
+      // 5. Query users by PRN or email
+      try {
+        const userPrnQ = query(collection(db, 'users'), where('prn', '==', prnClean));
+        const userPrnSnap = await getDocs(userPrnQ);
+        if (!userPrnSnap.empty) {
+          return { id: userPrnSnap.docs[0].id, ...userPrnSnap.docs[0].data() };
+        }
+      } catch {}
+
+      try {
+        const userEmailQ = query(collection(db, 'users'), where('email', '==', clean));
+        const userEmailSnap = await getDocs(userEmailQ);
+        if (!userEmailSnap.empty) {
+          return { id: userEmailSnap.docs[0].id, ...userEmailSnap.docs[0].data() };
+        }
+      } catch {}
 
       return null;
     } catch (err) {
