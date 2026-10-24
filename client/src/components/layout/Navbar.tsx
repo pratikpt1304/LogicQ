@@ -31,6 +31,7 @@ import {
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
+  const isStudent = !isFaculty && !isAdmin;
   const { theme, toggleTheme } = useTheme();
   const isStandalone = useIsStandalonePwa();
   const location = useLocation();
@@ -232,7 +233,7 @@ export const Navbar: React.FC = () => {
                       {/* Section 1: Account & Learning */}
                       <div className="py-1">
                         <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                          My Account
+                          {isStudent ? 'My Learning' : 'Account'}
                         </div>
                         <Link
                           to="/profile"
@@ -243,33 +244,37 @@ export const Navbar: React.FC = () => {
                           <span>View Profile</span>
                         </Link>
 
-                        <Link
-                          to="/history"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                        >
-                          <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                          <span>My Submissions</span>
-                        </Link>
+                        {isStudent && (
+                          <>
+                            <Link
+                              to="/history"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            >
+                              <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                              <span>My Submissions</span>
+                            </Link>
 
-                        <Link
-                          to="/analytics"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                        >
-                          <Brain className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                          <span>Learning Analytics</span>
-                        </Link>
+                            <Link
+                              to="/analytics"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            >
+                              <Brain className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                              <span>Learning Analytics</span>
+                            </Link>
 
-                        {!isStandalone && (
-                          <button
-                            type="button"
-                            onClick={handleInstallClick}
-                            className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left"
-                          >
-                            <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                            <span>Install LogicQ App</span>
-                          </button>
+                            {!isStandalone && (
+                              <button
+                                type="button"
+                                onClick={handleInstallClick}
+                                className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left"
+                              >
+                                <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                                <span>Install LogicQ App</span>
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -475,20 +480,24 @@ export const Navbar: React.FC = () => {
                 >
                   My Profile
                 </Link>
-                <Link
-                  to="/history"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-                >
-                  Submission History
-                </Link>
-                <Link
-                  to="/analytics"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-cyan-400 hover:bg-[var(--bg-surface)]"
-                >
-                  Analytics & Reports
-                </Link>
+                {isStudent && (
+                  <>
+                    <Link
+                      to="/history"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+                    >
+                      Submission History
+                    </Link>
+                    <Link
+                      to="/analytics"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-cyan-400 hover:bg-[var(--bg-surface)]"
+                    >
+                      Analytics & Reports
+                    </Link>
+                  </>
+                )}
                 {isAdmin && (
                   <Link
                     to="/admin"
