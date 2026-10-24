@@ -81,10 +81,10 @@ export class OtpController {
   static async checkIdentityBinding(req: Request, res: Response) {
     try {
       const { prn, email, mobile } = req.body;
-      if (!prn || !email || !mobile) {
+      if (!prn || !email) {
         return res.status(400).json({
           success: false,
-          message: 'PRN, email, and mobile are all required to validate identity binding.',
+          message: 'PRN and email are required to validate identity binding.',
         });
       }
 

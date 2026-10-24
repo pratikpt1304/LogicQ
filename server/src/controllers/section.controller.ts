@@ -190,10 +190,10 @@ export class SectionController {
     try {
       const { joinToken, name, prn, email, mobile } = req.body;
 
-      if (!joinToken || !name || !prn || !email || !mobile) {
+      if (!joinToken || !name || !prn || !email) {
         return res.status(400).json({
           success: false,
-          message: 'Join token, full name, PRN, email, and mobile are all required.',
+          message: 'Join token, full name, PRN, and email are all required.',
         });
       }
 
