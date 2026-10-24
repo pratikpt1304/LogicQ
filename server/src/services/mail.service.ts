@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { ENV } from '../config/env.js';
 
 export interface MailOptions {
@@ -22,6 +23,39 @@ class ConsoleMailService implements IMailService {
     console.log(options.text || options.html);
     console.log('=====================================================================\n');
     return true;
+  }
+}
+
+class ResendMailService implements IMailService {
+  private resend: Resend;
+
+  constructor(apiKey: string) {
+    this.resend = new Resend(apiKey);
+    console.log('[ResendMailService] Initialized Resend HTTP API (Port 443 HTTPS)');
+  }
+
+  async sendMail(options: MailOptions): Promise<boolean> {
+    try {
+      const from = process.env.RESEND_FROM || 'LogicQ Arena <onboarding@resend.dev>';
+      const { data, error } = await this.resend.emails.send({
+        from,
+        to: [options.to],
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+
+      if (error) {
+        console.error('[ResendMailService] Delivery error:', error);
+        return false;
+      }
+
+      console.log(`[ResendMailService] Successfully dispatched email to ${options.to} (ID: ${data?.id})`);
+      return true;
+    } catch (err: any) {
+      console.error(`[ResendMailService] Exception sending email to ${options.to}:`, err?.message || err);
+      return false;
+    }
   }
 }
 
@@ -78,8 +112,7 @@ class NodemailerMailService implements IMailService {
         this.initTransporter();
       }
       if (!this.transporter) {
-        console.warn(`[NodemailerMailService] Transporter unavailable. Falling back to console log for ${options.to}`);
-        console.log(`[FALLBACK MAIL] To: ${options.to} | Subject: ${options.subject}`);
+        console.warn(`[NodemailerMailService] Transporter unavailable for ${options.to}`);
         return false;
       }
 
@@ -102,7 +135,17 @@ class NodemailerMailService implements IMailService {
   }
 }
 
-export const mailService: IMailService =
-  ENV.MAIL_PROVIDER === 'smtp' || Boolean((ENV.SMTP_USER || process.env.SMTP_USER) && (ENV.SMTP_PASS || process.env.SMTP_PASS))
-    ? new NodemailerMailService()
-    : new ConsoleMailService();
+export function getMailService(): IMailService {
+  const resendApiKey = process.env.RESEND_API_KEY || (ENV as any).RESEND_API_KEY;
+  if (resendApiKey) {
+    return new ResendMailService(resendApiKey);
+  }
+
+  if (ENV.MAIL_PROVIDER === 'smtp' || Boolean((ENV.SMTP_USER || process.env.SMTP_USER) && (ENV.SMTP_PASS || process.env.SMTP_PASS))) {
+    return new NodemailerMailService();
+  }
+
+  return new ConsoleMailService();
+}
+
+export const mailService: IMailService = getMailService();
