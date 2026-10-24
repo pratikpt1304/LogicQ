@@ -1964,5 +1964,106 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  // ==========================================
+  // INTEGRATED CAPSTONE MINI-PROJECT (Sections 35 - 39)
+  // ==========================================
+  const CANONICAL_MINI_PROJECT = {
+    id: 'capstone-mini-project-c11',
+    moduleId: 'module-4',
+    title: 'Hospital Patient Triage & Vitals Monitoring System',
+    scenario: 'You are developing an embedded C11 emergency medical triage and patient monitoring console for City General Hospital.\nThe system continuously ingests patient vitals (Blood Pressure, Heart Rate, SpO2, and Age) and maintains an active priority queue sorted by severity urgency.',
+    requirements: `### Technical Specifications & Competencies
+
+1. **Competency 1 — Syntax & Control Flow (5 Marks)**:
+   - Implement triage priority classification function:
+     \`int calculateTriageLevel(int heartRate, int spO2, int systolicBP)\`
+   - Priority 1 (Critical): SpO2 < 90 OR Heart Rate > 140 OR Systolic BP < 90.
+   - Priority 2 (Urgent): 90 <= SpO2 <= 94 OR 100 <= Heart Rate <= 140.
+   - Priority 3 (Standard): All vitals in stable nominal ranges.
+
+2. **Competency 2 — Arrays & Structured Data (5 Marks)**:
+   - Define \`struct Vitals { int heartRate; int spO2; int systolicBP; };\`
+   - Define \`struct Patient { int id; char name[32]; int age; struct Vitals vitals; int triagePriority; };\`
+   - Maintain and display patient arrays sorted by priority level.
+
+3. **Competency 3 — Pointers & Functions (5 Marks)**:
+   - Write pointer-driven record mutators \`void updateVitalsByRef(struct Patient *p, int hr, int spo2, int bp);\`
+   - Write dynamic search functions \`struct Patient* findPatientById(struct Patient *list, int count, int id);\`
+
+4. **Competency 4 — System Integration & Memory Management (5 Marks)**:
+   - Provide a modular interactive console dispatcher (\`ADD\`, \`LIST\`, \`STATS\`).
+   - Ensure zero memory leaks with clean pointer hygiene.`,
+    rubricJson: JSON.stringify([
+      { competency: 'Syntax & Branching Logic (Triage Rules)', maxMarks: 5 },
+      { competency: 'Data Structuring (Patient Records & Vitals)', maxMarks: 5 },
+      { competency: 'Pointers & Dynamic Memory (Reference Mutators)', maxMarks: 5 },
+      { competency: 'System Integration, Modularity & Error Handling', maxMarks: 5 },
+    ]),
+    starterCode: `#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\n// 1. DATA STRUCTURES\nstruct Vitals {\n    int heartRate;\n    int spO2;\n    int systolicBP;\n};\n\nstruct Patient {\n    int id;\n    char name[32];\n    int age;\n    struct Vitals vitals;\n    int triagePriority; // 1 = Critical, 2 = Urgent, 3 = Standard\n};\n\n// 2. COMPETENCY FUNCTIONS\nint calculateTriageLevel(int hr, int spo2, int bp) {\n    if (spo2 < 90 || hr > 140 || bp < 90) return 1;\n    if ((spo2 >= 90 && spo2 <= 94) || (hr >= 100 && hr <= 140)) return 2;\n    return 3;\n}\n\nvoid updateVitalsByRef(struct Patient *p, int hr, int spo2, int bp) {\n    if (!p) return;\n    p->vitals.heartRate = hr;\n    p->vitals.spO2 = spo2;\n    p->vitals.systolicBP = bp;\n    p->triagePriority = calculateTriageLevel(hr, spo2, bp);\n}\n\nint main() {\n    printf("--- City General Hospital Triage Console ---\\n");\n    // TODO: Implement interactive patient queue management\n    return 0;\n}\n`,
+    expectedTimeMin: 45,
+    expectedTimeMax: 120,
+  };
+
+  if (path === '/mini-project/student/my-projects' && method === 'GET') {
+    return {
+      success: true,
+      projects: [
+        {
+          ...CANONICAL_MINI_PROJECT,
+          accessStatus: 'ACTIVE',
+          academicScore: 0,
+        },
+      ],
+      canonicalProject: CANONICAL_MINI_PROJECT,
+    };
+  }
+
+  if (path === '/mini-project/activate-practice' && method === 'POST') {
+    return {
+      success: true,
+      access: {
+        id: 'access-capstone-mini-project',
+        miniProjectId: CANONICAL_MINI_PROJECT.id,
+        status: 'ACTIVE',
+        academicScore: 0,
+      },
+      project: CANONICAL_MINI_PROJECT,
+    };
+  }
+
+  if (path.startsWith('/mini-project/') && method === 'GET') {
+    return {
+      success: true,
+      access: {
+        id: 'access-capstone-mini-project',
+        miniProjectId: CANONICAL_MINI_PROJECT.id,
+        status: 'ACTIVE',
+        academicScore: 0,
+        rubricScoresJson: null,
+      },
+      project: CANONICAL_MINI_PROJECT,
+    };
+  }
+
+  if (path === '/mini-project/submit' && method === 'POST') {
+    const { code } = body;
+    const rubricScores = {
+      section1: code && (code.includes('if') || code.includes('switch')) ? 5 : 3,
+      section2: code && (code.includes('[') || code.includes('struct')) ? 5 : 3,
+      section3: code && (code.includes('void') || code.includes('int ')) ? 5 : 4,
+      section4: 5,
+    };
+    const academicScore = rubricScores.section1 + rubricScores.section2 + rubricScores.section3 + rubricScores.section4;
+    return {
+      success: true,
+      academicScore,
+      maxMarks: 20,
+      rubricScores,
+      integrityScore: 0,
+      integrityRisk: 'NORMAL',
+      status: 'SUBMITTED',
+    };
+  }
+
   return { success: true, data: {} };
 }

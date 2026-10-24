@@ -99,13 +99,29 @@ export const MiniProjectWorkspacePage: React.FC = () => {
               : ((error as any)?.message || 'Unable to access this mini-project.')}
           </p>
         </div>
-        <Link
-          to="/student/tests"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-xs transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Return to My Tests</span>
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={async () => {
+              try {
+                await api.post('/mini-project/activate-practice', { miniProjectId });
+                toast.success('Practice access activated!');
+                window.location.reload();
+              } catch (e: any) {
+                toast.error(e.message || 'Activation failed');
+              }
+            }}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold text-xs shadow-md shadow-cyan-950/30 transition-all"
+          >
+            Activate Practice Mode (Self-Paced)
+          </button>
+          <Link
+            to="/student/tests"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-xs transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to My Tests</span>
+          </Link>
+        </div>
       </div>
     );
   }

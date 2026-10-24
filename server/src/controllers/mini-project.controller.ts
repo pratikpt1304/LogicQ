@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { MiniProjectService } from '../services/mini-project.service.js';
+import { prisma } from '../utils/prisma.js';
 
 export class MiniProjectController {
   /**
@@ -131,6 +132,79 @@ export class MiniProjectController {
         code: isInactive ? 'MINI_PROJECT_INACTIVE' : 'FETCH_FAILED',
         message: err.message || 'Failed to fetch mini-project.',
       });
+    }
+  }
+
+  /**
+   * GET /api/mini-project/student/my-projects - Returns mini-projects accessible to the student
+   */
+  static async getMyProjects(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const studentId = user.userId || user.id;
+
+      const canonical = await prisma.miniProject.findFirst();
+
+      const accesses = await prisma.studentMiniProjectAccess.findMany({
+        where: { studentId },
+        include: { miniProject: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return res.json({
+        success: true,
+        projects: accesses.map((a) => ({
+          ...a.miniProject,
+          accessStatus: a.status,
+          academicScore: a.academicScore,
+        })),
+        canonicalProject: canonical,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message || 'Failed to fetch mini-projects.' });
+    }
+  }
+
+  /**
+   * POST /api/mini-project/activate-practice - Self-paced practice activation
+   */
+  static async activatePractice(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const studentId = user.userId || user.id;
+      const { miniProjectId } = req.body;
+
+      const project = await prisma.miniProject.findUnique({
+        where: { id: miniProjectId || 'capstone-mini-project-c11' },
+      });
+      if (!project) {
+        return res.status(404).json({ success: false, message: 'Mini-project not found.' });
+      }
+
+      const access = await prisma.studentMiniProjectAccess.upsert({
+        where: {
+          miniProjectId_studentId: {
+            miniProjectId: project.id,
+            studentId,
+          },
+        },
+        update: {
+          status: 'ACTIVE',
+          activationReason: 'Self-paced practice mode',
+        },
+        create: {
+          miniProjectId: project.id,
+          studentId,
+          sectionId: 'self-paced-section',
+          status: 'ACTIVE',
+          activationReason: 'Self-paced practice mode',
+        },
+        include: { miniProject: true },
+      });
+
+      return res.json({ success: true, access, project });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message || 'Failed to activate practice.' });
     }
   }
 

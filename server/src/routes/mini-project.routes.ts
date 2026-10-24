@@ -12,5 +12,7 @@ miniProjectRoutes.post('/grade', authenticate, requireRole(['ADMIN', 'FACULTY'])
 miniProjectRoutes.get('/section-roster/:sectionId/:miniProjectId', authenticate, requireRole(['ADMIN', 'FACULTY']), MiniProjectController.getSectionRoster);
 
 // Student routes
+miniProjectRoutes.get('/student/my-projects', authenticate, MiniProjectController.getMyProjects);
+miniProjectRoutes.post('/activate-practice', authenticate, MiniProjectController.activatePractice);
 miniProjectRoutes.get('/:miniProjectId', authenticate, MiniProjectController.getStudentProject);
 miniProjectRoutes.post('/submit', authenticate, MiniProjectController.submitProject);
