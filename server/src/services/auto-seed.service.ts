@@ -288,12 +288,13 @@ export async function autoSeedDatabase(): Promise<void> {
       console.log('⚡ Seeded Capstone Mini-Project.');
     }
 
-    // 6. Ensure Core Admins Exist in Database
+    // 6. Ensure Core Admins and Canonical Section Exist in Database
+    const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'AdminPassword123!', 10);
+
     const adminEmail = 'admin@logicq.io';
-    const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+    let existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
     if (!existingAdmin) {
-      const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'AdminPassword123!', 10);
-      await prisma.user.create({
+      existingAdmin = await prisma.user.create({
         data: {
           username: 'admin',
           email: adminEmail,
@@ -304,6 +305,54 @@ export async function autoSeedDatabase(): Promise<void> {
           college: 'LogicQ Operations',
         },
       });
+    }
+
+    const pratikEmail = 'thoratpratik2323@gmail.com';
+    let pratikAdmin = await prisma.user.findUnique({ where: { email: pratikEmail } });
+    if (!pratikAdmin) {
+      pratikAdmin = await prisma.user.create({
+        data: {
+          username: 'pratik_admin',
+          email: pratikEmail,
+          fullName: 'Pratik Thorat',
+          displayName: 'Pratik Thorat (Admin)',
+          role: 'ADMIN',
+          passwordHash: adminHash,
+          college: 'Sanjivani University',
+          department: 'CSE',
+          profileComplete: true,
+        },
+      });
+      console.log('⚡ Auto-seeded Super Admin account (thoratpratik2323@gmail.com).');
+    }
+
+    const sectionOwnerId = pratikAdmin ? pratikAdmin.id : existingAdmin.id;
+    const existingSection = await prisma.section.findFirst({
+      where: {
+        OR: [
+          { joinCode: 'LQ-DC85' },
+          { sectionName: 'Div A - Computer Science' },
+        ],
+      },
+    });
+
+    if (!existingSection) {
+      await prisma.section.create({
+        data: {
+          institution: 'Sanjivani University',
+          course: 'B.Tech Computer Science & Engineering',
+          subject: 'Data Structures & Algorithms',
+          academicYear: '2026-2027',
+          semester: 'Semester 3',
+          sectionName: 'Div A - Computer Science',
+          facultyId: sectionOwnerId,
+          description: 'Official academic section for B.Tech CSE',
+          joinCode: 'LQ-DC85',
+          joinToken: '20e4db09-fe9a-47ab-a034-57b11e49a02f',
+          isActive: true,
+        },
+      });
+      console.log('⚡ Canonical academic section (Div A - Computer Science [LQ-DC85]) auto-seeded.');
     }
   } catch (error) {
     console.error('⚠️ Warning: Auto-seed encountered an error (continuing boot):', error);
