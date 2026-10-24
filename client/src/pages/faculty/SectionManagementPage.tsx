@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
@@ -17,35 +17,43 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  XCircle,
   FileSpreadsheet,
-  ArrowRight,
   Eye,
   RefreshCw,
   Search,
-  Award,
   Trash2,
+  UserPlus,
+  Download,
+  GraduationCap,
+  ExternalLink,
+  X,
+  Sparkles,
 } from 'lucide-react';
 
 interface StudentRosterItem {
-  id: string;
-  prn: string;
-  status: string;
-  joinedVia: string;
-  enrolledAt: string;
-  student: {
+  id?: string;
+  prn?: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  mobile?: string | null;
+  status?: string;
+  joinedVia?: string;
+  enrolledAt?: string;
+  student?: {
     id: string;
     fullName: string;
     displayName: string | null;
     email: string;
     mobile: string | null;
-    accountState: string;
+    prn?: string;
+    accountState?: string;
   };
 }
 
 interface SectionItem {
   id: string;
-  institution: string;
+  institution?: string;
   course: string;
   subject: string;
   academicYear: string;
@@ -54,77 +62,53 @@ interface SectionItem {
   joinCode: string;
   joinToken: string;
   description: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  isActive: boolean;
-  createdAt: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  isActive?: boolean;
+  createdAt?: string;
   _count?: { students: number };
   students?: StudentRosterItem[];
 }
 
 export const SectionManagementPage: React.FC = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
   const queryClient = useQueryClient();
 
-  // Delete section mutation (Permanent removal from Backend, Cloud Firestore & Local Cache)
-  const deleteMutation = useMutation({
-    mutationFn: async (sec: SectionItem) => {
-      // 1. Immediately delete from Firestore & Local Storage tombstone
-      await FirestoreDataService.deleteSectionFromFirestore(sec.id, sec.joinCode);
-      // 2. Delete from backend database (if exists)
-      try {
-        await api.delete(`/sections/${sec.id}`);
-      } catch (err: any) {
-        console.warn('Backend delete /sections failed (may only exist in Firestore):', err);
-      }
-      return { success: true };
-    },
-    onSuccess: () => {
-      toast.success('Section permanently deleted.');
-      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
-      if (selectedSection?.id) {
-        setSelectedSection(null);
-      }
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || 'Failed to delete section.');
-    },
-  });
-
-  const handleDeleteSection = (sec: SectionItem) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to permanently delete section "${sec.sectionName}" (${sec.subject})?\n\nThis will permanently remove the section and its enrolled student roster.`
-    );
-    if (confirmed) {
-      deleteMutation.mutate(sec);
-    }
-  };
+  // Modals and drawers
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<SectionItem | null>(null);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Single Student Manual Add Form
+  const [singleStudent, setSingleStudent] = useState({
+    name: '',
+    prn: '',
+    email: '',
+    mobile: '',
+  });
+
   // Excel Preview State
   const [excelPreview, setExcelPreview] = useState<any>(null);
   const [isParsingExcel, setIsParsingExcel] = useState(false);
 
-  // New Section Form State
+  // New Section Form State (Clean placeholders, no annoying forced Sanjivani defaults)
   const [newSection, setNewSection] = useState({
-    institution: 'Sanjivani University of Engineering',
+    sectionName: '',
+    subject: '',
     course: 'B.Tech Computer Science & Engineering',
-    subject: 'Data Structures & Algorithms',
     academicYear: '2026-2027',
-    semester: 'Semester 3',
-    sectionName: 'Div A',
+    semester: 'Semester 1',
+    institution: 'Sanjivani University',
     description: '',
   });
 
-  // Fetch sections (combines backend with persistent Firestore so user sections NEVER disappear)
-  const { data, isLoading, refetch } = useQuery({
+  // Fetch sections (combines backend with persistent Firestore)
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['faculty-sections'],
     queryFn: async () => {
       let backendList: any[] = [];
@@ -146,7 +130,7 @@ export const SectionManagementPage: React.FC = () => {
         if (key) sectionMap.set(key, s);
       });
 
-      // 2. Put / overlay Firestore sections (ensures user-created sections are NEVER dropped)
+      // 2. Put / overlay Firestore sections
       firestoreSections.forEach((s: any) => {
         const key = s.joinCode || s.id;
         if (key) {
@@ -160,10 +144,10 @@ export const SectionManagementPage: React.FC = () => {
         (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
       );
 
-      // 3. Auto-restore any missing Firestore sections to backend database (SKIP deleted sections!)
+      // 3. Auto-restore missing Firestore sections to backend (SKIP deleted sections)
       for (const fsSec of firestoreSections) {
         if (FirestoreDataService.isSectionDeleted(fsSec.id, fsSec.joinCode)) {
-          continue; // NEVER auto-restore a section that the user deleted!
+          continue;
         }
         const existsInBackend = backendList.some((b: any) => b.joinCode === fsSec.joinCode || b.id === fsSec.id);
         if (!existsInBackend && fsSec.sectionName && fsSec.subject) {
@@ -177,9 +161,16 @@ export const SectionManagementPage: React.FC = () => {
 
   const sections: SectionItem[] = Array.isArray(data) ? data : [];
 
-  // Create section mutation (dual-write to Backend & Cloud Firestore)
+  // Create section mutation
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {
+      if (!payload.sectionName.trim()) {
+        throw new Error('Section / Division Name is required (e.g. Div A).');
+      }
+      if (!payload.subject.trim()) {
+        throw new Error('Subject Name is required (e.g. C Programming).');
+      }
+
       let createdSection: any = null;
       try {
         const res = await api.post('/sections', payload);
@@ -192,6 +183,7 @@ export const SectionManagementPage: React.FC = () => {
           joinCode: `LQ-${Math.random().toString(36).slice(-4).toUpperCase()}`,
           joinToken: crypto.randomUUID(),
           isActive: true,
+          createdAt: new Date().toISOString(),
         };
       }
       if (createdSection) {
@@ -202,6 +194,15 @@ export const SectionManagementPage: React.FC = () => {
     onSuccess: (res) => {
       toast.success(res?.message || 'Section created successfully!');
       setIsCreateOpen(false);
+      setNewSection({
+        sectionName: '',
+        subject: '',
+        course: 'B.Tech Computer Science & Engineering',
+        academicYear: '2026-2027',
+        semester: 'Semester 1',
+        institution: 'Sanjivani University',
+        description: '',
+      });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
     },
     onError: (err: any) => {
@@ -209,16 +210,46 @@ export const SectionManagementPage: React.FC = () => {
     },
   });
 
-  // Excel commit mutation (dual-write to Backend & Cloud Firestore)
+  // Delete section mutation (Faculty & Admin can delete)
+  const deleteMutation = useMutation({
+    mutationFn: async (sec: SectionItem) => {
+      await FirestoreDataService.deleteSectionFromFirestore(sec.id, sec.joinCode);
+      try {
+        await api.delete(`/sections/${sec.id}`);
+      } catch (err: any) {
+        console.warn('Backend delete /sections failed (may only exist in Firestore):', err);
+      }
+      return { success: true };
+    },
+    onSuccess: () => {
+      toast.success('Section deleted successfully.');
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      if (selectedSection?.id) {
+        setSelectedSection(null);
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to delete section.');
+    },
+  });
+
+  const handleDeleteSection = (sec: SectionItem) => {
+    const confirmed = window.confirm(
+      `Delete Section "${sec.sectionName}" (${sec.subject})?\n\nThis will remove the join code ${sec.joinCode} and its student roster list.`
+    );
+    if (confirmed) {
+      deleteMutation.mutate(sec);
+    }
+  };
+
+  // Excel commit mutation
   const commitImportMutation = useMutation({
     mutationFn: async ({ sectionId, students }: { sectionId: string; students: any[] }) => {
-      // 1. Save to persistent Firestore so students NEVER disappear on Render restart
       await FirestoreDataService.saveEnrolledStudentsToFirestore(sectionId, students);
-      // 2. Commit to backend database
       return await api.post(`/sections/${sectionId}/import-students`, { students });
     },
     onSuccess: (res) => {
-      toast.success(`Import complete! ${res.newlyEnrolled} students enrolled.`);
+      toast.success(`Import complete! ${res.newlyEnrolled || res.importedCount || 'Student(s)'} enrolled.`);
       setIsExcelModalOpen(false);
       setExcelPreview(null);
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
@@ -228,6 +259,42 @@ export const SectionManagementPage: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err.message || 'Import failed.');
+    },
+  });
+
+  // Single student manual add mutation
+  const addSingleStudentMutation = useMutation({
+    mutationFn: async ({ sectionId, student }: { sectionId: string; student: typeof singleStudent }) => {
+      if (!student.name.trim()) throw new Error('Student full name is required.');
+      if (!student.prn.trim()) throw new Error('Student PRN / Roll Number is required.');
+
+      const studentRecord = {
+        name: student.name.trim(),
+        prn: student.prn.trim().toUpperCase(),
+        email: student.email.trim().toLowerCase() || `${student.prn.trim().toLowerCase()}@student.logicq.io`,
+        mobile: student.mobile.trim() || null,
+        joinedVia: 'MANUAL_ENTRY',
+      };
+
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(sectionId, [studentRecord]);
+      try {
+        await api.post(`/sections/${sectionId}/import-students`, { students: [studentRecord] });
+      } catch (err: any) {
+        console.warn('Backend single student add fallback to local/Firestore:', err);
+      }
+      return studentRecord;
+    },
+    onSuccess: (newStu) => {
+      toast.success(`Student ${newStu.name} (${newStu.prn}) enrolled successfully!`);
+      setIsAddStudentOpen(false);
+      setSingleStudent({ name: '', prn: '', email: '', mobile: '' });
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      if (selectedSection) {
+        refetchDetails(selectedSection.id);
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to add student.');
     },
   });
 
@@ -249,7 +316,6 @@ export const SectionManagementPage: React.FC = () => {
       console.warn('Backend /sections/:id failed, falling back to Firestore/local:', err);
     }
 
-    // Resilient fallback to local state / Firestore
     const localSec = sections.find((s) => s.id === id);
     if (localSec) {
       const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
@@ -268,7 +334,7 @@ export const SectionManagementPage: React.FC = () => {
   };
 
   const openQrCode = async (section: SectionItem) => {
-    const joinUrl = `${window.location.origin}/join/${section.joinToken}`;
+    const joinUrl = `${window.location.origin}/join/${section.joinToken || section.joinCode}`;
     try {
       const url = await QRCode.toDataURL(joinUrl, { width: 300, margin: 2 });
       setQrDataUrl(url);
@@ -280,9 +346,9 @@ export const SectionManagementPage: React.FC = () => {
   };
 
   const shareWhatsApp = (section: SectionItem) => {
-    const joinUrl = `${window.location.origin}/join/${section.joinToken}`;
+    const joinUrl = `${window.location.origin}/join/${section.joinToken || section.joinCode}`;
     const text = encodeURIComponent(
-      `Hello Students! Please join the official LogicQ section for *${section.subject}* (${section.sectionName}):\n\nJoin Code: *${section.joinCode}*\nJoin Link: ${joinUrl}\n\nPlease complete your Email & Mobile OTP validation to activate your account.`
+      `📚 *LogicQ Exam & Practice Section*\nSubject: *${section.subject}* (${section.sectionName})\n\n🔑 Join Code: *${section.joinCode}*\n🔗 Join Link: ${joinUrl}\n\nPlease enter this Join Code in your LogicQ portal to access assigned programming tests and coursework.`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
@@ -310,6 +376,43 @@ export const SectionManagementPage: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  // Export Roster to CSV
+  const exportRosterCsv = (sec: SectionItem) => {
+    const list = sec.students || [];
+    if (list.length === 0) {
+      toast.error('No enrolled students to export.');
+      return;
+    }
+
+    const headers = ['Student Name', 'PRN / Roll No', 'Email', 'Mobile', 'Status', 'Enrolled At'];
+    const rows = list.map((item: any) => {
+      const name = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
+      const prn = item.prn || item.student?.prn || '';
+      const email = item.student?.email || item.email || '';
+      const mobile = item.student?.mobile || item.mobile || '';
+      const status = item.student?.accountState || item.status || 'ACTIVE';
+      const enrolledAt = item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString() : 'Active';
+      return [
+        `"${name.replace(/"/g, '""')}"`,
+        `"${prn}"`,
+        `"${email}"`,
+        `"${mobile}"`,
+        `"${status}"`,
+        `"${enrolledAt}"`,
+      ].join(',');
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Roster_${sec.sectionName.replace(/\s+/g, '_')}_${sec.subject.replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Roster CSV downloaded!');
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}
@@ -317,14 +420,14 @@ export const SectionManagementPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <BookOpen className="w-6 h-6" />
+              <GraduationCap className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
-                Section Management & Student Enrollment
+                Academic Sections & Rosters
               </h1>
               <p className="text-sm text-[var(--muted-foreground)]">
-                Create academic sections, import rosters via Excel, and share Instant Join links with Email OTP validation.
+                Create classroom divisions, distribute join codes to students, and manage enrollment rosters.
               </p>
             </div>
           </div>
@@ -333,14 +436,15 @@ export const SectionManagementPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => refetch()}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] transition"
+            disabled={isFetching}
+            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] transition cursor-pointer"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-indigo-400' : ''}`} />
             Refresh
           </button>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Create Section
@@ -351,20 +455,20 @@ export const SectionManagementPage: React.FC = () => {
       {/* Sections Grid */}
       {isLoading ? (
         <div className="py-20 text-center text-[var(--muted-foreground)] font-mono animate-pulse">
-          Loading faculty sections...
+          Loading classroom sections...
         </div>
       ) : sections.length === 0 ? (
-        <div className="border border-dashed border-[var(--border)] rounded-2xl p-12 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 mx-auto flex items-center justify-center">
-            <Users className="w-6 h-6" />
+        <div className="border border-dashed border-[var(--border)] rounded-2xl p-12 text-center space-y-4 bg-[var(--card)]/40">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 mx-auto flex items-center justify-center border border-indigo-500/20">
+            <Users className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-semibold text-[var(--foreground)]">No Academic Sections Yet</h3>
+          <h3 className="text-lg font-semibold text-[var(--foreground)]">No Academic Sections Created Yet</h3>
           <p className="text-sm text-[var(--muted-foreground)] max-w-md mx-auto">
-            Create your first course section to generate unique join codes, share instant join links, and upload student rosters.
+            Create your first course division (e.g., Div A for C Programming) to generate join codes and invite students.
           </p>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Create First Section
@@ -374,39 +478,58 @@ export const SectionManagementPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section) => {
             const studentCount = section._count?.students ?? section.students?.length ?? 0;
-            const joinUrl = `${window.location.origin}/join/${section.joinToken}`;
+            const joinUrl = `${window.location.origin}/join/${section.joinToken || section.joinCode}`;
 
             return (
               <div
                 key={section.id}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 space-y-5 hover:border-indigo-500/40 transition shadow-sm"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 hover:border-indigo-500/40 transition shadow-sm flex flex-col justify-between"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
-                      {section.sectionName}
-                    </span>
-                    <h3 className="text-lg font-bold text-[var(--foreground)] mt-2 line-clamp-1">
-                      {section.subject}
-                    </h3>
-                    <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">{section.course}</p>
+                {/* Top Section Info */}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {/* Stylized Division Badge */}
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-mono font-bold text-indigo-400 text-sm shadow-inner shrink-0">
+                        {section.sectionName.slice(0, 5).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-[var(--foreground)] line-clamp-1">
+                          {section.subject}
+                        </h3>
+                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
+                          {section.course || 'Engineering'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-[11px] font-mono text-[var(--muted-foreground)] block">
+                        {section.academicYear}
+                      </span>
+                      <span className="text-[11px] text-indigo-400/90 font-medium block">
+                        {section.semester}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-mono text-[var(--muted-foreground)] block">
-                      {section.academicYear}
-                    </span>
-                    <span className="text-xs text-[var(--muted-foreground)] block">{section.semester}</span>
-                  </div>
+
+                  {section.description && (
+                    <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 italic bg-[var(--background)]/50 p-2 rounded-lg border border-[var(--border)]/50">
+                      "{section.description}"
+                    </p>
+                  )}
                 </div>
 
-                {/* Join Code & Quick Share Box */}
-                <div className="bg-[var(--background)]/80 rounded-xl p-3.5 border border-[var(--border)] space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[var(--muted-foreground)] font-medium">Join Code</span>
+                {/* Join Code Box */}
+                <div className="bg-[var(--background)] rounded-xl p-3 border border-[var(--border)] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase font-bold tracking-wider text-[var(--muted-foreground)]">
+                      Student Join Code
+                    </span>
                     <button
                       onClick={() => handleCopy(section.joinCode, `code-${section.id}`)}
-                      className="flex items-center gap-1.5 font-mono font-bold text-indigo-400 hover:text-indigo-300"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono font-bold text-sm bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
+                      title="Click to copy Join Code"
                     >
                       {section.joinCode}
                       {copiedKey === `code-${section.id}` ? (
@@ -417,73 +540,76 @@ export const SectionManagementPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1 border-t border-[var(--border)]/60">
+                  {/* Share buttons */}
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-[var(--border)]/60">
                     <button
                       onClick={() => handleCopy(joinUrl, `link-${section.id}`)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 text-xs rounded-lg bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)]"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1 px-2 text-xs rounded-lg bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                      title="Copy Student Invite URL"
                     >
                       {copiedKey === `link-${section.id}` ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
-                      Copy Link
+                      <span>Copy Link</span>
                     </button>
                     <button
                       onClick={() => openQrCode(section)}
-                      className="p-1.5 text-xs rounded-lg bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)]"
-                      title="View QR Code"
+                      className="p-1.5 text-xs rounded-lg bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                      title="Show QR Code for Projector / Classroom"
                     >
                       <QrCode className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => shareWhatsApp(section)}
-                      className="p-1.5 text-xs rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-600/20"
-                      title="Share to WhatsApp"
+                      className="p-1.5 text-xs rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-600/20 transition cursor-pointer"
+                      title="Share Section on WhatsApp"
                     >
                       <Share2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {/* Footer Stats & Actions */}
+                {/* Footer Actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
-                  <div className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                  <div className="flex items-center gap-2 text-xs">
                     <Users className="w-4 h-4 text-indigo-400" />
-                    <span className="font-semibold text-[var(--foreground)]">{studentCount}</span>
-                    <span className="text-xs">enrolled</span>
+                    <span className="font-bold text-[var(--foreground)] text-sm">{studentCount}</span>
+                    <span className="text-[var(--muted-foreground)]">Enrolled</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={async () => {
+                        await refetchDetails(section.id);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
+                      title="Open Student Roster"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Roster</span>
+                    </button>
+
                     <button
                       onClick={() => {
                         setSelectedSection(section);
                         setIsExcelModalOpen(true);
                       }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition"
+                      className="p-1.5 text-xs rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                      title="Import Students from Excel"
                     >
-                      <Upload className="w-3.5 h-3.5" />
-                      Excel Import
+                      <Upload className="w-4 h-4" />
                     </button>
+
                     <button
-                      onClick={async () => {
-                        await refetchDetails(section.id);
-                      }}
-                      className="p-1.5 text-xs rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)]"
-                      title="View Roster"
+                      onClick={() => handleDeleteSection(section)}
+                      disabled={deleteMutation.isPending}
+                      className="p-1.5 text-xs rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 transition cursor-pointer"
+                      title="Delete Section"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleDeleteSection(section)}
-                        disabled={deleteMutation.isPending}
-                        className="p-1.5 text-xs rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 transition cursor-pointer"
-                        title="Delete Section (Admin Only)"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -492,56 +618,103 @@ export const SectionManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Selected Section Student Roster Drawer / View */}
-      {selectedSection && (
-        <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6">
+      {/* SELECTED SECTION ROSTER MODAL / DRAWER */}
+      {selectedSection && !isExcelModalOpen && !isAddStudentOpen && (
+        <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6 shadow-xl animate-in fade-in">
+          {/* Roster Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-            <div>
-              <h2 className="text-xl font-bold text-[var(--foreground)]">
-                Student Roster: {selectedSection.sectionName} — {selectedSection.subject}
-              </h2>
-              <p className="text-xs text-[var(--muted-foreground)]">
-                PRN, contact details, identity verification status, and enrollment channel.
-              </p>
-            </div>
             <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold font-mono">
+                {selectedSection.sectionName.slice(0, 3).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[var(--foreground)]">
+                    {selectedSection.sectionName} — {selectedSection.subject}
+                  </h2>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Code: {selectedSection.joinCode}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {selectedSection.course} • {selectedSection.semester} ({selectedSection.academicYear})
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
                 <input
                   type="text"
-                  placeholder="Search PRN, Name, or Email..."
+                  placeholder="Search PRN, Name, Email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 font-mono"
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 font-mono w-52"
                 />
               </div>
+
+              <button
+                onClick={() => setIsAddStudentOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-sm"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Add Student
+              </button>
+
+              <button
+                onClick={() => setIsExcelModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Excel Import
+              </button>
+
+              <button
+                onClick={() => exportRosterCsv(selectedSection)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                title="Export Roster to CSV file"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+
               <button
                 onClick={() => setSelectedSection(null)}
-                className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
+                title="Close Roster"
               >
-                Close Roster
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {(!selectedSection.students || selectedSection.students.length === 0) ? (
-            <div className="p-8 text-center space-y-3">
-              <Users className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
-              <div className="text-sm font-semibold text-[var(--foreground)]">No Students Enrolled Yet</div>
+          {/* Roster Table or Empty State */}
+          {!selectedSection.students || selectedSection.students.length === 0 ? (
+            <div className="p-8 text-center space-y-3 bg-[var(--background)]/40 rounded-xl border border-dashed border-[var(--border)]">
+              <Users className="w-10 h-10 text-[var(--muted-foreground)] mx-auto opacity-40" />
+              <div className="text-sm font-semibold text-[var(--foreground)]">No Students Enrolled in this Section Yet</div>
               <p className="text-xs text-[var(--muted-foreground)] max-w-md mx-auto">
-                Import your class roster using an Excel spreadsheet or share the instant join link with your students.
+                Students can enter join code <strong className="font-mono text-indigo-400">{selectedSection.joinCode}</strong> in their portal, or you can import a roster.
               </p>
               <div className="flex items-center justify-center gap-3 pt-2">
                 <button
+                  onClick={() => setIsAddStudentOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  + Add Single Student
+                </button>
+                <button
                   onClick={() => setIsExcelModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  Import Excel Roster
+                  Import Excel File
                 </button>
                 <button
                   onClick={() => handleCopy(window.location.origin + '/join/' + (selectedSection.joinCode || ''), 'link-' + selectedSection.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   Copy Join Link
@@ -549,18 +722,18 @@ export const SectionManagementPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
-                    <th className="py-3 px-4">Student Name</th>
-                    <th className="py-3 px-4">PRN / Roll No</th>
-                    <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Mobile</th>
-                    <th className="py-3 px-4">State</th>
-                    <th className="py-3 px-4">Channel</th>
-                    <th className="py-3 px-4">Enrolled At</th>
-                    <th className="py-3 px-4">Capstone Action</th>
+                  <tr className="bg-[var(--background)] border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
+                    <th className="py-2.5 px-4">#</th>
+                    <th className="py-2.5 px-4">Student Name</th>
+                    <th className="py-2.5 px-4">PRN / Roll No</th>
+                    <th className="py-2.5 px-4">Email</th>
+                    <th className="py-2.5 px-4">Mobile</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4">Enrolled Via</th>
+                    <th className="py-2.5 px-4">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/60 font-sans">
@@ -572,25 +745,21 @@ export const SectionManagementPage: React.FC = () => {
                       const query = searchTerm.toLowerCase().trim();
                       return !query || prn.includes(query) || name.includes(query) || email.includes(query);
                     })
-                    .map((item: any) => {
-                      const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Enrolled Student';
+                    .map((item: any, idx: number) => {
+                      const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
                       const studentPrn = item.prn || item.student?.prn || '—';
                       const studentEmail = item.student?.email || item.email || '—';
                       const studentMobile = item.student?.mobile || item.mobile || '—';
                       const accountState = item.student?.accountState || item.status || 'ACTIVE';
-                      const studentId = item.student?.id || item.studentId || item.id || studentPrn;
 
                       return (
-                        <tr key={item.id || studentPrn} className="hover:bg-[var(--accent)]/5">
-                          <td className="py-3 px-4 font-semibold text-[var(--foreground)]">
-                            {studentName}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-bold text-indigo-400">{studentPrn}</td>
-                          <td className="py-3 px-4 text-[var(--muted-foreground)]">{studentEmail}</td>
-                          <td className="py-3 px-4 font-mono text-[var(--muted-foreground)]">
-                            {studentMobile}
-                          </td>
-                          <td className="py-3 px-4">
+                        <tr key={item.id || studentPrn || idx} className="hover:bg-[var(--accent)]/5">
+                          <td className="py-2.5 px-4 font-mono text-[var(--muted-foreground)]">{idx + 1}</td>
+                          <td className="py-2.5 px-4 font-semibold text-[var(--foreground)]">{studentName}</td>
+                          <td className="py-2.5 px-4 font-mono font-bold text-indigo-400">{studentPrn}</td>
+                          <td className="py-2.5 px-4 text-[var(--muted-foreground)]">{studentEmail}</td>
+                          <td className="py-2.5 px-4 font-mono text-[var(--muted-foreground)]">{studentMobile}</td>
+                          <td className="py-2.5 px-4">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                                 accountState === 'ACTIVE'
@@ -606,32 +775,11 @@ export const SectionManagementPage: React.FC = () => {
                               {accountState}
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-mono text-[11px] text-[var(--muted-foreground)]">
-                            {item.joinedVia || 'ROSTER_IMPORT'}
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-[var(--muted-foreground)]">
+                            {item.joinedVia || 'ROSTER'}
                           </td>
-                          <td className="py-3 px-4 text-[var(--muted-foreground)]">
+                          <td className="py-2.5 px-4 text-[var(--muted-foreground)]">
                             {item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString() : 'Active'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await api.post('/mini-project/activate-individual', {
-                                    miniProjectId: 'capstone-mini-project-c11',
-                                    studentId: studentId,
-                                    sectionId: selectedSection.id,
-                                    activationReason: 'Faculty approved in section roster',
-                                  });
-                                  toast.success(`Mini-Project activated for ${studentName}!`);
-                                } catch (err: any) {
-                                  toast.error(err.message || 'Activation failed');
-                                }
-                              }}
-                              className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition flex items-center gap-1 whitespace-nowrap cursor-pointer"
-                            >
-                              <Award className="w-3 h-3" />
-                              <span>Activate Capstone</span>
-                            </button>
                           </td>
                         </tr>
                       );
@@ -643,53 +791,66 @@ export const SectionManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE SECTION MODAL */}
+      {/* CREATE SECTION MODAL (Clean & Streamlined) */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h3 className="text-lg font-bold text-[var(--foreground)]">Create New Academic Section</h3>
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-[var(--foreground)]">Create New Classroom Section</h3>
+              </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">Institution</label>
-                <input
-                  type="text"
-                  value={newSection.institution}
-                  onChange={(e) => setNewSection({ ...newSection, institution: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Course</label>
+                  <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
+                    Section / Division Name <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
-                    value={newSection.course}
-                    onChange={(e) => setNewSection({ ...newSection, course: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                    value={newSection.sectionName}
+                    onChange={(e) => setNewSection({ ...newSection, sectionName: e.target.value })}
+                    placeholder="e.g. Div A, Batch B1"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold focus:outline-none focus:border-indigo-500"
+                    autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Subject</label>
+                  <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
+                    Subject / Coursework <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     value={newSection.subject}
                     onChange={(e) => setNewSection({ ...newSection, subject: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                    placeholder="e.g. C Programming"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                  Department / Degree Program
+                </label>
+                <input
+                  type="text"
+                  value={newSection.course}
+                  onChange={(e) => setNewSection({ ...newSection, course: e.target.value })}
+                  placeholder="e.g. B.Tech Computer Science & Engineering"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[var(--muted-foreground)] font-medium mb-1">Academic Year</label>
                   <input
@@ -697,39 +858,36 @@ export const SectionManagementPage: React.FC = () => {
                     value={newSection.academicYear}
                     onChange={(e) => setNewSection({ ...newSection, academicYear: e.target.value })}
                     placeholder="2026-2027"
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
                   <label className="block text-[var(--muted-foreground)] font-medium mb-1">Semester</label>
-                  <input
-                    type="text"
+                  <select
                     value={newSection.semester}
                     onChange={(e) => setNewSection({ ...newSection, semester: e.target.value })}
-                    placeholder="Semester 3"
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Section Name</label>
-                  <input
-                    type="text"
-                    value={newSection.sectionName}
-                    onChange={(e) => setNewSection({ ...newSection, sectionName: e.target.value })}
-                    placeholder="Div-A"
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold"
-                  />
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="Semester 1">Semester 1</option>
+                    <option value="Semester 2">Semester 2</option>
+                    <option value="Semester 3">Semester 3</option>
+                    <option value="Semester 4">Semester 4</option>
+                    <option value="Semester 5">Semester 5</option>
+                    <option value="Semester 6">Semester 6</option>
+                    <option value="Semester 7">Semester 7</option>
+                    <option value="Semester 8">Semester 8</option>
+                  </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">Description (Optional)</label>
-                <textarea
-                  rows={2}
+                <label className="block text-[var(--muted-foreground)] font-medium mb-1">Notes / Syllabus Scope (Optional)</label>
+                <input
+                  type="text"
                   value={newSection.description}
                   onChange={(e) => setNewSection({ ...newSection, description: e.target.value })}
-                  placeholder="Optional section notes or syllabus scope..."
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                  placeholder="Optional section details or lab timings..."
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -738,34 +896,134 @@ export const SectionManagementPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || !newSection.sectionName.trim() || !newSection.subject.trim()}
                 onClick={() => createMutation.mutate(newSection)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
               >
-                {createMutation.isPending ? 'Generating Section...' : 'Create & Generate Codes'}
+                {createMutation.isPending ? 'Generating Section...' : 'Create Section & Join Code'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* EXCEL IMPORT MODAL (Section 12) */}
+      {/* SINGLE STUDENT MANUAL ADD MODAL */}
+      {isAddStudentOpen && selectedSection && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-[var(--foreground)]">
+                  Add Student to {selectedSection.sectionName}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddStudentOpen(false)}
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={singleStudent.name}
+                  onChange={(e) => setSingleStudent({ ...singleStudent, name: e.target.value })}
+                  placeholder="e.g. Rahul Sharma"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
+                  PRN / Roll Number <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={singleStudent.prn}
+                  onChange={(e) => setSingleStudent({ ...singleStudent, prn: e.target.value })}
+                  placeholder="e.g. PRN20261001"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono focus:outline-none focus:border-indigo-500 uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                  Email Address (Optional)
+                </label>
+                <input
+                  type="email"
+                  value={singleStudent.email}
+                  onChange={(e) => setSingleStudent({ ...singleStudent, email: e.target.value })}
+                  placeholder="e.g. student@college.edu"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                  Mobile Number (Optional)
+                </label>
+                <input
+                  type="tel"
+                  value={singleStudent.mobile}
+                  onChange={(e) => setSingleStudent({ ...singleStudent, mobile: e.target.value })}
+                  placeholder="e.g. 9876543210"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setIsAddStudentOpen(false)}
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={addSingleStudentMutation.isPending || !singleStudent.name.trim() || !singleStudent.prn.trim()}
+                onClick={() =>
+                  addSingleStudentMutation.mutate({
+                    sectionId: selectedSection.id,
+                    student: singleStudent,
+                  })
+                }
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
+              >
+                {addSingleStudentMutation.isPending ? 'Enrolling...' : 'Enroll Student'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXCEL IMPORT MODAL */}
       {isExcelModalOpen && selectedSection && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div>
                 <h3 className="text-lg font-bold text-[var(--foreground)]">
-                  Add Students Through Excel: {selectedSection.sectionName}
+                  Import Students via Excel: {selectedSection.sectionName}
                 </h3>
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  Columns supported: Name, PRN/Roll No, Valid Email, Mobile.
+                  Expected Excel columns: <code>Name</code>, <code>PRN</code>, <code>Email</code>, <code>Mobile</code>.
                 </p>
               </div>
               <button
@@ -773,7 +1031,7 @@ export const SectionManagementPage: React.FC = () => {
                   setIsExcelModalOpen(false);
                   setExcelPreview(null);
                 }}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -783,7 +1041,7 @@ export const SectionManagementPage: React.FC = () => {
             <div className="border-2 border-dashed border-[var(--border)] hover:border-indigo-500/50 rounded-xl p-8 text-center space-y-3 bg-[var(--background)]/50">
               <FileSpreadsheet className="w-10 h-10 text-indigo-400 mx-auto" />
               <div>
-                <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md">
+                <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md cursor-pointer">
                   <Upload className="w-4 h-4" />
                   Choose Excel File (.xlsx, .xls)
                   <input
@@ -799,15 +1057,15 @@ export const SectionManagementPage: React.FC = () => {
               </div>
               {isParsingExcel && (
                 <div className="text-xs font-mono text-indigo-400 animate-pulse">
-                  Parsing student records and checking identity bindings...
+                  Analyzing spreadsheet student records...
                 </div>
               )}
             </div>
 
-            {/* Preview Breakdown Cards (5 Buckets) */}
+            {/* Preview Breakdown Cards */}
             {excelPreview && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-center">
                     <span className="text-xs text-[var(--muted-foreground)] block">Total Rows</span>
                     <span className="text-lg font-bold text-[var(--foreground)]">
@@ -815,7 +1073,7 @@ export const SectionManagementPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-center">
-                    <span className="text-xs text-emerald-400 block">Valid Rows</span>
+                    <span className="text-xs text-emerald-400 block">Valid Records</span>
                     <span className="text-lg font-bold text-emerald-400">
                       {excelPreview.validRows?.length ?? 0}
                     </span>
@@ -827,40 +1085,17 @@ export const SectionManagementPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-center">
-                    <span className="text-xs text-amber-400 block">In-File Duplicates</span>
+                    <span className="text-xs text-amber-400 block">Duplicates</span>
                     <span className="text-lg font-bold text-amber-400">
                       {excelPreview.duplicateRows?.length ?? 0}
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl border border-purple-500/30 bg-purple-500/10 text-center">
-                    <span className="text-xs text-purple-400 block">DB Conflicts</span>
-                    <span className="text-lg font-bold text-purple-400">
-                      {excelPreview.conflictingRows?.length ?? 0}
-                    </span>
-                  </div>
                 </div>
 
-                {/* Validation Details Table */}
-                {excelPreview.invalidRows?.length > 0 && (
-                  <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-2">
-                    <h4 className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                      <XCircle className="w-4 h-4" />
-                      Invalid Rows (Will be omitted):
-                    </h4>
-                    <div className="max-h-32 overflow-y-auto space-y-1 text-xs">
-                      {excelPreview.invalidRows.map((inv: any, idx: number) => (
-                        <div key={idx} className="text-rose-300 font-mono text-[11px]">
-                          Row {inv.rowNumber}: {inv.errorReasons?.join(', ')} ({inv.data?.name || 'Unnamed'})
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Valid Preview Table */}
+                {/* Valid Records Preview Table */}
                 <div className="border border-[var(--border)] rounded-xl overflow-hidden">
                   <div className="bg-[var(--background)] px-4 py-2 text-xs font-semibold text-[var(--foreground)] border-b border-[var(--border)]">
-                    Valid Records Ready to Commit ({excelPreview.validRows?.length || 0})
+                    Valid Records to Enroll ({excelPreview.validRows?.length || 0})
                   </div>
                   <div className="max-h-48 overflow-y-auto">
                     <table className="w-full text-left text-xs">
@@ -897,7 +1132,7 @@ export const SectionManagementPage: React.FC = () => {
                   setIsExcelModalOpen(false);
                   setExcelPreview(null);
                 }}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
               >
                 Close
               </button>
@@ -910,7 +1145,7 @@ export const SectionManagementPage: React.FC = () => {
                     students: excelPreview.validRows,
                   })
                 }
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 shadow-md shadow-indigo-600/20"
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 shadow-md shadow-indigo-600/20 cursor-pointer"
               >
                 {commitImportMutation.isPending
                   ? 'Importing Roster...'
@@ -926,14 +1161,14 @@ export const SectionManagementPage: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-sm p-6 text-center space-y-4 shadow-2xl animate-in zoom-in-95">
             <h3 className="text-lg font-bold text-[var(--foreground)]">
-              Instant Student Join QR Code
+              {selectedSection.sectionName} — Classroom QR
             </h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Students can scan this code in class to open the Instant Join form with Email OTP verification.
+              Students can scan this code with their phone camera to open the instant enrollment page.
             </p>
 
             {qrDataUrl && (
-              <div className="bg-white p-4 rounded-xl inline-block shadow-inner">
+              <div className="bg-white p-4 rounded-xl inline-block shadow-md">
                 <img src={qrDataUrl} alt="Section Join QR Code" className="w-56 h-56 mx-auto" />
               </div>
             )}
@@ -944,7 +1179,7 @@ export const SectionManagementPage: React.FC = () => {
 
             <button
               onClick={() => setIsQrModalOpen(false)}
-              className="w-full py-2 text-xs font-semibold rounded-lg bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 text-[var(--foreground)] border border-[var(--border)]"
+              className="w-full py-2 text-xs font-semibold rounded-lg bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 text-[var(--foreground)] border border-[var(--border)] cursor-pointer"
             >
               Close
             </button>
