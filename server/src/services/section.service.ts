@@ -231,14 +231,13 @@ export class SectionService {
       if (!name) errors.push('Missing student name');
       if (!prn) errors.push('Missing PRN / Roll No');
       if (!email) errors.push('Missing email address');
-      if (!mobile) errors.push('Missing mobile number');
 
       // 2. Validate email format
       if (email && !emailRegex.test(email)) {
         errors.push(`Invalid email format: "${email}"`);
       }
 
-      // 3. Validate mobile format
+      // 3. Optional mobile format check
       if (mobile && mobile.length < 10) {
         errors.push(`Mobile number must be at least 10 digits (got: "${rawMobile}")`);
       }
@@ -414,23 +413,23 @@ export class SectionService {
     name: string;
     prn: string;
     email: string;
-    mobile: string;
+    mobile?: string | null;
   }) {
     const cleanPrn = input.prn.trim().toUpperCase();
     const cleanEmail = input.email.trim().toLowerCase();
-    const cleanMobile = input.mobile.replace(/[^0-9]/g, '');
+    const cleanMobile = input.mobile ? input.mobile.replace(/[^0-9]/g, '') : null;
     const cleanName = input.name.trim();
 
     // 1. Verify section
     const section = await this.getSectionByTokenOrCode(input.joinToken);
 
-    // 2. Enforce Section 8 / 10 Identity Binding
+    // 2. Enforce Identity Binding
     const binding = await OtpService.validateIdentityBinding(cleanPrn, cleanEmail, cleanMobile);
     if (!binding.valid) {
       throw new Error(binding.conflictReason || 'Identity conflict detected. Cannot join section.');
     }
 
-    // 3. Verify that both Email OTP and Mobile OTP were successfully verified for this identity
+    // 3. Verify that Email OTP was successfully verified for this identity
     const verifiedEmailOtp = await prisma.otpVerification.findFirst({
       where: {
         target: cleanEmail,
@@ -442,19 +441,6 @@ export class SectionService {
 
     if (!verifiedEmailOtp) {
       throw new Error('Email address has not been verified with OTP yet.');
-    }
-
-    const verifiedMobileOtp = await prisma.otpVerification.findFirst({
-      where: {
-        target: cleanMobile,
-        type: 'MOBILE',
-        verified: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!verifiedMobileOtp) {
-      throw new Error('Mobile number has not been verified with OTP yet.');
     }
 
     // 4. Atomically create or activate student and bind identity
@@ -477,7 +463,7 @@ export class SectionService {
             role: 'STUDENT',
             accountState: 'ACTIVE',
             emailOtpVerifiedAt: verifiedEmailOtp.verifiedAt || new Date(),
-            mobileOtpVerifiedAt: verifiedMobileOtp.verifiedAt || new Date(),
+            mobileOtpVerifiedAt: null,
             identityBoundAt: new Date(),
             profileComplete: true,
           },
@@ -490,7 +476,7 @@ export class SectionService {
             mobile: cleanMobile,
             accountState: 'ACTIVE',
             emailOtpVerifiedAt: verifiedEmailOtp.verifiedAt || new Date(),
-            mobileOtpVerifiedAt: verifiedMobileOtp.verifiedAt || new Date(),
+            mobileOtpVerifiedAt: null,
             identityBoundAt: new Date(),
           },
         });

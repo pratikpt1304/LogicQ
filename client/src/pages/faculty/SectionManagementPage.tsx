@@ -204,7 +204,7 @@ export const SectionManagementPage: React.FC = () => {
                 Section Management & Student Enrollment
               </h1>
               <p className="text-sm text-[var(--muted-foreground)]">
-                Create academic sections, import rosters via Excel, and share Instant Join links with Dual OTP validation.
+                Create academic sections, import rosters via Excel, and share Instant Join links with Email OTP validation.
               </p>
             </div>
           </div>
@@ -763,7 +763,7 @@ export const SectionManagementPage: React.FC = () => {
               Instant Student Join QR Code
             </h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Students can scan this code in class to open the Instant Join form with Dual OTP verification.
+              Students can scan this code in class to open the Instant Join form with Email OTP verification.
             </p>
 
             {qrDataUrl && (

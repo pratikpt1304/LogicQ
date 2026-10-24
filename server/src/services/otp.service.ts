@@ -96,7 +96,7 @@ export class OtpService {
     prn?: string,
     ipAddress?: string
   ): Promise<{ success: boolean; message: string; code?: string; cooldownRemaining?: number }> {
-    const cleanMobile = mobile.replace(/[^0-9]/g, '');
+    const cleanMobile = mobile ? mobile.replace(/[^0-9]/g, '') : '';
 
     if (cleanMobile.length < 10) {
       return { success: false, message: 'Invalid mobile number. Must be at least 10 digits.' };
@@ -278,7 +278,7 @@ export class OtpService {
   static async validateIdentityBinding(
     prn: string,
     email: string,
-    mobile: string,
+    mobile?: string | null,
     currentUserId?: string
   ): Promise<{
     valid: boolean;
@@ -305,7 +305,7 @@ export class OtpService {
           conflictReason: `PRN ${cleanPrn} is already permanently bound to another email address (${existingPrnUser.email.slice(0, 3)}***@***). Identity conflict detected.`,
         };
       }
-      if (existingPrnUser.mobile && existingPrnUser.mobile !== cleanMobile) {
+      if (cleanMobile && existingPrnUser.mobile && existingPrnUser.mobile !== cleanMobile) {
         return {
           valid: false,
           conflictField: 'PRN',
@@ -330,7 +330,7 @@ export class OtpService {
           conflictReason: `Email ${cleanEmail} is already bound to another PRN (${existingEmailUser.prn}). One email cannot belong to multiple PRNs.`,
         };
       }
-      if (existingEmailUser.mobile && existingEmailUser.mobile !== cleanMobile) {
+      if (cleanMobile && existingEmailUser.mobile && existingEmailUser.mobile !== cleanMobile) {
         return {
           valid: false,
           conflictField: 'EMAIL',

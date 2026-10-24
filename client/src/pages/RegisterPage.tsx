@@ -33,7 +33,7 @@ export const RegisterPage: React.FC = () => {
               <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0 mt-0.5" />
               <div>
                 <strong className="text-[var(--text-main)] block">Section Roster Enrollment:</strong>
-                <span className="text-[var(--text-muted)]">Your course faculty instructor enrolls your official email or phone number directly into your academic section.</span>
+                <span className="text-[var(--text-muted)]">Your course faculty instructor enrolls your official academic email directly into your course section roster.</span>
               </div>
             </div>
 
@@ -41,7 +41,7 @@ export const RegisterPage: React.FC = () => {
               <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
                 <strong className="text-[var(--text-main)] block">Invitation Links:</strong>
-                <span className="text-[var(--text-muted)]">If your instructor provided a Section QR Code or WhatsApp join link, open that link to complete your section entry.</span>
+                <span className="text-[var(--text-muted)]">If your instructor provided a Section QR Code or official join link, open that link to complete your identity verification.</span>
               </div>
             </div>
           </div>
@@ -51,7 +51,7 @@ export const RegisterPage: React.FC = () => {
               to="/login"
               className="w-full sm:w-auto px-6 py-3 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
             >
-              <span>Sign In with Enrolled Email / Mobile (OTP)</span>
+              <span>Sign In with Enrolled Email (OTP)</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

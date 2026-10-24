@@ -7,7 +7,6 @@ import {
   GraduationCap,
   ShieldCheck,
   Mail,
-  Phone,
   User,
   Hash,
   CheckCircle2,
@@ -47,7 +46,6 @@ export const InstantJoinPage: React.FC = () => {
   const [name, setName] = useState('');
   const [prn, setPrn] = useState('');
   const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
 
   // Email OTP state
   const [emailOtp, setEmailOtp] = useState('');
@@ -56,14 +54,6 @@ export const InstantJoinPage: React.FC = () => {
   const [emailCooldown, setEmailCooldown] = useState(0);
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
-
-  // Mobile OTP state
-  const [mobileOtp, setMobileOtp] = useState('');
-  const [mobileOtpSent, setMobileOtpSent] = useState(false);
-  const [mobileOtpVerified, setMobileOtpVerified] = useState(false);
-  const [mobileCooldown, setMobileCooldown] = useState(0);
-  const [isSendingMobileOtp, setIsSendingMobileOtp] = useState(false);
-  const [isVerifyingMobileOtp, setIsVerifyingMobileOtp] = useState(false);
 
   // Final submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,33 +81,39 @@ export const InstantJoinPage: React.FC = () => {
       });
   }, [joinToken]);
 
-  // Cooldown countdown timers
+  // Cooldown countdown timer
   useEffect(() => {
     if (emailCooldown <= 0) return;
     const timer = setInterval(() => setEmailCooldown((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [emailCooldown]);
 
-  useEffect(() => {
-    if (mobileCooldown <= 0) return;
-    const timer = setInterval(() => setMobileCooldown((prev) => prev - 1), 1000);
-    return () => clearInterval(timer);
-  }, [mobileCooldown]);
-
   // Send Email OTP
   const handleSendEmailOtp = async () => {
-    if (!email || !email.includes('@')) {
-      toast.error('Please enter a valid academic email address.');
+    if (!email.trim() || !email.includes('@')) {
+      toast.error('Please enter a valid institutional email address.');
       return;
     }
+    if (!prn.trim()) {
+      toast.error('Please enter your PRN/Roll No before requesting verification code.');
+      return;
+    }
+
     setIsSendingEmailOtp(true);
     try {
-      const res = await api.post('/otp/send-email', { email, prn });
-      setEmailOtpSent(true);
-      setEmailCooldown(60);
-      toast.success(res.message || '6-digit verification code sent to your email.');
+      const res = await api.post('/sections/send-email-otp', {
+        email: email.trim().toLowerCase(),
+        prn: prn.trim().toUpperCase(),
+      });
+      if (res.success) {
+        setEmailOtpSent(true);
+        setEmailCooldown(res.cooldownRemaining || 60);
+        toast.success(`Verification code dispatched to ${email.trim()}`);
+      } else {
+        toast.error(res.message || 'Failed to dispatch verification code.');
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to dispatch email verification code.');
+      toast.error(err.message || 'Unable to send verification code. Please try again.');
     } finally {
       setIsSendingEmailOtp(false);
     }
@@ -125,73 +121,34 @@ export const InstantJoinPage: React.FC = () => {
 
   // Verify Email OTP
   const handleVerifyEmailOtp = async () => {
-    if (!emailOtp || emailOtp.length < 6) {
-      toast.error('Please enter the 6-digit code received via email.');
+    if (!emailOtp.trim() || emailOtp.trim().length < 6) {
+      toast.error('Please enter the complete 6-digit verification code.');
       return;
     }
+
     setIsVerifyingEmailOtp(true);
     try {
-      const res = await api.post('/otp/verify-email', { email, code: emailOtp, prn });
-      if (res.success || res.verified) {
+      const res = await api.post('/sections/verify-email-otp', {
+        email: email.trim().toLowerCase(),
+        code: emailOtp.trim(),
+        prn: prn.trim().toUpperCase(),
+      });
+      if (res.verified || res.success) {
         setEmailOtpVerified(true);
         toast.success('Email verified successfully!');
       } else {
-        toast.error(res.message || 'Invalid email verification code.');
+        toast.error(res.message || 'Invalid or expired code.');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to verify email code.');
+      toast.error(err.message || 'Verification failed. Please check the code.');
     } finally {
       setIsVerifyingEmailOtp(false);
     }
   };
 
-  // Send Mobile OTP
-  const handleSendMobileOtp = async () => {
-    const cleanMobile = mobile.replace(/[^0-9]/g, '');
-    if (cleanMobile.length < 10) {
-      toast.error('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-    setIsSendingMobileOtp(true);
-    try {
-      const res = await api.post('/otp/send-mobile', { mobile: cleanMobile, prn });
-      setMobileOtpSent(true);
-      setMobileCooldown(60);
-      toast.success(res.message || '6-digit OTP sent to your mobile phone.');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to dispatch mobile OTP.');
-    } finally {
-      setIsSendingMobileOtp(false);
-    }
-  };
-
-  // Verify Mobile OTP
-  const handleVerifyMobileOtp = async () => {
-    if (!mobileOtp || mobileOtp.length < 6) {
-      toast.error('Please enter the 6-digit mobile OTP.');
-      return;
-    }
-    setIsVerifyingMobileOtp(true);
-    try {
-      const cleanMobile = mobile.replace(/[^0-9]/g, '');
-      const res = await api.post('/otp/verify-mobile', { mobile: cleanMobile, code: mobileOtp, prn });
-      if (res.success || res.verified) {
-        setMobileOtpVerified(true);
-        toast.success('Mobile number verified successfully!');
-      } else {
-        toast.error(res.message || 'Invalid mobile OTP.');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to verify mobile OTP.');
-    } finally {
-      setIsVerifyingMobileOtp(false);
-    }
-  };
-
-  // Final Instant Join Submit
+  // Final Join Section Submission
   const handleInstantJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!name.trim()) {
       toast.error('Please enter your full name.');
       return;
@@ -201,11 +158,7 @@ export const InstantJoinPage: React.FC = () => {
       return;
     }
     if (!emailOtpVerified) {
-      toast.error('Please complete Email OTP verification first.');
-      return;
-    }
-    if (!mobileOtpVerified) {
-      toast.error('Please complete Mobile OTP verification first.');
+      toast.error('Please complete Email verification first.');
       return;
     }
 
@@ -216,7 +169,6 @@ export const InstantJoinPage: React.FC = () => {
         name: name.trim(),
         prn: prn.trim().toUpperCase(),
         email: email.trim().toLowerCase(),
-        mobile: mobile.replace(/[^0-9]/g, ''),
       });
 
       if (res.success) {
@@ -369,15 +321,15 @@ export const InstantJoinPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Dual OTP Instant Join Form */}
+        {/* Email OTP Instant Join Form */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-indigo-400" />
-              Student Identity & Dual OTP Validation
+              Student Identity & Email Verification
             </h2>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Per Institutional AI-Resistant Guidelines: 1 PRN binds strictly to 1 Mobile & 1 Email address.
+              Institutional Cohort Enrollment: 1 PRN binds permanently to 1 Official Academic Email.
             </p>
           </div>
 
@@ -456,7 +408,7 @@ export const InstantJoinPage: React.FC = () => {
                       ? `${emailCooldown}s`
                       : emailOtpSent
                       ? 'Resend'
-                      : 'Send OTP'}
+                      : 'Send Code'}
                   </button>
                 )}
               </div>
@@ -483,81 +435,16 @@ export const InstantJoinPage: React.FC = () => {
               )}
             </div>
 
-            {/* 4. Mobile Number & Mobile OTP */}
-            <div className="space-y-2 p-4 rounded-2xl bg-[var(--background)]/60 border border-[var(--border)]">
-              <label className="block text-xs font-medium text-[var(--foreground)] flex items-center justify-between">
-                <span>Personal Mobile Number</span>
-                {mobileOtpVerified && (
-                  <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Verified
-                  </span>
-                )}
-              </label>
-
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
-                  <input
-                    type="tel"
-                    required
-                    disabled={mobileOtpVerified}
-                    placeholder="9876543210"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 disabled:opacity-60"
-                  />
-                </div>
-                {!mobileOtpVerified && (
-                  <button
-                    type="button"
-                    disabled={isSendingMobileOtp || mobileCooldown > 0}
-                    onClick={handleSendMobileOtp}
-                    className="px-3 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {isSendingMobileOtp
-                      ? 'Sending...'
-                      : mobileCooldown > 0
-                      ? `${mobileCooldown}s`
-                      : mobileOtpSent
-                      ? 'Resend'
-                      : 'Send OTP'}
-                  </button>
-                )}
-              </div>
-
-              {mobileOtpSent && !mobileOtpVerified && (
-                <div className="flex gap-2 pt-2 animate-in fade-in">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="6-digit Mobile OTP"
-                    value={mobileOtp}
-                    onChange={(e) => setMobileOtp(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm font-mono tracking-widest text-center rounded-xl border border-indigo-500/40 bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                  <button
-                    type="button"
-                    disabled={isVerifyingMobileOtp || mobileOtp.length < 6}
-                    onClick={handleVerifyMobileOtp}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
-                  >
-                    {isVerifyingMobileOtp ? 'Verifying...' : 'Verify'}
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting || !emailOtpVerified || !mobileOtpVerified}
-              className="w-full py-3 text-sm font-bold rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2"
+              disabled={isSubmitting || !emailOtpVerified}
+              className="w-full py-3 text-sm font-bold rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 'Binding Identity & Enrolling...'
-              ) : !emailOtpVerified || !mobileOtpVerified ? (
-                'Verify Both Email & Mobile OTPs to Continue'
+              ) : !emailOtpVerified ? (
+                'Verify Email OTP to Continue'
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4" />
