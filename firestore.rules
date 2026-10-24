@@ -16,7 +16,7 @@ rules_version = '2';
 //   - department: string (required, enum) - 'AIML' | 'AIDS' | 'Integrated M.Tech' | 'Mechanical' | 'CSE' | 'Integrated B.Tech'
 //   - year: string (required, enum) - 'FY' | 'SY' | 'TY'
 //   - division: string | null (optional, ^[A-Z0-9]{0,3}$) - Academic division
-//   - displayName: string | null (optional, 2..30 chars) - Public display handle
+//   - displayName: string | null (optional, 2..60 chars) - Public display handle
 //   - shortId: string (required, immutable) - Random non-PII fallback label suffix
 //   - profileComplete: bool (required, server-managed) - Gates academic profile completion
 //   - bio: string | null (optional, <= 500 chars) - Student bio
@@ -249,7 +249,7 @@ service cloud.firestore {
 
     function isValidDisplayName(name) {
       return name == null ||
-        (name is string && name.size() >= 2 && name.size() <= 30);
+        (name is string && name.size() >= 2 && name.size() <= 60);
     }
 
     function isValidUserSelfUpdate() {

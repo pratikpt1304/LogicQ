@@ -6,13 +6,33 @@ import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
-import { Clock, Eye, X, Copy, Check, Upload, FileText, CheckCircle2 } from 'lucide-react';
+import {
+  Clock,
+  Eye,
+  X,
+  Copy,
+  Check,
+  Upload,
+  FileText,
+  CheckCircle2,
+  Search,
+  CheckCircle,
+  XCircle,
+  Code2,
+  Sparkles,
+  ExternalLink,
+  RotateCcw,
+} from 'lucide-react';
 import { Difficulty, Verdict } from '../types/index.js';
+
+type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
 
 export const HistoryPage: React.FC = () => {
   const { user } = useAuth();
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
   const [copied, setCopied] = useState(false);
+  const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-submissions', user?.id, auth.currentUser?.uid],
@@ -62,6 +82,15 @@ export const HistoryPage: React.FC = () => {
   const submissions = data?.data?.submissions || [];
   const uploadedSolutions = data?.data?.uploadedSolutions || [];
 
+  // Compute stats
+  const totalSubmissions = submissions.length;
+  const acceptedSubmissions = useMemo(
+    () => submissions.filter((s: any) => s.verdict === 'ACCEPTED').length,
+    [submissions]
+  );
+  const failedSubmissions = totalSubmissions - acceptedSubmissions;
+  const accuracyRate = totalSubmissions > 0 ? Math.round((acceptedSubmissions / totalSubmissions) * 100) : 0;
+
   // Compute attempt index per problem across submission timeline
   const attemptMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -77,6 +106,26 @@ export const HistoryPage: React.FC = () => {
     return map;
   }, [submissions]);
 
+  // Filtered submissions based on search and tab
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((sub: any) => {
+      const title = (sub.problem?.title || 'Challenge').toLowerCase();
+      const verdict = (sub.verdict || '').toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
+
+      const matchesSearch = !query || title.includes(query) || verdict.includes(query);
+      if (!matchesSearch) return false;
+
+      if (filterTab === 'ACCEPTED') {
+        return sub.verdict === 'ACCEPTED';
+      }
+      if (filterTab === 'FAILED') {
+        return sub.verdict !== 'ACCEPTED';
+      }
+      return true;
+    });
+  }, [submissions, searchQuery, filterTab]);
+
   const handleCopyCode = () => {
     if (selectedSubmission?.code) {
       navigator.clipboard.writeText(selectedSubmission.code);
@@ -88,15 +137,123 @@ export const HistoryPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
-          <Clock className="w-7 h-7 text-cyan-400" />
-          <span>Submission History</span>
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
-          Audit of all your C code evaluations, uploaded solution reviews, verdicts, and compiler outputs.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
+            <Clock className="w-7 h-7 text-[#8B9BFF]" />
+            <span>Submission History</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 font-mono">
+            Track your C code evaluations, verdicts, test results, and compiler outputs.
+          </p>
+        </div>
+
+        {/* Quick Jump Shortcuts */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to="/challenge"
+            className="px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-[#8B9BFF] bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 hover:bg-[#8B9BFF]/20 transition-colors flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Daily Challenge</span>
+          </Link>
+          <Link
+            to="/practice"
+            className="px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            <span>Practice Hub</span>
+          </Link>
+        </div>
       </div>
+
+      {/* Top Stats Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-card rounded-2xl border border-white/[0.08] p-4 bg-[#141932]/60">
+          <span className="text-[11px] font-mono uppercase text-slate-400 block mb-1">Total Submissions</span>
+          <div className="text-2xl font-bold font-mono text-white">{totalSubmissions}</div>
+        </div>
+
+        <div className="glass-card rounded-2xl border border-white/[0.08] p-4 bg-[#141932]/60">
+          <span className="text-[11px] font-mono uppercase text-emerald-400 block mb-1">Accepted (AC)</span>
+          <div className="text-2xl font-bold font-mono text-emerald-400 flex items-center gap-1.5">
+            <span>{acceptedSubmissions}</span>
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+          </div>
+        </div>
+
+        <div className="glass-card rounded-2xl border border-white/[0.08] p-4 bg-[#141932]/60">
+          <span className="text-[11px] font-mono uppercase text-rose-400 block mb-1">Failed / Errors</span>
+          <div className="text-2xl font-bold font-mono text-rose-400 flex items-center gap-1.5">
+            <span>{failedSubmissions}</span>
+            <XCircle className="w-4 h-4 text-rose-400" />
+          </div>
+        </div>
+
+        <div className="glass-card rounded-2xl border border-white/[0.08] p-4 bg-[#141932]/60">
+          <span className="text-[11px] font-mono uppercase text-cyan-400 block mb-1">Pass Accuracy</span>
+          <div className="text-2xl font-bold font-mono text-cyan-400">{accuracyRate}%</div>
+        </div>
+      </div>
+
+      {/* Filter Tabs and Search Bar */}
+      {totalSubmissions > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Tabs */}
+          <div className="flex items-center gap-1.5 bg-[#0C0F1F] p-1 rounded-xl border border-white/[0.08] w-fit">
+            <button
+              onClick={() => setFilterTab('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors ${
+                filterTab === 'ALL'
+                  ? 'bg-[#8B9BFF] text-[#0C0F1F]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All ({totalSubmissions})
+            </button>
+            <button
+              onClick={() => setFilterTab('ACCEPTED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors ${
+                filterTab === 'ACCEPTED'
+                  ? 'bg-emerald-400 text-[#0C0F1F]'
+                  : 'text-slate-400 hover:text-emerald-400'
+              }`}
+            >
+              Passed ({acceptedSubmissions})
+            </button>
+            <button
+              onClick={() => setFilterTab('FAILED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors ${
+                filterTab === 'FAILED'
+                  ? 'bg-rose-400 text-[#0C0F1F]'
+                  : 'text-slate-400 hover:text-rose-400'
+              }`}
+            >
+              Failed ({failedSubmissions})
+            </button>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search problem title..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#0C0F1F] border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-[#8B9BFF]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Uploaded Solutions Section (if any) */}
       {uploadedSolutions.length > 0 && (
@@ -106,16 +263,15 @@ export const HistoryPage: React.FC = () => {
               <Upload className="w-4 h-4 text-cyan-400" />
               <span>Uploaded Solutions ({uploadedSolutions.length})</span>
             </h2>
-            <span className="text-[11px] font-mono text-slate-400">Manual Teacher / Admin Review</span>
+            <span className="text-[11px] font-mono text-slate-400">Teacher / Admin Review</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+              <thead className="bg-[#0C0F1F] text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
                 <tr>
                   <th className="px-6 py-3.5">Problem</th>
                   <th className="px-6 py-3.5">Type</th>
                   <th className="px-6 py-3.5">Status</th>
-                  <th className="px-6 py-3.5">Files</th>
                   <th className="px-6 py-3.5">Points</th>
                   <th className="px-6 py-3.5">Reviewer Feedback</th>
                   <th className="px-6 py-3.5">Submitted</th>
@@ -125,18 +281,7 @@ export const HistoryPage: React.FC = () => {
                 {uploadedSolutions.map((up: any) => (
                   <tr key={up.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-bold text-white">
-                      {up.problem?.slug && !up.problem?.isEnded ? (
-                        <Link
-                          to="/challenge"
-                          className="hover:text-cyan-400 transition-colors"
-                        >
-                          {up.problem?.title || 'Daily Challenge'}
-                        </Link>
-                      ) : (
-                        <span className="text-slate-200">
-                          {up.problem?.title || 'Past Challenge'}
-                        </span>
-                      )}
+                      {up.problem?.title || 'Daily Challenge'}
                     </td>
                     <td className="px-6 py-4 text-slate-300">
                       <span className="inline-flex items-center gap-1 text-[11px]">
@@ -151,16 +296,11 @@ export const HistoryPage: React.FC = () => {
                             ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                             : up.status === 'REJECTED'
                               ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                              : up.status === 'CHANGES_REQUESTED' || up.status === 'NEEDS_CHANGES'
-                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
+                              : 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30'
                         }`}
                       >
                         {up.status.replace(/_/g, ' ')}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-400">
-                      {Array.isArray(up.files) ? `${up.files.length} file(s)` : '—'}
                     </td>
                     <td className="px-6 py-4 font-bold text-cyan-400">
                       +{up.pointsAwarded || 0} PTS
@@ -169,7 +309,7 @@ export const HistoryPage: React.FC = () => {
                       {up.reviewerComment || '—'}
                     </td>
                     <td className="px-6 py-4 text-slate-500">
-                      {new Date(up.submittedAt).toLocaleString()}
+                      {new Date(up.submittedAt).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}
@@ -179,135 +319,195 @@ export const HistoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* Code Submissions Table */}
+      {/* Code Submissions Container */}
       <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
         {isLoading ? (
-          <div className="py-20 text-center font-mono text-cyan-400 text-xs">
+          <div className="py-20 text-center font-mono text-[#8B9BFF] text-xs">
             Loading submission history...
           </div>
         ) : submissions.length === 0 ? (
-          <div className="py-20 text-center font-mono flex flex-col items-center justify-center space-y-3">
-            <Clock className="w-8 h-8 text-slate-400 opacity-40 mb-1" />
-            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">No Code Submissions Recorded</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-              Your C code evaluations and test verdicts will appear here once you run or submit code.
+          <div className="py-16 px-4 text-center font-mono flex flex-col items-center justify-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 flex items-center justify-center text-[#8B9BFF] mb-1">
+              <Code2 className="w-6 h-6" />
+            </div>
+            <span className="font-bold text-base text-white">No Code Submissions Yet</span>
+            <p className="text-xs text-slate-400 max-w-md leading-relaxed">
+              Whenever you solve a Daily Challenge or a Practice problem, your full code, test verdicts, runtime, and timestamps will appear here.
             </p>
-            <Link
-              to="/challenge"
-              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all"
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-3">
+              <Link
+                to="/challenge"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] shadow-md shadow-[#8B9BFF]/20 transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Solve Today's Challenge</span>
+              </Link>
+              <Link
+                to="/practice"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
+              >
+                <Code2 className="w-4 h-4" />
+                <span>Open Practice Modules</span>
+              </Link>
+            </div>
+          </div>
+        ) : filteredSubmissions.length === 0 ? (
+          <div className="py-16 text-center font-mono flex flex-col items-center justify-center space-y-2">
+            <Clock className="w-8 h-8 text-slate-500 mb-1" />
+            <span className="font-bold text-sm text-white">No Matching Submissions</span>
+            <p className="text-xs text-slate-400">
+              No results found for "{searchQuery}". Try a different keyword or reset filters.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setFilterTab('ALL');
+              }}
+              className="mt-2 px-3 py-1.5 rounded-lg text-xs font-mono text-[#8B9BFF] hover:underline"
             >
-              <span>Solve First Challenge</span>
-            </Link>
+              Reset Filters
+            </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
-                <tr>
-                  <th className="px-6 py-3.5">Problem</th>
-                  <th className="px-4 py-3.5">Attempt</th>
-                  <th className="px-4 py-3.5">Time Taken</th>
-                  <th className="px-6 py-3.5">Difficulty</th>
-                  <th className="px-6 py-3.5">Verdict</th>
-                  <th className="px-6 py-3.5">Runtime</th>
-                  <th className="px-6 py-3.5">Points</th>
-                  <th className="px-6 py-3.5">Submitted</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {submissions.map((sub: any) => {
-                  const attemptNum = attemptMap.get(sub.id) || 1;
-                  return (
-                    <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-bold text-white">
-                        {sub.problem?.slug && !sub.problem?.isEnded ? (
-                          <Link
-                            to="/challenge"
-                            className="hover:text-cyan-400 transition-colors"
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-[#0C0F1F] text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-6 py-3.5">Problem &amp; Attempt</th>
+                    <th className="px-4 py-3.5">Difficulty</th>
+                    <th className="px-6 py-3.5">Verdict</th>
+                    <th className="px-4 py-3.5">Runtime &amp; Solve Time</th>
+                    <th className="px-4 py-3.5">Score</th>
+                    <th className="px-6 py-3.5">Submitted</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filteredSubmissions.map((sub: any) => {
+                    const attemptNum = attemptMap.get(sub.id) || 1;
+                    const secs = sub.timeToSolveSeconds ?? sub.activeSeconds;
+                    const timeFormatted =
+                      secs && secs > 0
+                        ? `${Math.floor(secs / 60)}m ${secs % 60}s`
+                        : sub.timeToSolveFormatted || '< 1m';
+
+                    return (
+                      <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm">
+                              {sub.problem?.title || 'Daily Challenge'}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20">
+                              #{attemptNum}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                        </td>
+                        <td className="px-4 py-4 text-slate-300 font-mono text-[11px]">
+                          <div>{sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}</div>
+                          <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" />
+                            {timeFormatted}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 font-bold text-emerald-400">
+                          +{sub.pointsAwarded || 0} PTS
+                        </td>
+                        <td className="px-6 py-4 text-slate-400 text-[11px]">
+                          {new Date(sub.createdAt).toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => setSelectedSubmission(sub)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0C0F1F] hover:bg-white/[0.08] text-slate-200 hover:text-white border border-white/[0.08] transition-colors"
                           >
-                            {sub.problem?.title}
-                          </Link>
-                        ) : (
-                          <span className="text-slate-200">
-                            {sub.problem?.title || 'Past Challenge'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                          #{attemptNum}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-slate-300 font-mono text-[11px]">
-                        <span className="inline-flex items-center gap-1 text-slate-400">
-                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                          {(() => {
-                            const secs = sub.timeToSolveSeconds ?? sub.activeSeconds;
-                            if (secs && secs > 0) {
-                              const mins = Math.floor(secs / 60);
-                              const remaining = secs % 60;
-                              return mins > 0 ? `${mins}m ${remaining}s` : `${remaining}s`;
-                            }
-                            return sub.timeToSolveFormatted || '< 1m';
-                          })()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />
-                      </td>
-                      <td className="px-6 py-4">
-                        <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
-                      </td>
-                    <td className="px-6 py-4 text-slate-400">
-                      {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-cyan-400">
-                      +{sub.pointsAwarded} PTS
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                      {new Date(sub.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                            <Eye className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                            <span>View Code</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Responsive Cards View */}
+            <div className="block md:hidden divide-y divide-white/[0.06]">
+              {filteredSubmissions.map((sub: any) => {
+                const attemptNum = attemptMap.get(sub.id) || 1;
+                return (
+                  <div key={sub.id} className="p-4 space-y-2.5 font-mono text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-white text-sm">
+                          {sub.problem?.title || 'Daily Challenge'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Attempt #{attemptNum} • {new Date(sub.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">{sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}</span>
+                        <span className="text-emerald-400 font-bold">+{sub.pointsAwarded || 0} PTS</span>
+                      </div>
                       <button
                         onClick={() => setSelectedSubmission(sub)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/[0.06] transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#0C0F1F] text-[#8B9BFF] border border-[#8B9BFF]/30 text-xs font-bold"
                       >
-                        <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>View Code</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Code</span>
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-              </tbody>
-            </table>
+            </div>
           </div>
         )}
       </div>
 
       {/* Code Viewer Modal */}
       {selectedSubmission && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 py-4 bg-dark-850 border-b border-white/[0.06]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 bg-[#141932] border-b border-white/[0.08]">
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>{selectedSubmission.problem?.title}</span>
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <span>{selectedSubmission.problem?.title || 'Submission Details'}</span>
                   <VerdictBadge verdict={selectedSubmission.verdict} size="sm" />
                 </h3>
                 <span className="text-xs font-mono text-slate-400">
-                  {selectedSubmission.runtimeMs}ms • {new Date(selectedSubmission.createdAt).toLocaleString()}
+                  {selectedSubmission.runtimeMs !== null ? `${selectedSubmission.runtimeMs}ms` : ''} •{' '}
+                  {new Date(selectedSubmission.createdAt).toLocaleString()}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyCode}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800 text-xs font-mono text-slate-300 hover:text-white border border-white/[0.06] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0C0F1F] text-xs font-mono text-slate-300 hover:text-white border border-white/[0.08] transition-colors"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                  <span>{copied ? 'Copied' : 'Copy Code'}</span>
                 </button>
                 <button
                   onClick={() => setSelectedSubmission(null)}
@@ -318,8 +518,9 @@ export const HistoryPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-dark-950 font-mono text-xs">
-              <pre className="text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+            {/* Code Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-[#0C0F1F] font-mono text-xs">
+              <pre className="text-cyan-200 overflow-x-auto whitespace-pre-wrap leading-relaxed select-text font-mono">
                 {selectedSubmission.code}
               </pre>
 
@@ -331,6 +532,19 @@ export const HistoryPage: React.FC = () => {
                   </pre>
                 </div>
               )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3.5 bg-[#141932] border-t border-white/[0.08] flex items-center justify-between">
+              <div className="text-[11px] font-mono text-slate-400">
+                Score: <span className="text-emerald-400 font-bold">+{selectedSubmission.pointsAwarded || 0} PTS</span>
+              </div>
+              <button
+                onClick={() => setSelectedSubmission(null)}
+                className="px-4 py-1.5 rounded-lg text-xs font-mono bg-white/[0.08] text-white hover:bg-white/[0.12] transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

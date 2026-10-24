@@ -59,7 +59,7 @@ To allow smooth student onboarding directly from the client without compromising
      - **Role Lockdown**: `request.resource.data.role == 'STUDENT'` (strictly `'STUDENT'`, categorically prohibiting elevation to `'ADMIN'` or `'CHECKER'`)
      - **College Validation**: `request.resource.data.college == 'Sanjivani University'`
      - **Department & Year Validation**: Must match allowed enumerations (`isAllowedDepartment()` and `isAllowedYear()`)
-     - **Division & Display Name Format**: Length and character constraints enforced via `isValidDivision()` and `isValidDisplayName()` (2..30 characters)
+     - **Division & Display Name Format**: Length and character constraints enforced via `isValidDivision()` and `isValidDisplayName()` (2..60 characters)
      - **PRN Format Validation**: `request.resource.data.prn is string && request.resource.data.prn.matches('^[0-9]{4}[A-Z]{3}[MF][0-9]{4}$')`
      - **PRN Uniqueness Check**: `!exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))` ensures no duplicate PRN can be registered
      - **Points & Streak Zero Baseline**: `request.resource.data.totalPoints == 0` and `request.resource.data.currentStreak == 0` prevent any initial points forging
@@ -215,7 +215,7 @@ service cloud.firestore {
 
     function isValidDisplayName(name) {
       return name == null ||
-        (name is string && name.size() >= 2 && name.size() <= 30);
+        (name is string && name.size() >= 2 && name.size() <= 60);
     }
 
     function isValidUserSelfUpdate() {

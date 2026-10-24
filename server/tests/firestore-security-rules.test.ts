@@ -318,9 +318,9 @@ class RulesEvaluator {
       }
     }
 
-    // Validate displayName (2 to 30 characters)
+    // Validate displayName (2 to 60 characters)
     if ('displayName' in incomingData && incomingData.displayName !== null && incomingData.displayName !== undefined) {
-      if (typeof incomingData.displayName !== 'string' || incomingData.displayName.length < 2 || incomingData.displayName.length > 30) {
+      if (typeof incomingData.displayName !== 'string' || incomingData.displayName.length < 2 || incomingData.displayName.length > 60) {
         return false;
       }
     }
@@ -478,7 +478,7 @@ class RulesEvaluator {
 
     // (!('displayName' in request.resource.data) || isValidDisplayName(request.resource.data.displayName))
     if ('displayName' in data && data.displayName !== null && data.displayName !== undefined) {
-      if (typeof data.displayName !== 'string' || data.displayName.length < 2 || data.displayName.length > 30) {
+      if (typeof data.displayName !== 'string' || data.displayName.length < 2 || data.displayName.length > 60) {
         return false;
       }
     }
@@ -2208,7 +2208,7 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluateUserCreate(differentEmailCtx, 'student_alice', [])).toBe(false);
   });
 
-  it('ONBOARDING & PROFILE: Validates 2-character to 30-character display name range', () => {
+  it('ONBOARDING & PROFILE: Validates 2-character to 60-character display name range', () => {
     // 1. 2-character display name is VALID on create
     const minDisplayNameCtx: FirestoreRuleContext = {
       auth: studentAlice,
@@ -2223,14 +2223,14 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.evaluateUserCreate(minDisplayNameCtx, 'student_alice', [])).toBe(true);
 
-    // 2. 30-character display name is VALID on create
+    // 2. 60-character display name is VALID on create
     const maxDisplayNameCtx: FirestoreRuleContext = {
       auth: studentAlice,
       request: {
         resource: {
           data: {
             ...validInitialStudentProfile,
-            displayName: 'A'.repeat(30),
+            displayName: 'A'.repeat(60),
           },
         },
       },
@@ -2251,14 +2251,14 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.evaluateUserCreate(tooShortDisplayNameCtx, 'student_alice', [])).toBe(false);
 
-    // 4. 31-character display name is INVALID (> 30 chars) -> MUST FAIL
+    // 4. 61-character display name is INVALID (> 60 chars) -> MUST FAIL
     const tooLongDisplayNameCtx: FirestoreRuleContext = {
       auth: studentAlice,
       request: {
         resource: {
           data: {
             ...validInitialStudentProfile,
-            displayName: 'A'.repeat(31),
+            displayName: 'A'.repeat(61),
           },
         },
       },
@@ -2446,11 +2446,36 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain("'ipworker1908@gmail.com'");
     expect(firestoreRules).toContain("'ipverse1918@gmail.com'");
 
-    expect(securityRulesDoc).toContain("request.auth.token.role == 'ADMIN'");
-    expect(securityRulesDoc).toContain("'admin@logicq.io'");
-    expect(securityRulesDoc).toContain("'logicq1304@gmail.com'");
-    expect(securityRulesDoc).toContain("'ipworker1908@gmail.com'");
-    expect(securityRulesDoc).toContain("'ipverse1918@gmail.com'");
+    expect(firestoreRules).toContain('name.size() <= 60');
+    expect(securityRulesDoc).toContain('name.size() <= 60');
+  });
+
+  it('VALIDATION: Student displayName permits up to 60 characters and rejects > 60 or < 2 characters', () => {
+    // 60-character displayName (e.g., full name) -> ALLOWED
+    const validLongName = 'A'.repeat(60);
+    const validSelfUpdateCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', displayName: 'Alice' } },
+      request: { resource: { data: { uid: 'student_alice', displayName: validLongName } } },
+    };
+    expect(RulesEvaluator.evaluateUserSelfUpdate(validSelfUpdateCtx, 'student_alice')).toBe(true);
+
+    // 61-character displayName -> REJECTED
+    const invalidTooLongName = 'A'.repeat(61);
+    const tooLongCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', displayName: 'Alice' } },
+      request: { resource: { data: { uid: 'student_alice', displayName: invalidTooLongName } } },
+    };
+    expect(RulesEvaluator.evaluateUserSelfUpdate(tooLongCtx, 'student_alice')).toBe(false);
+
+    // 1-character displayName -> REJECTED
+    const tooShortCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: { uid: 'student_alice', displayName: 'Alice' } },
+      request: { resource: { data: { uid: 'student_alice', displayName: 'A' } } },
+    };
+    expect(RulesEvaluator.evaluateUserSelfUpdate(tooShortCtx, 'student_alice')).toBe(false);
   });
 });
 

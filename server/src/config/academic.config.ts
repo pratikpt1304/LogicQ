@@ -33,7 +33,7 @@ export function setAllowedProgramCodes(codes: string[]) {
 
 export const DIVISION_REGEX = /^[A-Za-z0-9]{0,3}$/;
 export const DISPLAY_NAME_MIN = 3;
-export const DISPLAY_NAME_MAX = 20;
+export const DISPLAY_NAME_MAX = 30;
 
 export const PRN_CHANGE_COOLDOWN_DAYS = 30;
 export const PRN_RELEASE_RESERVATION_DAYS = 30;

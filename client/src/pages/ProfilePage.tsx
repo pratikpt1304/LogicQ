@@ -506,6 +506,80 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleConnectGoogleDrive = async () => {
+    setProfileWorkspaceBlockMsg(null);
+    setDriveApiDisabled(false);
+    const authRes = await GoogleDriveService.requestAccessToken();
+    if (authRes.success) {
+      try {
+        await GoogleDriveService.ensureLogicQFolder(authRes.accessToken!);
+        setEditForm((prev) => ({ ...prev, storagePreference: 'GOOGLE_DRIVE' }));
+        try {
+          localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
+        } catch {}
+
+        const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+        if (effectiveUid) {
+          FirestoreDataService.updateUserProfile(effectiveUid, {
+            storagePreference: 'GOOGLE_DRIVE',
+          }).catch(() => {});
+        }
+
+        api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' })
+          .then(() => {
+            if (refreshUser) refreshUser().catch(() => {});
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+          })
+          .catch(() => {});
+
+        toast.success('Connected Google Drive backup!');
+      } catch (testErr: any) {
+        const errMsg = String(testErr?.message || '');
+        if (errMsg.includes('DRIVE_API_DISABLED')) {
+          setDriveApiDisabled(true);
+          setProfileWorkspaceBlockMsg(
+            'Google Drive API is not enabled in Google Cloud Console for project logicq-clanguage. Click the button below to enable it.'
+          );
+          toast.error('Google Drive API is disabled on project logicq-clanguage.');
+        } else if (errMsg.includes('COLLEGE_WORKSPACE_BLOCKED') || errMsg.includes('DRIVE_FORBIDDEN')) {
+          setProfileWorkspaceBlockMsg(
+            'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
+          );
+        } else {
+          setProfileWorkspaceBlockMsg(testErr?.message || 'Failed to initialize Google Drive folder.');
+        }
+        setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
+      }
+    } else if (authRes.error === 'COLLEGE_WORKSPACE_BLOCKED') {
+      setProfileWorkspaceBlockMsg(
+        'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
+      );
+      setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
+    } else {
+      setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
+    }
+  };
+
+  const handleDisconnectGoogleDrive = () => {
+    setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
+    try {
+      localStorage.setItem('logicq_storage_preference', 'FIRESTORE_FALLBACK');
+    } catch {}
+    const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+    if (effectiveUid) {
+      FirestoreDataService.updateUserProfile(effectiveUid, {
+        storagePreference: 'FIRESTORE_FALLBACK',
+      }).catch(() => {});
+    }
+    api.put('/users/profile', { storagePreference: 'FIRESTORE_FALLBACK' })
+      .then(() => {
+        if (refreshUser) refreshUser().catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
+      })
+      .catch(() => {});
+    toast.success('Switched to LogicQ Cloud Vault');
+  };
+
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     setEditError(null);
@@ -1667,9 +1741,17 @@ export const ProfilePage: React.FC = () => {
           <div className="w-full max-w-lg glass-card rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
             {/* Sticky Header */}
             <div className="flex items-center justify-between p-5 border-b border-[#252C4F] bg-[#141932] shrink-0">
-              <h3 id="profile-settings-title" className="text-base font-bold text-[#E8EAF6]">
-                Profile & Academic Settings
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 flex items-center justify-center text-[#8B9BFF]">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="profile-settings-title" className="text-base font-bold text-[#E8EAF6]">
+                    Edit Profile & Settings
+                  </h3>
+                  <p className="text-[11px] text-[#9AA1C4]">Update your public name, academic info, and preferences</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
@@ -1693,13 +1775,13 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 {!isAdminOrFaculty ? (
-                  /* Student PRN Row with Monthly Self-Service Change Option & Locked College */
-                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  /* Compact Student Academic Identity Card */
+                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 text-xs font-mono">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-[#9AA1C4]">
                         <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                        <span>PRN (Permanent Academic ID):</span>
-                        <span className="text-[#E8EAF6] font-bold ml-1">{ownMaskedPrn || '••••••'}</span>
+                        <span>PRN:</span>
+                        <span className="text-[#E8EAF6] font-bold">{ownMaskedPrn || '••••••'}</span>
                       </div>
 
                       {isOwnProfile && (
@@ -1725,37 +1807,30 @@ export const ProfilePage: React.FC = () => {
                               ? cooldown.nextAllowedDate.toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
-                                  year: 'numeric',
                                 })
                               : '30 days';
                             return (
-                              <button
-                                type="button"
-                                disabled
-                                className="px-2.5 py-1 rounded bg-[#252C4F]/40 text-[#9AA1C4] border border-[#252C4F] text-xs cursor-not-allowed"
+                              <span
+                                className="px-2 py-0.5 rounded bg-[#252C4F]/40 text-[#9AA1C4] text-[10px]"
                                 title={`Cooldown active: ${cooldown.daysRemaining} days remaining`}
                               >
-                                Available again on {dateStr}
-                              </button>
+                                Changeable {dateStr}
+                              </span>
                             );
                           })()}
                         </div>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between text-[#9AA1C4]">
+                    <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
                       <span className="flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                        <span>College (Locked)</span>
+                        <Lock className="w-3 h-3 text-[#8B9BFF]" />
+                        <span>Institution:</span>
                       </span>
                       <span className="text-[#E8EAF6] font-semibold">
                         {profile.college || 'Sanjivani University'}
                       </span>
                     </div>
-
-                    <p className="text-[11px] text-[#9AA1C4] pt-1 leading-normal border-t border-[#252C4F]/50">
-                      You can change your PRN once every 30 days. College is permanently locked to Sanjivani University.
-                    </p>
                   </div>
                 ) : (
                   /* Admin/Faculty Authority Info */
@@ -1781,34 +1856,39 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Optional Public Display Name (3-20 chars) */}
+                {/* Public Full Name / Display Handle (3-30 chars) */}
                 <div>
-                  <label
-                    htmlFor="edit-display-name"
-                    className="block text-xs font-mono text-[#E8EAF6] mb-1"
-                  >
-                    PUBLIC DISPLAY NAME (OPTIONAL, 3–20 CHARS)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="edit-display-name"
+                      className="block text-xs font-mono font-bold text-[#E8EAF6]"
+                    >
+                      FULL NAME / DISPLAY HANDLE
+                    </label>
+                    <span className="text-[10px] font-mono text-[#9AA1C4]">
+                      {editForm.displayName.length}/{DISPLAY_NAME_MAX}
+                    </span>
+                  </div>
                   <input
                     id="edit-display-name"
                     type="text"
-                    maxLength={20}
+                    maxLength={DISPLAY_NAME_MAX}
                     value={editForm.displayName}
                     onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                    placeholder={`Fallback: Student ${profile.shortId || generateShortId(profile.id)}`}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF]"
+                    placeholder={`e.g. Pratik Balasaheb Thorat`}
+                    className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF]"
                   />
                   <span className="text-[11px] text-[#9AA1C4] block mt-1">
-                    Shown to other students on the leaderboard instead of your PRN.
+                    Shown to peers on the leaderboard and discussions instead of your PRN.
                   </span>
                 </div>
 
-                {/* Department & Year */}
+                {/* Department & Year (Compact Grid) */}
                 <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                   <div>
                     <label
                       htmlFor="edit-department"
-                      className="block text-xs font-mono text-[#E8EAF6] mb-1"
+                      className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
                     >
                       DEPARTMENT
                     </label>
@@ -1816,7 +1896,7 @@ export const ProfilePage: React.FC = () => {
                       id="edit-department"
                       value={editForm.department}
                       onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
+                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
                     >
                       {ALLOWED_DEPARTMENTS.map((dept) => (
                         <option key={dept} value={dept} className="bg-[#141932] text-[#E8EAF6]">
@@ -1830,7 +1910,7 @@ export const ProfilePage: React.FC = () => {
                     <div>
                       <label
                         htmlFor="edit-year"
-                        className="block text-xs font-mono text-[#E8EAF6] mb-1"
+                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
                       >
                         ACADEMIC YEAR
                       </label>
@@ -1838,7 +1918,7 @@ export const ProfilePage: React.FC = () => {
                         id="edit-year"
                         value={editForm.year}
                         onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
+                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
                       >
                         {ALLOWED_YEARS.map((yr) => (
                           <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
@@ -1850,60 +1930,69 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Division */}
-                <div>
-                  <label
-                    htmlFor="edit-division"
-                    className="block text-xs font-mono text-[#E8EAF6] mb-1"
-                  >
-                    DIVISION (OPTIONAL, UP TO 3 CHARS)
-                  </label>
-                  <input
-                    id="edit-division"
-                    type="text"
-                    maxLength={3}
-                    value={editForm.division}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, division: e.target.value.toUpperCase() })
-                    }
-                    placeholder="e.g. A, B, C1"
-                    className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono uppercase"
-                  />
-                </div>
-
-                {/* Bio */}
-                <div>
-                  <label htmlFor="edit-bio" className="block text-xs font-mono text-[#E8EAF6] mb-1">
-                    BIO
-                  </label>
-                  <textarea
-                    id="edit-bio"
-                    rows={2}
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                    placeholder="Tell fellow competitors about your C programming journey..."
-                    className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] resize-none font-sans"
-                  />
-                </div>
-
-                {/* Storage & Google Drive Backup Preference */}
-                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 font-mono text-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[#E8EAF6] font-bold">
-                      <Folder className="w-4 h-4 text-[#8B9BFF]" />
-                      <span>STORAGE &amp; DRIVE BACKUP PREFERENCE</span>
+                {/* Division & Bio Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {!isAdminOrFaculty && (
+                    <div className="sm:col-span-1">
+                      <label
+                        htmlFor="edit-division"
+                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
+                      >
+                        DIVISION
+                      </label>
+                      <input
+                        id="edit-division"
+                        type="text"
+                        maxLength={3}
+                        value={editForm.division}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, division: e.target.value.toUpperCase() })
+                        }
+                        placeholder="e.g. A, B"
+                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF] font-mono uppercase"
+                      />
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20">
-                      OPTIONAL
-                    </span>
+                  )}
+
+                  <div className={isAdminOrFaculty ? "sm:col-span-3" : "sm:col-span-2"}>
+                    <label htmlFor="edit-bio" className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1">
+                      BIO (OPTIONAL)
+                    </label>
+                    <input
+                      id="edit-bio"
+                      type="text"
+                      maxLength={120}
+                      value={editForm.bio}
+                      onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                      placeholder="Share a short line about your C programming journey..."
+                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF]"
+                    />
                   </div>
-                  <p className="text-[11px] text-[#9AA1C4] leading-relaxed">
-                    All LogicQ features function 100% with secure cloud storage. Connecting Google Drive creates an optional backup copy of your solved code in a visible <code className="text-[#8B9BFF]">LogicQ/</code> folder in your personal Drive.
-                  </p>
+                </div>
+
+                {/* Google Drive Backup Card (Clean & Streamlined) */}
+                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Folder className="w-4 h-4 text-[#8B9BFF]" />
+                      <span className="text-xs font-mono font-bold text-[#E8EAF6]">
+                        Google Drive Code Backup
+                      </span>
+                    </div>
+                    {editForm.storagePreference === 'GOOGLE_DRIVE' ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Connected
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20 font-mono">
+                        Optional
+                      </span>
+                    )}
+                  </div>
 
                   {profileWorkspaceBlockMsg && (
-                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-2.5">
-                      <div className="flex items-start gap-2">
+                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-2">
+                      <div className="flex items-start gap-1.5">
                         <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                         <span className="leading-relaxed">{profileWorkspaceBlockMsg}</span>
                       </div>
@@ -1915,135 +2004,74 @@ export const ProfilePage: React.FC = () => {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black font-semibold text-xs hover:bg-amber-400 transition-colors w-fit shadow"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Enable Google Drive API in Google Cloud Console</span>
+                          <span>Enable Google Drive API</span>
                         </a>
                       )}
                     </div>
                   )}
 
-                  <div className="space-y-2 pt-1">
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="storagePreference"
-                        value="FIRESTORE_FALLBACK"
-                        checked={editForm.storagePreference !== 'GOOGLE_DRIVE'}
-                        onChange={() => {
-                          setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
-                          try {
-                            localStorage.setItem('logicq_storage_preference', 'FIRESTORE_FALLBACK');
-                          } catch {}
-                        }}
-                        className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"
-                      />
-                      <div>
-                        <span className="text-xs text-[#E8EAF6] font-semibold block">
-                          LogicQ Secure Cloud Vault (Default)
-                        </span>
-                        <span className="text-[11px] text-[#9AA1C4] block">
-                          Fastest, zero-setup storage managed securely by the platform.
-                        </span>
-                      </div>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="storagePreference"
-                        value="GOOGLE_DRIVE"
-                        checked={editForm.storagePreference === 'GOOGLE_DRIVE'}
-                        onChange={async () => {
-                          setProfileWorkspaceBlockMsg(null);
-                          setDriveApiDisabled(false);
-                          const authRes = await GoogleDriveService.requestAccessToken();
-                          if (authRes.success) {
-                            try {
-                              // Verify that Google Drive API is actually enabled
-                              await GoogleDriveService.ensureLogicQFolder(authRes.accessToken!);
-
-                              setEditForm((prev) => ({ ...prev, storagePreference: 'GOOGLE_DRIVE' }));
-                              try {
-                                localStorage.setItem('logicq_storage_preference', 'GOOGLE_DRIVE');
-                              } catch {}
-
-                              const effectiveUid = auth.currentUser?.uid || currentUser?.id;
-                              if (effectiveUid) {
-                                FirestoreDataService.updateUserProfile(effectiveUid, {
-                                  storagePreference: 'GOOGLE_DRIVE',
-                                }).catch(() => {});
-                              }
-
-                              api.put('/users/profile', { storagePreference: 'GOOGLE_DRIVE' })
-                                .then(() => {
-                                  if (refreshUser) refreshUser().catch(() => {});
-                                  queryClient.invalidateQueries({ queryKey: ['profile'] });
-                                })
-                                .catch(() => {});
-
-                              toast.success('Connected Google Drive!');
-                            } catch (testErr: any) {
-                              const errMsg = String(testErr?.message || '');
-                              if (errMsg.includes('DRIVE_API_DISABLED')) {
-                                setDriveApiDisabled(true);
-                                setProfileWorkspaceBlockMsg(
-                                  'Google Drive API is not enabled in Google Cloud Console for project logicq-clanguage. Click the button below to enable it.'
-                                );
-                                toast.error('Google Drive API is disabled on project logicq-clanguage.');
-                              } else if (errMsg.includes('COLLEGE_WORKSPACE_BLOCKED') || errMsg.includes('DRIVE_FORBIDDEN')) {
-                                setProfileWorkspaceBlockMsg(
-                                  'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
-                                );
-                              } else {
-                                setProfileWorkspaceBlockMsg(testErr?.message || 'Failed to initialize Google Drive folder.');
-                              }
-                              setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
-                            }
-                          } else if (authRes.error === 'COLLEGE_WORKSPACE_BLOCKED') {
-                            setProfileWorkspaceBlockMsg(
-                              'Your college administrator has restricted Google Drive integrations. LogicQ will continue using secure cloud storage.'
-                            );
-                            setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
-                          } else {
-                            setEditForm((prev) => ({ ...prev, storagePreference: 'FIRESTORE_FALLBACK' }));
-                          }
-                        }}
-                        className="mt-0.5 rounded-full border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF]"
-                      />
-                      <div>
-                        <span className="text-xs text-[#E8EAF6] font-semibold block">
-                          Google Drive Personal Workspace
-                        </span>
-                        <span className="text-[11px] text-[#9AA1C4] block">
-                          Exports and syncs backup snapshots to your Google Drive.
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Practice Timer Display Preference */}
-                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 font-mono text-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[#E8EAF6] font-bold">
-                      <Clock className="w-4 h-4 text-[#8B9BFF]" />
-                      <span>PRACTICE TIMER PREFERENCE</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[#252C4F]/40 text-xs font-mono">
+                    <div className="text-[11px] text-[#9AA1C4]">
+                      {editForm.storagePreference === 'GOOGLE_DRIVE'
+                        ? 'Syncs copies of your solved code directly to your personal Drive in "LogicQ/" folder.'
+                        : 'Solved code is safely stored in LogicQ Vault. You can connect Drive anytime.'}
                     </div>
+                    {editForm.storagePreference === 'GOOGLE_DRIVE' ? (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectGoogleDrive}
+                        className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-mono text-[#FF7A8A] border border-[#FF7A8A]/30 hover:bg-[#FF7A8A]/10 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleConnectGoogleDrive}
+                        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-[#E8EAF6] bg-[#8B9BFF]/20 border border-[#8B9BFF]/40 hover:bg-[#8B9BFF]/30 transition-colors flex items-center gap-1.5"
+                      >
+                        <Cloud className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                        <span>Connect Drive</span>
+                      </button>
+                    )}
                   </div>
-                  <p className="text-[11px] text-[#9AA1C4] leading-relaxed">
-                    Practice questions accumulate active time while coding. You can choose to hide the count-up display to code without distraction (time will continue to be safely logged in the background).
-                  </p>
-                  <label className="flex items-center gap-2.5 cursor-pointer pt-1">
-                    <input
-                      type="checkbox"
-                      checked={editForm.hidePracticeTimer}
-                      onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
-                      className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF]"
-                    />
-                    <span className="text-xs text-[#E8EAF6]">
-                      Hide active timer count-up on practice screens
-                    </span>
-                  </label>
                 </div>
+
+                {/* Practice Timer Display Toggle */}
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono text-[#9AA1C4] hover:text-[#E8EAF6] pt-1">
+                  <input
+                    type="checkbox"
+                    checked={editForm.hidePracticeTimer}
+                    onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
+                    className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF]"
+                  />
+                  <span>Hide active timer count-up while solving practice problems</span>
+                </label>
+
+                {/* Collapsible Danger Zone for Account Deletion */}
+                {isOwnProfile && (
+                  <details className="group border border-[#FF7A8A]/20 bg-[#FF7A8A]/5 rounded-xl text-xs font-mono overflow-hidden">
+                    <summary className="p-3 cursor-pointer text-[#FF7A8A] font-bold flex items-center justify-between hover:bg-[#FF7A8A]/10 transition-colors select-none">
+                      <span className="flex items-center gap-2">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Danger Zone (Account Deletion)</span>
+                      </span>
+                      <span className="text-[10px] text-[#FF7A8A]/70 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 pt-1 border-t border-[#FF7A8A]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#9AA1C4]">
+                        Permanently delete your account, wipe profile data, and release your PRN registration.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleDeleteAccount}
+                        className="shrink-0 px-3 py-1.5 rounded-lg bg-[#FF7A8A]/10 border border-[#FF7A8A]/40 text-[#FF7A8A] hover:bg-[#FF7A8A]/20 font-bold text-xs transition-colors"
+                      >
+                        Delete Account
+                      </button>
+                    </div>
+                  </details>
+                )}
               </div>
 
               {/* Sticky Footer: Always visible on 360px and with mobile keyboard */}
