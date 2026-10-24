@@ -307,10 +307,10 @@ export async function autoSeedDatabase(): Promise<void> {
       });
     }
 
-    // Revoke Admin from thoratpratik2323@gmail.com
+    // Ensure Super Admin privileges for primary admin accounts
     await prisma.user.updateMany({
-      where: { email: 'thoratpratik2323@gmail.com' },
-      data: { role: 'STUDENT' },
+      where: { email: { in: ['thoratpratik2323@gmail.com', 'logicqarena@gmail.com'] } },
+      data: { role: 'ADMIN', profileComplete: true },
     });
 
     const arenaEmail = 'logicqarena@gmail.com';

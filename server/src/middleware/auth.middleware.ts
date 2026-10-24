@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt.js';
 import { prisma } from '../utils/prisma.js';
+import { isExplicitAdminEmail } from '../controllers/auth.controller.js';
 
 export interface AuthRequest extends Request {
   user?: TokenPayload;
@@ -29,12 +30,29 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     // Verify live account status and role to prevent token reuse after ban or role change
     const dbUser = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, role: true, isBanned: true, profileComplete: true },
+      select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
     });
 
     if (!dbUser) {
       res.status(401).json({ success: false, message: 'Account no longer exists' });
       return;
+    }
+
+    // Auto-promote and self-heal Super Admin accounts
+    if (isExplicitAdminEmail(dbUser.email)) {
+      if (dbUser.role !== 'ADMIN') {
+        await prisma.user.update({
+          where: { id: dbUser.id },
+          data: { role: 'ADMIN', profileComplete: true },
+        }).catch(() => {});
+        dbUser.role = 'ADMIN';
+      }
+      req.user = {
+        userId: dbUser.id,
+        username: dbUser.username,
+        role: 'ADMIN',
+      };
+      return next();
     }
 
     if (dbUser.isBanned) {
