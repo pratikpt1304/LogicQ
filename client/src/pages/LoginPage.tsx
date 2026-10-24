@@ -78,6 +78,7 @@ export const LoginPage: React.FC = () => {
       if (res?.success) {
         const receivedCode = res.devOtp || res.code || '123456';
         setActiveOtp(receivedCode);
+        setOtpCode(receivedCode);
         setTargetDisplay(res.target || identifier.trim());
         setStep('otp');
         setCooldown(res.cooldownRemaining || 60);

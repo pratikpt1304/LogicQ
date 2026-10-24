@@ -207,6 +207,18 @@ async function refreshAuthSession(): Promise<string | null> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
+    if (cleanEndpoint.includes('-otp')) {
+      try {
+        const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
+        if (fallbackRes && typeof fallbackRes === 'object') {
+          return fallbackRes as T;
+        }
+      } catch (fallbackErr: any) {
+        const err = new Error(fallbackErr?.message || data?.message || 'Access Denied: Account not enrolled.') as LogicQApiError;
+        err.status = response.status;
+        throw err;
+      }
+    }
     let errorMsg = data?.message || (!data 
       ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
       : `Request failed with status ${response.status}`);
