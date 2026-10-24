@@ -34,6 +34,7 @@ import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+import { KANETKAR_BOOK_PROBLEMS } from '../data/kanetkar-book-bank.js';
 
 const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
   ...PRACTICE_MODULE_1_PROBLEMS,
@@ -111,175 +112,103 @@ function deletePracticeProblem(slug: string) {
   }
 }
 
-const DEFAULT_PROBLEMS = [
+const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp) => ({
+  id: bp.slug,
+  slug: bp.slug,
+  title: bp.title,
+  difficulty: bp.difficulty,
+  category: bp.category,
+  basePoints: bp.basePoints,
+  timeLimitMs: bp.timeLimitMs,
+  memoryLimitMb: bp.memoryLimitMb,
+  isDaily: false,
+  sourceType: 'BOOK',
+  sourceRef: bp.sourceRef,
+  tags: bp.tags,
+  description: bp.description,
+  starterCode: bp.starterCode,
+  solutionCode: bp.solutionCode,
+  testCases: [
+    ...bp.sampleTests.map((t, idx) => ({ id: `${bp.slug}-s${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: idx })),
+    ...bp.hiddenTests.map((t, idx) => ({ id: `${bp.slug}-h${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: bp.sampleTests.length + idx })),
+  ],
+}));
+
+const FORMATTED_PRACTICE_PROBLEMS = STATIC_PRACTICE_PROBLEMS.map((p) => ({
+  id: p.slug,
+  slug: p.slug,
+  title: p.title,
+  difficulty: p.difficulty,
+  category: p.category,
+  basePoints: p.basePoints,
+  timeLimitMs: p.timeLimitMs,
+  memoryLimitMb: p.memoryLimitMb,
+  isDaily: false,
+  isPractice: true,
+  moduleSlug: p.moduleSlug,
+  sourceType: 'PRACTICE',
+  tags: p.tags,
+  description: p.description,
+  starterCode: p.starterCode,
+  solutionCode: p.solutionCode,
+  testCases: [
+    ...p.sampleTests.map((t, idx) => ({ id: `${p.slug}-s${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: idx })),
+    ...p.hiddenTests.map((t, idx) => ({ id: `${p.slug}-h${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: p.sampleTests.length + idx })),
+  ],
+}));
+
+const FORMATTED_DAILY_PROBLEMS = [
   {
-    id: 'kanetkar-ch1-scope-shadow-eval',
-    slug: 'kanetkar-ch1-scope-shadow-eval',
-    title: 'Block Scope & Variable Shadowing Evaluator',
-    difficulty: 'EASY',
-    category: 'Declarations and Initializations',
+    id: 'daily-longest-unique-substring',
+    slug: 'daily-longest-unique-substring',
+    title: 'Longest Substring Without Repeating Characters',
+    difficulty: 'MEDIUM',
+    category: 'Strings & Hash/Lookup',
     basePoints: 20,
     timeLimitMs: 1000,
     memoryLimitMb: 64,
     isDaily: true,
-    tags: ['Scope', 'Shadowing', 'Variables', 'Basics'],
-    description: `### Problem Description
-
-In C, variables declared in an inner block shadow variables of the same name declared in an enclosing outer block or at file scope.
-
-Given three integer inputs:
-- An outer global initial base value $G$
-- An enclosing function local value $L$
-- An innermost block value $B$
-- A sequence of $K$ block entry and exit operations (\`ENTER M\` or \`EXIT\`)
-
-Simulate the lexical scope resolution and print the resolved active value after each operation.
-
-### Input Format
-- First line: Three space-separated integers $G$, $L$, and $B$.
-- Second line: Integer $K$.
-- Next $K$ lines: Either \`ENTER M\` or \`EXIT\`.
-
-### Output Format
-Print the active scoped value after each operation.`,
-    starterCode: `#include <stdio.h>
-#include <string.h>
-
-int main() {
-    int g, l, b;
-    if (scanf("%d %d %d", &g, &l, &b) != 3) return 0;
-    
-    int k;
-    if (scanf("%d", &k) != 1) return 0;
-    
-    // TODO: Track nested scope stack and print resolved value after each operation
-    
-    return 0;
-} `,
+    sourceType: 'SEED',
+    tags: ['Strings', 'Sliding-Window', 'Lookup'],
+    description: 'Given a string s, find the length of the longest substring without repeating characters.',
+    starterCode: '#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char s[1000];\n    if (scanf("%s", s) != 1) return 0;\n    return 0;\n}',
     testCases: [
-      { id: 'tc-1', input: '10 20 30\n3\nENTER 2\nEXIT\nENTER 5\n', expectedOutput: '60\n30\n150\n', isSample: true, isHidden: false },
-      { id: 'tc-2', input: '5 15 25\n2\nEXIT\nEXIT\n', expectedOutput: '15\n5\n', isSample: true, isHidden: false },
+      { id: 'daily-s1', input: 'abcabcbb\n', expectedOutput: '3\n', isSample: true, isHidden: false, orderIndex: 0 },
+      { id: 'daily-s2', input: 'bbbbb\n', expectedOutput: '1\n', isSample: true, isHidden: false, orderIndex: 1 },
+      { id: 'daily-s3', input: 'pwwkew\n', expectedOutput: '3\n', isSample: true, isHidden: false, orderIndex: 2 },
+      { id: 'daily-h1', input: 'abcdef\n', expectedOutput: '6\n', isSample: false, isHidden: true, orderIndex: 3 },
     ],
   },
-  {
-    id: 'kanetkar-ch2-switch-fallthrough-calc',
-    slug: 'kanetkar-ch2-switch-fallthrough-calc',
-    title: 'Switch-Case Fallthrough State Machine',
-    difficulty: 'EASY',
-    category: 'Control Instructions',
-    basePoints: 20,
-    timeLimitMs: 1000,
-    memoryLimitMb: 64,
-    isDaily: false,
-    tags: ['Switch Case', 'Fallthrough', 'Control Flow', 'Basics'],
-    description: `### Problem Description
+];
 
-In standard C, \`switch\` statements execute sequentially from the matched \`case\` label until an explicit \`break\` is encountered.
-
-Given an initial accumulator value $V_0$, switch code $C$, and four operation modifiers $X_1, X_2, X_3, X_4$:
-- Case 1: Add $X_1$ to $A$ (falls through to Case 2)
-- Case 2: Multiply $A$ by $X_2$ (falls through to Case 3)
-- Case 3: Subtract $X_3$ from $A$ (has break)
-- Case 4: Set $A = A \\oplus X_4$ (has break)
-
-Compute the final accumulator value.`,
-    starterCode: `#include <stdio.h>
-
-int main() {
-    long long v0;
-    int c;
-    if (scanf("%lld %d", &v0, &c) != 2) return 0;
-    
-    long long x1, x2, x3, x4;
-    if (scanf("%lld %lld %lld %lld", &x1, &x2, &x3, &x4) != 4) return 0;
-    
-    // TODO: Implement switch-case with fallthrough semantics
-    
-    return 0;
-} `,
-    testCases: [
-      { id: 'tc-3', input: '10 1\n5 2 7 9\n', expectedOutput: '23\n', isSample: true, isHidden: false },
-      { id: 'tc-4', input: '10 2\n5 2 7 9\n', expectedOutput: '13\n', isSample: true, isHidden: false },
-    ],
-  },
-  {
-    id: 'kanetkar-ch7-multidim-pointer-arithmetic',
-    slug: 'kanetkar-ch7-multidim-pointer-arithmetic',
-    title: 'Multi-Dimensional Array Pointer Arithmetic & Offsets',
-    difficulty: 'MEDIUM',
-    category: 'Pointers',
-    basePoints: 30,
-    timeLimitMs: 1000,
-    memoryLimitMb: 64,
-    isDaily: false,
-    tags: ['Pointers', 'Arrays', 'Pointer Arithmetic', 'Address Calculations'],
-    description: `### Problem Description
-
-In C pointer arithmetic, array indexing is identical to pointer dereferencing: \`a[i][j][k]\` is strictly defined as \`*(*(*(a + i) + j) + k)\`.
-
-Compute the linear offset, element value, and byte address for 3D array coordinate queries, or decompose linear offsets back to coordinates.`,
-    starterCode: `#include <stdio.h>
-
-int main() {
-    int d1, d2, d3;
-    long long b0;
-    if (scanf("%d %d %d %lld", &d1, &d2, &d3, &b0) != 4) return 0;
-    
-    int q;
-    if (scanf("%d", &q) != 1) return 0;
-    
-    // TODO: Process coordinate and linear pointer offset queries
-    
-    return 0;
-} `,
-    testCases: [
-      { id: 'tc-5', input: '2 3 4 1000\n2\nCOORD 1 2 3\nLINEAR 7\n', expectedOutput: 'VAL: 24 OFFSET: 23 ADDR: 1092\nI: 0 J: 1 K: 3\n', isSample: true, isHidden: false },
-    ],
-  },
-  {
-    id: 'kanetkar-ch14-bitwise-slot-masking',
-    slug: 'kanetkar-ch14-bitwise-slot-masking',
-    title: 'Bitwise Slot Array Masking & Parity Inspector',
-    difficulty: 'EASY',
-    category: 'Bitwise Operators',
-    basePoints: 20,
-    timeLimitMs: 1000,
-    memoryLimitMb: 64,
-    isDaily: false,
-    tags: ['Bitwise', 'Bitmask', 'Shifting', 'Basics'],
-    description: `### Problem Description
-
-In systems C programming, bitwise operators allow compact manipulation of packed bitfields and hardware flag registers.
-
-Implement a 32-bit register flag manager supporting SET, CLEAR, FLIP, TEST, COUNT, and HEX operations.`,
-    starterCode: `#include <stdio.h>
-
-int main() {
-    unsigned int reg;
-    if (scanf("%u", &reg) != 1) return 0;
-    
-    int q;
-    if (scanf("%d", &q) != 1) return 0;
-    
-    // TODO: Implement bitwise operations on reg
-    
-    return 0;
-}`,
-    testCases: [
-      { id: 'tc-6', input: '0\n5\nSET 3\nTEST 3\nTEST 2\nCOUNT\nHEX\n', expectedOutput: '1\n0\n1\n00000008\n', isSample: true, isHidden: false },
-      { id: 'tc-7', input: '15\n3\nFLIP 0\nCOUNT\nHEX\n', expectedOutput: '3\n0000000E\n', isSample: true, isHidden: false },
-    ],
-  },
+export const DEFAULT_PROBLEMS = [
+  ...FORMATTED_KANETKAR_PROBLEMS,
+  ...FORMATTED_PRACTICE_PROBLEMS,
+  ...FORMATTED_DAILY_PROBLEMS,
 ];
 
 let memoryProblems: any[] = DEFAULT_PROBLEMS.map((p) => ({ ...p }));
 
 function getStoredProblems(): any[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
   return memoryProblems;
 }
 
 function saveStoredProblems(problems: any[]) {
   memoryProblems = problems;
+  try {
+    localStorage.setItem(STORAGE_KEYS.PROBLEMS, JSON.stringify(problems));
+  } catch {
+    // ignore
+  }
 }
 
 export const ADMIN_EMAILS = [

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
+import { DEFAULT_PROBLEMS } from '../../api/fallbackEngine.js';
 import { DifficultyBadge, VerdictBadge } from '../../components/common/Badge.js';
 import {
   ALLOWED_COLLEGES,
@@ -85,6 +86,10 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Modal States
   const [isCreateProblemOpen, setIsCreateProblemOpen] = useState(false);
+  const [inspectingProblem, setInspectingProblem] = useState<any | null>(null);
+  const [problemSearch, setProblemSearch] = useState('');
+  const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY'>('ALL');
+  const [isSyncingProblems, setIsSyncingProblems] = useState(false);
   const [selectedSubmissionCode, setSelectedSubmissionCode] = useState<string | null>(null);
   const [reviewingUpload, setReviewingUpload] = useState<any | null>(null);
   const [compareUpload, setCompareUpload] = useState<any | null>(null);
@@ -354,6 +359,12 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get('/admin/problems'),
   });
 
+  const { data: firestoreProblemsData } = useQuery({
+    queryKey: ['firestore-problems'],
+    queryFn: () => FirestoreDataService.getProblems(),
+    staleTime: 60000,
+  });
+
   // Fetch Submissions
   const { data: submissionsData } = useQuery({
     queryKey: ['admin-submissions', filterSearch, filterDepartment, filterYear, filterDivision],
@@ -461,7 +472,51 @@ export const AdminDashboardPage: React.FC = () => {
   const pilotAnalytics = analyticsData?.data?.pilotAnalytics;
   const departmentBreakdown = analyticsData?.data?.departmentBreakdown || [];
   const yearBreakdown = analyticsData?.data?.yearBreakdown || [];
-  const problems = problemsData?.data?.problems || [];
+  // Resilient problem pool combining backend, Firestore, and Yashavant Kanetkar Book Bank
+  const rawProblems = React.useMemo(() => {
+    const backendProblems = problemsData?.data?.problems || [];
+    if (backendProblems.length > 0) return backendProblems;
+
+    if (firestoreProblemsData && firestoreProblemsData.length > 0) {
+      return firestoreProblemsData;
+    }
+
+    return DEFAULT_PROBLEMS;
+  }, [problemsData, firestoreProblemsData]);
+
+  const problems = rawProblems;
+
+  // Auto-seed Firestore with default problems if cloud collection is empty
+  React.useEffect(() => {
+    if (firestoreProblemsData && firestoreProblemsData.length === 0 && rawProblems.length > 0) {
+      FirestoreDataService.syncProblems(rawProblems).catch(() => {});
+    }
+  }, [firestoreProblemsData, rawProblems]);
+
+  const filteredProblems = React.useMemo(() => {
+    return rawProblems.filter((p: any) => {
+      if (problemCategoryFilter === 'BOOK') {
+        const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+        if (!isBook) return false;
+      } else if (problemCategoryFilter === 'PRACTICE') {
+        const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
+        if (!isPractice) return false;
+      } else if (problemCategoryFilter === 'DAILY') {
+        if (!p.isDaily && !p.slug?.includes('daily')) return false;
+      }
+
+      if (problemSearch.trim()) {
+        const q = problemSearch.toLowerCase().trim();
+        const matchesTitle = p.title?.toLowerCase().includes(q);
+        const matchesSlug = p.slug?.toLowerCase().includes(q);
+        const matchesCategory = p.category?.toLowerCase().includes(q);
+        const matchesTag = Array.isArray(p.tags) && p.tags.some((t: string) => t.toLowerCase().includes(q));
+        if (!matchesTitle && !matchesSlug && !matchesCategory && !matchesTag) return false;
+      }
+
+      return true;
+    });
+  }, [rawProblems, problemCategoryFilter, problemSearch]);
   const submissions = submissionsData?.data?.submissions || [];
   const uploads = uploadsData?.data?.uploads || [];
 
@@ -933,7 +988,7 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="glass-card p-5 rounded-2xl border border-white/[0.08]">
           <span className="text-[11px] font-mono text-slate-400 block mb-1">TOTAL PROBLEMS</span>
           <span className="text-2xl font-extrabold text-cyan-400 font-mono">
-            {overview?.totalProblems || 0}
+            {overview?.totalProblems || rawProblems.length}
           </span>
         </div>
 
@@ -1841,24 +1896,105 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Problems */}
       {activeTab === 'problems' && (
         <div className="space-y-4">
-          <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-cyan-400" />
-                <span>LogicQ Challenge Library & Daily Problem Pool</span>
+                <span>LogicQ Challenge Library & Test Cases Pool</span>
               </h2>
               <p className="text-xs font-mono text-slate-400 mt-0.5">
-                Total {problems.length} challenges configured. Add new custom or manual C coding questions with test cases.
+                Total {rawProblems.length} challenges configured (including Yashavant Kanetkar Book Bank & 4 Practice Modules).
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsCreateProblemOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New Question / Problem</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                disabled={isSyncingProblems}
+                onClick={async () => {
+                  try {
+                    setIsSyncingProblems(true);
+                    await FirestoreDataService.syncProblems(rawProblems);
+                    toast.success(`Successfully synced ${rawProblems.length} challenges and test cases to Firestore Cloud!`);
+                    queryClient.invalidateQueries({ queryKey: ['firestore-problems'] });
+                  } catch (err: any) {
+                    toast.error(err.message || 'Failed to sync problems');
+                  } finally {
+                    setIsSyncingProblems(false);
+                  }
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl font-mono text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
+                title="Sync All Book Bank & Practice Problems to Cloud"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingProblems ? 'animate-spin' : ''}`} />
+                <span>{isSyncingProblems ? 'Syncing...' : 'Sync to Cloud'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCreateProblemOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Question / Problem</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filters & Search Toolbar */}
+          <div className="glass-card p-4 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setProblemCategoryFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                  problemCategoryFilter === 'ALL'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white bg-dark-900/60'
+                }`}
+              >
+                All ({rawProblems.length})
+              </button>
+              <button
+                onClick={() => setProblemCategoryFilter('BOOK')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                  problemCategoryFilter === 'BOOK'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white bg-dark-900/60'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
+              </button>
+              <button
+                onClick={() => setProblemCategoryFilter('PRACTICE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                  problemCategoryFilter === 'PRACTICE'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white bg-dark-900/60'
+                }`}
+              >
+                Practice Curriculum ({rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length})
+              </button>
+              <button
+                onClick={() => setProblemCategoryFilter('DAILY')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                  problemCategoryFilter === 'DAILY'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                    : 'text-slate-400 hover:text-white bg-dark-900/60'
+                }`}
+              >
+                Daily Challenges ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})
+              </button>
+            </div>
+
+            <div className="relative min-w-[240px]">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={problemSearch}
+                onChange={(e) => setProblemSearch(e.target.value)}
+                placeholder="Search title, slug, or tag..."
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900/90 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
           </div>
 
           <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
@@ -1866,7 +2002,7 @@ export const AdminDashboardPage: React.FC = () => {
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
                 <tr>
-                  <th className="px-6 py-3.5">Title & Slug</th>
+                  <th className="px-6 py-3.5">Title & Reference</th>
                   <th className="px-6 py-3.5">Difficulty</th>
                   <th className="px-6 py-3.5">Category</th>
                   <th className="px-6 py-3.5">Test Cases</th>
@@ -1875,56 +2011,201 @@ export const AdminDashboardPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {problems.map((p: any) => (
-                  <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-white text-sm block">{p.title}</span>
-                      <span className="text-slate-500 text-[11px]">slug: {p.slug}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <DifficultyBadge difficulty={p.difficulty as Difficulty} size="sm" />
-                    </td>
-                    <td className="px-6 py-4 text-slate-300">{p.category}</td>
-                    <td className="px-6 py-4 text-cyan-400 font-semibold">
-                      {p.testCases?.length || 0} cases
-                    </td>
-                    <td className="px-6 py-4">
-                      {p.isDaily ? (
-                        <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-[10px]">
-                          Scheduled: {p.scheduledDate || 'Today'}
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const date = prompt('Enter scheduled date (YYYY-MM-DD):', '2026-10-10');
-                            if (date) scheduleDailyMutation.mutate({ problemId: p.id, scheduledDate: date });
-                          }}
-                          className="text-[10px] text-slate-500 hover:text-cyan-400 flex items-center gap-1"
-                        >
-                          <Calendar className="w-3 h-3" /> Schedule as Daily
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete problem "${p.title}"?`)) {
-                            deleteProblemMutation.mutate(p.id);
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10"
-                        title="Delete Problem"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                {filteredProblems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                      No problems found matching active filter.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredProblems.map((p: any) => {
+                    const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+                    const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
+                    const testCount = Array.isArray(p.testCases) ? p.testCases.length : 0;
+
+                    return (
+                      <tr key={p.id || p.slug} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-sm block">{p.title}</span>
+                            {isBook && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                                📚 Kanetkar Book
+                              </span>
+                            )}
+                            {isPractice && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/30 whitespace-nowrap">
+                                Practice M{p.moduleSlug ? p.moduleSlug.replace('module-', '') : 'od'}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-slate-500 text-[11px] block mt-0.5">slug: {p.slug}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <DifficultyBadge difficulty={p.difficulty as Difficulty} size="sm" />
+                        </td>
+                        <td className="px-6 py-4 text-slate-300">{p.category}</td>
+                        <td className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingProblem(p)}
+                            className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30 flex items-center gap-1.5 transition-all text-xs"
+                            title="Click to view and inspect all test cases"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>{testCount} cases</span>
+                          </button>
+                        </td>
+                        <td className="px-6 py-4">
+                          {p.isDaily ? (
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px]">
+                              Scheduled: {p.scheduledDate || 'Today'}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                const date = prompt('Enter scheduled date (YYYY-MM-DD):', '2026-10-10');
+                                if (date) scheduleDailyMutation.mutate({ problemId: p.id, scheduledDate: date });
+                              }}
+                              className="text-[10px] text-slate-500 hover:text-cyan-400 flex items-center gap-1"
+                            >
+                              <Calendar className="w-3 h-3" /> Schedule as Daily
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingProblem(p)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                            title="Inspect Test Cases & Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Delete problem "${p.title}"?`)) {
+                                deleteProblemMutation.mutate(p.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10"
+                            title="Delete Problem"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+      )}
+
+      {/* Modal: Test Cases Inspector */}
+      {inspectingProblem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-white font-mono">{inspectingProblem.title}</h3>
+                  <DifficultyBadge difficulty={inspectingProblem.difficulty as Difficulty} size="sm" />
+                </div>
+                <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mt-1">
+                  <span>Category: {inspectingProblem.category}</span>
+                  <span>•</span>
+                  <span>Slug: {inspectingProblem.slug}</span>
+                  {inspectingProblem.sourceRef?.chapterTitle && (
+                    <>
+                      <span>•</span>
+                      <span className="text-amber-300">Book: {inspectingProblem.sourceRef.bookTitle} (Ch {inspectingProblem.sourceRef.chapter}: {inspectingProblem.sourceRef.chapterTitle})</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectingProblem(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Test Cases List */}
+              <div>
+                <h4 className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider mb-3 flex items-center justify-between">
+                  <span>Configured Test Cases ({inspectingProblem.testCases?.length || 0})</span>
+                  <span className="text-[11px] text-slate-400 font-normal">Input & Expected Outputs</span>
+                </h4>
+
+                {(!inspectingProblem.testCases || inspectingProblem.testCases.length === 0) ? (
+                  <p className="text-xs text-slate-500 font-mono italic">No test cases found for this problem.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {inspectingProblem.testCases.map((tc: any, idx: number) => {
+                      const isHidden = Boolean(tc.isHidden);
+                      return (
+                        <div key={tc.id || idx} className="p-3.5 rounded-xl bg-dark-900/80 border border-white/[0.06]">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-mono font-semibold text-white">Test Case #{idx + 1}</span>
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                              isHidden
+                                ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+                                : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                            }`}>
+                              {isHidden ? 'Hidden Test' : 'Sample Test'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block mb-1">STANDARD INPUT:</span>
+                              <pre className="p-2 rounded bg-black/50 text-slate-200 text-xs overflow-x-auto whitespace-pre-wrap max-h-32">
+                                {tc.input || '(empty input)'}
+                              </pre>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 block mb-1">EXPECTED OUTPUT:</span>
+                              <pre className="p-2 rounded bg-black/50 text-emerald-300 text-xs overflow-x-auto whitespace-pre-wrap max-h-32">
+                                {tc.expectedOutput || '(empty output)'}
+                              </pre>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Starter Code Preview */}
+              {inspectingProblem.starterCode && (
+                <div>
+                  <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    Starter Code Template
+                  </h4>
+                  <pre className="p-3 rounded-xl bg-black/60 border border-white/[0.06] text-slate-300 text-xs font-mono overflow-x-auto max-h-48">
+                    {inspectingProblem.starterCode}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-white/[0.08] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setInspectingProblem(null)}
+                className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-mono text-white transition-colors"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tab: Submissions Live Stream */}

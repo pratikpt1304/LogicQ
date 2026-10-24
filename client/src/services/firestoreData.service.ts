@@ -3,6 +3,7 @@ import {
   getDoc,
   updateDoc,
   setDoc,
+  deleteDoc,
   writeBatch,
   collection,
   query,
@@ -752,6 +753,77 @@ export class FirestoreDataService {
     } catch (err) {
       console.warn('findEnrolledStudentInFirestore error:', err);
       return null;
+    }
+  }
+
+  /**
+   * Fetches problems stored in Firestore for admins or resilient offline fallback.
+   */
+  public static async getProblems(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'problems')).catch(() => null);
+      if (!snap || snap.empty) return [];
+      const list: any[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      return list;
+    } catch (err) {
+      console.warn('FirestoreDataService.getProblems error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Saves or updates a problem document in Firestore.
+   */
+  public static async saveProblem(problem: any): Promise<void> {
+    try {
+      const problemId = problem.id || problem.slug;
+      if (!problemId) return;
+      await setDoc(doc(db, 'problems', problemId), {
+        ...problem,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (err) {
+      console.warn('FirestoreDataService.saveProblem error:', err);
+    }
+  }
+
+  /**
+   * Deletes a problem document in Firestore.
+   */
+  public static async deleteProblem(problemId: string): Promise<void> {
+    try {
+      if (!problemId) return;
+      await deleteDoc(doc(db, 'problems', problemId));
+    } catch (err) {
+      console.warn('FirestoreDataService.deleteProblem error:', err);
+    }
+  }
+
+  /**
+   * Batch syncs an array of problems into Firestore.
+   */
+  public static async syncProblems(problems: any[]): Promise<void> {
+    try {
+      if (!problems || problems.length === 0) return;
+      const chunkSize = 400;
+      for (let i = 0; i < problems.length; i += chunkSize) {
+        const chunk = problems.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+        for (const p of chunk) {
+          const problemId = p.id || p.slug;
+          if (!problemId) continue;
+          batch.set(doc(db, 'problems', problemId), {
+            ...p,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        }
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn('FirestoreDataService.syncProblems error:', err);
     }
   }
 }
