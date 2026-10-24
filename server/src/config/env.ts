@@ -26,7 +26,7 @@ export const ENV = {
   REDIS_URL: process.env.REDIS_URL || '',
 
   // Mail
-  GAS_MAIL_URL: process.env.GAS_MAIL_URL || '',
+  GAS_MAIL_URL: process.env.GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbxjaWOh9cU5QuwsoW30kQsRmYRb8AFO0_O8_wXXezLFJb-B0v_CCyZPKDTDcd1qBKV3/exec',
   RESEND_API_KEY: process.env.RESEND_API_KEY || 're_GqGbrzoo_DKfnUEBFnqipy7VCcz1Pn5DS',
   RESEND_FROM: process.env.RESEND_FROM || 'LogicQ Arena <onboarding@resend.dev>',
   MAIL_PROVIDER: (process.env.MAIL_PROVIDER || 'smtp') as 'console' | 'smtp',

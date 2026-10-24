@@ -162,7 +162,13 @@ class GoogleAppsScriptMailService implements IMailService {
         }),
       });
 
-      console.log(`[GoogleAppsScriptMailService] Dispatched to ${options.to} (Status: ${response.status})`);
+      const data: any = await response.json().catch(() => null);
+      if (data && data.status === 'error') {
+        console.error(`[GoogleAppsScriptMailService] GAS error:`, data.message || data.error);
+        return false;
+      }
+
+      console.log(`[GoogleAppsScriptMailService] Successfully sent to ${options.to} via Google Apps Script`);
       return response.status < 400;
     } catch (err: any) {
       console.error(`[GoogleAppsScriptMailService] Error sending to ${options.to}:`, err?.message || err);
