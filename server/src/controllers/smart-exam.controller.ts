@@ -141,6 +141,56 @@ export class SmartExamController {
       const user = (req as any).user;
       const studentId = user.userId || user.id;
 
+      // Auto-sync published tests for any sections student belongs to
+      try {
+        const studentRecord = await prisma.user.findUnique({
+          where: { id: studentId },
+          select: { id: true, prn: true, email: true },
+        });
+
+        const enrollments = await prisma.sectionStudent.findMany({
+          where: {
+            OR: [
+              { studentId },
+              ...(studentRecord?.prn ? [{ prn: studentRecord.prn }] : []),
+            ],
+            status: 'ENROLLED',
+          },
+          select: { sectionId: true },
+        });
+
+        const sectionIds = enrollments.map((e) => e.sectionId);
+
+        if (sectionIds.length > 0) {
+          const publishedTests = await prisma.assessmentTest.findMany({
+            where: {
+              sectionId: { in: sectionIds },
+              status: 'PUBLISHED',
+            },
+            select: { id: true },
+          });
+
+          for (const t of publishedTests) {
+            await prisma.assessmentTestAssignment.upsert({
+              where: {
+                testId_studentId: {
+                  testId: t.id,
+                  studentId,
+                },
+              },
+              update: {},
+              create: {
+                testId: t.id,
+                studentId,
+                status: 'ASSIGNED',
+              },
+            });
+          }
+        }
+      } catch (syncErr) {
+        console.warn('Auto-sync student test assignments error:', syncErr);
+      }
+
       const assignments = await prisma.assessmentTestAssignment.findMany({
         where: { studentId },
         include: {

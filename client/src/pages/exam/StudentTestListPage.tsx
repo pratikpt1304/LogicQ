@@ -1,7 +1,8 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import { toast } from 'sonner';
 import {
   FileText,
   Clock,
@@ -14,13 +15,32 @@ import {
   Lock,
   Award,
   Layers,
+  KeyRound,
+  Plus,
 } from 'lucide-react';
 
 export const StudentTestListPage: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [joinCode, setJoinCode] = useState('');
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: () => api.get('/exam/my-tests'),
     refetchOnWindowFocus: false,
+  });
+
+  const joinMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await api.post('/sections/enroll-by-code', { joinCode: code });
+    },
+    onSuccess: (res: any) => {
+      toast.success(res?.message || 'Joined section successfully! Tests unlocked.');
+      setJoinCode('');
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Invalid join code or section not found.');
+    },
   });
 
   const assignments = data?.data || data?.assignments || [];
@@ -77,20 +97,53 @@ export const StudentTestListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Empty State with Direct Join Code Input */}
       {!isLoading && !error && assignments.length === 0 && (
-        <div className="glass-card p-12 text-center rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col items-center justify-center">
-          <BookOpen className="w-12 h-12 text-[var(--color-accent)] mb-4" />
-          <h3 className="text-lg font-semibold text-[var(--text-main)]">No Tests Assigned Yet</h3>
-          <p className="text-sm text-[var(--text-muted)] max-w-md mt-1 mb-6 font-normal">
-            Your course faculty has not scheduled any assessment tests for your section yet. Once assigned, they will appear here automatically.
-          </p>
-          <Link
-            to="/practice"
-            className="px-5 py-2.5 rounded-xl bg-[var(--color-accent)] hover:opacity-95 text-[#0C0F1F] font-bold text-sm transition-all shadow-md"
+        <div className="glass-card p-8 sm:p-12 text-center rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col items-center justify-center space-y-4 shadow-sm">
+          <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+            <KeyRound className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-[var(--text-main)]">Enroll in Your Section to View Tests</h3>
+            <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-lg mt-1 font-normal leading-relaxed">
+              Assessment tests are assigned to academic class sections. Enter the 6-character Join Code provided by your professor (e.g. <b>LQ-DC85</b>) to enroll and immediately unlock your tests:
+            </p>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (joinCode.trim()) {
+                joinMutation.mutate(joinCode.trim());
+              }
+            }}
+            className="w-full max-w-md flex flex-col sm:flex-row items-center gap-2 pt-2"
           >
-            Continue Practice Track
-          </Link>
+            <input
+              type="text"
+              placeholder="e.g. LQ-DC85"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] font-mono text-center sm:text-left text-sm font-bold tracking-widest placeholder:tracking-normal placeholder:font-normal focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              type="submit"
+              disabled={joinMutation.isPending || !joinCode.trim()}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs font-mono transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{joinMutation.isPending ? 'Enrolling...' : 'Join Section & Load Tests'}</span>
+            </button>
+          </form>
+
+          <div className="pt-2">
+            <Link
+              to="/practice"
+              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] underline transition-colors"
+            >
+              Or continue with self-paced Practice Track →
+            </Link>
+          </div>
         </div>
       )}
 

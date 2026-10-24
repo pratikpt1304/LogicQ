@@ -56,6 +56,13 @@ export class AssessmentTestController {
         facultyId
       );
 
+      // Auto-assign to all currently enrolled section students immediately
+      try {
+        await AssessmentTestService.assignTestToSection(test.id, facultyId);
+      } catch (assignErr) {
+        console.warn('Auto assign to section failed:', assignErr);
+      }
+
       return res.status(201).json({
         success: true,
         message: 'Assessment test created and assigned to section roster.',

@@ -211,4 +211,30 @@ export class SectionController {
       return res.status(400).json({ success: false, message: err.message || 'Failed to join section.' });
     }
   }
+
+  /**
+   * POST /api/sections/enroll-by-code - Authenticated student joins by code & unlocks tests
+   */
+  static async enrollByCode(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const studentId = user.userId || user.id;
+      const { joinCode } = req.body;
+
+      if (!joinCode || typeof joinCode !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Join code is required.',
+        });
+      }
+
+      const result = await SectionService.enrollStudentByCode(studentId, joinCode);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Failed to enroll in section.',
+      });
+    }
+  }
 }

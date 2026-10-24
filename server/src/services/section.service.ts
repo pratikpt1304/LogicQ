@@ -569,4 +569,87 @@ export class SectionService {
       },
     };
   }
+
+  /**
+   * Directly enroll an authenticated student into a section via join code & assign all published tests
+   */
+  static async enrollStudentByCode(studentId: string, joinCode: string) {
+    const cleanCode = joinCode.trim().toUpperCase();
+    const section = await prisma.section.findFirst({
+      where: {
+        OR: [{ joinCode: cleanCode }, { joinToken: cleanCode }],
+        isActive: true,
+      },
+    });
+
+    if (!section) {
+      throw new Error(`Section with code "${cleanCode}" not found or inactive.`);
+    }
+
+    const studentUser = await prisma.user.findUnique({
+      where: { id: studentId },
+    });
+
+    if (!studentUser) {
+      throw new Error('Student user not found.');
+    }
+
+    // Upsert enrollment
+    await prisma.sectionStudent.upsert({
+      where: {
+        sectionId_studentId: {
+          sectionId: section.id,
+          studentId,
+        },
+      },
+      update: {
+        status: 'ENROLLED',
+      },
+      create: {
+        sectionId: section.id,
+        studentId,
+        prn: studentUser.prn || 'PRN_' + studentId.slice(0, 8),
+        status: 'ENROLLED',
+        joinedVia: 'JOIN_CODE',
+      },
+    });
+
+    // Automatically assign all published tests of this section to the student!
+    const publishedTests = await prisma.assessmentTest.findMany({
+      where: {
+        sectionId: section.id,
+        status: 'PUBLISHED',
+      },
+    });
+
+    for (const t of publishedTests) {
+      await prisma.assessmentTestAssignment.upsert({
+        where: {
+          testId_studentId: {
+            testId: t.id,
+            studentId,
+          },
+        },
+        update: {},
+        create: {
+          testId: t.id,
+          studentId,
+          status: 'ASSIGNED',
+        },
+      });
+    }
+
+    return {
+      success: true,
+      enrolled: true,
+      message: `Successfully joined ${section.sectionName} (${section.subject})! Tests are now available.`,
+      section: {
+        id: section.id,
+        sectionName: section.sectionName,
+        course: section.course,
+        subject: section.subject,
+      },
+      assignedTestsCount: publishedTests.length,
+    };
+  }
 }

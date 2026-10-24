@@ -11,6 +11,7 @@ sectionRoutes.get('/join-info/:tokenOrCode', SectionController.getPublicJoinInfo
 sectionRoutes.post('/instant-join', SectionController.instantJoin);
 sectionRoutes.post('/send-email-otp', OtpController.sendEmailOtp);
 sectionRoutes.post('/verify-email-otp', OtpController.verifyEmailOtp);
+sectionRoutes.post('/enroll-by-code', authenticate, SectionController.enrollByCode);
 
 // Faculty & Admin authenticated routes
 sectionRoutes.post('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.createSection);
