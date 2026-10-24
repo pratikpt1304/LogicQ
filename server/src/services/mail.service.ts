@@ -198,7 +198,7 @@ class ChainedMailService implements IMailService {
 }
 
 export function getMailService(): IMailService {
-  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbxjaWOh9cU5QuwsoW30kQsRmYRb8AFO0_O8_wXXezLFJb-B0v_CCyZPKDTDcd1qBKV3/exec';
+  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec';
   if (gasUrl) {
     return new GoogleAppsScriptMailService(gasUrl);
   }
