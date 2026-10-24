@@ -1093,19 +1093,10 @@ export const ProfilePage: React.FC = () => {
                 type="button"
                 onClick={handleOpenEdit}
                 data-testid="edit-profile-btn"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors shadow-sm"
               >
                 <Edit3 className="w-3.5 h-3.5 text-[#8B9BFF]" />
                 <span>Profile Settings</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleExportData}
-                data-testid="export-data-btn"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-[#46D9A0]" />
-                <span>Export Data</span>
               </button>
               <button
                 type="button"
@@ -1124,12 +1115,12 @@ export const ProfilePage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={handleDeleteAccount}
-                data-testid="delete-account-btn"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#FF7A8A] bg-[#FF7A8A]/10 hover:bg-[#FF7A8A]/20 border border-[#FF7A8A]/30 transition-colors"
+                onClick={handleExportData}
+                data-testid="export-data-btn"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Account</span>
+                <Download className="w-3.5 h-3.5 text-[#46D9A0]" />
+                <span>Export Data</span>
               </button>
             </div>
           )}
@@ -1168,54 +1159,6 @@ export const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Secondary Standing & Mastery Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div data-testid="profile-best-daily-rank" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[#9AA1C4]">BEST DAILY RANK</span>
-            <Trophy className="w-5 h-5 text-[var(--color-warning)]" />
-          </div>
-          <div className="text-2xl font-extrabold text-[#E8EAF6] font-mono">
-            {profile.bestDailyRank ? `#${profile.bestDailyRank}` : (profile.rank ? `#${profile.rank}` : '—')}
-          </div>
-          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
-            Personal record across daily challenge finalizations
-          </p>
-        </div>
-
-        <div data-testid="profile-accuracy-rate" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[#9AA1C4]">ACCURACY RATE</span>
-            <Target className="w-5 h-5 text-[#8B9BFF]" />
-          </div>
-          <div className="text-2xl font-extrabold text-[#8B9BFF] font-mono">
-            {profile.accuracy !== null && profile.accuracy !== undefined ? (
-              <>
-                {profile.accuracy}%
-                <span className="text-xs text-[#9AA1C4] font-normal ml-1">accepted</span>
-              </>
-            ) : (
-              <span className="text-[#9AA1C4]">—</span>
-            )}
-          </div>
-          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
-            {profile.accuracy !== null ? 'Evaluated accepted solve rate' : 'No submissions recorded yet'}
-          </p>
-        </div>
-
-        <div data-testid="profile-streak-freeze" className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono text-[#9AA1C4]">STREAK FREEZE</span>
-            <ShieldCheck className="w-5 h-5 text-[#46D9A0]" />
-          </div>
-          <div className="text-xl font-extrabold text-[#46D9A0] font-mono">
-            {profile.streakFreezeStatus || '1 Auto Freeze / 7 Days'}
-          </div>
-          <p className="text-[11px] font-mono text-[#9AA1C4] mt-1">
-            Automatic protection for 1 missed challenge day per 7-day rolling window
-          </p>
-        </div>
-      </div>
 
       {/* Solved by Difficulty Breakdown */}
       <div className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
@@ -1248,440 +1191,274 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       {/* Practice Curriculum Mastery & Module Progress */}
-      {profile.practiceStats && (
-        <div data-testid="profile-practice-mastery" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#252C4F] pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[#8B9BFF]" />
-                <h2 className="text-base font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
-                  Practice Curriculum Mastery
-                </h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/30 font-semibold">
-                  4 Modules • 40 Problems
-                </span>
+      {(() => {
+        const stats = profile.practiceStats || {
+          totalSolved: profile.totalSolved || 0,
+          totalQuestions: 80,
+          percentage: Math.min(100, Math.round(((profile.totalSolved || 0) / 80) * 100)),
+          easySolved: solvedByDiff.EASY ?? solvedByDiff.easy ?? 0,
+          mediumSolved: solvedByDiff.MEDIUM ?? solvedByDiff.medium ?? 0,
+          hardSolved: solvedByDiff.HARD ?? solvedByDiff.hard ?? 0,
+          totalActiveSeconds: 0,
+          firstAttemptAcceptedCount: 0,
+          modules: [
+            { id: '1', order: 1, title: 'Branching & Decisions', totalQuestions: 20, solvedCount: Math.min(20, profile.totalSolved || 0), percentage: Math.min(100, Math.round((Math.min(20, profile.totalSolved || 0) / 20) * 100)), isUnlocked: true, isCompleted: (profile.totalSolved || 0) >= 20 },
+            { id: '2', order: 2, title: 'Loops & Iteration', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 20)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 20)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 20, isCompleted: (profile.totalSolved || 0) >= 40 },
+            { id: '3', order: 3, title: 'Arrays & Matrices', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 40)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 40)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 40, isCompleted: (profile.totalSolved || 0) >= 60 },
+            { id: '4', order: 4, title: 'Pointers & Dynamic Memory', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 60)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 60)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 60, isCompleted: (profile.totalSolved || 0) >= 80 },
+          ],
+        };
+
+        const totalQ = stats.totalQuestions || 80;
+        const easyQ = Math.round(totalQ * 0.4);
+        const medQ = Math.round(totalQ * 0.4);
+        const hardQ = totalQ - easyQ - medQ;
+
+        return (
+          <div data-testid="profile-practice-mastery" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#252C4F] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-[#8B9BFF]" />
+                  <h2 className="text-base font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
+                    Practice Curriculum Mastery
+                  </h2>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/30 font-semibold">
+                    4 Modules • {totalQ} Problems
+                  </span>
+                </div>
+                <p className="text-xs font-mono text-[#9AA1C4] mt-1">
+                  Structured C programming curriculum from Control Structures to Dynamic Memory
+                </p>
               </div>
-              <p className="text-xs font-mono text-[#9AA1C4] mt-1">
-                4-phase structured C programming curriculum from Control Structures to Dynamic Memory
-              </p>
-            </div>
-            <Link
-              to="/practice"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#8B9BFF]/10 hover:bg-[#8B9BFF]/20 text-[#8B9BFF] border border-[#8B9BFF]/30 text-xs font-mono font-semibold transition-colors self-start sm:self-auto"
-            >
-              <span>Go to Practice Arena</span>
-              <span>→</span>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            {/* Left: LeetCode-style Donut Progress Ring */}
-            <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]/80">
-              <div className="relative w-44 h-44 flex items-center justify-center">
-                {/* SVG Donut */}
-                {(() => {
-                  const size = 160;
-                  const strokeWidth = 14;
-                  const radius = (size - strokeWidth) / 2;
-                  const circumference = 2 * Math.PI * radius;
-
-                  const total = profile.practiceStats.totalQuestions || 40;
-                  const easy = profile.practiceStats.easySolved || 0;
-                  const medium = profile.practiceStats.mediumSolved || 0;
-                  const hard = profile.practiceStats.hardSolved || 0;
-
-                  // Arc lengths
-                  const easyLen = total > 0 ? (easy / total) * circumference : 0;
-                  const medLen = total > 0 ? (medium / total) * circumference : 0;
-                  const hardLen = total > 0 ? (hard / total) * circumference : 0;
-
-                  // Dash offsets (starting from top -90deg)
-                  const easyOffset = 0;
-                  const medOffset = -easyLen;
-                  const hardOffset = -(easyLen + medLen);
-
-                  return (
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-                      {/* Background Track */}
-                      <circle
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="#1F2647"
-                        strokeWidth={strokeWidth}
-                      />
-                      {/* Easy Arc */}
-                      {easy > 0 && (
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#46D9A0"
-                          strokeWidth={strokeWidth}
-                          strokeDasharray={`${easyLen} ${circumference}`}
-                          strokeDashoffset={easyOffset}
-                          strokeLinecap="round"
-                        />
-                      )}
-                      {/* Medium Arc */}
-                      {medium > 0 && (
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#8B9BFF"
-                          strokeWidth={strokeWidth}
-                          strokeDasharray={`${medLen} ${circumference}`}
-                          strokeDashoffset={medOffset}
-                          strokeLinecap="round"
-                        />
-                      )}
-                      {/* Hard Arc */}
-                      {hard > 0 && (
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#FF7A8A"
-                          strokeWidth={strokeWidth}
-                          strokeDasharray={`${hardLen} ${circumference}`}
-                          strokeDashoffset={hardOffset}
-                          strokeLinecap="round"
-                        />
-                      )}
-                    </svg>
-                  );
-                })()}
-
-                {/* Center Content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="text-2xl font-extrabold font-mono text-[#E8EAF6] tracking-tight">
-                    {profile.practiceStats.totalSolved}
-                    <span className="text-xs text-[#9AA1C4] font-normal">/{profile.practiceStats.totalQuestions || 40}</span>
-                  </span>
-                  <span className="text-[10px] font-mono text-[#9AA1C4] uppercase tracking-wider">
-                    Solved
-                  </span>
-                  <span className="text-[11px] font-mono font-bold text-[#8B9BFF] mt-0.5">
-                    {profile.practiceStats.percentage}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Difficulty Breakdown Badges Under Donut */}
-              <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-[#252C4F]">
-                <div className="text-center">
-                  <div className="text-[10px] font-mono font-semibold text-[#46D9A0] flex items-center justify-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#46D9A0]" />
-                    Easy
-                  </div>
-                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                    {profile.practiceStats.easySolved}
-                    <span className="text-[10px] text-[#9AA1C4] font-normal">/16</span>
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <div className="text-[10px] font-mono font-semibold text-[#8B9BFF] flex items-center justify-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#8B9BFF]" />
-                    Med
-                  </div>
-                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                    {profile.practiceStats.mediumSolved}
-                    <span className="text-[10px] text-[#9AA1C4] font-normal">/16</span>
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <div className="text-[10px] font-mono font-semibold text-[#FF7A8A] flex items-center justify-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A8A]" />
-                    Hard
-                  </div>
-                  <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                    {profile.practiceStats.hardSolved}
-                    <span className="text-[10px] text-[#9AA1C4] font-normal">/8</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Practice telemetry: Active time & 1st attempt solve */}
-              {(profile.practiceStats.totalActiveSeconds > 0 || profile.practiceStats.firstAttemptAcceptedCount > 0) && (
-                <div className="flex items-center justify-between w-full mt-3 px-1 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]/60">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-[#8B9BFF]" />
-                    {profile.practiceStats.totalActiveSeconds >= 3600
-                      ? `${Math.floor(profile.practiceStats.totalActiveSeconds / 3600)}h ${Math.floor((profile.practiceStats.totalActiveSeconds % 3600) / 60)}m`
-                      : `${Math.round(profile.practiceStats.totalActiveSeconds / 60)} mins`}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-[#46D9A0]" />
-                    {profile.practiceStats.firstAttemptAcceptedCount} first-try
-                  </span>
-                </div>
-              )}
+              <Link
+                to="/practice"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#8B9BFF]/10 hover:bg-[#8B9BFF]/20 text-[#8B9BFF] border border-[#8B9BFF]/30 text-xs font-mono font-semibold transition-colors self-start sm:self-auto"
+              >
+                <span>Go to Practice Arena</span>
+                <span>→</span>
+              </Link>
             </div>
 
-            {/* Right: 4 Module Progress Bars */}
-            <div className="md:col-span-7 space-y-3">
-              <div className="text-xs font-mono font-semibold text-[#9AA1C4] uppercase tracking-wider mb-1 flex items-center justify-between">
-                <span>Modules Curriculum Progress</span>
-                <span className="text-[10px] text-[#8B9BFF]">{profile.practiceStats.totalSolved} of {profile.practiceStats.totalQuestions || 40} completed</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              {/* Left: Donut Progress Ring */}
+              <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]/80">
+                <div className="relative w-44 h-44 flex items-center justify-center">
+                  {(() => {
+                    const size = 160;
+                    const strokeWidth = 14;
+                    const radius = (size - strokeWidth) / 2;
+                    const circumference = 2 * Math.PI * radius;
 
-              {(profile.practiceStats.modules || []).map((mod: any) => {
-                const isLocked = !mod.isUnlocked;
-                const isDone = mod.isCompleted;
+                    const total = totalQ;
+                    const easy = stats.easySolved || 0;
+                    const medium = stats.mediumSolved || 0;
+                    const hard = stats.hardSolved || 0;
 
-                return (
-                  <div
-                    key={mod.id}
-                    className={`p-3.5 rounded-xl border transition-all ${
-                      isDone
-                        ? 'bg-[#0C0F1F] border-[#46D9A0]/30 hover:border-[#46D9A0]/50'
-                        : isLocked
-                        ? 'bg-[#0C0F1F]/50 border-[#252C4F]/40 opacity-70'
-                        : 'bg-[#0C0F1F] border-[#8B9BFF]/30 hover:border-[#8B9BFF]/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-mono font-bold text-[#8B9BFF] px-1.5 py-0.5 rounded bg-[#8B9BFF]/10 shrink-0">
-                          M{mod.order}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-[#E8EAF6] truncate">
-                          {mod.title}
-                        </span>
-                      </div>
+                    const easyLen = total > 0 ? (easy / total) * circumference : 0;
+                    const medLen = total > 0 ? (medium / total) * circumference : 0;
+                    const hardLen = total > 0 ? (hard / total) * circumference : 0;
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isDone ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#46D9A0] bg-[#46D9A0]/10 px-2 py-0.5 rounded-full border border-[#46D9A0]/30">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Completed
-                          </span>
-                        ) : isLocked ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#9AA1C4] bg-[#252C4F]/30 px-2 py-0.5 rounded-full border border-[#252C4F]">
-                            <Lock className="w-3 h-3 text-[#9AA1C4]" />
-                            Locked
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#8B9BFF] bg-[#8B9BFF]/10 px-2 py-0.5 rounded-full border border-[#8B9BFF]/30">
-                            In Progress
-                          </span>
-                        )}
-
-                        <span className="text-xs font-mono font-bold text-[#E8EAF6]">
-                          {mod.solvedCount}/{mod.totalQuestions}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="w-full bg-[#141932] h-2 rounded-full overflow-hidden border border-[#252C4F]/50">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isDone
-                            ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                            : isLocked
-                            ? 'bg-[#252C4F]'
-                            : 'bg-gradient-to-r from-indigo-500 to-blue-400'
-                        }`}
-                        style={{ width: `${Math.max(mod.percentage, isDone ? 100 : 0)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Student Charts Section: 90-Day Challenge Streak Heatmap & 30-Day Daily Rank Trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart A: Challenge Streak Heatmap (90 Days) */}
-        <div data-testid="profile-streak-heatmap" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#8B9BFF]" />
-                <span>Challenge Streak Heatmap</span>
-              </h3>
-              <p className="text-[11px] font-mono text-[#9AA1C4] mt-0.5">
-                Past 90 challenge days cadence
-              </p>
-            </div>
-            <span className="text-[11px] font-mono text-[#46D9A0] font-semibold">90 Days</span>
-          </div>
-
-          {/* 90-Day Grid */}
-          <div className="py-2 overflow-x-auto">
-            {(() => {
-              const heatmapList = profile.streakHeatmap90d && profile.streakHeatmap90d.length > 0
-                ? profile.streakHeatmap90d
-                : Array.from({ length: 90 }, (_, i) => {
-                    const d = new Date(Date.now() - (89 - i) * 86400000).toISOString().slice(0, 10);
-                    return { date: d, status: 'missed', points: 0 };
-                  });
-
-              return (
-                <div className="grid grid-flow-col grid-rows-7 gap-1.5 min-w-[500px] py-1">
-                  {heatmapList.map((day: any) => {
-                    let tileClass = 'bg-[#0C0F1F] border-[#252C4F]/60';
-                    let label = `${day.date}: Missed`;
-                    if (day.status === 'solved') {
-                      tileClass = 'bg-emerald-500 border-emerald-400 shadow-sm shadow-emerald-500/30';
-                      label = `${day.date}: Solved (+${day.points || 20} PTS)`;
-                    } else if (day.status === 'frozen') {
-                      tileClass = 'bg-cyan-400 border-cyan-300 shadow-sm shadow-cyan-400/30';
-                      label = `${day.date}: Streak Freeze Used`;
-                    } else if (day.status === 'paused') {
-                      tileClass = 'bg-amber-400 border-amber-300 shadow-sm shadow-amber-400/30';
-                      label = `${day.date}: Admin Paused Day`;
-                    }
+                    const easyOffset = 0;
+                    const medOffset = -easyLen;
+                    const hardOffset = -(easyLen + medLen);
 
                     return (
-                      <div
-                        key={day.date}
-                        title={label}
-                        className={`w-3.5 h-3.5 rounded-sm border ${tileClass} transition-transform hover:scale-125 cursor-pointer`}
-                      />
+                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
+                        <circle
+                          cx={size / 2}
+                          cy={size / 2}
+                          r={radius}
+                          fill="none"
+                          stroke="#1F2647"
+                          strokeWidth={strokeWidth}
+                        />
+                        {easy > 0 && (
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            fill="none"
+                            stroke="#46D9A0"
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={`${easyLen} ${circumference}`}
+                            strokeDashoffset={easyOffset}
+                            strokeLinecap="round"
+                          />
+                        )}
+                        {medium > 0 && (
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            fill="none"
+                            stroke="#8B9BFF"
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={`${medLen} ${circumference}`}
+                            strokeDashoffset={medOffset}
+                            strokeLinecap="round"
+                          />
+                        )}
+                        {hard > 0 && (
+                          <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            fill="none"
+                            stroke="#FF7A8A"
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={`${hardLen} ${circumference}`}
+                            strokeDashoffset={hardOffset}
+                            strokeLinecap="round"
+                          />
+                        )}
+                      </svg>
                     );
-                  })}
+                  })()}
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-2xl font-extrabold font-mono text-[#E8EAF6] tracking-tight">
+                      {stats.totalSolved}
+                      <span className="text-xs text-[#9AA1C4] font-normal">/{totalQ}</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-[#9AA1C4] uppercase tracking-wider">
+                      Solved
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-[#8B9BFF] mt-0.5">
+                      {stats.percentage}%
+                    </span>
+                  </div>
                 </div>
-              );
-            })()}
-          </div>
 
-          {/* Legend */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 border border-emerald-400" />
-              <span>Solved</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-cyan-400 border border-cyan-300" />
-              <span>Streak Freeze</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-300" />
-              <span>Admin Paused</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#0C0F1F] border border-[#252C4F]" />
-              <span>Missed</span>
-            </div>
-          </div>
-        </div>
+                <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-[#252C4F]">
+                  <div className="text-center">
+                    <div className="text-[10px] font-mono font-semibold text-[#46D9A0] flex items-center justify-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#46D9A0]" />
+                      Easy
+                    </div>
+                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                      {stats.easySolved}
+                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{easyQ}</span>
+                    </div>
+                  </div>
 
-        {/* Chart B: Daily Rank Trend (30 Days) */}
-        <div data-testid="profile-rank-trend-chart" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#46D9A0]" />
-                <span>Daily Rank Trend</span>
-              </h3>
-              <p className="text-[11px] font-mono text-[#9AA1C4] mt-0.5">
-                Trajectory over the last 30 challenge days (#1 at top)
-              </p>
-            </div>
-            <span className="text-[11px] font-mono text-[#8B9BFF] font-semibold">30 Days</span>
-          </div>
+                  <div className="text-center">
+                    <div className="text-[10px] font-mono font-semibold text-[#8B9BFF] flex items-center justify-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#8B9BFF]" />
+                      Med
+                    </div>
+                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                      {stats.mediumSolved}
+                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{medQ}</span>
+                    </div>
+                  </div>
 
-          {/* SVG Trend Line */}
-          {(() => {
-            const raw30 = profile.rankHistory30d && profile.rankHistory30d.length > 0
-              ? profile.rankHistory30d
-              : Array.from({ length: 30 }, (_, i) => {
-                  const d = new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10);
-                  return { date: d, rank: null, points: 0 };
-                });
+                  <div className="text-center">
+                    <div className="text-[10px] font-mono font-semibold text-[#FF7A8A] flex items-center justify-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A8A]" />
+                      Hard
+                    </div>
+                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
+                      {stats.hardSolved}
+                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{hardQ}</span>
+                    </div>
+                  </div>
+                </div>
 
-            const pointsCoords = raw30.map((entry: any, idx: number) => {
-              const x = 35 + (idx * (550 / 29));
-              let y = 135; // unranked baseline
-              if (entry.rank !== null && entry.rank > 0) {
-                const clampedRank = Math.min(25, entry.rank);
-                y = 20 + ((clampedRank - 1) / 24) * 95;
-              }
-              return { ...entry, x, y };
-            });
-
-            const pathD = pointsCoords
-              .map((p: any, idx: number) => (idx === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
-              .join(' ');
-
-            const areaD = `${pathD} L ${pointsCoords[pointsCoords.length - 1].x} 140 L ${pointsCoords[0].x} 140 Z`;
-
-            return (
-              <div className="relative pt-1">
-                {hoveredTrendDay && (
-                  <div className="absolute top-0 right-0 bg-[#0C0F1F] border border-[#252C4F] px-2.5 py-1 rounded-lg text-[11px] font-mono text-[#E8EAF6] shadow-lg pointer-events-none z-10">
-                    <span className="text-[#8B9BFF] font-bold">{hoveredTrendDay.date}</span>: {hoveredTrendDay.rank ? `Rank #${hoveredTrendDay.rank}` : 'Unranked'} ({hoveredTrendDay.points ? `+${hoveredTrendDay.points} PTS` : '0 PTS'})
+                {(stats.totalActiveSeconds > 0 || stats.firstAttemptAcceptedCount > 0) && (
+                  <div className="flex items-center justify-between w-full mt-3 px-1 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]/60">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[#8B9BFF]" />
+                      {stats.totalActiveSeconds >= 3600
+                        ? `${Math.floor(stats.totalActiveSeconds / 3600)}h ${Math.floor((stats.totalActiveSeconds % 3600) / 60)}m`
+                        : `${Math.round(stats.totalActiveSeconds / 60)} mins`}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-[#46D9A0]" />
+                      {stats.firstAttemptAcceptedCount} first-try
+                    </span>
                   </div>
                 )}
-                <svg viewBox="0 0 600 150" className="w-full h-36 overflow-visible">
-                  <defs>
-                    <linearGradient id="rankTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8B9BFF" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#8B9BFF" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Horizontal Guide Lines */}
-                  <line x1="30" y1="20" x2="590" y2="20" stroke="#252C4F" strokeDasharray="3 3" />
-                  <text x="25" y="24" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#1</text>
-
-                  <line x1="30" y1="67" x2="590" y2="67" stroke="#252C4F" strokeDasharray="3 3" />
-                  <text x="25" y="71" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#10</text>
-
-                  <line x1="30" y1="115" x2="590" y2="115" stroke="#252C4F" strokeDasharray="3 3" />
-                  <text x="25" y="119" fill="#9AA1C4" fontSize="9" textAnchor="end" fontFamily="monospace">#25</text>
-
-                  <line x1="30" y1="135" x2="590" y2="135" stroke="#252C4F" strokeWidth="1" />
-                  <text x="25" y="138" fill="#9AA1C4" fontSize="8" textAnchor="end" fontFamily="monospace">—</text>
-
-                  {/* Gradient Area */}
-                  <path d={areaD} fill="url(#rankTrendGrad)" />
-
-                  {/* Trend Polyline */}
-                  <path d={pathD} fill="none" stroke="#8B9BFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-                  {/* Nodes */}
-                  {pointsCoords.map((p: any, idx: number) => {
-                    const isRanked = p.rank !== null && p.rank > 0;
-                    return (
-                      <circle
-                        key={idx}
-                        cx={p.x}
-                        cy={p.y}
-                        r={isRanked ? 4 : 2.5}
-                        fill={isRanked ? '#46D9A0' : '#252C4F'}
-                        stroke={isRanked ? '#0C0F1F' : '#9AA1C4'}
-                        strokeWidth="1.5"
-                        className="cursor-pointer transition-all hover:r-6"
-                        onMouseEnter={() => setHoveredTrendDay(p)}
-                        onMouseLeave={() => setHoveredTrendDay(null)}
-                      />
-                    );
-                  })}
-                </svg>
-
-                <div className="flex justify-between text-[10px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]">
-                  <span>30 days ago</span>
-                  <span>15 days ago</span>
-                  <span>Today</span>
-                </div>
               </div>
-            );
-          })()}
-        </div>
-      </div>
+
+              {/* Right: 4 Module Progress Bars */}
+              <div className="md:col-span-7 space-y-3">
+                <div className="text-xs font-mono font-semibold text-[#9AA1C4] uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Modules Curriculum Progress</span>
+                  <span className="text-[10px] text-[#8B9BFF]">{stats.totalSolved} of {totalQ} completed</span>
+                </div>
+
+                {(stats.modules || []).map((mod: any) => {
+                  const isLocked = !mod.isUnlocked;
+                  const isDone = mod.isCompleted;
+
+                  return (
+                    <div
+                      key={mod.id}
+                      className={`p-3.5 rounded-xl border transition-all ${
+                        isDone
+                          ? 'bg-[#0C0F1F] border-[#46D9A0]/30 hover:border-[#46D9A0]/50'
+                          : isLocked
+                          ? 'bg-[#0C0F1F]/50 border-[#252C4F]/40 opacity-70'
+                          : 'bg-[#0C0F1F] border-[#8B9BFF]/30 hover:border-[#8B9BFF]/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs font-mono font-bold text-[#8B9BFF] px-1.5 py-0.5 rounded bg-[#8B9BFF]/10 shrink-0">
+                            M{mod.order}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-[#E8EAF6] truncate">
+                            {mod.title}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isDone ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#46D9A0] bg-[#46D9A0]/10 px-2 py-0.5 rounded-full border border-[#46D9A0]/30">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Completed
+                            </span>
+                          ) : isLocked ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#9AA1C4] bg-[#252C4F]/30 px-2 py-0.5 rounded-full border border-[#252C4F]">
+                              <Lock className="w-3 h-3 text-[#9AA1C4]" />
+                              Locked
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#8B9BFF] bg-[#8B9BFF]/10 px-2 py-0.5 rounded-full border border-[#8B9BFF]/30">
+                              In Progress
+                            </span>
+                          )}
+
+                          <span className="text-xs font-mono font-bold text-[#E8EAF6]">
+                            {mod.solvedCount}/{mod.totalQuestions}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-[#141932] h-2 rounded-full overflow-hidden border border-[#252C4F]/50">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isDone
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                              : isLocked
+                              ? 'bg-[#252C4F]'
+                              : 'bg-gradient-to-r from-indigo-500 to-blue-400'
+                          }`}
+                          style={{ width: `${Math.max(mod.percentage, isDone ? 100 : 0)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+
 
       {/* Real Recent Submissions Table & Code Modal */}
       <div data-testid="profile-recent-submissions-card" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
@@ -1776,10 +1553,6 @@ export const ProfilePage: React.FC = () => {
         )}
       </div>
 
-      {/* Practice Verification & Performance Audit Report */}
-      {(isOwnProfile || currentUser?.role === 'ADMIN') && profile && (
-        <PracticeReportView user={profile} />
-      )}
         </div>
       )}
 
