@@ -311,26 +311,6 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </Link>
 
-              {/* Question Bank & AI */}
-              <Link
-                to="/faculty/questions"
-                className="glass-card p-6 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-purple-500/50 hover:bg-[var(--bg-surface)] transition-all group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-                    <Sparkles className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-bold text-base text-[var(--text-main)] mb-1">Question Bank & AI</h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    Browse the 80-problem repository, author custom C coding challenges, and generate test cases with Gemini AI.
-                  </p>
-                </div>
-                <div className="mt-5 pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono text-purple-400 font-semibold">
-                  <span>Author Problems</span>
-                  <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                </div>
-              </Link>
-
               {/* Cohort Analytics */}
               <Link
                 to="/faculty/analytics"

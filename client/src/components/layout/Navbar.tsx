@@ -67,7 +67,6 @@ export const Navbar: React.FC = () => {
         { label: 'Dashboard', path: '/dashboard', icon: Home },
         { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
         { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
-        { label: 'Question Bank', path: '/faculty/questions', icon: Sparkles },
         ...(isAdmin ? [{ label: 'Admin Console', path: '/admin', icon: ShieldCheck }] : []),
         { label: 'Analytics', path: '/faculty/analytics', icon: Brain },
       ];
@@ -281,14 +280,6 @@ export const Navbar: React.FC = () => {
                           >
                             <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
                             <span>Sections & Rosters</span>
-                          </Link>
-                          <Link
-                            to="/faculty/questions"
-                            onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                            <span>Question Bank & AI</span>
                           </Link>
                           <Link
                             to="/faculty/tests"
