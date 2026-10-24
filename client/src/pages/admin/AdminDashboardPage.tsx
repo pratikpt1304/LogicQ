@@ -3772,19 +3772,19 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Student Activity Inspector Modal */}
       {selectedActivityUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-4xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[92vh] space-y-6">
+          <div className="w-full max-w-4xl glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[92vh] space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-line)]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
                   <Activity className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-white font-mono">
+                    <h3 className="text-lg font-bold text-[var(--text-main)] font-mono">
                       {selectedActivityUser.displayName || selectedActivityUser.fullName || selectedActivityUser.username}
                     </h3>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-[var(--text-muted)] font-mono">
                       (@{selectedActivityUser.username})
                     </span>
                     {selectedActivityUser.isBanned ? (
@@ -3797,7 +3797,7 @@ export const AdminDashboardPage: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 font-mono">
+                  <p className="text-xs text-[var(--text-muted)] font-mono font-medium">
                     {selectedActivityUser.email}
                   </p>
                 </div>
@@ -3883,7 +3883,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedActivityUser(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+                  className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition cursor-pointer"
                   title="Close inspector"
                 >
                   <X className="w-5 h-5" />
@@ -3893,36 +3893,36 @@ export const AdminDashboardPage: React.FC = () => {
 
             {/* Academic Profile & Summary Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-slate-500 uppercase block">PRN</span>
-                <span className="text-xs font-mono font-bold text-cyan-300">
+              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">PRN</span>
+                <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
                   {revealedPrns[selectedActivityUser.id] ||
                     selectedActivityUser.maskedPrn ||
                     selectedActivityUser.prn ||
                     '—'}
                 </span>
               </div>
-              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-slate-500 uppercase block">College & Dept</span>
-                <span className="text-xs font-mono text-slate-200">
+              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">College & Dept</span>
+                <span className="text-xs font-mono text-[var(--text-main)] font-bold">
                   {selectedActivityUser.department || '—'}
                 </span>
-                <span className="text-[10px] text-slate-500 block">
+                <span className="text-[10px] text-[var(--text-muted)] block font-medium">
                   {selectedActivityUser.college || 'Sanjivani'}
                 </span>
               </div>
-              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-slate-500 uppercase block">Year / Div</span>
-                <span className="text-xs font-mono text-slate-200">
+              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">Year / Div</span>
+                <span className="text-xs font-mono text-[var(--text-main)] font-bold">
                   {selectedActivityUser.year || '—'} {selectedActivityUser.division ? `• Div ${selectedActivityUser.division}` : ''}
                 </span>
               </div>
-              <div className="glass-card p-3 rounded-xl border border-white/[0.06]">
-                <span className="text-[10px] font-mono text-slate-500 uppercase block">Points & Streak</span>
-                <span className="text-xs font-mono font-bold text-amber-400">
+              <div className="glass-card p-3 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">Points & Streak</span>
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
                   {selectedActivityUser.totalPoints || 0} PTS
                 </span>
-                <span className="text-[10px] text-orange-400 block font-mono">
+                <span className="text-[10px] text-orange-600 dark:text-orange-400 block font-mono font-bold">
                   {selectedActivityUser.currentStreak || 0}d streak
                 </span>
               </div>
@@ -3939,19 +3939,19 @@ export const AdminDashboardPage: React.FC = () => {
               return (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-cyan-400" />
+                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                       <span>Code Submissions Activity ({studentSubmissions.length})</span>
                     </h4>
                   </div>
                   {studentSubmissions.length === 0 ? (
-                    <div className="p-4 rounded-xl border border-dashed border-white/[0.08] text-center text-xs font-mono text-slate-500">
+                    <div className="p-4 rounded-xl border border-dashed border-[var(--border-line)] bg-[var(--bg-surface)] text-center text-xs font-mono text-[var(--text-muted)]">
                       No code submissions recorded for this student yet.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                    <div className="overflow-x-auto rounded-xl border border-[var(--border-line)]">
                       <table className="w-full text-left text-xs font-mono">
-                        <thead className="bg-dark-900/90 text-slate-400 text-[10px] uppercase border-b border-white/[0.06]">
+                        <thead className="bg-[var(--bg-surface)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-line)] font-bold">
                           <tr>
                             <th className="px-3 py-2.5">Date</th>
                             <th className="px-3 py-2.5">Challenge</th>
@@ -3961,22 +3961,22 @@ export const AdminDashboardPage: React.FC = () => {
                             <th className="px-3 py-2.5 text-right">Inspect</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
+                        <tbody className="divide-y divide-[var(--border-line)]">
                           {studentSubmissions.map((sub: any) => (
-                            <tr key={sub.id} className="hover:bg-white/[0.02]">
-                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                            <tr key={sub.id} className="hover:bg-[var(--bg-surface-hover)]">
+                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
                                 {new Date(sub.submittedAt || sub.createdAt).toLocaleDateString()}
                               </td>
-                              <td className="px-3 py-2 text-white font-medium">
+                              <td className="px-3 py-2 text-[var(--text-main)] font-medium">
                                 {sub.problem?.title || sub.problemTitle || sub.problemSlug || sub.problemId || 'Challenge'}
                               </td>
                               <td className="px-3 py-2">
                                 <VerdictBadge verdict={sub.verdict || sub.status} />
                               </td>
-                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
                                 {sub.executionTimeMs ?? sub.executionTime ?? '—'} ms / {sub.memoryUsedKb ?? sub.memoryKb ?? '—'} KB
                               </td>
-                              <td className="px-3 py-2 text-amber-400 font-bold">
+                              <td className="px-3 py-2 text-amber-600 dark:text-amber-400 font-bold">
                                 +{sub.pointsAwarded ?? sub.points ?? 0}
                               </td>
                               <td className="px-3 py-2 text-right">
@@ -3984,7 +3984,7 @@ export const AdminDashboardPage: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => setSelectedSubmissionCode(sub.code || sub.sourceCode)}
-                                    className="px-2 py-0.5 rounded text-[11px] bg-white/[0.05] hover:bg-white/[0.1] text-cyan-300 font-mono"
+                                    className="px-2 py-0.5 rounded text-[11px] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-cyan-600 dark:text-cyan-300 font-mono border border-[var(--border-line)]"
                                   >
                                     Code
                                   </button>
@@ -4011,19 +4011,19 @@ export const AdminDashboardPage: React.FC = () => {
               return (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                      <Upload className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Uploaded Files & Handwritten Assignments ({studentUploads.length})</span>
                     </h4>
                   </div>
                   {studentUploads.length === 0 ? (
-                    <div className="p-4 rounded-xl border border-dashed border-white/[0.08] text-center text-xs font-mono text-slate-500">
+                    <div className="p-4 rounded-xl border border-dashed border-[var(--border-line)] bg-[var(--bg-surface)] text-center text-xs font-mono text-[var(--text-muted)]">
                       No uploaded assignment submissions recorded for this student yet.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+                    <div className="overflow-x-auto rounded-xl border border-[var(--border-line)]">
                       <table className="w-full text-left text-xs font-mono">
-                        <thead className="bg-dark-900/90 text-slate-400 text-[10px] uppercase border-b border-white/[0.06]">
+                        <thead className="bg-[var(--bg-surface)] text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-line)] font-bold">
                           <tr>
                             <th className="px-3 py-2.5">Date</th>
                             <th className="px-3 py-2.5">Filename / Challenge</th>
@@ -4033,13 +4033,13 @@ export const AdminDashboardPage: React.FC = () => {
                             <th className="px-3 py-2.5">Comment</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/[0.04]">
+                        <tbody className="divide-y divide-[var(--border-line)]">
                           {studentUploads.map((up: any) => (
-                            <tr key={up.id} className="hover:bg-white/[0.02]">
-                              <td className="px-3 py-2 text-slate-400 text-[11px]">
+                            <tr key={up.id} className="hover:bg-[var(--bg-surface-hover)]">
+                              <td className="px-3 py-2 text-[var(--text-muted)] text-[11px]">
                                 {new Date(up.submittedAt || up.createdAt).toLocaleDateString()}
                               </td>
-                              <td className="px-3 py-2 text-white">
+                              <td className="px-3 py-2 text-[var(--text-main)] font-medium">
                                 {up.originalFilename || up.filename || up.problemTitle || 'Uploaded File'}
                               </td>
                               <td className="px-3 py-2">
@@ -4081,11 +4081,11 @@ export const AdminDashboardPage: React.FC = () => {
             })()}
 
             {/* Modal Footer */}
-            <div className="flex justify-end pt-4 border-t border-white/[0.08]">
+            <div className="flex justify-end pt-4 border-t border-[var(--border-line)]">
               <button
                 type="button"
                 onClick={() => setSelectedActivityUser(null)}
-                className="px-4 py-2 rounded-lg font-mono text-xs text-slate-300 bg-white/[0.05] hover:bg-white/[0.1] transition"
+                className="px-4 py-2 rounded-lg font-mono text-xs font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] transition cursor-pointer"
               >
                 Close Activity Inspector
               </button>
@@ -4097,20 +4097,20 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Audited Admin PRN & College Edit Modal */}
       {editingAcademicUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-4">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white font-mono">
+              <h3 className="text-base font-bold text-[var(--text-main)] font-mono">
                 Audited PRN & Academic Record Update
               </h3>
               <button
                 onClick={() => setEditingAcademicUser(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed">
               Updating PRN or College for <strong>{editingAcademicUser.email}</strong> atomically
               updates <code>prnIndex</code> and records an immutable audit log entry. Admin
               password re-authentication is required.
@@ -4128,7 +4128,7 @@ export const AdminDashboardPage: React.FC = () => {
             >
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="audit-prn" className="block text-xs font-mono text-slate-300">
+                  <label htmlFor="audit-prn" className="block text-xs font-mono text-[var(--text-main)] font-semibold">
                     New 12-Character PRN
                   </label>
                   <span className="text-[10px] font-mono text-slate-400">
@@ -4168,14 +4168,14 @@ export const AdminDashboardPage: React.FC = () => {
                       prn: prev.prn.trim().replace(/\s+/g, '').toUpperCase(),
                     }))
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white tracking-wider"
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)] tracking-wider"
                 />
                 <PrnFormatGuide value={academicEditForm.prn} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="audit-college" className="block text-xs font-mono text-slate-300 mb-1">
+                  <label htmlFor="audit-college" className="block text-xs font-mono text-[var(--text-main)] font-semibold mb-1">
                     College
                   </label>
                   <select
@@ -4184,7 +4184,7 @@ export const AdminDashboardPage: React.FC = () => {
                     onChange={(e) =>
                       setAcademicEditForm({ ...academicEditForm, college: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)]"
                   >
                     {ALLOWED_COLLEGES.map((c) => (
                       <option key={c} value={c}>
@@ -4195,7 +4195,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="audit-dept" className="block text-xs font-mono text-slate-300 mb-1">
+                  <label htmlFor="audit-dept" className="block text-xs font-mono text-[var(--text-main)] font-semibold mb-1">
                     Department
                   </label>
                   <select
@@ -4204,7 +4204,7 @@ export const AdminDashboardPage: React.FC = () => {
                     onChange={(e) =>
                       setAcademicEditForm({ ...academicEditForm, department: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)]"
                   >
                     {ALLOWED_DEPARTMENTS.map((d) => (
                       <option key={d} value={d}>
@@ -4215,7 +4215,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="audit-year" className="block text-xs font-mono text-slate-300 mb-1">
+                  <label htmlFor="audit-year" className="block text-xs font-mono text-[var(--text-main)] font-semibold mb-1">
                     Year
                   </label>
                   <select
@@ -4224,7 +4224,7 @@ export const AdminDashboardPage: React.FC = () => {
                     onChange={(e) =>
                       setAcademicEditForm({ ...academicEditForm, year: e.target.value })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)]"
                   >
                     {ALLOWED_YEARS.map((y) => (
                       <option key={y} value={y}>
@@ -4236,7 +4236,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="audit-reason" className="block text-xs font-mono text-slate-300 mb-1">
+                <label htmlFor="audit-reason" className="block text-xs font-mono text-[var(--text-main)] font-semibold mb-1">
                   Audit Reason (Required)
                 </label>
                 <input
@@ -4249,12 +4249,12 @@ export const AdminDashboardPage: React.FC = () => {
                     setAcademicEditForm({ ...academicEditForm, reason: e.target.value })
                   }
                   placeholder="e.g. Verified student ID card correction request"
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)]"
                 />
               </div>
 
               <div>
-                <label htmlFor="audit-password" className="block text-xs font-mono text-slate-300 mb-1">
+                <label htmlFor="audit-password" className="block text-xs font-mono text-[var(--text-main)] font-semibold mb-1">
                   Confirm Admin Password (Re-authentication)
                 </label>
                 <input
@@ -4266,15 +4266,15 @@ export const AdminDashboardPage: React.FC = () => {
                     setAcademicEditForm({ ...academicEditForm, adminPassword: e.target.value })
                   }
                   placeholder="Enter your admin password"
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-main)]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.06]">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border-line)]">
                 <button
                   type="button"
                   onClick={() => setEditingAcademicUser(null)}
-                  className="px-4 py-2 rounded-lg text-xs font-mono text-slate-400"
+                  className="px-4 py-2 rounded-lg text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -4294,12 +4294,12 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Code Inspection Modal */}
       {selectedSubmissionCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-2xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6">
+          <div className="w-full max-w-2xl glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-white">Inspecting Student Solution</h3>
+              <h3 className="text-base font-bold text-[var(--text-main)] font-mono">Inspecting Student Solution</h3>
               <button
                 onClick={() => setSelectedSubmissionCode(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
