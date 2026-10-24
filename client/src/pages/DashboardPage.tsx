@@ -260,44 +260,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Metrics at a Glance */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
-              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">PLATFORM ROLE</span>
-              <span className="text-xl font-extrabold text-[var(--text-main)] font-mono flex items-center gap-1.5">
-                <ShieldCheck className="w-5 h-5 text-amber-400" />
-                {isAdmin ? 'Super Admin' : 'Course Faculty'}
-              </span>
-              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Full cohort authority</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
-              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">CLOUD DATABASE</span>
-              <span className="text-xl font-extrabold text-[#46D9A0] font-mono flex items-center gap-1.5">
-                <CheckCircle2 className="w-5 h-5" />
-                Firestore Active
-              </span>
-              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Real-time sync operational</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
-              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">C CURRICULUM</span>
-              <span className="text-xl font-extrabold text-[var(--color-accent)] font-mono">
-                80 Problems
-              </span>
-              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">4 Modules + Capstone</p>
-            </div>
-
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)]">
-              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">SANDBOX JUDGE</span>
-              <span className="text-xl font-extrabold text-[#E8EAF6] font-mono flex items-center gap-1.5">
-                <Zap className="w-5 h-5 text-amber-400" />
-                Local GCC C11
-              </span>
-              <p className="text-[11px] text-[var(--text-muted)] font-mono mt-1">Isolated test evaluation</p>
-            </div>
-          </div>
-
           {/* Institutional Operations Launchpad */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
