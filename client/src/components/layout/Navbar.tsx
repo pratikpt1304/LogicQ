@@ -197,124 +197,164 @@ export const Navbar: React.FC = () => {
                 {profileDropdownOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-56 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-xl py-1.5 z-50"
+                    className="absolute right-0 mt-2 w-64 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100"
                   >
-                    <div className="px-4 py-2 border-b border-[var(--border-line)] text-xs">
-                      <p className="font-semibold text-[var(--text-main)] truncate">
-                        {user.displayName || user.fullName}
-                      </p>
-                      <p className="text-[var(--text-muted)] font-mono text-xs truncate">
-                        {user.maskedPrn || `@${user.username}`}
+                    {/* User Header */}
+                    <div className="px-3.5 py-2.5 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/50">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <p className="font-semibold text-[var(--text-main)] text-xs truncate">
+                          {user.displayName || user.fullName || user.username}
+                        </p>
+                        {isAdmin ? (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider shrink-0">
+                            Admin
+                          </span>
+                        ) : isFaculty ? (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider shrink-0">
+                            Faculty
+                          </span>
+                        ) : isChecker ? (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider shrink-0">
+                            Evaluator
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 uppercase tracking-wider shrink-0">
+                            Student
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[var(--text-muted)] font-mono text-[11px] truncate">
+                        {user.maskedPrn || user.email || `@${user.username}`}
                       </p>
                     </div>
 
-                    <Link
-                      to="/profile"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-                    >
-                      <UserIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                      <span>View Profile</span>
-                    </Link>
-
-                    <Link
-                      to="/history"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
-                    >
-                      <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                      <span>My Submissions</span>
-                    </Link>
-
-                    <Link
-                      to="/analytics"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-cyan-400 hover:bg-[var(--bg-surface)]"
-                    >
-                      <Brain className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Analytics & Reports</span>
-                    </Link>
-
-                    {!isStandalone && (
-                      <button
-                        type="button"
-                        onClick={handleInstallClick}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] text-left"
-                      >
-                        <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                        <span>Install LogicQ</span>
-                      </button>
-                    )}
-
-                    {isAdmin && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                        <span>Admin Dashboard</span>
-                      </Link>
-                    )}
-
-                    {isFaculty && (
-                      <>
+                    <div className="max-h-[80vh] overflow-y-auto py-1 divide-y divide-[var(--border-line)]">
+                      {/* Section 1: Account & Learning */}
+                      <div className="py-1">
+                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                          My Account
+                        </div>
                         <Link
-                          to="/faculty/sections"
+                          to="/profile"
                           onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-indigo-400 hover:bg-[var(--bg-surface)]"
+                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
                         >
-                          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Sections & Rosters</span>
+                          <UserIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                          <span>View Profile</span>
                         </Link>
-                        <Link
-                          to="/faculty/questions"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-purple-400 hover:bg-[var(--bg-surface)]"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                          <span>Question Bank & AI</span>
-                        </Link>
-                        <Link
-                          to="/faculty/tests"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-cyan-400 hover:bg-[var(--bg-surface)]"
-                        >
-                          <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Assign Tests (Workflow 2)</span>
-                        </Link>
-                        <Link
-                          to="/faculty/analytics"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs text-indigo-400 hover:bg-[var(--bg-surface)]"
-                        >
-                          <Brain className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Faculty Analytics</span>
-                        </Link>
-                      </>
-                    )}
 
-                    {(isChecker || isAdmin) && (
-                      <Link
-                        to="/checker/reviews"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs text-emerald-400 hover:bg-[var(--bg-surface)]"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>My Reviews (Checker)</span>
-                      </Link>
-                    )}
+                        <Link
+                          to="/history"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                        >
+                          <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                          <span>My Submissions</span>
+                        </Link>
 
-                    <div className="border-t border-[var(--border-line)] my-1"></div>
+                        <Link
+                          to="/analytics"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                        >
+                          <Brain className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                          <span>Learning Analytics</span>
+                        </Link>
 
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-[var(--color-error)] hover:bg-[var(--bg-surface)] transition-colors text-left"
-                    >
-                      <LogOut className="w-3.5 h-3.5 text-[var(--color-error)]" />
-                      <span>Sign Out</span>
-                    </button>
+                        {!isStandalone && (
+                          <button
+                            type="button"
+                            onClick={handleInstallClick}
+                            className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left"
+                          >
+                            <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                            <span>Install LogicQ App</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Section 2: Faculty Suite */}
+                      {isFaculty && (
+                        <div className="py-1">
+                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                            Faculty Portal
+                          </div>
+                          <Link
+                            to="/faculty/sections"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Sections & Rosters</span>
+                          </Link>
+                          <Link
+                            to="/faculty/questions"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Question Bank & AI</span>
+                          </Link>
+                          <Link
+                            to="/faculty/tests"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                          >
+                            <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Assign Tests</span>
+                          </Link>
+                          <Link
+                            to="/faculty/analytics"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                          >
+                            <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Cohort Analytics</span>
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* Section 3: Administration & Evaluation */}
+                      {(isAdmin || isChecker) && (
+                        <div className="py-1">
+                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                            Administration
+                          </div>
+                          {isAdmin && (
+                            <Link
+                              to="/admin"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Admin Dashboard</span>
+                            </Link>
+                          )}
+                          {(isChecker || isAdmin) && (
+                            <Link
+                              to="/checker/reviews"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Evaluator Reviews</span>
+                            </Link>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Section 4: Sign Out */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-error)] hover:bg-[var(--color-error)]/10 rounded-md mx-1 transition-colors text-left font-medium"
+                        >
+                          <LogOut className="w-3.5 h-3.5 text-[var(--color-error)]" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

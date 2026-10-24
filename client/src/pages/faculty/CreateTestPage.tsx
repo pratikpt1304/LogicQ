@@ -89,7 +89,7 @@ export const CreateTestPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
-                Create & Assign Tests (Workflow 2)
+                Create & Assign Tests
               </h1>
               <p className="text-sm text-[var(--muted-foreground)]">
                 Configure test duration, question counts, difficulty ratios (Easy/Medium/Hard), and auto-assign to section rosters.
@@ -212,7 +212,7 @@ export const CreateTestPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
                 <FileCode2 className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-[var(--foreground)]">Create & Assign Test (Workflow 2)</h3>
+                <h3 className="text-lg font-bold text-[var(--foreground)]">Create & Assign Test</h3>
               </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
