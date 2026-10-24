@@ -207,7 +207,6 @@ service cloud.firestore {
           'logicq1304@gmail.com',
           'ipworker1908@gmail.com',
           'ipverse1918@gmail.com',
-          'thoratpratik2323@gmail.com',
           'logicqarena@gmail.com'
         ])
       );

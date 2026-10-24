@@ -2487,7 +2487,6 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
 
     const explicitAdminEmails = [
       'admin@logicq.io',
-      'thoratpratik2323@gmail.com',
       'logicqarena@gmail.com',
       'hariprasathset@sanjivani.edu.in',
       'logicq1304@gmail.com',

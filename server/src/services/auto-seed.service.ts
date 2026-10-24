@@ -293,12 +293,6 @@ export async function autoSeedDatabase(): Promise<void> {
 
     const coreAdmins = [
       {
-        email: 'thoratpratik2323@gmail.com',
-        username: 'pratik_thorat',
-        fullName: 'Pratik Thorat',
-        displayName: 'Pratik Thorat (Admin)',
-      },
-      {
         email: 'logicqarena@gmail.com',
         username: 'logicqarena',
         fullName: 'LogicQ Arena Admin',
