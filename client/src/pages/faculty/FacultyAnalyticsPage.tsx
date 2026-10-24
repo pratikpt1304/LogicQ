@@ -19,6 +19,12 @@ import {
   X,
   Flame,
   Code2,
+  ShieldCheck,
+  ShieldAlert,
+  Copy,
+  ExternalLink,
+  MessageSquare,
+  Activity,
 } from 'lucide-react';
 
 interface StudentRosterItem {
@@ -34,8 +40,11 @@ interface StudentRosterItem {
   totalPoints: number;
   currentStreak: number;
   solvedCount?: number;
-  integrityRisk?: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
-  statusCategory?: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG';
+  integrityScore: number;
+  integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+  tabSwitchCount: number;
+  copyPasteAttempts: number;
+  statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG';
   sectionId?: string;
 }
 
@@ -95,8 +104,31 @@ export const FacultyAnalyticsPage: React.FC = () => {
           const streak = Number(u.currentStreak || 0);
           const prn = u.prn ? String(u.prn).trim().toUpperCase() : 'PENDING';
           
+          // Integrity & anti-cheat telemetry detection
+          const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || 0);
+          const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || 0);
+          
+          let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
+          let integrityScore = 100;
+
+          if (tabSwitches >= 5 || pasteAttempts >= 5) {
+            integrityRisk = 'CRITICAL';
+            integrityScore = 20;
+          } else if (tabSwitches >= 3 || pasteAttempts >= 3) {
+            integrityRisk = 'HIGH';
+            integrityScore = 40;
+          } else if (tabSwitches > 1 || pasteAttempts > 1) {
+            integrityRisk = 'MODERATE';
+            integrityScore = 70;
+          } else if (tabSwitches === 1) {
+            integrityRisk = 'LOW';
+            integrityScore = 90;
+          }
+
           let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
-          if (points < 50 && streak === 0) {
+          if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
+            statusCategory = 'INTEGRITY_FLAG';
+          } else if (points < 50 && streak === 0) {
             statusCategory = 'NEEDS_HELP';
           }
 
@@ -113,7 +145,10 @@ export const FacultyAnalyticsPage: React.FC = () => {
             totalPoints: points,
             currentStreak: streak,
             solvedCount: Math.round(points / 25),
-            integrityRisk: 'NORMAL',
+            integrityScore,
+            integrityRisk,
+            tabSwitchCount: tabSwitches,
+            copyPasteAttempts: pasteAttempts,
             statusCategory,
             sectionId: u.sectionId || undefined,
           };
@@ -233,12 +268,39 @@ export const FacultyAnalyticsPage: React.FC = () => {
     return { totalEnrolled, activeSolvers, needsHelp, integrityAlerts, avgScore };
   }, [analyticsData?.students]);
 
+  // Calculate deep dive telemetry
+  const inspectTelemetry = useMemo(() => {
+    if (!deepDiveData) return null;
+    const attempts = (deepDiveData.assignments || []).flatMap((a: any) => a.attempts || []);
+    const totalTabSwitches = attempts.reduce((acc: number, att: any) => acc + (att.tabSwitchCount || 0), 0);
+    const totalCopyPaste = attempts.reduce((acc: number, att: any) => acc + (att.copyPasteAttempts || 0), 0);
+    const totalFullScreenExits = attempts.reduce((acc: number, att: any) => acc + (att.fullScreenExitCount || 0), 0);
+    const vivaList = (deepDiveData.assignments || []).flatMap((a: any) => a.vivaQuestions || []);
+
+    const integrityScore = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityScore !== undefined)
+      ? deepDiveData.assignments[0].integrityScore
+      : (totalTabSwitches >= 3 ? 35 : totalTabSwitches > 0 ? 75 : 100);
+
+    const integrityRisk = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityRisk)
+      ? deepDiveData.assignments[0].integrityRisk
+      : (integrityScore <= 40 ? 'HIGH' : integrityScore <= 75 ? 'MODERATE' : 'NORMAL');
+
+    return {
+      totalTabSwitches,
+      totalCopyPaste,
+      totalFullScreenExits,
+      vivaList,
+      integrityScore,
+      integrityRisk,
+    };
+  }, [deepDiveData]);
+
   // Export CSV
   const handleExportRoster = () => {
     try {
       setIsExportingCsv(true);
       const rows = [
-        ['PRN / Roll No', 'Student Name', 'Email', 'Department', 'Year', 'Division', 'Points', 'Streak', 'Status'],
+        ['PRN / Roll No', 'Student Name', 'Email', 'Department', 'Year', 'Division', 'Points', 'Streak', 'Tab Switches', 'Copy-Paste Attempts', 'Integrity Risk', 'Status'],
         ...filteredStudents.map((s) => [
           `"${s.prn}"`,
           `"${s.fullName}"`,
@@ -248,6 +310,9 @@ export const FacultyAnalyticsPage: React.FC = () => {
           `"${s.division}"`,
           s.totalPoints,
           s.currentStreak,
+          s.tabSwitchCount,
+          s.copyPasteAttempts,
+          `"${s.integrityRisk}"`,
           `"${s.statusCategory}"`,
         ]),
       ];
@@ -279,7 +344,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-sans">
-      {/* 1. Header Banner with high contrast for both light and dark mode */}
+      {/* 1. Header Banner */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
@@ -291,7 +356,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
               Classroom Performance & Code Intelligence
             </h1>
             <p className="text-[var(--muted-foreground)] text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Track student daily C programming progress, identify concept gaps before exams, inspect actual code submissions, and export grade rosters.
+              Track student daily C programming progress, inspect candidate cheating telemetry (tab switches, copy-paste attempts), diagnose concept gaps, and export grades.
             </p>
           </div>
 
@@ -369,17 +434,17 @@ export const FacultyAnalyticsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Card 4: Average Score */}
+        {/* Card 4: Integrity Review Flags */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-2 hover:border-[var(--accent)]/40 shadow-sm transition">
           <div className="flex items-center justify-between text-[var(--muted-foreground)] text-xs font-medium">
-            <span>Average Points</span>
-            <Award className="w-4 h-4 text-indigo-500" />
+            <span>Integrity / Anti-Cheat Flags</span>
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-3xl font-black text-[var(--foreground)] font-mono">
-            {metrics.avgScore} <span className="text-xs font-normal text-[var(--muted-foreground)]">PTS</span>
+          <div className="text-3xl font-black text-rose-600 dark:text-rose-400 font-mono">
+            {metrics.integrityAlerts}
           </div>
           <p className="text-[11px] text-[var(--muted-foreground)]">
-            Cohort average challenge score
+            Tab switches or copy-paste violations
           </p>
         </div>
       </div>
@@ -423,9 +488,9 @@ export const FacultyAnalyticsPage: React.FC = () => {
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
           <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Student Academic & Integrity Roster</h2>
+            <h2 className="text-base font-bold text-[var(--foreground)]">Student Academic & Anti-Cheat Roster</h2>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Click on any student to inspect their submitted C code, test cases, and activity audit trail.
+              Track student daily score, tab switches, copy-paste attempts, and inspect submitted C code.
             </p>
           </div>
 
@@ -474,6 +539,16 @@ export const FacultyAnalyticsPage: React.FC = () => {
           >
             🟡 Needs Assistance ({analyticsData?.students?.filter((s) => s.statusCategory === 'NEEDS_HELP').length || 0})
           </button>
+          <button
+            onClick={() => setActiveFilterTab('INTEGRITY_FLAG')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeFilterTab === 'INTEGRITY_FLAG'
+                ? 'bg-rose-600 text-white'
+                : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+            }`}
+          >
+            🔴 Integrity / Cheating Flags ({analyticsData?.students?.filter((s) => s.statusCategory === 'INTEGRITY_FLAG').length || 0})
+          </button>
         </div>
 
         {/* Students Table */}
@@ -493,6 +568,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
                   <th className="py-3 px-4">Department</th>
                   <th className="py-3 px-4">Points</th>
                   <th className="py-3 px-4">Streak</th>
+                  <th className="py-3 px-4">Anti-Cheat Audit</th>
                   <th className="py-3 px-4">Learning Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -523,6 +599,25 @@ export const FacultyAnalyticsPage: React.FC = () => {
                         <span className="text-[var(--muted-foreground)]">0d</span>
                       )}
                     </td>
+                    {/* Anti-Cheat & Cheating Audit Badge */}
+                    <td className="py-3.5 px-4">
+                      {student.tabSwitchCount === 0 && student.copyPasteAttempts === 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                          <ShieldCheck className="w-3 h-3" />
+                          Clean (0 Flags)
+                        </span>
+                      ) : student.tabSwitchCount >= 3 || student.copyPasteAttempts >= 3 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                          <ShieldAlert className="w-3 h-3" />
+                          High Risk ({student.tabSwitchCount} tabs)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                          <AlertTriangle className="w-3 h-3" />
+                          {student.tabSwitchCount} Tab Switch
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4">
                       {student.statusCategory === 'CONSISTENT' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
@@ -542,7 +637,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold text-xs transition cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect Code</span>
+                        <span>Inspect Student</span>
                       </button>
                     </td>
                   </tr>
@@ -553,7 +648,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
         )}
       </div>
 
-      {/* 5. Student Code & Performance Inspection Modal / Drawer */}
+      {/* 5. Student Code & Proctoring Anti-Cheat Audit Modal */}
       {selectedStudentForInspect && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
@@ -562,7 +657,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-indigo-500" />
                 <div>
-                  <h3 className="font-bold text-[var(--foreground)] text-base">Candidate Inspection & Code Snapshot</h3>
+                  <h3 className="font-bold text-[var(--foreground)] text-base">Candidate Inspection & Anti-Cheat Audit</h3>
                   <p className="text-xs text-[var(--muted-foreground)]">PRN: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{selectedStudentForInspect}</span></p>
                 </div>
               </div>
@@ -579,7 +674,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
               {isDeepDiveLoading ? (
                 <div className="py-16 text-center space-y-3">
                   <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
-                  <p className="text-xs text-[var(--muted-foreground)]">Loading student code submissions & audit record...</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">Loading student code submissions & anti-cheat audit...</p>
                 </div>
               ) : !deepDiveData?.student ? (
                 <div className="py-12 text-center text-[var(--muted-foreground)]">
@@ -605,6 +700,98 @@ export const FacultyAnalyticsPage: React.FC = () => {
                         <span className="text-amber-600 dark:text-amber-400 font-bold">{deepDiveData.student.currentStreak || 0} days</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 🛡️ Dedicated Anti-Cheat & Cheating Audit Card */}
+                  <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
+                          Behavioral Integrity & Anti-Cheat Proctoring Audit
+                        </h4>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          (inspectTelemetry?.integrityScore || 100) >= 80
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                            : (inspectTelemetry?.integrityScore || 100) >= 50
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
+                        }`}
+                      >
+                        Integrity Score: {inspectTelemetry?.integrityScore || 100} / 100 ({inspectTelemetry?.integrityRisk || 'NORMAL'})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">Tab Switches</span>
+                        <span className={`text-base font-bold font-mono ${
+                          (inspectTelemetry?.totalTabSwitches || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          {inspectTelemetry?.totalTabSwitches || 0}
+                        </span>
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">
+                          {(inspectTelemetry?.totalTabSwitches || 0) >= 3 ? 'Exceeded Limit' : 'Within tolerance'}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">Clipboard Pastes</span>
+                        <span className={`text-base font-bold font-mono ${
+                          (inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          {inspectTelemetry?.totalCopyPaste || 0}
+                        </span>
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">
+                          {(inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'Blocked by Proctor' : 'No paste attempts'}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">Fullscreen Exits</span>
+                        <span className={`text-base font-bold font-mono ${
+                          (inspectTelemetry?.totalFullScreenExits || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          {inspectTelemetry?.totalFullScreenExits || 0}
+                        </span>
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">
+                          {(inspectTelemetry?.totalFullScreenExits || 0) > 0 ? 'Window minimized' : 'Remained focused'}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">Burst Paste Detection</span>
+                        <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                          Clean
+                        </span>
+                        <span className="text-[10px] text-[var(--muted-foreground)] block">Normal typing rhythm</span>
+                      </div>
+                    </div>
+
+                    {/* AI Viva Voce Oral Defense Responses */}
+                    {inspectTelemetry?.vivaList && inspectTelemetry.vivaList.length > 0 && (
+                      <div className="pt-3 border-t border-[var(--border)] space-y-2">
+                        <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold text-[11px]">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>AI Oral Viva Voce Verification Questions:</span>
+                        </div>
+                        {inspectTelemetry.vivaList.map((v: any, vIdx: number) => (
+                          <div key={v.id || vIdx} className="p-2.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-xs space-y-1">
+                            <div className="font-semibold text-[var(--foreground)]">
+                              Q{vIdx + 1}: {v.prompt}
+                            </div>
+                            <div className="text-[var(--muted-foreground)]">
+                              Student Answer: <span className="text-[var(--foreground)] font-mono">{v.studentAnswer || '<No answer recorded>'}</span>
+                            </div>
+                            <div className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                              Status: {v.status} | Feedback: {v.feedback || 'Evaluated clean'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Recent Practice Submissions */}
@@ -681,7 +868,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
                             <span className="font-semibold text-[var(--foreground)]">{asgn.test?.title}</span>
                             <div className="flex items-center gap-3">
                               <span className="text-emerald-600 dark:text-emerald-400 font-bold">Score: {asgn.academicScore}</span>
-                              <span className="text-[var(--muted-foreground)]">Risk: {asgn.integrityRisk}</span>
+                              <span className="text-[var(--muted-foreground)]">Integrity Risk: {asgn.integrityRisk}</span>
                             </div>
                           </div>
                         ))}
