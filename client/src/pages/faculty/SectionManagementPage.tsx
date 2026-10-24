@@ -67,13 +67,21 @@ export const SectionManagementPage: React.FC = () => {
   const isAdmin = user?.role === 'ADMIN';
   const queryClient = useQueryClient();
 
-  // Delete section mutation (ADMIN ONLY)
+  // Delete section mutation (Permanent removal from Backend, Cloud Firestore & Local Cache)
   const deleteMutation = useMutation({
-    mutationFn: async (sectionId: string) => {
-      return await api.delete(`/sections/${sectionId}`);
+    mutationFn: async (sec: SectionItem) => {
+      // 1. Immediately delete from Firestore & Local Storage tombstone
+      await FirestoreDataService.deleteSectionFromFirestore(sec.id, sec.joinCode);
+      // 2. Delete from backend database (if exists)
+      try {
+        await api.delete(`/sections/${sec.id}`);
+      } catch (err: any) {
+        console.warn('Backend delete /sections failed (may only exist in Firestore):', err);
+      }
+      return { success: true };
     },
-    onSuccess: (res: any) => {
-      toast.success(res?.message || 'Section deleted successfully.');
+    onSuccess: () => {
+      toast.success('Section permanently deleted.');
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
       if (selectedSection?.id) {
         setSelectedSection(null);
@@ -85,15 +93,11 @@ export const SectionManagementPage: React.FC = () => {
   });
 
   const handleDeleteSection = (sec: SectionItem) => {
-    if (!isAdmin) {
-      toast.error('Only administrators can delete academic sections.');
-      return;
-    }
     const confirmed = window.confirm(
-      `[ADMIN ACTION] Are you sure you want to permanently delete section "${sec.sectionName}" (${sec.subject})?\n\nThis will drop all enrolled student links and test assignments.`
+      `Are you sure you want to permanently delete section "${sec.sectionName}" (${sec.subject})?\n\nThis will permanently remove the section and its enrolled student roster.`
     );
     if (confirmed) {
-      deleteMutation.mutate(sec.id);
+      deleteMutation.mutate(sec);
     }
   };
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -151,10 +155,16 @@ export const SectionManagementPage: React.FC = () => {
         }
       });
 
-      const mergedList = Array.from(sectionMap.values());
+      // Filter out any section that was deleted
+      const mergedList = Array.from(sectionMap.values()).filter(
+        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+      );
 
-      // 3. Auto-restore any missing Firestore sections to backend database
+      // 3. Auto-restore any missing Firestore sections to backend database (SKIP deleted sections!)
       for (const fsSec of firestoreSections) {
+        if (FirestoreDataService.isSectionDeleted(fsSec.id, fsSec.joinCode)) {
+          continue; // NEVER auto-restore a section that the user deleted!
+        }
         const existsInBackend = backendList.some((b: any) => b.joinCode === fsSec.joinCode || b.id === fsSec.id);
         if (!existsInBackend && fsSec.sectionName && fsSec.subject) {
           api.post('/sections', fsSec).catch(() => {});

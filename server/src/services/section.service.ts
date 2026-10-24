@@ -151,14 +151,21 @@ export class SectionService {
   /**
    * Delete an academic section (ADMIN-ONLY).
    */
-  static async deleteSection(sectionId: string, isAdmin: boolean) {
-    if (!isAdmin) {
-      throw new Error('Access denied: Only platform administrators can delete sections.');
-    }
+  static async deleteSection(sectionId: string, isAdmin: boolean, facultyId?: string) {
     const section = await prisma.section.findUnique({ where: { id: sectionId } });
     if (!section) {
-      throw new Error('Section not found.');
+      return { success: true, message: 'Section already deleted or removed.' };
     }
+    if (!isAdmin && facultyId && section.facultyId && section.facultyId !== facultyId) {
+      throw new Error('Access denied: You can only delete sections that belong to your account.');
+    }
+    // Remove assessment test references if any
+    try {
+      await prisma.assessmentTest.updateMany({
+        where: { sectionId },
+        data: { sectionId: null as any },
+      });
+    } catch {}
     await prisma.section.delete({ where: { id: sectionId } });
     return { success: true, message: `Section "${section.sectionName}" and all associated enrollments have been deleted successfully.` };
   }

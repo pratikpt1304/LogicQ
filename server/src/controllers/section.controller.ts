@@ -94,14 +94,15 @@ export class SectionController {
     try {
       const user = (req as any).user;
       const isAdmin = user?.role === 'ADMIN';
-      if (!isAdmin) {
+      const isFaculty = user?.role === 'FACULTY';
+      if (!isAdmin && !isFaculty) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied: Only administrators have permission to delete academic sections.',
+          message: 'Access denied: Only faculty or administrators have permission to delete academic sections.',
         });
       }
       const sectionId = req.params.id;
-      const result = await SectionService.deleteSection(sectionId, isAdmin);
+      const result = await SectionService.deleteSection(sectionId, isAdmin, user?.userId || user?.id);
       return res.json(result);
     } catch (err: any) {
       return res.status(err.message.includes('Access denied') ? 403 : 500).json({

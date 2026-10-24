@@ -635,6 +635,77 @@ export class FirestoreDataService {
     return list;
   }
 
+  private static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
+
+  /**
+   * Checks if a section has been deleted locally or marked as tombstoned.
+   */
+  public static isSectionDeleted(sectionId?: string, joinCode?: string): boolean {
+    try {
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      if (!raw) return false;
+      const set = new Set<string>(JSON.parse(raw));
+      if (sectionId && (set.has(sectionId) || set.has(sectionId.toLowerCase()) || set.has(sectionId.toUpperCase()))) {
+        return true;
+      }
+      if (joinCode && (set.has(joinCode) || set.has(joinCode.toLowerCase()) || set.has(joinCode.toUpperCase()))) {
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  /**
+   * Permanently deletes a section from Firestore, removes it from local backup,
+   * cleans up its roster, and records it in the deleted tombstones so it is never auto-restored.
+   */
+  public static async deleteSectionFromFirestore(sectionId: string, joinCode?: string): Promise<void> {
+    if (!sectionId && !joinCode) return;
+
+    // 1. Mark in deleted tombstones immediately
+    try {
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      if (sectionId && !list.includes(sectionId)) list.push(sectionId);
+      if (joinCode && !list.includes(joinCode)) list.push(joinCode);
+      localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(list));
+    } catch {}
+
+    // 2. Remove from local sections backup
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const existing: any[] = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      const filtered = existing.filter((s: any) => {
+        if (sectionId && (s.id === sectionId || s.sectionId === sectionId)) return false;
+        if (joinCode && s.joinCode === joinCode) return false;
+        return true;
+      });
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+    } catch {}
+
+    // 3. Remove local roster cache for this section
+    try {
+      if (sectionId) localStorage.removeItem(`logicq_section_students_${sectionId}`);
+      if (joinCode) localStorage.removeItem(`logicq_section_students_${joinCode}`);
+    } catch {}
+
+    // 4. Delete document from Firestore `sections` collection
+    try {
+      if (sectionId) {
+        await deleteDoc(doc(db, 'sections', sectionId));
+      }
+      if (joinCode) {
+        const q = query(collection(db, 'sections'), where('joinCode', '==', joinCode));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await deleteDoc(d.ref);
+        }
+      }
+    } catch (err) {
+      console.warn('Firestore deleteDoc for section error:', err);
+    }
+  }
+
   /**
    * Persists an academic section to Firestore so it survives server restarts.
    */
@@ -708,7 +779,9 @@ export class FirestoreDataService {
       console.warn('getSectionsFromFirestore error:', err);
     }
 
-    return Array.from(sectionMap.values());
+    return Array.from(sectionMap.values()).filter(
+      (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+    );
   }
 
   /**

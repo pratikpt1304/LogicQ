@@ -16,6 +16,6 @@ sectionRoutes.post('/verify-email-otp', OtpController.verifyEmailOtp);
 sectionRoutes.post('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.createSection);
 sectionRoutes.get('/', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.getFacultySections);
 sectionRoutes.get('/:id', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.getSectionDetails);
-sectionRoutes.delete('/:id', authenticate, requireRole(['ADMIN']), SectionController.deleteSection);
+sectionRoutes.delete('/:id', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.deleteSection);
 sectionRoutes.post('/preview-excel', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.previewExcel);
 sectionRoutes.post('/:sectionId/import-students', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.importStudents);
