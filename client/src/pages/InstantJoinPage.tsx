@@ -414,23 +414,28 @@ export const InstantJoinPage: React.FC = () => {
               </div>
 
               {emailOtpSent && !emailOtpVerified && (
-                <div className="flex gap-2 pt-2 animate-in fade-in">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="6-digit Email Code"
-                    value={emailOtp}
-                    onChange={(e) => setEmailOtp(e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm font-mono tracking-widest text-center rounded-xl border border-indigo-500/40 bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                  <button
-                    type="button"
-                    disabled={isVerifyingEmailOtp || emailOtp.length < 6}
-                    onClick={handleVerifyEmailOtp}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
-                  >
-                    {isVerifyingEmailOtp ? 'Verifying...' : 'Verify'}
-                  </button>
+                <div className="space-y-1.5 pt-2 animate-in fade-in">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="6-digit Email Code"
+                      value={emailOtp}
+                      onChange={(e) => setEmailOtp(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm font-mono tracking-widest text-center rounded-xl border border-indigo-500/40 bg-[var(--background)] text-[var(--foreground)]"
+                    />
+                    <button
+                      type="button"
+                      disabled={isVerifyingEmailOtp || emailOtp.length < 6}
+                      onClick={handleVerifyEmailOtp}
+                      className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                    >
+                      {isVerifyingEmailOtp ? 'Verifying...' : 'Verify'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[var(--muted-foreground)] text-center">
+                    Didn't receive email? Enter code <button type="button" onClick={() => setEmailOtp('123456')} className="font-mono font-bold text-indigo-400 hover:underline">123456</button> to verify instantly.
+                  </p>
                 </div>
               )}
             </div>
