@@ -12,11 +12,15 @@ import {
   completeProfile,
   logSessionEvent,
   getSessionEvents,
+  sendLoginOtp,
+  verifyLoginOtp,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
 export const authRouter = Router();
 
+authRouter.post('/send-login-otp', sendLoginOtp);
+authRouter.post('/verify-login-otp', verifyLoginOtp);
 authRouter.post('/register', register);
 authRouter.post('/login', login);
 authRouter.post('/google', googleSignIn);

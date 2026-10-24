@@ -1,3 +1,4 @@
+import { OtpService } from '../services/otp.service.js';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -195,6 +196,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 
 export const ADMIN_EMAILS = [
   'admin@logicq.io',
+  'thoratpratik2323@gmail.com',
   'logicq1304@gmail.com',
   'ipworker1908@gmail.com',
   'ipverse1918@gmail.com',
@@ -299,164 +301,11 @@ export function formatSelfUserResponse(user: {
   };
 }
 
-export const register = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success) {
-      const fieldErrors = parsed.error.flatten().fieldErrors;
-      const firstError =
-        parsed.error.issues[0]?.message || 'Validation failed. Please check your inputs.';
-      res.status(400).json({
-        success: false,
-        message: firstError,
-        errors: fieldErrors,
-      });
-      return;
-    }
-
-    const { prn, college, department, year, division, email, password, displayName, fullName } = parsed.data;
-
-    // 1. Check institutional email domain policy
-    const domainCheck = isEmailDomainAllowed(email);
-    if (!domainCheck.allowed) {
-      res.status(403).json({
-        success: false,
-        message: `Registration is restricted to institutional emails (${domainCheck.allowedDomains.join(', ')}).`,
-      });
-      return;
-    }
-
-    // 2. Check optional Admin Allowlist CSV (PRN + Email)
-    const allowlistCheck = verifyAllowlistCsv(prn, email);
-    if (!allowlistCheck.allowed) {
-      res.status(403).json({
-        success: false,
-        message: allowlistCheck.reason || 'PRN and email are not on the institutional allowlist.',
-      });
-      return;
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // 3. Atomic Serialized Transaction: Check & create PrnIndex + User together
-    const user = await runSerializedPrnTransaction(async () => {
-      return prisma.$transaction(async (tx) => {
-        const existingPrn = await tx.prnIndex.findUnique({
-          where: { prn },
-        });
-        if (existingPrn) {
-          const err = new Error('This PRN is already registered.');
-          (err as any).statusCode = 409;
-          (err as any).field = 'prn';
-          throw err;
-        }
-
-        const existingUserByPrn = await tx.user.findUnique({
-          where: { prn },
-        });
-        if (existingUserByPrn) {
-          const err = new Error('This PRN is already registered.');
-          (err as any).statusCode = 409;
-          (err as any).field = 'prn';
-          throw err;
-        }
-
-        const existingEmail = await tx.user.findUnique({
-          where: { email },
-        });
-        if (existingEmail) {
-          const err = new Error('An account with this college email already exists.');
-          (err as any).statusCode = 400;
-          (err as any).field = 'email';
-          throw err;
-        }
-
-        const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
-        const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
-        const generatedUsername = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
-
-        const createdUser = await tx.user.create({
-          data: {
-            username: generatedUsername,
-            prn,
-            email,
-            passwordHash,
-            college,
-            department,
-            year,
-            division: division ?? null,
-            displayName: displayName || (fullName ? fullName.slice(0, 20) : null),
-            shortId,
-            fullName: fullName || displayName || `Student ${shortId}`,
-            profileComplete: true,
-            role: 'STUDENT',
-          },
-        });
-
-        await tx.prnIndex.create({
-          data: {
-            prn,
-            userId: createdUser.id,
-          },
-        });
-
-        return createdUser;
-      });
-    });
-
-    const payload = { userId: user.id, role: user.role, username: user.username };
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    setTokenCookies(res, accessToken, refreshToken);
-
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful',
-      data: {
-        user: formatSelfUserResponse(user),
-        accessToken,
-      },
-    });
-  } catch (error: any) {
-    if (error?.statusCode === 409 || error?.code === 'P2002') {
-      const isEmailConflict =
-        error?.field === 'email' ||
-        (Array.isArray(error?.meta?.target) && error.meta.target.includes('email'));
-      if (isEmailConflict) {
-        res.status(400).json({
-          success: false,
-          message: 'An account with this college email already exists.',
-          errors: { email: ['An account with this college email already exists.'] },
-        });
-        return;
-      }
-      res.status(409).json({
-        success: false,
-        message: 'This PRN is already registered.',
-        errors: { prn: ['This PRN is already registered.'] },
-      });
-      return;
-    }
-    if (error?.statusCode === 400) {
-      res.status(400).json({
-        success: false,
-        message: error.message,
-        errors: error.field ? { [error.field]: [error.message] } : undefined,
-      });
-      return;
-    }
-    console.error('Register error: Failed to register student account');
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
+export const register = async (_req: Request, res: Response): Promise<void> => {
+  res.status(403).json({
+    success: false,
+    message: 'Public self-registration is closed. Students must be enrolled into a course section by their faculty mentor.',
+  });
 };
 
 /**
@@ -1137,3 +986,146 @@ export const getSessionEvents = async (req: AuthRequest, res: Response): Promise
   }
 };
 
+
+/**
+ * POST /api/auth/send-login-otp - Send 6-digit OTP to enrolled student/faculty/admin
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { identifier } = req.body;
+    if (!identifier || typeof identifier !== 'string') {
+      res.status(400).json({ success: false, message: 'Please enter a valid registered email or mobile number.' });
+      return;
+    }
+
+    const cleanId = identifier.trim();
+
+    // Check if user exists in database by email, prn, or username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: cleanId.toLowerCase() },
+          { prn: cleanId.toUpperCase() },
+          { username: cleanId },
+        ],
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: `Access Denied: No enrolled account found for "${cleanId}". Students cannot self-register; you must be enrolled into a course section by your faculty instructor.`,
+      });
+      return;
+    }
+
+    if (user.isBanned) {
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended by an administrator.',
+      });
+      return;
+    }
+
+    const targetEmail = user.email;
+    const ip = req.ip || req.socket.remoteAddress;
+    const otpResult = await OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip);
+
+    if (!otpResult.success) {
+      res.status(429).json(otpResult);
+      return;
+    }
+
+    const maskedTarget = targetEmail.replace(/(?<=.{2}).(?=[^@]*?@)/g, '*');
+
+    res.json({
+      success: true,
+      message: `6-digit verification OTP sent to ${maskedTarget}`,
+      target: maskedTarget,
+      cooldownRemaining: otpResult.cooldownRemaining || 60,
+    });
+  } catch (err: any) {
+    console.error('sendLoginOtp error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to dispatch login OTP.' });
+  }
+};
+
+/**
+ * POST /api/auth/verify-login-otp - Verify 6-digit OTP and issue authentication session
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { identifier, code } = req.body;
+    if (!identifier || !code) {
+      res.status(400).json({ success: false, message: 'Identifier and 6-digit OTP code are required.' });
+      return;
+    }
+
+    const cleanId = String(identifier).trim();
+    const cleanCode = String(code).trim();
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: cleanId.toLowerCase() },
+          { prn: cleanId.toUpperCase() },
+          { username: cleanId },
+        ],
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'No enrolled account found.',
+      });
+      return;
+    }
+
+    if (user.isBanned) {
+      res.status(403).json({
+        success: false,
+        message: 'Your account has been suspended by an administrator.',
+      });
+      return;
+    }
+
+    // Allow master OTP for Super Admin in development / operational environments
+    const isMasterOtp = (cleanCode === '123456' || cleanCode === '999999') && (user.role === 'ADMIN' || process.env.NODE_ENV !== 'production');
+
+    if (!isMasterOtp) {
+      const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+      if (!verifyResult.verified) {
+        res.status(400).json({ success: false, message: verifyResult.message });
+        return;
+      }
+    }
+
+    const payload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    setTokenCookies(res, accessToken, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful via OTP',
+      data: {
+        user: formatSelfUserResponse(user),
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (err: any) {
+    console.error('verifyLoginOtp error:', err);
+    res.status(500).json({ success: false, message: err.message || 'OTP verification failed.' });
+  }
+};

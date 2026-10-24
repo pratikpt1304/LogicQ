@@ -46,8 +46,10 @@ interface AuthContextType {
   isFaculty: boolean;
   isChecker: boolean;
   isOffline: boolean;
-  login: (identifier: string, password: string) => Promise<User>;
+  login: (identifier: string, password?: string) => Promise<User>;
   loginWithGoogle: () => Promise<User>;
+  sendLoginOtp: (identifier: string) => Promise<any>;
+  loginWithOtp: (identifier: string, code: string) => Promise<User>;
   register: (data: RegisterPayload) => Promise<User>;
   completeProfile: (data: CompleteProfilePayload) => Promise<User>;
   logout: (reason?: string) => Promise<void>;
@@ -788,7 +790,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [clearSessionStorage, syncWithServer]);
 
-  const login = async (identifier: string, password: string): Promise<User> => {
+  const login = async (identifier: string, password?: string): Promise<User> => {
     const res = await api.post('/auth/login', { identifier, password });
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'Login failed');
@@ -958,6 +960,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return completedUser;
   };
 
+  const sendLoginOtp = async (identifier: string): Promise<any> => {
+    return await api.post('/auth/send-login-otp', { identifier });
+  };
+
+  const loginWithOtp = async (identifier: string, code: string): Promise<User> => {
+    const res = await api.post('/auth/verify-login-otp', { identifier, code });
+    if (!res?.success || !res?.data?.user) {
+      throw new Error(res?.message || 'OTP verification failed');
+    }
+    if (res.data.accessToken) {
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, res.data.accessToken);
+    }
+    if (res.data.refreshToken) {
+      localStorage.setItem('logicq_refresh_token', res.data.refreshToken);
+    }
+    recordUserActivity();
+    persistUser(res.data.user);
+    setAuthState('signedIn');
+    return res.data.user;
+  };
+
   const refreshUser = async () => {
     await syncWithServer(firebaseAuth.currentUser);
   };
@@ -975,6 +998,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOffline,
         login,
         loginWithGoogle,
+        sendLoginOtp,
+        loginWithOtp,
         register,
         completeProfile,
         logout,

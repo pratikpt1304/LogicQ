@@ -284,6 +284,7 @@ function saveStoredProblems(problems: any[]) {
 
 export const ADMIN_EMAILS = [
   'admin@logicq.io',
+  'thoratpratik2323@gmail.com',
   'logicq1304@gmail.com',
   'ipworker1908@gmail.com',
   'ipverse1918@gmail.com',
@@ -476,52 +477,92 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return { success: true, data: { user } };
   }
 
-  if (path === '/auth/register' && method === 'POST') {
-    const { prn, username, email, password, fullName, college, department, year, division } = body;
-    const cleanPrn = normalizePrn(prn);
-    if (!isValidPrn(cleanPrn)) {
-      throw new Error(PRN_ERROR_MESSAGE);
-    }
+  if (path === '/auth/send-login-otp' && method === 'POST') {
+    const { identifier } = body;
+    if (!identifier) throw new Error('Please enter your registered email or mobile number.');
+    const cleanId = String(identifier).trim();
     const users = getStoredUsers();
-    if (users.some((u) => u.prn === cleanPrn)) {
-      throw new Error('This PRN is already registered to an account.');
+    const user = users.find((u) => 
+      u.email.toLowerCase() === cleanId.toLowerCase() || 
+      (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
+      u.username.toLowerCase() === cleanId.toLowerCase()
+    );
+
+    if (!user) {
+      throw new Error(`Access Denied: No enrolled account found for "${cleanId}". Students cannot self-register; you must be enrolled into a course section by your faculty instructor.`);
     }
-    if (users.some((u) => u.email.toLowerCase() === String(email).toLowerCase())) {
-      throw new Error('Email is already registered');
+
+    if (user.isBanned) {
+      throw new Error('Your account has been suspended by an administrator.');
     }
-    const shortId = cleanPrn.slice(-4);
-    const cleanDivision = division ? String(division).trim().toUpperCase() : null;
-    const newUser: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
-      id: `usr-${Date.now()}`,
-      prn: cleanPrn,
-      maskedPrn: `••••••${shortId}`,
-      username: username || `stu_${shortId}`,
-      email,
-      fullName: fullName || `${department || 'CSE'} • ${year || 'FY'} • ••••••${shortId}`,
-      displayName: body.displayName || fullName || null,
-      shortId,
-      role: 'STUDENT',
-      college: college || 'Sanjivani University',
-      department: department || 'CSE',
-      year: year || 'FY',
-      division: cleanDivision,
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password,
-      isBanned: false,
-      createdAt: new Date().toISOString(),
-    };
-    users.push(newUser);
-    saveStoredUsers(users);
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
-    const { password: _, ...safeUser } = newUser;
+
+    // Generate numeric 6-digit OTP
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    try {
+      sessionStorage.setItem('logicq_dev_login_otp_' + user.email.toLowerCase(), JSON.stringify({ code: rawOtp, expires: Date.now() + 10 * 60 * 1000 }));
+    } catch {}
+
+    const maskedTarget = user.email.replace(/(?<=.{2}).(?=[^@]*?@)/g, '*');
     return {
       success: true,
-      message: 'Account created successfully',
-      data: { user: safeUser, accessToken: `fallback-jwt-${newUser.id}` },
+      message: `6-digit verification OTP sent to ${maskedTarget}`,
+      target: maskedTarget,
+      cooldownRemaining: 60,
+      devOtp: rawOtp,
     };
+  }
+
+  if (path === '/auth/verify-login-otp' && method === 'POST') {
+    const { identifier, code } = body;
+    if (!identifier || !code) throw new Error('Identifier and 6-digit OTP code are required.');
+    const cleanId = String(identifier).trim();
+    const cleanCode = String(code).trim();
+    const users = getStoredUsers();
+    const user = users.find((u) => 
+      u.email.toLowerCase() === cleanId.toLowerCase() || 
+      (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
+      u.username.toLowerCase() === cleanId.toLowerCase()
+    );
+
+    if (!user) {
+      throw new Error('No enrolled account found.');
+    }
+
+    if (user.isBanned) {
+      throw new Error('Your account has been suspended by an administrator.');
+    }
+
+    // Verify OTP: master code or stored code
+    let isValid = cleanCode === '123456' || cleanCode === '999999';
+    try {
+      const stored = sessionStorage.getItem('logicq_dev_login_otp_' + user.email.toLowerCase());
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.code === cleanCode && Date.now() < parsed.expires) {
+          isValid = true;
+        }
+      }
+    } catch {}
+
+    if (!isValid) {
+      throw new Error('Invalid or expired OTP verification code.');
+    }
+
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, user.id);
+    const { password: _, ...safeUser } = user;
+    return {
+      success: true,
+      message: 'OTP verified successfully.',
+      data: {
+        user: safeUser,
+        accessToken: 'fallback_token_' + Date.now(),
+        refreshToken: 'fallback_refresh_' + Date.now(),
+      },
+    };
+  }
+
+  if (path === '/auth/register' && method === 'POST') {
+    throw new Error('Public self-registration is closed. Students must be enrolled into a course section by their faculty mentor.');
   }
 
   if (path === '/auth/complete-profile' && method === 'POST') {

@@ -40,10 +40,10 @@ export const LandingPage: React.FC = () => {
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
           <Link
-            to={user ? '/dashboard' : '/register'}
+            to={user ? '/dashboard' : '/login'}
             className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-mono text-sm font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/20 transition-colors"
           >
-            <span>{user ? 'Go to Dashboard' : 'Register to Start'}</span>
+            <span>{user ? 'Go to Dashboard' : 'Sign In to Arena'}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
 

@@ -363,15 +363,9 @@ export const Navbar: React.FC = () => {
 
               <Link
                 to="/login"
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-[var(--border-line)] transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/register"
                 className="px-4 py-2 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md transition-all font-mono"
               >
-                Register Free
+                Sign In
               </Link>
             </div>
           )}
@@ -527,11 +521,11 @@ export const Navbar: React.FC = () => {
             ) : (
               <div className="pt-2">
                 <Link
-                  to="/register"
+                  to="/login"
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
                 >
-                  Register Free
+                  Sign In
                 </Link>
               </div>
             )}
