@@ -307,15 +307,21 @@ export async function autoSeedDatabase(): Promise<void> {
       });
     }
 
-    const pratikEmail = 'thoratpratik2323@gmail.com';
-    let pratikAdmin = await prisma.user.findUnique({ where: { email: pratikEmail } });
-    if (!pratikAdmin) {
-      pratikAdmin = await prisma.user.create({
+    // Revoke Admin from thoratpratik2323@gmail.com
+    await prisma.user.updateMany({
+      where: { email: 'thoratpratik2323@gmail.com' },
+      data: { role: 'STUDENT' },
+    });
+
+    const arenaEmail = 'logicqarena@gmail.com';
+    let arenaAdmin = await prisma.user.findUnique({ where: { email: arenaEmail } });
+    if (!arenaAdmin) {
+      arenaAdmin = await prisma.user.create({
         data: {
-          username: 'pratik_admin',
-          email: pratikEmail,
-          fullName: 'Pratik Thorat',
-          displayName: 'Pratik Thorat (Admin)',
+          username: 'logicqarena',
+          email: arenaEmail,
+          fullName: 'LogicQ Arena Admin',
+          displayName: 'LogicQ Arena (Admin)',
           role: 'ADMIN',
           passwordHash: adminHash,
           college: 'Sanjivani University',
@@ -323,10 +329,15 @@ export async function autoSeedDatabase(): Promise<void> {
           profileComplete: true,
         },
       });
-      console.log('⚡ Auto-seeded Super Admin account (thoratpratik2323@gmail.com).');
+      console.log('⚡ Auto-seeded Super Admin account (logicqarena@gmail.com).');
+    } else if (arenaAdmin.role !== 'ADMIN') {
+      arenaAdmin = await prisma.user.update({
+        where: { email: arenaEmail },
+        data: { role: 'ADMIN', profileComplete: true },
+      });
     }
 
-    const sectionOwnerId = pratikAdmin ? pratikAdmin.id : existingAdmin.id;
+    const sectionOwnerId = arenaAdmin ? arenaAdmin.id : existingAdmin.id;
     const existingSection = await prisma.section.findFirst({
       where: {
         OR: [

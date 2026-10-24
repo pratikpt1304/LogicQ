@@ -284,7 +284,7 @@ function saveStoredProblems(problems: any[]) {
 
 export const ADMIN_EMAILS = [
   'admin@logicq.io',
-  'thoratpratik2323@gmail.com',
+  'logicqarena@gmail.com',
   'logicq1304@gmail.com',
   'ipworker1908@gmail.com',
   'ipverse1918@gmail.com',
