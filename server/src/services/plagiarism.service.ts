@@ -52,6 +52,8 @@ export interface SuspiciousPair {
   riskLevel: 'MODERATE' | 'HIGH' | 'CRITICAL';
   submittedAtA: Date;
   submittedAtB: Date;
+  codeA?: string;
+  codeB?: string;
 }
 
 export interface PlagiarismReport {
@@ -330,6 +332,8 @@ export class PlagiarismService {
             riskLevel: result.riskLevel as 'MODERATE' | 'HIGH' | 'CRITICAL',
             submittedAtA: subA.createdAt,
             submittedAtB: subB.createdAt,
+            codeA: subA.code,
+            codeB: subB.code,
           });
         }
       }

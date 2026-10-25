@@ -109,6 +109,11 @@ export const AdminDashboardPage: React.FC = () => {
   const [problemViewMode, setProblemViewMode] = useState<'TABLE' | 'MODULES'>('TABLE');
   const PROBLEMS_PER_PAGE = 20;
   const [isSyncingProblems, setIsSyncingProblems] = useState(false);
+  const [submissionSearch, setSubmissionSearch] = useState('');
+  const [submissionVerdictFilter, setSubmissionVerdictFilter] = useState('ALL');
+  const [submissionProblemFilter, setSubmissionProblemFilter] = useState('ALL');
+  const [submissionPage, setSubmissionPage] = useState(1);
+  const SUBMISSIONS_PER_PAGE = 20;
   const [selectedSubmissionCode, setSelectedSubmissionCode] = useState<string | null>(null);
   const [reviewingUpload, setReviewingUpload] = useState<any | null>(null);
   const [compareUpload, setCompareUpload] = useState<any | null>(null);
@@ -591,6 +596,53 @@ export const AdminDashboardPage: React.FC = () => {
     return null;
   };
   const submissions = submissionsData?.data?.submissions || [];
+
+  // Submissions Filtering & Pagination
+  const filteredSubmissions = React.useMemo(() => {
+    return submissions.filter((sub: any) => {
+      if (submissionVerdictFilter !== 'ALL' && sub.verdict !== submissionVerdictFilter) return false;
+      if (submissionProblemFilter !== 'ALL' && sub.problemId !== submissionProblemFilter && sub.problem?.title !== submissionProblemFilter) return false;
+      if (submissionSearch.trim()) {
+        const q = submissionSearch.toLowerCase().trim();
+        const prn = (sub.user?.prn || '').toLowerCase();
+        const name = (sub.user?.displayName || sub.user?.fullName || sub.user?.username || '').toLowerCase();
+        const title = (sub.problem?.title || '').toLowerCase();
+        if (!prn.includes(q) && !name.includes(q) && !title.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [submissions, submissionVerdictFilter, submissionProblemFilter, submissionSearch]);
+
+  const totalSubmissionPages = Math.ceil(filteredSubmissions.length / SUBMISSIONS_PER_PAGE) || 1;
+  const paginatedSubmissions = React.useMemo(() => {
+    const start = (submissionPage - 1) * SUBMISSIONS_PER_PAGE;
+    return filteredSubmissions.slice(start, start + SUBMISSIONS_PER_PAGE);
+  }, [filteredSubmissions, submissionPage]);
+
+  const submissionMetrics = React.useMemo(() => {
+    let accepted = 0;
+    let wrong = 0;
+    let errors = 0;
+    submissions.forEach((s: any) => {
+      if (s.verdict === 'ACCEPTED') accepted++;
+      else if (s.verdict === 'WRONG_ANSWER') wrong++;
+      else errors++;
+    });
+    return { total: submissions.length, accepted, wrong, errors };
+  }, [submissions]);
+
+  const submissionProblemOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    submissions.forEach((s: any) => {
+      const pid = s.problemId || s.problem?.id;
+      const title = s.problem?.title;
+      if (pid && title) {
+        map.set(pid, title);
+      }
+    });
+    return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+  }, [submissions]);
+
   const uploads = uploadsData?.data?.uploads || [];
 
   // Resilient merged users list: combines backend users with Firestore users and enriches names
@@ -1732,8 +1784,8 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Academic Filters & CSV Export Bar for Users, Submissions & Uploads */}
-      {(activeTab === 'users' || activeTab === 'submissions' || activeTab === 'uploads') && (
+      {/* Academic Filters & CSV Export Bar for Users & Uploads */}
+      {(activeTab === 'users' || activeTab === 'uploads') && (
         <div className="glass-card rounded-2xl border border-white/[0.08] p-4 space-y-3">
           {activeTab === 'users' ? (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -1966,11 +2018,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
             <span className="text-xs font-mono text-slate-400">
               Showing{' '}
-              {activeTab === 'users'
-                ? users.length
-                : activeTab === 'uploads'
-                  ? uploads.length
-                  : submissions.length}{' '}
+              {activeTab === 'users' ? users.length : uploads.length}{' '}
               records
             </span>
             <div className="flex flex-wrap items-center gap-2">
@@ -2006,7 +2054,7 @@ export const AdminDashboardPage: React.FC = () => {
                   All Depts CSV
                 </button>
               )}
-              {activeTab !== 'users' && (
+              {activeTab === 'uploads' && (
                 <button
                   type="button"
                   onClick={() => handleDownloadCsv('daily-results')}
@@ -2621,151 +2669,305 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab: Submissions Live Stream */}
+      {/* Tab: Submissions & Anti-Cheat */}
       {(activeTab === 'submissions' || activeTab === 'anticheat') && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('submissions')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                activeTab === 'submissions'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
-              }`}
-            >
-              ⚡ Live Submissions Stream ({submissions.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('anticheat')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                activeTab === 'anticheat'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
-              }`}
-            >
-              🚨 Anti-Cheat & Telemetry Alerts
-            </button>
+          {/* Top Live Stats & View Switcher */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl glass-card border border-white/[0.08]">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('submissions')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+                  activeTab === 'submissions'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'bg-dark-900/60 text-slate-400 hover:text-white border border-white/[0.08]'
+                }`}
+              >
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Live Feed ({filteredSubmissions.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('anticheat')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+                  activeTab === 'anticheat'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                    : 'bg-dark-900/60 text-slate-400 hover:text-white border border-white/[0.08]'
+                }`}
+              >
+                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <span>Plagiarism Radar</span>
+              </button>
+            </div>
+
+            {/* Quick Metrics Badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono">
+                <span className="text-slate-400 mr-1.5">Total:</span>
+                <span className="font-bold text-white">{submissionMetrics.total}</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-mono">
+                <span className="text-emerald-400 font-semibold mr-1.5">Accepted:</span>
+                <span className="font-bold text-emerald-300">{submissionMetrics.accepted}</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs font-mono">
+                <span className="text-rose-400 font-semibold mr-1.5">Wrong:</span>
+                <span className="font-bold text-rose-300">{submissionMetrics.wrong}</span>
+              </div>
+              {submissionMetrics.errors > 0 && (
+                <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono">
+                  <span className="text-amber-400 font-semibold mr-1.5">Errors / TLE:</span>
+                  <span className="font-bold text-amber-300">{submissionMetrics.errors}</span>
+                </div>
+              )}
+            </div>
           </div>
+
           {activeTab === 'submissions' && (
             <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-          {submissions.length === 0 ? (
-            <div className="p-12 text-center text-xs font-mono text-slate-500">
-              No live submissions recorded yet. Incoming evaluations from challengers will stream here automatically.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
-                  <tr>
-                    <th className="px-4 py-3.5">Student / PRN</th>
-                    <th className="px-4 py-3.5">Academic Info</th>
-                    <th className="px-4 py-3.5">Problem</th>
-                    <th className="px-4 py-3.5">Verdict</th>
-                    <th className="px-4 py-3.5">Attempts</th>
-                    <th className="px-4 py-3.5">Solve / Focus Time</th>
-                    <th className="px-4 py-3.5">Runtime</th>
-                    <th className="px-4 py-3.5">Submitted</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {submissions.map((sub: any) => (
-                    <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-4">
-                        <span className="font-bold text-white block">
-                          {sub.user?.prn || sub.user?.username || 'user'}
-                        </span>
-                        <span className="text-slate-400 text-xs">
-                          {sub.user?.displayName || sub.user?.email || `@${sub.user?.username}`}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-slate-300">
-                        <span className="block font-semibold text-cyan-400">
-                          {sub.user?.department || '—'} • {sub.user?.year || '—'}
-                          {sub.user?.division ? ` (Div ${sub.user.division})` : ''}
-                        </span>
-                        <span className="text-slate-400 text-xs">
-                          {sub.user?.college || 'Sanjivani University'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-slate-300">
-                        {sub.problem?.title}
-                      </td>
-                      <td className="px-4 py-4">
-                        <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-white text-xs font-mono">
-                            Attempt #{sub.attemptNumber || 1}
-                          </span>
-                          {sub.isFirstAttemptAccepted ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1 w-fit font-mono">
-                              <Zap className="w-2.5 h-2.5" /> 1st Try Solve
+              {/* Search & Filter Toolbar */}
+              <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={submissionSearch}
+                    onChange={(e) => {
+                      setSubmissionSearch(e.target.value);
+                      setSubmissionPage(1);
+                    }}
+                    placeholder="Search by student PRN, Name, or Problem title..."
+                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-dark-900 border border-white/10 text-white placeholder-slate-500 text-xs font-mono focus:outline-none focus:border-cyan-400"
+                  />
+                  {submissionSearch && (
+                    <button
+                      onClick={() => {
+                        setSubmissionSearch('');
+                        setSubmissionPage(1);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Verdict Filter */}
+                  <select
+                    value={submissionVerdictFilter}
+                    onChange={(e) => {
+                      setSubmissionVerdictFilter(e.target.value);
+                      setSubmissionPage(1);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-dark-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="ALL">All Verdicts</option>
+                    <option value="ACCEPTED">🟢 Accepted</option>
+                    <option value="WRONG_ANSWER">🔴 Wrong Answer</option>
+                    <option value="TIME_LIMIT_EXCEEDED">⏳ Time Limit Exceeded</option>
+                    <option value="COMPILATION_ERROR">⚠️ Compilation Error</option>
+                    <option value="RUNTIME_ERROR">💥 Runtime Error</option>
+                  </select>
+
+                  {/* Problem Filter */}
+                  {submissionProblemOptions.length > 0 && (
+                    <select
+                      value={submissionProblemFilter}
+                      onChange={(e) => {
+                        setSubmissionProblemFilter(e.target.value);
+                        setSubmissionPage(1);
+                      }}
+                      className="max-w-[200px] truncate px-3 py-2 rounded-xl bg-dark-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                    >
+                      <option value="ALL">All Problems ({submissionProblemOptions.length})</option>
+                      {submissionProblemOptions.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.title}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Reset Filters */}
+                  {(submissionSearch || submissionVerdictFilter !== 'ALL' || submissionProblemFilter !== 'ALL') && (
+                    <button
+                      onClick={() => {
+                        setSubmissionSearch('');
+                        setSubmissionVerdictFilter('ALL');
+                        setSubmissionProblemFilter('ALL');
+                        setSubmissionPage(1);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white text-xs font-mono border border-white/10 transition"
+                      title="Clear filters"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Submissions Table / Empty State */}
+              {paginatedSubmissions.length === 0 ? (
+                <div className="p-12 text-center text-xs font-mono text-slate-500">
+                  {submissions.length === 0
+                    ? 'No live submissions recorded yet. Incoming evaluations from challengers will stream here automatically.'
+                    : 'No submissions matched your search and filter criteria.'}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                      <tr>
+                        <th className="px-4 py-3.5">Student / PRN</th>
+                        <th className="px-4 py-3.5">Academic Info</th>
+                        <th className="px-4 py-3.5">Problem</th>
+                        <th className="px-4 py-3.5">Verdict</th>
+                        <th className="px-4 py-3.5">Attempts</th>
+                        <th className="px-4 py-3.5">Solve / Focus Time</th>
+                        <th className="px-4 py-3.5">Runtime</th>
+                        <th className="px-4 py-3.5">Submitted</th>
+                        <th className="px-4 py-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {paginatedSubmissions.map((sub: any) => (
+                        <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-4">
+                            <span className="font-bold text-white block">
+                              {sub.user?.prn || sub.user?.username || 'user'}
                             </span>
-                          ) : sub.totalAttempts && sub.totalAttempts > 1 ? (
-                            <span className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                              {sub.totalAttempts} tries total
+                            <span className="text-slate-400 text-xs">
+                              {sub.user?.displayName || sub.user?.email || `@${sub.user?.username}`}
                             </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        {sub.timeToSolveSeconds != null && sub.timeToSolveSeconds > 0 ? (
-                          <div>
-                            <div className="flex items-center gap-1 text-emerald-400 font-bold font-mono">
-                              <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>{formatPracticeTime(sub.timeToSolveSeconds)}</span>
+                          </td>
+                          <td className="px-4 py-4 text-slate-300">
+                            <span className="block font-semibold text-cyan-400">
+                              {sub.user?.department || '—'} • {sub.user?.year || '—'}
+                              {sub.user?.division ? ` (Div ${sub.user.division})` : ''}
+                            </span>
+                            <span className="text-slate-400 text-xs">
+                              {sub.user?.college || 'Sanjivani University'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-slate-300">
+                            {sub.problem?.title}
+                          </td>
+                          <td className="px-4 py-4">
+                            <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-white text-xs font-mono">
+                                Attempt #{sub.attemptNumber || 1}
+                              </span>
+                              {sub.isFirstAttemptAccepted ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 mt-1 w-fit font-mono">
+                                  <Zap className="w-2.5 h-2.5" /> 1st Try Solve
+                                </span>
+                              ) : sub.totalAttempts && sub.totalAttempts > 1 ? (
+                                <span className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                                  {sub.totalAttempts} tries total
+                                </span>
+                              ) : null}
                             </div>
-                            <span className="text-[10px] text-emerald-400/80 block font-mono">Solved in</span>
-                          </div>
-                        ) : sub.activeSeconds != null && sub.activeSeconds > 0 ? (
-                          <div>
-                            <div className="flex items-center gap-1 text-cyan-400 font-mono">
-                              <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                              <span>{formatPracticeTime(sub.activeSeconds)}</span>
-                            </div>
-                            <span className="text-[10px] text-slate-400 block font-mono">Active focus</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 font-mono text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-slate-400">
-                        {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
-                      </td>
-                      <td className="px-4 py-4 text-slate-500">
-                        {new Date(sub.createdAt).toLocaleTimeString()}
-                      </td>
-                      <td className="px-4 py-4 text-right space-x-2">
-                        <button
-                          onClick={() => setSelectedSubmissionCode(sub.code)}
-                          className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10"
-                          title="Inspect Code"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => rejudgeMutation.mutate(sub.id)}
-                          className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10"
-                          title="Re-judge"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="px-4 py-4">
+                            {sub.timeToSolveSeconds != null && sub.timeToSolveSeconds > 0 ? (
+                              <div>
+                                <div className="flex items-center gap-1 text-emerald-400 font-bold font-mono">
+                                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>{formatPracticeTime(sub.timeToSolveSeconds)}</span>
+                                </div>
+                                <span className="text-[10px] text-emerald-400/80 block font-mono">Solved in</span>
+                              </div>
+                            ) : sub.activeSeconds != null && sub.activeSeconds > 0 ? (
+                              <div>
+                                <div className="flex items-center gap-1 text-cyan-400 font-mono">
+                                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span>{formatPracticeTime(sub.activeSeconds)}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 block font-mono">Active focus</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 font-mono text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-slate-400">
+                            {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}
+                          </td>
+                          <td className="px-4 py-4 text-slate-500">
+                            {new Date(sub.createdAt).toLocaleTimeString()}
+                          </td>
+                          <td className="px-4 py-4 text-right space-x-2">
+                            <button
+                              onClick={() => setSelectedSubmissionCode(sub.code)}
+                              className="p-1.5 rounded-lg text-cyan-400 hover:bg-cyan-500/10 cursor-pointer"
+                              title="Inspect Code"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => rejudgeMutation.mutate(sub.id)}
+                              className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+                              title="Re-judge"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination Footer */}
+              <div className="px-6 py-3.5 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
+                <div>
+                  Showing <span className="text-white font-bold">{filteredSubmissions.length === 0 ? 0 : (submissionPage - 1) * SUBMISSIONS_PER_PAGE + 1}</span> to{' '}
+                  <span className="text-white font-bold">{Math.min(filteredSubmissions.length, submissionPage * SUBMISSIONS_PER_PAGE)}</span> of{' '}
+                  <span className="text-white font-bold">{filteredSubmissions.length}</span> submissions
+                  {(submissionSearch || submissionVerdictFilter !== 'ALL' || submissionProblemFilter !== 'ALL') && (
+                    <span className="text-cyan-400 ml-1.5 font-semibold">(filtered)</span>
+                  )}
+                </div>
+
+                {totalSubmissionPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={submissionPage === 1}
+                      onClick={() => setSubmissionPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 rounded-lg bg-dark-900 border border-white/10 hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-mono transition"
+                    >
+                      ← Prev
+                    </button>
+
+                    <span className="px-2 text-slate-300">
+                      Page <strong className="text-white">{submissionPage}</strong> of {totalSubmissionPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={submissionPage === totalSubmissionPages}
+                      onClick={() => setSubmissionPage((p) => Math.min(totalSubmissionPages, p + 1))}
+                      className="px-3 py-1.5 rounded-lg bg-dark-900 border border-white/10 hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-mono transition"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+          )}
+
+          {activeTab === 'anticheat' && (
+            <AdminAntiCheatSecurity />
           )}
         </div>
       )}
-      {activeTab === 'anticheat' && (
-        <AdminAntiCheatSecurity />
-      )}
-    </div>
-  )}
 
       {/* Tab: Review Uploads */}
       {activeTab === 'uploads' && (
