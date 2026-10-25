@@ -571,7 +571,7 @@ export const SectionManagementPage: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-[var(--foreground)] line-clamp-1">
-                          {section.subject}
+                          {section.sectionName || section.subject}
                         </h3>
                         <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
                           {section.course || 'Engineering'}

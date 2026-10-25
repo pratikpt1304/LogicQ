@@ -687,22 +687,35 @@ export class FirestoreDataService {
 
     return (
       upperCode === 'LQ-DC85' ||
+      upperCode === 'LQ-4904' ||
+      upperCode === 'LQ-CE68' ||
+      upperId === '1633F9EE-2C41-4CCF-B0C2-A293FEED2B50' ||
+      upperId === 'CE205E2F-C4B1-4562-9E95-162DED89A42D' ||
       upperId === '20E4DB09-FE9A-47AB-A034-57B11E49A02F' ||
       token === '20e4db09-fe9a-47ab-a034-57b11e49a02f' ||
+      token === '68267c8a-1d8e-426f-97cd-72d215792084' ||
+      token === '54c6ce08-8307-44d2-9125-be8c7d2a38c7' ||
       name === 'Div A - Computer Science' ||
       (name.includes('Div A') && desc.includes('Official academic section for B.Tech CSE'))
     );
   }
 
   /**
-   * One-time deep purge of the legacy demo section across localStorage, IndexedDB, and Firestore.
+   * One-time deep purge of legacy and duplicate ghost demo sections across localStorage, IndexedDB, and Firestore.
    */
   public static async purgeLegacyDemoSection(): Promise<void> {
     try {
       // 1. Add to permanent tombstone list
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       const list: string[] = raw ? JSON.parse(raw) : [];
-      ['LQ-DC85', 'lq-dc85', '20e4db09-fe9a-47ab-a034-57b11e49a02f'].forEach((k) => {
+      [
+        'LQ-DC85', 'lq-dc85',
+        'LQ-4904', 'lq-4904',
+        'LQ-CE68', 'lq-ce68',
+        '1633f9ee-2c41-4ccf-b0c2-a293feed2b50',
+        'ce205e2f-c4b1-4562-9e95-162ded89a42d',
+        '20e4db09-fe9a-47ab-a034-57b11e49a02f',
+      ].forEach((k) => {
         if (!list.includes(k)) list.push(k);
       });
       localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(list));
@@ -717,6 +730,10 @@ export class FirestoreDataService {
 
       // 3. Remove section roster cache
       localStorage.removeItem('logicq_section_students_LQ-DC85');
+      localStorage.removeItem('logicq_section_students_LQ-4904');
+      localStorage.removeItem('logicq_section_students_LQ-CE68');
+      localStorage.removeItem('logicq_section_students_1633f9ee-2c41-4ccf-b0c2-a293feed2b50');
+      localStorage.removeItem('logicq_section_students_ce205e2f-c4b1-4562-9e95-162ded89a42d');
       localStorage.removeItem('logicq_section_students_20e4db09-fe9a-47ab-a034-57b11e49a02f');
 
       // 4. Delete Firestore documents
