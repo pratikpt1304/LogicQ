@@ -6,6 +6,7 @@ import {
   updateProblem,
   deleteProblem,
   scheduleDaily,
+  autoScheduleKanetkarDaily,
   getAdminSubmissions,
   rejudgeSubmission,
   getAdminUsers,
@@ -60,6 +61,7 @@ adminRouter.post('/problems', validate(problemAdminSchema), createProblem);
 adminRouter.put('/problems/:id', updateProblem);
 adminRouter.delete('/problems/:id', deleteProblem);
 adminRouter.post('/daily/schedule', scheduleDaily);
+adminRouter.post('/daily/auto-schedule-kanetkar', autoScheduleKanetkarDaily);
 adminRouter.get('/submissions', getAdminSubmissions);
 adminRouter.post('/submissions/:id/rejudge', rejudgeSubmission);
 adminRouter.get('/uploads', UploadController.adminListUploads);

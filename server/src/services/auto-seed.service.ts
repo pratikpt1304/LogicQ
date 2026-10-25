@@ -148,8 +148,8 @@ export async function autoSeedDatabase(): Promise<void> {
 
     // 3. Seed Yashavant Kanetkar Book Problems
     const bookCount = await prisma.problem.count({ where: { sourceType: 'BOOK' } });
-    if (bookCount === 0) {
-      console.log('⚡ Auto-seeding Yashavant Kanetkar book bank...');
+    if (bookCount < KANETKAR_BOOK_PROBLEMS.length) {
+      console.log(`⚡ Syncing Yashavant Kanetkar book bank (${bookCount} -> ${KANETKAR_BOOK_PROBLEMS.length} problems)...`);
       for (const bp of KANETKAR_BOOK_PROBLEMS) {
         const problemData = {
           title: bp.title,

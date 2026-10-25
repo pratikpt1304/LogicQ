@@ -45,6 +45,7 @@ import {
   AlertCircle,
   CheckCircle,
   Zap,
+  Sparkles,
   Clock,
   ShieldAlert,
   BookOpen,
@@ -1121,6 +1122,22 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Daily challenge scheduled');
       queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      RealtimeSyncService.emit('PROBLEMS');
+    },
+  });
+
+  const autoScheduleKanetkarMutation = useMutation({
+    mutationFn: () => api.post('/admin/daily/auto-schedule-kanetkar', {}),
+    onSuccess: (res: any) => {
+      const count = res?.data?.data?.count || res?.data?.count || 31;
+      const start = res?.data?.data?.startDate || 'Today';
+      const end = res?.data?.data?.endDate || '';
+      toast.success(`⚡ Successfully auto-scheduled ${count} Kanetkar challenges (${start} to ${end}) sequentially!`);
+      queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      RealtimeSyncService.emit('PROBLEMS');
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to auto-schedule Kanetkar daily challenges');
     },
   });
 
@@ -2306,6 +2323,43 @@ export const AdminDashboardPage: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Kanetkar Book Quick-Schedule Banner */}
+              {problemCategoryFilter === 'BOOK' && (
+                <div className="glass-card rounded-2xl p-4 sm:p-5 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <BookOpen className="w-4 h-4" />
+                      </span>
+                      <h4 className="text-sm font-bold text-white font-mono">
+                        Yashavant Kanetkar "Test Your C Skills" Curriculum Bank
+                      </h4>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
+                        Ready to Schedule
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 max-w-2xl font-mono leading-relaxed">
+                      All problems are mapped chapter-by-chapter (Declarations & Scope, Pointers, Arrays, Strings, Bitwise, Structs, Preprocessor) with automated GCC C11 stdin/stdout tests. Click below to automatically schedule the entire 30+ day daily challenge series sequentially starting today in IST.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={autoScheduleKanetkarMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm('Schedule all Kanetkar problems as upcoming Daily Challenges in canonical chapter sequence starting from today (IST)?')) {
+                          autoScheduleKanetkarMutation.mutate();
+                        }
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-dark-950 font-bold font-mono text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{autoScheduleKanetkarMutation.isPending ? 'Auto-Scheduling Sequence...' : '⚡ Auto-Schedule All Daily Challenges'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Table Card */}
               <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">

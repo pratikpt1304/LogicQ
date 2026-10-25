@@ -844,6 +844,117 @@ export async function scheduleDaily(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
+function parseBookOrder(sourceRefJson: string | null | undefined): {
+  chapterOrder: number;
+  exerciseOrder: number;
+} {
+  if (!sourceRefJson) {
+    return { chapterOrder: 999999, exerciseOrder: 999999 };
+  }
+  try {
+    const parsed = JSON.parse(sourceRefJson);
+    return {
+      chapterOrder: Number.isFinite(Number(parsed.chapterOrder))
+        ? Number(parsed.chapterOrder)
+        : 999999,
+      exerciseOrder: Number.isFinite(Number(parsed.exerciseOrder))
+        ? Number(parsed.exerciseOrder)
+        : 999999,
+    };
+  } catch {
+    return { chapterOrder: 999999, exerciseOrder: 999999 };
+  }
+}
+
+export async function autoScheduleKanetkarDaily(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { startDate } = req.body || {};
+
+    const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
+    const defaultStartStr = nowIst.toISOString().split('T')[0];
+    const initialDateStr = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : defaultStartStr;
+
+    const bookProblems = await prisma.problem.findMany({
+      where: {
+        OR: [
+          { sourceType: 'BOOK' },
+          { slug: { startsWith: 'kanetkar-' } },
+        ],
+        status: 'PUBLISHED',
+      },
+    });
+
+    if (bookProblems.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: 'No published Kanetkar book problems found in the problem bank.',
+      });
+      return;
+    }
+
+    bookProblems.sort((a, b) => {
+      const orderA = parseBookOrder(a.sourceRefJson);
+      const orderB = parseBookOrder(b.sourceRefJson);
+      if (orderA.chapterOrder !== orderB.chapterOrder) {
+        return orderA.chapterOrder - orderB.chapterOrder;
+      }
+      if (orderA.exerciseOrder !== orderB.exerciseOrder) {
+        return orderA.exerciseOrder - orderB.exerciseOrder;
+      }
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+
+    const [startYear, startMonth, startDay] = initialDateStr.split('-').map(Number);
+    const baseDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+
+    const scheduledList: Array<{ id: string; title: string; scheduledDate: string }> = [];
+
+    for (let i = 0; i < bookProblems.length; i++) {
+      const p = bookProblems[i];
+      const targetDate = new Date(baseDate.getTime() + i * 24 * 3600 * 1000);
+      const targetDateStr = targetDate.toISOString().split('T')[0];
+
+      await prisma.problem.update({
+        where: { id: p.id },
+        data: {
+          isDaily: true,
+          scheduledDate: targetDateStr,
+        },
+      });
+
+      scheduledList.push({
+        id: p.id,
+        title: p.title,
+        scheduledDate: targetDateStr,
+      });
+    }
+
+    if (req.user?.userId) {
+      await prisma.adminAuditLog.create({
+        data: {
+          adminId: req.user.userId,
+          action: 'KANETKAR_AUTO_SCHEDULE_DAILY',
+          reason: `Auto-scheduled ${bookProblems.length} Kanetkar challenges starting from ${initialDateStr}`,
+        },
+      }).catch((e) => console.warn('Audit log write failed:', e));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully scheduled ${bookProblems.length} Kanetkar problems starting from ${initialDateStr}`,
+      data: {
+        count: bookProblems.length,
+        startDate: initialDateStr,
+        endDate: scheduledList[scheduledList.length - 1]?.scheduledDate,
+        scheduled: scheduledList,
+      },
+    });
+  } catch (err: any) {
+    console.error('Auto-schedule Kanetkar error:', err);
+    res.status(500).json({ success: false, message: 'Failed to auto-schedule Kanetkar daily challenges' });
+  }
+}
+
 export async function getAdminSubmissions(req: AuthRequest, res: Response): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
