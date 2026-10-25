@@ -13,7 +13,7 @@ export interface DailySystemConfigData {
 }
 
 const CONFIG_KEY = 'daily_challenge_system';
-const DEFAULT_MIN_SCHEDULED = 14;
+const DEFAULT_MIN_SCHEDULED = 1;
 
 let memoryConfigCache: DailySystemConfigData = {
   dailyChallengePaused: true, // Default safe state: PAUSED

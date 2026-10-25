@@ -4,6 +4,7 @@ import { db } from '../config/firebase.js';
 
 export type SyncScope =
   | 'PROBLEMS'
+  | 'DAILY'
   | 'SECTIONS'
   | 'TESTS'
   | 'SUBMISSIONS'
@@ -99,6 +100,14 @@ class RealtimeSyncManager {
     if (!this.queryClient) return;
 
     switch (scope) {
+      case 'DAILY':
+        this.queryClient.invalidateQueries({ queryKey: ['daily-problem'] });
+        this.queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin-daily-system-preview'] });
+        this.queryClient.invalidateQueries({ queryKey: ['admin-daily-finalization-status'] });
+        this.queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        break;
+
       case 'PROBLEMS':
         this.queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
         this.queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
