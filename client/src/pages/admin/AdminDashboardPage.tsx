@@ -2216,8 +2216,8 @@ export const AdminDashboardPage: React.FC = () => {
                     onClick={() => setProblemCategoryFilter('ALL')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
                       problemCategoryFilter === 'ALL'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                        ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 font-bold'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
                     }`}
                   >
                     All ({rawProblems.length})
@@ -2226,33 +2226,33 @@ export const AdminDashboardPage: React.FC = () => {
                     onClick={() => setProblemCategoryFilter('DAILY')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
                       problemCategoryFilter === 'DAILY'
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
-                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 font-bold'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
                     }`}
                   >
-                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    <Zap className="w-3.5 h-3.5 text-emerald-500" />
                     <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
                   </button>
                   <button
                     onClick={() => setProblemCategoryFilter('PRACTICE')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
                       problemCategoryFilter === 'PRACTICE'
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                        ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40 font-bold'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5 text-purple-400" />
+                    <Layers className="w-3.5 h-3.5 text-purple-500" />
                     <span>Practice ({rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length})</span>
                   </button>
                   <button
                     onClick={() => setProblemCategoryFilter('BOOK')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
                       problemCategoryFilter === 'BOOK'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                        ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 font-bold'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
                     }`}
                   >
-                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <BookOpen className="w-3.5 h-3.5 text-amber-500" />
                     <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
                   </button>
 
@@ -2719,10 +2719,10 @@ export const AdminDashboardPage: React.FC = () => {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
                   activeTab === 'submissions'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'bg-dark-900/60 text-slate-400 hover:text-white border border-white/[0.08]'
+                    : 'bg-slate-100 dark:bg-dark-900/60 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-slate-200 dark:border-white/[0.08]'
                 }`}
               >
-                <Zap className="w-4 h-4 text-amber-400" />
+                <Zap className="w-4 h-4 text-amber-500" />
                 <span>Live Feed ({filteredSubmissions.length})</span>
               </button>
               <button
@@ -2731,32 +2731,32 @@ export const AdminDashboardPage: React.FC = () => {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
                   activeTab === 'anticheat'
                     ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-                    : 'bg-dark-900/60 text-slate-400 hover:text-white border border-white/[0.08]'
+                    : 'bg-slate-100 dark:bg-dark-900/60 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-slate-200 dark:border-white/[0.08]'
                 }`}
               >
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <ShieldAlert className="w-4 h-4 text-rose-500" />
                 <span>Plagiarism Radar</span>
               </button>
             </div>
 
             {/* Quick Metrics Badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono">
-                <span className="text-slate-400 mr-1.5">Total:</span>
-                <span className="font-bold text-white">{submissionMetrics.total}</span>
+              <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-mono">
+                <span className="text-[var(--muted-foreground)] mr-1.5">Total:</span>
+                <span className="font-bold text-[var(--foreground)]">{submissionMetrics.total}</span>
               </div>
               <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-mono">
-                <span className="text-emerald-400 font-semibold mr-1.5">Accepted:</span>
-                <span className="font-bold text-emerald-300">{submissionMetrics.accepted}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold mr-1.5">Accepted:</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-300">{submissionMetrics.accepted}</span>
               </div>
               <div className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs font-mono">
-                <span className="text-rose-400 font-semibold mr-1.5">Wrong:</span>
-                <span className="font-bold text-rose-300">{submissionMetrics.wrong}</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold mr-1.5">Wrong:</span>
+                <span className="font-bold text-rose-700 dark:text-rose-300">{submissionMetrics.wrong}</span>
               </div>
               {submissionMetrics.errors > 0 && (
                 <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono">
-                  <span className="text-amber-400 font-semibold mr-1.5">Errors / TLE:</span>
-                  <span className="font-bold text-amber-300">{submissionMetrics.errors}</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold mr-1.5">Errors / TLE:</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-300">{submissionMetrics.errors}</span>
                 </div>
               )}
             </div>
@@ -3464,19 +3464,19 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="space-y-3.5">
           {/* Role Filter Tabs & Summary Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 p-1 bg-dark-900/90 border border-white/[0.08] rounded-xl overflow-x-auto max-w-full">
+            <div className="flex items-center gap-1.5 p-1 bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-x-auto max-w-full shadow-sm">
               <button
                 type="button"
                 onClick={() => setFilterRole('ALL')}
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
                   filterRole === 'ALL'
                     ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <span>All Accounts</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  filterRole === 'ALL' ? 'bg-indigo-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                  filterRole === 'ALL' ? 'bg-indigo-700 text-white' : 'bg-slate-100 dark:bg-white/[0.08] text-[var(--muted-foreground)] border border-[var(--border)]'
                 }`}>
                   {roleCounts.ALL}
                 </span>
@@ -3488,13 +3488,13 @@ export const AdminDashboardPage: React.FC = () => {
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
                   filterRole === 'STUDENT'
                     ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-cyan-300 hover:bg-white/[0.04]'
+                    : 'text-[var(--muted-foreground)] hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5" />
                 <span>Students</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  filterRole === 'STUDENT' ? 'bg-cyan-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                  filterRole === 'STUDENT' ? 'bg-cyan-700 text-white' : 'bg-slate-100 dark:bg-white/[0.08] text-[var(--muted-foreground)] border border-[var(--border)]'
                 }`}>
                   {roleCounts.STUDENT}
                 </span>
@@ -3506,13 +3506,13 @@ export const AdminDashboardPage: React.FC = () => {
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
                   filterRole === 'FACULTY'
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-blue-300 hover:bg-white/[0.04]'
+                    : 'text-[var(--muted-foreground)] hover:text-blue-600 dark:hover:text-blue-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5" />
                 <span>Faculty</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  filterRole === 'FACULTY' ? 'bg-blue-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                  filterRole === 'FACULTY' ? 'bg-blue-700 text-white' : 'bg-slate-100 dark:bg-white/[0.08] text-[var(--muted-foreground)] border border-[var(--border)]'
                 }`}>
                   {roleCounts.FACULTY}
                 </span>
@@ -3524,20 +3524,20 @@ export const AdminDashboardPage: React.FC = () => {
                 className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
                   filterRole === 'ADMIN'
                     ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-emerald-300 hover:bg-white/[0.04]'
+                    : 'text-[var(--muted-foreground)] hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Admins</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  filterRole === 'ADMIN' ? 'bg-emerald-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                  filterRole === 'ADMIN' ? 'bg-emerald-700 text-white' : 'bg-slate-100 dark:bg-white/[0.08] text-[var(--muted-foreground)] border border-[var(--border)]'
                 }`}>
                   {roleCounts.ADMIN}
                 </span>
               </button>
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-mono text-[var(--muted-foreground)]">
               <span>Showing <strong className="text-white">{users.length}</strong> of {allMergedUsers.length} total members</span>
               {(filterSearch || filterRole !== 'ALL' || filterSectionId !== 'ALL' || filterDepartment !== 'ALL') && (
                 <button
