@@ -15,6 +15,7 @@ import {
   formatOwnIdentityLabel,
   formatPublicDisplayName,
   generateShortId,
+  isRealPersonName,
 } from '../config/academic.config.js';
 
 const STORAGE_KEYS = {
@@ -1337,7 +1338,13 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           (current.email && target.email && current.email.toLowerCase() === target.email.toLowerCase()) ||
           (current.prn && target.prn && current.prn === target.prn))
     );
-    const effectiveDisplayName = target.displayName || (isOwner ? (current?.displayName || current?.fullName) : null);
+    const realNameCandidate = [
+      target.displayName,
+      target.fullName,
+      isOwner ? current?.displayName : null,
+      isOwner ? current?.fullName : null,
+    ].find(isRealPersonName);
+    const effectiveDisplayName = realNameCandidate || null;
     const effectiveDepartment = target.department || (isOwner ? current?.department : null);
     const effectiveYear = target.year || (isOwner ? current?.year : null);
     const effectiveDivision = target.division || (isOwner ? current?.division : null);

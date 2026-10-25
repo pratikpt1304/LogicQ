@@ -11,6 +11,14 @@ import {
 import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
+import { isRealPersonName } from '../config/academic.config.js';
+
+function pickBestRealName(...candidates: (string | null | undefined)[]): string | null {
+  for (const c of candidates) {
+    if (isRealPersonName(c)) return c!.trim();
+  }
+  return null;
+}
 
 export type AuthState = 'loading' | 'signedIn' | 'signedOut';
 
@@ -450,8 +458,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             department: serverUser.department || existingCompleted.department,
             year: serverUser.year || existingCompleted.year,
             division: serverUser.division || existingCompleted.division,
-            displayName: serverUser.displayName || existingCompleted.displayName || targetFbUser?.displayName || null,
-            fullName: serverUser.fullName || existingCompleted.fullName || targetFbUser?.displayName || serverUser.username,
+            displayName: pickBestRealName(serverUser.displayName, existingCompleted.displayName, targetFbUser?.displayName, serverUser.fullName, existingCompleted.fullName),
+            fullName: pickBestRealName(serverUser.fullName, existingCompleted.fullName, targetFbUser?.displayName, serverUser.displayName, existingCompleted.displayName) || serverUser.fullName || serverUser.username,
             profileComplete: existingCompleted.profileComplete || serverUser.profileComplete,
             totalPoints: authoritativePoints,
             currentStreak: authoritativeCurrentStreak,
@@ -460,8 +468,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           serverUser = {
             ...serverUser,
-            displayName: serverUser.displayName || targetFbUser?.displayName || null,
-            fullName: serverUser.fullName || targetFbUser?.displayName || serverUser.username,
+            displayName: pickBestRealName(serverUser.displayName, targetFbUser?.displayName, serverUser.fullName),
+            fullName: pickBestRealName(serverUser.fullName, targetFbUser?.displayName, serverUser.displayName) || serverUser.fullName || serverUser.username,
             totalPoints: authoritativePoints,
             currentStreak: authoritativeCurrentStreak,
             longestStreak: authoritativeLongestStreak,
@@ -892,8 +900,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             department: firestoreProfile.department || authenticatedUser.department,
             year: firestoreProfile.year || authenticatedUser.year,
             division: firestoreProfile.division || authenticatedUser.division,
-            displayName: firestoreProfile.displayName || authenticatedUser.displayName,
-            fullName: firestoreProfile.fullName || authenticatedUser.fullName,
+            displayName: pickBestRealName(firestoreProfile.displayName, authenticatedUser.displayName, cred.user.displayName, firestoreProfile.fullName, authenticatedUser.fullName),
+            fullName: pickBestRealName(firestoreProfile.fullName, authenticatedUser.fullName, cred.user.displayName, firestoreProfile.displayName, authenticatedUser.displayName) || authenticatedUser.fullName || authenticatedUser.username,
             profileComplete: authenticatedUser.profileComplete || firestoreProfile.profileComplete,
             totalPoints: Math.max(authenticatedUser.totalPoints || 0, firestoreProfile.totalPoints || 0),
             currentStreak: Math.max(authenticatedUser.currentStreak || 0, firestoreProfile.currentStreak || 0),

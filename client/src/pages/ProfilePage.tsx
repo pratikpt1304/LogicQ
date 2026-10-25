@@ -21,6 +21,7 @@ import {
   maskPrn,
   formatPublicDisplayName,
   generateShortId,
+  isRealPersonName,
 } from '../config/academic.config.js';
 import { toast } from 'sonner';
 import { VerdictBadge } from '../components/common/Badge.js';
@@ -401,14 +402,15 @@ export const ProfilePage: React.FC = () => {
             'FIRESTORE_FALLBACK';
 
           const resolvedDisplayName =
-            fsUser?.displayName ||
-            serverUser?.displayName ||
-            currentUser?.displayName ||
-            fsUser?.fullName ||
-            serverUser?.fullName ||
-            currentUser?.fullName ||
-            auth.currentUser?.displayName ||
-            null;
+            [
+              fsUser?.displayName,
+              serverUser?.displayName,
+              currentUser?.displayName,
+              auth.currentUser?.displayName,
+              fsUser?.fullName,
+              serverUser?.fullName,
+              currentUser?.fullName,
+            ].find(isRealPersonName) || null;
 
           const resolvedDepartment =
             fsUser?.department ||
@@ -853,12 +855,13 @@ export const ProfilePage: React.FC = () => {
   const ownPrnDisplay = ownPrn || ownMaskedPrn;
 
   const resolvedDisplayName =
-    profile?.displayName ||
-    currentUser?.displayName ||
-    profile?.fullName ||
-    currentUser?.fullName ||
-    auth.currentUser?.displayName ||
-    null;
+    [
+      profile?.displayName,
+      currentUser?.displayName,
+      auth.currentUser?.displayName,
+      profile?.fullName,
+      currentUser?.fullName,
+    ].find(isRealPersonName) || null;
 
   const headerTitle = isOwnProfile
     ? resolvedDisplayName ||

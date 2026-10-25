@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
-import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName } from '../config/academic.config.js';
+import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 
 export interface StudentPracticeProgress {
@@ -513,6 +513,10 @@ export class FirestoreDataService {
     const role = isAdmin ? 'ADMIN' : (data.role || 'STUDENT');
     const profileComplete = isAdmin ? true : Boolean(data.profileComplete && prn);
 
+    const realCandidate = [data.displayName, data.fullName, data.name].find(isRealPersonName);
+    const resolvedFullName = realCandidate || (isAdmin ? 'LogicQ Admin' : `Student ${shortId}`);
+    const resolvedDisplayName = isRealPersonName(data.displayName) ? data.displayName : (isAdmin ? 'Admin' : (realCandidate || null));
+
     return {
       id: uid,
       username: data.username || (isAdmin ? 'admin' : `stu_${shortId.toLowerCase()}`),
@@ -520,8 +524,8 @@ export class FirestoreDataService {
       prn,
       maskedPrn: masked,
       shortId,
-      fullName: data.fullName || data.displayName || (isAdmin ? 'LogicQ Admin' : `Student ${shortId}`),
-      displayName: data.displayName || (isAdmin ? 'Admin' : null),
+      fullName: resolvedFullName,
+      displayName: resolvedDisplayName,
       publicDisplayName: data.displayName || (isAdmin ? 'Administrator' : (data.department && data.year ? `${data.department} • ${data.year} • ••••••••${shortId}` : `Student ••••••••${shortId}`)),
       ownIdentityLabel: prn && data.department && data.year ? `${data.department} • ${data.year} • ${masked}` : (isAdmin ? 'System Administrator' : null),
       role,

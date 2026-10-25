@@ -144,3 +144,35 @@ export function formatPublicDisplayName(user: {
   const suffix = user.shortId || generateShortId(user.id);
   return `Student ${suffix}`;
 }
+
+export function isRealPersonName(name?: string | null): boolean {
+  if (!name || typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return false;
+  if (trimmed.includes('••••') || trimmed.includes(' • ')) return false;
+  if (/^Student\s+\d+/i.test(trimmed) || trimmed.toLowerCase() === 'student') return false;
+  if (/^stu_[a-z0-9]+/i.test(trimmed)) return false;
+  return true;
+}
+
+export function resolveGreetingName(
+  user?: {
+    displayName?: string | null;
+    fullName?: string | null;
+    username?: string | null;
+  } | null,
+  fallbackAuthName?: string | null
+): string {
+  if (user) {
+    if (isRealPersonName(user.displayName)) return user.displayName!.trim();
+    if (isRealPersonName(user.fullName)) return user.fullName!.trim();
+  }
+  if (isRealPersonName(fallbackAuthName)) {
+    return fallbackAuthName!.trim();
+  }
+  if (user?.username && isRealPersonName(user.username)) {
+    return user.username.trim();
+  }
+  return 'Student';
+}
+

@@ -9,6 +9,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { auth } from '../config/firebase.js';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { resolveGreetingName } from '../config/academic.config.js';
 import { toast } from 'sonner';
 import {
   Flame,
@@ -404,7 +405,7 @@ export const DashboardPage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)]">
-                      Welcome back, {user?.displayName || user?.fullName || (isAdmin ? 'Administrator' : 'Instructor')}
+                      Welcome back, {resolveGreetingName(user, auth.currentUser?.displayName) !== 'Student' ? resolveGreetingName(user, auth.currentUser?.displayName) : (isAdmin ? 'Administrator' : 'Instructor')}
                     </h1>
                     {isAdmin ? (
                       <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
@@ -799,7 +800,7 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-                  Welcome back, {user?.fullName || user?.username}
+                  Welcome back, {resolveGreetingName(user, auth.currentUser?.displayName)}
                 </h1>
                 <p className="text-xs sm:text-sm text-[var(--text-muted)] font-mono flex items-center gap-2">
                   <span>Enrolled Section:</span>
