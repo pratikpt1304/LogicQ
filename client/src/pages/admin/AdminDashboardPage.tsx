@@ -3676,38 +3676,38 @@ export const AdminDashboardPage: React.FC = () => {
                         <td className="px-4 py-3.5">
                           {u.role === 'ADMIN' ? (
                             <div className="space-y-0.5">
-                              <span className="text-slate-300 text-xs font-semibold block">LogicQ Platform</span>
-                              <span className="text-slate-500 text-[11px] block">Global Administrator</span>
+                              <span className="text-slate-700 dark:text-slate-300 text-xs font-semibold block">LogicQ Platform</span>
+                              <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Global Administrator</span>
                             </div>
                           ) : u.role === 'FACULTY' ? (
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-cyan-300 font-semibold text-xs">{u.department || 'Faculty'}</span>
-                                {u.college && <span className="text-slate-500 text-[11px]">• {u.college}</span>}
+                                <span className="text-indigo-600 dark:text-cyan-300 font-semibold text-xs">{u.department || 'Faculty'}</span>
+                                {u.college && <span className="text-slate-500 dark:text-slate-400 text-[11px]">• {u.college}</span>}
                               </div>
                               {u.sections && u.sections.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {u.sections.map((sec: any) => (
                                     <span
                                       key={sec.id}
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30"
                                     >
                                       {sec.sectionName || sec.joinCode}
                                     </span>
                                   ))}
                                 </div>
                               ) : (
-                                <span className="text-slate-500 text-[10px] italic">No active class assigned</span>
+                                <span className="text-slate-500 dark:text-slate-400 text-[10px] italic">No active class assigned</span>
                               )}
                             </div>
                           ) : (
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-cyan-300 font-semibold text-xs">{u.department || '—'}</span>
-                                <span className="text-slate-500 text-xs">•</span>
-                                <span className="text-slate-300 text-xs">{u.year || '—'}</span>
+                                <span className="text-indigo-600 dark:text-cyan-300 font-semibold text-xs">{u.department || '—'}</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">•</span>
+                                <span className="text-slate-700 dark:text-slate-300 text-xs font-medium">{u.year || '—'}</span>
                                 {u.division && (
-                                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 shadow-xs">
                                     Div {u.division}
                                   </span>
                                 )}
@@ -3717,7 +3717,7 @@ export const AdminDashboardPage: React.FC = () => {
                                   {u.sections.map((sec: any) => (
                                     <span
                                       key={sec.id}
-                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30"
                                       title={`Join Code: ${sec.joinCode || '—'}`}
                                     >
                                       {sec.sectionName || sec.joinCode || 'Section'}
@@ -3725,11 +3725,11 @@ export const AdminDashboardPage: React.FC = () => {
                                   ))}
                                 </div>
                               ) : u.sectionName || u.sectionId ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30">
                                   {u.sectionName || u.sectionId}
                                 </span>
                               ) : (
-                                <span className="text-slate-500 text-[10px] italic">General Student Roster</span>
+                                <span className="text-slate-500 dark:text-slate-400 text-[10px] italic">General Student Roster</span>
                               )}
                             </div>
                           )}
@@ -6072,7 +6072,7 @@ int main() {
                           <td className="p-2 text-cyan-400">{p.scheduledDate}</td>
                           <td className="p-2 font-medium text-slate-200">{p.title}</td>
                           <td className="p-2">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                               {p.difficulty}
                             </span>
                           </td>
