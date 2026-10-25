@@ -882,6 +882,8 @@ export class FirestoreDataService {
       email === 'samugangad@gmail.com' ||
       email === 'rohan_1390@test.edu' ||
       email === 'join_1390@sanjivani.edu.in' ||
+      email === 'ipverse1918@gmail.com' ||
+      email === 'ipworker1908@gmail.com' ||
       prn === '2126PMIM1039' ||
       prn === '2126PMIF1057' ||
       prn === '2026VAL1390' ||
@@ -899,6 +901,8 @@ export class FirestoreDataService {
         'samugangad@gmail.com',
         'rohan_1390@test.edu',
         'join_1390@sanjivani.edu.in',
+        'ipverse1918@gmail.com',
+        'ipworker1908@gmail.com',
       ];
       const targetPrns = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
       const directKeys = [
@@ -906,6 +910,8 @@ export class FirestoreDataService {
         'samugangad_gmail_com',
         'rohan_1390_test_edu',
         'join_1390_sanjivani_edu_in',
+        'ipverse1918_gmail_com',
+        'ipworker1908_gmail_com',
         '2126PMIM1039',
         '2126PMIF1057',
         '2026VAL1390',
@@ -914,6 +920,7 @@ export class FirestoreDataService {
 
       for (const k of directKeys) {
         await deleteDoc(doc(db, 'enrolled_students', k)).catch(() => {});
+        await deleteDoc(doc(db, 'publicProfiles', k)).catch(() => {});
       }
       for (const prn of targetPrns) {
         await deleteDoc(doc(db, 'prnIndex', prn)).catch(() => {});
@@ -939,13 +946,14 @@ export class FirestoreDataService {
         }
       }
 
-      // Query users
+      // Query users & publicProfiles
       for (const email of targetEmails) {
         const q = query(collection(db, 'users'), where('email', '==', email));
         const snap = await getDocs(q).catch(() => null);
         if (snap) {
           for (const d of snap.docs) {
             await deleteDoc(d.ref).catch(() => {});
+            await deleteDoc(doc(db, 'publicProfiles', d.id)).catch(() => {});
           }
         }
       }
@@ -955,9 +963,22 @@ export class FirestoreDataService {
         if (snap) {
           for (const d of snap.docs) {
             await deleteDoc(d.ref).catch(() => {});
+            await deleteDoc(doc(db, 'publicProfiles', d.id)).catch(() => {});
           }
         }
       }
+
+      // Also scrub local fallback users cache
+      try {
+        const raw = localStorage.getItem('logicq_fallback_users_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+            localStorage.setItem('logicq_fallback_users_v1', JSON.stringify(cleaned));
+          }
+        }
+      } catch {}
     } catch (e) {
       console.warn('purgeDeletedStudentsFromFirestore error:', e);
     }

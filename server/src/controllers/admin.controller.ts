@@ -2,6 +2,7 @@ import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma.js';
+import { isExplicitlyPurgedUser } from './auth.controller.js';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import { getQueue } from '../queue/queue.factory.js';
 import { getChallengeDayIST, getChallengeDayWindowIST, getServerNow, addDaysIST, getChallengeDayBoundsUTC } from '../utils/ist.js';
@@ -967,7 +968,20 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const skip = (page - 1) * limit;
 
     const where: any = {
-      email: { not: 'admin@logicq.io' },
+      email: {
+        notIn: [
+          'admin@logicq.io',
+          'thoratpratik2323@gmail.com',
+          'samugangad@gmail.com',
+          'rohan_1390@test.edu',
+          'join_1390@sanjivani.edu.in',
+          'ipverse1918@gmail.com',
+          'ipworker1908@gmail.com',
+        ],
+      },
+      prn: {
+        notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'],
+      },
     };
     if (verdict && verdict !== 'ALL') where.verdict = verdict;
 
@@ -1153,7 +1167,20 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const skip = (page - 1) * limit;
 
     const where: any = {
-      email: { not: 'admin@logicq.io' },
+      email: {
+        notIn: [
+          'admin@logicq.io',
+          'thoratpratik2323@gmail.com',
+          'samugangad@gmail.com',
+          'rohan_1390@test.edu',
+          'join_1390@sanjivani.edu.in',
+          'ipverse1918@gmail.com',
+          'ipworker1908@gmail.com',
+        ],
+      },
+      prn: {
+        notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'],
+      },
     };
     if (department && department !== 'ALL') where.department = department;
     if (year && year !== 'ALL') where.year = year;
@@ -2631,6 +2658,7 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
       if (!u.email) continue;
       const email = String(u.email).trim().toLowerCase();
       const prn = u.prn ? String(u.prn).trim().toUpperCase() : null;
+      if (isExplicitlyPurgedUser({ email, prn: prn || undefined })) continue;
       const isExplicitAdmin = isExplicitAdminEmail(email);
 
       const existing = await prisma.user.findUnique({ where: { email } });

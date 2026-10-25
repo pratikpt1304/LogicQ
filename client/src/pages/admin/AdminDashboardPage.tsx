@@ -542,9 +542,10 @@ export const AdminDashboardPage: React.FC = () => {
   // Background auto-healing: If backend SQLite was restarted/wiped by Render, automatically restore all Firestore students!
   React.useEffect(() => {
     if (firestoreUsersData && firestoreUsersData.length > 0) {
+      const activeFUsers = firestoreUsersData.filter((u: any) => !FirestoreDataService.isPurgedStudent(u));
       const backendCount = usersData?.data?.users?.length || 0;
-      if (backendCount < firestoreUsersData.length) {
-        api.post('/admin/users/sync-firestore', { users: firestoreUsersData })
+      if (activeFUsers.length > 0 && backendCount < activeFUsers.length) {
+        api.post('/admin/users/sync-firestore', { users: activeFUsers })
           .then(() => {
             queryClient.invalidateQueries({ queryKey: ['admin-users'] });
           })
@@ -715,8 +716,12 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Resilient merged users list: combines backend users with Firestore users and enriches names
   const { allMergedUsers, users, roleCounts } = React.useMemo(() => {
-    const backendUsers = usersData?.data?.users || [];
-    const fUsers: any[] = firestoreUsersData || [];
+    const backendUsers = (usersData?.data?.users || []).filter(
+      (u: any) => !FirestoreDataService.isPurgedStudent(u)
+    );
+    const fUsers: any[] = (firestoreUsersData || []).filter(
+      (u: any) => !FirestoreDataService.isPurgedStudent(u)
+    );
 
     const isRawSystemId = (val?: string | null) => {
       if (!val || typeof val !== 'string') return false;
@@ -861,7 +866,9 @@ export const AdminDashboardPage: React.FC = () => {
     });
 
     const all = [...enrichedBackend, ...missingFromBackend].filter(
-      (u: any) => u.email?.toLowerCase().trim() !== 'admin@logicq.io'
+      (u: any) =>
+        u.email?.toLowerCase().trim() !== 'admin@logicq.io' &&
+        !FirestoreDataService.isPurgedStudent(u)
     );
     let merged = all;
 

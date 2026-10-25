@@ -202,6 +202,8 @@ export const PURGED_EMAILS = [
   'samugangad@gmail.com',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
+  'ipverse1918@gmail.com',
+  'ipworker1908@gmail.com',
 ];
 
 export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
@@ -1754,7 +1756,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/admin/users' && method === 'GET') {
-    return { success: true, data: { users: getStoredUsers() } };
+    const activeUsers = getStoredUsers().filter(
+      (u) => !isExplicitlyPurgedUser(u) && !FirestoreDataService.isPurgedStudent(u)
+    );
+    return { success: true, data: { users: activeUsers } };
   }
 
   if (path.startsWith('/admin/users/') && path.endsWith('/ban') && method === 'PUT') {
