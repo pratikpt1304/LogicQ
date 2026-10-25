@@ -957,57 +957,33 @@ export class FirestoreDataService {
     // Purge deleted students in background
     FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
 
-    // Clean local storage
+    // Wipe local storage section caches
     try {
+      localStorage.removeItem('logicq_faculty_sections_backup_v2');
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith('logicq_section_students_')) {
-          const raw = localStorage.getItem(k);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              const cleaned = parsed.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
-              if (cleaned.length !== parsed.length) {
-                localStorage.setItem(k, JSON.stringify(cleaned));
-              }
-            }
-          }
+        if (k && (k.startsWith('logicq_section_') || k.startsWith('logicq_faculty_sections_'))) {
+          keysToRemove.push(k);
         }
       }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } catch {}
 
     const sectionMap = new Map<string, any>();
 
-    // 1. Read persistent local backup & clean out legacy demo section
-    try {
-      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
-      const localList = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-      if (Array.isArray(localList)) {
-        const cleaned = localList
-          .filter((s) => !FirestoreDataService.isLegacyDemoSection(s))
-          .map((s) => ({
-            ...s,
-            students: (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st)),
-            _count: { students: (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st)).length },
-          }));
-        if (cleaned.length !== localList.length) {
-          localStorage.setItem(LOCAL_KEY, JSON.stringify(cleaned));
-        }
-        cleaned.forEach((s) => {
-          const key = s.id || s.joinCode || s.sectionName;
-          if (key) sectionMap.set(key, s);
-        });
-      }
-    } catch {}
-
-    // 2. Read authoritative Firestore & purge legacy demo section if encountered
+    // 2. Read authoritative Firestore & purge legacy/wiped demo sections
     try {
       const snap = await getDocs(collection(db, 'sections'));
       for (const d of snap.docs) {
         const data = d.data();
         if (data) {
           const item: any = { id: d.id, ...data };
-          if (FirestoreDataService.isLegacyDemoSection(item)) {
+          if (
+            FirestoreDataService.isLegacyDemoSection(item) ||
+            item.joinCode === 'LQ-IMTC' ||
+            item.id === '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57'
+          ) {
             deleteDoc(d.ref).catch(() => {});
             continue;
           }
@@ -1021,52 +997,9 @@ export class FirestoreDataService {
       console.warn('getSectionsFromFirestore error:', err);
     }
 
-    // 3. Fallback Auto-heal: If sectionMap is empty, ensure the official academic section is always present
-    if (sectionMap.size === 0) {
-      const defaultSec = {
-        id: '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57',
-        institution: 'Sanjivani University',
-        course: 'Integrated M.Tech',
-        subject: 'Programming in C',
-        academicYear: '2026-2027',
-        semester: 'Semester 1',
-        sectionName: 'Integrated M.Tech - Programming in C',
-        facultyId: 'ad898246-5f77-4197-9de0-2091e3e60a8e',
-        facultyEmail: 'faculty@logicq.io',
-        facultyName: 'Prof. Demo Faculty (Walkthrough)',
-        description: 'Welcome to Programming in C',
-        joinCode: 'LQ-IMTC',
-        joinToken: 'c9e7f392-f930-47b6-b4c2-951b4b0a4748',
-        isActive: true,
-        createdAt: '2026-10-25T13:19:39.552Z',
-        _count: { students: 1 },
-        students: [
-          {
-            prn: '2026IMTM0001',
-            email: 'student@logicq.io',
-            name: 'Demo Student',
-            status: 'ENROLLED',
-            totalPoints: 0,
-            currentStreak: 0,
-            student: {
-              fullName: 'Demo Student',
-              displayName: 'Demo Student',
-              email: 'student@logicq.io',
-              prn: '2026IMTM0001',
-              totalPoints: 0,
-              currentStreak: 0,
-              accountState: 'ACTIVE',
-            },
-          },
-        ],
-      };
-      sectionMap.set(defaultSec.joinCode, defaultSec);
-      try {
-        const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
-        localStorage.setItem(LOCAL_KEY, JSON.stringify([defaultSec]));
-        localStorage.setItem(`logicq_section_students_${defaultSec.id}`, JSON.stringify(defaultSec.students));
-      } catch {}
-    }
+    // Clean out LQ-IMTC and demo sections
+    sectionMap.delete('LQ-IMTC');
+    sectionMap.delete('4a8812a1-41eb-4bfb-b50a-ca9f8702ed57');
 
     return Array.from(sectionMap.values())
       .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))

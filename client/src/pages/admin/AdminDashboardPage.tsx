@@ -760,17 +760,16 @@ export const AdminDashboardPage: React.FC = () => {
             sec.facultyId === bu.id ||
             sec.facultyId === fu?.id ||
             sec.facultyId === fu?.uid ||
-            (buEmail && (sec.facultyEmail === buEmail || sec.faculty?.email === buEmail)) ||
-            buEmail === 'faculty@logicq.io' // canonical university faculty default
+            (buEmail && (sec.facultyEmail === buEmail || sec.faculty?.email === buEmail))
         );
         matchedFacultySections.forEach((ms: any) => {
           if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject || 'Programming in C',
-              joinCode: ms.joinCode || 'LQ-IMTC',
-              subject: ms.subject || 'Programming in C',
-              course: ms.course || 'Integrated M.Tech',
+              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              joinCode: ms.joinCode,
+              subject: ms.subject,
+              course: ms.course,
             });
           }
         });
@@ -836,17 +835,16 @@ export const AdminDashboardPage: React.FC = () => {
           (sec: any) =>
             sec.facultyId === fu.id ||
             sec.facultyId === fu.uid ||
-            (fuEmail && (sec.facultyEmail === fuEmail || sec.faculty?.email === fuEmail)) ||
-            fuEmail === 'faculty@logicq.io'
+            (fuEmail && (sec.facultyEmail === fuEmail || sec.faculty?.email === fuEmail))
         );
         matchedFacultySections.forEach((ms: any) => {
           if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject || 'Programming in C',
-              joinCode: ms.joinCode || 'LQ-IMTC',
-              subject: ms.subject || 'Programming in C',
-              course: ms.course || 'Integrated M.Tech',
+              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              joinCode: ms.joinCode,
+              subject: ms.subject,
+              course: ms.course,
             });
           }
         });

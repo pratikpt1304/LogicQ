@@ -128,7 +128,6 @@ export const FacultyAnalyticsPage: React.FC = () => {
         const sFacultyEmail = (s.facultyEmail || s.faculty?.email || '').toLowerCase().trim();
         if (facultyId && sFacultyId === facultyId) return true;
         if (facultyEmail && sFacultyEmail === facultyEmail) return true;
-        if (facultyEmail === 'faculty@logicq.io' && s.joinCode === 'LQ-IMTC') return true;
         return false;
       });
 

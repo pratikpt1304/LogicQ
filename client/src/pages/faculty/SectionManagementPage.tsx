@@ -166,7 +166,6 @@ export const SectionManagementPage: React.FC = () => {
 
         if (facultyId && sFacultyId === facultyId) return true;
         if (facultyEmail && sFacultyEmail === facultyEmail) return true;
-        if (facultyEmail === 'faculty@logicq.io' && s.joinCode === 'LQ-IMTC') return true;
         if (s.createdBy === facultyId || s.createdBy === facultyEmail) return true;
 
         return false;
