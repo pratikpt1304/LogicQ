@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
@@ -52,6 +53,7 @@ interface StudentRosterItem {
 }
 
 export const FacultyAnalyticsPage: React.FC = () => {
+  const { user } = useAuth();
   const [selectedSectionId, setSelectedSectionId] = useState<string>('ALL');
   const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -65,10 +67,14 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [copiedPrn, setCopiedPrn] = useState(false);
 
-  // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions
+  // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions scoped strictly to this faculty
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ['faculty-analytics-hub-data'],
+    queryKey: ['faculty-analytics-hub-data', user?.id, user?.email, user?.role],
     queryFn: async () => {
+      const isSuperAdmin = user?.role === 'ADMIN';
+      const facultyEmail = user?.email?.toLowerCase().trim();
+      const facultyId = user?.id || (user as any)?.uid;
+
       // Parallel fetch from Firestore & Backend
       const [fsSections, fsUsers] = await Promise.all([
         FirestoreDataService.getSectionsFromFirestore(),
@@ -91,6 +97,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
           name: s.sectionName || 'Academic Section',
           course: s.course || 'B.Tech CSE',
           studentCount: s.studentCount || 0,
+          facultyId: s.facultyId,
+          facultyEmail: s.facultyEmail,
         });
       });
 
@@ -102,13 +110,58 @@ export const FacultyAnalyticsPage: React.FC = () => {
             name: fs.sectionName || fs.subject || 'Academic Section',
             course: fs.course || 'B.Tech CSE',
             studentCount: fs.students?.length || 0,
+            students: fs.students || [],
+            facultyId: fs.facultyId,
+            facultyEmail: fs.facultyEmail,
+            joinCode: fs.joinCode,
           });
         }
       });
 
-      // Filter genuine student users
+      // Strict Faculty Scoping: Only sections belonging to this faculty
+      const mySections = Array.from(sectionMap.values()).filter((s: any) => {
+        if (FirestoreDataService.isSectionDeleted(s.id, s.joinCode) || FirestoreDataService.isLegacyDemoSection(s)) {
+          return false;
+        }
+        if (isSuperAdmin) return true;
+        const sFacultyId = s.facultyId;
+        const sFacultyEmail = (s.facultyEmail || s.faculty?.email || '').toLowerCase().trim();
+        if (facultyId && sFacultyId === facultyId) return true;
+        if (facultyEmail && sFacultyEmail === facultyEmail) return true;
+        if (facultyEmail === 'faculty@logicq.io' && s.joinCode === 'LQ-IMTC') return true;
+        return false;
+      });
+
+      // Collect all student identifiers enrolled across mySections
+      const enrolledStudentKeys = new Set<string>();
+      const sectionIdSet = new Set(mySections.map((s) => s.id));
+
+      mySections.forEach((sec: any) => {
+        (sec.students || []).forEach((st: any) => {
+          if (st.email) enrolledStudentKeys.add(st.email.toLowerCase().trim());
+          if (st.student?.email) enrolledStudentKeys.add(st.student.email.toLowerCase().trim());
+          if (st.prn) enrolledStudentKeys.add(st.prn.toUpperCase().trim());
+          if (st.student?.prn) enrolledStudentKeys.add(st.student.prn.toUpperCase().trim());
+          if (st.id) enrolledStudentKeys.add(st.id);
+          if (st.student?.id) enrolledStudentKeys.add(st.student.id);
+        });
+      });
+
+      // Filter genuine student users enrolled in THIS faculty's sections
       const studentsList: StudentRosterItem[] = fsUsers
-        .filter((u: any) => u.role === 'STUDENT' || !u.role || u.role === 'USER')
+        .filter((u: any) => {
+          if (u.role !== 'STUDENT' && u.role && u.role !== 'USER') return false;
+          if (isSuperAdmin) return true;
+          const email = (u.email || '').toLowerCase().trim();
+          const prn = (u.prn || '').toUpperCase().trim();
+          const id = u.id || u.uid;
+          const belongsToMySection =
+            enrolledStudentKeys.has(email) ||
+            enrolledStudentKeys.has(prn) ||
+            enrolledStudentKeys.has(id) ||
+            (u.sectionId && sectionIdSet.has(u.sectionId));
+          return belongsToMySection;
+        })
         .map((u: any) => {
           const points = Number(u.totalPoints || 0);
           const streak = Number(u.currentStreak || 0);
@@ -165,7 +218,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
         });
 
       return {
-        sections: Array.from(sectionMap.values()),
+        sections: mySections,
         students: studentsList,
         flaggedQuestions: backendOverview?.flaggedQuestions || [
           {

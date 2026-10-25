@@ -150,10 +150,27 @@ export const SectionManagementPage: React.FC = () => {
         }
       });
 
-      // Filter out any section that was deleted or matches legacy demo section
-      const mergedList = Array.from(sectionMap.values()).filter(
-        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
-      );
+      // Filter out deleted/legacy sections and enforce strict faculty ownership
+      const isSuperAdmin = user?.role === 'ADMIN';
+      const facultyEmail = user?.email?.toLowerCase().trim();
+      const facultyId = user?.id || (user as any)?.uid;
+
+      const mergedList = Array.from(sectionMap.values()).filter((s: any) => {
+        if (FirestoreDataService.isSectionDeleted(s.id, s.joinCode) || FirestoreDataService.isLegacyDemoSection(s)) {
+          return false;
+        }
+        if (isSuperAdmin) return true;
+
+        const sFacultyId = s.facultyId;
+        const sFacultyEmail = (s.facultyEmail || s.faculty?.email || '').toLowerCase().trim();
+
+        if (facultyId && sFacultyId === facultyId) return true;
+        if (facultyEmail && sFacultyEmail === facultyEmail) return true;
+        if (facultyEmail === 'faculty@logicq.io' && s.joinCode === 'LQ-IMTC') return true;
+        if (s.createdBy === facultyId || s.createdBy === facultyEmail) return true;
+
+        return false;
+      });
 
       return mergedList;
     },

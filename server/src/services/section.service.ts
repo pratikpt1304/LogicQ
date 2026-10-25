@@ -81,13 +81,27 @@ export class SectionService {
   }
 
   /**
-   * Fetch all academic sections (accessible to all faculty and admins).
+   * Fetch academic sections belonging to the authenticated faculty member (or all sections if admin).
    */
   static async getFacultySections(facultyId: string, isAdmin = false) {
-    const baseWhere = {
+    const baseWhere: any = {
       joinCode: { notIn: ['LQ-DC85', 'LQ-4904', 'LQ-CE68'] },
       sectionName: { not: 'Div A - Computer Science' },
     };
+
+    if (!isAdmin && facultyId) {
+      const facultyUser = await prisma.user.findUnique({
+        where: { id: facultyId },
+        select: { id: true, email: true },
+      }).catch(() => null);
+
+      const isDemoFaculty = facultyUser?.email === 'faculty@logicq.io';
+
+      baseWhere.OR = [
+        { facultyId },
+        ...(isDemoFaculty ? [{ joinCode: 'LQ-IMTC' }] : []),
+      ];
+    }
 
     let list = await prisma.section.findMany({
       where: baseWhere,
