@@ -11,7 +11,6 @@ import {
   Clock,
   KeyRound,
   RefreshCw,
-  Sparkles,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -125,25 +124,6 @@ export const LoginPage: React.FC = () => {
     setOtpCode(val);
     if (val.length === 6) {
       verifyCode(val);
-    }
-  };
-
-  // Quick helper for demo/testing accounts without UI pollution
-  const handleQuickDemo = async (email: string) => {
-    setIdentifier(email);
-    setError(null);
-    setLoading(true);
-    try {
-      await loginWithOtp(email, '123456');
-      toast.success(`Logged in as ${email}`);
-      navigate(from, { replace: true });
-    } catch {
-      await sendLoginOtp(email).catch(() => {});
-      setTargetDisplay(email);
-      setOtpCode('123456');
-      setStep('otp');
-      setInfoMessage(`Test OTP code (123456) ready. Click Verify to continue.`);
-      setLoading(false);
     }
   };
 
@@ -326,34 +306,6 @@ export const LoginPage: React.FC = () => {
               </div>
             </form>
           )}
-        </div>
-
-        {/* Minimal Subtle Quick-Login Bar (Only for testing convenience, clean & unobtrusive) */}
-        <div className="mt-5 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-line)] text-[11px] text-[var(--text-muted)]">
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>Quick test:</span>
-            <button
-              onClick={() => handleQuickDemo('student@logicq.io')}
-              className="text-indigo-400 hover:underline font-medium"
-            >
-              Student
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => handleQuickDemo('faculty@logicq.io')}
-              className="text-cyan-400 hover:underline font-medium"
-            >
-              Faculty
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => handleQuickDemo('logicqarena@gmail.com')}
-              className="text-purple-400 hover:underline font-medium"
-            >
-              Admin
-            </button>
-          </div>
         </div>
       </div>
     </div>

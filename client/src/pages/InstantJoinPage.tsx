@@ -176,11 +176,6 @@ export const InstantJoinPage: React.FC = () => {
 
     setIsVerifyingEmailOtp(true);
     try {
-      if (emailOtp.trim() === '123456') {
-        setEmailOtpVerified(true);
-        toast.success('Email verified successfully!');
-        return;
-      }
       const res = await api.post('/otp/verify-email', {
         email: email.trim().toLowerCase(),
         code: emailOtp.trim(),
@@ -193,12 +188,7 @@ export const InstantJoinPage: React.FC = () => {
         toast.error(res.message || 'Invalid or expired code.');
       }
     } catch (err: any) {
-      if (emailOtp.trim() === '123456') {
-        setEmailOtpVerified(true);
-        toast.success('Email verified successfully!');
-      } else {
-        toast.error(err.message || 'Verification failed. Please check the code.');
-      }
+      toast.error(err.message || 'Verification failed. Please check the code.');
     } finally {
       setIsVerifyingEmailOtp(false);
     }

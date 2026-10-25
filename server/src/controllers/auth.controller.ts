@@ -1280,15 +1280,11 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Allow master OTP for Super Admin in development / operational environments
-    const isMasterOtp = (cleanCode === '123456' || cleanCode === '999999') && (user.role === 'ADMIN' || isWalkthroughAccount(user.email) || process.env.NODE_ENV !== 'production');
-
-    if (!isMasterOtp) {
-      const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
-      if (!verifyResult.verified) {
-        res.status(400).json({ success: false, message: verifyResult.message });
-        return;
-      }
+    // Strictly verify genuine email OTP (Zero bypasses)
+    const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+    if (!verifyResult.verified) {
+      res.status(400).json({ success: false, message: verifyResult.message });
+      return;
     }
 
     const payload = { userId: user.id, role: user.role, username: user.username, email: user.email, prn: user.prn || undefined };
