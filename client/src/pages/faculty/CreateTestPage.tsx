@@ -264,7 +264,7 @@ export const CreateTestPage: React.FC = () => {
                     <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity (Arrays, Searching, Sorting)</option>
                   </select>
                   <span className="text-[10px] text-[var(--muted-foreground)] mt-1 block">
-                    Questions is syllabus se pick honge. Test student ke <b>Tests (Exam)</b> portal par live appear hoga.
+                    Questions will be selected from this syllabus. The test will appear live on enrolled students' <b>Tests (Exam)</b> portal.
                   </span>
                 </div>
               </div>

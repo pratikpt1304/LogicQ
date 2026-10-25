@@ -117,7 +117,7 @@ export const JeeInstructionsModal: React.FC<JeeInstructionsModalProps> = ({
                 </span>
               </h4>
               <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                <strong className="text-[var(--text-main)]">Question 1</strong> se shuru hoga. Agla question tabhi khulega jab current question solve (All test cases passed) ho jaye. Solved questions ko aap kabhi bhi review/edit kar sakte ho.
+                The assessment begins with <strong className="text-[var(--text-main)]">Question 1</strong>. Each subsequent question unlocks only after the preceding problem is fully solved (all test cases passed). You can navigate back to review or edit previously solved questions at any time.
               </p>
             </div>
           </div>
@@ -209,7 +209,7 @@ export const JeeInstructionsModal: React.FC<JeeInstructionsModalProps> = ({
                   I agree to the test instructions &amp; academic integrity pledge
                 </span>
                 <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                  Main confirm karta/karti hoon ki sabhi questions main khud solve karunga/karungi bina kisi unfair means ya cheating ke.
+                  I confirm that all solutions will be coded entirely by me without unauthorized external assistance, copy-pasting, or unfair means.
                 </p>
               </div>
             </div>

@@ -1750,7 +1750,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               </div>
 
               <p className="text-[11px] font-mono text-center text-[var(--text-muted)] leading-relaxed">
-                Fair-play ensure karne ke liye code solving fullscreen mode mein hi accessible hai.
+                To maintain evaluation fairness and prevent cheating, problem solving is restricted to proctored fullscreen mode.
               </p>
             </div>
 
