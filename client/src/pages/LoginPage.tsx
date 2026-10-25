@@ -325,7 +325,7 @@ export const LoginPage: React.FC = () => {
             <p className="text-[11px] text-[var(--text-muted)] font-mono mb-3">
               One-click instant sign in to test each role without waiting for email dispatch:
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('logicqarena@gmail.com')}
@@ -361,10 +361,38 @@ export const LoginPage: React.FC = () => {
                 className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
               >
                 <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                  🎓 Student
+                  🎓 Demo Student
                 </div>
                 <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
                   student@logicq.io
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('thoratpratik2323@gmail.com')}
+                disabled={loading}
+                className="p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-left transition-all disabled:opacity-50 cursor-pointer col-span-1"
+              >
+                <div className="text-xs font-bold text-indigo-400 flex items-center gap-1">
+                  🎓 Pratik Thorat
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                  2126PMIM1039 (M.Tech)
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('samugangad@gmail.com')}
+                disabled={loading}
+                className="p-2.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 text-left transition-all disabled:opacity-50 cursor-pointer col-span-1 sm:col-span-2"
+              >
+                <div className="text-xs font-bold text-pink-400 flex items-center gap-1">
+                  🎓 Samu Gangad
+                </div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
+                  2126PMIF1057 (M.Tech)
                 </div>
               </button>
             </div>
