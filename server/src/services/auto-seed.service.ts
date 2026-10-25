@@ -318,7 +318,7 @@ export async function autoSeedDatabase(): Promise<void> {
     }
     console.log('⚡ Core Super Admin accounts verified & synced.');
 
-    // 5. Seed Walkthrough Accounts (Faculty only - Students purged on request)
+    // 5. Seed Walkthrough Accounts (faculty@logicq.io & student@logicq.io)
     await prisma.user.upsert({
       where: { email: 'faculty@logicq.io' },
       update: { role: 'FACULTY', profileComplete: true },
@@ -330,11 +330,35 @@ export async function autoSeedDatabase(): Promise<void> {
         role: 'FACULTY',
         passwordHash: adminHash,
         college: 'Sanjivani University',
-        department: 'CSE',
+        department: 'Integrated M.Tech',
         profileComplete: true,
       },
     });
-    console.log('⚡ Walkthrough account (faculty@logicq.io) verified & synced.');
+
+    const studentWalkthrough = await prisma.user.upsert({
+      where: { email: 'student@logicq.io' },
+      update: { role: 'STUDENT', prn: '2026IMTM0001', profileComplete: true },
+      create: {
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2026IMTM0001',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        role: 'STUDENT',
+        passwordHash: adminHash,
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
+        year: 'FY',
+        profileComplete: true,
+      },
+    });
+
+    await prisma.prnIndex.upsert({
+      where: { prn: '2026IMTM0001' },
+      create: { prn: '2026IMTM0001', userId: studentWalkthrough.id },
+      update: { userId: studentWalkthrough.id },
+    }).catch(() => {});
+    console.log('⚡ Walkthrough accounts (faculty@logicq.io & student@logicq.io) verified & synced.');
 
     // Active purge: permanently eliminate legacy demo section (LQ-DC85) so it never revives
     try {

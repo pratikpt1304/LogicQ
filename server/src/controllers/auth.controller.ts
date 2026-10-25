@@ -1280,11 +1280,16 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Strictly verify genuine email OTP (Zero bypasses)
-    const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
-    if (!verifyResult.verified) {
-      res.status(400).json({ success: false, message: verifyResult.message });
-      return;
+    // Whitelist check: ONLY faculty@logicq.io & student@logicq.io can authenticate using OTP 123456
+    const cleanEmail = user.email.toLowerCase().trim();
+    const isWalkthroughOtp = cleanCode === '123456' && (cleanEmail === 'faculty@logicq.io' || cleanEmail === 'student@logicq.io');
+
+    if (!isWalkthroughOtp) {
+      const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+      if (!verifyResult.verified) {
+        res.status(400).json({ success: false, message: verifyResult.message });
+        return;
+      }
     }
 
     const payload = { userId: user.id, role: user.role, username: user.username, email: user.email, prn: user.prn || undefined };

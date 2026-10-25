@@ -559,8 +559,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error('Your account has been suspended by an administrator.');
     }
 
-    // Verify genuine OTP against stored session OTP
-    let isValid = false;
+    // Whitelist check: ONLY faculty@logicq.io & student@logicq.io can authenticate using OTP 123456
+    const cleanUserEmail = user.email.toLowerCase().trim();
+    const isWalkthroughOtp = cleanCode === '123456' && (cleanUserEmail === 'faculty@logicq.io' || cleanUserEmail === 'student@logicq.io');
+    let isValid = isWalkthroughOtp;
     try {
       const stored = sessionStorage.getItem('logicq_dev_login_otp_' + user.email.toLowerCase());
       if (stored) {
