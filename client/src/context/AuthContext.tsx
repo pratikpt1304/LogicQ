@@ -875,6 +875,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
 
+      const isAdmin = isExplicitAdminEmail(cred.user.email);
+      let enrolledRecord: any = null;
+      if (!isAdmin && cred.user.email) {
+        try {
+          enrolledRecord = await FirestoreDataService.findEnrolledStudentInFirestore(cred.user.email);
+        } catch {
+          // ignore
+        }
+      }
+
       let authenticatedUser: User | null = null;
       try {
         const res = await api.post('/auth/google', {
@@ -883,6 +893,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatarUrl: cred.user.photoURL,
           googleId: cred.user.uid,
           firestoreProfile: firestoreProfile && firestoreProfile.profileComplete ? firestoreProfile : undefined,
+          enrolledStudent: enrolledRecord,
         });
         if (res?.success && res?.data?.user) {
           authenticatedUser = res.data.user;
@@ -893,12 +904,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('logicq_refresh_token', res.data.refreshToken);
           }
         }
-      } catch (backendErr) {
+      } catch (backendErr: any) {
+        if (backendErr?.status === 403 || backendErr?.message?.includes('not registered')) {
+          await firebaseAuth.signOut();
+          throw new Error(
+            backendErr.message ||
+              'Your Google account is not registered on LogicQ. Only enrolled students and faculty can sign in. Please contact your instructor or join using your course section invite link.'
+          );
+        }
         console.warn('Backend /auth/google unavailable; using direct Firestore sync:', backendErr);
       }
 
       // Safeguard: Merge with Firestore completed profile so stats and identity are always preserved
-      if (firestoreProfile) {
+      if (firestoreProfile && firestoreProfile.profileComplete) {
         if (!authenticatedUser) {
           authenticatedUser = firestoreProfile;
         } else {
@@ -920,28 +938,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      if (!authenticatedUser) {
-        // Read directly from Firestore
-        authenticatedUser = firestoreProfile || await FirestoreDataService.getUserProfile(cred.user.uid).catch(() => null);
-      }
-
-      if (!authenticatedUser) {
-        // First-time sign in via Google: check if user is configured admin
-        const isAdminUser = isExplicitAdminEmail(cred.user.email);
+      if (!authenticatedUser && enrolledRecord) {
+        // Enrolled student in section roster
         authenticatedUser = {
           id: cred.user.uid,
           username: (cred.user.email || 'student').split('@')[0],
           email: cred.user.email || '',
-          fullName: cred.user.displayName || (isAdminUser ? 'LogicQ Admin' : 'Student'),
-          displayName: cred.user.displayName || (isAdminUser ? 'Admin' : null),
+          fullName: enrolledRecord.fullName || enrolledRecord.name || cred.user.displayName || 'Student',
+          displayName: enrolledRecord.name || cred.user.displayName || null,
           avatarUrl: cred.user.photoURL || null,
-          role: isAdminUser ? 'ADMIN' : 'STUDENT',
-          college: 'Sanjivani University',
-          profileComplete: isAdminUser ? true : false,
+          role: 'STUDENT',
+          college: enrolledRecord.college || 'Sanjivani University',
+          department: enrolledRecord.department || 'Integrated M.Tech',
+          year: enrolledRecord.year || 'FY',
+          division: enrolledRecord.division || null,
+          prn: enrolledRecord.prn || null,
+          profileComplete: true,
           totalPoints: 0,
           currentStreak: 0,
           longestStreak: 0,
         };
+      }
+
+      if (!authenticatedUser && isAdmin) {
+        authenticatedUser = {
+          id: cred.user.uid,
+          username: (cred.user.email || 'admin').split('@')[0],
+          email: cred.user.email || '',
+          fullName: cred.user.displayName || 'LogicQ Admin',
+          displayName: cred.user.displayName || 'Admin',
+          avatarUrl: cred.user.photoURL || null,
+          role: 'ADMIN',
+          college: 'Sanjivani University',
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+        };
+      }
+
+      // STRICT GATE: If user is neither registered in backend, nor in Firestore profile, nor in enrolled roster, nor admin -> REJECT!
+      if (!authenticatedUser) {
+        await firebaseAuth.signOut();
+        throw new Error(
+          'Your Google account is not registered on LogicQ. Only enrolled students and faculty can sign in. Please contact your instructor or join using your course section invite link.'
+        );
       }
 
       recordUserActivity();

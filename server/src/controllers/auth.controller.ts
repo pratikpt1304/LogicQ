@@ -351,8 +351,28 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     const hasCompleteFirestoreProfile = Boolean(
       firestoreProfile?.profileComplete && firestoreProfile?.prn
     );
+    const enrolledRecord = (req.body as any)?.enrolledStudent;
 
     let user = await prisma.user.findUnique({ where: { email } });
+
+    // Strict Institutional Gate: Only allow if user already exists, is an explicit admin, or is enrolled in a section roster
+    if (!user && !isExplicitAdmin && !hasCompleteFirestoreProfile && !enrolledRecord) {
+      const rosterCheck = await prisma.sectionStudent.findFirst({
+        where: {
+          OR: [
+            { student: { email: email.toLowerCase() } }
+          ]
+        }
+      });
+      if (!rosterCheck) {
+        res.status(403).json({
+          success: false,
+          message: 'Your Google account is not registered on LogicQ. Only enrolled students and faculty can sign in. Please contact your instructor or join using your course section invite link.',
+        });
+        return;
+      }
+    }
+
     if (!user) {
       const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
       const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
