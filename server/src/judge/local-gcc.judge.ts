@@ -312,6 +312,11 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 static size_t __lq_heap_used = 0;
 static const size_t __lq_heap_limit = ${limitBytes}ULL;
@@ -320,13 +325,13 @@ static inline void* __lq_malloc(size_t sz) {
     if (sz > __lq_heap_limit || __lq_heap_used + sz > __lq_heap_limit) {
         fprintf(stderr, "Memory limit exceeded (${memoryLimitMb} MB)\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     void *ptr = malloc(sz);
     if (!ptr && sz > 0) {
         fprintf(stderr, "Memory allocation failed\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     __lq_heap_used += sz;
     return ptr;
@@ -336,19 +341,19 @@ static inline void* __lq_calloc(size_t n, size_t sz) {
     if (n > 0 && sz > __lq_heap_limit / n) {
         fprintf(stderr, "Memory limit exceeded (${memoryLimitMb} MB)\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     size_t total = n * sz;
     if (__lq_heap_used + total > __lq_heap_limit) {
         fprintf(stderr, "Memory limit exceeded (${memoryLimitMb} MB)\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     void *ptr = calloc(n, sz);
     if (!ptr && total > 0) {
         fprintf(stderr, "Memory allocation failed\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     __lq_heap_used += total;
     return ptr;
@@ -358,11 +363,11 @@ static inline void* __lq_realloc(void *p, size_t sz) {
     if (sz > __lq_heap_limit || __lq_heap_used + sz > __lq_heap_limit) {
         fprintf(stderr, "Memory limit exceeded (${memoryLimitMb} MB)\\n");
         fflush(stderr);
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     void *ptr = realloc(p, sz);
     if (!ptr && sz > 0) {
-        _exit(${EXIT_CODE_MLE});
+        _Exit(${EXIT_CODE_MLE});
     }
     __lq_heap_used += sz;
     return ptr;
@@ -403,7 +408,7 @@ static inline char* __lq_getenv(const char *name) {
   async compile(code: string, options?: { timeLimitMs?: number }): Promise<CompilationResult> {
     const securityError = this.validateSourceSecurity(code);
     if (securityError) {
-      const diagReport = mapCompilerOutput(securityError);
+      const diagReport = mapCompilerOutput(securityError, code);
       return {
         success: false,
         verdict: Verdict.COMPILE_ERROR,
@@ -481,7 +486,7 @@ static inline char* __lq_getenv(const char *name) {
       };
 
       const rawCompileOutput = (stdout || '') + (stderr || '');
-      const diagReport = mapCompilerOutput(rawCompileOutput);
+      const diagReport = mapCompilerOutput(rawCompileOutput, code);
 
       return {
         success: true,
@@ -502,7 +507,7 @@ static inline char* __lq_getenv(const char *name) {
       }
 
       const rawCompileOutput = (compileErr.stderr || compileErr.stdout || compileErr.message || '').toString();
-      const diagReport = mapCompilerOutput(rawCompileOutput);
+      const diagReport = mapCompilerOutput(rawCompileOutput, code);
       return {
         success: false,
         verdict: Verdict.COMPILE_ERROR,

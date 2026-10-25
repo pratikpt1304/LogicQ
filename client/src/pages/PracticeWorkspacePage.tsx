@@ -1268,9 +1268,14 @@ export const PracticeWorkspacePage: React.FC = () => {
                           </div>
                         )}
                         {submissionResult.compileOutput && (
-                          <pre className="p-2.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 whitespace-pre-wrap">
-                            {submissionResult.compileOutput}
-                          </pre>
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold">
+                              Compiler Diagnostics & Line Guidance:
+                            </span>
+                            <pre className="p-3 rounded-xl bg-rose-500/10 text-rose-200 border border-rose-500/30 whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
+                              {submissionResult.compileOutput}
+                            </pre>
+                          </div>
                         )}
                         {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (() => {
                           const testCases = submissionResult.testCaseResults;
@@ -1451,9 +1456,9 @@ export const PracticeWorkspacePage: React.FC = () => {
                         {runResult.compileOutput && (
                           <div>
                             <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
-                              Compilation Output:
+                              Compiler Diagnostics & Line Guidance:
                             </span>
-                            <pre className="p-2.5 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 whitespace-pre-wrap max-h-24 overflow-y-auto text-xs">
+                            <pre className="p-3 rounded-xl bg-rose-500/10 text-rose-200 border border-rose-500/30 whitespace-pre-wrap max-h-80 overflow-y-auto text-xs font-mono leading-relaxed">
                               {runResult.compileOutput}
                             </pre>
                           </div>

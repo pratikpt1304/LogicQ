@@ -1146,9 +1146,9 @@ export const ChallengePage: React.FC = () => {
                     {submissionResult?.compileOutput && (
                       <div>
                         <span className="text-[var(--color-error)] font-semibold block mb-1">
-                          Compiler Diagnostics (GCC):
+                          Compiler Diagnostics & Line Guidance:
                         </span>
-                        <pre className="p-3 rounded-lg bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap">
+                        <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
                           {submissionResult.compileOutput}
                         </pre>
                       </div>
@@ -1166,9 +1166,9 @@ export const ChallengePage: React.FC = () => {
                         {runResult.compileOutput ? (
                           <div>
                             <span className="text-[var(--color-error)] font-semibold block mb-1">
-                              Compiler Diagnostics:
+                              Compiler Diagnostics & Line Guidance:
                             </span>
-                            <pre className="p-3 rounded-lg bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap">
+                            <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
                               {runResult.compileOutput}
                             </pre>
                           </div>

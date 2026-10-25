@@ -20,6 +20,7 @@ export interface CompilerDiagnostic {
   title: string;
   explanation: string;
   actionableHint: string;
+  codeSnippet?: string;
   example?: {
     problematic: string;
     fixed: string;
