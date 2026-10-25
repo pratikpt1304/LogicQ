@@ -89,11 +89,11 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.data.modules)).toBe(true);
-    expect(res.body.data.modules.length).toBe(4);
+    expect(res.body.data.modules.length).toBe(5);
 
-    const [m1, m2, m3, m4] = res.body.data.modules;
+    const [m1, m2, m3, m4, m5] = res.body.data.modules;
 
-    // Verify all 4 modules have dynamic 4 Easy / 4 Medium / 2 Hard distribution computed from DB
+    // Verify first 4 modules have dynamic 8 Easy / 8 Medium / 4 Hard distribution computed from DB
     for (const m of [m1, m2, m3, m4]) {
       expect(m.totalQuestions).toBe(20);
       expect(m.isComingSoon).toBe(false);
@@ -112,9 +112,10 @@ describe('Practice Curriculum & Sequential Unlock Test Suite', () => {
     expect(m2.isUnlocked).toBe(false);
     expect(m2.requirementText).toContain('Solve all 20 in Control Structures to unlock (0 of 20 solved)');
 
-    // Module 3 & 4: Locked
+    // Module 3, 4 & 5: Locked
     expect(m3.isUnlocked).toBe(false);
     expect(m4.isUnlocked).toBe(false);
+    expect(m5.isUnlocked).toBe(false);
   });
 
   it('2. GET /api/practice/modules/control-structures/problems - Returns 20 problems without hidden tests', async () => {

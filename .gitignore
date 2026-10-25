@@ -67,3 +67,4 @@ server/storage/uploads/
 server/audit-users.json
 audit-users.json
 
+server/src/judge/logicq_judge_*/
