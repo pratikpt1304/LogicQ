@@ -387,15 +387,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </button>
           )}
 
-          {disableCopyPaste ? (
-            <span
-              title="Copy-paste is disabled during assessment"
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-slate-400 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-md opacity-75 cursor-not-allowed select-none"
-            >
-              <Lock className="w-3 h-3 text-amber-400" />
-              <span>Copy Blocked</span>
-            </span>
-          ) : (
+          {!disableCopyPaste && (
             <button
               type="button"
               onClick={handleCopy}

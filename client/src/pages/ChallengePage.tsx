@@ -11,11 +11,11 @@ import { useAuth } from '../context/AuthContext.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
-import { UPLOAD_CONFIG } from '../config/upload.config.js';
 import {
   Play,
   Send,
   CheckCircle2,
+  CheckCircle,
   Cpu,
   Layers,
   Check,
@@ -24,10 +24,11 @@ import {
   Sparkles,
   Lock,
   Calendar,
-  Upload,
-  Camera,
+  Clock,
+  BookOpen,
+  Zap,
+  Terminal,
   FileText,
-  Trash2,
   WifiOff,
   AlertCircle,
   Cloud,
@@ -43,16 +44,6 @@ import {
   getDeviceLabel,
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
-
-interface StagedUploadFile {
-  id: string;
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataBase64: string;
-  previewUrl?: string;
-}
-
 export const ChallengePage: React.FC = () => {
   const { slug } = useParams<{ slug?: string }>();
   const { user, refreshUser } = useAuth();
@@ -64,18 +55,11 @@ export const ChallengePage: React.FC = () => {
   const [runResult, setRunResult] = useState<any | null>(null);
   const [submissionResult, setSubmissionResult] = useState<any | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  // Bottom tabs strictly: 'custom' (Custom Stdin), 'output' (Verdict & Output), 'upload' (Upload Files)
-  const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output' | 'upload'>('custom');
+  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'custom' | 'output'>('cases');
+  const [selectedCaseIndex, setSelectedCaseIndex] = useState<number>(0);
   const [isOffline, setIsOffline] = useState<boolean>(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   );
-
-  // Upload Files state
-  const [stagedFiles, setStagedFiles] = useState<StagedUploadFile[]>([]);
-  const [studentNote, setStudentNote] = useState<string>('');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -84,6 +68,14 @@ export const ChallengePage: React.FC = () => {
   const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const formatCountdown = (secs: number | null): string => {
+    if (secs === null || secs <= 0) return '00h 00m 00s';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  };
 
   // Anti-Cheat & Proctoring State
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -190,17 +182,6 @@ export const ChallengePage: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [remainingSeconds !== null && remainingSeconds > 0]);
-
-  // Fetch current student's uploaded solutions for this problem
-  const { data: myUploadsData, refetch: refetchMyUploads } = useQuery({
-    queryKey: ['my-uploads', problem?.id],
-    queryFn: () => api.get(`/uploads/my?problemId=${problem.id}`),
-    enabled: Boolean(problem?.id && user),
-    refetchOnWindowFocus: false,
-  });
-
-  const myProblemUploads: any[] = myUploadsData?.data || [];
-  const latestUpload = myProblemUploads[0] || null;
 
   // Initialize starter or draft code ONLY once per problem ID
   useEffect(() => {
@@ -457,111 +438,24 @@ export const ChallengePage: React.FC = () => {
     },
   });
 
-  // Upload Files handlers
-  const handleSelectFiles = async (fileList: FileList | null) => {
-    if (isWindowExpired || !fileList || fileList.length === 0) return;
-    setUploadError(null);
-
-    const incoming = Array.from(fileList);
-    if (stagedFiles.length + incoming.length > UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION) {
-      setUploadError(
-        `Maximum ${UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION} files allowed per submission.`
-      );
-      return;
-    }
-
-    const nextStaged: StagedUploadFile[] = [...stagedFiles];
-
-    for (const file of incoming) {
-      if (!(UPLOAD_CONFIG.ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
-        setUploadError(
-          `Unsupported file type (${file.name}). Only JPG, PNG, WebP, and PDF files are allowed.`
-        );
-        return;
+  // Global Keyboard Shortcuts (Ctrl+Enter for Run, Ctrl+Shift+Enter for Submit)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isOffline && !isWindowExpired && !submitMutation.isPending) {
+          submitMutation.mutate();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isOffline && !isWindowExpired && !runMutation.isPending) {
+          runMutation.mutate();
+        }
       }
-      if (file.size === 0) {
-        setUploadError(`File "${file.name}" is empty (0 bytes).`);
-        return;
-      }
-      if (file.size > UPLOAD_CONFIG.MAX_FILE_SIZE_BYTES) {
-        setUploadError(`File "${file.name}" exceeds the 5 MB limit.`);
-        return;
-      }
-
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
-
-      const base64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
-      nextStaged.push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        dataBase64: base64,
-        previewUrl: file.type.startsWith('image/') ? dataUrl : undefined,
-      });
-    }
-
-    setStagedFiles(nextStaged);
-  };
-
-  const handleRemoveStagedFile = (id: string) => {
-    setStagedFiles((prev) => prev.filter((f) => f.id !== id));
-    setUploadError(null);
-  };
-
-  const uploadMutation = useMutation({
-    mutationFn: () => {
-      const payload = {
-        problemId: problem.id,
-        studentNote: studentNote.trim(),
-        files: stagedFiles.map((f) => ({
-          mimeType: f.mimeType,
-          dataBase64: f.dataBase64,
-        })),
-      };
-
-      if (
-        latestUpload &&
-        (latestUpload.status === 'PENDING_REVIEW' || latestUpload.status === 'NEEDS_CHANGES')
-      ) {
-        return api.put(`/uploads/${latestUpload.id}`, payload);
-      }
-      return api.post('/uploads', payload);
-    },
-    onSuccess: (res) => {
-      toast.success(
-        res.message || 'Uploaded for review. Points will be awarded after instructor approval.'
-      );
-      setStagedFiles([]);
-      setStudentNote('');
-      setUploadError(null);
-      refetchMyUploads();
-      queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
-    },
-    onError: (err: any) => {
-      if (err?.status === 403 || err?.status === 410 || /ended/i.test(String(err?.message || ''))) {
-        setIsWindowExpired(true);
-      }
-      setUploadError(err.message || 'Failed to upload solution.');
-      toast.error(err.message || 'Failed to upload solution.');
-    },
-  });
-
-  const cancelUploadMutation = useMutation({
-    mutationFn: (uploadId: string) => api.delete(`/uploads/${uploadId}`),
-    onSuccess: () => {
-      toast.info('Pending upload cancelled.');
-      refetchMyUploads();
-    },
-    onError: (err: any) => {
-      toast.error(err.message || 'Could not cancel upload.');
-    },
-  });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOffline, isWindowExpired, runMutation, submitMutation]);
 
   const handleResetCode = () => {
     if (problem && !isWindowExpired) {
@@ -796,7 +690,7 @@ export const ChallengePage: React.FC = () => {
               : 'text-[var(--text-muted)] border-transparent'
           }`}
         >
-          Output & Upload
+          Test &amp; Console
         </button>
       </div>
 
@@ -810,6 +704,57 @@ export const ChallengePage: React.FC = () => {
         >
           {/* Header */}
           <div className="space-y-3 pb-4 border-b border-[var(--border-line)]">
+            {/* Live 17:00 IST Countdown Card */}
+            <div className="p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-transparent border border-cyan-500/25 flex items-center justify-between gap-3 font-mono">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
+                    17:00 IST Daily Window
+                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
+                    <span className={`w-2 h-2 rounded-full ${isWindowExpired ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
+                    <span>
+                      {isWindowExpired ? 'Window Closed' : `${formatCountdown(remainingSeconds)} remaining`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {userStatus?.isSolved ? (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Solved (+{problem.basePoints} PTS)
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  +{problem.basePoints} PTS
+                </span>
+              )}
+            </div>
+
+            {/* Academic Kanetkar Book Reference */}
+            {problem.sourceRefJson && (() => {
+              try {
+                const ref = JSON.parse(problem.sourceRefJson);
+                if (ref?.chapter || ref?.chapterTitle) {
+                  return (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-mono">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>
+                        Yashavant Kanetkar: <strong>Chapter {ref.chapter}: {ref.chapterTitle}</strong>
+                        {ref.exerciseNumber && ` (Q ${ref.exerciseNumber})`}
+                      </span>
+                    </div>
+                  );
+                }
+              } catch {}
+              return null;
+            })()}
+
             <div className="flex items-center gap-2 flex-wrap">
               <DifficultyBadge difficulty={problem.difficulty} size="sm" />
               {problem.isDaily && (
@@ -950,17 +895,12 @@ export const ChallengePage: React.FC = () => {
                 data-testid="run-code-button"
                 onClick={() => runMutation.mutate()}
                 disabled={runMutation.isPending || isOffline || isWindowExpired}
-                title={
-                  isWindowExpired
-                    ? 'This challenge ended at 17:00 IST. Refresh to solve the new challenge.'
-                    : isOffline
-                    ? 'Reconnect to run code'
-                    : 'Run code with custom stdin'
-                }
-                className="flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-colors"
+                title="Run code with active stdin (Ctrl + Enter)"
+                className="flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-colors shadow-sm"
               >
-                <Play className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                <Play className="w-3.5 h-3.5 text-[var(--color-accent)] fill-current" />
                 <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
+                <span className="hidden sm:inline text-[10px] text-slate-400 bg-black/20 px-1.5 py-0.5 rounded border border-white/5 font-sans">Ctrl+↵</span>
               </button>
 
               <button
@@ -968,17 +908,12 @@ export const ChallengePage: React.FC = () => {
                 data-testid="submit-solution-button"
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending || isOffline || isWindowExpired}
-                title={
-                  isWindowExpired
-                    ? 'This challenge ended at 17:00 IST. Refresh to solve the new challenge.'
-                    : isOffline
-                    ? 'Reconnect to submit solution'
-                    : 'Submit solution to judge'
-                }
-                className="flex items-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-lg text-xs font-mono font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md disabled:opacity-50 transition-all"
+                title="Submit solution to judge all test cases (Ctrl + Shift + Enter)"
+                className="flex items-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-lg text-xs font-mono font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md hover:shadow-cyan-500/20 disabled:opacity-50 transition-all active:scale-95"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
+                <span className="hidden sm:inline text-[10px] text-black/60 bg-black/10 px-1.5 py-0.5 rounded font-bold font-sans">Ctrl+⇧+↵</span>
               </button>
             </div>
           </div>
@@ -997,15 +932,32 @@ export const ChallengePage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Execution Panel Drawer (Tabs: Custom Stdin, Verdict & Output, Upload Files) */}
+          {/* Bottom Execution Panel Drawer (Tabs: Sample Cases, Custom Stdin, Verdict & Output) */}
           <div
             className={`border-t border-[var(--border-line)] bg-[var(--bg-panel)] transition-all duration-200 flex flex-col shrink-0 ${
               isDrawerOpen ? 'h-64 max-h-[44%]' : 'h-11'
             }`}
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0">
+            <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0 font-mono text-xs">
               <div className="flex items-center gap-1.5 overflow-x-auto">
+                <button
+                  type="button"
+                  data-testid="tab-sample-cases"
+                  onClick={() => {
+                    setActiveBottomTab('cases');
+                    setIsDrawerOpen(true);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+                    activeBottomTab === 'cases'
+                      ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Test Cases ({sampleCases.length})</span>
+                </button>
+
                 <button
                   type="button"
                   data-testid="tab-custom-stdin"
@@ -1013,13 +965,14 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('custom');
                     setIsDrawerOpen(true);
                   }}
-                  className={`px-3 py-1.5 text-xs font-mono rounded-md transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
                     activeBottomTab === 'custom'
                       ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  Custom Stdin
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Custom Stdin</span>
                 </button>
 
                 <button
@@ -1029,43 +982,16 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('output');
                     setIsDrawerOpen(true);
                   }}
-                  className={`px-3 py-1.5 text-xs font-mono rounded-md transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
                     activeBottomTab === 'output'
                       ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  Verdict & Output
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Verdict &amp; Output</span>
                   {submissionResult && (
-                    <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[var(--color-accent)]" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  data-testid="tab-upload-files"
-                  onClick={() => {
-                    setActiveBottomTab('upload');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded-md transition-colors whitespace-nowrap ${
-                    activeBottomTab === 'upload'
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Upload Files</span>
-                  {latestUpload && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent)] text-[10px]">
-                      {latestUpload.status === 'PENDING_REVIEW'
-                        ? 'Pending'
-                        : latestUpload.status === 'APPROVED'
-                        ? 'Approved'
-                        : latestUpload.status === 'NEEDS_CHANGES'
-                        ? 'Changes'
-                        : 'Rejected'}
-                    </span>
+                    <span className="ml-1 inline-block w-2 h-2 rounded-full bg-[var(--color-accent)] animate-ping" />
                   )}
                 </button>
               </div>
@@ -1083,7 +1009,74 @@ export const ChallengePage: React.FC = () => {
             {/* Drawer Body */}
             {isDrawerOpen && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs">
-                {/* Tab 1: Custom Stdin */}
+                {/* Tab 1: Interactive Test Cases */}
+                {activeBottomTab === 'cases' && (
+                  <div className="h-full flex flex-col space-y-3 font-mono">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-1.5 overflow-x-auto">
+                        {sampleCases.length === 0 ? (
+                          <span className="text-slate-400 text-xs">No sample cases. Use Custom Stdin.</span>
+                        ) : (
+                          sampleCases.map((tc: any, idx: number) => (
+                            <button
+                              key={tc.id || idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCaseIndex(idx);
+                                setCustomInput(tc.input);
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                selectedCaseIndex === idx
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                                  : 'text-slate-400 hover:text-white bg-slate-900 border border-white/5'
+                              }`}
+                            >
+                              <span>Case {idx + 1}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+
+                      {sampleCases[selectedCaseIndex] && (
+                        <button
+                          type="button"
+                          disabled={runMutation.isPending || isOffline || isWindowExpired}
+                          onClick={() => {
+                            setCustomInput(sampleCases[selectedCaseIndex].input);
+                            runMutation.mutate();
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold transition flex items-center gap-1"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>Run Case {selectedCaseIndex + 1}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {sampleCases[selectedCaseIndex] && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
+                        <div className="flex flex-col min-h-0">
+                          <span className="text-slate-400 text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                            INPUT:
+                          </span>
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-cyan-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                            {sampleCases[selectedCaseIndex].input}
+                          </pre>
+                        </div>
+                        <div className="flex flex-col min-h-0">
+                          <span className="text-slate-400 text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                            EXPECTED OUTPUT:
+                          </span>
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                            {sampleCases[selectedCaseIndex].expectedOutput}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab 2: Custom Stdin */}
                 {activeBottomTab === 'custom' && (
                   <div className="h-full flex flex-col">
                     <label
@@ -1104,12 +1097,12 @@ export const ChallengePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab 2: Verdict & Output */}
+                {/* Tab 3: Verdict & Output */}
                 {activeBottomTab === 'output' && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 font-mono">
                     {/* Submission Verdict Banner */}
                     {submissionResult && (
-                      <div className="p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between">
+                      <div className="p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-3">
                           <VerdictBadge verdict={submissionResult.verdict} size="md" />
                           <span className="text-[var(--text-muted)]">
@@ -1120,7 +1113,7 @@ export const ChallengePage: React.FC = () => {
                           </span>
                         </div>
                         {submissionResult.pointsAwarded > 0 && (
-                          <span className="text-[var(--color-success)] font-bold">
+                          <span className="text-[var(--color-success)] font-bold text-xs">
                             +{submissionResult.pointsAwarded} PTS Awarded!
                           </span>
                         )}
@@ -1151,7 +1144,7 @@ export const ChallengePage: React.FC = () => {
                     {submissionResult?.compileOutput && (
                       <div>
                         <span className="text-[var(--color-error)] font-semibold block mb-1">
-                          Compiler Diagnostics & Line Guidance:
+                          Compiler Diagnostics:
                         </span>
                         <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
                           {submissionResult.compileOutput}
@@ -1163,7 +1156,7 @@ export const ChallengePage: React.FC = () => {
                     {runResult && !submissionResult && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[var(--text-muted)] text-xs">Custom Run Output:</span>
+                          <span className="text-[var(--text-muted)] text-xs">Run Output:</span>
                           <span className="text-[var(--color-accent)] font-semibold">
                             {runResult.runtimeMs ?? runResult.executionTimeMs ?? 0}ms
                           </span>
@@ -1171,7 +1164,7 @@ export const ChallengePage: React.FC = () => {
                         {runResult.compileOutput ? (
                           <div>
                             <span className="text-[var(--color-error)] font-semibold block mb-1">
-                              Compiler Diagnostics & Line Guidance:
+                              Compiler Diagnostics:
                             </span>
                             <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
                               {runResult.compileOutput}
@@ -1197,236 +1190,8 @@ export const ChallengePage: React.FC = () => {
 
                     {!runResult && !submissionResult && (
                       <div className="py-6 text-center text-[var(--text-muted)]">
-                        Click &apos;Run Code&apos; or &apos;Submit Solution&apos; to view compiler and test diagnostics.
+                        Click &apos;Run Code&apos; (Ctrl+↵) or &apos;Submit Solution&apos; (Ctrl+⇧+↵) to view diagnostics.
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Tab 3: Upload Files */}
-                {activeBottomTab === 'upload' && (
-                  <div className="space-y-4 font-sans">
-                    <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-start justify-between gap-3 flex-wrap">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold text-[var(--text-main)]">
-                          Uploaded solutions are reviewed by an instructor. Points are awarded after approval.
-                        </p>
-                        <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                          Allowed: JPG, PNG, WebP, PDF • Max {UPLOAD_CONFIG.MAX_FILES_PER_SUBMISSION} files • Max 5 MB per file • Max {UPLOAD_CONFIG.MAX_UPLOADS_PER_STUDENT_PER_DAY} uploads/day
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Existing upload status banner */}
-                    {latestUpload && (
-                      <div className="p-3.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between gap-3 flex-wrap">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[var(--text-main)]">
-                              Latest Uploaded Solution:
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${
-                                latestUpload.status === 'APPROVED'
-                                  ? 'bg-[var(--color-success)]/15 text-[var(--color-success)]'
-                                  : latestUpload.status === 'REJECTED'
-                                  ? 'bg-[var(--color-error)]/15 text-[var(--color-error)]'
-                                  : 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                              }`}
-                            >
-                              {latestUpload.status}
-                            </span>
-                            {latestUpload.pointsAwarded > 0 && (
-                              <span className="text-xs font-mono font-bold text-[var(--color-success)]">
-                                +{latestUpload.pointsAwarded} PTS
-                              </span>
-                            )}
-                          </div>
-                          {latestUpload.reviewerComment && (
-                            <p className="text-xs text-[var(--text-muted)]">
-                              Reviewer feedback: &ldquo;{latestUpload.reviewerComment}&rdquo;
-                            </p>
-                          )}
-                        </div>
-
-                        {latestUpload.status === 'PENDING_REVIEW' && !isWindowExpired && (
-                          <button
-                            type="button"
-                            onClick={() => cancelUploadMutation.mutate(latestUpload.id)}
-                            disabled={cancelUploadMutation.isPending}
-                            className="px-3 py-1.5 rounded-lg border border-[var(--color-error)] text-[var(--color-error)] text-xs font-semibold hover:bg-[var(--color-error)]/10 transition-colors"
-                          >
-                            Cancel Pending Upload
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {isWindowExpired ? (
-                      <div
-                        data-testid="upload-ended-notice"
-                        className="p-4 rounded-xl bg-[var(--bg-main)] border border-[var(--color-warning)] text-xs text-[var(--color-warning)] flex items-center gap-2 font-semibold"
-                      >
-                        <Lock className="w-4 h-4 shrink-0" />
-                        <span>
-                          This challenge ended at 17:00 IST. Run, Submit, and File Upload are closed for ended challenges. Refresh to open today&apos;s new challenge.
-                        </span>
-                      </div>
-                    ) : userStatus?.isSolved ? (
-                      <div className="p-4 rounded-xl bg-[var(--bg-main)] border border-[var(--color-success)] text-xs text-[var(--color-success)] flex items-center gap-2 font-semibold">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>
-                          You already have an Accepted solution for this problem. No further file upload is needed.
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Drop Zone & File / Camera Triggers */}
-                        <div
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            handleSelectFiles(e.dataTransfer.files);
-                          }}
-                          className="rounded-xl border-2 border-dashed border-[var(--border-line)] hover:border-[var(--color-accent)] bg-[var(--bg-main)] p-4 text-center space-y-3 transition-colors"
-                        >
-                          <p className="text-xs text-[var(--text-muted)]">
-                            Drag &amp; drop handwritten flowcharts, dry-run notes, or output screenshots here
-                          </p>
-                          <div className="flex items-center justify-center gap-2.5 flex-wrap">
-                            <input
-                              ref={fileInputRef}
-                              type="file"
-                              multiple
-                              accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-                              onChange={(e) => handleSelectFiles(e.target.files)}
-                              className="hidden"
-                            />
-                            <input
-                              ref={cameraInputRef}
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={(e) => handleSelectFiles(e.target.files)}
-                              className="hidden"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-[var(--color-accent)] text-xs font-semibold text-[var(--text-main)]"
-                            >
-                              <Upload className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                              <span>Choose files</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => cameraInputRef.current?.click()}
-                              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-[var(--color-accent)] text-xs font-semibold text-[var(--text-main)]"
-                            >
-                              <Camera className="w-3.5 h-3.5 text-[var(--color-success)]" />
-                              <span>Take photo</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {uploadError && (
-                          <div className="p-2.5 rounded-lg bg-[var(--color-error)]/10 border border-[var(--color-error)] text-[var(--color-error)] text-xs flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 shrink-0" />
-                            <span>{uploadError}</span>
-                          </div>
-                        )}
-
-                        {/* File Previews with Remove Buttons */}
-                        {stagedFiles.length > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            {stagedFiles.map((file) => (
-                              <div
-                                key={file.id}
-                                className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between gap-2"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {file.previewUrl ? (
-                                    <img
-                                      src={file.previewUrl}
-                                      alt="Selected upload preview"
-                                      className="w-10 h-10 rounded object-cover border border-[var(--border-line)] shrink-0"
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 rounded bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-center shrink-0">
-                                      <FileText className="w-5 h-5 text-[var(--color-accent)]" />
-                                    </div>
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-[var(--text-main)] truncate">
-                                      {file.name}
-                                    </p>
-                                    <p className="text-[10px] font-mono text-[var(--text-muted)]">
-                                      {(file.sizeBytes / 1024).toFixed(1)} KB
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${file.name}`}
-                                  onClick={() => handleRemoveStagedFile(file.id)}
-                                  className="p-1.5 rounded-lg text-[var(--color-error)] hover:bg-[var(--bg-surface)] shrink-0"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Optional Approach Note + Submit for Review Button */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <label htmlFor="upload-approach-note" className="text-[var(--text-muted)] font-medium">
-                              Explain your approach (optional):
-                            </label>
-                            <span className="font-mono text-[11px] text-[var(--text-muted)]">
-                              {studentNote.length}/{UPLOAD_CONFIG.MAX_NOTE_LENGTH}
-                            </span>
-                          </div>
-                          <textarea
-                            id="upload-approach-note"
-                            value={studentNote}
-                            onChange={(e) =>
-                              setStudentNote(e.target.value.slice(0, UPLOAD_CONFIG.MAX_NOTE_LENGTH))
-                            }
-                            rows={2}
-                            placeholder="Briefly explain your algorithm, time/space complexity, or dry-run steps..."
-                            className="w-full p-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-line)] text-xs text-[var(--text-main)] resize-none"
-                          />
-                        </div>
-
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            data-testid="submit-upload-button"
-                            disabled={
-                              stagedFiles.length === 0 ||
-                              uploadMutation.isPending ||
-                              isOffline ||
-                              isWindowExpired
-                            }
-                            onClick={() => uploadMutation.mutate()}
-                            className="inline-flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[#0C0F1F] text-xs font-bold disabled:opacity-50 hover:opacity-95 transition-opacity"
-                          >
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>
-                              {uploadMutation.isPending
-                                ? 'Uploading...'
-                                : latestUpload &&
-                                  (latestUpload.status === 'PENDING_REVIEW' ||
-                                    latestUpload.status === 'NEEDS_CHANGES')
-                                ? 'Replace Upload for Review'
-                                : 'Submit for review'}
-                            </span>
-                          </button>
-                        </div>
-                      </>
                     )}
                   </div>
                 )}
