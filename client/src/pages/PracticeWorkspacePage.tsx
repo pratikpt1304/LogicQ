@@ -1700,44 +1700,80 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
       )}
 
-{/* Mandatory Proctored Fullscreen Modal */}
+      {/* Mandatory Proctored Fullscreen Modal */}
       {showFullscreenModal && !isFullscreen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="glass-card max-w-md w-full p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] shadow-2xl space-y-5 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-lg shadow-amber-500/10">
-              <Lock className="w-7 h-7" />
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            {/* Header with Icon */}
+            <div className="p-5 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <Maximize2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 uppercase tracking-wider">
+                  Module {moduleConfig.order} • Q{currentProblemIndex >= 0 ? currentProblemIndex + 1 : 1}
+                </span>
+                <h3 className="text-base font-bold text-[var(--text-main)] font-mono mt-0.5">
+                  {fullscreenExits > 0 ? 'Resume Fullscreen Mode' : 'Proctored Fullscreen Required'}
+                </h3>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-[var(--text-main)]">
-                Proctored Fullscreen Mode
-              </h3>
-              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                To maintain evaluation fairness and prevent cheating, practice coding requires full screen. All tab switches and window unfocus events are monitored and recorded.
+            {/* Problem & Test Snapshot Card */}
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs font-mono">
+                  <span className="text-[var(--text-muted)]">Active Problem:</span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-[10px]">
+                    Attempt #{currentAttempt}
+                  </span>
+                </div>
+                <h4 className="font-bold text-sm text-[var(--text-main)] font-mono truncate">
+                  {problem?.title || 'Practice Coding Problem'}
+                </h4>
+              </div>
+
+              {/* Quick Anti-Cheat Chips (No long boring essays) */}
+              <div className="grid grid-cols-3 gap-2 text-[10px] font-mono text-center">
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">🖥️</span>
+                  <span className="text-[var(--text-muted)] font-semibold">Fullscreen</span>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">🚫</span>
+                  <span className="text-[var(--text-muted)] font-semibold">No Paste</span>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">👁️</span>
+                  <span className="text-[var(--text-muted)] font-semibold">Track Tabs</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] font-mono text-center text-[var(--text-muted)] leading-relaxed">
+                Fair-play ensure karne ke liye code solving fullscreen mode mein hi accessible hai.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-left space-y-2 text-xs font-mono text-[var(--text-muted)]">
-              <div className="flex items-center gap-2 text-amber-400 font-semibold">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Security Guidelines:</span>
-              </div>
-              <ul className="list-disc list-inside space-y-1 pl-1 text-[11px]">
-                <li>Copy, paste & right-click are strictly disabled.</li>
-                <li>Tab switching & minimizing will be flagged.</li>
-                <li>Current progress: <span className="text-indigo-400 font-bold">Attempt #{currentAttempt}</span></li>
-                <li>Exiting fullscreen flags an integrity event.</li>
-              </ul>
-            </div>
+            {/* Action Buttons */}
+            <div className="p-4 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/practice')}
+                className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel)]/80 border border-[var(--border-line)] transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Modules</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={requestFullscreen}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--accent)] to-indigo-600 hover:opacity-95 text-white font-bold text-sm shadow-lg shadow-[var(--accent)]/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-            >
-              <Maximize2 className="w-4 h-4" />
-              <span>Enter Fullscreen & Begin Solving</span>
-            </button>
+              <button
+                type="button"
+                onClick={requestFullscreen}
+                className="flex-1 py-2.5 rounded-xl font-mono text-xs font-bold tracking-wide transition flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>{fullscreenExits > 0 ? 'Resume Fullscreen ⛶' : 'Enter Fullscreen & Begin 🚀'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
