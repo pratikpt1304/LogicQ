@@ -2651,4 +2651,106 @@ export async function runSandboxSecurityAudit(_req: AuthRequest, res: Response) 
   }
 }
 
+/**
+ * System Diagnostics endpoint for Admin
+ * Returns Node runtime, memory usage, PostgreSQL/Prisma latency, C11 judge state, and daily scheduler status.
+ */
+export async function getAdminSystemDiagnostics(_req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const dbLatencyMs = Date.now() - dbStart;
+
+    let judgeName = 'local_gcc';
+    let judgeReady = false;
+    try {
+      const { getJudge } = await import('../judge/judge.factory.js');
+      const judge = await getJudge();
+      judgeName = judge.name;
+      judgeReady = await judge.isAvailable();
+    } catch {
+      judgeReady = false;
+    }
+
+    const { getSystemConfig } = await import('../services/system-config.service.js');
+    const sysConfig = await getSystemConfig();
+
+    const mem = process.memoryUsage();
+
+    res.json({
+      success: true,
+      data: {
+        server: {
+          uptimeSeconds: Math.floor(process.uptime()),
+          nodeVersion: process.version,
+          platform: process.platform,
+          arch: process.arch,
+          memory: {
+            rssMb: Math.round(mem.rss / 1024 / 1024),
+            heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+          },
+        },
+        database: {
+          status: 'CONNECTED',
+          latencyMs: dbLatencyMs,
+          engine: 'PostgreSQL / Prisma',
+        },
+        judge: {
+          name: judgeName,
+          ready: judgeReady,
+          standard: 'C11 (ISO/IEC 9899:2011)',
+          timeLimitMs: 2000,
+          memoryLimitMb: 128,
+          flags: '-std=c11 -O2 -Wall',
+        },
+        dailySystem: {
+          paused: sysConfig.dailyChallengePaused,
+          pausedAt: sysConfig.pausedAt,
+          resumedAt: sysConfig.resumedAt,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
+ * Run Live C11 Compiler Diagnostic Probe
+ * Compiles a clean C test program in the active sandbox and verifies stdout and execution metrics.
+ */
+export async function runAdminJudgeProbe(_req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { getJudge } = await import('../judge/judge.factory.js');
+    const judge = await getJudge();
+
+    const testCode = `#include <stdio.h>\nint main() {\n    printf("LOGICQ_C11_PROBE_SUCCESS\\n");\n    return 0;\n}`;
+    const startTime = Date.now();
+    const result = await judge.compileAndRun(testCode, '', 2000, 128);
+    const totalDurationMs = Date.now() - startTime;
+    const isMatch = result.stdout?.trim() === 'LOGICQ_C11_PROBE_SUCCESS';
+
+    res.json({
+      success: true,
+      data: {
+        verdict: isMatch ? 'ACCEPTED' : (result.verdict || 'WRONG_ANSWER'),
+        passed: isMatch && result.verdict === 'ACCEPTED',
+        runtimeMs: result.runtimeMs ?? 0,
+        totalDurationMs,
+        memoryKb: result.memoryKb ?? 0,
+        stdout: result.stdout?.trim() || '',
+        stderr: result.stderr?.trim() || '',
+        compileOutput: result.compileOutput?.trim() || '',
+        runner: judge.name,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+
 

@@ -36,6 +36,8 @@ import {
   compareCodesPlagiarism,
   scanProblemPlagiarism,
   runSandboxSecurityAudit,
+  getAdminSystemDiagnostics,
+  runAdminJudgeProbe,
 } from '../controllers/admin.controller.js';
 import { UploadController } from '../controllers/upload.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
@@ -106,5 +108,9 @@ adminRouter.get('/plagiarism/problem/:problemId', scanProblemPlagiarism);
 
 // Sandbox Red-Teaming & Security Auditing
 adminRouter.get('/security/audit', runSandboxSecurityAudit);
+
+// System Health Diagnostics & Compiler Live Probe
+adminRouter.get('/system/diagnostics', getAdminSystemDiagnostics);
+adminRouter.post('/system/probe', runAdminJudgeProbe);
 
 export default adminRouter;
