@@ -2622,8 +2622,6 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
       'logicqarena@gmail.com',
       'hariprasathset@sanjivani.edu.in',
       'logicq1304@gmail.com',
-      'ipworker1908@gmail.com',
-      'ipverse1918@gmail.com',
     ];
     const isExplicitAdminEmail = (email: string) => explicitAdminEmails.includes(email?.toLowerCase());
     const crypto = await import('crypto');

@@ -1,4 +1,5 @@
 import { User } from '../types/index.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -194,9 +195,24 @@ export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
   'logicq1304@gmail.com',
-  'ipworker1908@gmail.com',
-  'ipverse1918@gmail.com',
 ];
+
+export const PURGED_EMAILS = [
+  'thoratpratik2323@gmail.com',
+  'samugangad@gmail.com',
+  'rohan_1390@test.edu',
+  'join_1390@sanjivani.edu.in',
+];
+
+export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
+
+export function isExplicitlyPurgedUser(identifier?: any): boolean {
+  if (!identifier) return false;
+  const email = (typeof identifier === 'string' ? identifier : identifier.email || '').toLowerCase().trim();
+  const prn = (typeof identifier === 'string' ? identifier : identifier.prn || '').toUpperCase().trim();
+  if (PURGED_EMAILS.includes(email) || PURGED_PRNS.includes(prn)) return true;
+  return false;
+}
 
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
@@ -221,7 +237,19 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     if (raw) {
       const parsed: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = JSON.parse(raw);
       let migrated = false;
-      const sanitized = parsed.map((u) => {
+      const filtered = parsed.filter((u) => {
+        if (!u) return false;
+        if (isExplicitlyPurgedUser(u) || FirestoreDataService.isPurgedStudent(u)) {
+          migrated = true;
+          return false;
+        }
+        if (u.email && (u.email.includes('ipworker') || u.email.includes('ipverse'))) {
+          migrated = true;
+          return false;
+        }
+        return true;
+      });
+      const sanitized = filtered.map((u) => {
         let updated = false;
         let college = u.college;
         if (!college || college === 'Sanjivani College of Engineering') {
@@ -357,22 +385,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       profileComplete: true,
       createdAt: new Date().toISOString(),
     },
-    {
-      id: 'admin-3',
-      username: 'ipworker1908',
-      email: 'ipworker1908@gmail.com',
-      fullName: 'IP Worker Admin',
-      role: 'ADMIN',
-      college: 'Sanjivani University',
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: '1908',
-      profileComplete: true,
-      createdAt: new Date().toISOString(),
-    },
   ];
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(seeded));
   return seeded;
@@ -467,15 +479,22 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/auth/send-login-otp' && method === 'POST') {
-    const { identifier } = body;
-    if (!identifier) throw new Error('Please enter your registered email or mobile number.');
+    const { identifier, studentRecord } = body;
+    if (!identifier) throw new Error('Please enter your registered institutional email address or PRN.');
     const cleanId = String(identifier).trim();
+
+    if (isExplicitlyPurgedUser(cleanId) || FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
+      throw new Error(`Access Denied: This account has been removed. Please contact your course instructor.`);
+    }
+
+    const cleanDigits = cleanId.replace(/[^0-9]/g, '');
+    const isMobileQuery = cleanDigits.length >= 10;
     const users = getStoredUsers();
     let user = users.find((u) => 
       u.email.toLowerCase() === cleanId.toLowerCase() || 
       (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
       u.username.toLowerCase() === cleanId.toLowerCase() ||
-      ((u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanId.replace(/[^0-9]/g, '')))
+      (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
 
     if (!user && isExplicitAdminEmail(cleanId)) {
@@ -484,11 +503,36 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'ADMIN',
-        fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
-        displayName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'Admin',
+        fullName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
+        displayName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
         college: 'Sanjivani University',
         profileComplete: true,
         totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
+    // Auto-adopt verified student record from Firestore if passed and not purged
+    if (!user && studentRecord && !isExplicitlyPurgedUser(studentRecord) && !FirestoreDataService.isPurgedStudent(studentRecord)) {
+      const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
+      const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : undefined);
+      user = {
+        id: studentRecord.id || studentRecord.uid || 'stu-' + Date.now(),
+        username: studentRecord.username || `student_${(prnToUse || 'user').slice(-4).toLowerCase()}`,
+        email: emailToUse,
+        prn: prnToUse,
+        role: 'STUDENT',
+        fullName: studentRecord.name || studentRecord.fullName || 'Enrolled Student',
+        displayName: studentRecord.displayName || studentRecord.name || 'Student',
+        college: studentRecord.college || 'Sanjivani University',
+        department: studentRecord.department || 'CSE',
+        year: studentRecord.year || 'SY',
+        division: studentRecord.division || null,
+        profileComplete: true,
+        totalPoints: studentRecord.totalPoints || 0,
         currentStreak: 0,
         longestStreak: 0,
       } as any;
@@ -521,16 +565,23 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/auth/verify-login-otp' && method === 'POST') {
-    const { identifier, code } = body;
+    const { identifier, code, studentRecord } = body;
     if (!identifier || !code) throw new Error('Identifier and 6-digit OTP code are required.');
     const cleanId = String(identifier).trim();
     const cleanCode = String(code).trim();
+
+    if (isExplicitlyPurgedUser(cleanId) || FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
+      throw new Error(`Access Denied: This account has been removed. Please contact your course instructor.`);
+    }
+
+    const cleanDigits = cleanId.replace(/[^0-9]/g, '');
+    const isMobileQuery = cleanDigits.length >= 10;
     const users = getStoredUsers();
     let user = users.find((u) => 
       u.email.toLowerCase() === cleanId.toLowerCase() || 
       (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase()) ||
       u.username.toLowerCase() === cleanId.toLowerCase() ||
-      ((u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanId.replace(/[^0-9]/g, '')))
+      (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
 
     if (!user && isExplicitAdminEmail(cleanId)) {
@@ -539,8 +590,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'ADMIN',
-        fullName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'System Administrator',
-        displayName: cleanId.includes('thorat') ? 'Pratik Thorat' : 'Admin',
+        fullName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
+        displayName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
         college: 'Sanjivani University',
         profileComplete: true,
         totalPoints: 0,
@@ -551,8 +602,32 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       saveStoredUsers(users);
     }
 
+    if (!user && studentRecord && !isExplicitlyPurgedUser(studentRecord) && !FirestoreDataService.isPurgedStudent(studentRecord)) {
+      const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
+      const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : undefined);
+      user = {
+        id: studentRecord.id || studentRecord.uid || 'stu-' + Date.now(),
+        username: studentRecord.username || `student_${(prnToUse || 'user').slice(-4).toLowerCase()}`,
+        email: emailToUse,
+        prn: prnToUse,
+        role: 'STUDENT',
+        fullName: studentRecord.name || studentRecord.fullName || 'Enrolled Student',
+        displayName: studentRecord.displayName || studentRecord.name || 'Student',
+        college: studentRecord.college || 'Sanjivani University',
+        department: studentRecord.department || 'CSE',
+        year: studentRecord.year || 'SY',
+        division: studentRecord.division || null,
+        profileComplete: true,
+        totalPoints: studentRecord.totalPoints || 0,
+        currentStreak: 0,
+        longestStreak: 0,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
     if (!user) {
-      throw new Error('No enrolled account found.');
+      throw new Error(`Access Denied: No enrolled account found for "${cleanId}". Students cannot self-register; you must be enrolled into a course section by your faculty instructor.`);
     }
 
     if (user.isBanned) {

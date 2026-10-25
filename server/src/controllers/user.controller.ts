@@ -153,10 +153,9 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
 
     if (!user && (isExplicitAdminEmail(cleanIdentifier) || (req.user?.email && isExplicitAdminEmail(req.user.email)))) {
       const adminEmail = (req.user?.email || cleanIdentifier).toLowerCase();
-      const isPratik = adminEmail.includes('thorat');
       const isHari = adminEmail.includes('hariprasath');
-      const displayName = isPratik ? 'Pratik Thorat (Admin)' : (isHari ? 'Dr. Hari Prasath (Admin)' : 'Admin');
-      const fullName = isPratik ? 'Pratik Thorat' : (isHari ? 'Dr. Hari Prasath' : 'LogicQ Admin');
+      const displayName = isHari ? 'Dr. Hari Prasath (Admin)' : 'Admin';
+      const fullName = isHari ? 'Dr. Hari Prasath' : 'LogicQ Admin';
       const bcrypt = (await import('bcryptjs')).default;
       const placeholderHash = await bcrypt.hash('AdminPassword123!', 10);
 

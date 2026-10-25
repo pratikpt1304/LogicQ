@@ -1044,23 +1044,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendLoginOtp = async (identifier: string): Promise<any> => {
+    const cleanId = (identifier || '').trim();
+    if (!cleanId) {
+      throw new Error('Please enter your institutional email address or PRN.');
+    }
+    if (FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
+      throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
+    }
     let studentRecord: any = null;
     try {
-      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(identifier);
+      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(cleanId);
     } catch {
       // ignore
     }
-    return await api.post('/auth/send-login-otp', { identifier, studentRecord });
+    if (studentRecord && FirestoreDataService.isPurgedStudent(studentRecord)) {
+      throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
+    }
+    return await api.post('/auth/send-login-otp', { identifier: cleanId, studentRecord });
   };
 
   const loginWithOtp = async (identifier: string, code: string): Promise<User> => {
+    const cleanId = (identifier || '').trim();
+    if (!cleanId || !code) {
+      throw new Error('Identifier and 6-digit OTP code are required.');
+    }
+    if (FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
+      throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
+    }
     let studentRecord: any = null;
     try {
-      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(identifier);
+      studentRecord = await FirestoreDataService.findEnrolledStudentInFirestore(cleanId);
     } catch {
       // ignore
     }
-    const res = await api.post('/auth/verify-login-otp', { identifier, code, studentRecord });
+    if (studentRecord && FirestoreDataService.isPurgedStudent(studentRecord)) {
+      throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
+    }
+    const res = await api.post('/auth/verify-login-otp', { identifier: cleanId, code, studentRecord });
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'OTP verification failed');
     }

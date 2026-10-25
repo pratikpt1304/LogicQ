@@ -199,9 +199,24 @@ export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
   'logicq1304@gmail.com',
-  'ipworker1908@gmail.com',
-  'ipverse1918@gmail.com',
 ];
+
+export const PURGED_EMAILS = [
+  'thoratpratik2323@gmail.com',
+  'samugangad@gmail.com',
+  'rohan_1390@test.edu',
+  'join_1390@sanjivani.edu.in',
+];
+
+export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
+
+export function isExplicitlyPurgedUser(identifier?: string | { email?: string; prn?: string } | null): boolean {
+  if (!identifier) return false;
+  const email = (typeof identifier === 'string' ? identifier : identifier.email || '').toLowerCase().trim();
+  const prn = (typeof identifier === 'string' ? identifier : identifier.prn || '').toUpperCase().trim();
+  if (PURGED_EMAILS.includes(email) || PURGED_PRNS.includes(prn)) return true;
+  return false;
+}
 
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
@@ -1080,8 +1095,8 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         username: lower.split('@')[0],
         email: lower,
         role: 'ADMIN',
-        fullName: lower.includes('thorat') ? 'Pratik Thorat' : (lower.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator'),
-        displayName: lower.includes('thorat') ? 'Pratik Thorat (Admin)' : (lower.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin'),
+        fullName: lower.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
+        displayName: lower.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
         passwordHash: await bcrypt.hash('AdminPassword123!', 10),
         college: 'Sanjivani University',
         department: 'CSE',
@@ -1101,6 +1116,14 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
     }
 
     const cleanId = identifier.trim();
+
+    if (isExplicitlyPurgedUser(cleanId)) {
+      res.status(403).json({
+        success: false,
+        message: 'Access Denied: This account has been removed. Please contact your course instructor.',
+      });
+      return;
+    }
 
     // Check if user exists in database by email, prn, mobile, or username
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
@@ -1123,6 +1146,13 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
 
     // Auto-restore enrolled student if verified record from cloud store was passed
     const studentRecord = req.body.studentRecord || req.body.enrolledStudent || req.body.profile;
+    if (studentRecord && isExplicitlyPurgedUser(studentRecord)) {
+      res.status(403).json({
+        success: false,
+        message: 'Access Denied: This account has been removed. Please contact your course instructor.',
+      });
+      return;
+    }
     if (!user && studentRecord && (studentRecord.email || cleanId.includes('@'))) {
       const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
       const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : null);
@@ -1220,6 +1250,14 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
     const cleanId = String(identifier).trim();
     const cleanCode = String(code).trim();
 
+    if (isExplicitlyPurgedUser(cleanId)) {
+      res.status(403).json({
+        success: false,
+        message: 'Access Denied: This account has been removed. Please contact your course instructor.',
+      });
+      return;
+    }
+
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
     const isPhone = digitsOnly.length >= 10;
 
@@ -1240,6 +1278,13 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
 
     // Auto-restore enrolled student if verified record from cloud store was passed
     const studentRecord = req.body.studentRecord || req.body.enrolledStudent || req.body.profile;
+    if (studentRecord && isExplicitlyPurgedUser(studentRecord)) {
+      res.status(403).json({
+        success: false,
+        message: 'Access Denied: This account has been removed. Please contact your course instructor.',
+      });
+      return;
+    }
     if (!user && studentRecord && (studentRecord.email || cleanId.includes('@'))) {
       const emailToUse = (studentRecord.email || cleanId).toLowerCase().trim();
       const prnToUse = studentRecord.prn ? String(studentRecord.prn).toUpperCase().trim() : (isValidPrn(cleanId) ? cleanId.toUpperCase().trim() : null);

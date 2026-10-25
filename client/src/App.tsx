@@ -35,6 +35,7 @@ import { ExamWorkspacePage } from './pages/exam/ExamWorkspacePage.js';
 import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.js';
 import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
+import { FirestoreDataService } from './services/firestoreData.service.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -156,6 +157,9 @@ export const App: React.FC = () => {
 
     // 2. Keep-alive ping every 8 minutes while user has tab open (prevents Render 15-min sleep)
     const intervalId = setInterval(warmBackend, 8 * 60 * 1000);
+
+    // Purge any deleted/banned student profiles from local storage
+    FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
 
     return () => clearInterval(intervalId);
   }, []);

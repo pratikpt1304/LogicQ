@@ -880,8 +880,12 @@ export class FirestoreDataService {
     return (
       email === 'thoratpratik2323@gmail.com' ||
       email === 'samugangad@gmail.com' ||
+      email === 'rohan_1390@test.edu' ||
+      email === 'join_1390@sanjivani.edu.in' ||
       prn === '2126PMIM1039' ||
-      prn === '2126PMIF1057'
+      prn === '2126PMIF1057' ||
+      prn === '2026VAL1390' ||
+      prn === '2026JON1390'
     );
   }
 
@@ -890,13 +894,22 @@ export class FirestoreDataService {
    */
   public static async purgeDeletedStudentsFromFirestore(): Promise<void> {
     try {
-      const targetEmails = ['thoratpratik2323@gmail.com', 'samugangad@gmail.com'];
-      const targetPrns = ['2126PMIM1039', '2126PMIF1057'];
+      const targetEmails = [
+        'thoratpratik2323@gmail.com',
+        'samugangad@gmail.com',
+        'rohan_1390@test.edu',
+        'join_1390@sanjivani.edu.in',
+      ];
+      const targetPrns = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
       const directKeys = [
         'thoratpratik2323_gmail_com',
         'samugangad_gmail_com',
+        'rohan_1390_test_edu',
+        'join_1390_sanjivani_edu_in',
         '2126PMIM1039',
         '2126PMIF1057',
+        '2026VAL1390',
+        '2026JON1390',
       ];
 
       for (const k of directKeys) {
@@ -1148,8 +1161,13 @@ export class FirestoreDataService {
    */
   public static async findEnrolledStudentInFirestore(identifier: string): Promise<any | null> {
     try {
+      if (!identifier) return null;
       const clean = identifier.trim().toLowerCase();
       const prnClean = identifier.trim().toUpperCase();
+
+      if (FirestoreDataService.isPurgedStudent({ email: clean, prn: prnClean })) {
+        return null;
+      }
 
       // 1. Check local cache / all enrolled students backup
       try {
@@ -1166,7 +1184,7 @@ export class FirestoreDataService {
                     (s.email && String(s.email).toLowerCase() === clean) ||
                     (s.name && String(s.name).toLowerCase() === clean)
                 );
-                if (found) return found;
+                if (found && !FirestoreDataService.isPurgedStudent(found)) return found;
               }
             }
           }
@@ -1182,13 +1200,18 @@ export class FirestoreDataService {
           if (targetUid) {
             const userDoc = await getDoc(doc(db, 'users', targetUid)).catch(() => null);
             if (userDoc && userDoc.exists()) {
-              return { id: userDoc.id, uid: userDoc.id, ...userDoc.data(), prn: prnClean };
+              const uData = userDoc.data();
+              if (!FirestoreDataService.isPurgedStudent({ ...uData, prn: prnClean })) {
+                return { id: userDoc.id, uid: userDoc.id, ...uData, prn: prnClean };
+              }
             }
             const pubDoc = await getDoc(doc(db, 'publicProfiles', targetUid)).catch(() => null);
             if (pubDoc && pubDoc.exists()) {
-              return { id: targetUid, uid: targetUid, ...pubDoc.data(), prn: prnClean };
+              const pData = pubDoc.data();
+              if (!FirestoreDataService.isPurgedStudent({ ...pData, prn: prnClean })) {
+                return { id: targetUid, uid: targetUid, ...pData, prn: prnClean };
+              }
             }
-            return { id: targetUid, uid: targetUid, prn: prnClean, fullName: `Student ${prnClean.slice(-4)}` };
           }
         }
       } catch (err) {
@@ -1206,7 +1229,10 @@ export class FirestoreDataService {
         try {
           const directDoc = await getDoc(doc(db, 'enrolled_students', k));
           if (directDoc.exists()) {
-            return { id: directDoc.id, ...directDoc.data() };
+            const dData = directDoc.data();
+            if (!FirestoreDataService.isPurgedStudent(dData)) {
+              return { id: directDoc.id, ...dData };
+            }
           }
         } catch {}
       }
@@ -1216,7 +1242,10 @@ export class FirestoreDataService {
         const prnQ = query(collection(db, 'enrolled_students'), where('prn', '==', prnClean));
         const prnSnap = await getDocs(prnQ);
         if (!prnSnap.empty) {
-          return { id: prnSnap.docs[0].id, ...prnSnap.docs[0].data() };
+          const dData = prnSnap.docs[0].data();
+          if (!FirestoreDataService.isPurgedStudent(dData)) {
+            return { id: prnSnap.docs[0].id, ...dData };
+          }
         }
       } catch {}
 
@@ -1224,7 +1253,10 @@ export class FirestoreDataService {
         const emailQ = query(collection(db, 'enrolled_students'), where('email', '==', clean));
         const emailSnap = await getDocs(emailQ);
         if (!emailSnap.empty) {
-          return { id: emailSnap.docs[0].id, ...emailSnap.docs[0].data() };
+          const dData = emailSnap.docs[0].data();
+          if (!FirestoreDataService.isPurgedStudent(dData)) {
+            return { id: emailSnap.docs[0].id, ...dData };
+          }
         }
       } catch {}
 
@@ -1233,7 +1265,10 @@ export class FirestoreDataService {
         const userPrnQ = query(collection(db, 'users'), where('prn', '==', prnClean));
         const userPrnSnap = await getDocs(userPrnQ);
         if (!userPrnSnap.empty) {
-          return { id: userPrnSnap.docs[0].id, ...userPrnSnap.docs[0].data() };
+          const uData = userPrnSnap.docs[0].data();
+          if (!FirestoreDataService.isPurgedStudent(uData)) {
+            return { id: userPrnSnap.docs[0].id, ...uData };
+          }
         }
       } catch {}
 
@@ -1241,7 +1276,10 @@ export class FirestoreDataService {
         const userEmailQ = query(collection(db, 'users'), where('email', '==', clean));
         const userEmailSnap = await getDocs(userEmailQ);
         if (!userEmailSnap.empty) {
-          return { id: userEmailSnap.docs[0].id, ...userEmailSnap.docs[0].data() };
+          const uData = userEmailSnap.docs[0].data();
+          if (!FirestoreDataService.isPurgedStudent(uData)) {
+            return { id: userEmailSnap.docs[0].id, ...uData };
+          }
         }
       } catch {}
 
