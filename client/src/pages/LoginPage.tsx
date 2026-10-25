@@ -7,50 +7,36 @@ import {
   Mail,
   ArrowRight,
   AlertCircle,
-  Info,
-  ShieldCheck,
   CheckCircle2,
   Clock,
   KeyRound,
   RefreshCw,
-  ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { sendLoginOtp, loginWithOtp } = useAuth();
+  const { sendLoginOtp, loginWithOtp, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Step 1: 'identifier' (Email / Mobile / PRN) -> Step 2: 'otp' (6-digit Code)
+  // Step 1: 'identifier' (Email) -> Step 2: 'otp' (6-digit Code)
   const [step, setStep] = useState<'identifier' | 'otp'>('identifier');
   const [identifier, setIdentifier] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [targetDisplay, setTargetDisplay] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState<number>(0);
-
-  const [logoutNotice] = useState<{ reason: string; message: string } | null>(() => {
-    try {
-      const raw = sessionStorage.getItem('logicq_logout_notice');
-      if (raw) {
-        sessionStorage.removeItem('logicq_logout_notice');
-        return JSON.parse(raw);
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  });
 
   const fromLocation = (location.state as any)?.from;
   const from = fromLocation
     ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
     : '/dashboard';
 
-  // Cooldown timer
+  // Resend cooldown timer
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setInterval(() => {
@@ -59,11 +45,27 @@ export const LoginPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  // Google 1-Click Login
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      toast.success('Signed in successfully!');
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-in was cancelled or failed. You can sign in with Email OTP below.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   // Step 1: Dispatch OTP
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!identifier.trim()) {
-      setError('Please enter your enrolled institutional email address.');
+    const cleanId = identifier.trim();
+    if (!cleanId) {
+      setError('Please enter your email address.');
       return;
     }
 
@@ -72,175 +74,197 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await sendLoginOtp(identifier.trim());
+      const res = await sendLoginOtp(cleanId);
       if (res?.success) {
-        setTargetDisplay(res.target || identifier.trim());
+        setTargetDisplay(res.target || cleanId);
         setOtpCode('');
         setStep('otp');
         setCooldown(res.cooldownRemaining || 60);
-        setInfoMessage(res.message || 'A 6-digit verification code has been sent to your email.');
+        setInfoMessage(res.message || `A 6-digit OTP has been sent to ${res.target || cleanId}.`);
 
-        toast.success('Verification code dispatched', {
-          description: `Please check ${res.target || identifier.trim()} for your 6-digit OTP.`,
+        toast.success('OTP sent successfully', {
+          description: `Check your inbox at ${res.target || cleanId}`,
         });
       } else {
         setError(res?.message || 'Failed to dispatch verification code.');
       }
     } catch (err: any) {
-      setError(err?.message || 'You are not registered yet on LogicQ. Contact your course instructor or administrator for credentials.');
+      setError(
+        err?.message ||
+          'Email not found in course roster. Please contact your instructor or verify your email spelling.'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = async (demoEmail: string) => {
-    setIdentifier(demoEmail);
+  // Step 2: Verify OTP
+  const verifyCode = async (codeToVerify: string) => {
+    if (!codeToVerify || codeToVerify.length < 6) return;
     setError(null);
     setLoading(true);
+
     try {
-      // Direct login with master OTP 123456
-      await loginWithOtp(demoEmail, '123456');
-      toast.success(`Identity verified! Logged in as ${demoEmail}`);
+      await loginWithOtp(identifier.trim(), codeToVerify);
+      toast.success('Signed in successfully! Welcome to LogicQ.');
       navigate(from, { replace: true });
     } catch (err: any) {
-      try {
-        const res = await sendLoginOtp(demoEmail);
-        setTargetDisplay(res?.target || demoEmail);
-        setOtpCode('123456');
-        setStep('otp');
-        setInfoMessage(`Verification code sent to ${demoEmail}. Click "Verify OTP & Enter Arena" to proceed.`);
-      } catch (e: any) {
-        setError(e?.message || 'Failed to authenticate account');
-      }
+      setError(err?.message || 'Invalid or expired OTP code. Please request a new one.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Verify OTP & Sign In
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode.trim() || otpCode.trim().length < 6) {
-      setError('Please enter the complete 6-digit OTP code.');
-      return;
-    }
+    verifyCode(otpCode.trim());
+  };
 
+  const handleOtpInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtpCode(val);
+    if (val.length === 6) {
+      verifyCode(val);
+    }
+  };
+
+  // Quick helper for demo/testing accounts without UI pollution
+  const handleQuickDemo = async (email: string) => {
+    setIdentifier(email);
     setError(null);
     setLoading(true);
-
     try {
-      await loginWithOtp(identifier.trim(), otpCode.trim());
-      toast.success('Identity verified! Welcome to LogicQ.');
+      await loginWithOtp(email, '123456');
+      toast.success(`Logged in as ${email}`);
       navigate(from, { replace: true });
-    } catch (err: any) {
-      setError(err?.message || 'Invalid or expired OTP code. Please request a new code.');
-    } finally {
+    } catch {
+      await sendLoginOtp(email).catch(() => {});
+      setTargetDisplay(email);
+      setOtpCode('123456');
+      setStep('otp');
+      setInfoMessage(`Test OTP code (123456) ready. Click Verify to continue.`);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
+        {/* Clean Brand Header */}
+        <div className="text-center mb-6">
           <div className="inline-block mb-3">
             <Logo size="lg" />
           </div>
-          <h2 className="text-2xl font-extrabold text-[var(--text-main)]">
-            Institutional Sign In
+          <h2 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
+            Sign In to LogicQ
           </h2>
-          <p className="text-xs text-[var(--text-muted)] mt-1 font-mono">
+          <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
             {step === 'identifier'
-              ? 'Passwordless Email OTP verification for enrolled students & faculty'
-              : `Enter the 6-digit code sent to ${targetDisplay}`}
+              ? 'Enter your registered email to receive a 6-digit OTP'
+              : `Enter the code sent to ${targetDisplay}`}
           </p>
         </div>
 
-        {/* Card */}
-        <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl relative overflow-hidden">
-          {/* Top Institutional Badge */}
-          <div className="mb-5 flex items-center justify-between pb-3 border-b border-[var(--border-line)] text-xs font-mono">
-            <div className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 font-semibold">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Institutional Email OTP Verification</span>
-            </div>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-line)]">
-              Authorized Roster Only
-            </span>
-          </div>
-
-          {/* Session Logout Notice */}
-          {logoutNotice && (
-            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs shadow-sm">
-              <Info className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
-              <div>
-                <p className="font-bold text-amber-600 dark:text-amber-300 font-mono tracking-wide">Session Notice</p>
-                <p className="text-[var(--text-main)] mt-1 font-sans font-medium leading-relaxed">{logoutNotice.message}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Error Banner */}
+        {/* Main Clean Card */}
+        <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl relative">
+          {/* Error Alert */}
           {error && (
-            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-300 font-medium shadow-sm animate-shake">
+            <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-300 font-medium animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
               <div className="leading-relaxed">{error}</div>
             </div>
           )}
 
-          {/* Info Banner */}
+          {/* Success / Info Message */}
           {infoMessage && (
-            <div className="mb-5 flex items-start gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-300 font-medium shadow-sm">
+            <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-600 dark:text-emerald-300 font-medium animate-fadeIn">
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
               <div className="leading-relaxed">{infoMessage}</div>
             </div>
           )}
 
-          {/* STEP 1: Enter Identifier */}
+          {/* STEP 1: Email Form + Google 1-Click */}
           {step === 'identifier' && (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div>
-                <label className="block text-xs font-mono text-[var(--text-main)] mb-1.5 font-bold tracking-wider">
-                  REGISTERED INSTITUTIONAL EMAIL
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="student@sanjivani.org.in or your.email@gmail.com"
-                    className="w-full pl-9 pr-3 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] font-mono transition-colors"
+            <div className="space-y-4">
+              {/* 1-Click Google Sign In */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={googleLoading || loading}
+                className="w-full py-2.5 px-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-panel)] text-[var(--text-main)] text-sm font-semibold transition-all flex items-center justify-center gap-2.5 shadow-sm hover:border-indigo-500/40 cursor-pointer disabled:opacity-60"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   />
-                  <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+                <span>{googleLoading ? 'Signing in with Google...' : 'Continue with Google'}</span>
+              </button>
+
+              {/* Minimal Divider */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--border-line)]" />
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-relaxed font-mono">
-                  Enter the registered email address enrolled in your official course section.
-                </p>
+                <div className="relative flex justify-center text-[11px]">
+                  <span className="px-2.5 bg-[var(--bg-panel)] text-[var(--text-muted)] font-mono uppercase tracking-wider">
+                    or with email OTP
+                  </span>
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading || !identifier.trim()}
-                className="w-full py-3 px-4 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2 cursor-pointer"
-              >
-                <span>{loading ? 'Verifying Roster Enrollment...' : 'Send 6-Digit OTP'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
+              {/* Email Form */}
+              <form onSubmit={handleSendOtp} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      autoFocus
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="e.g. name@sanjivani.edu.in or your.email@gmail.com"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    />
+                    <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !identifier.trim()}
+                  className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
           )}
 
-          {/* STEP 2: Enter OTP */}
+          {/* STEP 2: Enter 6-digit OTP */}
           {step === 'otp' && (
-            <form onSubmit={handleVerifyOtp} className="space-y-5 animate-fadeIn">
-
-
+            <form onSubmit={handleVerifyOtp} className="space-y-4 animate-fadeIn">
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-mono text-[var(--text-main)] font-bold tracking-wider">
-                    ENTER 6-DIGIT VERIFICATION CODE
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-[var(--text-main)]">
+                    Enter 6-Digit OTP Code
                   </label>
                   <button
                     type="button"
@@ -248,10 +272,11 @@ export const LoginPage: React.FC = () => {
                       setStep('identifier');
                       setOtpCode('');
                       setError(null);
+                      setInfoMessage(null);
                     }}
-                    className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 hover:underline"
+                    className="text-xs text-indigo-500 hover:underline font-medium"
                   >
-                    Change Contact
+                    Change Email
                   </button>
                 </div>
 
@@ -262,154 +287,77 @@ export const LoginPage: React.FC = () => {
                     autoFocus
                     maxLength={6}
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={handleOtpInput}
                     placeholder="••••••"
-                    className="w-full pl-9 pr-3 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] font-mono text-center tracking-[0.5em] font-bold transition-colors"
+                    className="w-full pl-9 pr-3 py-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-2xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono text-center tracking-[0.5em] font-bold transition-colors"
                   />
-                  <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3.5" />
+                  <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-4" />
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otpCode.trim().length !== 6}
-                className="w-full py-3 px-4 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
-                <span>{loading ? 'Authenticating Session...' : 'Verify OTP & Enter Arena'}</span>
+                <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Enter'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              {/* Resend Timer */}
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border-line)] text-xs font-mono">
+              {/* Resend Action */}
+              <div className="flex items-center justify-between pt-3 border-t border-[var(--border-line)] text-xs text-[var(--text-muted)]">
                 {cooldown > 0 ? (
-                  <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
+                  <div className="flex items-center gap-1.5 font-mono">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>Resend available in {cooldown}s</span>
+                    <span>Resend code in {cooldown}s</span>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => handleSendOtp()}
                     disabled={loading}
-                    className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 hover:underline font-bold"
+                    className="flex items-center gap-1.5 text-indigo-500 hover:underline font-semibold cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Resend 6-Digit OTP</span>
+                    <span>Resend OTP</span>
                   </button>
                 )}
-
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  Code expires in 10 mins
-                </span>
+                <span>Expires in 10 mins</span>
               </div>
             </form>
           )}
-
         </div>
 
-        {/* Collapsible Walkthrough / Demo Testing Roles */}
-        <details className="mt-4 text-center group">
-          <summary className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer select-none transition-colors py-1.5 px-3 rounded-lg hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)]">
-            <span>⚡ Demo & Testing Roles (Walkthrough Access)</span>
-            <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="mt-3 p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-left shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-mono font-bold text-[var(--text-main)]">
-                Instant Test Sign In
-              </span>
-              <span className="text-[10px] font-mono text-cyan-500 font-semibold px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                OTP: 123456
-              </span>
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] font-mono mb-3">
-              One-click instant sign in to test each role without waiting for email dispatch:
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('logicqarena@gmail.com')}
-                disabled={loading}
-                className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <div className="text-xs font-bold text-purple-400 flex items-center gap-1">
-                  👑 Admin
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  logicqarena@gmail.com
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('faculty@logicq.io')}
-                disabled={loading}
-                className="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <div className="text-xs font-bold text-cyan-400 flex items-center gap-1">
-                  👨‍🏫 Faculty
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  faculty@logicq.io
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('student@logicq.io')}
-                disabled={loading}
-                className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                  🎓 Demo Student
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  student@logicq.io
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('thoratpratik2323@gmail.com')}
-                disabled={loading}
-                className="p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-left transition-all disabled:opacity-50 cursor-pointer col-span-1"
-              >
-                <div className="text-xs font-bold text-indigo-400 flex items-center gap-1">
-                  🎓 Pratik Thorat
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  2126PMIM1039 (M.Tech)
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('samugangad@gmail.com')}
-                disabled={loading}
-                className="p-2.5 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 text-left transition-all disabled:opacity-50 cursor-pointer col-span-1 sm:col-span-2"
-              >
-                <div className="text-xs font-bold text-pink-400 flex items-center gap-1">
-                  🎓 Samu Gangad
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  2126PMIF1057 (M.Tech)
-                </div>
-              </button>
-            </div>
+        {/* Minimal Subtle Quick-Login Bar (Only for testing convenience, clean & unobtrusive) */}
+        <div className="mt-5 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-panel)] border border-[var(--border-line)] text-[11px] text-[var(--text-muted)]">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>Quick test:</span>
+            <button
+              onClick={() => handleQuickDemo('student@logicq.io')}
+              className="text-indigo-400 hover:underline font-medium"
+            >
+              Student
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => handleQuickDemo('faculty@logicq.io')}
+              className="text-cyan-400 hover:underline font-medium"
+            >
+              Faculty
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => handleQuickDemo('logicqarena@gmail.com')}
+              className="text-purple-400 hover:underline font-medium"
+            >
+              Admin
+            </button>
           </div>
-        </details>
-
-        {/* Closed Registration Advisory Note */}
-        <div className="glass-card mt-6 p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-center text-xs text-[var(--text-muted)] leading-relaxed font-mono">
-          <p className="font-semibold text-[var(--text-main)] mb-1">
-            🔒 Institutional Cohort Policy
-          </p>
-          <p>
-            Public self-registration is closed. Student accounts are enrolled directly into academic sections by course faculty mentors.
-          </p>
         </div>
       </div>
     </div>
   );
 };
+
 export default LoginPage;
