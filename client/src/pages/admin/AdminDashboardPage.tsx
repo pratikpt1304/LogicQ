@@ -574,6 +574,13 @@ export const AdminDashboardPage: React.FC = () => {
     }
   }, [firestoreProblemsData, rawProblems]);
 
+  // Clean up deprecated legacy daily problem from Firestore if present
+  React.useEffect(() => {
+    if (firestoreProblemsData && firestoreProblemsData.some((p: any) => p.slug === 'daily-longest-unique-substring' || p.id === 'daily-longest-unique-substring')) {
+      FirestoreDataService.deleteProblem('daily-longest-unique-substring').catch(() => {});
+    }
+  }, [firestoreProblemsData]);
+
   const filteredProblems = React.useMemo(() => {
     return rawProblems.filter((p: any) => {
       if (problemCategoryFilter === 'BOOK') {

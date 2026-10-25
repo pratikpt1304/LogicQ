@@ -210,36 +210,22 @@ export async function autoSeedDatabase(): Promise<void> {
       console.log(`⚡ Seeded ${KANETKAR_BOOK_PROBLEMS.length} Kanetkar book problems.`);
     }
 
-    // 4. Seed Canonical Daily / Contest Problems if needed
-    const dailyProblemCount = await prisma.problem.count({
+    // 4. Purge legacy mock daily problem and ensure Kanetkar Book is primary Daily Challenge
+    await prisma.testCase.deleteMany({
+      where: { problem: { slug: 'daily-longest-unique-substring' } },
+    });
+    await prisma.problem.deleteMany({
       where: { slug: 'daily-longest-unique-substring' },
     });
-    if (dailyProblemCount === 0) {
-      console.log('⚡ Auto-seeding canonical daily challenge problem...');
-      const p = await prisma.problem.create({
-        data: {
-          slug: 'daily-longest-unique-substring',
-          title: 'Longest Substring Without Repeating Characters',
-          difficulty: 'MEDIUM',
-          category: 'Strings & Hash/Lookup',
-          tags: JSON.stringify(['Strings', 'Sliding-Window', 'Lookup']),
-          description: `Given a string s, find the length of the longest substring without repeating characters.`,
-          starterCode: `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char s[1000];\n    if (scanf("%s", s) != 1) return 0;\n    return 0;\n}`,
-          solutionCode: `#include <stdio.h>\n#include <string.h>\n\nint lengthOfLongestSubstring(char * s) {\n    int n = strlen(s);\n    int res = 0;\n    int last[256];\n    for (int i = 0; i < 256; i++) last[i] = -1;\n    int start = 0;\n    for (int end = 0; end < n; end++) {\n        unsigned char c = (unsigned char)s[end];\n        if (last[c] >= start) start = last[c] + 1;\n        last[c] = end;\n        int len = end - start + 1;\n        if (len > res) res = len;\n    }\n    return res;\n}\n\nint main() {\n    char s[1000];\n    if (scanf("%s", s) == 1) {\n        printf("%d\\n", lengthOfLongestSubstring(s));\n    }\n    return 0;\n}`,
-          timeLimitMs: 1000,
-          memoryLimitMb: 64,
-          basePoints: 20,
-          isDaily: true,
-          status: 'PUBLISHED',
-        },
-      });
-      await prisma.testCase.createMany({
-        data: [
-          { problemId: p.id, input: 'abcabcbb\n', expectedOutput: '3\n', isHidden: false, orderIndex: 0 },
-          { problemId: p.id, input: 'bbbbb\n', expectedOutput: '1\n', isHidden: false, orderIndex: 1 },
-          { problemId: p.id, input: 'pwwkew\n', expectedOutput: '3\n', isHidden: false, orderIndex: 2 },
-          { problemId: p.id, input: 'abcdef\n', expectedOutput: '6\n', isHidden: true, orderIndex: 3 },
-        ],
+
+    const activeDaily = await prisma.problem.findFirst({
+      where: { isDaily: true, status: 'PUBLISHED' },
+    });
+    if (!activeDaily) {
+      const todayIST = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split('T')[0];
+      await prisma.problem.updateMany({
+        where: { slug: 'kanetkar-ch1-scope-shadow-eval' },
+        data: { isDaily: true, scheduledDate: todayIST },
       });
     }
 

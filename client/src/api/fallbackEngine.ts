@@ -116,7 +116,7 @@ function deletePracticeProblem(slug: string) {
   }
 }
 
-const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp) => ({
+const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => ({
   id: bp.slug,
   slug: bp.slug,
   title: bp.title,
@@ -125,7 +125,7 @@ const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp) => ({
   basePoints: bp.basePoints,
   timeLimitMs: bp.timeLimitMs,
   memoryLimitMb: bp.memoryLimitMb,
-  isDaily: false,
+  isDaily: idx === 0,
   sourceType: 'BOOK',
   sourceRef: bp.sourceRef,
   tags: bp.tags,
@@ -133,8 +133,8 @@ const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp) => ({
   starterCode: bp.starterCode,
   solutionCode: bp.solutionCode,
   testCases: [
-    ...bp.sampleTests.map((t, idx) => ({ id: `${bp.slug}-s${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: idx })),
-    ...bp.hiddenTests.map((t, idx) => ({ id: `${bp.slug}-h${idx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: bp.sampleTests.length + idx })),
+    ...bp.sampleTests.map((t, tidx) => ({ id: `${bp.slug}-s${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: tidx })),
+    ...bp.hiddenTests.map((t, tidx) => ({ id: `${bp.slug}-h${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: bp.sampleTests.length + tidx })),
   ],
 }));
 
@@ -161,34 +161,9 @@ const FORMATTED_PRACTICE_PROBLEMS = STATIC_PRACTICE_PROBLEMS.map((p) => ({
   ],
 }));
 
-const FORMATTED_DAILY_PROBLEMS = [
-  {
-    id: 'daily-longest-unique-substring',
-    slug: 'daily-longest-unique-substring',
-    title: 'Longest Substring Without Repeating Characters',
-    difficulty: 'MEDIUM',
-    category: 'Strings & Hash/Lookup',
-    basePoints: 20,
-    timeLimitMs: 1000,
-    memoryLimitMb: 64,
-    isDaily: true,
-    sourceType: 'SEED',
-    tags: ['Strings', 'Sliding-Window', 'Lookup'],
-    description: 'Given a string s, find the length of the longest substring without repeating characters.',
-    starterCode: '#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char s[1000];\n    if (scanf("%s", s) != 1) return 0;\n    return 0;\n}',
-    testCases: [
-      { id: 'daily-s1', input: 'abcabcbb\n', expectedOutput: '3\n', isSample: true, isHidden: false, orderIndex: 0 },
-      { id: 'daily-s2', input: 'bbbbb\n', expectedOutput: '1\n', isSample: true, isHidden: false, orderIndex: 1 },
-      { id: 'daily-s3', input: 'pwwkew\n', expectedOutput: '3\n', isSample: true, isHidden: false, orderIndex: 2 },
-      { id: 'daily-h1', input: 'abcdef\n', expectedOutput: '6\n', isSample: false, isHidden: true, orderIndex: 3 },
-    ],
-  },
-];
-
 export const DEFAULT_PROBLEMS = [
   ...FORMATTED_KANETKAR_PROBLEMS,
   ...FORMATTED_PRACTICE_PROBLEMS,
-  ...FORMATTED_DAILY_PROBLEMS,
 ];
 
 let memoryProblems: any[] = DEFAULT_PROBLEMS.map((p) => ({ ...p }));
