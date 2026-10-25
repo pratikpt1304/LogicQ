@@ -47,6 +47,10 @@ import {
   Clock,
   ShieldAlert,
   BookOpen,
+  Copy,
+  Check,
+  Mail,
+  UserCheck,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
@@ -77,6 +81,8 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Filter States for Users & Submissions & Uploads
   const [filterSearch, setFilterSearch] = useState('');
+  const [filterRole, setFilterRole] = useState<'ALL' | 'STUDENT' | 'FACULTY' | 'ADMIN'>('ALL');
+  const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   const [filterSectionId, setFilterSectionId] = useState('ALL');
   const [filterCollege, setFilterCollege] = useState('ALL');
   const [filterDepartment, setFilterDepartment] = useState('ALL');
@@ -334,7 +340,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const buildFilterQuery = () => {
     const params = new URLSearchParams();
-    params.set('limit', '50');
+    params.set('limit', '200');
     if (filterSearch.trim()) params.set('search', filterSearch.trim());
     if (filterSectionId !== 'ALL') params.set('sectionId', filterSectionId);
     if (filterCollege !== 'ALL') params.set('college', filterCollege);
@@ -522,12 +528,18 @@ export const AdminDashboardPage: React.FC = () => {
   const uploads = uploadsData?.data?.uploads || [];
 
   // Resilient merged users list: combines backend users with Firestore users and enriches names
-  const users = React.useMemo(() => {
+  const { allMergedUsers, users, roleCounts } = React.useMemo(() => {
     const backendUsers = usersData?.data?.users || [];
     const fUsers: any[] = firestoreUsersData || [];
 
-    const isCuid = (val?: string | null) =>
-      Boolean(val && typeof val === 'string' && val.length === 25 && val.startsWith('c'));
+    const isRawSystemId = (val?: string | null) => {
+      if (!val || typeof val !== 'string') return false;
+      const trimmed = val.trim();
+      if (trimmed.length === 25 && trimmed.startsWith('c')) return true;
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return true;
+      if (trimmed.length === 28 && /^[a-zA-Z0-9_-]+$/.test(trimmed) && !trimmed.includes(' ')) return true;
+      return false;
+    };
 
     // 1. Enrich backend users with Firestore real names & clean handles
     const enrichedBackend = backendUsers.map((bu: any) => {
@@ -540,21 +552,24 @@ export const AdminDashboardPage: React.FC = () => {
       );
 
       const resolvedName =
-        (fu?.fullName && !isCuid(fu.fullName) ? fu.fullName : '') ||
-        (fu?.name && !isCuid(fu.name) ? fu.name : '') ||
-        (bu.fullName && !isCuid(bu.fullName) ? bu.fullName : '') ||
-        (fu?.displayName && !isCuid(fu.displayName) ? fu.displayName : '') ||
-        (bu.displayName && !isCuid(bu.displayName) ? bu.displayName : '') ||
+        (fu?.fullName && !isRawSystemId(fu.fullName) ? fu.fullName : '') ||
+        (fu?.name && !isRawSystemId(fu.name) ? fu.name : '') ||
+        (bu.fullName && !isRawSystemId(bu.fullName) ? bu.fullName : '') ||
+        (fu?.displayName && !isRawSystemId(fu.displayName) ? fu.displayName : '') ||
+        (bu.displayName && !isRawSystemId(bu.displayName) ? bu.displayName : '') ||
         (bu.prn ? `Student ${bu.prn.slice(-4)}` : (bu.email ? bu.email.split('@')[0] : 'Student'));
 
       const cleanUsername =
-        (!isCuid(bu.username) && bu.username) ? bu.username :
-        (fu?.username && !isCuid(fu.username) ? fu.username :
+        (!isRawSystemId(bu.username) && bu.username) ? bu.username :
+        (fu?.username && !isRawSystemId(fu.username) ? fu.username :
         (bu.email ? bu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_')));
+
+      const role = ((bu.role || fu?.role || 'STUDENT') as string).toUpperCase();
 
       return {
         ...(fu || {}),
         ...bu,
+        role,
         fullName: resolvedName,
         displayName: resolvedName,
         username: bu.username,
@@ -573,22 +588,26 @@ export const AdminDashboardPage: React.FC = () => {
       (fu: any) => fu.email && !backendEmails.has(fu.email.toLowerCase().trim())
     ).map((fu: any) => {
       const resolvedName =
-        (fu.fullName && !isCuid(fu.fullName) ? fu.fullName : '') ||
-        (fu.name && !isCuid(fu.name) ? fu.name : '') ||
-        (fu.displayName && !isCuid(fu.displayName) ? fu.displayName : '') ||
+        (fu.fullName && !isRawSystemId(fu.fullName) ? fu.fullName : '') ||
+        (fu.name && !isRawSystemId(fu.name) ? fu.name : '') ||
+        (fu.displayName && !isRawSystemId(fu.displayName) ? fu.displayName : '') ||
         (fu.prn ? `Student ${fu.prn.slice(-4)}` : (fu.email ? fu.email.split('@')[0] : 'Student'));
-      const cleanUsername = isCuid(fu.username)
-        ? (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'))
-        : (fu.username || fu.email?.split('@')[0] || 'student');
+      const cleanUsername = !isRawSystemId(fu.username) && fu.username
+        ? fu.username
+        : (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'));
+      const role = ((fu.role || 'STUDENT') as string).toUpperCase();
       return {
         ...fu,
+        role,
         fullName: resolvedName,
         displayName: resolvedName,
         cleanUsername,
       };
     });
 
-    let merged = [...enrichedBackend, ...missingFromBackend];
+    const all = [...enrichedBackend, ...missingFromBackend];
+    let merged = all;
+
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
       merged = merged.filter(
@@ -617,8 +636,21 @@ export const AdminDashboardPage: React.FC = () => {
     if (filterDivision && filterDivision !== 'ALL') {
       merged = merged.filter((u) => u.division === filterDivision.toUpperCase());
     }
-    return merged;
-  }, [usersData, firestoreUsersData, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision]);
+
+    const counts = {
+      ALL: merged.length,
+      STUDENT: merged.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === 'STUDENT').length,
+      FACULTY: merged.filter((u: any) => (u.role || '').toUpperCase() === 'FACULTY').length,
+      ADMIN: merged.filter((u: any) => (u.role || '').toUpperCase() === 'ADMIN').length,
+    };
+
+    let filtered = merged;
+    if (filterRole && filterRole !== 'ALL') {
+      filtered = merged.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === filterRole);
+    }
+
+    return { allMergedUsers: all, users: filtered, roleCounts: counts };
+  }, [usersData, firestoreUsersData, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision, filterRole]);
 
   const checkers = checkersData?.data?.checkers || [];
 
@@ -1032,7 +1064,7 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Student & Faculty Directory ({users.length})</span>
+          <span>Student & Faculty Directory ({allMergedUsers.length})</span>
         </button>
 
         <button
@@ -1596,7 +1628,7 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="glass-card rounded-2xl border border-white/[0.08] p-4 space-y-3">
           {activeTab === 'users' ? (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-6">
+              <div className="md:col-span-5">
                 <label htmlFor="admin-search" className="block text-xs font-mono text-slate-400 mb-1">
                   Search PRN / Email / Name
                 </label>
@@ -1611,7 +1643,7 @@ export const AdminDashboardPage: React.FC = () => {
                     spellCheck={false}
                     value={filterSearch}
                     onChange={(e) => setFilterSearch(e.target.value)}
-                    placeholder="PRN, email, display name..."
+                    placeholder="Search by name, PRN, or email..."
                     className="w-full pl-8 pr-8 py-2 rounded-xl bg-dark-950 border border-dark-700 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
                   />
                   {filterSearch && (
@@ -1626,11 +1658,11 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="md:col-span-6">
+              <div className="md:col-span-4">
                 <label htmlFor="admin-filter-section" className="block text-xs font-mono text-slate-400 mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-bold text-cyan-400">
                     <GraduationCap className="w-3.5 h-3.5" />
-                    Filter by Academic Section
+                    Academic Section
                   </span>
                   {filterSectionId !== 'ALL' && (
                     <button
@@ -1638,7 +1670,7 @@ export const AdminDashboardPage: React.FC = () => {
                       onClick={() => setFilterSectionId('ALL')}
                       className="text-[10px] text-amber-400 hover:underline"
                     >
-                      Reset to All
+                      Reset
                     </button>
                   )}
                 </label>
@@ -1648,11 +1680,39 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setFilterSectionId(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-dark-950 border border-cyan-500/30 text-xs font-mono text-cyan-200 focus:outline-none focus:border-cyan-400 transition"
                 >
-                  <option value="ALL">All Academic Sections ({sectionsList.length} sections)</option>
+                  <option value="ALL">All Academic Sections ({sectionsList.length})</option>
                   {sectionsList.map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.sectionName || `${s.course} - ${s.subject}`} [{s.joinCode || 'CODE'}]
                       {s._count?.students || s.studentCount ? ` · ${s._count?.students || s.studentCount} students` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-3">
+                <label htmlFor="admin-filter-dept-users" className="block text-xs font-mono text-slate-400 mb-1 flex items-center justify-between">
+                  <span>Department</span>
+                  {filterDepartment !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterDepartment('ALL')}
+                      className="text-[10px] text-amber-400 hover:underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </label>
+                <select
+                  id="admin-filter-dept-users"
+                  value={filterDepartment}
+                  onChange={(e) => setFilterDepartment(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-dark-950 border border-dark-700 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                >
+                  <option value="ALL">All Departments</option>
+                  {ALLOWED_DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
                     </option>
                   ))}
                 </select>
@@ -1837,14 +1897,16 @@ export const AdminDashboardPage: React.FC = () => {
                   All Depts CSV
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => handleDownloadCsv('daily-results')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-cyan-400 hover:bg-dark-800"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Daily Results CSV
-              </button>
+              {activeTab !== 'users' && (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadCsv('daily-results')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-cyan-400 hover:bg-dark-800"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Daily Results CSV
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2787,127 +2849,402 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Tab: Users Roster */}
       {activeTab === 'users' && (
-        <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
-                <tr>
-                  <th className="px-4 py-3.5">PRN & Student</th>
-                  <th className="px-4 py-3.5">Academic Section</th>
-                  <th className="px-4 py-3.5">Department & Year</th>
-                  <th className="px-4 py-3.5">Email</th>
-                  <th className="px-4 py-3.5">Score & Streak</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {users.map((u: any) => (
-                  <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-white block">
-                          {revealedPrns[u.id] || (u.maskedPrn || (u.prn ? `••••••${u.prn.slice(-4)}` : '—'))}
-                        </span>
-                        {!revealedPrns[u.id] && u.prn && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Reveal full PRN for ${u.displayName || u.username}? This action is recorded in the administrative audit log.`)) {
-                                revealPrnMutation.mutate(u.id);
-                              }
-                            }}
-                            disabled={revealPrnMutation.isPending}
-                            className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-cyan-300 transition-colors"
-                            title="Reveal full PRN (Audited)"
-                          >
-                            <Eye className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      <span className="text-slate-400 text-xs">
-                        {u.displayName || u.fullName} (@{u.username})
-                      </span>
-                      {u.prnChangedAt && (
-                        <div className="text-[10px] text-amber-400/90 pt-0.5">
-                          Changed: {new Date(u.prnChangedAt).toLocaleDateString()}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {u.sections && u.sections.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {u.sections.map((sec: any) => (
-                            <span
-                              key={sec.id}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                              title={`Join Code: ${sec.joinCode || '—'}`}
-                            >
-                              {sec.sectionName || sec.joinCode || 'Section'}
-                            </span>
-                          ))}
-                        </div>
-                      ) : u.sectionName || u.sectionId ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                          {u.sectionName || u.sectionId}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 text-[11px] font-mono italic">Not assigned</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-slate-300">
-                      <span className="text-cyan-400 font-semibold block">{u.department || '—'}</span>
-                      <span className="text-[11px] text-slate-400 block">
-                        {u.year || '—'}
-                        {u.division ? ` • Div ${u.division}` : ''}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-slate-400">{u.email}</td>
-                    <td className="px-4 py-4">
-                      <span className="text-cyan-400 font-bold block">{u.totalPoints || 0} PTS</span>
-                      <span className="text-orange-400 text-xs">{u.currentStreak || 0}d streak</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {u.isBanned ? (
-                        <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px]">
-                          BANNED
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px]">
-                          {u.role}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right space-x-1.5 whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedActivityUser(u)}
-                        className="px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-400 hover:bg-cyan-500/20 inline-flex items-center gap-1.5 font-mono font-medium transition"
-                        title="View student activity, submissions, and dossier"
-                      >
-                        <Activity className="w-3.5 h-3.5" />
-                        View Activity
-                      </button>
+        <div className="space-y-3.5">
+          {/* Role Filter Tabs & Summary Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 p-1 bg-dark-900/90 border border-white/[0.08] rounded-xl overflow-x-auto max-w-full">
+              <button
+                type="button"
+                onClick={() => setFilterRole('ALL')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  filterRole === 'ALL'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <span>All Accounts</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filterRole === 'ALL' ? 'bg-indigo-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                }`}>
+                  {roleCounts.ALL}
+                </span>
+              </button>
 
-                      <select
-                        value={u.role}
-                        onChange={(e) =>
-                          roleMutation.mutate({
-                            id: u.id,
-                            role: e.target.value,
-                          })
-                        }
-                        className="px-2 py-1 rounded bg-dark-850 border border-dark-700 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400"
-                        title="Change role (Admin, Faculty, Student)"
-                      >
-                        <option value="STUDENT">STUDENT</option>
-                        <option value="FACULTY">FACULTY</option>
-                                                <option value="ADMIN">ADMIN</option>
-                      </select>
-                    </td>
+              <button
+                type="button"
+                onClick={() => setFilterRole('STUDENT')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  filterRole === 'STUDENT'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-cyan-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Students</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filterRole === 'STUDENT' ? 'bg-cyan-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                }`}>
+                  {roleCounts.STUDENT}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterRole('FACULTY')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  filterRole === 'FACULTY'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-blue-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Faculty</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filterRole === 'FACULTY' ? 'bg-blue-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                }`}>
+                  {roleCounts.FACULTY}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterRole('ADMIN')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  filterRole === 'ADMIN'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-emerald-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Admins</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filterRole === 'ADMIN' ? 'bg-emerald-800 text-white' : 'bg-white/[0.08] text-slate-400'
+                }`}>
+                  {roleCounts.ADMIN}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              <span>Showing <strong className="text-white">{users.length}</strong> of {allMergedUsers.length} total members</span>
+              {(filterSearch || filterRole !== 'ALL' || filterSectionId !== 'ALL' || filterDepartment !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterSearch('');
+                    setFilterRole('ALL');
+                    setFilterSectionId('ALL');
+                    setFilterDepartment('ALL');
+                    setFilterYear('ALL');
+                    setFilterDivision('');
+                  }}
+                  className="text-cyan-400 hover:underline text-[11px]"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-dark-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-5 py-3.5 min-w-[240px]">User & Identity</th>
+                    <th className="px-4 py-3.5 min-w-[210px]">Academic Profile & Section</th>
+                    <th className="px-4 py-3.5 min-w-[200px]">Email Contact</th>
+                    <th className="px-4 py-3.5 min-w-[150px]">Activity / Role</th>
+                    <th className="px-5 py-3.5 text-right min-w-[190px]">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {users.map((u: any) => {
+                    const initials = ((u.displayName || u.fullName || u.email || 'U')
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join('') || 'U').toUpperCase();
+
+                    const roleGradient =
+                      u.role === 'ADMIN'
+                        ? 'from-emerald-600 to-teal-700 text-emerald-100 ring-1 ring-emerald-500/30'
+                        : u.role === 'FACULTY'
+                        ? 'from-blue-600 to-indigo-700 text-blue-100 ring-1 ring-blue-500/30'
+                        : 'from-cyan-600 to-indigo-600 text-cyan-100 ring-1 ring-cyan-500/30';
+
+                    return (
+                      <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                        {/* 1. User & Identity */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${roleGradient} flex items-center justify-center font-bold text-xs shadow-md shrink-0`}>
+                              {initials}
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-white text-xs block truncate max-w-[200px]">
+                                  {u.displayName || u.fullName}
+                                </span>
+                                {u.isBanned && (
+                                  <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold">
+                                    BANNED
+                                  </span>
+                                )}
+                              </div>
+
+                              {u.role === 'STUDENT' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] text-slate-300 font-mono bg-white/[0.05] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                                    {revealedPrns[u.id] || (u.maskedPrn || (u.prn ? `••••••${u.prn.slice(-4)}` : 'PRN: Unassigned'))}
+                                  </span>
+                                  {!revealedPrns[u.id] && u.prn && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (window.confirm(`Reveal full PRN for ${u.displayName || u.fullName}? This action is recorded in the administrative audit log.`)) {
+                                          revealPrnMutation.mutate(u.id);
+                                        }
+                                      }}
+                                      disabled={revealPrnMutation.isPending}
+                                      className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-cyan-300 transition-colors"
+                                      title="Reveal full PRN (Audited)"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  {u.prnChangedAt && (
+                                    <span className="text-[10px] text-amber-400/90 font-mono" title={`Changed: ${new Date(u.prnChangedAt).toLocaleDateString()}`}>
+                                      • Modified
+                                    </span>
+                                  )}
+                                </div>
+                              ) : u.role === 'FACULTY' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                  <UserCheck className="w-2.5 h-2.5" />
+                                  Faculty Member
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                  <ShieldCheck className="w-2.5 h-2.5" />
+                                  System Admin
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 2. Academic Profile & Section */}
+                        <td className="px-4 py-3.5">
+                          {u.role === 'ADMIN' ? (
+                            <div className="space-y-0.5">
+                              <span className="text-slate-300 text-xs font-semibold block">LogicQ Platform</span>
+                              <span className="text-slate-500 text-[11px] block">Global Administrator</span>
+                            </div>
+                          ) : u.role === 'FACULTY' ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-cyan-300 font-semibold text-xs">{u.department || 'Faculty'}</span>
+                                {u.college && <span className="text-slate-500 text-[11px]">• {u.college}</span>}
+                              </div>
+                              {u.sections && u.sections.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {u.sections.map((sec: any) => (
+                                    <span
+                                      key={sec.id}
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                                    >
+                                      {sec.sectionName || sec.joinCode}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 text-[10px] italic">No active class assigned</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-cyan-300 font-semibold text-xs">{u.department || '—'}</span>
+                                <span className="text-slate-500 text-xs">•</span>
+                                <span className="text-slate-300 text-xs">{u.year || '—'}</span>
+                                {u.division && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                                    Div {u.division}
+                                  </span>
+                                )}
+                              </div>
+                              {u.sections && u.sections.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {u.sections.map((sec: any) => (
+                                    <span
+                                      key={sec.id}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                      title={`Join Code: ${sec.joinCode || '—'}`}
+                                    >
+                                      {sec.sectionName || sec.joinCode || 'Section'}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : u.sectionName || u.sectionId ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                  {u.sectionName || u.sectionId}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 text-[10px] italic">General Student Roster</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 3. Email Contact */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1.5 group">
+                            <span className="text-slate-300 text-xs select-all truncate max-w-[210px]" title={u.email}>
+                              {u.email || '—'}
+                            </span>
+                            {u.email && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(u.email);
+                                  setCopiedEmailId(u.id);
+                                  toast.success(`Copied: ${u.email}`);
+                                  setTimeout(() => setCopiedEmailId(null), 2000);
+                                }}
+                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-cyan-300 transition-colors opacity-70 group-hover:opacity-100"
+                                title="Copy email"
+                              >
+                                {copiedEmailId === u.id ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 4. Activity / Role */}
+                        <td className="px-4 py-3.5">
+                          {u.role === 'ADMIN' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                              <ShieldCheck className="w-3 h-3" />
+                              SUPER ADMIN
+                            </span>
+                          ) : u.role === 'FACULTY' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold font-mono bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                              <GraduationCap className="w-3 h-3" />
+                              FACULTY
+                            </span>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 font-bold text-amber-300 text-xs">
+                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{u.totalPoints || 0} PTS</span>
+                              </div>
+                              <div className="text-[11px] text-orange-400/90 font-medium">
+                                🔥 {u.currentStreak || 0}d streak
+                              </div>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Actions */}
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setSelectedActivityUser(u)}
+                              className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 hover:bg-cyan-500/20 inline-flex items-center gap-1 font-mono font-medium transition"
+                              title="View student activity dossier and test history"
+                            >
+                              <Activity className="w-3.5 h-3.5" />
+                              <span>Activity</span>
+                            </button>
+
+                            {u.role === 'STUDENT' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingAcademicUser(u);
+                                  setAcademicEditForm({
+                                    prn: u.prn || '',
+                                    college: u.college || 'Sanjivani University',
+                                    department: u.department || 'CSE',
+                                    year: u.year || 'FY',
+                                    division: u.division || '',
+                                    adminPassword: '',
+                                    reason: '',
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.1] text-slate-300 hover:text-white transition"
+                                title="Edit Academic Record & PRN"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <select
+                              value={u.role || 'STUDENT'}
+                              onChange={(e) => {
+                                const targetRole = e.target.value;
+                                if (window.confirm(`Change ${u.displayName || u.fullName || u.email}'s role to ${targetRole}?`)) {
+                                  roleMutation.mutate({
+                                    id: u.id,
+                                    role: targetRole,
+                                  });
+                                }
+                              }}
+                              className="px-2 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400 hover:border-white/20 transition cursor-pointer"
+                              title="Change user role"
+                            >
+                              <option value="STUDENT">STUDENT</option>
+                              <option value="FACULTY">FACULTY</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mx-auto text-slate-400">
+                            <Users className="w-6 h-6" />
+                          </div>
+                          <div className="text-sm font-bold text-white">No accounts found</div>
+                          <p className="text-xs text-slate-400">
+                            {filterRole !== 'ALL'
+                              ? `No ${filterRole.toLowerCase()} accounts match your search or section filters.`
+                              : 'No accounts match your search or academic criteria.'}
+                          </p>
+                          {(filterSearch || filterRole !== 'ALL' || filterSectionId !== 'ALL' || filterDepartment !== 'ALL') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilterSearch('');
+                                setFilterRole('ALL');
+                                setFilterSectionId('ALL');
+                                setFilterDepartment('ALL');
+                                setFilterYear('ALL');
+                                setFilterDivision('');
+                              }}
+                              className="px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-bold hover:bg-cyan-500/20 transition"
+                            >
+                              Reset All Filters
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
