@@ -305,6 +305,75 @@ export const SectionManagementPage: React.FC = () => {
     },
   });
 
+  // Remove / Drop Student mutation
+  const removeStudentMutation = useMutation({
+    mutationFn: async ({
+      sectionId,
+      studentId,
+      prn,
+      email,
+    }: {
+      sectionId: string;
+      studentId?: string;
+      prn?: string;
+      email?: string;
+    }) => {
+      const targetIdentifier = studentId || prn || email || '';
+      // 1. Remove from Firestore & local storage
+      await FirestoreDataService.removeEnrolledStudentFromSection(sectionId, targetIdentifier);
+
+      // 2. Remove from backend API
+      try {
+        await api.delete(`/sections/${sectionId}/students/${encodeURIComponent(targetIdentifier)}`);
+      } catch (err: any) {
+        console.warn('Backend remove student fallback to Firestore:', err);
+      }
+      return { success: true };
+    },
+    onSuccess: (_, variables) => {
+      toast.success('Student removed from section.');
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
+      if (selectedSection) {
+        setSelectedSection((prev: any) => {
+          if (!prev) return null;
+          const filtered = (prev.students || []).filter((s: any) => {
+            const p = s.prn || s.student?.prn;
+            const e = s.email || s.student?.email;
+            const id = s.id || s.studentId || s.student?.id;
+            return p !== variables.prn && e !== variables.email && id !== variables.studentId;
+          });
+          return {
+            ...prev,
+            students: filtered,
+            _count: { students: filtered.length },
+          };
+        });
+        refetchDetails(selectedSection.id);
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to remove student.');
+    },
+  });
+
+  const handleRemoveStudent = (item: any) => {
+    const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'this student';
+    const prn = item.prn || item.student?.prn || '';
+    const email = item.student?.email || item.email || '';
+    const studentId = item.student?.id || item.studentId || item.id;
+
+    if (window.confirm(`Are you sure you want to remove ${studentName} (${prn || email}) from this section?`)) {
+      removeStudentMutation.mutate({
+        sectionId: selectedSection!.id,
+        studentId,
+        prn,
+        email,
+      });
+    }
+  };
+
   const refetchDetails = async (id: string) => {
     try {
       const res = await api.get(`/sections/${id}`);
@@ -626,177 +695,304 @@ export const SectionManagementPage: React.FC = () => {
       )}
 
       {/* SELECTED SECTION ROSTER MODAL / DRAWER */}
-      {selectedSection && !isExcelModalOpen && !isAddStudentOpen && (
-        <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6 shadow-xl animate-in fade-in">
-          {/* Roster Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold font-mono">
-                {(selectedSection.sectionName || selectedSection.subject || 'SEC').slice(0, 3).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[var(--foreground)]">
-                    {selectedSection.sectionName} — {selectedSection.subject}
-                  </h2>
-                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    Code: {selectedSection.joinCode}
-                  </span>
+      {selectedSection && !isExcelModalOpen && !isAddStudentOpen && (() => {
+        const rawName = selectedSection.sectionName || '';
+        const rawSub = selectedSection.subject || '';
+        const displayTitle = rawName.toLowerCase().includes(rawSub.toLowerCase())
+          ? rawName
+          : `${rawName} — ${rawSub}`;
+        const enrolledStudents = selectedSection.students || [];
+
+        return (
+          <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6 shadow-xl animate-in fade-in">
+            {/* Roster Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-black font-mono text-base shadow-sm shrink-0">
+                  {(selectedSection.sectionName || selectedSection.subject || 'SEC').slice(0, 3).toUpperCase()}
                 </div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {selectedSection.course} • {selectedSection.semester} ({selectedSection.academicYear})
-                </p>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--foreground)]">
+                      {displayTitle}
+                    </h2>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-mono text-xs">
+                      <span className="text-[10px] uppercase font-bold text-indigo-400/80">Code:</span>
+                      <strong className="tracking-wide text-indigo-300 font-black">{selectedSection.joinCode}</strong>
+                      <button
+                        onClick={() => handleCopy(selectedSection.joinCode, `code-${selectedSection.id}`)}
+                        className="p-1 hover:bg-indigo-500/20 rounded transition text-indigo-400 cursor-pointer"
+                        title="Copy Join Code"
+                      >
+                        {copiedKey === `code-${selectedSection.id}` ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-2">
+                    <span>{selectedSection.course}</span>
+                    <span>•</span>
+                    <span>{selectedSection.semester} ({selectedSection.academicYear})</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Roster Quick Action Bar */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleCopy(`${window.location.origin}/join/${selectedSection.joinToken || selectedSection.joinCode}`, `link-${selectedSection.id}`)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer shadow-sm"
+                  title="Copy Student Direct Join Link"
+                >
+                  {copiedKey === `link-${selectedSection.id}` ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Copied Link!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Copy Join Link</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => shareWhatsApp(selectedSection)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition cursor-pointer shadow-sm"
+                  title="Share Join Link on WhatsApp"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  WhatsApp
+                </button>
+
+                <button
+                  onClick={() => openQrCode(selectedSection)}
+                  className="p-2 rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer"
+                  title="Show Classroom QR Code"
+                >
+                  <QrCode className="w-4 h-4 text-indigo-400" />
+                </button>
+
+                <div className="h-5 w-px bg-[var(--border)] mx-1" />
+
+                <button
+                  onClick={() => setSelectedSection(null)}
+                  className="p-2 rounded-xl border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
+                  title="Close Roster"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+            {/* Quick Metrics Banner */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-medium text-[var(--muted-foreground)]">Enrolled Students</div>
+                  <div className="text-lg font-black text-[var(--foreground)] font-mono">
+                    {enrolledStudents.length}
+                  </div>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-medium text-[var(--muted-foreground)]">Enrollment Status</div>
+                  <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 pt-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Active & Accepting
+                  </div>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-medium text-[var(--muted-foreground)]">Join Key</div>
+                  <div className="text-sm font-black text-indigo-400 font-mono tracking-wider">
+                    {selectedSection.joinCode}
+                  </div>
+                </div>
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold font-mono text-xs">
+                  LQ
+                </div>
+              </div>
+            </div>
+
+            {/* Actions & Search Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+              <div className="relative flex-1 max-w-sm">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
                 <input
                   type="text"
                   placeholder="Search PRN, Name, Email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 font-mono w-52"
+                  className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 font-sans"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
-              <button
-                onClick={() => setIsAddStudentOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-sm"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Add Student
-              </button>
-
-              <button
-                onClick={() => setIsExcelModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Excel Import
-              </button>
-
-              <button
-                onClick={() => exportRosterCsv(selectedSection)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
-                title="Export Roster to CSV file"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export CSV
-              </button>
-
-              <button
-                onClick={() => setSelectedSection(null)}
-                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
-                title="Close Roster"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Roster Table or Empty State */}
-          {!selectedSection.students || selectedSection.students.length === 0 ? (
-            <div className="p-8 text-center space-y-3 bg-[var(--background)]/40 rounded-xl border border-dashed border-[var(--border)]">
-              <Users className="w-10 h-10 text-[var(--muted-foreground)] mx-auto opacity-40" />
-              <div className="text-sm font-semibold text-[var(--foreground)]">No Students Enrolled in this Section Yet</div>
-              <p className="text-xs text-[var(--muted-foreground)] max-w-md mx-auto">
-                Students can enter join code <strong className="font-mono text-indigo-400">{selectedSection.joinCode}</strong> in their portal, or you can import a roster.
-              </p>
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setIsAddStudentOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer shadow-sm"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  + Add Single Student
+                  + Add Student
                 </button>
+
                 <button
                   onClick={() => setIsExcelModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  Import Excel File
+                  Import Excel
                 </button>
+
                 <button
-                  onClick={() => handleCopy(window.location.origin + '/join/' + (selectedSection.joinCode || ''), 'link-' + selectedSection.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  onClick={() => exportRosterCsv(selectedSection)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  title="Export Roster to CSV file"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  Copy Join Link
+                  <Download className="w-3.5 h-3.5" />
+                  Export CSV
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[var(--background)] border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
-                    <th className="py-2.5 px-4">#</th>
-                    <th className="py-2.5 px-4">Student Name</th>
-                    <th className="py-2.5 px-4">PRN / Roll No</th>
-                    <th className="py-2.5 px-4">Email</th>
-                    <th className="py-2.5 px-4">Mobile</th>
-                    <th className="py-2.5 px-4">Status</th>
-                    <th className="py-2.5 px-4">Enrolled Via</th>
-                    <th className="py-2.5 px-4">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)]/60 font-sans">
-                  {selectedSection.students
-                    .filter((s: any) => {
-                      const prn = (s.prn || s.student?.prn || '').toLowerCase();
-                      const name = (s.student?.fullName || s.student?.displayName || s.name || s.fullName || '').toLowerCase();
-                      const email = (s.student?.email || s.email || '').toLowerCase();
-                      const query = searchTerm.toLowerCase().trim();
-                      return !query || prn.includes(query) || name.includes(query) || email.includes(query);
-                    })
-                    .map((item: any, idx: number) => {
-                      const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
-                      const studentPrn = item.prn || item.student?.prn || '—';
-                      const studentEmail = item.student?.email || item.email || '—';
-                      const studentMobile = item.student?.mobile || item.mobile || '—';
-                      const accountState = item.student?.accountState || item.status || 'ACTIVE';
 
-                      return (
-                        <tr key={item.id || studentPrn || idx} className="hover:bg-[var(--accent)]/5">
-                          <td className="py-2.5 px-4 font-mono text-[var(--muted-foreground)]">{idx + 1}</td>
-                          <td className="py-2.5 px-4 font-semibold text-[var(--foreground)]">{studentName}</td>
-                          <td className="py-2.5 px-4 font-mono font-bold text-indigo-400">{studentPrn}</td>
-                          <td className="py-2.5 px-4 text-[var(--muted-foreground)]">{studentEmail}</td>
-                          <td className="py-2.5 px-4 font-mono text-[var(--muted-foreground)]">{studentMobile}</td>
-                          <td className="py-2.5 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                accountState === 'ACTIVE'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              }`}
-                            >
-                              {accountState === 'ACTIVE' ? (
+            {/* Roster Table or Empty State */}
+            {enrolledStudents.length === 0 ? (
+              <div className="p-8 text-center space-y-3 bg-[var(--background)]/40 rounded-xl border border-dashed border-[var(--border)]">
+                <Users className="w-10 h-10 text-[var(--muted-foreground)] mx-auto opacity-40" />
+                <div className="text-sm font-semibold text-[var(--foreground)]">No Students Enrolled in this Section Yet</div>
+                <p className="text-xs text-[var(--muted-foreground)] max-w-md mx-auto">
+                  Students can enter join code <strong className="font-mono text-indigo-400">{selectedSection.joinCode}</strong> in their portal, or you can import a roster.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setIsAddStudentOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    + Add Single Student
+                  </button>
+                  <button
+                    onClick={() => setIsExcelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Import Excel File
+                  </button>
+                  <button
+                    onClick={() => handleCopy(`${window.location.origin}/join/${selectedSection.joinCode || ''}`, 'link-' + selectedSection.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] transition cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy Join Link
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--background)]/30">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[var(--background)] border-b border-[var(--border)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
+                      <th className="py-3 px-4 w-12 text-center">#</th>
+                      <th className="py-3 px-4">Student</th>
+                      <th className="py-3 px-4">PRN / Roll No</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Coding Progress</th>
+                      <th className="py-3 px-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]/60 font-sans">
+                    {enrolledStudents
+                      .filter((s: any) => {
+                        const prn = (s.prn || s.student?.prn || '').toLowerCase();
+                        const name = (s.student?.fullName || s.student?.displayName || s.name || s.fullName || '').toLowerCase();
+                        const email = (s.student?.email || s.email || '').toLowerCase();
+                        const query = searchTerm.toLowerCase().trim();
+                        return !query || prn.includes(query) || name.includes(query) || email.includes(query);
+                      })
+                      .map((item: any, idx: number) => {
+                        const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
+                        const studentPrn = item.prn || item.student?.prn || '—';
+                        const studentEmail = item.student?.email || item.email || '—';
+                        const points = Number(item.student?.totalPoints || item.totalPoints || 0);
+                        const streak = Number(item.student?.currentStreak || item.currentStreak || 0);
+
+                        return (
+                          <tr key={item.id || studentPrn || idx} className="hover:bg-[var(--accent)]/5 transition">
+                            <td className="py-3 px-4 font-mono text-[var(--muted-foreground)] text-center">{idx + 1}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                                  {studentName.charAt(0) || 'S'}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-[var(--foreground)]">{studentName}</div>
+                                  <div className="text-[11px] text-[var(--muted-foreground)] font-mono">{studentEmail}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 font-mono font-bold text-indigo-400 text-xs tracking-wide">
+                              {studentPrn}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 <CheckCircle2 className="w-3 h-3" />
-                              ) : (
-                                <AlertCircle className="w-3 h-3" />
-                              )}
-                              {accountState}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-[var(--muted-foreground)]">
-                            {item.joinedVia || 'ROSTER'}
-                          </td>
-                          <td className="py-2.5 px-4 text-[var(--muted-foreground)]">
-                            {item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString() : 'Active'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                                ENROLLED
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-semibold text-[var(--foreground)]">
+                                  {points} pts
+                                </span>
+                                {streak > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                    🔥 {streak}d
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={() => handleRemoveStudent(item)}
+                                className="p-1.5 rounded-lg text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                                title="Remove student from section"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* CREATE SECTION MODAL (Clean & Streamlined) */}
       {isCreateOpen && (

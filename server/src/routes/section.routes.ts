@@ -20,3 +20,4 @@ sectionRoutes.get('/:id', authenticate, requireRole(['ADMIN', 'FACULTY']), Secti
 sectionRoutes.delete('/:id', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.deleteSection);
 sectionRoutes.post('/preview-excel', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.previewExcel);
 sectionRoutes.post('/:sectionId/import-students', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.importStudents);
+sectionRoutes.delete('/:sectionId/students/:studentId', authenticate, requireRole(['ADMIN', 'FACULTY']), SectionController.removeStudent);

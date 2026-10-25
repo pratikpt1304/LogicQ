@@ -237,4 +237,20 @@ export class SectionController {
       });
     }
   }
+
+  /**
+   * DELETE /api/sections/:sectionId/students/:studentId - Remove student from section
+   */
+  static async removeStudent(req: Request, res: Response) {
+    try {
+      const { sectionId, studentId } = req.params;
+      const result = await SectionService.removeStudentFromSection(sectionId, studentId);
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Failed to remove student from section.',
+      });
+    }
+  }
 }

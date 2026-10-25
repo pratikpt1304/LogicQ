@@ -978,6 +978,51 @@ export class FirestoreDataService {
   }
 
   /**
+   * Removes an enrolled student from a section across Firestore and local storage.
+   */
+  public static async removeEnrolledStudentFromSection(sectionId: string, studentIdentifier: string): Promise<void> {
+    if (!studentIdentifier) return;
+    const cleanId = studentIdentifier.trim().toLowerCase();
+    const cleanKey = cleanId.replace(/[^a-z0-9]/g, '_');
+
+    // 1. Remove from local storage
+    try {
+      const raw = localStorage.getItem(`logicq_section_students_${sectionId}`);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Array.isArray(cached)) {
+          const filtered = cached.filter((s: any) => {
+            const p = (s.prn || '').toLowerCase();
+            const e = (s.email || '').toLowerCase();
+            const id = (s.id || '').toLowerCase();
+            return p !== cleanId && e !== cleanId && id !== cleanId && !e.includes(cleanId);
+          });
+          localStorage.setItem(`logicq_section_students_${sectionId}`, JSON.stringify(filtered));
+        }
+      }
+    } catch (e) {
+      console.warn('removeEnrolledStudentFromSection local storage update error:', e);
+    }
+
+    // 2. Remove document from enrolled_students in Firestore
+    try {
+      await deleteDoc(doc(db, 'enrolled_students', cleanKey)).catch(() => {});
+      const q = query(collection(db, 'enrolled_students'), where('sectionId', '==', sectionId));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        const data = d.data();
+        const p = (data.prn || '').toLowerCase();
+        const e = (data.email || '').toLowerCase();
+        if (p === cleanId || e === cleanId || d.id === cleanKey) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('removeEnrolledStudentFromSection Firestore error:', err);
+    }
+  }
+
+  /**
    * Comprehensive student lookup: searches local cache, prnIndex, users collection, publicProfiles, and enrolled_students.
    */
   public static async findEnrolledStudentInFirestore(identifier: string): Promise<any | null> {

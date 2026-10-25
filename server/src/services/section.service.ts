@@ -670,4 +670,38 @@ export class SectionService {
       assignedTestsCount: publishedTests.length,
     };
   }
+
+  /**
+   * Remove a student enrollment from a section
+   */
+  static async removeStudentFromSection(sectionId: string, studentIdentifier: string) {
+    const cleanId = studentIdentifier.trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: cleanId },
+          { prn: cleanId.toUpperCase() },
+          { email: cleanId.toLowerCase() },
+        ],
+      },
+    });
+
+    if (user) {
+      await prisma.sectionStudent.deleteMany({
+        where: {
+          sectionId,
+          studentId: user.id,
+        },
+      });
+    } else {
+      await prisma.sectionStudent.deleteMany({
+        where: {
+          sectionId,
+          prn: cleanId.toUpperCase(),
+        },
+      });
+    }
+
+    return { success: true, message: 'Student removed from section successfully.' };
+  }
 }
