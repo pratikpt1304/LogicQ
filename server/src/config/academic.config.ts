@@ -152,18 +152,53 @@ export function generateShortId(seed?: string): string {
   return Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, 'X');
 }
 
+export function isRealPersonName(name?: string | null): boolean {
+  if (!name || typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return false;
+  if (trimmed.includes('••••') || trimmed.includes(' • ')) return false;
+  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student') return false;
+  if (/^stu_[a-z0-9]+/i.test(trimmed)) return false;
+  return true;
+}
+
+export function formatNameFromEmail(email?: string | null): string | null {
+  if (!email || typeof email !== 'string') return null;
+  const localPart = email.split('@')[0];
+  if (!localPart || localPart.startsWith('stu_') || localPart.startsWith('student_') || localPart === 'student') return null;
+  const cleaned = localPart.replace(/[0-9]+/g, '').replace(/[._-]/g, ' ').trim();
+  if (cleaned.length < 2) return null;
+  return cleaned
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 /**
  * Formats the public display label visible to other students on leaderboards and profiles.
- * Uses optional displayName (3-20 chars) if set, falling back to "Student " + shortId.
+ * Uses registered name (fullName / displayName), falling back to clean email name or "Student " + shortId.
  * NEVER includes any part of the PRN.
  */
 export function formatPublicDisplayName(user: {
   displayName?: string | null;
+  fullName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
   shortId?: string | null;
   id?: string;
 }): string {
-  if (user.displayName && user.displayName.trim().length >= DISPLAY_NAME_MIN) {
-    return user.displayName.trim();
+  const realName = [user.displayName, user.fullName, (user as any).name].find(isRealPersonName);
+  if (realName && realName.trim().length >= 2) {
+    return realName.trim();
+  }
+  if (user.username && isRealPersonName(user.username)) {
+    return user.username.trim();
+  }
+  if (user.email) {
+    const fromEmail = formatNameFromEmail(user.email);
+    if (fromEmail) return fromEmail;
   }
   const suffix =
     user.shortId ||

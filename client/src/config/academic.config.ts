@@ -135,14 +135,39 @@ export function generateShortId(seed?: string): string {
 
 export function formatPublicDisplayName(user: {
   displayName?: string | null;
+  fullName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
   shortId?: string | null;
   id?: string;
 }): string {
-  if (user.displayName && user.displayName.trim().length >= DISPLAY_NAME_MIN) {
-    return user.displayName.trim();
+  const realName = [user.displayName, user.fullName, (user as any).name].find(isRealPersonName);
+  if (realName && realName.trim().length >= 2) {
+    return realName.trim();
+  }
+  if (user.username && isRealPersonName(user.username)) {
+    return user.username.trim();
+  }
+  if (user.email) {
+    const fromEmail = formatNameFromEmail(user.email);
+    if (fromEmail) return fromEmail;
   }
   const suffix = user.shortId || generateShortId(user.id);
   return `Student ${suffix}`;
+}
+
+export function formatNameFromEmail(email?: string | null): string | null {
+  if (!email || typeof email !== 'string') return null;
+  const localPart = email.split('@')[0];
+  if (!localPart || localPart.startsWith('stu_') || localPart.startsWith('student_') || localPart === 'student') return null;
+  const cleaned = localPart.replace(/[0-9]+/g, '').replace(/[._-]/g, ' ').trim();
+  if (cleaned.length < 2) return null;
+  return cleaned
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export function isRealPersonName(name?: string | null): boolean {
@@ -150,7 +175,7 @@ export function isRealPersonName(name?: string | null): boolean {
   const trimmed = name.trim();
   if (trimmed.length < 2) return false;
   if (trimmed.includes('••••') || trimmed.includes(' • ')) return false;
-  if (/^Student\s+\d+/i.test(trimmed) || trimmed.toLowerCase() === 'student') return false;
+  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student') return false;
   if (/^stu_[a-z0-9]+/i.test(trimmed)) return false;
   return true;
 }

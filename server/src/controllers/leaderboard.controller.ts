@@ -8,6 +8,8 @@ import {
   formatOwnIdentityLabel,
   formatPublicDisplayName,
   generateShortId,
+  isRealPersonName,
+  formatNameFromEmail,
 } from '../config/academic.config.js';
 import {
   getServerNow,
@@ -509,6 +511,8 @@ async function handleOverallLeaderboard({
       id: true,
       username: true,
       displayName: true,
+      fullName: true,
+      email: true,
       prn: true,
       shortId: true,
       college: true,
@@ -612,8 +616,17 @@ async function handleOverallLeaderboard({
   const formatStudentRow = (s: (typeof students)[number], rank: number | null) => {
     const isCurrentUser = Boolean(currentUserId && s.id === currentUserId);
     const shortId = s.shortId || generateShortId(s.id);
-    const publicDisplayName = formatPublicDisplayName({
+
+    const realRegisteredName = [
+      s.displayName,
+      (s as any).fullName,
+    ].find(isRealPersonName) || formatNameFromEmail((s as any).email);
+
+    const publicDisplayName = realRegisteredName || formatPublicDisplayName({
       displayName: s.displayName,
+      fullName: (s as any).fullName,
+      email: (s as any).email,
+      username: s.username,
       shortId,
       id: s.id,
     });
@@ -633,14 +646,16 @@ async function handleOverallLeaderboard({
         ? Math.ceil((rank / totalStudents) * 100)
         : null;
 
+    const finalName = realRegisteredName || publicDisplayName;
+
     return {
       id: s.id,
       userId: s.id,
       username: s.username,
-      displayName: s.displayName,
-      publicDisplayName,
-      fullName: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
-      displayLabel: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+      displayName: finalName,
+      publicDisplayName: finalName,
+      fullName: finalName,
+      displayLabel: finalName,
       ...(isCurrentUser
         ? { maskedPrn: ownMaskedPrn, ownIdentityLabel, isCurrentUser: true }
         : { isCurrentUser: false }),

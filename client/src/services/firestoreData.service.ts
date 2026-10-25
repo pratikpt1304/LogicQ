@@ -526,7 +526,7 @@ export class FirestoreDataService {
       shortId,
       fullName: resolvedFullName,
       displayName: resolvedDisplayName,
-      publicDisplayName: data.displayName || (isAdmin ? 'Administrator' : (data.department && data.year ? `${data.department} • ${data.year} • ••••••••${shortId}` : `Student ••••••••${shortId}`)),
+      publicDisplayName: resolvedDisplayName || resolvedFullName || (isAdmin ? 'Administrator' : `Student ${shortId}`),
       ownIdentityLabel: prn && data.department && data.year ? `${data.department} • ${data.year} • ${masked}` : (isAdmin ? 'System Administrator' : null),
       role,
       college: data.college || 'Sanjivani University',

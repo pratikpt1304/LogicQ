@@ -8,6 +8,8 @@ import {
   ALLOWED_YEARS,
   formatOwnIdentityLabel,
   formatPublicDisplayName,
+  isRealPersonName,
+  formatNameFromEmail,
 } from '../config/academic.config.js';
 import {
   Trophy,
@@ -64,23 +66,25 @@ export const LeaderboardPage: React.FC = () => {
     const isMe = Boolean(u.isCurrentUser || (currentUser && (u.id === currentUser.id || u.userId === currentUser.id)));
     if (isMe) {
       const myName = currentUser?.fullName || currentUser?.displayName;
-      if (myName && !myName.includes('••••••••') && !myName.includes(' • ')) {
+      if (myName && isRealPersonName(myName)) {
         return myName.trim();
       }
     }
 
-    const candidates = [u.displayName, u.name, u.fullName, u.username];
+    const candidates = [u.displayName, u.fullName, u.name, u.displayLabel, u.publicDisplayName, u.username];
     for (const cand of candidates) {
-      if (typeof cand === 'string' && cand.trim().length > 0) {
-        const trimmed = cand.trim();
-        if (!trimmed.includes('••••••••') && !trimmed.includes(' • ')) {
-          return trimmed;
-        }
+      if (typeof cand === 'string' && isRealPersonName(cand)) {
+        return cand.trim();
       }
     }
 
-    if (u.publicDisplayName && !u.publicDisplayName.includes('••••••••') && !u.publicDisplayName.includes(' • ')) {
-      return u.publicDisplayName;
+    if (u.email) {
+      const fromEmail = formatNameFromEmail(u.email);
+      if (fromEmail) return fromEmail;
+    }
+
+    if (u.publicDisplayName && isRealPersonName(u.publicDisplayName)) {
+      return u.publicDisplayName.trim();
     }
     return formatPublicDisplayName(u);
   };

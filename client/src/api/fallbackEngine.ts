@@ -16,6 +16,7 @@ import {
   formatPublicDisplayName,
   generateShortId,
   isRealPersonName,
+  formatNameFromEmail,
 } from '../config/academic.config.js';
 
 const STORAGE_KEYS = {
@@ -1477,11 +1478,23 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const leaderboard = rankedEligible.map((u, idx) => {
       const isCurrentUser = Boolean(current && u.id === current.id);
       const shortId = u.shortId || generateShortId(u.id);
-      const publicDisplayName = formatPublicDisplayName({
+
+      const realName = [
+        u.displayName,
+        u.fullName,
+        (u as any).name,
+      ].find(isRealPersonName) || formatNameFromEmail(u.email);
+
+      const publicDisplayName = realName || formatPublicDisplayName({
         displayName: u.displayName,
+        fullName: u.fullName,
+        name: (u as any).name,
+        email: u.email,
+        username: u.username,
         shortId,
         id: u.id,
       });
+
       const ownMaskedPrn = isCurrentUser ? maskPrn(u.prn) : undefined;
       const ownIdentityLabel = isCurrentUser
         ? formatOwnIdentityLabel({
@@ -1516,15 +1529,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
       const solvedCount = userSolvedSet.size > 0 ? userSolvedSet.size : (userPoints > 0 ? 1 : 0);
 
+      const finalResolvedName = realName || publicDisplayName;
+
       return {
         rank,
         id: u.id,
         username: u.username,
-        displayName: u.displayName,
-        publicDisplayName,
+        displayName: finalResolvedName,
+        publicDisplayName: finalResolvedName,
         shortId,
-        displayLabel: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
-        fullName: isCurrentUser ? ownIdentityLabel || publicDisplayName : publicDisplayName,
+        displayLabel: finalResolvedName,
+        fullName: finalResolvedName,
         isCurrentUser,
         ...(isCurrentUser ? { maskedPrn: ownMaskedPrn, ownIdentityLabel } : {}),
         college: u.college || 'Sanjivani University',
@@ -1546,11 +1561,22 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (!pinnedOwnRow && current) {
       // Current user has 0 points - they are NOT ranked yet!
       const shortId = current.shortId || generateShortId(current.id);
-      const publicDisplayName = formatPublicDisplayName({
+      const realName = [
+        current.displayName,
+        current.fullName,
+        (current as any).name,
+      ].find(isRealPersonName) || formatNameFromEmail(current.email);
+
+      const publicDisplayName = realName || formatPublicDisplayName({
         displayName: current.displayName,
+        fullName: current.fullName,
+        name: (current as any).name,
+        email: current.email,
+        username: current.username,
         shortId,
         id: current.id,
       });
+
       const ownMaskedPrn = maskPrn(current.prn);
       const ownIdentityLabel = formatOwnIdentityLabel({
         department: current.department,
@@ -1559,15 +1585,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         maskedPrn: ownMaskedPrn,
       });
 
+      const finalName = realName || publicDisplayName;
+
       pinnedOwnRow = {
         rank: null, // NOT RANKED YET!
         id: current.id,
         username: current.username,
-        displayName: current.displayName,
-        publicDisplayName,
+        displayName: finalName,
+        publicDisplayName: finalName,
         shortId,
-        displayLabel: ownIdentityLabel || publicDisplayName,
-        fullName: ownIdentityLabel || publicDisplayName,
+        displayLabel: finalName,
+        fullName: finalName,
         isCurrentUser: true,
         maskedPrn: ownMaskedPrn,
         ownIdentityLabel,
