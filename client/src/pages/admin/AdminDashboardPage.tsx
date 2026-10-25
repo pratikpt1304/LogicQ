@@ -4641,22 +4641,22 @@ export const AdminDashboardPage: React.FC = () => {
       {activeTab === 'system' && (
         <div className="space-y-6" data-testid="admin-system-health-panel">
           {/* Top Header Card */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h3 className="text-base font-mono font-bold text-white uppercase flex items-center gap-2">
-                <Activity className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-base font-mono font-bold text-slate-900 dark:text-white uppercase flex items-center gap-2">
+                <Activity className="w-5 h-5 text-emerald-500" />
                 <span>System & Compiler Health Diagnostics</span>
               </h3>
-              <p className="text-xs font-mono text-slate-400 max-w-2xl">
+              <p className="text-xs font-mono text-slate-600 dark:text-slate-400 max-w-2xl">
                 Real-time observability of C11 GCC sandbox, Render cloud runtime, PostgreSQL/Firestore data persistence, and automated challenge schedulers.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {healthLatencyMs !== null && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs font-mono">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-slate-400">Ping:</span>
-                  <span className={`font-bold ${healthLatencyMs < 350 ? 'text-emerald-400' : healthLatencyMs < 1500 ? 'text-amber-400' : 'text-rose-400'}`}>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-mono">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-slate-500 dark:text-slate-400">Ping:</span>
+                  <span className={`font-bold ${healthLatencyMs < 350 ? 'text-emerald-600 dark:text-emerald-400' : healthLatencyMs < 1500 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                     {healthLatencyMs}ms
                   </span>
                 </div>
@@ -4668,7 +4668,7 @@ export const AdminDashboardPage: React.FC = () => {
                   refetchDiagnostics();
                 }}
                 disabled={isHealthFetching || isDiagnosticsFetching}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-slate-300 bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/[0.1] transition-all cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${(isHealthFetching || isDiagnosticsFetching) ? 'animate-spin' : ''}`} />
                 <span>Refresh Status</span>
@@ -4679,17 +4679,17 @@ export const AdminDashboardPage: React.FC = () => {
           {/* Overall Health Status Banner */}
           <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-mono ${
             healthData?.status === 'healthy' && (diagnosticsData?.judge?.ready ?? healthData?.judge?.ready)
-              ? 'bg-emerald-500/[0.08] border-emerald-500/30 text-emerald-300'
-              : 'bg-amber-500/[0.08] border-amber-500/30 text-amber-300'
+              ? 'bg-emerald-500/[0.08] border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+              : 'bg-amber-500/[0.08] border-amber-500/30 text-amber-800 dark:text-amber-300'
           }`}>
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" />
             <div>
               <span className="font-bold uppercase tracking-wider block">
                 {healthData?.status === 'healthy' && (diagnosticsData?.judge?.ready ?? healthData?.judge?.ready)
                   ? 'All Systems Operational'
                   : 'Backend Services Synchronizing'}
               </span>
-              <span className="text-slate-400 text-[11px]">
+              <span className="text-slate-600 dark:text-slate-400 text-[11px]">
                 {healthData?.status === 'healthy' && (diagnosticsData?.judge?.ready ?? healthData?.judge?.ready)
                   ? 'LogicQ C11 evaluation pipeline is fully functional and ready to accept student submissions.'
                   : 'Connecting to cloud backend services... Ping in progress.'}
@@ -4700,103 +4700,103 @@ export const AdminDashboardPage: React.FC = () => {
           {/* 4 Core Health Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
             {/* C11 Isolated Judge */}
-            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+            <div className="glass-card p-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5 font-bold">
+                  <Cpu className="w-3.5 h-3.5 text-cyan-500" />
                   <span>C11 GCC Judge</span>
                 </span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                   (diagnosticsData?.judge?.ready ?? healthData?.judge?.ready)
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                 }`}>
                   {(diagnosticsData?.judge?.ready ?? healthData?.judge?.ready) ? 'READY' : 'OFFLINE'}
                 </span>
               </div>
-              <div className="space-y-1 text-slate-300">
-                <p>Runner: <span className="text-cyan-400 font-bold">{diagnosticsData?.judge?.name || healthData?.judge?.name || 'LocalGccJudge'}</span></p>
-                <p>Standard: <span className="text-white">C11 (-std=c11 -O2)</span></p>
-                <p>Limits: <span className="text-emerald-400 font-semibold">2.0s / 128 MB</span></p>
-                <p>Sandbox: <span className="text-slate-400 text-[11px]">Job Object / cgroups</span></p>
+              <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                <p>Runner: <span className="text-cyan-600 dark:text-cyan-400 font-bold">{diagnosticsData?.judge?.name || healthData?.judge?.name || 'LocalGccJudge'}</span></p>
+                <p>Standard: <span className="text-slate-900 dark:text-white font-semibold">C11 (-std=c11 -O2)</span></p>
+                <p>Limits: <span className="text-emerald-600 dark:text-emerald-400 font-bold">2.0s / 128 MB</span></p>
+                <p>Sandbox: <span className="text-slate-500 dark:text-slate-400 text-[11px]">Job Object / cgroups</span></p>
               </div>
             </div>
 
             {/* LogicQ API & Cloud Server */}
-            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+            <div className="glass-card p-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <Server className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5 font-bold">
+                  <Server className="w-3.5 h-3.5 text-purple-500" />
                   <span>Cloud API Server</span>
                 </span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                   healthData?.status === 'healthy'
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
                 }`}>
                   {healthData?.status?.toUpperCase() || (isHealthLoading ? 'CHECKING...' : 'OFFLINE')}
                 </span>
               </div>
-              <div className="space-y-1 text-slate-300">
-                <p>Runtime: <span className="text-white font-bold">{diagnosticsData?.server?.nodeVersion || 'Node.js 20.x'}</span></p>
-                <p>Platform: <span className="text-cyan-400">{diagnosticsData?.server?.platform || 'linux'} ({diagnosticsData?.server?.arch || 'x64'})</span></p>
-                <p>Uptime: <span className="text-emerald-400">{Math.floor((diagnosticsData?.server?.uptimeSeconds || 0) / 60)} mins</span></p>
-                <p>RAM (RSS): <span className="text-slate-400 text-[11px]">{diagnosticsData?.server?.memory?.rssMb ? `${diagnosticsData.server.memory.rssMb} MB` : 'Normal'}</span></p>
+              <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                <p>Runtime: <span className="text-slate-900 dark:text-white font-bold">{diagnosticsData?.server?.nodeVersion || 'Node.js 20.x'}</span></p>
+                <p>Platform: <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{diagnosticsData?.server?.platform || 'linux'} ({diagnosticsData?.server?.arch || 'x64'})</span></p>
+                <p>Uptime: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{Math.floor((diagnosticsData?.server?.uptimeSeconds || 0) / 60)} mins</span></p>
+                <p>RAM (RSS): <span className="text-slate-500 dark:text-slate-400 text-[11px]">{diagnosticsData?.server?.memory?.rssMb ? `${diagnosticsData.server.memory.rssMb} MB` : 'Normal'}</span></p>
               </div>
             </div>
 
             {/* Database & Persistence */}
-            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+            <div className="glass-card p-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5 font-bold">
+                  <Database className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Databases</span>
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                   CONNECTED
                 </span>
               </div>
-              <div className="space-y-1 text-slate-300">
-                <p>Relational: <span className="text-white">PostgreSQL (Prisma)</span></p>
-                <p>DB Latency: <span className="text-emerald-400 font-bold">{diagnosticsData?.database?.latencyMs ?? 12}ms</span></p>
-                <p>Primary Store: <span className="text-cyan-400 font-semibold">Google Firestore</span></p>
-                <p>Telemetry: <span className="text-slate-400 text-[11px]">Real-time Sync Active</span></p>
+              <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                <p>Relational: <span className="text-slate-900 dark:text-white font-semibold">PostgreSQL (Prisma)</span></p>
+                <p>DB Latency: <span className="text-emerald-600 dark:text-emerald-400 font-bold">{diagnosticsData?.database?.latencyMs ?? 12}ms</span></p>
+                <p>Primary Store: <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Google Firestore</span></p>
+                <p>Telemetry: <span className="text-slate-500 dark:text-slate-400 text-[11px]">Real-time Sync Active</span></p>
               </div>
             </div>
 
             {/* Daily Challenge Scheduler */}
-            <div className="glass-card p-5 rounded-2xl border border-white/[0.08] space-y-3">
+            <div className="glass-card p-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider flex items-center gap-1.5 font-bold">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
                   <span>Daily Scheduler</span>
                 </span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                   diagnosticsData?.dailySystem?.paused
-                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                 }`}>
                   {diagnosticsData?.dailySystem?.paused ? 'PAUSED' : 'SCHEDULED'}
                 </span>
               </div>
-              <div className="space-y-1 text-slate-300">
-                <p>Lock Time: <span className="text-white font-bold">17:00 IST (5:00 PM)</span></p>
-                <p>Grace Window: <span className="text-amber-400">10 mins (till 17:10)</span></p>
-                <p>Auto Finalize: <span className="text-emerald-400">17:10 IST Daily</span></p>
-                <p>Scheduler: <span className="text-slate-400 text-[11px]">{diagnosticsData?.dailySystem?.paused ? 'Paused by Admin' : 'Cron Enabled'}</span></p>
+              <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                <p>Lock Time: <span className="text-slate-900 dark:text-white font-bold">17:00 IST (5:00 PM)</span></p>
+                <p>Grace Window: <span className="text-amber-600 dark:text-amber-400 font-semibold">10 mins (till 17:10)</span></p>
+                <p>Auto Finalize: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">17:10 IST Daily</span></p>
+                <p>Scheduler: <span className="text-slate-500 dark:text-slate-400 text-[11px]">{diagnosticsData?.dailySystem?.paused ? 'Paused by Admin' : 'Cron Enabled'}</span></p>
               </div>
             </div>
           </div>
 
           {/* Interactive C11 Compiler Diagnostic Probe Card */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.06]">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-white/[0.06]">
               <div>
-                <h4 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-400" />
+                <h4 className="text-sm font-mono font-bold text-slate-900 dark:text-white uppercase flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-500" />
                   <span>Live C11 Compiler & Sandbox Probe</span>
                 </h4>
-                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-0.5">
                   Execute an isolated test program inside the active GCC sandbox to verify stdout matching, memory tracking, and compilation speed.
                 </p>
               </div>
@@ -4814,10 +4814,10 @@ export const AdminDashboardPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Probe Test Snippet */}
               <div className="space-y-2">
-                <span className="text-xs font-mono text-slate-400 block font-semibold uppercase tracking-wider">
+                <span className="text-xs font-mono text-slate-700 dark:text-slate-300 block font-bold uppercase tracking-wider">
                   Test Program Payload:
                 </span>
-                <pre className="p-3.5 rounded-xl bg-black/60 border border-white/[0.06] text-cyan-300 font-mono text-xs overflow-x-auto">
+                <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-cyan-300 font-mono text-xs overflow-x-auto shadow-inner leading-relaxed">
 {`#include <stdio.h>
 
 int main() {
@@ -4829,59 +4829,59 @@ int main() {
 
               {/* Probe Result Card */}
               <div className="space-y-2">
-                <span className="text-xs font-mono text-slate-400 block font-semibold uppercase tracking-wider">
+                <span className="text-xs font-mono text-slate-700 dark:text-slate-300 block font-bold uppercase tracking-wider">
                   Diagnostic Probe Telemetry:
                 </span>
                 {runProbeMutation.isPending ? (
-                  <div className="p-6 rounded-xl bg-indigo-500/[0.05] border border-indigo-500/20 text-center space-y-2">
-                    <RefreshCw className="w-5 h-5 text-indigo-400 animate-spin mx-auto" />
-                    <p className="text-xs font-mono text-indigo-300 font-bold">Compiling test binary with GCC C11...</p>
-                    <p className="text-[11px] font-mono text-slate-400">Enforcing sandbox isolation and capturing standard output.</p>
+                  <div className="p-6 rounded-xl bg-indigo-500/[0.08] border border-indigo-500/20 text-center space-y-2">
+                    <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin mx-auto" />
+                    <p className="text-xs font-mono text-indigo-700 dark:text-indigo-300 font-bold">Compiling test binary with GCC C11...</p>
+                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">Enforcing sandbox isolation and capturing standard output.</p>
                   </div>
                 ) : probeResult ? (
-                  <div className="p-4 rounded-xl bg-black/60 border border-white/[0.08] space-y-3 font-mono text-xs">
-                    <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-                      <span className="text-slate-400 font-semibold">Probe Verdict:</span>
+                  <div className="p-4 rounded-xl bg-slate-100 dark:bg-dark-950 border border-slate-300 dark:border-white/[0.08] space-y-3 font-mono text-xs shadow-sm">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/[0.06]">
+                      <span className="text-slate-700 dark:text-slate-300 font-bold">Probe Verdict:</span>
                       <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
                         probeResult.passed
-                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
                       }`}>
                         {probeResult.passed ? '✓ PASSED (ACCEPTED)' : `FAILED: ${probeResult.verdict}`}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-slate-300">
+                    <div className="grid grid-cols-2 gap-3 text-slate-700 dark:text-slate-300">
                       <div>
-                        <span className="text-slate-400 text-[10px] block">Execution Runtime</span>
-                        <span className="font-bold text-emerald-400">{probeResult.runtimeMs} ms</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold">Execution Runtime</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">{probeResult.runtimeMs} ms</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 text-[10px] block">Total Pipeline (Compile + Run)</span>
-                        <span className="font-bold text-cyan-400">{probeResult.totalDurationMs} ms</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold">Total Pipeline (Compile + Run)</span>
+                        <span className="font-bold text-cyan-600 dark:text-cyan-400 text-sm">{probeResult.totalDurationMs} ms</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 text-[10px] block">Memory Tracked</span>
-                        <span className="font-bold text-white">{Math.round((probeResult.memoryKb || 0) / 1024 * 10) / 10 || 3.8} MB</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold">Memory Tracked</span>
+                        <span className="font-bold text-slate-900 dark:text-white text-sm">{Math.round((probeResult.memoryKb || 0) / 1024 * 10) / 10 || 3.8} MB</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 text-[10px] block">Runner Engine</span>
-                        <span className="font-bold text-purple-400">{probeResult.runner || 'LocalGccJudge'}</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold">Runner Engine</span>
+                        <span className="font-bold text-purple-600 dark:text-purple-400 text-sm">{probeResult.runner || 'LocalGccJudge'}</span>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-white/[0.06]">
-                      <span className="text-slate-400 text-[10px] block">Stdout Received:</span>
-                      <code className="text-emerald-300 text-[11px] font-bold block mt-0.5">
+                    <div className="pt-2 border-t border-slate-200 dark:border-white/[0.06]">
+                      <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold">Stdout Received:</span>
+                      <code className="text-emerald-700 dark:text-emerald-300 font-mono text-xs font-bold block mt-1 px-2.5 py-1.5 rounded bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-500/20">
                         "{probeResult.stdout}"
                       </code>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 rounded-xl bg-dark-900/60 border border-white/[0.06] text-center space-y-1">
-                    <Terminal className="w-5 h-5 text-slate-500 mx-auto" />
-                    <p className="text-xs font-mono text-slate-400 font-semibold">Compiler probe idle</p>
-                    <p className="text-[11px] font-mono text-slate-500">
+                  <div className="p-6 rounded-xl bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.06] text-center space-y-1">
+                    <Terminal className="w-5 h-5 text-slate-400 dark:text-slate-500 mx-auto" />
+                    <p className="text-xs font-mono text-slate-700 dark:text-slate-400 font-bold">Compiler probe idle</p>
+                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
                       Click the "Run Live Compiler Probe" button above to execute a real-time verification run.
                     </p>
                   </div>
@@ -4891,33 +4891,33 @@ int main() {
           </div>
 
           {/* Sandbox Resource & Security Policies Reference */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-3 font-mono text-xs">
-            <h4 className="text-sm font-bold text-white uppercase flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <div className="glass-card p-6 rounded-2xl border border-slate-200 dark:border-white/[0.08] space-y-3 font-mono text-xs">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span>Sandbox Isolation & Compiler Policy Reference</span>
             </h4>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs divide-y divide-white/[0.06]">
-                <tbody className="divide-y divide-white/[0.04] text-slate-300">
+              <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-white/[0.06]">
+                <tbody className="divide-y divide-slate-200 dark:divide-white/[0.04]">
                   <tr>
-                    <td className="py-2.5 text-slate-400 font-semibold w-1/3">Language & Standard</td>
-                    <td className="py-2.5 text-white">GNU C (ISO/IEC 9899:2011 C11)</td>
+                    <td className="py-2.5 text-slate-500 dark:text-slate-400 font-semibold w-1/3">Language & Standard</td>
+                    <td className="py-2.5 text-slate-900 dark:text-white font-medium">GNU C (ISO/IEC 9899:2011 C11)</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 text-slate-400 font-semibold">Compiler Flags</td>
-                    <td className="py-2.5 text-cyan-300">gcc -std=c11 -O2 -Wall -Wextra -Werror=vla</td>
+                    <td className="py-2.5 text-slate-500 dark:text-slate-400 font-semibold">Compiler Flags</td>
+                    <td className="py-2.5 text-cyan-600 dark:text-cyan-300 font-medium">gcc -std=c11 -O2 -Wall -Wextra -Werror=vla</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 text-slate-400 font-semibold">CPU Time Limit</td>
-                    <td className="py-2.5 text-emerald-400 font-bold">2,000 ms (2.0s) per test case</td>
+                    <td className="py-2.5 text-slate-500 dark:text-slate-400 font-semibold">CPU Time Limit</td>
+                    <td className="py-2.5 text-emerald-600 dark:text-emerald-400 font-bold">2,000 ms (2.0s) per test case</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 text-slate-400 font-semibold">Memory Ceiling</td>
-                    <td className="py-2.5 text-emerald-400 font-bold">128 MB RAM max</td>
+                    <td className="py-2.5 text-slate-500 dark:text-slate-400 font-semibold">Memory Ceiling</td>
+                    <td className="py-2.5 text-emerald-600 dark:text-emerald-400 font-bold">128 MB RAM max</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 text-slate-400 font-semibold">Security Restrictions</td>
-                    <td className="py-2.5 text-slate-300">No raw sockets, no sub-processes, system()/popen() static guard blocked</td>
+                    <td className="py-2.5 text-slate-500 dark:text-slate-400 font-semibold">Security Restrictions</td>
+                    <td className="py-2.5 text-slate-700 dark:text-slate-300">No raw sockets, no sub-processes, system()/popen() static guard blocked</td>
                   </tr>
                 </tbody>
               </table>
