@@ -7,6 +7,7 @@ import { api, LogicQApiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
@@ -719,6 +720,8 @@ export const PracticeWorkspacePage: React.FC = () => {
         } else {
           toast.error(`Verdict: ${immediateSub.verdict.replace(/_/g, ' ')}`);
         }
+        RealtimeSyncService.emit('SUBMISSIONS');
+        RealtimeSyncService.emit('DASHBOARD');
         return;
       }
 
@@ -753,6 +756,8 @@ export const PracticeWorkspacePage: React.FC = () => {
               } else {
                 toast.error(`Verdict: ${currentSub.verdict.replace(/_/g, ' ')}`);
               }
+              RealtimeSyncService.emit('SUBMISSIONS');
+              RealtimeSyncService.emit('DASHBOARD');
             }
           } catch {
             // keep polling until max attempts

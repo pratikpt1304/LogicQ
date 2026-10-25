@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   FileCode2,
@@ -46,6 +47,7 @@ export const CreateTestPage: React.FC = () => {
       const res = await api.get('/sections');
       return res.sections || res.data || [];
     },
+    refetchInterval: 8000,
   });
 
   const sections: any[] = Array.isArray(sectionsData) ? sectionsData : [];
@@ -57,6 +59,7 @@ export const CreateTestPage: React.FC = () => {
       const res = await api.get('/assessment-tests');
       return res.data || [];
     },
+    refetchInterval: 8000,
   });
 
   const tests: any[] = Array.isArray(testsData) ? testsData : [];
@@ -70,6 +73,7 @@ export const CreateTestPage: React.FC = () => {
       toast.success(res.message || 'Assessment test published and assigned to section roster!');
       setIsCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ['faculty-tests'] });
+      RealtimeSyncService.emit('TESTS');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to create assessment test.');

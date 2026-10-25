@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import {
@@ -156,6 +157,7 @@ export const SectionManagementPage: React.FC = () => {
 
       return mergedList;
     },
+    refetchInterval: 6000, // Live real-time sync with student enrollments & admin
   });
 
   const sections: SectionItem[] = Array.isArray(data) ? data : [];
@@ -203,6 +205,7 @@ export const SectionManagementPage: React.FC = () => {
         description: '',
       });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      RealtimeSyncService.emit('SECTIONS');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to create section.');
@@ -223,6 +226,7 @@ export const SectionManagementPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Section deleted successfully.');
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      RealtimeSyncService.emit('SECTIONS');
       if (selectedSection?.id) {
         setSelectedSection(null);
       }
@@ -252,6 +256,8 @@ export const SectionManagementPage: React.FC = () => {
       setIsExcelModalOpen(false);
       setExcelPreview(null);
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         refetchDetails(selectedSection.id);
       }
@@ -288,6 +294,8 @@ export const SectionManagementPage: React.FC = () => {
       setIsAddStudentOpen(false);
       setSingleStudent({ name: '', prn: '', email: '', mobile: '' });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         refetchDetails(selectedSection.id);
       }

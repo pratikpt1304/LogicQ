@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { api } from '../api/client.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { useAuth } from '../context/AuthContext.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
@@ -380,6 +381,8 @@ export const ChallengePage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         queryClient.invalidateQueries({ queryKey: ['problem'] });
         queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+        RealtimeSyncService.emit('SUBMISSIONS');
+        RealtimeSyncService.emit('DASHBOARD');
         return;
       }
 
@@ -433,6 +436,8 @@ export const ChallengePage: React.FC = () => {
               queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
               queryClient.invalidateQueries({ queryKey: ['problem'] });
               queryClient.invalidateQueries({ queryKey: ['daily-challenge'] });
+              RealtimeSyncService.emit('SUBMISSIONS');
+              RealtimeSyncService.emit('DASHBOARD');
             }
           } catch {
             // Ignore transient poll error

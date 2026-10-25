@@ -8,6 +8,7 @@ import { SocketProvider } from './context/SocketContext.js';
 import { ThemeProvider, useTheme } from './context/ThemeContext.js';
 import { App } from './App.js';
 import './index.css';
+import { RealtimeSyncService } from './services/realtimeSync.service.js';
 
 // Rate-limited, privacy-scrubbed client error reporter (posts to /api/support/error-report)
 let reportedCount = 0;
@@ -52,12 +53,15 @@ if (typeof window !== 'undefined') {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 30, // 30 seconds
+      refetchOnWindowFocus: true, // Auto-sync immediately when switching tabs between Admin/Faculty/Student
+      staleTime: 5000, // 5 seconds high-freshness cache for real-time responsiveness
       retry: 1,
     },
   },
 });
+
+// Initialize multi-tab & Firestore cross-portal real-time mesh
+RealtimeSyncService.init(queryClient);
 
 const ThemedToaster: React.FC = () => {
   const { theme } = useTheme();

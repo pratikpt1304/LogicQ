@@ -13,6 +13,7 @@ import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -428,22 +429,24 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get('/admin/analytics'),
   });
 
-  // Fetch Problems
+  // Fetch Problems (Real-time auto-sync)
   const { data: problemsData } = useQuery({
     queryKey: ['admin-problems'],
     queryFn: () => api.get('/admin/problems'),
+    refetchInterval: 12000,
   });
 
   const { data: firestoreProblemsData } = useQuery({
     queryKey: ['firestore-problems'],
     queryFn: () => FirestoreDataService.getProblems(),
-    staleTime: 60000,
+    refetchInterval: 15000,
   });
 
-  // Fetch Submissions
+  // Fetch Submissions (Live Auto-Feed every 5 seconds)
   const { data: submissionsData } = useQuery({
     queryKey: ['admin-submissions', filterSearch, filterDepartment, filterYear, filterDivision],
     queryFn: () => api.get(`/admin/submissions?${buildFilterQuery()}`),
+    refetchInterval: 5000,
   });
 
   // Fetch Uploaded Solutions
@@ -458,6 +461,7 @@ export const AdminDashboardPage: React.FC = () => {
       filterSuspicionFlag,
     ],
     queryFn: () => api.get(`/admin/uploads?${buildFilterQuery()}`),
+    refetchInterval: 8000,
   });
 
   // Fetch Sections for filtering
@@ -474,7 +478,7 @@ export const AdminDashboardPage: React.FC = () => {
       }
       return await FirestoreDataService.getSectionsFromFirestore();
     },
-    staleTime: 60000,
+    refetchInterval: 8000,
   });
   const sectionsList: any[] = sectionsData || [];
 
@@ -490,6 +494,7 @@ export const AdminDashboardPage: React.FC = () => {
       filterDivision,
     ],
     queryFn: () => api.get(`/admin/users?${buildFilterQuery()}`),
+    refetchInterval: 10000,
   });
 
   // Fetch Authoritative Student Roster from Google Cloud Firestore
@@ -498,7 +503,7 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: async () => {
       return await FirestoreDataService.getAllFirestoreUsers();
     },
-    staleTime: 30000,
+    refetchInterval: 10000,
   });
 
   // Fetch Checkers
@@ -846,6 +851,7 @@ export const AdminDashboardPage: React.FC = () => {
       setIsCreateProblemOpen(false);
       setEditingProblem(null);
       queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      RealtimeSyncService.emit('PROBLEMS');
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create problem'),
   });
@@ -857,6 +863,7 @@ export const AdminDashboardPage: React.FC = () => {
       setIsCreateProblemOpen(false);
       setEditingProblem(null);
       queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      RealtimeSyncService.emit('PROBLEMS');
     },
     onError: (err: any) => toast.error(err.message || 'Failed to update problem'),
   });
@@ -866,6 +873,7 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Problem deleted');
       queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      RealtimeSyncService.emit('PROBLEMS');
     },
   });
 
@@ -874,6 +882,7 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.info('Submission queued for re-judging');
       queryClient.invalidateQueries({ queryKey: ['admin-submissions'] });
+      RealtimeSyncService.emit('SUBMISSIONS');
     },
   });
 
@@ -883,6 +892,7 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('User status updated');
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      RealtimeSyncService.emit('USERS');
     },
   });
 
@@ -892,6 +902,7 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('User role updated');
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      RealtimeSyncService.emit('USERS');
     },
   });
 
@@ -902,6 +913,7 @@ export const AdminDashboardPage: React.FC = () => {
       toast.success('Student PRN & academic record updated and logged in audit trail.');
       setEditingAcademicUser(null);
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      RealtimeSyncService.emit('USERS');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update student PRN');

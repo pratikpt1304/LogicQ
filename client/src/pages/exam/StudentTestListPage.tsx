@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -26,7 +27,8 @@ export const StudentTestListPage: React.FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: () => api.get('/exam/my-tests'),
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 8000,
   });
 
   const joinMutation = useMutation({
@@ -38,6 +40,8 @@ export const StudentTestListPage: React.FC = () => {
       setJoinCode('');
       setShowJoinInput(false);
       queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('TESTS');
     },
     onError: (err: any) => {
       toast.error(err?.message || 'Invalid join code or section not found.');

@@ -7,6 +7,7 @@ import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth } from '../config/firebase.js';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
@@ -66,6 +67,7 @@ export const DashboardPage: React.FC = () => {
   } = useQuery({
     queryKey: ['daily-challenge'],
     queryFn: () => api.get('/problems/daily'),
+    refetchInterval: 12000,
   });
 
   const {
@@ -76,6 +78,7 @@ export const DashboardPage: React.FC = () => {
   } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => api.get('/users/dashboard/stats'),
+    refetchInterval: 10000,
   });
 
   const dailyProblem = dailyData?.data?.problem;
@@ -92,7 +95,7 @@ export const DashboardPage: React.FC = () => {
     setTimeout(() => setCopiedCodeKey(null), 2000);
   };
 
-  // 1. Fetch Faculty / Admin Sections
+  // 1. Fetch Faculty / Admin Sections (Live 6s auto-refresh)
   const { data: facultySections = [] } = useQuery({
     queryKey: ['faculty-dashboard-sections'],
     enabled: !isStudent,
@@ -121,6 +124,7 @@ export const DashboardPage: React.FC = () => {
         (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
       );
     },
+    refetchInterval: 6000,
   });
 
   // 2. Fetch Faculty / Admin Tests
@@ -136,6 +140,7 @@ export const DashboardPage: React.FC = () => {
         return [];
       }
     },
+    refetchInterval: 8000,
   });
 
   // 3. Fetch Admin / Global Stats (if admin)
@@ -150,9 +155,10 @@ export const DashboardPage: React.FC = () => {
         return null;
       }
     },
+    refetchInterval: 12000,
   });
 
-  // 4. Fetch Recent Live Submissions
+  // 4. Fetch Recent Live Submissions (Live 5s stream)
   const { data: recentSubmissions = [] } = useQuery({
     queryKey: ['faculty-dashboard-recent-submissions'],
     enabled: !isStudent,
@@ -164,6 +170,7 @@ export const DashboardPage: React.FC = () => {
         return [];
       }
     },
+    refetchInterval: 5000,
   });
 
   const queryClient = useQueryClient();
@@ -172,7 +179,7 @@ export const DashboardPage: React.FC = () => {
   const [dashboardJoinCode, setDashboardJoinCode] = useState('');
   const [isEnrollingCode, setIsEnrollingCode] = useState(false);
 
-  // 1. Student Assigned Tests
+  // 1. Student Assigned Tests (Live 8s auto-refresh)
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
     enabled: isStudent,
@@ -185,6 +192,7 @@ export const DashboardPage: React.FC = () => {
         return [];
       }
     },
+    refetchInterval: 8000,
   });
 
   // 2. Student Practice Modules
@@ -200,9 +208,10 @@ export const DashboardPage: React.FC = () => {
         return [];
       }
     },
+    refetchInterval: 12000,
   });
 
-  // 3. Student Recent Submissions
+  // 3. Student Recent Submissions (Live 6s feed)
   const { data: studentSubmissions = [] } = useQuery({
     queryKey: ['student-my-submissions'],
     enabled: isStudent,
@@ -215,6 +224,7 @@ export const DashboardPage: React.FC = () => {
         return [];
       }
     },
+    refetchInterval: 6000,
   });
 
   const handleDashboardEnroll = async (e: React.FormEvent) => {
@@ -226,6 +236,8 @@ export const DashboardPage: React.FC = () => {
       toast.success(res?.message || 'Enrolled in section successfully! Assigned tests unlocked.');
       setDashboardJoinCode('');
       queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('TESTS');
     } catch (err: any) {
       toast.error(err?.message || 'Invalid join code or section not found.');
     } finally {
