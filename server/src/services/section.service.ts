@@ -161,11 +161,9 @@ export class SectionService {
         },
       });
 
-      // Auto enroll the 3 students
+      // Auto enroll the demo student
       const studentsToEnroll = [
         { email: 'student@logicq.io', prn: '2026IMTM0001', name: 'Demo Student' },
-        { email: 'thoratpratik2323@gmail.com', prn: '2126PMIM1039', name: 'Pratik Thorat' },
-        { email: 'samugangad@gmail.com', prn: '2126PMIF1057', name: 'Samruddhi Gangad' },
       ];
 
       for (const s of studentsToEnroll) {

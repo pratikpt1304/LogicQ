@@ -655,7 +655,7 @@ export class FirestoreDataService {
       }
     }
 
-    return list;
+    return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
 
   private static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
@@ -871,9 +871,111 @@ export class FirestoreDataService {
   }
 
   /**
+   * Checks whether a student account/email/PRN has been explicitly deleted/purged.
+   */
+  public static isPurgedStudent(student: any): boolean {
+    if (!student) return false;
+    const email = String(student.email || student.student?.email || '').toLowerCase().trim();
+    const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
+    return (
+      email === 'thoratpratik2323@gmail.com' ||
+      email === 'samugangad@gmail.com' ||
+      prn === '2126PMIM1039' ||
+      prn === '2126PMIF1057'
+    );
+  }
+
+  /**
+   * Purges explicitly deleted students from Firestore collections and local storage.
+   */
+  public static async purgeDeletedStudentsFromFirestore(): Promise<void> {
+    try {
+      const targetEmails = ['thoratpratik2323@gmail.com', 'samugangad@gmail.com'];
+      const targetPrns = ['2126PMIM1039', '2126PMIF1057'];
+      const directKeys = [
+        'thoratpratik2323_gmail_com',
+        'samugangad_gmail_com',
+        '2126PMIM1039',
+        '2126PMIF1057',
+      ];
+
+      for (const k of directKeys) {
+        await deleteDoc(doc(db, 'enrolled_students', k)).catch(() => {});
+      }
+      for (const prn of targetPrns) {
+        await deleteDoc(doc(db, 'prnIndex', prn)).catch(() => {});
+      }
+
+      // Query enrolled_students
+      for (const email of targetEmails) {
+        const q = query(collection(db, 'enrolled_students'), where('email', '==', email));
+        const snap = await getDocs(q).catch(() => null);
+        if (snap) {
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+      for (const prn of targetPrns) {
+        const q = query(collection(db, 'enrolled_students'), where('prn', '==', prn));
+        const snap = await getDocs(q).catch(() => null);
+        if (snap) {
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+
+      // Query users
+      for (const email of targetEmails) {
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const snap = await getDocs(q).catch(() => null);
+        if (snap) {
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+      for (const prn of targetPrns) {
+        const q = query(collection(db, 'users'), where('prn', '==', prn));
+        const snap = await getDocs(q).catch(() => null);
+        if (snap) {
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('purgeDeletedStudentsFromFirestore error:', e);
+    }
+  }
+
+  /**
    * Loads all sections persisted in Firestore merged with persistent local cache.
    */
   public static async getSectionsFromFirestore(): Promise<any[]> {
+    // Purge deleted students in background
+    FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
+
+    // Clean local storage
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('logicq_section_students_')) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const cleaned = parsed.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+              if (cleaned.length !== parsed.length) {
+                localStorage.setItem(k, JSON.stringify(cleaned));
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
     const sectionMap = new Map<string, any>();
 
     // 1. Read persistent local backup & clean out legacy demo section
@@ -881,7 +983,13 @@ export class FirestoreDataService {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const localList = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(localList)) {
-        const cleaned = localList.filter((s) => !FirestoreDataService.isLegacyDemoSection(s));
+        const cleaned = localList
+          .filter((s) => !FirestoreDataService.isLegacyDemoSection(s))
+          .map((s) => ({
+            ...s,
+            students: (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st)),
+            _count: { students: (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st)).length },
+          }));
         if (cleaned.length !== localList.length) {
           localStorage.setItem(LOCAL_KEY, JSON.stringify(cleaned));
         }
@@ -903,6 +1011,8 @@ export class FirestoreDataService {
             deleteDoc(d.ref).catch(() => {});
             continue;
           }
+          item.students = (item.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+          item._count = { students: item.students.length };
           const key = item.id || item.joinCode || item.sectionName;
           sectionMap.set(key, item);
         }
@@ -927,7 +1037,7 @@ export class FirestoreDataService {
         joinToken: 'c9e7f392-f930-47b6-b4c2-951b4b0a4748',
         isActive: true,
         createdAt: '2026-10-25T13:19:39.552Z',
-        _count: { students: 3 },
+        _count: { students: 1 },
         students: [
           {
             prn: '2026IMTM0001',
@@ -946,40 +1056,6 @@ export class FirestoreDataService {
               accountState: 'ACTIVE',
             },
           },
-          {
-            prn: '2126PMIM1039',
-            email: 'thoratpratik2323@gmail.com',
-            name: 'Pratik Thorat',
-            status: 'ENROLLED',
-            totalPoints: 0,
-            currentStreak: 0,
-            student: {
-              fullName: 'Pratik Thorat',
-              displayName: 'Pratik Thorat',
-              email: 'thoratpratik2323@gmail.com',
-              prn: '2126PMIM1039',
-              totalPoints: 0,
-              currentStreak: 0,
-              accountState: 'ACTIVE',
-            },
-          },
-          {
-            prn: '2126PMIF1057',
-            email: 'samugangad@gmail.com',
-            name: 'Samruddhi Gangad',
-            status: 'ENROLLED',
-            totalPoints: 0,
-            currentStreak: 0,
-            student: {
-              fullName: 'Samruddhi Gangad',
-              displayName: 'Samruddhi Gangad',
-              email: 'samugangad@gmail.com',
-              prn: '2126PMIF1057',
-              totalPoints: 0,
-              currentStreak: 0,
-              accountState: 'ACTIVE',
-            },
-          },
         ],
       };
       sectionMap.set(defaultSec.joinCode, defaultSec);
@@ -990,9 +1066,16 @@ export class FirestoreDataService {
       } catch {}
     }
 
-    return Array.from(sectionMap.values()).filter(
-      (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
-    );
+    return Array.from(sectionMap.values())
+      .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
+      .map((s: any) => {
+        const filteredStudents = (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+        return {
+          ...s,
+          students: filteredStudents,
+          _count: { students: filteredStudents.length },
+        };
+      });
   }
 
   /**
@@ -1037,7 +1120,7 @@ export class FirestoreDataService {
       console.warn('getEnrolledStudentsForSection query error:', e);
     }
 
-    return list;
+    return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
 
   /**
