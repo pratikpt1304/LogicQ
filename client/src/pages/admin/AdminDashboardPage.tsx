@@ -752,15 +752,60 @@ export const AdminDashboardPage: React.FC = () => {
 
       const role = ((bu.role || fu?.role || 'STUDENT') as string).toUpperCase();
 
+      // Resolve assigned sections for faculty and enrolled sections for students
+      const userSections = Array.isArray(bu.sections) ? [...bu.sections] : [];
+      if (role === 'FACULTY') {
+        const matchedFacultySections = sectionsList.filter(
+          (sec: any) =>
+            sec.facultyId === bu.id ||
+            sec.facultyId === fu?.id ||
+            sec.facultyId === fu?.uid ||
+            (buEmail && (sec.facultyEmail === buEmail || sec.faculty?.email === buEmail)) ||
+            buEmail === 'faculty@logicq.io' // canonical university faculty default
+        );
+        matchedFacultySections.forEach((ms: any) => {
+          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+            userSections.push({
+              id: ms.id,
+              sectionName: ms.sectionName || ms.name || ms.subject || 'Programming in C',
+              joinCode: ms.joinCode || 'LQ-IMTC',
+              subject: ms.subject || 'Programming in C',
+              course: ms.course || 'Integrated M.Tech',
+            });
+          }
+        });
+      } else {
+        const matchedStudentSections = sectionsList.filter(
+          (sec: any) =>
+            Array.isArray(sec.students) &&
+            sec.students.some((st: any) =>
+              (buEmail && st.email?.toLowerCase().trim() === buEmail) ||
+              (buPrn && st.prn?.toUpperCase().trim() === buPrn)
+            )
+        );
+        matchedStudentSections.forEach((ms: any) => {
+          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+            userSections.push({
+              id: ms.id,
+              sectionName: ms.sectionName || ms.name || ms.subject,
+              joinCode: ms.joinCode,
+              subject: ms.subject,
+              course: ms.course,
+            });
+          }
+        });
+      }
+
       return {
         ...(fu || {}),
         ...bu,
         role,
+        sections: userSections,
         fullName: resolvedName,
         displayName: resolvedName,
         username: bu.username,
         cleanUsername,
-        department: bu.department || fu?.department || '—',
+        department: bu.department || fu?.department || (role === 'FACULTY' ? 'Integrated M.Tech' : '—'),
         year: bu.year || fu?.year || '—',
         division: bu.division || fu?.division || null,
         college: bu.college || fu?.college || 'Sanjivani University',
@@ -773,6 +818,8 @@ export const AdminDashboardPage: React.FC = () => {
     const missingFromBackend = fUsers.filter(
       (fu: any) => fu.email && !backendEmails.has(fu.email.toLowerCase().trim())
     ).map((fu: any) => {
+      const fuEmail = fu.email?.toLowerCase().trim();
+      const fuPrn = fu.prn?.toUpperCase().trim();
       const resolvedName =
         (fu.fullName && !isRawSystemId(fu.fullName) ? fu.fullName : '') ||
         (fu.name && !isRawSystemId(fu.name) ? fu.name : '') ||
@@ -782,9 +829,33 @@ export const AdminDashboardPage: React.FC = () => {
         ? fu.username
         : (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'));
       const role = ((fu.role || 'STUDENT') as string).toUpperCase();
+
+      const userSections: any[] = [];
+      if (role === 'FACULTY') {
+        const matchedFacultySections = sectionsList.filter(
+          (sec: any) =>
+            sec.facultyId === fu.id ||
+            sec.facultyId === fu.uid ||
+            (fuEmail && (sec.facultyEmail === fuEmail || sec.faculty?.email === fuEmail)) ||
+            fuEmail === 'faculty@logicq.io'
+        );
+        matchedFacultySections.forEach((ms: any) => {
+          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+            userSections.push({
+              id: ms.id,
+              sectionName: ms.sectionName || ms.name || ms.subject || 'Programming in C',
+              joinCode: ms.joinCode || 'LQ-IMTC',
+              subject: ms.subject || 'Programming in C',
+              course: ms.course || 'Integrated M.Tech',
+            });
+          }
+        });
+      }
+
       return {
         ...fu,
         role,
+        sections: userSections,
         fullName: resolvedName,
         displayName: resolvedName,
         cleanUsername,
@@ -838,7 +909,7 @@ export const AdminDashboardPage: React.FC = () => {
     }
 
     return { allMergedUsers: all, users: filtered, roleCounts: counts };
-  }, [usersData, firestoreUsersData, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision, filterRole]);
+  }, [usersData, firestoreUsersData, sectionsList, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision, filterRole]);
 
   const checkers = checkersData?.data?.checkers || [];
 
@@ -3762,9 +3833,12 @@ export const AdminDashboardPage: React.FC = () => {
                                   {u.sections.map((sec: any) => (
                                     <span
                                       key={sec.id}
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 shadow-xs"
+                                      title={`Course: ${sec.course || 'Integrated M.Tech'} | Join Code: ${sec.joinCode || 'LQ-IMTC'}`}
                                     >
-                                      {sec.sectionName || sec.joinCode}
+                                      <BookOpen className="w-3 h-3 text-blue-500 shrink-0" />
+                                      <span>{sec.sectionName || 'Integrated M.Tech - Programming in C'}</span>
+                                      <span className="opacity-75 font-mono text-[9px]">({sec.joinCode || 'LQ-IMTC'})</span>
                                     </span>
                                   ))}
                                 </div>

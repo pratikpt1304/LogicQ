@@ -2223,12 +2223,14 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     semester: 'Semester 1',
     sectionName: 'Integrated M.Tech - Programming in C',
     facultyId: 'ad898246-5f77-4197-9de0-2091e3e60a8e',
+    facultyEmail: 'faculty@logicq.io',
+    facultyName: 'Prof. Demo Faculty (Walkthrough)',
     description: 'Welcome to Programming in C',
     joinCode: 'LQ-IMTC',
     joinToken: 'c9e7f392-f930-47b6-b4c2-951b4b0a4748',
     isActive: true,
     createdAt: '2026-10-25T13:19:39.552Z',
-    _count: { students: 3 },
+    _count: { students: 1 },
     students: [
       {
         prn: '2026IMTM0001',

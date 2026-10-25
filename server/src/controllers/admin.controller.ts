@@ -1205,6 +1205,15 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
             orderBy: { createdAt: 'desc' },
             take: 10,
           },
+          taughtSections: {
+            select: {
+              id: true,
+              sectionName: true,
+              joinCode: true,
+              subject: true,
+              course: true,
+            },
+          },
           enrolledSections: {
             include: {
               section: {
@@ -1229,20 +1238,30 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       data: {
-        users: users.map((u) => {
+        users: users.map((u: any) => {
           const cooldown = getPrnChangeCooldownStatus(u.prnChangedAt);
+          const taught = (u.taughtSections || []).map((sec: any) => ({
+            id: sec.id,
+            sectionName: sec.sectionName,
+            joinCode: sec.joinCode,
+            subject: sec.subject,
+            course: sec.course,
+            role: 'FACULTY',
+          }));
+          const enrolled = (u.enrolledSections || []).map((es: any) => ({
+            id: es.section.id,
+            sectionName: es.section.sectionName,
+            joinCode: es.section.joinCode,
+            subject: es.section.subject,
+            course: es.section.course,
+            role: 'STUDENT',
+          }));
           return {
             ...u,
             prnNextAllowedDate: cooldown.nextAllowedDate?.toISOString() || null,
             isPrnChangeEligible: cooldown.isEligible,
             submissionCount: u._count.submissions,
-            sections: u.enrolledSections?.map((es: any) => ({
-              id: es.section.id,
-              sectionName: es.section.sectionName,
-              joinCode: es.section.joinCode,
-              subject: es.section.subject,
-              course: es.section.course,
-            })) || [],
+            sections: [...taught, ...enrolled],
           };
         }),
         pagination: {
