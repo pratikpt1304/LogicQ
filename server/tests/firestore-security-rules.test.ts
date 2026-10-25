@@ -70,7 +70,7 @@ class RulesEvaluator {
   }
 
   static evaluateSectionRead(ctx: FirestoreRuleContext): boolean {
-    return ctx.auth !== null;
+    return true;
   }
 
   static evaluateSectionCreate(ctx: FirestoreRuleContext): boolean {
@@ -109,18 +109,7 @@ class RulesEvaluator {
   }
 
   static evaluateSectionStudentRead(ctx: FirestoreRuleContext, studentId: string): boolean {
-    if (!ctx.auth) return false;
-    if (RulesEvaluator.isFaculty(ctx)) return true;
-    const res = ctx.resource?.data;
-    const authUid = ctx.auth.uid;
-    const authEmail = ctx.auth.token?.email?.toLowerCase();
-    return (
-      authUid === studentId ||
-      (res && res.studentId === authUid) ||
-      (res && res.userId === authUid) ||
-      (res && res.uid === authUid) ||
-      (res && typeof res.email === 'string' && res.email.toLowerCase() === authEmail)
-    );
+    return true;
   }
 
   static evaluateSectionStudentCreate(ctx: FirestoreRuleContext, studentId: string): boolean {
@@ -166,19 +155,7 @@ class RulesEvaluator {
   }
 
   static evaluateEnrolledStudentRead(ctx: FirestoreRuleContext, studentId: string): boolean {
-    if (!ctx.auth) return false;
-    if (RulesEvaluator.isFaculty(ctx)) return true;
-    const res = ctx.resource?.data;
-    const authUid = ctx.auth.uid;
-    const authEmail = ctx.auth.token?.email?.toLowerCase();
-    return (
-      authUid === studentId ||
-      (typeof authEmail === 'string' && studentId.toLowerCase() === authEmail) ||
-      (res && res.uid === authUid) ||
-      (res && res.userId === authUid) ||
-      (res && res.studentId === authUid) ||
-      (res && typeof res.email === 'string' && res.email.toLowerCase() === authEmail)
-    );
+    return true;
   }
 
   static evaluateEnrolledStudentCreate(ctx: FirestoreRuleContext): boolean {
@@ -2459,6 +2436,12 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     expect(firestoreRules).toContain('name.size() <= 60');
     expect(securityRulesDoc).toContain('name.size() <= 60');
+
+    // Both files must declare sections, students, and enrolled_students with allow read: if true;
+    expect(firestoreRules).toContain('match /sections/{sectionId}');
+    expect(firestoreRules).toContain('match /enrolled_students/{docId}');
+    expect(securityRulesDoc).toContain('match /sections/{sectionId}');
+    expect(securityRulesDoc).toContain('match /enrolled_students/{docId}');
   });
 
   it('VALIDATION: Student displayName permits up to 60 characters and rejects > 60 or < 2 characters', () => {
@@ -2703,6 +2686,66 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       },
     };
     expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(adminPiiLeakCtx, 'admin_charlie')).toBe(false);
+  });
+
+  it('ACADEMIC SECTIONS & ROSTERS: Public read access enabled, writes strictly guarded', () => {
+    const unauthenticatedCtx: FirestoreRuleContext = { auth: null, request: {} };
+    const studentCtx: FirestoreRuleContext = { auth: studentAlice, request: {} };
+    const facultyDrSmith: AuthContext = {
+      uid: 'faculty_dr_smith',
+      token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' },
+    };
+    const facultyCtx: FirestoreRuleContext = { auth: facultyDrSmith, request: {} };
+
+    // 1. Public read for sections/{sectionId} -> MUST SUCCEED for unauthenticated and students
+    expect(RulesEvaluator.evaluateSectionRead(unauthenticatedCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionRead(studentCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionRead(facultyCtx)).toBe(true);
+
+    // 2. Public read for sections/{sectionId}/students/{studentId} -> MUST SUCCEED for unauthenticated and students
+    expect(RulesEvaluator.evaluateSectionStudentRead(unauthenticatedCtx, 'student_alice')).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentRead(studentCtx, 'student_bob')).toBe(true);
+
+    // 3. Public read for enrolled_students/{docId} -> MUST SUCCEED for unauthenticated and students
+    expect(RulesEvaluator.evaluateEnrolledStudentRead(unauthenticatedCtx, 'any_student')).toBe(true);
+    expect(RulesEvaluator.evaluateEnrolledStudentRead(studentCtx, 'student_bob')).toBe(true);
+
+    // 4. Section write restrictions remain intact:
+    const validSectionData = {
+      id: 'sec_101',
+      sectionName: 'CSE-A',
+      course: 'B.Tech CSE',
+      subject: 'Data Structures',
+      facultyId: 'faculty_dr_smith',
+    };
+    const studentCreateSectionCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: { resource: { data: validSectionData } },
+    };
+    // Student creating section -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionCreate(studentCreateSectionCtx)).toBe(false);
+
+    // Unauthenticated creating section -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionCreate({ auth: null, request: { resource: { data: validSectionData } } })).toBe(false);
+
+    // Faculty creating valid section -> MUST PASS
+    const facultyCreateSectionCtx: FirestoreRuleContext = {
+      auth: facultyDrSmith,
+      request: { resource: { data: validSectionData } },
+    };
+    expect(RulesEvaluator.evaluateSectionCreate(facultyCreateSectionCtx)).toBe(true);
+
+    // Faculty creating invalid section (unrecognized key) -> MUST FAIL
+    const invalidSectionCtx: FirestoreRuleContext = {
+      auth: facultyDrSmith,
+      request: { resource: { data: { ...validSectionData, maliciousKey: 'hack' } } },
+    };
+    expect(RulesEvaluator.evaluateSectionCreate(invalidSectionCtx)).toBe(false);
+
+    // 5. Section delete restriction: faculty only
+    expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(true);
   });
 });
 

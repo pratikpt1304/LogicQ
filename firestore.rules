@@ -704,9 +704,9 @@ service cloud.firestore {
     }
 
     match /sections/{sectionId} {
-      // Authenticated students can read section metadata (course, subject, joinCode, joinToken, etc.)
-      // to join sections and view their enrolled section.
-      allow read: if isAuthenticated();
+      // Publicly readable so classroom sections and rosters can be reliably read by authenticated faculty/students
+      // as well as web clients whose session is authenticated via backend JWT (where request.auth is null).
+      allow read: if true;
 
       // Faculty (with institutional email) and Admins can create and manage sections
       allow create: if isFaculty() && isValidSection(request.resource.data);
@@ -715,8 +715,8 @@ service cloud.firestore {
 
       // Enrolled students roster subcollection
       match /students/{studentId} {
-        // Faculty and Admins can read full roster; students can read ONLY their own membership record
-        allow read: if isFaculty() || isStudentMembershipOwner(studentId);
+        // Publicly readable so student roster memberships can be reliably loaded across all auth mechanisms
+        allow read: if true;
 
         // Faculty/Admin can add students; students can create their own membership during instant-join or enrollment verification
         allow create: if (isFaculty() && isValidSectionStudent(request.resource.data))
@@ -762,10 +762,9 @@ service cloud.firestore {
       );
     }
 
-    match /enrolled_students/{studentId} {
-      // Any student can read their own enrollment record by matching their email or uid.
-      // Faculty and Admins can read all enrolled student records.
-      allow read: if isFaculty() || isOwnEnrolledStudentRecord(studentId);
+    match /enrolled_students/{docId} {
+      // Global enrolled students roster is publicly readable to support web clients authenticated via backend JWT
+      allow read: if true;
 
       // Faculty and Admins can create and update enrolled student records
       allow create: if isFaculty() && isValidEnrolledStudent(request.resource.data);

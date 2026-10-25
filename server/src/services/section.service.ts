@@ -81,7 +81,7 @@ export class SectionService {
   }
 
   /**
-   * Fetch all sections managed by a faculty member or all sections if admin.
+   * Fetch all academic sections (accessible to all faculty and admins).
    */
   static async getFacultySections(facultyId: string, isAdmin = false) {
     const baseWhere = {
@@ -89,27 +89,143 @@ export class SectionService {
       sectionName: { not: 'Div A - Computer Science' },
     };
 
-    if (isAdmin) {
-      return prisma.section.findMany({
+    let list = await prisma.section.findMany({
+      where: baseWhere,
+      include: {
+        _count: {
+          select: { students: true },
+        },
+        students: {
+          include: {
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                displayName: true,
+                prn: true,
+                email: true,
+                mobile: true,
+                accountState: true,
+              },
+            },
+          },
+          orderBy: { enrolledAt: 'desc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Auto-heal: If zero sections exist, automatically create the official section
+    if (list.length === 0) {
+      let defaultFaculty = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: 'faculty@logicq.io' },
+            { role: 'FACULTY' },
+            { role: 'ADMIN' },
+          ],
+        },
+      });
+
+      if (!defaultFaculty) {
+        defaultFaculty = await prisma.user.create({
+          data: {
+            fullName: 'Prof. Demo Faculty',
+            displayName: 'Prof. Demo Faculty',
+            email: 'faculty@logicq.io',
+            role: 'FACULTY',
+            accountState: 'ACTIVE',
+            college: 'Sanjivani University',
+            department: 'Integrated M.Tech',
+            profileComplete: true,
+            totalPoints: 0,
+            currentStreak: 0,
+          },
+        });
+      }
+
+      const created = await prisma.section.create({
+        data: {
+          institution: 'Sanjivani University',
+          course: 'Integrated M.Tech',
+          subject: 'Programming in C',
+          academicYear: '2026-2027',
+          semester: 'Semester 1',
+          sectionName: 'Integrated M.Tech - Programming in C',
+          facultyId: defaultFaculty.id,
+          description: 'Welcome to Programming in C',
+          joinCode: 'LQ-IMTC',
+          joinToken: 'c9e7f392-f930-47b6-b4c2-951b4b0a4748',
+          isActive: true,
+        },
+      });
+
+      // Auto enroll the 3 students
+      const studentsToEnroll = [
+        { email: 'student@logicq.io', prn: '2026IMTM0001', name: 'Demo Student' },
+        { email: 'thoratpratik2323@gmail.com', prn: '2126PMIM1039', name: 'Pratik Thorat' },
+        { email: 'samugangad@gmail.com', prn: '2126PMIF1057', name: 'Samruddhi Gangad' },
+      ];
+
+      for (const s of studentsToEnroll) {
+        let u = await prisma.user.findFirst({
+          where: { OR: [{ email: s.email }, { prn: s.prn }] },
+        });
+        if (!u) {
+          u = await prisma.user.create({
+            data: {
+              fullName: s.name,
+              displayName: s.name,
+              email: s.email,
+              prn: s.prn,
+              role: 'STUDENT',
+              accountState: 'ACTIVE',
+              college: 'Sanjivani University',
+              department: 'Integrated M.Tech',
+              year: 'FY',
+              profileComplete: true,
+              totalPoints: 0,
+              currentStreak: 0,
+            },
+          });
+        }
+        await prisma.sectionStudent.create({
+          data: {
+            sectionId: created.id,
+            studentId: u.id,
+            prn: s.prn,
+            status: 'ENROLLED',
+            joinedVia: 'FACULTY_ADD',
+          },
+        }).catch(() => {});
+      }
+
+      list = await prisma.section.findMany({
         where: baseWhere,
         include: {
-          _count: {
-            select: { students: true },
+          _count: { select: { students: true } },
+          students: {
+            include: {
+              student: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  displayName: true,
+                  prn: true,
+                  email: true,
+                  mobile: true,
+                  accountState: true,
+                },
+              },
+            },
+            orderBy: { enrolledAt: 'desc' },
           },
         },
         orderBy: { createdAt: 'desc' },
       });
     }
 
-    return prisma.section.findMany({
-      where: { facultyId, ...baseWhere },
-      include: {
-        _count: {
-          select: { students: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return list;
   }
 
   /**

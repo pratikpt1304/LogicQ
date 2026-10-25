@@ -657,13 +657,13 @@ service cloud.firestore {
     }
 
     match /sections/{sectionId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isFaculty() && isValidSection(request.resource.data);
       allow update: if isFaculty() && isValidSection(request.resource.data);
       allow delete: if isFaculty();
 
       match /students/{studentId} {
-        allow read: if isFaculty() || isStudentMembershipOwner(studentId);
+        allow read: if true;
         allow create: if (isFaculty() && isValidSectionStudent(request.resource.data))
           || (isStudentMembershipCreate(studentId) && isValidSectionStudent(request.resource.data));
         allow update: if isFaculty() && isValidSectionStudent(request.resource.data);
@@ -705,8 +705,8 @@ service cloud.firestore {
       );
     }
 
-    match /enrolled_students/{studentId} {
-      allow read: if isFaculty() || isOwnEnrolledStudentRecord(studentId);
+    match /enrolled_students/{docId} {
+      allow read: if true;
       allow create: if isFaculty() && isValidEnrolledStudent(request.resource.data);
       allow update: if isFaculty() && isValidEnrolledStudent(request.resource.data);
       allow delete: if isFaculty();

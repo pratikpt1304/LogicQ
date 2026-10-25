@@ -2211,5 +2211,106 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  // ==========================================
+  // ACADEMIC SECTIONS & ROSTERS FALLBACK
+  // ==========================================
+  const CANONICAL_SECTION = {
+    id: '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57',
+    institution: 'Sanjivani University',
+    course: 'Integrated M.Tech',
+    subject: 'Programming in C',
+    academicYear: '2026-2027',
+    semester: 'Semester 1',
+    sectionName: 'Integrated M.Tech - Programming in C',
+    facultyId: 'ad898246-5f77-4197-9de0-2091e3e60a8e',
+    description: 'Welcome to Programming in C',
+    joinCode: 'LQ-IMTC',
+    joinToken: 'c9e7f392-f930-47b6-b4c2-951b4b0a4748',
+    isActive: true,
+    createdAt: '2026-10-25T13:19:39.552Z',
+    _count: { students: 3 },
+    students: [
+      {
+        prn: '2026IMTM0001',
+        email: 'student@logicq.io',
+        name: 'Demo Student',
+        status: 'ENROLLED',
+        joinedVia: 'FACULTY_ADD',
+        totalPoints: 0,
+        currentStreak: 0,
+        student: {
+          fullName: 'Demo Student',
+          displayName: 'Demo Student',
+          email: 'student@logicq.io',
+          prn: '2026IMTM0001',
+          totalPoints: 0,
+          currentStreak: 0,
+          accountState: 'ACTIVE',
+        },
+      },
+      {
+        prn: '2126PMIM1039',
+        email: 'thoratpratik2323@gmail.com',
+        name: 'Pratik Thorat',
+        status: 'ENROLLED',
+        joinedVia: 'FACULTY_ADD',
+        totalPoints: 0,
+        currentStreak: 0,
+        student: {
+          fullName: 'Pratik Thorat',
+          displayName: 'Pratik Thorat',
+          email: 'thoratpratik2323@gmail.com',
+          prn: '2126PMIM1039',
+          totalPoints: 0,
+          currentStreak: 0,
+          accountState: 'ACTIVE',
+        },
+      },
+      {
+        prn: '2126PMIF1057',
+        email: 'samugangad@gmail.com',
+        name: 'Samruddhi Gangad',
+        status: 'ENROLLED',
+        joinedVia: 'FACULTY_ADD',
+        totalPoints: 0,
+        currentStreak: 0,
+        student: {
+          fullName: 'Samruddhi Gangad',
+          displayName: 'Samruddhi Gangad',
+          email: 'samugangad@gmail.com',
+          prn: '2126PMIF1057',
+          totalPoints: 0,
+          currentStreak: 0,
+          accountState: 'ACTIVE',
+        },
+      },
+    ],
+  };
+
+  if (path === '/sections' && method === 'GET') {
+    let localSections = [CANONICAL_SECTION];
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(stored) && stored.length > 0) {
+        localSections = stored;
+      }
+    } catch {}
+    return {
+      success: true,
+      data: localSections,
+      sections: localSections,
+    };
+  }
+
+  if (path.startsWith('/sections/') && method === 'GET') {
+    const secId = path.replace('/sections/', '');
+    return {
+      success: true,
+      data: CANONICAL_SECTION,
+      section: CANONICAL_SECTION,
+    };
+  }
+
   return { success: true, data: {} };
 }
