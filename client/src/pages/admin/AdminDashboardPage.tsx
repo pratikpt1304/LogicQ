@@ -3156,14 +3156,16 @@ export const AdminDashboardPage: React.FC = () => {
                         {/* 5. Actions */}
                         <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => setSelectedActivityUser(u)}
-                              className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 hover:bg-cyan-500/20 inline-flex items-center gap-1 font-mono font-medium transition"
-                              title="View student activity dossier and test history"
-                            >
-                              <Activity className="w-3.5 h-3.5" />
-                              <span>Activity</span>
-                            </button>
+                            {(!u.role || u.role === 'STUDENT') && (
+                              <button
+                                onClick={() => setSelectedActivityUser(u)}
+                                className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 hover:bg-cyan-500/20 inline-flex items-center gap-1 font-mono font-medium transition"
+                                title="View student activity dossier and test history"
+                              >
+                                <Activity className="w-3.5 h-3.5" />
+                                <span>Activity</span>
+                              </button>
+                            )}
 
                             {u.role === 'STUDENT' && (
                               <button
