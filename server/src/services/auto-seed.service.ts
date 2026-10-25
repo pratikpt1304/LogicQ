@@ -375,34 +375,23 @@ export async function autoSeedDatabase(): Promise<void> {
     }).catch(() => {});
     console.log('⚡ Walkthrough accounts (faculty@logicq.io & student@logicq.io) verified & synced.');
 
-    const sectionOwnerId = primaryAdminUser ? primaryAdminUser.id : 'admin';
-    const existingSection = await prisma.section.findFirst({
-      where: {
-        OR: [
-          { joinCode: 'LQ-DC85' },
-          { sectionName: 'Div A - Computer Science' },
-        ],
-      },
-    });
-
-    const totalSections = await prisma.section.count();
-    if (totalSections === 0 && !existingSection) {
-      await prisma.section.create({
-        data: {
-          institution: 'Sanjivani University',
-          course: 'B.Tech Computer Science & Engineering',
-          subject: 'Data Structures & Algorithms',
-          academicYear: '2026-2027',
-          semester: 'Semester 3',
-          sectionName: 'Div A - Computer Science',
-          facultyId: sectionOwnerId,
-          description: 'Official academic section for B.Tech CSE',
-          joinCode: 'LQ-DC85',
-          joinToken: '20e4db09-fe9a-47ab-a034-57b11e49a02f',
-          isActive: true,
+    // Active purge: permanently eliminate legacy demo section (LQ-DC85) so it never revives
+    try {
+      const purged = await prisma.section.deleteMany({
+        where: {
+          OR: [
+            { joinCode: 'LQ-DC85' },
+            { sectionName: 'Div A - Computer Science' },
+            { joinToken: '20e4db09-fe9a-47ab-a034-57b11e49a02f' },
+            { description: 'Official academic section for B.Tech CSE' },
+          ],
         },
       });
-      console.log('⚡ Canonical academic section (Div A - Computer Science [LQ-DC85]) auto-seeded.');
+      if (purged.count > 0) {
+        console.log(`🧹 Purged ${purged.count} legacy demo section(s) [LQ-DC85]. Zero auto-seed sections will be recreated.`);
+      }
+    } catch (purgeErr) {
+      console.warn('Note: Legacy section purge check completed:', purgeErr);
     }
   } catch (error) {
     console.error('⚠️ Warning: Auto-seed encountered an error (continuing boot):', error);

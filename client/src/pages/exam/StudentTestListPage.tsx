@@ -122,7 +122,7 @@ export const StudentTestListPage: React.FC = () => {
               <KeyRound className="w-4 h-4 text-indigo-400 shrink-0" />
               <input
                 type="text"
-                placeholder="Enter 6-char Class Join Code (e.g. LQ-DC85)"
+                placeholder="Enter 6-char Class Join Code (e.g. LQ-A1B2)"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 className="w-full px-3.5 py-2 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] font-mono text-xs font-bold uppercase tracking-wider focus:outline-none focus:border-indigo-500"

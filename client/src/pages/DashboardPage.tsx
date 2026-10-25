@@ -925,7 +925,7 @@ export const DashboardPage: React.FC = () => {
                     No Active Tests Assigned Right Now
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
-                    Have a 6-character Join Code from your professor (e.g. <code className="text-indigo-400 font-bold">LQ-DC85</code>)? Enter it to enroll and unlock tests:
+                    Have a 6-character Join Code from your professor (e.g. <code className="text-indigo-400 font-bold">LQ-A1B2</code>)? Enter it to enroll and unlock tests:
                   </p>
                 </div>
 
@@ -935,7 +935,7 @@ export const DashboardPage: React.FC = () => {
                 >
                   <input
                     type="text"
-                    placeholder="e.g. LQ-DC85"
+                    placeholder="e.g. LQ-A1B2"
                     value={dashboardJoinCode}
                     onChange={(e) => setDashboardJoinCode(e.target.value.toUpperCase())}
                     className="w-full sm:flex-1 px-3.5 py-2 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-sm font-mono font-bold tracking-widest placeholder:tracking-normal placeholder:font-normal text-[var(--text-main)] focus:outline-none focus:border-indigo-500"

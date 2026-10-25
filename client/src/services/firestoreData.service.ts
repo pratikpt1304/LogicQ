@@ -661,9 +661,83 @@ export class FirestoreDataService {
   private static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
 
   /**
+   * Identifies the legacy auto-seeded demo section (LQ-DC85) that must be permanently wiped.
+   */
+  public static isLegacyDemoSection(sectionOrId: any, maybeJoinCode?: string): boolean {
+    if (!sectionOrId && !maybeJoinCode) return false;
+    let id = '';
+    let joinCode = '';
+    let name = '';
+    let desc = '';
+    let token = '';
+
+    if (typeof sectionOrId === 'string') {
+      id = sectionOrId;
+      joinCode = maybeJoinCode || '';
+    } else if (typeof sectionOrId === 'object' && sectionOrId !== null) {
+      id = sectionOrId.id || '';
+      joinCode = sectionOrId.joinCode || maybeJoinCode || '';
+      name = sectionOrId.sectionName || sectionOrId.name || '';
+      desc = sectionOrId.description || '';
+      token = sectionOrId.joinToken || '';
+    }
+
+    const upperCode = (joinCode || '').toUpperCase();
+    const upperId = (id || '').toUpperCase();
+
+    return (
+      upperCode === 'LQ-DC85' ||
+      upperId === '20E4DB09-FE9A-47AB-A034-57B11E49A02F' ||
+      token === '20e4db09-fe9a-47ab-a034-57b11e49a02f' ||
+      name === 'Div A - Computer Science' ||
+      (name.includes('Div A') && desc.includes('Official academic section for B.Tech CSE'))
+    );
+  }
+
+  /**
+   * One-time deep purge of the legacy demo section across localStorage, IndexedDB, and Firestore.
+   */
+  public static async purgeLegacyDemoSection(): Promise<void> {
+    try {
+      // 1. Add to permanent tombstone list
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      ['LQ-DC85', 'lq-dc85', '20e4db09-fe9a-47ab-a034-57b11e49a02f'].forEach((k) => {
+        if (!list.includes(k)) list.push(k);
+      });
+      localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(list));
+
+      // 2. Clean localStorage sections backup
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(existing)) {
+        const filtered = existing.filter((s: any) => !FirestoreDataService.isLegacyDemoSection(s));
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+      }
+
+      // 3. Remove section roster cache
+      localStorage.removeItem('logicq_section_students_LQ-DC85');
+      localStorage.removeItem('logicq_section_students_20e4db09-fe9a-47ab-a034-57b11e49a02f');
+
+      // 4. Delete Firestore documents
+      const q = query(collection(db, 'sections'), where('joinCode', '==', 'LQ-DC85'));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref).catch(() => {});
+      }
+      await deleteDoc(doc(db, 'sections', '20e4db09-fe9a-47ab-a034-57b11e49a02f')).catch(() => {});
+    } catch (e) {
+      console.warn('purgeLegacyDemoSection notice:', e);
+    }
+  }
+
+  /**
    * Checks if a section has been deleted locally or marked as tombstoned.
    */
   public static isSectionDeleted(sectionId?: string, joinCode?: string): boolean {
+    if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
+      return true;
+    }
     try {
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       if (!raw) return false;
@@ -733,6 +807,9 @@ export class FirestoreDataService {
    * Persists an academic section to Firestore so it survives server restarts.
    */
   public static async saveSectionToFirestore(section: any): Promise<void> {
+    if (FirestoreDataService.isLegacyDemoSection(section)) {
+      return; // Never save or revive the legacy demo section
+    }
     const sectionId = section.id || section.joinToken || `sec_${Date.now()}`;
 
     // 1. Immediately cache in resilient localStorage
@@ -775,35 +852,43 @@ export class FirestoreDataService {
   public static async getSectionsFromFirestore(): Promise<any[]> {
     const sectionMap = new Map<string, any>();
 
-    // 1. Read persistent local backup
+    // 1. Read persistent local backup & clean out legacy demo section
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const localList = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(localList)) {
-        localList.forEach((s) => {
+        const cleaned = localList.filter((s) => !FirestoreDataService.isLegacyDemoSection(s));
+        if (cleaned.length !== localList.length) {
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(cleaned));
+        }
+        cleaned.forEach((s) => {
           const key = s.id || s.joinCode || s.sectionName;
           if (key) sectionMap.set(key, s);
         });
       }
     } catch {}
 
-    // 2. Read authoritative Firestore
+    // 2. Read authoritative Firestore & purge legacy demo section if encountered
     try {
       const snap = await getDocs(collection(db, 'sections'));
-      snap.forEach((d) => {
+      for (const d of snap.docs) {
         const data = d.data();
         if (data) {
           const item: any = { id: d.id, ...data };
+          if (FirestoreDataService.isLegacyDemoSection(item)) {
+            deleteDoc(d.ref).catch(() => {});
+            continue;
+          }
           const key = item.id || item.joinCode || item.sectionName;
           sectionMap.set(key, item);
         }
-      });
+      }
     } catch (err) {
       console.warn('getSectionsFromFirestore error:', err);
     }
 
     return Array.from(sectionMap.values()).filter(
-      (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+      (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
     );
   }
 

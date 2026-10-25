@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
@@ -107,6 +107,12 @@ export const SectionManagementPage: React.FC = () => {
     description: '',
   });
 
+  // Permanently purge legacy demo section (LQ-DC85) on mount
+  useEffect(() => {
+    FirestoreDataService.purgeLegacyDemoSection().catch(() => {});
+    api.delete('/sections/LQ-DC85').catch(() => {});
+  }, []);
+
   // Fetch sections (combines backend with persistent Firestore)
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['faculty-sections'],
@@ -126,22 +132,26 @@ export const SectionManagementPage: React.FC = () => {
 
       // 1. Put backend sections
       backendList.forEach((s: any) => {
-        const key = s.joinCode || s.id;
-        if (key) sectionMap.set(key, s);
+        if (!FirestoreDataService.isLegacyDemoSection(s)) {
+          const key = s.joinCode || s.id;
+          if (key) sectionMap.set(key, s);
+        }
       });
 
       // 2. Put / overlay Firestore sections
       firestoreSections.forEach((s: any) => {
-        const key = s.joinCode || s.id;
-        if (key) {
-          const existing = sectionMap.get(key) || {};
-          sectionMap.set(key, { ...existing, ...s });
+        if (!FirestoreDataService.isLegacyDemoSection(s)) {
+          const key = s.joinCode || s.id;
+          if (key) {
+            const existing = sectionMap.get(key) || {};
+            sectionMap.set(key, { ...existing, ...s });
+          }
         }
       });
 
-      // Filter out any section that was deleted
+      // Filter out any section that was deleted or matches legacy demo section
       const mergedList = Array.from(sectionMap.values()).filter(
-        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
       );
 
       return mergedList;

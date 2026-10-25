@@ -84,8 +84,14 @@ export class SectionService {
    * Fetch all sections managed by a faculty member or all sections if admin.
    */
   static async getFacultySections(facultyId: string, isAdmin = false) {
+    const baseWhere = {
+      joinCode: { not: 'LQ-DC85' },
+      sectionName: { not: 'Div A - Computer Science' },
+    };
+
     if (isAdmin) {
       return prisma.section.findMany({
+        where: baseWhere,
         include: {
           _count: {
             select: { students: true },
@@ -96,7 +102,7 @@ export class SectionService {
     }
 
     return prisma.section.findMany({
-      where: { facultyId },
+      where: { facultyId, ...baseWhere },
       include: {
         _count: {
           select: { students: true },
@@ -149,10 +155,18 @@ export class SectionService {
   }
 
   /**
-   * Delete an academic section (ADMIN-ONLY).
+   * Delete an academic section (ADMIN-ONLY / Faculty Owner).
    */
-  static async deleteSection(sectionId: string, isAdmin: boolean, facultyId?: string) {
-    const section = await prisma.section.findUnique({ where: { id: sectionId } });
+  static async deleteSection(sectionIdOrCode: string, isAdmin: boolean, facultyId?: string) {
+    const section = await prisma.section.findFirst({
+      where: {
+        OR: [
+          { id: sectionIdOrCode },
+          { joinCode: sectionIdOrCode },
+          { joinToken: sectionIdOrCode },
+        ],
+      },
+    });
     if (!section) {
       return { success: true, message: 'Section already deleted or removed.' };
     }
@@ -162,11 +176,11 @@ export class SectionService {
     // Remove assessment test references if any
     try {
       await prisma.assessmentTest.updateMany({
-        where: { sectionId },
+        where: { sectionId: section.id },
         data: { sectionId: null as any },
       });
     } catch {}
-    await prisma.section.delete({ where: { id: sectionId } });
+    await prisma.section.delete({ where: { id: section.id } });
     return { success: true, message: `Section "${section.sectionName}" and all associated enrollments have been deleted successfully.` };
   }
 
