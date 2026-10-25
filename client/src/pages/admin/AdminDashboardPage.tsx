@@ -51,6 +51,8 @@ import {
   Check,
   Mail,
   UserCheck,
+  List,
+  Layers,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
@@ -93,9 +95,19 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Modal States
   const [isCreateProblemOpen, setIsCreateProblemOpen] = useState(false);
+  const [editingProblem, setEditingProblem] = useState<any | null>(null);
+  const [schedulingProblem, setSchedulingProblem] = useState<any | null>(null);
+  const [scheduleDate, setScheduleDate] = useState<string>(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
   const [inspectingProblem, setInspectingProblem] = useState<any | null>(null);
   const [problemSearch, setProblemSearch] = useState('');
   const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY'>('ALL');
+  const [problemDifficultyFilter, setProblemDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
+  const [problemPage, setProblemPage] = useState(1);
+  const [problemViewMode, setProblemViewMode] = useState<'TABLE' | 'MODULES'>('TABLE');
+  const PROBLEMS_PER_PAGE = 20;
   const [isSyncingProblems, setIsSyncingProblems] = useState(false);
   const [selectedSubmissionCode, setSelectedSubmissionCode] = useState<string | null>(null);
   const [reviewingUpload, setReviewingUpload] = useState<any | null>(null);
@@ -512,6 +524,10 @@ export const AdminDashboardPage: React.FC = () => {
         if (!p.isDaily && !p.slug?.includes('daily')) return false;
       }
 
+      if (problemDifficultyFilter !== 'ALL') {
+        if (p.difficulty !== problemDifficultyFilter) return false;
+      }
+
       if (problemSearch.trim()) {
         const q = problemSearch.toLowerCase().trim();
         const matchesTitle = p.title?.toLowerCase().includes(q);
@@ -523,7 +539,57 @@ export const AdminDashboardPage: React.FC = () => {
 
       return true;
     });
-  }, [rawProblems, problemCategoryFilter, problemSearch]);
+  }, [rawProblems, problemCategoryFilter, problemDifficultyFilter, problemSearch]);
+
+  React.useEffect(() => {
+    setProblemPage(1);
+  }, [problemCategoryFilter, problemDifficultyFilter, problemSearch]);
+
+  const totalProblemPages = Math.ceil(filteredProblems.length / PROBLEMS_PER_PAGE) || 1;
+  const paginatedProblems = React.useMemo(() => {
+    const start = (problemPage - 1) * PROBLEMS_PER_PAGE;
+    return filteredProblems.slice(start, start + PROBLEMS_PER_PAGE);
+  }, [filteredProblems, problemPage]);
+
+  const getModuleBadge = (p: any) => {
+    const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+    const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
+    const isDaily = p.isDaily || p.slug?.includes('daily');
+
+    if (isBook) {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+          📚 Kanetkar Book
+        </span>
+      );
+    }
+
+    if (isPractice) {
+      const slug = (p.moduleSlug || '').toLowerCase();
+      let modLabel = 'Practice Module';
+      if (slug.includes('control')) modLabel = 'Module 1: Control';
+      else if (slug.includes('pointer') || slug.includes('function')) modLabel = 'Module 2: Pointers';
+      else if (slug.includes('array')) modLabel = 'Module 3: Arrays';
+      else if (slug.includes('dynamic') || slug.includes('advanced')) modLabel = 'Module 4: Dynamic Mem';
+      else if (p.moduleSlug) modLabel = `Module ${p.moduleSlug.replace(/[^0-9]/g, '') || ''}`;
+
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/30 whitespace-nowrap">
+          🧩 {modLabel}
+        </span>
+      );
+    }
+
+    if (isDaily) {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+          ⚡ Daily Challenge
+        </span>
+      );
+    }
+
+    return null;
+  };
   const submissions = submissionsData?.data?.submissions || [];
   const uploads = uploadsData?.data?.uploads || [];
 
@@ -675,9 +741,21 @@ export const AdminDashboardPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Problem created successfully!');
       setIsCreateProblemOpen(false);
+      setEditingProblem(null);
       queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create problem'),
+  });
+
+  const updateProblemMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => api.put(`/admin/problems/${id}`, body),
+    onSuccess: () => {
+      toast.success('Problem updated successfully!');
+      setIsCreateProblemOpen(false);
+      setEditingProblem(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+    },
+    onError: (err: any) => toast.error(err.message || 'Failed to update problem'),
   });
 
   const deleteProblemMutation = useMutation({
@@ -966,7 +1044,36 @@ export const AdminDashboardPage: React.FC = () => {
         return;
       }
     }
-    createProblemMutation.mutate(problemForm);
+    if (editingProblem) {
+      updateProblemMutation.mutate({ id: editingProblem.id, body: problemForm });
+    } else {
+      createProblemMutation.mutate(problemForm);
+    }
+  };
+
+  const handleOpenEditProblem = (prob: any) => {
+    setEditingProblem(prob);
+    setProblemForm({
+      title: prob.title || '',
+      slug: prob.slug || '',
+      difficulty: (prob.difficulty as Difficulty) || 'MEDIUM',
+      category: prob.category || 'Algorithms',
+      tags: Array.isArray(prob.tags) ? prob.tags : ['Pointers', 'Basics'],
+      description: prob.description || '',
+      starterCode: prob.starterCode || '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+      timeLimitMs: prob.timeLimitMs || 1000,
+      memoryLimitMb: prob.memoryLimitMb || 64,
+      basePoints: prob.basePoints || 20,
+      status: prob.status || 'PUBLISHED',
+      testCases: Array.isArray(prob.testCases) && prob.testCases.length > 0
+        ? prob.testCases.map((tc: any) => ({
+            input: tc.input || '',
+            expectedOutput: tc.expectedOutput || '',
+            isHidden: Boolean(tc.isHidden),
+          }))
+        : [{ input: '', expectedOutput: '', isHidden: false }],
+    });
+    setIsCreateProblemOpen(true);
   };
 
   return (
@@ -1917,39 +2024,53 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Problems */}
       {activeTab === 'problems' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              onClick={() => setActiveTab('problems')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                activeTab === 'problems'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
-              }`}
-            >
-              📚 All Problems & Test Cases ({problems.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('practice')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-                (activeTab as any) === 'practice'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
-              }`}
-            >
-              🧩 4 Practice Modules (80 Problems)
-            </button>
-          </div>
+          {/* Header Card */}
           <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-cyan-400" />
-                <span>LogicQ Challenge Library & Test Cases Pool</span>
+                <span>Problem Bank & Curriculum</span>
               </h2>
-              <p className="text-xs font-mono text-slate-400 mt-0.5">
-                Total {rawProblems.length} challenges configured (including Yashavant Kanetkar Book Bank & 4 Practice Modules).
-              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400 mt-1">
+                <span>Total: <strong className="text-white">{rawProblems.length}</strong></span>
+                <span>•</span>
+                <span>Daily: <strong className="text-emerald-400">{rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length}</strong></span>
+                <span>•</span>
+                <span>Practice: <strong className="text-purple-400">{rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length}</strong></span>
+                <span>•</span>
+                <span>Kanetkar: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
+              </div>
             </div>
+
             <div className="flex flex-wrap items-center gap-2.5">
+              {/* View Switcher */}
+              <div className="p-1 rounded-xl bg-dark-900 border border-white/10 flex items-center gap-1 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => setProblemViewMode('TABLE')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    problemViewMode === 'TABLE'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span>Problem List ({rawProblems.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProblemViewMode('MODULES')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                    problemViewMode === 'MODULES'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Syllabus Modules (4)</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 disabled={isSyncingProblems}
@@ -1957,7 +2078,7 @@ export const AdminDashboardPage: React.FC = () => {
                   try {
                     setIsSyncingProblems(true);
                     await FirestoreDataService.syncProblems(rawProblems);
-                    toast.success(`Successfully synced ${rawProblems.length} challenges and test cases to Firestore Cloud!`);
+                    toast.success(`Successfully synced ${rawProblems.length} challenges to Firestore Cloud!`);
                     queryClient.invalidateQueries({ queryKey: ['firestore-problems'] });
                   } catch (err: any) {
                     toast.error(err.message || 'Failed to sync problems');
@@ -1965,187 +2086,364 @@ export const AdminDashboardPage: React.FC = () => {
                     setIsSyncingProblems(false);
                   }
                 }}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl font-mono text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
-                title="Sync All Book Bank & Practice Problems to Cloud"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-mono text-xs font-medium text-amber-300/90 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all"
+                title="Sync challenges to cloud backup"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingProblems ? 'animate-spin' : ''}`} />
-                <span>{isSyncingProblems ? 'Syncing...' : 'Sync to Cloud'}</span>
+                <span>{isSyncingProblems ? 'Syncing...' : 'Sync Cloud'}</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => setIsCreateProblemOpen(true)}
+                onClick={() => {
+                  setEditingProblem(null);
+                  setProblemForm({
+                    title: '',
+                    slug: '',
+                    difficulty: 'MEDIUM',
+                    category: 'Algorithms',
+                    tags: ['Pointers', 'Basics'],
+                    description: `### Problem Description\n\nExplain the logic and constraints here.\n\n### Input Format\nStandard input specifications.\n\n### Output Format\nExpected output specifications.`,
+                    starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write your logic here\n    return 0;\n}`,
+                    timeLimitMs: 1000,
+                    memoryLimitMb: 64,
+                    basePoints: 20,
+                    status: 'PUBLISHED',
+                    testCases: [{ input: '', expectedOutput: '', isHidden: false }],
+                  });
+                  setIsCreateProblemOpen(true);
+                }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add New Question / Problem</span>
+                <span>+ Add New Question</span>
               </button>
             </div>
           </div>
 
-          {/* Filters & Search Toolbar */}
-          <div className="glass-card p-4 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setProblemCategoryFilter('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                  problemCategoryFilter === 'ALL'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                    : 'text-slate-400 hover:text-white bg-dark-900/60'
-                }`}
-              >
-                All ({rawProblems.length})
-              </button>
-              <button
-                onClick={() => setProblemCategoryFilter('BOOK')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
-                  problemCategoryFilter === 'BOOK'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
-                    : 'text-slate-400 hover:text-white bg-dark-900/60'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
-              </button>
-              <button
-                onClick={() => setProblemCategoryFilter('PRACTICE')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                  problemCategoryFilter === 'PRACTICE'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
-                    : 'text-slate-400 hover:text-white bg-dark-900/60'
-                }`}
-              >
-                Practice Curriculum ({rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length})
-              </button>
-              <button
-                onClick={() => setProblemCategoryFilter('DAILY')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                  problemCategoryFilter === 'DAILY'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
-                    : 'text-slate-400 hover:text-white bg-dark-900/60'
-                }`}
-              >
-                Daily Challenges ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})
-              </button>
-            </div>
+          {problemViewMode === 'TABLE' ? (
+            <>
+              {/* Filters & Search Toolbar */}
+              <div className="glass-card p-4 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setProblemCategoryFilter('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                      problemCategoryFilter === 'ALL'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                    }`}
+                  >
+                    All ({rawProblems.length})
+                  </button>
+                  <button
+                    onClick={() => setProblemCategoryFilter('DAILY')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                      problemCategoryFilter === 'DAILY'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
+                  </button>
+                  <button
+                    onClick={() => setProblemCategoryFilter('PRACTICE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                      problemCategoryFilter === 'PRACTICE'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
+                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Practice ({rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length})</span>
+                  </button>
+                  <button
+                    onClick={() => setProblemCategoryFilter('BOOK')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                      problemCategoryFilter === 'BOOK'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                        : 'text-slate-400 hover:text-white bg-dark-900/60'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
+                  </button>
 
-            <div className="relative min-w-[240px]">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={problemSearch}
-                onChange={(e) => setProblemSearch(e.target.value)}
-                placeholder="Search title, slug, or tag..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900/90 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
+                  <div className="h-5 w-[1px] bg-white/10 mx-1 hidden sm:block" />
 
-          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
-                <tr>
-                  <th className="px-6 py-3.5">Title & Reference</th>
-                  <th className="px-6 py-3.5">Difficulty</th>
-                  <th className="px-6 py-3.5">Category</th>
-                  <th className="px-6 py-3.5">Test Cases</th>
-                  <th className="px-6 py-3.5">Daily Status</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredProblems.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                      No problems found matching active filter.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProblems.map((p: any) => {
-                    const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
-                    const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
-                    const testCount = Array.isArray(p.testCases) ? p.testCases.length : 0;
+                  <select
+                    value={problemDifficultyFilter}
+                    onChange={(e) => setProblemDifficultyFilter(e.target.value as any)}
+                    className="px-2.5 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                  >
+                    <option value="ALL">All Difficulties</option>
+                    <option value="EASY">🟢 Easy</option>
+                    <option value="MEDIUM">🟡 Medium</option>
+                    <option value="HARD">🔴 Hard</option>
+                  </select>
+                </div>
 
-                    return (
-                      <tr key={p.id || p.slug} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm block">{p.title}</span>
-                            {isBook && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 whitespace-nowrap">
-                                📚 Kanetkar Book
-                              </span>
-                            )}
-                            {isPractice && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/30 whitespace-nowrap">
-                                Practice M{p.moduleSlug ? p.moduleSlug.replace('module-', '') : 'od'}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-slate-500 text-[11px] block mt-0.5">slug: {p.slug}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <DifficultyBadge difficulty={p.difficulty as Difficulty} size="sm" />
-                        </td>
-                        <td className="px-6 py-4 text-slate-300">{p.category}</td>
-                        <td className="px-6 py-4">
-                          <button
-                            type="button"
-                            onClick={() => setInspectingProblem(p)}
-                            className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30 flex items-center gap-1.5 transition-all text-xs"
-                            title="Click to view and inspect all test cases"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>{testCount} cases</span>
-                          </button>
-                        </td>
-                        <td className="px-6 py-4">
-                          {p.isDaily ? (
-                            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px]">
-                              Scheduled: {p.scheduledDate || 'Today'}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                const date = prompt('Enter scheduled date (YYYY-MM-DD):', '2026-10-10');
-                                if (date) scheduleDailyMutation.mutate({ problemId: p.id, scheduledDate: date });
-                              }}
-                              className="text-[10px] text-slate-500 hover:text-cyan-400 flex items-center gap-1"
-                            >
-                              <Calendar className="w-3 h-3" /> Schedule as Daily
-                            </button>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setInspectingProblem(p)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                            title="Inspect Test Cases & Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete problem "${p.title}"?`)) {
-                                deleteProblemMutation.mutate(p.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10"
-                            title="Delete Problem"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                <div className="relative min-w-[240px]">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={problemSearch}
+                    onChange={(e) => setProblemSearch(e.target.value)}
+                    placeholder="Search title, slug, or tag..."
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900/90 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              {/* Table Card */}
+              <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                      <tr>
+                        <th className="px-6 py-3.5">Title & Reference</th>
+                        <th className="px-6 py-3.5">Difficulty</th>
+                        <th className="px-6 py-3.5">Category</th>
+                        <th className="px-6 py-3.5">Test Cases</th>
+                        <th className="px-6 py-3.5">Daily Status</th>
+                        <th className="px-6 py-3.5 text-right">Actions</th>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {filteredProblems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                            No problems found matching active filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedProblems.map((p: any) => {
+                          const testCount = Array.isArray(p.testCases) ? p.testCases.length : 0;
+
+                          return (
+                            <tr key={p.id || p.slug} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-white text-sm block">{p.title}</span>
+                                  {getModuleBadge(p)}
+                                </div>
+                                <span className="text-slate-500 text-[11px] block mt-0.5">slug: {p.slug}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <DifficultyBadge difficulty={p.difficulty as Difficulty} size="sm" />
+                              </td>
+                              <td className="px-6 py-4 text-slate-300">{p.category}</td>
+                              <td className="px-6 py-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setInspectingProblem(p)}
+                                  className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30 flex items-center gap-1.5 transition-all text-xs"
+                                  title="Click to view and inspect all test cases"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>{testCount} cases</span>
+                                </button>
+                              </td>
+                              <td className="px-6 py-4">
+                                {p.isDaily ? (
+                                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-semibold inline-flex items-center gap-1">
+                                    <Zap className="w-3 h-3 text-emerald-400" />
+                                    <span>Scheduled: {p.scheduledDate || 'Today'}</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSchedulingProblem(p);
+                                      const todayStr = new Date().toISOString().split('T')[0];
+                                      setScheduleDate(todayStr);
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-cyan-500/15 border border-white/[0.08] hover:border-cyan-500/30 text-[11px] text-slate-300 hover:text-cyan-300 inline-flex items-center gap-1.5 transition font-mono"
+                                    title="Schedule as Daily Challenge"
+                                  >
+                                    <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                                    <span>Schedule Daily</span>
+                                  </button>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditProblem(p)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20 transition"
+                                  title="Edit Problem & Test Cases"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`Delete problem "${p.title}"?`)) {
+                                      deleteProblemMutation.mutate(p.id);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition"
+                                  title="Delete Problem"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Footer */}
+                <div className="px-6 py-3.5 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-slate-400">
+                  <div>
+                    Showing <span className="text-white font-bold">{filteredProblems.length === 0 ? 0 : (problemPage - 1) * PROBLEMS_PER_PAGE + 1}</span> to{' '}
+                    <span className="text-white font-bold">{Math.min(filteredProblems.length, problemPage * PROBLEMS_PER_PAGE)}</span> of{' '}
+                    <span className="text-white font-bold">{filteredProblems.length}</span> challenges
+                    {(problemCategoryFilter !== 'ALL' || problemDifficultyFilter !== 'ALL' || problemSearch) && (
+                      <span className="text-cyan-400 ml-1.5 font-semibold">(filtered)</span>
+                    )}
+                  </div>
+
+                  {totalProblemPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={problemPage === 1}
+                        onClick={() => setProblemPage((p) => Math.max(1, p - 1))}
+                        className="px-3 py-1.5 rounded-lg bg-dark-900 border border-white/10 hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-mono transition"
+                      >
+                        ← Prev
+                      </button>
+
+                      <span className="px-2 text-slate-300">
+                        Page <strong className="text-white">{problemPage}</strong> of {totalProblemPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={problemPage === totalProblemPages}
+                        onClick={() => setProblemPage((p) => Math.min(totalProblemPages, p + 1))}
+                        className="px-3 py-1.5 rounded-lg bg-dark-900 border border-white/10 hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-mono transition"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Syllabus Modules Grid View */
+            <div className="space-y-4">
+              {(() => {
+                const modulesList = practiceModulesData?.data?.modules || [
+                  { order: 1, title: 'Control Structures', slug: 'control-structures', requirementText: 'Unlocked for all', totalQuestions: 10 },
+                  { order: 2, title: 'Pointers and Functions', slug: 'pointers-and-functions', requirementText: 'Solve all 10 in Module 1', totalQuestions: 10 },
+                  { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', requirementText: 'Solve all 10 in Module 2', totalQuestions: 10 },
+                  { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', requirementText: 'Solve all 10 in Module 3', totalQuestions: 10 },
+                ];
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {modulesList.map((m: any) => {
+                      const moduleProblems = rawProblems.filter((p: any) =>
+                        p.moduleSlug === m.slug ||
+                        p.slug?.startsWith(`practice-m${m.order}-`) ||
+                        (m.order === 1 && p.moduleSlug?.includes('control')) ||
+                        (m.order === 2 && (p.moduleSlug?.includes('pointer') || p.moduleSlug?.includes('function'))) ||
+                        (m.order === 3 && p.moduleSlug?.includes('array')) ||
+                        (m.order === 4 && (p.moduleSlug?.includes('dynamic') || p.moduleSlug?.includes('advanced')))
+                      );
+
+                      const isExpanded = selectedPracticeModuleSlug === m.slug;
+
+                      return (
+                        <div
+                          key={m.slug}
+                          className={`glass-card p-5 rounded-2xl border transition-all space-y-3 ${
+                            isExpanded
+                              ? 'border-cyan-400/50 bg-cyan-500/[0.04] shadow-lg shadow-cyan-500/10'
+                              : 'border-white/[0.08] hover:border-white/[0.2]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                              MODULE {m.order}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-400">
+                                {moduleProblems.length || m.totalQuestions || 0} Problems
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewPracticeProblemForm((prev) => ({
+                                    ...prev,
+                                    moduleSlug: m.slug,
+                                  }));
+                                  setIsCreatePracticeProblemOpen(true);
+                                }}
+                                className="px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20"
+                                title={`Add question to ${m.title}`}
+                              >
+                                + Add Question
+                              </button>
+                            </div>
+                          </div>
+
+                          <h4 className="text-sm font-bold text-white">{m.title}</h4>
+                          <p className="text-xs text-slate-400 line-clamp-2">{m.description || m.requirementText}</p>
+
+                          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPracticeModuleSlug(isExpanded ? null : m.slug)}
+                              className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold"
+                            >
+                              <span>{isExpanded ? 'Hide Questions ▲' : `View Questions (${moduleProblems.length}) ▼`}</span>
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="pt-2 space-y-1.5 max-h-60 overflow-y-auto">
+                              {moduleProblems.map((prob: any, pIdx: number) => (
+                                <div
+                                  key={prob.id || prob.slug || pIdx}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-dark-900/60 border border-white/[0.04] text-xs font-mono"
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <span className="text-slate-500">#{pIdx + 1}</span>
+                                    <span className="text-white truncate font-medium">{prob.title}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditProblem(prob)}
+                                      className="p-1 rounded text-slate-400 hover:text-cyan-300"
+                                      title="Edit Problem"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
-      </div>
       )}
 
       {/* Modal: Test Cases Inspector */}
@@ -2246,6 +2544,78 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 Close Inspector
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Schedule Daily Challenge */}
+      {schedulingProblem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-bold text-white font-mono">Schedule Daily Challenge</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSchedulingProblem(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <span className="text-xs text-slate-400 font-mono block">Selected Challenge:</span>
+                <span className="text-sm font-bold text-white font-mono block mt-0.5">{schedulingProblem.title}</span>
+                <span className="text-xs text-slate-500 font-mono">slug: {schedulingProblem.slug}</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-500/[0.08] border border-emerald-500/20 space-y-2">
+                <div className="text-xs font-mono font-bold text-emerald-300">Quick 1-Click Action:</div>
+                <button
+                  type="button"
+                  disabled={scheduleDailyMutation.isPending}
+                  onClick={() => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    scheduleDailyMutation.mutate(
+                      { problemId: schedulingProblem.id, scheduledDate: todayStr },
+                      { onSuccess: () => setSchedulingProblem(null) }
+                    );
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/40 flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>{scheduleDailyMutation.isPending ? 'Scheduling...' : "Set as Today's Daily Challenge"}</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                <label className="text-xs text-slate-300 font-mono block">Or Pick a Specific Date:</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-dark-900 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                />
+                <button
+                  type="button"
+                  disabled={!scheduleDate || scheduleDailyMutation.isPending}
+                  onClick={() => {
+                    scheduleDailyMutation.mutate(
+                      { problemId: schedulingProblem.id, scheduledDate: scheduleDate },
+                      { onSuccess: () => setSchedulingProblem(null) }
+                    );
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-mono font-bold border border-cyan-500/40 flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{scheduleDailyMutation.isPending ? 'Scheduling...' : `Schedule for ${scheduleDate}`}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -4380,10 +4750,13 @@ export const AdminDashboardPage: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-cyan-400" />
-                <span>Author LogicQ Challenge</span>
+                <span>{editingProblem ? `Edit Challenge: ${editingProblem.title}` : 'Author LogicQ Challenge'}</span>
               </h3>
               <button
-                onClick={() => setIsCreateProblemOpen(false)}
+                onClick={() => {
+                  setIsCreateProblemOpen(false);
+                  setEditingProblem(null);
+                }}
                 className="text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
@@ -4592,17 +4965,22 @@ export const AdminDashboardPage: React.FC = () => {
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsCreateProblemOpen(false)}
+                  onClick={() => {
+                    setIsCreateProblemOpen(false);
+                    setEditingProblem(null);
+                  }}
                   className="px-4 py-2 rounded-lg font-mono text-xs text-slate-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={createProblemMutation.isPending}
+                  disabled={createProblemMutation.isPending || updateProblemMutation.isPending}
                   className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
                 >
-                  {createProblemMutation.isPending ? 'Publishing...' : 'Publish Challenge'}
+                  {editingProblem
+                    ? (updateProblemMutation.isPending ? 'Updating...' : 'Save Changes')
+                    : (createProblemMutation.isPending ? 'Publishing...' : 'Publish Challenge')}
                 </button>
               </div>
             </form>
