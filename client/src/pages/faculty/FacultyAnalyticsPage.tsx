@@ -25,6 +25,9 @@ import {
   ExternalLink,
   MessageSquare,
   Activity,
+  Check,
+  RotateCcw,
+  Terminal,
 } from 'lucide-react';
 
 interface StudentRosterItem {
@@ -54,6 +57,13 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStudentForInspect, setSelectedStudentForInspect] = useState<string | null>(null);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  // Candidate Inspection Modal State
+  const [modalTab, setModalTab] = useState<'audit' | 'submissions'>('audit');
+  const [verifiedStudents, setVerifiedStudents] = useState<Set<string>>(new Set());
+  const [expandedCodeId, setExpandedCodeId] = useState<string | null>(null);
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [copiedPrn, setCopiedPrn] = useState(false);
 
   // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions
   const { data: analyticsData, isLoading } = useQuery({
@@ -272,28 +282,102 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const inspectTelemetry = useMemo(() => {
     if (!deepDiveData) return null;
     const attempts = (deepDiveData.assignments || []).flatMap((a: any) => a.attempts || []);
-    const totalTabSwitches = attempts.reduce((acc: number, att: any) => acc + (att.tabSwitchCount || 0), 0);
-    const totalCopyPaste = attempts.reduce((acc: number, att: any) => acc + (att.copyPasteAttempts || 0), 0);
-    const totalFullScreenExits = attempts.reduce((acc: number, att: any) => acc + (att.fullScreenExitCount || 0), 0);
+
+    // Merge telemetry with main analytics roster item if present
+    const matched = (analyticsData?.students || []).find(
+      (s) => s.prn === selectedStudentForInspect || s.id === selectedStudentForInspect || s.uid === selectedStudentForInspect
+    );
+
+    const attemptsTabSwitches = attempts.reduce((acc: number, att: any) => acc + (att.tabSwitchCount || 0), 0);
+    const attemptsCopyPaste = attempts.reduce((acc: number, att: any) => acc + (att.copyPasteAttempts || 0), 0);
+    const attemptsFullScreenExits = attempts.reduce((acc: number, att: any) => acc + (att.fullScreenExitCount || 0), 0);
+
+    const totalTabSwitches = Math.max(attemptsTabSwitches, matched?.tabSwitchCount || 0);
+    const totalCopyPaste = Math.max(attemptsCopyPaste, matched?.copyPasteAttempts || 0);
+    const totalFullScreenExits = attemptsFullScreenExits;
     const vivaList = (deepDiveData.assignments || []).flatMap((a: any) => a.vivaQuestions || []);
 
-    const integrityScore = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityScore !== undefined)
+    const baseScore = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityScore !== undefined)
       ? deepDiveData.assignments[0].integrityScore
-      : (totalTabSwitches >= 3 ? 35 : totalTabSwitches > 0 ? 75 : 100);
+      : (matched?.integrityScore !== undefined ? matched.integrityScore : (totalTabSwitches >= 3 ? 35 : totalTabSwitches > 0 ? 75 : 100));
 
-    const integrityRisk = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityRisk)
+    const baseRisk = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityRisk)
       ? deepDiveData.assignments[0].integrityRisk
-      : (integrityScore <= 40 ? 'HIGH' : integrityScore <= 75 ? 'MODERATE' : 'NORMAL');
+      : (matched?.integrityRisk || (baseScore <= 40 ? 'HIGH' : baseScore <= 75 ? 'MODERATE' : 'NORMAL'));
 
     return {
       totalTabSwitches,
       totalCopyPaste,
       totalFullScreenExits,
       vivaList,
-      integrityScore,
-      integrityRisk,
+      integrityScore: baseScore,
+      integrityRisk: baseRisk,
     };
-  }, [deepDiveData]);
+  }, [deepDiveData, analyticsData?.students, selectedStudentForInspect]);
+
+  // Faculty Actions: Verify / Clear Flag
+  const isCandidateVerified = Boolean(
+    selectedStudentForInspect && verifiedStudents.has(selectedStudentForInspect)
+  );
+
+  const handleToggleVerified = () => {
+    if (!selectedStudentForInspect) return;
+    setVerifiedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(selectedStudentForInspect)) {
+        next.delete(selectedStudentForInspect);
+        toast.info('Student integrity flag restored.');
+      } else {
+        next.add(selectedStudentForInspect);
+        toast.success('Integrity verified: Flag pardoned by faculty.');
+      }
+      return next;
+    });
+  };
+
+  // Faculty Actions: Copy Full Audit Report
+  const handleCopyStudentReport = () => {
+    if (!deepDiveData?.student) return;
+    const s = deepDiveData.student;
+    const submissions = deepDiveData.submissions || [];
+    const acceptedCount = submissions.filter((sub: any) => sub.verdict === 'ACCEPTED').length;
+    const integrityStatus = isCandidateVerified
+      ? 'VERIFIED_CLEAN (Pardoned by Faculty Review)'
+      : (inspectTelemetry?.integrityRisk || 'NORMAL');
+
+    const text = `🎓 LOGICQ CANDIDATE INSPECTION AUDIT
+------------------------------------------------
+Candidate Name : ${s.fullName}
+PRN / Roll No  : ${s.prn || 'N/A'}
+Email Address  : ${s.email}
+Academic Dept  : ${s.department || 'CSE'} (Year ${s.year || 'SY'})
+Total Points   : ${s.totalPoints || 0} PTS
+Current Streak : ${s.currentStreak || 0} Days
+Total Submissions: ${submissions.length} (${acceptedCount} Accepted)
+Integrity Status: ${integrityStatus} (Score: ${isCandidateVerified ? 100 : (inspectTelemetry?.integrityScore || 100)}/100)
+Proctoring Violations:
+  - Tab Switches    : ${inspectTelemetry?.totalTabSwitches || 0}
+  - Clipboard Pastes: ${inspectTelemetry?.totalCopyPaste || 0}
+  - Fullscreen Exits: ${inspectTelemetry?.totalFullScreenExits || 0}
+Generated On   : ${new Date().toLocaleString()}`;
+
+    navigator.clipboard.writeText(text);
+    toast.success('Candidate audit report copied to clipboard!');
+  };
+
+  const handleCopyCode = (id: string, code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCodeId(id);
+    toast.success('C source code copied to clipboard');
+    setTimeout(() => setCopiedCodeId(null), 2000);
+  };
+
+  const handleCopyPrn = (prn: string) => {
+    navigator.clipboard.writeText(prn);
+    setCopiedPrn(true);
+    toast.success(`PRN copied: ${prn}`);
+    setTimeout(() => setCopiedPrn(false), 2000);
+  };
 
   // Export CSV
   const handleExportRoster = () => {
@@ -651,22 +735,124 @@ export const FacultyAnalyticsPage: React.FC = () => {
       {/* 5. Student Code & Proctoring Anti-Cheat Audit Modal */}
       {selectedStudentForInspect && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Modal Header */}
-            <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
-              <div className="flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-indigo-500" />
-                <div>
-                  <h3 className="font-bold text-[var(--foreground)] text-base">Candidate Inspection & Anti-Cheat Audit</h3>
-                  <p className="text-xs text-[var(--muted-foreground)]">PRN: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{selectedStudentForInspect}</span></p>
+            <div className="p-5 border-b border-[var(--border)] bg-[var(--background)]">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold text-sm flex items-center justify-center shadow-sm font-mono">
+                    {deepDiveData?.student?.fullName
+                      ? deepDiveData.student.fullName
+                          .split(' ')
+                          .map((n: string) => n[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase()
+                      : 'ST'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-[var(--foreground)] text-base">
+                        {deepDiveData?.student?.fullName || 'Candidate Inspection'}
+                      </h3>
+                      {/* PRN Badge with 1-click copy */}
+                      {deepDiveData?.student?.prn && (
+                        <button
+                          onClick={() => handleCopyPrn(deepDiveData.student.prn)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition cursor-pointer"
+                          title="Click to copy PRN"
+                        >
+                          <span>{deepDiveData.student.prn}</span>
+                          {copiedPrn ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3 opacity-60" />}
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {deepDiveData?.student?.email || '—'} • {deepDiveData?.student?.department || 'CSE'} (Year {deepDiveData?.student?.year || 'SY'})
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => setSelectedStudentForInspect(null)}
+                  className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedStudentForInspect(null)}
-                className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Quick Stat Ribbon */}
+              {deepDiveData?.student && (
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-[var(--border)]/70 text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1 font-mono text-[var(--foreground)] font-semibold">
+                      <Award className="w-3.5 h-3.5 text-indigo-500" />
+                      {deepDiveData.student.totalPoints || 0} PTS
+                    </span>
+                    <span className="text-[var(--border)]">|</span>
+                    <span className="inline-flex items-center gap-1 font-mono text-amber-600 dark:text-amber-400 font-semibold">
+                      <Flame className="w-3.5 h-3.5" />
+                      {deepDiveData.student.currentStreak || 0}d Streak
+                    </span>
+                    <span className="text-[var(--border)]">|</span>
+                    <span className="inline-flex items-center gap-1 text-[var(--muted-foreground)] font-mono">
+                      <FileCode className="w-3.5 h-3.5 text-emerald-500" />
+                      {(deepDiveData.submissions || []).length} Submissions
+                    </span>
+                  </div>
+
+                  {/* Standing Pill */}
+                  <div>
+                    {isCandidateVerified ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Verified Clean by Faculty
+                      </span>
+                    ) : (inspectTelemetry?.integrityRisk === 'HIGH' || inspectTelemetry?.integrityRisk === 'CRITICAL') ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        Integrity Flagged ({inspectTelemetry?.totalTabSwitches || 0} tabs)
+                      </span>
+                    ) : inspectTelemetry?.integrityRisk === 'MODERATE' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Moderate Risk ({inspectTelemetry?.totalTabSwitches || 0} tabs)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Proctoring Clean (0 Flags)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Tabs Bar */}
+              <div className="flex items-center gap-2 mt-4 pt-2 border-t border-[var(--border)]/60">
+                <button
+                  onClick={() => setModalTab('audit')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    modalTab === 'audit'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Proctoring & Anti-Cheat Audit</span>
+                </button>
+                <button
+                  onClick={() => setModalTab('submissions')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    modalTab === 'submissions'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]/10'
+                  }`}
+                >
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>Submitted C Code ({(deepDiveData?.submissions || []).length})</span>
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
@@ -674,119 +860,163 @@ export const FacultyAnalyticsPage: React.FC = () => {
               {isDeepDiveLoading ? (
                 <div className="py-16 text-center space-y-3">
                   <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
-                  <p className="text-xs text-[var(--muted-foreground)]">Loading student code submissions & anti-cheat audit...</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">Loading candidate telemetry & submitted code...</p>
                 </div>
               ) : !deepDiveData?.student ? (
-                <div className="py-12 text-center text-[var(--muted-foreground)]">
-                  Unable to load records for this student.
+                <div className="py-12 text-center text-[var(--muted-foreground)] text-xs">
+                  Unable to load records for this candidate.
                 </div>
-              ) : (
-                <>
-                  {/* Candidate Profile Summary */}
-                  <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h4 className="font-bold text-[var(--foreground)] text-sm">{deepDiveData.student.fullName}</h4>
+              ) : modalTab === 'audit' ? (
+                /* TAB 1: ANTI-CHEAT & PROCTORING AUDIT */
+                <div className="space-y-5">
+                  {/* Faculty Override & Integrity Health Banner */}
+                  <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
+                          Integrity Health Score
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-bold font-mono ${
+                            isCandidateVerified
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                              : (inspectTelemetry?.integrityScore || 100) >= 80
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                              : (inspectTelemetry?.integrityScore || 100) >= 50
+                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
+                          }`}
+                        >
+                          {isCandidateVerified ? '100 / 100 (VERIFIED)' : `${inspectTelemetry?.integrityScore || 100} / 100`}
+                        </span>
+                      </div>
                       <p className="text-xs text-[var(--muted-foreground)]">
-                        {deepDiveData.student.email} • {deepDiveData.student.department} (Year {deepDiveData.student.year})
+                        {isCandidateVerified
+                          ? 'This candidate has been human-reviewed and pardoned by faculty.'
+                          : (inspectTelemetry?.totalTabSwitches || 0) > 0 || (inspectTelemetry?.totalCopyPaste || 0) > 0
+                          ? 'Suspicious events logged during coding sessions or lab assessment.'
+                          : 'Zero anti-cheat violations detected across all test attempts.'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-mono">
-                      <div>
-                        <span className="text-[var(--muted-foreground)]">Points: </span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">{deepDiveData.student.totalPoints || 0} PTS</span>
+
+                    {/* Faculty Action: Mark Verified Button */}
+                    <button
+                      onClick={handleToggleVerified}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                        isCandidateVerified
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                          : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                      }`}
+                    >
+                      {isCandidateVerified ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Pardoned (Click to Re-flag)</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Mark Verified (Clear Flag)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 3 Real Telemetry Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Telemetry 1: Tab Switches */}
+                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                        <span className="font-semibold">Tab Switches</span>
+                        <Activity className="w-3.5 h-3.5 text-indigo-500" />
                       </div>
-                      <div>
-                        <span className="text-[var(--muted-foreground)]">Streak: </span>
-                        <span className="text-amber-600 dark:text-amber-400 font-bold">{deepDiveData.student.currentStreak || 0} days</span>
+                      <div className={`text-2xl font-black font-mono ${
+                        (inspectTelemetry?.totalTabSwitches || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {inspectTelemetry?.totalTabSwitches || 0}
                       </div>
+                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                        {(inspectTelemetry?.totalTabSwitches || 0) === 0
+                          ? 'Clean: Remained focused on code editor throughout session'
+                          : `Alert: Switched tabs ${(inspectTelemetry?.totalTabSwitches || 0)} times during active test`}
+                      </p>
+                    </div>
+
+                    {/* Telemetry 2: Copy-Paste Events */}
+                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                        <span className="font-semibold">Clipboard Pastes</span>
+                        <Copy className="w-3.5 h-3.5 text-rose-500" />
+                      </div>
+                      <div className={`text-2xl font-black font-mono ${
+                        (inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {inspectTelemetry?.totalCopyPaste || 0}
+                      </div>
+                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                        {(inspectTelemetry?.totalCopyPaste || 0) === 0
+                          ? 'Clean: All C logic written directly via keyboard keystrokes'
+                          : `Alert: ${(inspectTelemetry?.totalCopyPaste || 0)} external code paste attempts logged`}
+                      </p>
+                    </div>
+
+                    {/* Telemetry 3: Fullscreen Exits */}
+                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                        <span className="font-semibold">Fullscreen Exits</span>
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                      </div>
+                      <div className={`text-2xl font-black font-mono ${
+                        (inspectTelemetry?.totalFullScreenExits || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {inspectTelemetry?.totalFullScreenExits || 0}
+                      </div>
+                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                        {(inspectTelemetry?.totalFullScreenExits || 0) === 0
+                          ? 'Clean: Candidate stayed inside locked fullscreen assessment'
+                          : `Alert: ${(inspectTelemetry?.totalFullScreenExits || 0)} window minimize/escape events`}
+                      </p>
                     </div>
                   </div>
 
-                  {/* 🛡️ Dedicated Anti-Cheat & Cheating Audit Card */}
+                  {/* AI Viva Voce Oral Defense */}
                   <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">
                     <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
                       <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <MessageSquare className="w-4 h-4 text-indigo-500" />
                         <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
-                          Behavioral Integrity & Anti-Cheat Proctoring Audit
+                          AI Oral Viva Voce Verification
                         </h4>
                       </div>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          (inspectTelemetry?.integrityScore || 100) >= 80
-                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                            : (inspectTelemetry?.integrityScore || 100) >= 50
-                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
-                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20'
-                        }`}
-                      >
-                        Integrity Score: {inspectTelemetry?.integrityScore || 100} / 100 ({inspectTelemetry?.integrityRisk || 'NORMAL'})
+                      <span className="text-[11px] text-[var(--muted-foreground)]">
+                        {(inspectTelemetry?.vivaList || []).length} Question(s) Recorded
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
-                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">Tab Switches</span>
-                        <span className={`text-base font-bold font-mono ${
-                          (inspectTelemetry?.totalTabSwitches || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {inspectTelemetry?.totalTabSwitches || 0}
-                        </span>
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">
-                          {(inspectTelemetry?.totalTabSwitches || 0) >= 3 ? 'Exceeded Limit' : 'Within tolerance'}
-                        </span>
+                    {(!inspectTelemetry?.vivaList || inspectTelemetry.vivaList.length === 0) ? (
+                      <div className="py-4 text-center text-[var(--muted-foreground)] text-xs italic">
+                        No AI oral viva defense questions recorded for this candidate yet. Viva voce triggers automatically upon test submission.
                       </div>
-
-                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">Clipboard Pastes</span>
-                        <span className={`text-base font-bold font-mono ${
-                          (inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {inspectTelemetry?.totalCopyPaste || 0}
-                        </span>
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">
-                          {(inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'Blocked by Proctor' : 'No paste attempts'}
-                        </span>
-                      </div>
-
-                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">Fullscreen Exits</span>
-                        <span className={`text-base font-bold font-mono ${
-                          (inspectTelemetry?.totalFullScreenExits || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {inspectTelemetry?.totalFullScreenExits || 0}
-                        </span>
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">
-                          {(inspectTelemetry?.totalFullScreenExits || 0) > 0 ? 'Window minimized' : 'Remained focused'}
-                        </span>
-                      </div>
-
-                      <div className="p-2.5 rounded-lg bg-[var(--card)] border border-[var(--border)] space-y-1">
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">Burst Paste Detection</span>
-                        <span className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                          Clean
-                        </span>
-                        <span className="text-[10px] text-[var(--muted-foreground)] block">Normal typing rhythm</span>
-                      </div>
-                    </div>
-
-                    {/* AI Viva Voce Oral Defense Responses */}
-                    {inspectTelemetry?.vivaList && inspectTelemetry.vivaList.length > 0 && (
-                      <div className="pt-3 border-t border-[var(--border)] space-y-2">
-                        <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold text-[11px]">
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>AI Oral Viva Voce Verification Questions:</span>
-                        </div>
+                    ) : (
+                      <div className="space-y-3">
                         {inspectTelemetry.vivaList.map((v: any, vIdx: number) => (
-                          <div key={v.id || vIdx} className="p-2.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-xs space-y-1">
+                          <div key={v.id || vIdx} className="p-3 bg-[var(--card)] border border-[var(--border)] rounded-xl space-y-2 text-xs">
                             <div className="font-semibold text-[var(--foreground)]">
                               Q{vIdx + 1}: {v.prompt}
                             </div>
-                            <div className="text-[var(--muted-foreground)]">
-                              Student Answer: <span className="text-[var(--foreground)] font-mono">{v.studentAnswer || '<No answer recorded>'}</span>
+                            <div className="p-2.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--foreground)] font-mono">
+                              <span className="text-[10px] text-[var(--muted-foreground)] block font-sans mb-1 uppercase font-bold">
+                                Candidate Spoken / Typed Response:
+                              </span>
+                              {v.studentAnswer || '<No oral answer provided>'}
                             </div>
-                            <div className="text-[10px] text-indigo-600 dark:text-indigo-400">
-                              Status: {v.status} | Feedback: {v.feedback || 'Evaluated clean'}
+                            <div className="flex items-center justify-between text-[11px] pt-1">
+                              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                                AI Evaluation: {v.status || 'VERIFIED'}
+                              </span>
+                              <span className="text-[var(--muted-foreground)]">
+                                {v.feedback || 'Evaluated clean'}
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -794,27 +1024,60 @@ export const FacultyAnalyticsPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Recent Practice Submissions */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <FileCode className="w-4 h-4 text-emerald-500" />
+                  {/* Assigned Assessment Tests History */}
+                  {(deepDiveData.assignments || []).length > 0 && (
+                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">
                       <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
-                        Practice C Code Submissions ({(deepDiveData.submissions || []).length})
+                        Assigned Assessment Tests
                       </h4>
-                    </div>
-
-                    {(!deepDiveData.submissions || deepDiveData.submissions.length === 0) ? (
-                      <div className="p-6 bg-[var(--background)] rounded-xl border border-[var(--border)] text-center text-[var(--muted-foreground)] text-xs italic">
-                        No code submissions recorded yet for this candidate.
+                      <div className="space-y-2">
+                        {deepDiveData.assignments.map((asgn: any) => (
+                          <div key={asgn.id} className="p-3 bg-[var(--card)] rounded-xl border border-[var(--border)] flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-semibold text-[var(--foreground)]">{asgn.test?.title || 'Academic Assessment'}</span>
+                              <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+                                Risk: {asgn.integrityRisk || 'NORMAL'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm">
+                                {asgn.academicScore ?? 0} Marks
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {deepDiveData.submissions.map((sub: any) => (
-                          <div key={sub.id} className="p-3.5 bg-[var(--background)] border border-[var(--border)] rounded-xl space-y-2 text-xs">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* TAB 2: SUBMITTED C CODE & PRACTICE CHALLENGES */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                    <span>Showing all recorded C code attempts and compiler test results.</span>
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {(deepDiveData.submissions || []).filter((s: any) => s.verdict === 'ACCEPTED').length} Accepted / {(deepDiveData.submissions || []).length} Total
+                    </span>
+                  </div>
+
+                  {(!deepDiveData.submissions || deepDiveData.submissions.length === 0) ? (
+                    <div className="py-16 text-center space-y-3 bg-[var(--background)] rounded-2xl border border-[var(--border)]">
+                      <Terminal className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
+                      <p className="text-sm font-semibold text-[var(--foreground)]">No C code submissions found</p>
+                      <p className="text-xs text-[var(--muted-foreground)] max-w-sm mx-auto">
+                        This candidate has not submitted solutions for any practice modules or timed tests yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {deepDiveData.submissions.map((sub: any) => {
+                        const isExpanded = expandedCodeId === sub.id;
+                        return (
+                          <div key={sub.id} className="p-4 bg-[var(--background)] border border-[var(--border)] rounded-xl space-y-3 text-xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  className={`px-2.5 py-0.5 rounded text-[10px] font-bold font-mono ${
                                     sub.verdict === 'ACCEPTED'
                                       ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                                       : sub.verdict === 'WRONG_ANSWER'
@@ -824,66 +1087,84 @@ export const FacultyAnalyticsPage: React.FC = () => {
                                 >
                                   {sub.verdict || 'SUBMITTED'}
                                 </span>
-                                <span className="font-semibold text-[var(--foreground)]">
+                                <span className="font-bold text-[var(--foreground)] text-xs sm:text-sm">
                                   {sub.problem?.title || 'Practice Challenge'}
                                 </span>
                                 <span className="text-[var(--muted-foreground)] text-[10px] font-mono">
                                   ({sub.problem?.difficulty || 'C PRACTICE'})
                                 </span>
                               </div>
-                              <div className="text-[var(--muted-foreground)] text-[11px] font-mono">
+
+                              <div className="flex items-center gap-3 text-[11px] text-[var(--muted-foreground)] font-mono">
                                 {sub.runtimeMs !== null && sub.runtimeMs !== undefined && (
-                                  <span className="mr-3">{sub.runtimeMs}ms</span>
+                                  <span>{sub.runtimeMs}ms</span>
                                 )}
                                 <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleString() : ''}</span>
                               </div>
                             </div>
 
+                            {/* Expandable Source Code Viewer */}
                             {sub.code && (
-                              <details className="mt-2 text-[11px]">
-                                <summary className="text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline flex items-center gap-1 font-medium">
-                                  <Eye className="w-3 h-3" />
-                                  <span>Inspect Submitted C Source Code</span>
-                                </summary>
-                                <pre className="mt-2 p-3 bg-[#0C0F1F] rounded-lg border border-gray-800 text-gray-200 font-mono text-[10px] overflow-x-auto max-h-56 leading-relaxed">
-                                  {sub.code}
-                                </pre>
-                              </details>
+                              <div className="pt-1">
+                                <div className="flex items-center justify-between">
+                                  <button
+                                    onClick={() => setExpandedCodeId(isExpanded ? null : sub.id)}
+                                    className="inline-flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>{isExpanded ? 'Hide C Source Code' : 'Inspect Submitted C Source Code'}</span>
+                                  </button>
+
+                                  {isExpanded && (
+                                    <button
+                                      onClick={() => handleCopyCode(sub.id, sub.code)}
+                                      className="inline-flex items-center gap-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
+                                    >
+                                      {copiedCodeId === sub.id ? (
+                                        <>
+                                          <Check className="w-3 h-3 text-emerald-500" />
+                                          <span className="text-emerald-500">Copied!</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3 h-3" />
+                                          <span>Copy Code</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {isExpanded && (
+                                  <pre className="mt-2.5 p-4 bg-[#0A0D18] rounded-xl border border-gray-800 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-72 leading-relaxed shadow-inner">
+                                    {sub.code}
+                                  </pre>
+                                )}
+                              </div>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Assigned Tests (if any) */}
-                  {(deepDiveData.assignments || []).length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-[var(--border)]">
-                      <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
-                        Assigned Assessment Tests
-                      </h4>
-                      <div className="space-y-2">
-                        {deepDiveData.assignments.map((asgn: any) => (
-                          <div key={asgn.id} className="p-3 bg-[var(--background)] rounded-xl border border-[var(--border)] flex items-center justify-between text-xs">
-                            <span className="font-semibold text-[var(--foreground)]">{asgn.test?.title}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Score: {asgn.academicScore}</span>
-                              <span className="text-[var(--muted-foreground)]">Integrity Risk: {asgn.integrityRisk}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[var(--border)] flex justify-end bg-[var(--background)]">
+            <div className="p-4 border-t border-[var(--border)] flex items-center justify-between bg-[var(--background)]">
+              <button
+                onClick={handleCopyStudentReport}
+                disabled={!deepDiveData?.student}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--card)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] border border-[var(--border)] text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+              >
+                <Copy className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Copy Student Audit Report</span>
+              </button>
+
               <button
                 onClick={() => setSelectedStudentForInspect(null)}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
               >
                 Close Inspection
               </button>
