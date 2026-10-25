@@ -80,6 +80,27 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [isQuestionPaperOpen, setIsQuestionPaperOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [hasAgreedRules, setHasAgreedRules] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(`logicq_declared_${moduleSlug}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const showDeclarationModal = !hasAgreedRules;
+
+  const handleAgreeAndStart = async () => {
+    try {
+      sessionStorage.setItem(`logicq_declared_${moduleSlug}`, 'true');
+    } catch {}
+    setHasAgreedRules(true);
+    setIsInstructionsOpen(false);
+    try {
+      await requestFullscreen();
+    } catch {}
+    toast.success('Instructions acknowledged. Test session started!');
+  };
 
   // JEE Module Tracking State
   const [markedForReview, setMarkedForReview] = useState<Set<string>>(() => {
@@ -1624,10 +1645,21 @@ export const PracticeWorkspacePage: React.FC = () => {
       />
 
       <JeeInstructionsModal
-        isOpen={isInstructionsOpen}
-        onClose={() => setIsInstructionsOpen(false)}
+        isOpen={showDeclarationModal || isInstructionsOpen}
+        onClose={() => {
+          if (!hasAgreedRules) {
+            navigate('/practice');
+          } else {
+            setIsInstructionsOpen(false);
+          }
+        }}
         moduleTitle={moduleConfig.title}
         moduleOrder={moduleConfig.order}
+        totalQuestions={moduleProblems.length || 20}
+        user={user}
+        isDeclarationMode={showDeclarationModal}
+        onAgreeAndStart={handleAgreeAndStart}
+        onBackToModules={() => navigate('/practice')}
       />
 
       {/* Exit Test Confirmation Modal */}
