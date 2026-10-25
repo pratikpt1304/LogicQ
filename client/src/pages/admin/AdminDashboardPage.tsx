@@ -134,6 +134,7 @@ export const AdminDashboardPage: React.FC = () => {
   // Modal States
   const [isCreateProblemOpen, setIsCreateProblemOpen] = useState(false);
   const [editingProblem, setEditingProblem] = useState<any | null>(null);
+  const [statementTab, setStatementTab] = useState<'EDIT' | 'PREVIEW'>('EDIT');
   const [schedulingProblem, setSchedulingProblem] = useState<any | null>(null);
   const [scheduleDate, setScheduleDate] = useState<string>(() => {
     const today = new Date();
@@ -173,12 +174,24 @@ export const AdminDashboardPage: React.FC = () => {
     reason: '',
   });
 
+  const STANDARD_C_CATEGORIES = [
+    'C Fundamentals & Data Types',
+    'Control Flow & Loops',
+    'Functions & Recursion',
+    '1D & 2D Arrays',
+    'Strings & Character Manipulation',
+    'Pointers & Dynamic Memory',
+    'Structures & Unions',
+    'File I/O & Bitwise',
+    'Algorithms & Math',
+  ];
+
   // New Problem Form State
   const [problemForm, setProblemForm] = useState({
     title: '',
     slug: '',
     difficulty: 'MEDIUM' as Difficulty,
-    category: 'Algorithms',
+    category: 'C Fundamentals & Data Types',
     tags: ['Pointers', 'Basics'],
     description: `### Problem Description\n\nExplain the logic and constraints here.\n\n### Input Format\nStandard input specifications.\n\n### Output Format\nExpected output specifications.`,
     starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write your logic here\n    return 0;\n}`,
@@ -1099,10 +1112,10 @@ export const AdminDashboardPage: React.FC = () => {
     },
   });
 
-  const handleAddTestCase = () => {
+  const handleAddTestCase = (isHidden: boolean = false) => {
     setProblemForm({
       ...problemForm,
-      testCases: [...problemForm.testCases, { input: '', expectedOutput: '', isHidden: false }],
+      testCases: [...problemForm.testCases, { input: '', expectedOutput: '', isHidden }],
     });
   };
 
@@ -5194,10 +5207,10 @@ int main() {
       {/* Author New Problem Modal */}
       {isCreateProblemOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh]">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-cyan-400" />
+          <div className="w-full max-w-3xl glass-card rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[var(--border)]">
+              <h3 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2 font-mono">
+                <Code2 className="w-5 h-5 text-cyan-500" />
                 <span>{editingProblem ? `Edit Challenge: ${editingProblem.title}` : 'Author LogicQ Challenge'}</span>
               </h3>
               <button
@@ -5205,7 +5218,7 @@ int main() {
                   setIsCreateProblemOpen(false);
                   setEditingProblem(null);
                 }}
-                className="text-slate-400 hover:text-white"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -5214,169 +5227,267 @@ int main() {
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1">TITLE</label>
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Challenge Title
+                  </label>
                   <input
                     type="text"
                     required
                     value={problemForm.title}
-                    onChange={(e) => setProblemForm({ ...problemForm, title: e.target.value })}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      const autoSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      setProblemForm((prev) => ({
+                        ...prev,
+                        title,
+                        slug: editingProblem ? prev.slug : autoSlug,
+                      }));
+                    }}
                     placeholder="e.g. Inverted Binary Tree in C"
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1">SLUG (URL KEY)</label>
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Slug (URL Key)
+                  </label>
                   <input
                     type="text"
                     required
                     value={problemForm.slug}
                     onChange={(e) => setProblemForm({ ...problemForm, slug: e.target.value })}
                     placeholder="e.g. inverted-binary-tree"
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-cyan-600 dark:text-cyan-400 placeholder-slate-400 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1">DIFFICULTY</label>
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Difficulty
+                  </label>
                   <select
                     value={problemForm.difficulty}
-                    onChange={(e) =>
-                      setProblemForm({ ...problemForm, difficulty: e.target.value as Difficulty })
-                    }
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white"
+                    onChange={(e) => {
+                      const diff = e.target.value as Difficulty;
+                      const suggestedPoints = diff === 'EASY' ? 10 : diff === 'MEDIUM' ? 20 : 40;
+                      setProblemForm({
+                        ...problemForm,
+                        difficulty: diff,
+                        basePoints: suggestedPoints,
+                      });
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                   >
-                    <option value="EASY">EASY</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HARD">HARD</option>
+                    <option value="EASY">🟢 EASY (10 pts)</option>
+                    <option value="MEDIUM">🟡 MEDIUM (20 pts)</option>
+                    <option value="HARD">🔴 HARD (40 pts)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1">BASE POINTS</label>
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Base Points
+                  </label>
                   <input
                     type="number"
                     value={problemForm.basePoints}
                     onChange={(e) =>
                       setProblemForm({ ...problemForm, basePoints: parseInt(e.target.value) || 20 })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-slate-300 mb-1">CATEGORY</label>
-                  <input
-                    type="text"
-                    value={problemForm.category}
-                    onChange={(e) => setProblemForm({ ...problemForm, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-sm text-white"
-                  />
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Category / Topic
+                  </label>
+                  <select
+                    value={STANDARD_C_CATEGORIES.includes(problemForm.category) ? problemForm.category : 'CUSTOM'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'CUSTOM') {
+                        setProblemForm({ ...problemForm, category: e.target.value });
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                  >
+                    {STANDARD_C_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="CUSTOM">Custom Topic...</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-mono text-slate-300">
-                    PROBLEM STATEMENT (MARKDOWN)
+              {!STANDARD_C_CATEGORIES.includes(problemForm.category) && (
+                <div>
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] mb-1 uppercase">
+                    Custom Topic Name
                   </label>
-                  <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={problemForm.category}
+                    onChange={(e) => setProblemForm({ ...problemForm, category: e.target.value })}
+                    placeholder="Enter custom topic..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              )}
+
+              {/* Statement with Tab Switcher */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-dark-900 rounded-xl border border-slate-200 dark:border-white/10">
                     <button
                       type="button"
-                      onClick={() => {
-                        const cleaned = sanitizeMathInStatement(problemForm.description);
-                        setProblemForm({ ...problemForm, description: cleaned });
-                        toast.success('Converted math to clean Unicode symbols');
-                      }}
-                      className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline"
+                      onClick={() => setStatementTab('EDIT')}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                        statementTab === 'EDIT'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                     >
-                      Auto-Format to Clean Unicode
+                      ✏️ Edit Markdown
                     </button>
-                    {/(Chapter|Exercise|Page)\s*\d+/i.test(problemForm.description) && (
-                      <span className="text-[11px] font-mono text-amber-400">
-                        ⚠️ Mentions Chapter/Page
-                      </span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setStatementTab('PREVIEW')}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                        statementTab === 'PREVIEW'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      👁️ Student Preview
+                    </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleaned = sanitizeMathInStatement(problemForm.description);
+                      setProblemForm({ ...problemForm, description: cleaned });
+                      toast.success('Converted math to clean Unicode symbols');
+                    }}
+                    className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    Auto-Format Unicode Math
+                  </button>
                 </div>
-                <textarea
-                  rows={6}
-                  required
-                  value={problemForm.description}
-                  onChange={(e) => setProblemForm({ ...problemForm, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-white leading-relaxed resize-none"
-                />
+
+                {statementTab === 'EDIT' ? (
+                  <textarea
+                    rows={6}
+                    required
+                    value={problemForm.description}
+                    onChange={(e) => setProblemForm({ ...problemForm, description: e.target.value })}
+                    placeholder="Enter problem statement, input constraints, and format..."
+                    className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-none focus:outline-none focus:border-cyan-500"
+                  />
+                ) : (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-dark-950 border border-slate-200 dark:border-white/10 min-h-[140px] text-xs max-h-64 overflow-y-auto">
+                    <StatementMarkdown content={problemForm.description} />
+                  </div>
+                )}
                 {/Kanetkar|Test Your C Skills/i.test(`${problemForm.title} ${problemForm.description}`) && (
-                  <p className="mt-1 text-[11px] font-mono text-rose-400 font-semibold">
+                  <p className="text-[11px] font-mono text-rose-500 font-semibold">
                     🚫 Blocked: Direct book citation or author name detected. Keep problem statements reworded without author/book names.
                   </p>
                 )}
-                {problemForm.description && (
-                  <div className="mt-2 p-3 rounded-lg bg-slate-900/80 border border-slate-700/60">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1.5 font-bold">
-                      Live Student Preview
-                    </span>
-                    <div className="text-xs text-slate-200">
-                      <StatementMarkdown content={problemForm.description} />
-                    </div>
-                  </div>
-                )}
               </div>
 
+              {/* Starter Code */}
               <div>
-                <label className="block text-xs font-mono text-slate-300 mb-1">
-                  STARTER C CODE BOILERPLATE
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-mono font-bold text-[var(--foreground)] uppercase">
+                    Starter C Boilerplate
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProblemForm({
+                        ...problemForm,
+                        starterCode: `#include <stdio.h>\n\nint main() {\n    // Write your solution logic here\n    return 0;\n}`,
+                      });
+                      toast.info('Reset to standard C11 template');
+                    }}
+                    className="text-[11px] font-mono text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 cursor-pointer"
+                  >
+                    Reset to C11 Template
+                  </button>
+                </div>
                 <textarea
-                  rows={5}
+                  rows={4}
                   required
                   value={problemForm.starterCode}
                   onChange={(e) => setProblemForm({ ...problemForm, starterCode: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-dark-900 border border-slate-700 text-xs font-mono text-cyan-200 resize-none"
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-cyan-200 resize-none focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               {/* Test Cases Manager */}
-              <div className="space-y-3 pt-2 border-t border-slate-800">
+              <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-white/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-white font-bold">
-                    TEST CASES ({problemForm.testCases.length})
+                  <span className="text-xs font-mono text-[var(--foreground)] font-bold uppercase">
+                    Test Cases ({problemForm.testCases.length})
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleAddTestCase}
-                    className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Case
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAddTestCase(false)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-mono text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-500/30 hover:bg-cyan-100 dark:hover:bg-cyan-950/60 flex items-center gap-1 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Public Sample
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddTestCase(true)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-mono text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-500/30 hover:bg-purple-100 dark:hover:bg-purple-950/60 flex items-center gap-1 transition"
+                    >
+                      <Lock className="w-3.5 h-3.5" /> Hidden Test
+                    </button>
+                  </div>
                 </div>
 
                 {problemForm.testCases.map((tc, index) => (
                   <div
                     key={index}
-                    className="p-3 rounded-xl bg-dark-950 border border-white/[0.06] space-y-2 text-xs font-mono"
+                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-dark-950 border border-slate-200 dark:border-white/10 space-y-2.5 text-xs font-mono shadow-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 font-bold">Case {index + 1}</span>
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800 dark:text-white">Case #{index + 1}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          tc.isHidden
+                            ? 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-500/30'
+                            : 'bg-cyan-100 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-500/30'
+                        }`}>
+                          {tc.isHidden ? '🔒 Hidden Evaluation Case' : '👁️ Public Example (Visible to Students)'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 dark:text-slate-400">
                           <input
                             type="checkbox"
                             checked={tc.isHidden}
                             onChange={(e) =>
                               handleTestCaseChange(index, 'isHidden', e.target.checked)
                             }
-                            className="rounded bg-dark-900 border-slate-700 text-cyan-500"
+                            className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
                           />
-                          <span>Hidden (Shield from client)</span>
+                          <span>Hidden</span>
                         </label>
                         {problemForm.testCases.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveTestCase(index)}
-                            className="text-rose-400 hover:text-rose-300"
+                            className="text-rose-600 dark:text-rose-400 hover:underline"
                           >
                             Remove
                           </button>
@@ -5384,25 +5495,31 @@ int main() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <span className="text-[10px] text-slate-500 block">STDIN INPUT</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">
+                          STDIN INPUT
+                        </span>
                         <textarea
                           rows={2}
                           value={tc.input}
                           onChange={(e) => handleTestCaseChange(index, 'input', e.target.value)}
-                          className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-cyan-200 text-xs resize-none"
+                          placeholder="e.g. 10 20"
+                          className="w-full p-2 rounded-lg bg-white dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-cyan-700 dark:text-cyan-300 text-xs font-mono resize-none focus:outline-none focus:border-cyan-500"
                         />
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block">EXPECTED STDOUT</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block mb-1">
+                          EXPECTED STDOUT
+                        </span>
                         <textarea
                           rows={2}
                           value={tc.expectedOutput}
                           onChange={(e) =>
                             handleTestCaseChange(index, 'expectedOutput', e.target.value)
                           }
-                          className="w-full p-1.5 rounded bg-dark-900 border border-slate-800 text-emerald-200 text-xs resize-none"
+                          placeholder="e.g. 30"
+                          className="w-full p-2 rounded-lg bg-white dark:bg-dark-900 border border-slate-300 dark:border-white/10 text-emerald-700 dark:text-emerald-300 text-xs font-mono resize-none focus:outline-none focus:border-cyan-500"
                         />
                       </div>
                     </div>
@@ -5410,25 +5527,29 @@ int main() {
                 ))}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => {
                     setIsCreateProblemOpen(false);
                     setEditingProblem(null);
                   }}
-                  className="px-4 py-2 rounded-lg font-mono text-xs text-slate-400"
+                  className="px-4 py-2 rounded-xl font-mono text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)] transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createProblemMutation.isPending || updateProblemMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400"
+                  className="px-5 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition disabled:opacity-50"
                 >
                   {editingProblem
-                    ? (updateProblemMutation.isPending ? 'Updating...' : 'Save Changes')
-                    : (createProblemMutation.isPending ? 'Publishing...' : 'Publish Challenge')}
+                    ? updateProblemMutation.isPending
+                      ? 'Updating...'
+                      : 'Save Changes'
+                    : createProblemMutation.isPending
+                    ? 'Publishing...'
+                    : 'Publish Challenge'}
                 </button>
               </div>
             </form>
