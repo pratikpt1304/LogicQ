@@ -328,7 +328,7 @@ export const LoginPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickLogin('admin@logicq.io')}
+                onClick={() => handleQuickLogin('logicqarena@gmail.com')}
                 disabled={loading}
                 className="p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-left transition-all disabled:opacity-50 cursor-pointer"
               >
@@ -336,7 +336,7 @@ export const LoginPage: React.FC = () => {
                   👑 Admin
                 </div>
                 <div className="text-[10px] text-[var(--text-muted)] font-mono truncate mt-0.5">
-                  admin@logicq.io
+                  logicqarena@gmail.com
                 </div>
               </button>
 

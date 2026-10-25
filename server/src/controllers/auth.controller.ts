@@ -195,7 +195,6 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 }
 
 export const ADMIN_EMAILS = [
-  'admin@logicq.io',
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
   'logicq1304@gmail.com',
@@ -204,7 +203,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const WALKTHROUGH_EMAILS = [
-  'admin@logicq.io',
   'faculty@logicq.io',
   'student@logicq.io',
   'hariprasathset@sanjivani.edu.in',

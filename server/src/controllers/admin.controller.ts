@@ -855,7 +855,9 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const search = (req.query.search as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      email: { not: 'admin@logicq.io' },
+    };
     if (verdict && verdict !== 'ALL') where.verdict = verdict;
 
     const userFilter: any = {};
@@ -1039,7 +1041,9 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const sectionId = (req.query.sectionId as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      email: { not: 'admin@logicq.io' },
+    };
     if (department && department !== 'ALL') where.department = department;
     if (year && year !== 'ALL') where.year = year;
     if (division && division !== 'ALL') where.division = division.toUpperCase();
@@ -2486,7 +2490,6 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
     }
 
     const explicitAdminEmails = [
-      'admin@logicq.io',
       'logicqarena@gmail.com',
       'hariprasathset@sanjivani.edu.in',
       'logicq1304@gmail.com',

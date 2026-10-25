@@ -216,7 +216,6 @@ function saveStoredProblems(problems: any[]) {
 }
 
 export const ADMIN_EMAILS = [
-  'admin@logicq.io',
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
   'logicq1304@gmail.com',
@@ -225,7 +224,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const WALKTHROUGH_EMAILS = [
-  'admin@logicq.io',
   'faculty@logicq.io',
   'student@logicq.io',
   'hariprasathset@sanjivani.edu.in',
@@ -367,21 +365,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       isBanned: false,
       shortId: '0001',
       createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'admin-1',
-      username: 'admin',
-      email: 'admin@logicq.io',
-      fullName: 'Bitwise Club Admin',
-      role: 'ADMIN',
-      college: 'Sanjivani University',
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: 'ADM1',
-      createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
     },
     {
       id: 'admin-2',

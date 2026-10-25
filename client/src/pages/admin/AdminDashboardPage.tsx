@@ -605,7 +605,9 @@ export const AdminDashboardPage: React.FC = () => {
       };
     });
 
-    const all = [...enrichedBackend, ...missingFromBackend];
+    const all = [...enrichedBackend, ...missingFromBackend].filter(
+      (u: any) => u.email?.toLowerCase().trim() !== 'admin@logicq.io'
+    );
     let merged = all;
 
     if (filterSearch) {
