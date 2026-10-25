@@ -329,8 +329,25 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   }, [moduleProblems, userProgress, problemSlug]);
 
+  // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved
+  const isProblemUnlocked = (idx: number): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (idx <= 0) return true;
+    for (let i = 0; i < idx; i++) {
+      const p = moduleProblems[i];
+      const isSolved = p?.isSolved || solvedSlugs.has(p?.slug);
+      if (!isSolved) return false;
+    }
+    return true;
+  };
+
   // Fast switching handler that preserves current code in memory & storage
   const handleSelectProblem = (targetSlug: string) => {
+    const targetIdx = moduleProblems.findIndex((p: any) => p.slug === targetSlug);
+    if (targetIdx > 0 && !isProblemUnlocked(targetIdx)) {
+      toast.error(`🔒 Question #${targetIdx + 1} is locked! Solve Question #${targetIdx} first to unlock.`);
+      return;
+    }
     if (problem?.slug) {
       sessionCodeMapRef.current[problem.slug] = code;
     }
@@ -374,26 +391,39 @@ export const PracticeWorkspacePage: React.FC = () => {
   };
 
   const handleSaveAndNext = async () => {
-    if (code.trim()) {
+    const isCurrentSolved = userProgress?.isSolved || solvedSlugs.has(problemSlug || '');
+
+    if (code.trim() && !isCurrentSolved) {
       try {
         const res: any = await submitMutation.mutateAsync();
         const sub = res?.data?.submission;
         if (sub?.verdict === 'ACCEPTED') {
-          setSolvedSlugs((prev) => new Set(prev).add(problemSlug || ''));
+          const nextSolved = new Set(solvedSlugs).add(problemSlug || '');
+          setSolvedSlugs(nextSolved);
+          toast.success(`🎉 Question #${problem.moduleOrder} Accepted! Unlocking Question #${problem.moduleOrder + 1}`);
           if (nextProblem) {
             handleSelectProblem(nextProblem.slug);
           } else {
             setIsSubmitModalOpen(true);
           }
           return;
+        } else {
+          toast.error(`Question #${problem.moduleOrder} test cases failed. Please solve this question to unlock the next one.`);
+          return;
         }
-      } catch {}
+      } catch {
+        return;
+      }
     }
 
-    if (nextProblem) {
-      handleSelectProblem(nextProblem.slug);
+    if (isCurrentSolved) {
+      if (nextProblem) {
+        handleSelectProblem(nextProblem.slug);
+      } else {
+        setIsSubmitModalOpen(true);
+      }
     } else {
-      setIsSubmitModalOpen(true);
+      toast.error(`🔒 Please solve and pass Question #${problem?.moduleOrder} first to unlock Question #${(problem?.moduleOrder || 0) + 1}.`);
     }
   };
 
@@ -753,6 +783,35 @@ export const PracticeWorkspacePage: React.FC = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Module Problems</span>
         </Link>
+      </div>
+    );
+  }
+
+  // Barrier check: if user attempts to directly access a locked question
+  if (moduleProblems.length > 0 && currentProblemIndex > 0 && !isProblemUnlocked(currentProblemIndex)) {
+    const firstUnsolved = moduleProblems.find((p: any) => !p.isSolved && !solvedSlugs.has(p.slug)) || moduleProblems[0];
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-5 max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-lg shadow-amber-500/10">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold font-mono text-[var(--text-main)]">
+            Question #{problem.moduleOrder} is Locked 🔒
+          </h2>
+          <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+            In this module, questions must be completed in order. You must solve <strong>Question #{problem.moduleOrder - 1}</strong> before unlocking Question #{problem.moduleOrder}.
+          </p>
+        </div>
+        {firstUnsolved && (
+          <button
+            type="button"
+            onClick={() => handleSelectProblem(firstUnsolved.slug)}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition cursor-pointer"
+          >
+            ← Solve Current Unlocked Question (#{firstUnsolved.moduleOrder}: {firstUnsolved.title})
+          </button>
+        )}
       </div>
     );
   }

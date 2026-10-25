@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, X, CheckCircle2, ChevronRight, Search } from 'lucide-react';
+import { FileText, X, CheckCircle2, ChevronRight, Search, Lock } from 'lucide-react';
+import { toast } from 'sonner';
 import { DifficultyBadge } from '../common/Badge.js';
 import { JeeQuestionStatus } from './JeeQuestionPalette.js';
 
@@ -31,6 +32,16 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!isOpen) return null;
+
+  const isUnlocked = (idx: number): boolean => {
+    if (idx <= 0) return true;
+    for (let i = 0; i < idx; i++) {
+      const prevP = problems[i];
+      const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
+      if (!isPrevSolved) return false;
+    }
+    return true;
+  };
 
   const getStatus = (p: any): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
@@ -95,11 +106,16 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
             const num = p.moduleOrder || idx + 1;
             const status = getStatus(p);
             const isCurrent = p.slug === currentProblemSlug;
+            const unlocked = isUnlocked(idx);
 
             return (
               <div
                 key={p.id || p.slug || idx}
                 onClick={() => {
+                  if (!unlocked) {
+                    toast.error(`🔒 Question #${num} is locked! Complete Question #${num - 1} first.`);
+                    return;
+                  }
                   onSelectProblem(p.slug);
                   onClose();
                 }}
@@ -133,7 +149,12 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <DifficultyBadge difficulty={p.difficulty as any} />
-                  {status === 'SOLVED' ? (
+                  {!unlocked ? (
+                    <span className="px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-mono font-semibold flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span>Locked</span>
+                    </span>
+                  ) : status === 'SOLVED' ? (
                     <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
                       <span>Solved</span>

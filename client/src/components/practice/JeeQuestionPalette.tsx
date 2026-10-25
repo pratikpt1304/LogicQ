@@ -1,4 +1,5 @@
 import React from 'react';
+import { toast } from 'sonner';
 import {
   CheckCircle2,
   Bookmark,
@@ -11,6 +12,7 @@ import {
   X,
   Clock,
   ShieldCheck,
+  Lock,
 } from 'lucide-react';
 
 export type JeeQuestionStatus = 'SOLVED' | 'MARKED' | 'NOT_ANSWERED' | 'NOT_VISITED';
@@ -48,6 +50,18 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   isMobileDrawer,
   onCloseMobileDrawer,
 }) => {
+  // Strict progressive locking: Question N requires Question N-1 to be solved
+  const isUnlocked = (idx: number): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (idx <= 0) return true;
+    for (let i = 0; i < idx; i++) {
+      const prevP = problems[i];
+      const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
+      if (!isPrevSolved) return false;
+    }
+    return true;
+  };
+
   // Helper to determine question status
   const getStatus = (p: any): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
@@ -63,6 +77,13 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   let markedCount = 0;
   let notAnsweredCount = 0;
   let notVisitedCount = 0;
+  let lockedCount = 0;
+
+  problems.forEach((p, idx) => {
+    if (!isUnlocked(idx)) {
+      lockedCount++;
+    }
+  });
 
   problems.forEach((p) => {
     const st = getStatus(p);
@@ -125,6 +146,12 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
         </div>
         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
           <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded bg-slate-900/80 text-slate-400 font-bold flex items-center justify-center text-[10px] border border-slate-800">
+              <Lock className="w-2.5 h-2.5" />
+            </span>
+            <span className="text-slate-400 font-medium">Locked ({lockedCount})</span>
+          </div>
+          <div className="flex items-center gap-2">
             <span className="w-5 h-5 rounded bg-emerald-600 text-white font-bold flex items-center justify-center text-[10px] shadow-sm">
               {solvedCount}
             </span>
@@ -165,6 +192,24 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
             const num = p.moduleOrder || idx + 1;
             const status = getStatus(p);
             const isCurrent = p.slug === currentProblemSlug;
+            const unlocked = isUnlocked(idx);
+
+            if (!unlocked) {
+              return (
+                <button
+                  key={p.id || p.slug || idx}
+                  type="button"
+                  onClick={() => {
+                    toast.error(`🔒 Question #${num} is locked! Complete Question #${num - 1} first to unlock it.`);
+                  }}
+                  className="relative h-10 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center bg-slate-900/60 text-slate-500 border border-slate-800/80 cursor-not-allowed opacity-50 transition"
+                  title={`Q${num}: ${p.title} • Locked (Solve Q${num - 1} first)`}
+                >
+                  <span className="text-[11px] leading-tight">{num}</span>
+                  <Lock className="w-2.5 h-2.5 text-slate-500" />
+                </button>
+              );
+            }
 
             let bgClass = 'bg-slate-800 text-slate-300 border border-slate-700/70 hover:bg-slate-700';
             if (status === 'SOLVED') {
