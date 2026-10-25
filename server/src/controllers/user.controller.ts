@@ -54,7 +54,8 @@ const updateProfileSchema = z.object({
     .enum(ALLOWED_YEARS, {
       errorMap: () => ({ message: 'Please select a valid academic year (FY, SY, or TY).' }),
     })
-    .optional(),
+    .optional()
+    .nullable(),
   division: z
     .preprocess((val) => {
       if (val === undefined) return undefined;

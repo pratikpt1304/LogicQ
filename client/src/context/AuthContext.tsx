@@ -211,6 +211,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
       const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
       const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
+      const retainedDepartment = finalUser.department || active?.department || null;
+      const retainedYear = finalUser.year || active?.year || null;
+      const retainedDivision = finalUser.division || active?.division || null;
+      const retainedBio = (finalUser.bio && finalUser.bio.trim() !== '') ? finalUser.bio : (active?.bio && active.bio.trim() !== '') ? active.bio : (finalUser.bio ?? null);
 
       const retainedStorage =
         finalUser.storagePreference ||
@@ -220,6 +224,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       finalUser = {
         ...finalUser,
+        department: retainedDepartment,
+        year: retainedYear,
+        division: retainedDivision,
+        bio: retainedBio,
         totalPoints: retainedPoints,
         currentStreak: retainedCurrentStreak,
         longestStreak: retainedLongestStreak,
@@ -458,6 +466,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             department: serverUser.department || existingCompleted.department,
             year: serverUser.year || existingCompleted.year,
             division: serverUser.division || existingCompleted.division,
+            bio: (serverUser.bio && serverUser.bio.trim() !== '') ? serverUser.bio : (existingCompleted.bio && existingCompleted.bio.trim() !== '') ? existingCompleted.bio : (serverUser.bio ?? null),
             displayName: pickBestRealName(serverUser.displayName, existingCompleted.displayName, targetFbUser?.displayName, serverUser.fullName, existingCompleted.fullName),
             fullName: pickBestRealName(serverUser.fullName, existingCompleted.fullName, targetFbUser?.displayName, serverUser.displayName, existingCompleted.displayName) || serverUser.fullName || serverUser.username,
             profileComplete: existingCompleted.profileComplete || serverUser.profileComplete,
@@ -897,9 +906,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...authenticatedUser,
             prn: firestoreProfile.prn || authenticatedUser.prn,
             college: firestoreProfile.college || authenticatedUser.college,
-            department: firestoreProfile.department || authenticatedUser.department,
-            year: firestoreProfile.year || authenticatedUser.year,
-            division: firestoreProfile.division || authenticatedUser.division,
+            department: authenticatedUser.department || firestoreProfile.department,
+            year: authenticatedUser.year || firestoreProfile.year,
+            division: authenticatedUser.division || firestoreProfile.division,
+            bio: (authenticatedUser.bio && authenticatedUser.bio.trim() !== '') ? authenticatedUser.bio : (firestoreProfile.bio && firestoreProfile.bio.trim() !== '') ? firestoreProfile.bio : (authenticatedUser.bio ?? null),
             displayName: pickBestRealName(firestoreProfile.displayName, authenticatedUser.displayName, cred.user.displayName, firestoreProfile.fullName, authenticatedUser.fullName),
             fullName: pickBestRealName(firestoreProfile.fullName, authenticatedUser.fullName, cred.user.displayName, firestoreProfile.displayName, authenticatedUser.displayName) || authenticatedUser.fullName || authenticatedUser.username,
             profileComplete: authenticatedUser.profileComplete || firestoreProfile.profileComplete,

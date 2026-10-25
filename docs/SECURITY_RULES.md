@@ -64,7 +64,7 @@ To allow smooth student onboarding directly from the client without compromising
      - **PRN Uniqueness Check**: `!exists(/databases/$(database)/documents/prnIndex/$(request.resource.data.prn))` ensures no duplicate PRN can be registered
      - **Points & Streak Zero Baseline**: `request.resource.data.totalPoints == 0` and `request.resource.data.currentStreak == 0` prevent any initial points forging
      - **Profile Complete Flag**: `request.resource.data.profileComplete == true`
-   - Allowed create rule: `allow create: if isOwner(userId) && isValidInitialUserCreate();`
+   - Allowed create rule: `allow create: if (isOwner(userId) && isValidInitialUserCreate()) || isAdmin();`
    - **Initial Onboarding Update via `isInitialOnboardingUpdate()`**:
      ```javascript
      function isInitialOnboardingUpdate() {
@@ -73,7 +73,7 @@ To allow smooth student onboarding directly from the client without compromising
      }
      ```
      This ensures that if a `users/{userId}` document pre-existed prior to onboarding with `profileComplete != true` (e.g., an auth-triggered stub record), the student can complete their profile, while keeping PRN/college strictly immutable once `profileComplete: true` is established.
-   - Allowed update rule: `allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());`
+   - Allowed update rule: `allow update: if (isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate())) || isAdmin();`
 
 2. **PRN Index Lock Registration & Idempotent Update (`prnIndex/{prn}`)**:
    - Document ID is the canonical uppercase 12-character PRN.
@@ -85,8 +85,8 @@ To allow smooth student onboarding directly from the client without compromising
    - Deletion strictly blocked: `allow delete: if false;`
 
 3. **Non-PII Public Mirror Creation (`publicProfiles/{userId}`)**:
-   - Created/updated by owner: `allow create, update: if isOwner(userId) && request.resource.data.userId == request.auth.uid && !('prn' in request.resource.data) && !('email' in request.resource.data) && request.resource.data.role == 'STUDENT';`
-   - Strictly prohibits PII (`prn` or `email`) from leaking into public leaderboards or profile views.
+   - Created/updated by owner or Admin: `allow create, update: if ((isOwner(userId) && request.resource.data.userId == request.auth.uid && (!('role' in request.resource.data) || request.resource.data.role == 'STUDENT' || isAdmin())) || isAdmin()) && !('prn' in request.resource.data) && !('email' in request.resource.data) && (!('bio' in request.resource.data) || request.resource.data.bio == null || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500));`
+   - Strictly prohibits PII (`prn` or `email`) from leaking into public leaderboards or profile views, while permitting optional `bio` <= 500 characters.
    - Deletion strictly blocked: `allow delete: if false;`
 
 ### Student Profile Self-Service Update Invariants (`users/{userId}`)

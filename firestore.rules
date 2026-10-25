@@ -47,6 +47,7 @@ rules_version = '2';
 //   - department: string (required, server-managed)
 //   - year: string (required, server-managed)
 //   - division: string | null (optional, server-managed)
+//   - bio: string | null (optional, <= 500 chars)
 //   - stats: map (required, server-managed)
 //   - updatedAt: timestamp (required, server-managed)
 //
@@ -265,8 +266,8 @@ service cloud.firestore {
           'stats', 'points', 'totalPoints', 'streak', 'currentStreak',
           'prnChangedAt', 'prnNextAllowedChangeDate'
         ])
-        && isAllowedDepartment(data.department)
-        && isAllowedYear(data.year)
+        && (!('department' in data) || data.department == null || isAllowedDepartment(data.department))
+        && (!('year' in data) || data.year == null || isAllowedYear(data.year))
         && (!('division' in data) || isValidDivision(data.division))
         && (!('displayName' in data) || isValidDisplayName(data.displayName))
         && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
@@ -308,13 +309,14 @@ service cloud.firestore {
           && isValidInitialUserCreate();
       }
 
-      // Initial student profile onboarding directly from the client:
-      allow create: if isOwner(userId) && isValidInitialUserCreate();
+      // Initial student profile onboarding directly from the client, or admin initialization:
+      allow create: if (isOwner(userId) && isValidInitialUserCreate()) || isAdmin();
 
       // Students can update allowed self-service academic/profile fields, or complete initial onboarding
       // if their user document was previously uncompleted.
       // Once profileComplete is true, PRN, college, email, role, status, banReason, points, and streak remain strictly immutable.
-      allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());
+      // Admins are permitted to perform administrative updates.
+      allow update: if (isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate())) || isAdmin();
 
       // Account deletion is handled strictly by the server account deletion
       // transaction that also frees prnIndex/{prn} and scrubs PII.
@@ -376,10 +378,14 @@ service cloud.firestore {
     match /publicProfiles/{userId} {
       // Non-PII public profile mirror for leaderboards and peer views (never contains prn or email)
       allow read: if isAuthenticated();
-      allow create, update: if isOwner(userId)
-        && request.resource.data.userId == request.auth.uid
-        && !('prn' in request.resource.data) && !('email' in request.resource.data)
-        && request.resource.data.role == 'STUDENT';
+      allow create, update: if (
+        (isOwner(userId)
+          && request.resource.data.userId == request.auth.uid
+          && (!('role' in request.resource.data) || request.resource.data.role == 'STUDENT' || isAdmin())
+        ) || isAdmin()
+      )
+      && !('prn' in request.resource.data) && !('email' in request.resource.data)
+      && (!('bio' in request.resource.data) || request.resource.data.bio == null || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500));
       allow delete: if false;
     }
 

@@ -675,10 +675,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
-      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
-      if (body.firestoreProfile.year) found.year = body.firestoreProfile.year;
-      if (body.firestoreProfile.division) found.division = body.firestoreProfile.division;
-      if (body.firestoreProfile.bio) found.bio = body.firestoreProfile.bio;
+      if (!found.department && body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (!found.year && body.firestoreProfile.year) found.year = body.firestoreProfile.year;
+      if (!found.division && body.firestoreProfile.division) found.division = body.firestoreProfile.division;
+      if (body.firestoreProfile.bio && !found.bio) found.bio = body.firestoreProfile.bio;
       if (body.firestoreProfile.prn) found.prn = body.firestoreProfile.prn;
       if (body.firestoreProfile.totalPoints !== undefined) found.totalPoints = Math.max(found.totalPoints || 0, body.firestoreProfile.totalPoints);
       saveStoredUsers(users);
@@ -730,10 +730,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
-      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
-      if (body.firestoreProfile.year) found.year = body.firestoreProfile.year;
-      if (body.firestoreProfile.division) found.division = body.firestoreProfile.division;
-      if (body.firestoreProfile.bio) found.bio = body.firestoreProfile.bio;
+      if (!found.department && body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (!found.year && body.firestoreProfile.year) found.year = body.firestoreProfile.year;
+      if (!found.division && body.firestoreProfile.division) found.division = body.firestoreProfile.division;
+      if (body.firestoreProfile.bio && !found.bio) found.bio = body.firestoreProfile.bio;
       if (body.firestoreProfile.prn) found.prn = body.firestoreProfile.prn;
       if (body.firestoreProfile.totalPoints !== undefined) found.totalPoints = Math.max(found.totalPoints || 0, body.firestoreProfile.totalPoints);
       saveStoredUsers(users);

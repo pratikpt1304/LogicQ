@@ -403,43 +403,43 @@ export const ProfilePage: React.FC = () => {
 
           const resolvedDisplayName =
             [
-              fsUser?.displayName,
               serverUser?.displayName,
+              fsUser?.displayName,
               currentUser?.displayName,
               auth.currentUser?.displayName,
-              fsUser?.fullName,
               serverUser?.fullName,
+              fsUser?.fullName,
               currentUser?.fullName,
             ].find(isRealPersonName) || null;
 
           const resolvedDepartment =
-            fsUser?.department ||
             serverUser?.department ||
             currentUser?.department ||
+            fsUser?.department ||
             null;
 
           const resolvedYear =
-            fsUser?.year ||
             serverUser?.year ||
             currentUser?.year ||
+            fsUser?.year ||
             null;
 
           const resolvedDivision =
-            fsUser?.division ||
             serverUser?.division ||
             currentUser?.division ||
+            fsUser?.division ||
             null;
 
           const resolvedBio =
-            fsUser?.bio ||
-            serverUser?.bio ||
-            currentUser?.bio ||
+            (serverUser?.bio && serverUser.bio.trim() !== '') ? serverUser.bio :
+            (currentUser?.bio && currentUser.bio.trim() !== '') ? currentUser.bio :
+            (fsUser?.bio && fsUser.bio.trim() !== '') ? fsUser.bio :
             null;
 
           serverUser = {
+            ...(fsUser || {}),
             ...currentUser,
             ...serverUser,
-            ...(fsUser || {}),
             displayName: resolvedDisplayName,
             fullName: resolvedDisplayName || serverUser?.fullName || currentUser?.fullName || 'Student',
             department: resolvedDepartment,
@@ -494,10 +494,26 @@ export const ProfilePage: React.FC = () => {
 
   const updateMutation = useMutation({
     mutationFn: (body: any) => api.put('/users/profile', body),
-    onSuccess: async () => {
+    onSuccess: async (res: any) => {
       toast.success('Profile settings updated successfully!');
       setIsEditOpen(false);
       setEditError(null);
+      const updatedUser = res?.data?.user;
+      if (updatedUser) {
+        queryClient.setQueryData(['profile', targetIdentifier], (prev: any) => {
+          if (!prev) return { success: true, data: { user: updatedUser } };
+          return {
+            ...prev,
+            data: {
+              ...prev.data,
+              user: {
+                ...prev.data?.user,
+                ...updatedUser,
+              },
+            },
+          };
+        });
+      }
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
@@ -536,6 +552,11 @@ export const ProfilePage: React.FC = () => {
         (localStorage.getItem('logicq_storage_preference') as any) ||
         'FIRESTORE_FALLBACK';
 
+      const resolvedCurrentDept = profile?.department || currentUser?.department;
+      const validDept = resolvedCurrentDept && ALLOWED_DEPARTMENTS.includes(resolvedCurrentDept as any)
+        ? resolvedCurrentDept
+        : ALLOWED_DEPARTMENTS[0];
+
       setEditForm({
         displayName:
           profile?.displayName ||
@@ -544,10 +565,10 @@ export const ProfilePage: React.FC = () => {
           currentUser?.fullName ||
           auth.currentUser?.displayName ||
           '',
-        department: profile?.department || currentUser?.department || ALLOWED_DEPARTMENTS[0],
+        department: validDept,
         year: profile?.year || currentUser?.year || ALLOWED_YEARS[0],
         division: profile?.division || currentUser?.division || '',
-        bio: profile?.bio || currentUser?.bio || '',
+        bio: (profile?.bio && profile.bio.trim() !== '') ? profile.bio : (currentUser?.bio && currentUser.bio.trim() !== '') ? currentUser.bio : '',
         storagePreference: activeStorage,
         hidePracticeTimer: Boolean((profile?.hidePracticeTimer ?? currentUser?.hidePracticeTimer)),
       });
@@ -654,14 +675,15 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
+    const effectiveBio = editForm.bio.trim() || null;
     const effectiveUid = auth.currentUser?.uid || currentUser?.id;
     if (effectiveUid) {
       FirestoreDataService.updateUserProfile(effectiveUid, {
         displayName: trimmedDisplay || null,
         department: editForm.department,
-        year: editForm.year,
-        division: trimmedDiv || null,
-        bio: editForm.bio.trim() || null,
+        year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
+        division: isAdminOrFaculty ? (profile?.division || currentUser?.division || null) : (trimmedDiv || null),
+        bio: effectiveBio,
         storagePreference: editForm.storagePreference as any,
       }).catch((e) => console.warn('Firestore profile update non-fatal error:', e));
     }
@@ -674,9 +696,9 @@ export const ProfilePage: React.FC = () => {
         displayName: trimmedDisplay || activeObj.displayName || null,
         fullName: trimmedDisplay || activeObj.fullName || 'Student',
         department: editForm.department,
-        year: editForm.year,
-        division: trimmedDiv || null,
-        bio: editForm.bio.trim() || null,
+        year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
+        division: isAdminOrFaculty ? (profile?.division || currentUser?.division || null) : (trimmedDiv || null),
+        bio: effectiveBio,
         storagePreference: editForm.storagePreference,
         hidePracticeTimer: editForm.hidePracticeTimer,
       };
@@ -686,9 +708,8 @@ export const ProfilePage: React.FC = () => {
     updateMutation.mutate({
       displayName: trimmedDisplay || null,
       department: editForm.department,
-      year: editForm.year,
-      division: trimmedDiv || null,
-      bio: editForm.bio.trim() || null,
+      ...(isAdminOrFaculty ? {} : { year: editForm.year, division: trimmedDiv || null }),
+      bio: effectiveBio,
       storagePreference: editForm.storagePreference,
       hidePracticeTimer: editForm.hidePracticeTimer,
     });

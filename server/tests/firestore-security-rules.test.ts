@@ -296,7 +296,7 @@ class RulesEvaluator {
     }
 
     // Validate department enum
-    if ('department' in incomingData && incomingData.department !== undefined) {
+    if ('department' in incomingData && incomingData.department !== undefined && incomingData.department !== null) {
       const allowedDepts = ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
       if (!allowedDepts.includes(incomingData.department)) {
         return false;
@@ -304,7 +304,7 @@ class RulesEvaluator {
     }
 
     // Validate year enum
-    if ('year' in incomingData && incomingData.year !== undefined) {
+    if ('year' in incomingData && incomingData.year !== undefined && incomingData.year !== null) {
       const allowedYears = ['FY', 'SY', 'TY'];
       if (!allowedYears.includes(incomingData.year)) {
         return false;
@@ -364,6 +364,7 @@ class RulesEvaluator {
     existingPrns: string[] = []
   ): boolean {
     if (!ctx.auth) return false;
+    if (RulesEvaluator.isAdmin(ctx)) return true;
     if (ctx.auth.uid !== targetUserId) return false;
     return (
       RulesEvaluator.evaluateUserSelfUpdate(ctx, targetUserId) ||
@@ -434,6 +435,7 @@ class RulesEvaluator {
     existingPrns: string[] = []
   ): boolean {
     if (!ctx.auth) return false;
+    if (RulesEvaluator.isAdmin(ctx)) return true;
     if (ctx.auth.uid !== targetUserId) return false;
 
     const data = ctx.request.resource?.data;
@@ -549,13 +551,22 @@ class RulesEvaluator {
 
   static evaluatePublicProfileCreateOrUpdate(ctx: FirestoreRuleContext, targetUserId: string): boolean {
     if (!ctx.auth) return false;
-    if (ctx.auth.uid !== targetUserId) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
 
-    if (data.userId !== ctx.auth.uid) return false;
     if ('prn' in data || 'email' in data) return false;
-    if (data.role !== 'STUDENT') return false;
+
+    if ('bio' in data && data.bio !== null && data.bio !== undefined) {
+      if (typeof data.bio !== 'string' || data.bio.length > 500) {
+        return false;
+      }
+    }
+
+    if (RulesEvaluator.isAdmin(ctx)) return true;
+
+    if (ctx.auth.uid !== targetUserId) return false;
+    if (data.userId !== ctx.auth.uid) return false;
+    if ('role' in data && data.role !== 'STUDENT') return false;
 
     return true;
   }
@@ -2415,17 +2426,17 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(firestoreRules).toContain('function isValidInitialUserCreate()');
     expect(securityRulesDoc).toContain('isValidInitialUserCreate');
 
-    // Both files must allow user create with isOwner and isValidInitialUserCreate
-    expect(firestoreRules).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
-    expect(securityRulesDoc).toContain('allow create: if isOwner(userId) && isValidInitialUserCreate();');
+    // Both files must allow user create with isOwner and isValidInitialUserCreate or isAdmin
+    expect(firestoreRules).toContain('allow create: if (isOwner(userId) && isValidInitialUserCreate()) || isAdmin();');
+    expect(securityRulesDoc).toContain('allow create: if (isOwner(userId) && isValidInitialUserCreate()) || isAdmin();');
 
     // Both files must declare isInitialOnboardingUpdate
     expect(firestoreRules).toContain('function isInitialOnboardingUpdate()');
     expect(securityRulesDoc).toContain('isInitialOnboardingUpdate');
 
-    // Both files must allow user update with isOwner and (isValidUserSelfUpdate() || isInitialOnboardingUpdate())
-    expect(firestoreRules).toContain('allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());');
-    expect(securityRulesDoc).toContain('allow update: if isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate());');
+    // Both files must allow user update with isOwner and (isValidUserSelfUpdate() || isInitialOnboardingUpdate()) or isAdmin
+    expect(firestoreRules).toContain('allow update: if (isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate())) || isAdmin();');
+    expect(securityRulesDoc).toContain('allow update: if (isOwner(userId) && (isValidUserSelfUpdate() || isInitialOnboardingUpdate())) || isAdmin();');
 
     // Both files must declare case-insensitive email comparison
     expect(firestoreRules).toContain('request.resource.data.email.lower() == request.auth.token.email.lower()');
@@ -2476,6 +2487,222 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       request: { resource: { data: { uid: 'student_alice', displayName: 'A' } } },
     };
     expect(RulesEvaluator.evaluateUserSelfUpdate(tooShortCtx, 'student_alice')).toBe(false);
+  });
+
+  it('PROFILE UPDATES: User self update permits null or omitted department/year and bio up to 500 chars', () => {
+    // 1. Updating displayName/bio when year and department are null (e.g., admin or faculty profile) -> MUST PASS
+    const profileWithNullYear = {
+      uid: 'student_alice',
+      email: 'alice@college.edu',
+      role: 'STUDENT',
+      college: 'Sanjivani University',
+      department: null,
+      year: null,
+      division: null,
+      displayName: 'AliceDev',
+      bio: null,
+    };
+    const updateBioWithNullYearCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: profileWithNullYear },
+      request: {
+        resource: {
+          data: {
+            ...profileWithNullYear,
+            bio: 'Competitive programmer and logic puzzle enthusiast',
+            updatedAt: Date.now(),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(updateBioWithNullYearCtx, 'student_alice')).toBe(true);
+
+    // 2. Updating bio with exactly 500 chars -> MUST PASS
+    const valid500CharBio = 'B'.repeat(500);
+    const update500BioCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: profileWithNullYear },
+      request: {
+        resource: {
+          data: {
+            ...profileWithNullYear,
+            bio: valid500CharBio,
+            updatedAt: Date.now(),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(update500BioCtx, 'student_alice')).toBe(true);
+
+    // 3. Updating bio with 501 chars -> MUST FAIL
+    const invalid501CharBio = 'B'.repeat(501);
+    const update501BioCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: profileWithNullYear },
+      request: {
+        resource: {
+          data: {
+            ...profileWithNullYear,
+            bio: invalid501CharBio,
+            updatedAt: Date.now(),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(update501BioCtx, 'student_alice')).toBe(false);
+
+    // 4. Invalid department value if provided -> MUST FAIL
+    const invalidDeptCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: profileWithNullYear },
+      request: {
+        resource: {
+          data: {
+            ...profileWithNullYear,
+            department: 'InvalidDept',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(invalidDeptCtx, 'student_alice')).toBe(false);
+
+    // 5. Invalid year value if provided -> MUST FAIL
+    const invalidYearCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: profileWithNullYear },
+      request: {
+        resource: {
+          data: {
+            ...profileWithNullYear,
+            year: '4th Year',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(invalidYearCtx, 'student_alice')).toBe(false);
+  });
+
+  it('ADMIN MANAGEMENT: Admin can create and update user documents under /users/{userId}', () => {
+    // 1. Admin creates user doc (even with role ADMIN and no PRN) -> MUST PASS
+    const adminUserDoc = {
+      uid: 'admin_charlie',
+      email: 'admin@college.edu',
+      role: 'ADMIN',
+      displayName: 'Admin Charlie',
+    };
+    const adminCreateCtx: FirestoreRuleContext = {
+      auth: adminCharlie,
+      request: { resource: { data: adminUserDoc } },
+    };
+    expect(RulesEvaluator.evaluateUserCreate(adminCreateCtx, 'admin_charlie')).toBe(true);
+
+    // 2. Admin updates arbitrary user doc -> MUST PASS
+    const adminUpdateCtx: FirestoreRuleContext = {
+      auth: adminCharlie,
+      resource: { data: { uid: 'student_bob', status: 'ACTIVE' } },
+      request: { resource: { data: { uid: 'student_bob', status: 'BANNED', banReason: 'Cheating' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(adminUpdateCtx, 'student_bob')).toBe(true);
+
+    // 3. Regular student Bob attempts to update Alice\'s doc -> MUST FAIL
+    const studentCrossUpdateCtx: FirestoreRuleContext = {
+      auth: studentBob,
+      resource: { data: { uid: 'student_alice', status: 'ACTIVE' } },
+      request: { resource: { data: { uid: 'student_alice', displayName: 'Hacked' } } },
+    };
+    expect(RulesEvaluator.evaluateUserUpdate(studentCrossUpdateCtx, 'student_alice')).toBe(false);
+  });
+
+  it('PUBLIC PROFILES: Admin can create/update publicProfiles, bio <= 500 chars permitted, PII strictly denied', () => {
+    // 1. Student creates public profile with valid bio <= 500 chars -> MUST PASS
+    const studentPublicProfileWithBio: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            displayName: 'AliceDev',
+            bio: 'Hello, I code in C and Python!',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(studentPublicProfileWithBio, 'student_alice')).toBe(true);
+
+    // 2. Student attempts bio > 500 chars in public profile -> MUST FAIL
+    const studentPublicProfileTooLongBio: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            bio: 'X'.repeat(501),
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(studentPublicProfileTooLongBio, 'student_alice')).toBe(false);
+
+    // 3. Student attempts to put PRN or email in publicProfile -> MUST FAIL
+    const piiLeakPrnCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            prn: '2199TESM0001',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(piiLeakPrnCtx, 'student_alice')).toBe(false);
+
+    const piiLeakEmailCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      request: {
+        resource: {
+          data: {
+            userId: 'student_alice',
+            role: 'STUDENT',
+            email: 'alice@college.edu',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(piiLeakEmailCtx, 'student_alice')).toBe(false);
+
+    // 4. Admin creates/updates publicProfile for admin -> MUST PASS
+    const adminPublicProfileCtx: FirestoreRuleContext = {
+      auth: adminCharlie,
+      request: {
+        resource: {
+          data: {
+            userId: 'admin_charlie',
+            role: 'ADMIN',
+            displayName: 'Admin Charlie',
+            bio: 'System Administrator',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(adminPublicProfileCtx, 'admin_charlie')).toBe(true);
+
+    // 5. Admin attempts to write PRN into publicProfile -> MUST FAIL (non-PII invariant strictly enforced)
+    const adminPiiLeakCtx: FirestoreRuleContext = {
+      auth: adminCharlie,
+      request: {
+        resource: {
+          data: {
+            userId: 'admin_charlie',
+            prn: '2199TESM0001',
+          },
+        },
+      },
+    };
+    expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(adminPiiLeakCtx, 'admin_charlie')).toBe(false);
   });
 });
 

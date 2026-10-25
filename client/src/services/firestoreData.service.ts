@@ -257,12 +257,15 @@ export class FirestoreDataService {
     try {
       const publicRef = doc(db, 'publicProfiles', targetUid);
       const publicPayload: Record<string, any> = {
+        userId: targetUid,
+        role: 'STUDENT',
         updatedAt: serverTimestamp(),
       };
       if (updates.displayName !== undefined) publicPayload.displayName = updates.displayName;
       if (updates.department !== undefined) publicPayload.department = updates.department;
       if (updates.year !== undefined) publicPayload.year = updates.year;
       if (updates.division !== undefined) publicPayload.division = updates.division;
+      if (updates.bio !== undefined) publicPayload.bio = updates.bio;
       await setDoc(publicRef, publicPayload, { merge: true });
     } catch {
       // non-fatal mirror update
