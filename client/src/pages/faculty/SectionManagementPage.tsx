@@ -179,6 +179,30 @@ export const SectionManagementPage: React.FC = () => {
 
   const sections: SectionItem[] = Array.isArray(data) ? data : [];
 
+  // Live keep selectedSection in sync with real-time student profile/roster updates
+  useEffect(() => {
+    if (selectedSection && sections.length > 0) {
+      const fresh = sections.find(
+        (s) => s.id === selectedSection.id || (s.joinCode && s.joinCode === selectedSection.joinCode)
+      );
+      if (fresh && Array.isArray(fresh.students)) {
+        const freshStudents = fresh.students;
+        setSelectedSection((prev: any) => {
+          if (!prev) return fresh;
+          if (JSON.stringify(prev.students) !== JSON.stringify(freshStudents)) {
+            return {
+              ...prev,
+              ...fresh,
+              students: freshStudents,
+              _count: { students: freshStudents.length },
+            };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [sections]);
+
   // Create section mutation
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {

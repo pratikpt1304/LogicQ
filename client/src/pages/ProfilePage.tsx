@@ -514,6 +514,19 @@ export const ProfilePage: React.FC = () => {
           };
         });
       }
+      const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+      const cleanEmail = currentUser?.email || auth.currentUser?.email || '';
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: effectiveUid,
+        email: cleanEmail,
+        displayName: updatedUser?.displayName || editForm.displayName,
+        fullName: updatedUser?.fullName || editForm.displayName,
+        department: updatedUser?.department || editForm.department,
+        year: updatedUser?.year || editForm.year,
+        division: updatedUser?.division || editForm.division,
+        bio: updatedUser?.bio || editForm.bio,
+      }).catch(() => {});
+
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
@@ -531,7 +544,22 @@ export const ProfilePage: React.FC = () => {
       toast.success(res?.data?.message || 'PRN updated successfully! Your new PRN is active.');
       setIsPrnModalOpen(false);
       setPrnError(null);
+      const newPrnClean = prnForm.newPrn.toUpperCase().trim();
       setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
+
+      const effectiveUid = auth.currentUser?.uid || currentUser?.id;
+      const cleanEmail = currentUser?.email || auth.currentUser?.email || '';
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: effectiveUid,
+        email: cleanEmail,
+        oldPrn: currentUser?.prn,
+        newPrn: newPrnClean,
+        displayName: currentUser?.displayName || currentUser?.fullName,
+        department: currentUser?.department,
+        year: currentUser?.year,
+        division: currentUser?.division,
+      }).catch(() => {});
+
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },

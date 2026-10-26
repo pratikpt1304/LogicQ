@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { Logo } from '../components/common/Logo.js';
 import {
   ALLOWED_COLLEGES,
@@ -127,6 +128,19 @@ export const CompleteProfilePage: React.FC = () => {
         year: formData.year,
         division: formData.division.trim().toUpperCase() || undefined,
       });
+
+      // Synchronize in real-time across Firestore users, enrolled_students, sections, and admin/faculty portals
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: user?.id,
+        email: user?.email,
+        newPrn: trimmedPrn,
+        displayName: trimmedFullName,
+        fullName: trimmedFullName,
+        department: formData.department,
+        year: formData.year,
+        division: formData.division.trim().toUpperCase() || undefined,
+      }).catch(() => {});
+
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       const msg = err.message || 'Failed to complete profile';

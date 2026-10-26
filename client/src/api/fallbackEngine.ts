@@ -1291,6 +1291,21 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     saveStoredUsers(users);
 
+    // Sync updated student profile across Firestore users, enrolled_students, and sections
+    try {
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: updatedUser.id,
+        email: updatedUser.email,
+        displayName: updatedUser.displayName,
+        fullName: updatedUser.fullName,
+        department: updatedUser.department,
+        year: updatedUser.year,
+        division: updatedUser.division,
+        bio: updatedUser.bio,
+        storagePreference: (updatedUser.storagePreference as any) || undefined,
+      }).catch(() => {});
+    } catch {}
+
     // Persist to current user cache
     try {
       localStorage.setItem('logicq_active_user', JSON.stringify(updatedUser));
@@ -1437,6 +1452,21 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (idx !== -1) {
       users[idx] = updatedUser;
       saveStoredUsers(users);
+
+      // Sync updated PRN across Firestore users, enrolled_students, and sections
+      try {
+        FirestoreDataService.syncStudentProfileUpdate({
+          userId: updatedUser.id,
+          email: updatedUser.email,
+          oldPrn,
+          newPrn,
+          displayName: updatedUser.displayName,
+          fullName: updatedUser.fullName,
+          department: updatedUser.department,
+          year: updatedUser.year,
+          division: updatedUser.division,
+        }).catch(() => {});
+      } catch {}
     }
 
     try {

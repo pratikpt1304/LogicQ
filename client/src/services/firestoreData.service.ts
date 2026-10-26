@@ -17,6 +17,7 @@ import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
+import { RealtimeSyncService } from './realtimeSync.service.js';
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -270,6 +271,243 @@ export class FirestoreDataService {
     } catch {
       // non-fatal mirror update
     }
+
+    // Realtime propagate across enrolled_students, sections rosters, and broadcast listeners
+    try {
+      await FirestoreDataService.syncStudentProfileUpdate({
+        userId: targetUid,
+        displayName: updates.displayName,
+        department: updates.department,
+        year: updates.year,
+        division: updates.division,
+        bio: updates.bio,
+        storagePreference: updates.storagePreference,
+      });
+    } catch (e) {
+      console.warn('syncStudentProfileUpdate non-fatal notice:', e);
+    }
+  }
+
+  /**
+   * Complete real-time synchronization of student profile updates (name, PRN, department, year, division)
+   * across all portals: Firestore users, publicProfiles, enrolled_students, sections rosters, and broadcast listeners.
+   */
+  public static async syncStudentProfileUpdate(params: {
+    userId?: string;
+    email?: string | null;
+    oldPrn?: string | null;
+    newPrn?: string | null;
+    displayName?: string | null;
+    fullName?: string | null;
+    department?: string | null;
+    year?: string | null;
+    division?: string | null;
+    bio?: string | null;
+    storagePreference?: 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE';
+    hidePracticeTimer?: boolean;
+  }): Promise<void> {
+    const targetUid = auth.currentUser?.uid || params.userId;
+    const cleanEmail = (params.email || auth.currentUser?.email || '').toLowerCase().trim();
+    const effectiveName = (params.displayName || params.fullName || '').trim();
+    const effectivePrn = (params.newPrn || params.oldPrn || '').toUpperCase().trim();
+
+    // 1. Update Firestore 'users' collection (if targetUid is available)
+    if (targetUid) {
+      try {
+        const userRef = doc(db, 'users', targetUid);
+        const userPayload: Record<string, any> = {
+          updatedAt: serverTimestamp(),
+        };
+        if (effectiveName) userPayload.displayName = effectiveName;
+        if (params.department) userPayload.department = params.department;
+        if (params.year) userPayload.year = params.year;
+        if (params.division !== undefined) userPayload.division = params.division;
+        if (params.bio !== undefined) userPayload.bio = params.bio;
+        if (params.newPrn) userPayload.prn = params.newPrn;
+        if (params.storagePreference) userPayload.storagePreference = params.storagePreference;
+        if (params.hidePracticeTimer !== undefined) userPayload.hidePracticeTimer = params.hidePracticeTimer;
+
+        await setDoc(userRef, userPayload, { merge: true });
+
+        // Update publicProfiles
+        const publicRef = doc(db, 'publicProfiles', targetUid);
+        const publicPayload: Record<string, any> = {
+          userId: targetUid,
+          updatedAt: serverTimestamp(),
+        };
+        if (effectiveName) publicPayload.displayName = effectiveName;
+        if (params.department) publicPayload.department = params.department;
+        if (params.year) publicPayload.year = params.year;
+        if (params.division !== undefined) publicPayload.division = params.division;
+        if (params.bio !== undefined) publicPayload.bio = params.bio;
+        await setDoc(publicRef, publicPayload, { merge: true }).catch(() => {});
+      } catch (err) {
+        console.warn('syncStudentProfileUpdate users doc notice:', err);
+      }
+    }
+
+    // 2. Update Firestore 'enrolled_students' collection
+    try {
+      const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
+      for (const d of enrolledSnap.docs) {
+        const data = d.data();
+        if (!data) continue;
+        const dEmail = (data.email || '').toLowerCase().trim();
+        const dPrn = (data.prn || '').toUpperCase().trim();
+        const dUid = data.userId || data.studentId || data.uid;
+
+        const isMatch =
+          (cleanEmail && dEmail === cleanEmail) ||
+          (effectivePrn && dPrn === effectivePrn) ||
+          (params.oldPrn && dPrn === params.oldPrn.toUpperCase().trim()) ||
+          (targetUid && dUid === targetUid);
+
+        if (isMatch) {
+          const updateData: Record<string, any> = {
+            updatedAt: serverTimestamp(),
+          };
+          if (effectiveName) {
+            updateData.name = effectiveName;
+            updateData.fullName = effectiveName;
+            updateData.displayName = effectiveName;
+          }
+          if (params.newPrn) {
+            updateData.prn = params.newPrn;
+          }
+          if (params.department) {
+            updateData.department = params.department;
+          }
+          if (params.year) {
+            updateData.year = params.year;
+          }
+          if (params.division !== undefined) {
+            updateData.division = params.division;
+          }
+          await setDoc(d.ref, updateData, { merge: true }).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('syncStudentProfileUpdate enrolled_students notice:', err);
+    }
+
+    // 3. Update Firestore 'sections' collection rosters
+    try {
+      const secSnap = await getDocs(collection(db, 'sections'));
+      for (const d of secSnap.docs) {
+        const secData = d.data();
+        if (!secData || !Array.isArray(secData.students)) continue;
+
+        let modified = false;
+        const updatedStudents = secData.students.map((st: any) => {
+          if (!st) return st;
+          const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+          const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+          const stUid = st.id || st.uid || st.userId || st.student?.id;
+
+          const isMatch =
+            (cleanEmail && stEmail === cleanEmail) ||
+            (effectivePrn && stPrn === effectivePrn) ||
+            (params.oldPrn && stPrn === params.oldPrn.toUpperCase().trim()) ||
+            (targetUid && stUid === targetUid);
+
+          if (isMatch) {
+            modified = true;
+            return {
+              ...st,
+              name: effectiveName || st.name || st.fullName,
+              fullName: effectiveName || st.fullName || st.name,
+              displayName: effectiveName || st.displayName || st.name,
+              prn: params.newPrn || st.prn,
+              department: params.department || st.department,
+              year: params.year || st.year,
+              division: params.division !== undefined ? params.division : st.division,
+              student: st.student
+                ? {
+                    ...st.student,
+                    fullName: effectiveName || st.student.fullName,
+                    displayName: effectiveName || st.student.displayName,
+                    prn: params.newPrn || st.student.prn,
+                    department: params.department || st.student.department,
+                    year: params.year || st.student.year,
+                  }
+                : undefined,
+            };
+          }
+          return st;
+        });
+
+        if (modified) {
+          await setDoc(d.ref, { students: updatedStudents, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {});
+
+          // Also update local cache for this section
+          try {
+            const secKey = d.id;
+            localStorage.setItem(`logicq_section_students_${secKey}`, JSON.stringify(updatedStudents));
+            if (secData.joinCode) {
+              localStorage.setItem(`logicq_section_students_${secData.joinCode}`, JSON.stringify(updatedStudents));
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn('syncStudentProfileUpdate sections notice:', err);
+    }
+
+    // 4. Update local active user and stored users cache
+    try {
+      const activeRaw = localStorage.getItem('logicq_active_user');
+      if (activeRaw) {
+        const active = JSON.parse(activeRaw);
+        const merged = {
+          ...active,
+          displayName: effectiveName || active.displayName,
+          fullName: effectiveName || active.fullName,
+          prn: params.newPrn || active.prn,
+          department: params.department || active.department,
+          year: params.year || active.year,
+          division: params.division !== undefined ? params.division : active.division,
+          bio: params.bio !== undefined ? params.bio : active.bio,
+        };
+        localStorage.setItem('logicq_active_user', JSON.stringify(merged));
+      }
+
+      // Update stored users
+      const storedUsersRaw = localStorage.getItem('logicq_stored_users_v1');
+      if (storedUsersRaw) {
+        const storedUsers = JSON.parse(storedUsersRaw);
+        if (Array.isArray(storedUsers)) {
+          const updatedList = storedUsers.map((u: any) => {
+            const uEmail = (u.email || '').toLowerCase().trim();
+            const uPrn = (u.prn || '').toUpperCase().trim();
+            const uId = u.id || u.uid;
+            if (
+              (cleanEmail && uEmail === cleanEmail) ||
+              (effectivePrn && uPrn === effectivePrn) ||
+              (params.oldPrn && uPrn === params.oldPrn.toUpperCase().trim()) ||
+              (targetUid && uId === targetUid)
+            ) {
+              return {
+                ...u,
+                displayName: effectiveName || u.displayName,
+                fullName: effectiveName || u.fullName,
+                prn: params.newPrn || u.prn,
+                department: params.department || u.department,
+                year: params.year || u.year,
+                division: params.division !== undefined ? params.division : u.division,
+              };
+            }
+            return u;
+          });
+          localStorage.setItem('logicq_stored_users_v1', JSON.stringify(updatedList));
+        }
+      }
+    } catch {}
+
+    // 5. Broadcast real-time signal across all portals & windows
+    try {
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('SECTIONS');
+    } catch {}
   }
 
   /**

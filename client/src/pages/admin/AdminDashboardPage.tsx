@@ -860,11 +860,11 @@ export const AdminDashboardPage: React.FC = () => {
         displayName: resolvedName,
         username: bu.username,
         cleanUsername,
-        department: bu.department || fu?.department || (role === 'FACULTY' ? 'Integrated M.Tech' : '—'),
-        year: bu.year || fu?.year || '—',
-        division: bu.division || fu?.division || null,
-        college: bu.college || fu?.college || 'Sanjivani University',
-        prn: bu.prn || fu?.prn,
+        department: fu?.department || bu.department || (role === 'FACULTY' ? 'Integrated M.Tech' : '—'),
+        year: fu?.year || bu.year || '—',
+        division: fu?.division || bu.division || null,
+        college: fu?.college || bu.college || 'Sanjivani University',
+        prn: fu?.prn || bu.prn,
       };
     });
 
