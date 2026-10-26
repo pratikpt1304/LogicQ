@@ -2447,5 +2447,158 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  // ==========================================
+  // SECTION ENROLL-BY-CODE FALLBACK
+  // ==========================================
+  if (path === '/sections/enroll-by-code' && method === 'POST') {
+    const { joinCode } = body || {};
+    const codeClean = String(joinCode || '').toUpperCase().trim();
+    const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+    let localSections: any[] = [];
+    try {
+      localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+    } catch {}
+
+    const sec = localSections.find((s: any) => s.joinCode?.toUpperCase() === codeClean);
+    if (!sec) {
+      throw new Error(`Section with Join Code "${codeClean}" not found. Please verify the code with your faculty.`);
+    }
+
+    const curUser = getStoredUsers().find((u) => u.id === localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID));
+    if (curUser) {
+      if (!Array.isArray(sec.students)) sec.students = [];
+      const already = sec.students.some((st: any) => st.email?.toLowerCase() === curUser.email?.toLowerCase() || (st.prn && st.prn === curUser.prn));
+      if (!already) {
+        sec.students.push({
+          id: curUser.id,
+          name: curUser.fullName || curUser.displayName || 'Student',
+          email: curUser.email,
+          prn: curUser.prn || null,
+          joinedVia: 'JOIN_CODE',
+          enrolledAt: new Date().toISOString(),
+        });
+        sec._count = { students: sec.students.length };
+        try {
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(localSections));
+        } catch {}
+      }
+    }
+
+    return {
+      success: true,
+      message: `Enrolled successfully in section "${sec.sectionName}" (${sec.subject})!`,
+      section: sec,
+      data: sec,
+    };
+  }
+
+  // ==========================================
+  // ASSESSMENT TESTS & SMART EXAMS FALLBACK
+  // ==========================================
+  const TESTS_KEY = 'logicq_assessment_tests_backup_v1';
+
+  if (path === '/assessment-tests' && method === 'GET') {
+    let tests: any[] = [];
+    try {
+      tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+    } catch {}
+    return {
+      success: true,
+      data: tests,
+      tests,
+    };
+  }
+
+  if (path === '/assessment-tests' && method === 'POST') {
+    const payload = body || {};
+    let tests: any[] = [];
+    try {
+      tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+      if (!Array.isArray(tests)) tests = [];
+    } catch {}
+
+    const newTest = {
+      id: `test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      title: payload.title || 'Continuous Assessment Test',
+      sectionId: payload.sectionId,
+      moduleId: payload.moduleId,
+      instructions: payload.instructions || 'Standard academic examination guidelines apply.',
+      durationMinutes: payload.durationMinutes || 60,
+      questionCount: payload.questionCount || 20,
+      easyRatio: payload.easyRatio || 40,
+      mediumRatio: payload.mediumRatio || 40,
+      hardRatio: payload.hardRatio || 20,
+      randomiseQuestions: payload.randomiseQuestions ?? true,
+      startTime: payload.startTime || new Date().toISOString(),
+      endTime: payload.endTime || new Date(Date.now() + 7 * 86400000).toISOString(),
+      attemptPolicy: payload.attemptPolicy || 'STRICT_NO_REATTEMPT',
+      status: 'PUBLISHED',
+      createdAt: new Date().toISOString(),
+      questions: [],
+    };
+
+    tests.unshift(newTest);
+    try {
+      localStorage.setItem(TESTS_KEY, JSON.stringify(tests));
+    } catch {}
+
+    return {
+      success: true,
+      message: 'Assessment test published and assigned to section roster!',
+      data: newTest,
+      test: newTest,
+    };
+  }
+
+  if (path.startsWith('/assessment-tests/') && method === 'GET') {
+    const testId = path.replace('/assessment-tests/', '');
+    let tests: any[] = [];
+    try {
+      tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+    } catch {}
+    const found = tests.find((t: any) => t.id === testId) || null;
+    return {
+      success: true,
+      data: found,
+      test: found,
+    };
+  }
+
+  if (path === '/exam/my-tests' && method === 'GET') {
+    let tests: any[] = [];
+    try {
+      tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+    } catch {}
+    return {
+      success: true,
+      data: {
+        active: tests.filter((t: any) => t.status === 'PUBLISHED'),
+        upcoming: [],
+        completed: [],
+      },
+      tests,
+    };
+  }
+
+  // ==========================================
+  // QUESTION BANK FALLBACK
+  // ==========================================
+  if (path.startsWith('/questions/bank') && method === 'GET') {
+    const list = getStoredProblems().map((p: any) => ({
+      ...p,
+      module: p.module || 'Module 1 - C Fundamentals',
+      section: p.section || 'Section 1',
+      validationStatus: p.validationStatus || 'COMPILED_AND_VERIFIED',
+      bloomsLevel: p.bloomsLevel || 'APPLY',
+      testCases: p.testCases || [],
+      _count: { submissions: 0 },
+    }));
+    return {
+      success: true,
+      count: list.length,
+      questions: list,
+    };
+  }
+
   return { success: true, data: {} };
 }

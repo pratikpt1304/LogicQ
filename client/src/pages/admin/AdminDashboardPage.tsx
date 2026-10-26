@@ -866,9 +866,7 @@ export const AdminDashboardPage: React.FC = () => {
     });
 
     const all = [...enrichedBackend, ...missingFromBackend].filter(
-      (u: any) =>
-        u.email?.toLowerCase().trim() !== 'admin@logicq.io' &&
-        !FirestoreDataService.isPurgedStudent(u)
+      (u: any) => !FirestoreDataService.isPurgedStudent(u)
     );
     let merged = all;
 
@@ -1341,7 +1339,7 @@ export const AdminDashboardPage: React.FC = () => {
             <Users className="w-4 h-4 text-indigo-500" />
           </div>
           <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
-            {Math.max(overview?.totalUsers || 0, users.length, firestoreUsersData?.length || 0)}
+            {allMergedUsers.length}
           </span>
           <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">Active in PRN Registry</span>
         </div>

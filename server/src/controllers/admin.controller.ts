@@ -452,6 +452,28 @@ export function computeTwoWeekPilotAnalytics(
 
 export async function getAnalytics(req: AuthRequest, res: Response): Promise<void> {
   try {
+    const activeUserWhere = {
+      email: {
+        notIn: [
+          'thoratpratik2323@gmail.com',
+          'samugangad@gmail.com',
+          'rohan_1390@test.edu',
+          'join_1390@sanjivani.edu.in',
+          'ipverse1918@gmail.com',
+          'ipworker1908@gmail.com',
+          'logicq1304@gmail.com',
+        ],
+      },
+      AND: [
+        {
+          OR: [
+            { prn: null },
+            { prn: { notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
+          ],
+        },
+      ],
+    };
+
     const [
       totalUsers,
       totalAdmins,
@@ -460,12 +482,12 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
       acceptedSubmissions,
       driveConnectedCount,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { role: 'ADMIN' } }),
+      prisma.user.count({ where: activeUserWhere }),
+      prisma.user.count({ where: { role: 'ADMIN', ...activeUserWhere } }),
       prisma.problem.count(),
       prisma.submission.count(),
       prisma.submission.count({ where: { verdict: 'ACCEPTED' } }),
-      (prisma.user as any).count({ where: { storagePreference: 'GOOGLE_DRIVE' } }),
+      (prisma.user as any).count({ where: { storagePreference: 'GOOGLE_DRIVE', ...activeUserWhere } }),
     ]);
 
     const acceptanceRate =
@@ -970,7 +992,6 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const where: any = {
       email: {
         notIn: [
-          'admin@logicq.io',
           'thoratpratik2323@gmail.com',
           'samugangad@gmail.com',
           'rohan_1390@test.edu',
@@ -1170,7 +1191,6 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const where: any = {
       email: {
         notIn: [
-          'admin@logicq.io',
           'thoratpratik2323@gmail.com',
           'samugangad@gmail.com',
           'rohan_1390@test.edu',

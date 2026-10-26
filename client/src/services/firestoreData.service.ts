@@ -911,6 +911,15 @@ export class FirestoreDataService {
    */
   public static async purgeDeletedStudentsFromFirestore(): Promise<void> {
     try {
+      // Throttle: avoid running heavy 20-query purge on every 6-second refetch
+      try {
+        const lastPurge = localStorage.getItem('logicq_last_student_purge');
+        if (lastPurge && Date.now() - Number(lastPurge) < 300000) {
+          return;
+        }
+        localStorage.setItem('logicq_last_student_purge', String(Date.now()));
+      } catch {}
+
       const targetEmails = [
         'thoratpratik2323@gmail.com',
         'samugangad@gmail.com',

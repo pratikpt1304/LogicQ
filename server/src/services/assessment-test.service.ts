@@ -31,8 +31,11 @@ export class AssessmentTestService {
       throw new Error('Section not found.');
     }
     const creatorUser = await prisma.user.findUnique({ where: { id: facultyId }, select: { role: true } });
-    if (section.facultyId !== facultyId && creatorUser?.role !== 'ADMIN') {
+    if (section.facultyId && section.facultyId !== facultyId && creatorUser?.role !== 'ADMIN') {
       throw new Error('Unauthorized to create tests for this section.');
+    }
+    if (!section.facultyId) {
+      await prisma.section.update({ where: { id: section.id }, data: { facultyId } }).catch(() => {});
     }
 
     const totalRatio = input.easyRatio + input.mediumRatio + input.hardRatio;
