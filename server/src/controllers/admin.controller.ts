@@ -987,7 +987,10 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const search = (req.query.search as string | undefined)?.trim();
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: any = {};
+    if (verdict && verdict !== 'ALL') where.verdict = verdict;
+
+    const userFilter: any = {
       email: {
         notIn: [
           'rohan_1390@test.edu',
@@ -1001,9 +1004,6 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
         notIn: ['2026VAL1390', '2026JON1390'],
       },
     };
-    if (verdict && verdict !== 'ALL') where.verdict = verdict;
-
-    const userFilter: any = {};
     if (department && department !== 'ALL') userFilter.department = department;
     if (year && year !== 'ALL') userFilter.year = year;
     if (division && division !== 'ALL') userFilter.division = division.toUpperCase();
@@ -1016,9 +1016,7 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
         { username: { contains: search } },
       ];
     }
-    if (Object.keys(userFilter).length > 0) {
-      where.user = userFilter;
-    }
+    where.user = userFilter;
 
     const [submissions, total] = await Promise.all([
       prisma.submission.findMany({

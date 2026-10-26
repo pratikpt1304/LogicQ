@@ -564,6 +564,7 @@ export class FirestoreDataService {
    * Fetches all submissions from Firestore for administrative oversight
    */
   public static async getAllFirestoreSubmissions(): Promise<any[]> {
+    if (!auth.currentUser) return [];
     try {
       const snap = await getDocs(collection(db, 'submissions'));
       const list: any[] = [];
@@ -574,8 +575,10 @@ export class FirestoreDataService {
         }
       });
       return list;
-    } catch (err) {
-      console.warn('getAllFirestoreSubmissions notice:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('getAllFirestoreSubmissions notice:', err);
+      }
       return [];
     }
   }
@@ -2061,6 +2064,7 @@ export class FirestoreDataService {
    * Fetches problems stored in Firestore for admins or resilient offline fallback.
    */
   public static async getProblems(): Promise<any[]> {
+    if (!auth.currentUser) return [];
     try {
       const snap = await getDocs(collection(db, 'problems')).catch(() => null);
       if (!snap || snap.empty) return [];
@@ -2069,8 +2073,10 @@ export class FirestoreDataService {
         list.push({ id: d.id, ...d.data() });
       });
       return list;
-    } catch (err) {
-      console.warn('FirestoreDataService.getProblems error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('FirestoreDataService.getProblems error:', err);
+      }
       return [];
     }
   }
@@ -2079,6 +2085,7 @@ export class FirestoreDataService {
    * Saves or updates a problem document in Firestore.
    */
   public static async saveProblem(problem: any): Promise<void> {
+    if (!auth.currentUser) return;
     try {
       const problemId = problem.id || problem.slug;
       if (!problemId) return;
@@ -2086,8 +2093,10 @@ export class FirestoreDataService {
         ...problem,
         updatedAt: serverTimestamp(),
       }, { merge: true });
-    } catch (err) {
-      console.warn('FirestoreDataService.saveProblem error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('FirestoreDataService.saveProblem error:', err);
+      }
     }
   }
 
@@ -2095,11 +2104,14 @@ export class FirestoreDataService {
    * Deletes a problem document in Firestore.
    */
   public static async deleteProblem(problemId: string): Promise<void> {
+    if (!auth.currentUser) return;
     try {
       if (!problemId) return;
       await deleteDoc(doc(db, 'problems', problemId));
-    } catch (err) {
-      console.warn('FirestoreDataService.deleteProblem error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('FirestoreDataService.deleteProblem error:', err);
+      }
     }
   }
 
@@ -2107,6 +2119,7 @@ export class FirestoreDataService {
    * Batch syncs an array of problems into Firestore.
    */
   public static async syncProblems(problems: any[]): Promise<void> {
+    if (!auth.currentUser) return;
     try {
       if (!problems || problems.length === 0) return;
       const chunkSize = 400;
@@ -2123,8 +2136,10 @@ export class FirestoreDataService {
         }
         await batch.commit();
       }
-    } catch (err) {
-      console.warn('FirestoreDataService.syncProblems error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('FirestoreDataService.syncProblems error:', err);
+      }
     }
   }
 
