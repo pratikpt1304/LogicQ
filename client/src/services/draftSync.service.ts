@@ -159,8 +159,11 @@ export class DraftSyncService {
     isPractice = false
   ): Promise<DraftData | null> {
     try {
+      const effectiveUid = auth.currentUser?.uid || userId;
+      if (!effectiveUid || !auth.currentUser) return null;
+
       const draftId = DraftSyncService.sanitizeDraftId(slug, isPractice);
-      const draftRef = doc(db, 'users', userId, 'drafts', draftId);
+      const draftRef = doc(db, 'users', effectiveUid, 'drafts', draftId);
       const snap = await getDoc(draftRef);
 
       if (!snap.exists()) return null;
@@ -182,8 +185,10 @@ export class DraftSyncService {
         deviceLabel: data.deviceLabel || 'Remote Device',
         expiresAt: data.expiresAt || null,
       };
-    } catch (err) {
-      console.warn('Failed to fetch remote draft:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Failed to fetch remote draft:', err);
+      }
       return null;
     }
   }
@@ -197,12 +202,15 @@ export class DraftSyncService {
     isPractice = false
   ): Promise<boolean> {
     try {
+      const effectiveUid = auth.currentUser?.uid || userId;
+      if (!effectiveUid || !auth.currentUser) return false;
+
       if (!draft.code || draft.code.length > MAX_DRAFT_SIZE_BYTES) {
         return false;
       }
 
       const draftId = DraftSyncService.sanitizeDraftId(draft.problemSlug, isPractice);
-      const draftRef = doc(db, 'users', userId, 'drafts', draftId);
+      const draftRef = doc(db, 'users', effectiveUid, 'drafts', draftId);
 
       const expiresAt = isPractice ? null : (draft.expiresAt || getDailyCutoffTimestamp());
 
@@ -219,8 +227,10 @@ export class DraftSyncService {
       });
 
       return true;
-    } catch (err) {
-      console.warn('Failed to save remote draft:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Failed to save remote draft:', err);
+      }
       return false;
     }
   }

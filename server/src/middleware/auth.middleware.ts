@@ -80,21 +80,43 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
         } else if (payload.email) {
           // Auto-restore enrolled student/faculty from valid signed JWT
           const placeholderHash = await bcrypt.hash('AutoRestoredStudent123!', 10);
-          dbUser = await prisma.user.create({
-            data: {
-              id: payload.userId,
-              username: payload.username,
-              email: payload.email.toLowerCase(),
-              prn: payload.prn || null,
-              role: payload.role || 'STUDENT',
-              fullName: payload.username,
-              passwordHash: placeholderHash,
-              profileComplete: true,
-              college: 'Sanjivani University',
-              department: 'CSE',
-            },
-            select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
-          });
+          const targetEmail = payload.email.toLowerCase().trim();
+          const targetUsername = payload.username || targetEmail.split('@')[0];
+
+          try {
+            dbUser = await prisma.user.upsert({
+              where: { email: targetEmail },
+              update: {
+                role: payload.role || undefined,
+                profileComplete: true,
+              },
+              create: {
+                id: payload.userId,
+                username: targetUsername,
+                email: targetEmail,
+                prn: payload.prn || null,
+                role: payload.role || 'STUDENT',
+                fullName: payload.username || targetUsername,
+                passwordHash: placeholderHash,
+                profileComplete: true,
+                college: 'Sanjivani University',
+                department: 'CSE',
+              },
+              select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
+            });
+          } catch (createErr) {
+            console.warn('Auto-restore user upsert failed, attempting fallback query:', createErr);
+            dbUser = await prisma.user.findFirst({
+              where: {
+                OR: [
+                  { email: targetEmail },
+                  { username: targetUsername },
+                  ...(payload.prn ? [{ prn: payload.prn }] : []),
+                ],
+              },
+              select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
+            });
+          }
         }
       }
     }
@@ -173,6 +195,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     };
     next();
   } catch (err) {
+    console.error('Authentication verification error in auth.middleware:', err);
     res.status(500).json({ success: false, message: 'Authentication verification failed' });
   }
 }

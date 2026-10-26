@@ -822,19 +822,33 @@ export class FirestoreDataService {
     const seenEmails = new Set<string>();
     const seenPrns = new Set<string>();
 
-    // 1. Fetch from 'users' collection
-    try {
-      const snap = await getDocs(collection(db, 'users'));
-      snap.forEach((d) => {
-        const raw = d.data();
-        if (!raw) return;
-        const mapped = FirestoreDataService.mapDocToUser(d.id, raw);
-        list.push(mapped);
-        if (mapped.email) seenEmails.add(mapped.email.toLowerCase());
-        if (mapped.prn) seenPrns.add(mapped.prn.toUpperCase());
-      });
-    } catch (err) {
-      console.warn('getAllFirestoreUsers: users collection read skipped/failed:', err);
+    const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
+    const isAdmin = [
+      'admin@logicq.io',
+      'hariprasathset@sanjivani.edu.in',
+      'logicq1304@gmail.com',
+      'ipworker1908@gmail.com',
+      'ipverse1918@gmail.com',
+      'logicqarena@gmail.com',
+    ].includes(currentEmail);
+
+    // 1. Fetch from 'users' collection (Admin only - non-admins lack global read permission on /users)
+    if (isAdmin) {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        snap.forEach((d) => {
+          const raw = d.data();
+          if (!raw) return;
+          const mapped = FirestoreDataService.mapDocToUser(d.id, raw);
+          list.push(mapped);
+          if (mapped.email) seenEmails.add(mapped.email.toLowerCase());
+          if (mapped.prn) seenPrns.add(mapped.prn.toUpperCase());
+        });
+      } catch (err: any) {
+        if (err?.code !== 'permission-denied') {
+          console.warn('getAllFirestoreUsers: users collection read skipped/failed:', err);
+        }
+      }
     }
 
     // 2. Fetch from 'enrolled_students' collection (guarantees enrolled students are visible in admin roster)
@@ -876,8 +890,10 @@ export class FirestoreDataService {
           createdAt: raw.enrolledAt?.toDate ? raw.enrolledAt.toDate().toISOString() : new Date().toISOString(),
         } as any);
       });
-    } catch (err) {
-      console.warn('getAllFirestoreUsers: enrolled_students collection read skipped/failed:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('getAllFirestoreUsers: enrolled_students collection read skipped/failed:', err);
+      }
     }
 
     // 2.5 Scan section student rosters (ensures students enrolled directly in sections appear in directory)
@@ -921,12 +937,14 @@ export class FirestoreDataService {
           } as any);
         }
       }
-    } catch (secErr) {
-      console.warn('getAllFirestoreUsers section scan skipped/failed:', secErr);
+    } catch (secErr: any) {
+      if (secErr?.code !== 'permission-denied') {
+        console.warn('getAllFirestoreUsers section scan skipped/failed:', secErr);
+      }
     }
 
     // 3. Fallback: If empty, try publicProfiles
-    if (list.length === 0) {
+    if (list.length === 0 && auth.currentUser) {
       try {
         const pubSnap = await getDocs(collection(db, 'publicProfiles'));
         pubSnap.forEach((d) => {
@@ -954,8 +972,10 @@ export class FirestoreDataService {
             createdAt: new Date().toISOString(),
           } as User);
         });
-      } catch (pubErr) {
-        console.warn('getAllFirestoreUsers publicProfiles fallback failed:', pubErr);
+      } catch (pubErr: any) {
+        if (pubErr?.code !== 'permission-denied') {
+          console.warn('getAllFirestoreUsers publicProfiles fallback failed:', pubErr);
+        }
       }
     }
 

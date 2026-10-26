@@ -218,11 +218,19 @@ export const DashboardPage: React.FC = () => {
     queryFn: async () => {
       try {
         const res = await api.get('/submissions/my?limit=5');
-        return res?.submissions || res?.data?.submissions || res?.data || [];
-      } catch (err) {
-        console.warn('Dashboard /submissions/my failed:', err);
-        return [];
+        const list = res?.submissions || res?.data?.submissions || res?.data;
+        if (Array.isArray(list) && list.length > 0) return list;
+      } catch {
+        // Fallback to Firestore submissions
       }
+      try {
+        const uid = user?.id || (user as any)?.uid || auth.currentUser?.uid;
+        if (uid) {
+          const fsSubs = await FirestoreDataService.getUserSubmissions(uid);
+          if (Array.isArray(fsSubs) && fsSubs.length > 0) return fsSubs.slice(0, 5);
+        }
+      } catch {}
+      return [];
     },
     refetchInterval: 6000,
   });

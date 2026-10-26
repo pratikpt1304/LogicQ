@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../config/firebase.js';
+import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../config/firebase.js';
 
 export type SyncScope =
   | 'PROBLEMS'
@@ -30,6 +31,7 @@ class RealtimeSyncManager {
   private unsubscribeFirestoreTests: (() => void) | null = null;
   private unsubscribeFirestoreProblems: (() => void) | null = null;
   private unsubscribeFirestoreSubmissions: (() => void) | null = null;
+  private unsubscribeAuth: Unsubscribe | null = null;
   private listeners: Map<SyncScope, Set<() => void>> = new Map();
 
   /**
@@ -222,7 +224,7 @@ class RealtimeSyncManager {
     if (this.isListeningFirestore) return;
     this.isListeningFirestore = true;
 
-    // 1. Sections sync
+    // 1. Sections sync (public institutional sections)
     try {
       this.unsubscribeFirestoreSections = onSnapshot(
         collection(db, 'sections'),
@@ -230,11 +232,14 @@ class RealtimeSyncManager {
           this.handleIncomingSync('SECTIONS');
         },
         (err) => {
-          console.warn('RealtimeSync sections listener notice:', err.message);
+          if (err.code === 'permission-denied') {
+            this.unsubscribeFirestoreSections?.();
+            this.unsubscribeFirestoreSections = null;
+          }
         }
       );
-    } catch (e) {
-      console.warn('Firestore sections listener notice:', e);
+    } catch {
+      // safe fallback
     }
 
     // 2. Enrolled Students sync
@@ -246,66 +251,113 @@ class RealtimeSyncManager {
           this.handleIncomingSync('SECTIONS');
         },
         (err) => {
-          console.warn('RealtimeSync enrolled_students listener notice:', err.message);
+          if (err.code === 'permission-denied') {
+            this.unsubscribeFirestoreEnrolled?.();
+            this.unsubscribeFirestoreEnrolled = null;
+          }
         }
       );
-    } catch (e) {
-      console.warn('Firestore enrolled_students listener notice:', e);
+    } catch {
+      // safe fallback
     }
 
-    // 3. Tests & Assessments sync
-    try {
-      this.unsubscribeFirestoreTests = onSnapshot(
-        collection(db, 'tests'),
-        () => {
-          this.handleIncomingSync('TESTS');
-        },
-        (err) => {
-          console.warn('RealtimeSync tests listener notice:', err.message);
-        }
-      );
-    } catch (e) {
-      console.warn('Firestore tests listener notice:', e);
+    // Attach admin-restricted collection listeners dynamically based on Firebase Auth state
+    this.unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      const email = (user?.email || '').toLowerCase().trim();
+      const isAdmin = [
+        'admin@logicq.io',
+        'hariprasathset@sanjivani.edu.in',
+        'logicq1304@gmail.com',
+        'ipworker1908@gmail.com',
+        'ipverse1918@gmail.com',
+        'logicqarena@gmail.com',
+      ].includes(email);
+
+      if (isAdmin) {
+        this.setupAdminListeners();
+      } else {
+        this.teardownAdminListeners();
+      }
+    });
+  }
+
+  private setupAdminListeners(): void {
+    if (this.unsubscribeFirestoreTests && this.unsubscribeFirestoreProblems && this.unsubscribeFirestoreUsers) {
+      return;
     }
 
-    // 4. Problem bank sync
-    try {
-      this.unsubscribeFirestoreProblems = onSnapshot(
-        collection(db, 'problems'),
-        () => {
-          this.handleIncomingSync('PROBLEMS');
-        },
-        (err) => {
-          console.warn('RealtimeSync problems listener notice:', err.message);
-        }
-      );
-    } catch (e) {
-      console.warn('Firestore problems listener notice:', e);
+    // 3. Tests & Assessments sync (Admin only)
+    if (!this.unsubscribeFirestoreTests) {
+      try {
+        this.unsubscribeFirestoreTests = onSnapshot(
+          collection(db, 'tests'),
+          () => {
+            this.handleIncomingSync('TESTS');
+          },
+          (err) => {
+            if (err.code === 'permission-denied') {
+              this.unsubscribeFirestoreTests?.();
+              this.unsubscribeFirestoreTests = null;
+            }
+          }
+        );
+      } catch {}
     }
 
-    // 5. Users sync (admin & profile updates)
-    try {
-      this.unsubscribeFirestoreUsers = onSnapshot(
-        collection(db, 'users'),
-        () => {
-          this.handleIncomingSync('USERS');
-        },
-        (err) => {
-          console.warn('RealtimeSync users listener notice:', err.message);
-        }
-      );
-    } catch (e) {
-      console.warn('Firestore users listener notice:', e);
+    // 4. Problem bank sync (Admin only)
+    if (!this.unsubscribeFirestoreProblems) {
+      try {
+        this.unsubscribeFirestoreProblems = onSnapshot(
+          collection(db, 'problems'),
+          () => {
+            this.handleIncomingSync('PROBLEMS');
+          },
+          (err) => {
+            if (err.code === 'permission-denied') {
+              this.unsubscribeFirestoreProblems?.();
+              this.unsubscribeFirestoreProblems = null;
+            }
+          }
+        );
+      } catch {}
     }
+
+    // 5. Users sync (Admin only)
+    if (!this.unsubscribeFirestoreUsers) {
+      try {
+        this.unsubscribeFirestoreUsers = onSnapshot(
+          collection(db, 'users'),
+          () => {
+            this.handleIncomingSync('USERS');
+          },
+          (err) => {
+            if (err.code === 'permission-denied') {
+              this.unsubscribeFirestoreUsers?.();
+              this.unsubscribeFirestoreUsers = null;
+            }
+          }
+        );
+      } catch {}
+    }
+  }
+
+  private teardownAdminListeners(): void {
+    try {
+      this.unsubscribeFirestoreTests?.();
+      this.unsubscribeFirestoreTests = null;
+      this.unsubscribeFirestoreProblems?.();
+      this.unsubscribeFirestoreProblems = null;
+      this.unsubscribeFirestoreUsers?.();
+      this.unsubscribeFirestoreUsers = null;
+    } catch {}
   }
 
   public cleanup(): void {
     try {
+      this.unsubscribeAuth?.();
       this.unsubscribeFirestoreSections?.();
       this.unsubscribeFirestoreEnrolled?.();
-      this.unsubscribeFirestoreTests?.();
-      this.unsubscribeFirestoreProblems?.();
-      this.unsubscribeFirestoreUsers?.();
+      this.teardownAdminListeners();
       this.channel?.close();
     } catch {}
   }
