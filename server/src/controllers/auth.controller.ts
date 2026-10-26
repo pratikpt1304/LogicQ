@@ -201,7 +201,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
-  'samugangad@gmail.com',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -209,7 +208,7 @@ export const PURGED_EMAILS = [
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2126PMIF1057', '2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: string | { email?: string; prn?: string } | null): boolean {
   if (!identifier) return false;
