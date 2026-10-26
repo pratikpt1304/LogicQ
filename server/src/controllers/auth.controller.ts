@@ -198,7 +198,6 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
-  'logicq1304@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
@@ -206,6 +205,9 @@ export const PURGED_EMAILS = [
   'samugangad@gmail.com',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
+  'ipverse1918@gmail.com',
+  'ipworker1908@gmail.com',
+  'logicq1304@gmail.com',
 ];
 
 export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
@@ -391,7 +393,7 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     if (!user) {
       const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
       const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
-      const generatedUsername = isExplicitAdmin ? 'admin_logicq1304' : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const generatedUsername = isExplicitAdmin ? `admin_${email.split('@')[0]}` : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
       const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
 
       user = await prisma.user.create({

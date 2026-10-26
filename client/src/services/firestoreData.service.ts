@@ -884,6 +884,7 @@ export class FirestoreDataService {
       email === 'join_1390@sanjivani.edu.in' ||
       email === 'ipverse1918@gmail.com' ||
       email === 'ipworker1908@gmail.com' ||
+      email === 'logicq1304@gmail.com' ||
       prn === '2126PMIM1039' ||
       prn === '2126PMIF1057' ||
       prn === '2026VAL1390' ||
@@ -903,6 +904,7 @@ export class FirestoreDataService {
         'join_1390@sanjivani.edu.in',
         'ipverse1918@gmail.com',
         'ipworker1908@gmail.com',
+        'logicq1304@gmail.com',
       ];
       const targetPrns = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
       const directKeys = [
@@ -912,6 +914,7 @@ export class FirestoreDataService {
         'join_1390_sanjivani_edu_in',
         'ipverse1918_gmail_com',
         'ipworker1908_gmail_com',
+        'logicq1304_gmail_com',
         '2126PMIM1039',
         '2126PMIF1057',
         '2026VAL1390',

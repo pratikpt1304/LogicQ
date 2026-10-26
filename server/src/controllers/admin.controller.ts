@@ -977,6 +977,7 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
           'join_1390@sanjivani.edu.in',
           'ipverse1918@gmail.com',
           'ipworker1908@gmail.com',
+          'logicq1304@gmail.com',
         ],
       },
       prn: {
@@ -1176,6 +1177,7 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
           'join_1390@sanjivani.edu.in',
           'ipverse1918@gmail.com',
           'ipworker1908@gmail.com',
+          'logicq1304@gmail.com',
         ],
       },
       prn: {
@@ -2648,7 +2650,6 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
     const explicitAdminEmails = [
       'logicqarena@gmail.com',
       'hariprasathset@sanjivani.edu.in',
-      'logicq1304@gmail.com',
     ];
     const isExplicitAdminEmail = (email: string) => explicitAdminEmails.includes(email?.toLowerCase());
     const crypto = await import('crypto');
@@ -2708,7 +2709,7 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
       } else {
         const shortId = prn ? prn.slice(-4) : crypto.randomBytes(2).toString('hex').toUpperCase();
         const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
-        const username = isExplicitAdmin ? 'admin_logicq1304' : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+        const username = isExplicitAdmin ? `admin_${email.split('@')[0]}` : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
         const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
 
         const newUser = await prisma.user.create({

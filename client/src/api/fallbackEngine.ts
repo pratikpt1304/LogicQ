@@ -194,7 +194,6 @@ function saveStoredProblems(problems: any[]) {
 export const ADMIN_EMAILS = [
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
-  'logicq1304@gmail.com',
 ];
 
 export const PURGED_EMAILS = [
@@ -204,6 +203,7 @@ export const PURGED_EMAILS = [
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
   'ipworker1908@gmail.com',
+  'logicq1304@gmail.com',
 ];
 
 export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
@@ -369,22 +369,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: '0001',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'admin-2',
-      username: 'logicq1304',
-      email: 'logicq1304@gmail.com',
-      fullName: 'LogicQ Admin',
-      role: 'ADMIN',
-      college: 'Sanjivani University',
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: '1304',
-      profileComplete: true,
       createdAt: new Date().toISOString(),
     },
   ];
