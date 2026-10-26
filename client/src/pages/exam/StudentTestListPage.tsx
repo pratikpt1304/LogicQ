@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import { useAuth } from '../../context/AuthContext.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { auth } from '../../config/firebase.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
@@ -20,6 +23,7 @@ import {
 
 export const StudentTestListPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [filterTab, setFilterTab] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
@@ -33,14 +37,44 @@ export const StudentTestListPage: React.FC = () => {
 
   const joinMutation = useMutation({
     mutationFn: async (code: string) => {
-      return await api.post('/sections/enroll-by-code', { joinCode: code });
+      const cleanCode = code.trim().toUpperCase();
+      let backendRes: any = null;
+      try {
+        backendRes = await api.post('/sections/enroll-by-code', { joinCode: cleanCode });
+      } catch (err: any) {
+        console.warn('Backend enroll-by-code notice, falling back to Firestore sync:', err);
+      }
+
+      const enrollResult = await FirestoreDataService.enrollStudentByCode(cleanCode, {
+        id: user?.id,
+        uid: (user as any)?.uid || auth.currentUser?.uid,
+        email: user?.email || auth.currentUser?.email,
+        prn: user?.prn,
+        fullName: user?.fullName || user?.displayName,
+        displayName: user?.displayName || user?.fullName,
+        department: user?.department,
+        year: user?.year,
+        college: user?.college,
+      });
+
+      return {
+        message: backendRes?.message || `Successfully joined "${enrollResult.section?.sectionName || cleanCode}"! Tests unlocked.`,
+        section: enrollResult.section,
+      };
     },
     onSuccess: (res: any) => {
       toast.success(res?.message || 'Joined section successfully! Tests unlocked.');
       setJoinCode('');
       setShowJoinInput(false);
       queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-sections-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('TESTS');
     },
     onError: (err: any) => {

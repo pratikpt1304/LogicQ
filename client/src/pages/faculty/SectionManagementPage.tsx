@@ -173,6 +173,20 @@ export const SectionManagementPage: React.FC = () => {
     refetchInterval: 6000, // Live real-time sync with student enrollments & admin
   });
 
+  // Real-time synchronization when students enroll or switch sections
+  useEffect(() => {
+    const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
+      refetch();
+    });
+    const unsubUsers = RealtimeSyncService.on('USERS', () => {
+      refetch();
+    });
+    return () => {
+      unsubSections();
+      unsubUsers();
+    };
+  }, [refetch]);
+
   const sections: SectionItem[] = Array.isArray(data) ? data : [];
 
   // Live keep selectedSection in sync with real-time student profile/roster updates

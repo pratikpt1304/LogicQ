@@ -1013,7 +1013,9 @@ export const AdminDashboardPage: React.FC = () => {
             Array.isArray(sec.students) &&
             sec.students.some((st: any) =>
               (buEmail && st.email?.toLowerCase().trim() === buEmail) ||
-              (buPrn && st.prn?.toUpperCase().trim() === buPrn)
+              (buPrn && st.prn?.toUpperCase().trim() === buPrn) ||
+              (bu.id && (st.id === bu.id || st.uid === bu.id || st.userId === bu.id)) ||
+              (fu?.id && (st.id === fu.id || st.uid === fu.id || st.userId === fu.id))
             )
         );
         matchedStudentSections.forEach((ms: any) => {
@@ -1027,6 +1029,24 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
+        if (userSections.length === 0 && (bu.sectionId || fu?.sectionId || bu.sectionName || fu?.sectionName)) {
+          const targetSecId = bu.sectionId || fu?.sectionId;
+          const targetSecName = bu.sectionName || fu?.sectionName;
+          const matchedByIdOrName = sectionsList.find(
+            (s: any) =>
+              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId)) ||
+              (targetSecName && (s.sectionName === targetSecName || s.name === targetSecName || s.subject === targetSecName))
+          );
+          if (matchedByIdOrName) {
+            userSections.push({
+              id: matchedByIdOrName.id,
+              sectionName: matchedByIdOrName.sectionName || matchedByIdOrName.name || matchedByIdOrName.subject,
+              joinCode: matchedByIdOrName.joinCode,
+              subject: matchedByIdOrName.subject,
+              course: matchedByIdOrName.course,
+            });
+          }
+        }
       }
 
       return {
@@ -1082,6 +1102,43 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
+      } else {
+        const matchedStudentSections = sectionsList.filter(
+          (sec: any) =>
+            Array.isArray(sec.students) &&
+            sec.students.some((st: any) =>
+              (fuEmail && st.email?.toLowerCase().trim() === fuEmail) ||
+              (fuPrn && st.prn?.toUpperCase().trim() === fuPrn) ||
+              (fu.id && (st.id === fu.id || st.uid === fu.id || st.userId === fu.id))
+            )
+        );
+        matchedStudentSections.forEach((ms: any) => {
+          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+            userSections.push({
+              id: ms.id,
+              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              joinCode: ms.joinCode,
+              subject: ms.subject,
+              course: ms.course,
+            });
+          }
+        });
+        if (userSections.length === 0 && (fu.sectionId || fu.sectionName)) {
+          const matchedByIdOrName = sectionsList.find(
+            (s: any) =>
+              (fu.sectionId && (s.id === fu.sectionId || s.joinCode === fu.sectionId)) ||
+              (fu.sectionName && (s.sectionName === fu.sectionName || s.name === fu.sectionName || s.subject === fu.sectionName))
+          );
+          if (matchedByIdOrName) {
+            userSections.push({
+              id: matchedByIdOrName.id,
+              sectionName: matchedByIdOrName.sectionName || matchedByIdOrName.name || matchedByIdOrName.subject || 'Academic Section',
+              joinCode: matchedByIdOrName.joinCode,
+              subject: matchedByIdOrName.subject,
+              course: matchedByIdOrName.course,
+            });
+          }
+        }
       }
 
       return {

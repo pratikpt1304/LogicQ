@@ -11,6 +11,7 @@ import {
   getDocs,
   onSnapshot,
   serverTimestamp,
+  arrayUnion,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
@@ -1709,6 +1710,152 @@ export class FirestoreDataService {
     } catch (err) {
       console.warn('saveEnrolledStudentsToFirestore error:', err);
     }
+  }
+
+  /**
+   * Complete student section enrollment by join code across Firestore,
+   * updating enrolled_students, sections.students, and student's profile.
+   */
+  public static async enrollStudentByCode(
+    joinCode: string,
+    currentUser: {
+      id?: string;
+      uid?: string;
+      email?: string | null;
+      prn?: string | null;
+      fullName?: string | null;
+      displayName?: string | null;
+      department?: string | null;
+      year?: string | null;
+      college?: string | null;
+    }
+  ): Promise<{ success: boolean; section: any }> {
+    const cleanCode = (joinCode || '').trim().toUpperCase();
+    if (!cleanCode) throw new Error('Join code is required.');
+
+    // 1. Locate the section in Firestore or local storage
+    const allSecs = await FirestoreDataService.getSectionsFromFirestore();
+    let targetSec = allSecs.find(
+      (s: any) =>
+        (s.joinCode && s.joinCode.toUpperCase() === cleanCode) ||
+        (s.joinToken && s.joinToken.toUpperCase() === cleanCode) ||
+        s.id === cleanCode
+    );
+
+    if (!targetSec) {
+      // Direct Firestore document check
+      try {
+        const q = query(collection(db, 'sections'), where('joinCode', '==', cleanCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          targetSec = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        }
+      } catch {}
+    }
+
+    if (!targetSec) {
+      throw new Error(`Section with code "${cleanCode}" not found. Please verify the code with your faculty.`);
+    }
+
+    const effectiveUid = currentUser.id || currentUser.uid || auth.currentUser?.uid;
+    const cleanEmail = (currentUser.email || auth.currentUser?.email || '').toLowerCase().trim();
+    const cleanPrn = (currentUser.prn || '').toUpperCase().trim();
+    const effectiveName = (currentUser.fullName || currentUser.displayName || auth.currentUser?.displayName || 'Student').trim();
+    const effectiveDept = normalizeDepartment(currentUser.department) || currentUser.department || 'CSE';
+    const effectiveYear = currentUser.year || 'FY';
+    const effectiveCollege = currentUser.college || 'Sanjivani University';
+
+    const studentRecord = {
+      id: effectiveUid || `std_${Date.now()}`,
+      userId: effectiveUid,
+      uid: effectiveUid,
+      name: effectiveName,
+      fullName: effectiveName,
+      displayName: effectiveName,
+      email: cleanEmail,
+      prn: cleanPrn || null,
+      department: effectiveDept,
+      year: effectiveYear,
+      college: effectiveCollege,
+      institution: effectiveCollege,
+      sectionId: targetSec.id,
+      sectionName: targetSec.sectionName || targetSec.subject || 'Academic Section',
+      joinCode: targetSec.joinCode,
+      joinedVia: 'JOIN_CODE',
+      enrolledAt: new Date().toISOString(),
+      status: 'ENROLLED',
+    };
+
+    // 2. Persist to enrolled_students collection & section student roster
+    await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSec.id, [studentRecord]);
+    if (targetSec.joinCode && targetSec.joinCode !== targetSec.id) {
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSec.joinCode, [studentRecord]);
+    }
+
+    // 3. Update the student's Firestore user document with this section
+    if (effectiveUid) {
+      try {
+        const userRef = doc(db, 'users', effectiveUid);
+        await setDoc(
+          userRef,
+          {
+            sectionId: targetSec.id,
+            sectionName: targetSec.sectionName || targetSec.subject,
+            joinCode: targetSec.joinCode,
+            enrolledSections: arrayUnion(targetSec.id),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        const publicRef = doc(db, 'publicProfiles', effectiveUid);
+        await setDoc(
+          publicRef,
+          {
+            sectionId: targetSec.id,
+            sectionName: targetSec.sectionName || targetSec.subject,
+            joinCode: targetSec.joinCode,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch(() => {});
+      } catch (err) {
+        console.warn('enrollStudentByCode user doc update notice:', err);
+      }
+    }
+
+    // 4. Update the parent section document with this student in the students array
+    try {
+      const secRef = doc(db, 'sections', targetSec.id);
+      await setDoc(
+        secRef,
+        {
+          students: arrayUnion(studentRecord),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch {}
+
+    // 5. Update local active user cache
+    try {
+      const activeRaw = localStorage.getItem('logicq_active_user');
+      const activeObj = activeRaw ? JSON.parse(activeRaw) : {};
+      const updatedActive = {
+        ...activeObj,
+        sectionId: targetSec.id,
+        sectionName: targetSec.sectionName || targetSec.subject,
+        joinCode: targetSec.joinCode,
+      };
+      localStorage.setItem('logicq_active_user', JSON.stringify(updatedActive));
+    } catch {}
+
+    // 6. Broadcast Realtime Sync
+    RealtimeSyncService.emit('SECTIONS');
+    RealtimeSyncService.emit('USERS');
+    RealtimeSyncService.emit('TESTS');
+
+    return { success: true, section: targetSec };
   }
 
   /**

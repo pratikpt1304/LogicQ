@@ -257,14 +257,45 @@ export const DashboardPage: React.FC = () => {
 
   const handleDashboardEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dashboardJoinCode.trim()) return;
+    const cleanCode = dashboardJoinCode.trim().toUpperCase();
+    if (!cleanCode) return;
     setIsEnrollingCode(true);
     try {
-      const res = await api.post('/sections/enroll-by-code', { joinCode: dashboardJoinCode.trim().toUpperCase() });
-      toast.success(res?.message || 'Enrolled in section successfully! Assigned tests unlocked.');
+      // 1. Backend enrollment (Prisma SQLite & test assignments)
+      let backendRes: any = null;
+      try {
+        backendRes = await api.post('/sections/enroll-by-code', { joinCode: cleanCode });
+      } catch (backendErr: any) {
+        console.warn('Backend enroll-by-code notice, syncing via Firestore:', backendErr);
+      }
+
+      // 2. Comprehensive Firestore sync (enrolled_students, section roster, and student's profile)
+      const enrollResult = await FirestoreDataService.enrollStudentByCode(cleanCode, {
+        id: user?.id,
+        uid: (user as any)?.uid || auth.currentUser?.uid,
+        email: user?.email || auth.currentUser?.email,
+        prn: user?.prn,
+        fullName: user?.fullName || user?.displayName,
+        displayName: user?.displayName || user?.fullName,
+        department: user?.department,
+        year: user?.year,
+        college: user?.college,
+      });
+
+      const sectionTitle = enrollResult.section?.sectionName || enrollResult.section?.subject || backendRes?.section?.sectionName || cleanCode;
+      toast.success(`Successfully joined "${sectionTitle}"! Assigned tests unlocked.`);
       setDashboardJoinCode('');
-      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+
+      await queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      await queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      await queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-sections-list'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('TESTS');
     } catch (err: any) {
       toast.error(err?.message || 'Invalid join code or section not found.');
