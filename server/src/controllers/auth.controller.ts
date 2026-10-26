@@ -243,7 +243,7 @@ function isEmailDomainAllowed(email: string): { allowed: boolean; allowedDomains
   }
 
   const authMode = (process.env.AUTH_MODE || 'OPEN').toUpperCase();
-  const rawDomains = process.env.ALLOWED_EMAIL_DOMAINS || 'sanjivani.org.in';
+  const rawDomains = process.env.ALLOWED_EMAIL_DOMAINS || 'sanjivani.edu.in,sanjivani.org.in';
   const allowedDomains = rawDomains
     .split(',')
     .map((d) => d.trim().toLowerCase())

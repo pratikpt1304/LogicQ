@@ -24,6 +24,86 @@ export interface LogicQApiError extends Error {
   todayChallengeUrl?: string;
 }
 
+
+
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+async function refreshAuthSession(): Promise<string | null> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+
+      // 1. Try backend refresh endpoint
+      if (storedRefreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ refreshToken: storedRefreshToken }),
+          });
+
+          if (refreshRes.ok && isJsonResponse(refreshRes)) {
+            const refreshData = await refreshRes.json().catch(() => null);
+            const token = refreshData?.data?.accessToken;
+            if (typeof token === 'string' && token.length > 0) {
+              localStorage.setItem(TOKEN_STORAGE_KEY, token);
+              const rToken = refreshData?.data?.refreshToken;
+              if (typeof rToken === 'string' && rToken.length > 0) {
+                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+              }
+              return token;
+            }
+          }
+        } catch {
+          // Continue to Firebase Auth fallback
+        }
+      }
+
+      // 2. Silent Firebase Auth token re-exchange
+      if (auth.currentUser) {
+        try {
+          const idToken = await auth.currentUser.getIdToken(true);
+          const googleRes = await fetch(`${API_BASE}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idToken,
+              email: auth.currentUser.email,
+              avatarUrl: auth.currentUser.photoURL,
+              googleId: auth.currentUser.uid,
+            }),
+          });
+          if (googleRes.ok && isJsonResponse(googleRes)) {
+            const googleData = await googleRes.json().catch(() => null);
+            const token = googleData?.data?.accessToken;
+            if (typeof token === 'string' && token.length > 0) {
+              localStorage.setItem(TOKEN_STORAGE_KEY, token);
+              const rToken = googleData?.data?.refreshToken;
+              if (typeof rToken === 'string' && rToken.length > 0) {
+                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
+              }
+              return token;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   try {
     if (typeof window !== 'undefined') {
@@ -134,84 +214,6 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     }
     return (await handleFallbackRequest(cleanEndpoint, options)) as T;
   }
-
-let activeRefreshPromise: Promise<string | null> | null = null;
-
-async function refreshAuthSession(): Promise<string | null> {
-  if (activeRefreshPromise) {
-    return activeRefreshPromise;
-  }
-
-  activeRefreshPromise = (async () => {
-    try {
-      const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-
-      // 1. Try backend refresh endpoint
-      if (storedRefreshToken) {
-        try {
-          const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ refreshToken: storedRefreshToken }),
-          });
-
-          if (refreshRes.ok && isJsonResponse(refreshRes)) {
-            const refreshData = await refreshRes.json().catch(() => null);
-            const token = refreshData?.data?.accessToken;
-            if (typeof token === 'string' && token.length > 0) {
-              localStorage.setItem(TOKEN_STORAGE_KEY, token);
-              const rToken = refreshData?.data?.refreshToken;
-              if (typeof rToken === 'string' && rToken.length > 0) {
-                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
-              }
-              return token;
-            }
-          }
-        } catch {
-          // Continue to Firebase Auth fallback
-        }
-      }
-
-      // 2. Silent Firebase Auth token re-exchange
-      if (auth.currentUser) {
-        try {
-          const idToken = await auth.currentUser.getIdToken(true);
-          const googleRes = await fetch(`${API_BASE}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              idToken,
-              email: auth.currentUser.email,
-              avatarUrl: auth.currentUser.photoURL,
-              googleId: auth.currentUser.uid,
-            }),
-          });
-          if (googleRes.ok && isJsonResponse(googleRes)) {
-            const googleData = await googleRes.json().catch(() => null);
-            const token = googleData?.data?.accessToken;
-            if (typeof token === 'string' && token.length > 0) {
-              localStorage.setItem(TOKEN_STORAGE_KEY, token);
-              const rToken = googleData?.data?.refreshToken;
-              if (typeof rToken === 'string' && rToken.length > 0) {
-                localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, rToken);
-              }
-              return token;
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      return null;
-    } finally {
-      activeRefreshPromise = null;
-    }
-  })();
-
-  return activeRefreshPromise;
-}
 
   // If 401 Unauthorized and not already retrying, attempt token refresh or silent Firebase Auth re-exchange
   if (response.status === 401 && !options.skipAuthRefresh && !cleanEndpoint.includes('/auth/')) {

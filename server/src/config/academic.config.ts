@@ -304,8 +304,11 @@ export function parseAndValidateAllowlistCsv(csvContent: string): AllowlistValid
       continue;
     }
 
-    if (!normalizedEmail.includes('@') || !normalizedEmail.endsWith('@sanjivani.org.in')) {
-      malformedRows.push({ rowNumber, raw: line, error: 'Email must be a valid @sanjivani.org.in address' });
+    if (
+      !normalizedEmail.includes('@') ||
+      (!normalizedEmail.endsWith('@sanjivani.edu.in') && !normalizedEmail.endsWith('@sanjivani.org.in'))
+    ) {
+      malformedRows.push({ rowNumber, raw: line, error: 'Email must be a valid @sanjivani.edu.in or @sanjivani.org.in address' });
       errors.push(`Row ${rowNumber}: Invalid email domain`);
       continue;
     }
