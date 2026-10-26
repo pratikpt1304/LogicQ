@@ -2504,18 +2504,104 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
-  if (path.startsWith('/sections/') && method === 'GET') {
-    const secId = path.replace('/sections/', '');
+  if (path.startsWith('/sections/') && method === 'GET' && !path.includes('/join-info')) {
+    const secId = path.replace('/sections/', '').trim();
     let localSections: any[] = [];
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
     } catch {}
-    const found = localSections.find((s: any) => s.id === secId || s.joinCode === secId) || null;
+    let found = localSections.find((s: any) => s.id === secId || s.joinCode === secId) || null;
+    if (!found) {
+      try {
+        const fsSections = await FirestoreDataService.getSectionsFromFirestore();
+        found = fsSections.find((s: any) => s.id === secId || s.joinCode === secId) || null;
+      } catch {}
+    }
+
+    if (found) {
+      let roster: any[] = Array.isArray(found.students) ? [...found.students] : [];
+      try {
+        const keys = [
+          found.id ? `logicq_section_students_${found.id}` : null,
+          found.joinCode ? `logicq_section_students_${found.joinCode}` : null,
+        ].filter(Boolean) as string[];
+        for (const k of keys) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > roster.length) {
+              roster = parsed;
+            }
+          }
+        }
+      } catch {}
+      found.students = roster;
+      found._count = { students: roster.length };
+    }
+
     return {
       success: true,
       data: found,
       section: found,
+    };
+  }
+
+  // ==========================================
+  // SECTION IMPORT / ADD STUDENTS FALLBACK
+  // ==========================================
+  if (path.match(/\/sections\/([^\/]+)\/import-students/) && method === 'POST') {
+    const match = path.match(/\/sections\/([^\/]+)\/import-students/);
+    const secId = match ? match[1] : '';
+    const { students } = body || {};
+    const studentsArr = Array.isArray(students) ? students : [];
+
+    const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+    let localSections: any[] = [];
+    try {
+      localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (!Array.isArray(localSections)) localSections = [];
+    } catch {}
+
+    let sec = localSections.find((s: any) => s.id === secId || s.joinCode === secId);
+    if (!sec) {
+      try {
+        const fsSecs = await FirestoreDataService.getSectionsFromFirestore();
+        sec = fsSecs.find((s: any) => s.id === secId || s.joinCode === secId);
+        if (sec) localSections.unshift(sec);
+      } catch {}
+    }
+
+    if (sec) {
+      if (!Array.isArray(sec.students)) sec.students = [];
+      for (const st of studentsArr) {
+        const key = (st.prn || st.email || '').toUpperCase();
+        if (key && !sec.students.some((existing: any) => (existing.prn || existing.email || '').toUpperCase() === key)) {
+          sec.students.push({
+            id: `std_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: st.name || st.fullName || 'Student',
+            prn: st.prn ? String(st.prn).trim().toUpperCase() : null,
+            email: st.email ? String(st.email).trim().toLowerCase() : null,
+            mobile: st.mobile || null,
+            joinedVia: st.joinedVia || 'MANUAL_ENTRY',
+            enrolledAt: new Date().toISOString(),
+          });
+        }
+      }
+      sec._count = { students: sec.students.length };
+      try {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(localSections));
+        localStorage.setItem(`logicq_section_students_${sec.id}`, JSON.stringify(sec.students));
+        if (sec.joinCode) localStorage.setItem(`logicq_section_students_${sec.joinCode}`, JSON.stringify(sec.students));
+      } catch {}
+    }
+
+    return {
+      success: true,
+      message: `${studentsArr.length} student(s) enrolled successfully.`,
+      newlyEnrolled: studentsArr.length,
+      importedCount: studentsArr.length,
+      section: sec,
     };
   }
 
@@ -2531,7 +2617,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
     } catch {}
 
-    const sec = localSections.find((s: any) => s.joinCode?.toUpperCase() === codeClean);
+    let sec = localSections.find((s: any) => s.joinCode?.toUpperCase() === codeClean);
+    if (!sec) {
+      try {
+        const fsSections = await FirestoreDataService.getSectionsFromFirestore();
+        sec = fsSections.find((s: any) => s.joinCode?.toUpperCase() === codeClean);
+        if (sec) {
+          localSections.unshift(sec);
+        }
+      } catch {}
+    }
+
     if (!sec) {
       throw new Error(`Section with Join Code "${codeClean}" not found. Please verify the code with your faculty.`);
     }
@@ -2540,20 +2636,31 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     if (curUser) {
       if (!Array.isArray(sec.students)) sec.students = [];
       const already = sec.students.some((st: any) => st.email?.toLowerCase() === curUser.email?.toLowerCase() || (st.prn && st.prn === curUser.prn));
+      const studentRecord = {
+        id: curUser.id,
+        name: curUser.fullName || curUser.displayName || 'Student',
+        email: curUser.email,
+        prn: curUser.prn || null,
+        joinedVia: 'JOIN_CODE',
+        enrolledAt: new Date().toISOString(),
+      };
       if (!already) {
-        sec.students.push({
-          id: curUser.id,
-          name: curUser.fullName || curUser.displayName || 'Student',
-          email: curUser.email,
-          prn: curUser.prn || null,
-          joinedVia: 'JOIN_CODE',
-          enrolledAt: new Date().toISOString(),
-        });
+        sec.students.push(studentRecord);
         sec._count = { students: sec.students.length };
         try {
           localStorage.setItem(LOCAL_KEY, JSON.stringify(localSections));
+          localStorage.setItem(`logicq_section_students_${sec.id}`, JSON.stringify(sec.students));
+          if (sec.joinCode) localStorage.setItem(`logicq_section_students_${sec.joinCode}`, JSON.stringify(sec.students));
         } catch {}
       }
+
+      // Sync to Firestore enrolled_students so faculty gets live update
+      try {
+        await FirestoreDataService.saveEnrolledStudentsToFirestore(sec.id, [studentRecord]);
+        if (sec.joinCode && sec.joinCode !== sec.id) {
+          await FirestoreDataService.saveEnrolledStudentsToFirestore(sec.joinCode, [studentRecord]);
+        }
+      } catch {}
     }
 
     return {

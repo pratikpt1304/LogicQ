@@ -180,11 +180,31 @@ class RulesEvaluator {
     const allowedKeys = [
       'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
       'displayName', 'email', 'mobile', 'sectionId', 'institution',
-      'course', 'subject', 'status', 'enrolledAt', 'createdAt', 'updatedAt'
+      'course', 'subject', 'status', 'college', 'department', 'year',
+      'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt'
     ];
     for (const key of Object.keys(data)) {
       if (!allowedKeys.includes(key)) return false;
     }
+    if ('studentId' in data && (typeof data.studentId !== 'string' || data.studentId.length > 128)) return false;
+    if ('userId' in data && (typeof data.userId !== 'string' || data.userId.length > 128)) return false;
+    if ('uid' in data && (typeof data.uid !== 'string' || data.uid.length > 128)) return false;
+    if ('prn' in data && (typeof data.prn !== 'string' || data.prn.length > 30)) return false;
+    if ('name' in data && (typeof data.name !== 'string' || data.name.length > 100)) return false;
+    if ('fullName' in data && (typeof data.fullName !== 'string' || data.fullName.length > 100)) return false;
+    if ('displayName' in data && data.displayName !== null && (typeof data.displayName !== 'string' || data.displayName.length > 100)) return false;
+    if ('email' in data && (typeof data.email !== 'string' || data.email.length > 150)) return false;
+    if ('mobile' in data && data.mobile !== null && (typeof data.mobile !== 'string' || data.mobile.length > 25)) return false;
+    if ('sectionId' in data && (typeof data.sectionId !== 'string' || data.sectionId.length > 100)) return false;
+    if ('institution' in data && (typeof data.institution !== 'string' || data.institution.length > 100)) return false;
+    if ('course' in data && (typeof data.course !== 'string' || data.course.length > 100)) return false;
+    if ('subject' in data && (typeof data.subject !== 'string' || data.subject.length > 100)) return false;
+    if ('status' in data && (typeof data.status !== 'string' || data.status.length > 50)) return false;
+    if ('college' in data && (typeof data.college !== 'string' || data.college.length > 100)) return false;
+    if ('department' in data && (typeof data.department !== 'string' || data.department.length > 50)) return false;
+    if ('year' in data && (typeof data.year !== 'string' || data.year.length > 20)) return false;
+    if ('division' in data && data.division !== null && (typeof data.division !== 'string' || data.division.length > 20)) return false;
+    if ('joinedVia' in data && (typeof data.joinedVia !== 'string' || data.joinedVia.length > 50)) return false;
     return true;
   }
 
@@ -2748,6 +2768,42 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(true);
     expect(RulesEvaluator.evaluateSectionStudentDelete(unauthenticatedCtx)).toBe(true);
     expect(RulesEvaluator.evaluateEnrolledStudentDelete(unauthenticatedCtx)).toBe(true);
+
+    // 6. Enrolled student validation: supports college, department, year, division, joinedVia
+    const validEnrolledStudentData = {
+      studentId: 'std_2026_01',
+      prn: '2026AIML0001',
+      email: 'student@sanjivani.edu.in',
+      fullName: 'Alice Smith',
+      college: 'Sanjivani University',
+      department: 'AIML',
+      year: 'FY',
+      division: 'A',
+      joinedVia: 'SECTION_INVITE',
+      status: 'ACTIVE',
+    };
+    expect(RulesEvaluator.isValidEnrolledStudent(validEnrolledStudentData)).toBe(true);
+
+    // division == null is allowed
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, division: null })).toBe(true);
+
+    // oversized college (> 100) -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, college: 'A'.repeat(101) })).toBe(false);
+
+    // oversized department (> 50) -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, department: 'B'.repeat(51) })).toBe(false);
+
+    // oversized year (> 20) -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, year: 'Y'.repeat(21) })).toBe(false);
+
+    // oversized division (> 20) -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, division: 'D'.repeat(21) })).toBe(false);
+
+    // oversized joinedVia (> 50) -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, joinedVia: 'J'.repeat(51) })).toBe(false);
+
+    // unallowed key -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, unknownField: 'forbidden' })).toBe(false);
   });
 });
 

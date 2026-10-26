@@ -1318,37 +1318,87 @@ export class FirestoreDataService {
    * Persists enrolled students to Firestore under 'enrolled_students' collection.
    */
   public static async saveEnrolledStudentsToFirestore(sectionId: string, students: any[]): Promise<void> {
-    // 1. Save to localStorage backup per section
-    try {
-      localStorage.setItem(`logicq_section_students_${sectionId}`, JSON.stringify(students));
-    } catch {}
+    if (!students || students.length === 0) return;
 
-    // 2. Save batch to Firestore
+    // 1. Resilient localStorage roster merging per section
+    let mergedRoster: any[] = [];
     try {
-      const batch = writeBatch(db);
+      const storageKey = `logicq_section_students_${sectionId}`;
+      const existingRaw = localStorage.getItem(storageKey);
+      let existingList: any[] = [];
+      try {
+        existingList = existingRaw ? JSON.parse(existingRaw) : [];
+        if (!Array.isArray(existingList)) existingList = [];
+      } catch {}
+
+      mergedRoster = [...existingList];
       for (const s of students) {
-        if (!s.email && !s.prn) continue;
-        const key = (s.email || s.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const docRef = doc(db, 'enrolled_students', key);
-        batch.set(
-          docRef,
-          {
+        const key = (s.prn || s.email || '').toUpperCase();
+        if (key && !mergedRoster.some((m: any) => (m.prn || m.email || '').toUpperCase() === key)) {
+          mergedRoster.push({
+            id: s.id || `std_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             name: s.name || s.fullName || 'Student',
             fullName: s.name || s.fullName || 'Student',
             prn: s.prn ? String(s.prn).trim().toUpperCase() : null,
             email: s.email ? String(s.email).trim().toLowerCase() : null,
             mobile: s.mobile ? String(s.mobile).trim() : null,
             sectionId,
-            college: s.college || 'Sanjivani University',
-            department: s.department || 'CSE',
-            year: s.year || 'SY',
-            division: s.division || null,
-            enrolledAt: serverTimestamp(),
+            joinedVia: s.joinedVia || 'MANUAL_ENTRY',
+            enrolledAt: new Date().toISOString(),
+            status: 'ENROLLED',
+          });
+        }
+      }
+      localStorage.setItem(storageKey, JSON.stringify(mergedRoster));
+
+      // Also sync to section backup
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const allSecs = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(allSecs)) {
+        const target = allSecs.find((s: any) => s.id === sectionId || s.joinCode === sectionId);
+        if (target) {
+          target.students = mergedRoster;
+          target._count = { students: mergedRoster.length };
+          localStorage.setItem(LOCAL_KEY, JSON.stringify(allSecs));
+        }
+      }
+    } catch (localErr) {
+      console.warn('saveEnrolledStudentsToFirestore local storage merge warning:', localErr);
+    }
+
+    // 2. Save batch to Firestore under 'enrolled_students' collection
+    try {
+      const batch = writeBatch(db);
+      for (const s of students) {
+        if (!s.email && !s.prn) continue;
+        const key = (s.email || s.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const docRef = doc(db, 'enrolled_students', key);
+        const cleanPayload: Record<string, any> = {
+          name: s.name || s.fullName || 'Student',
+          fullName: s.name || s.fullName || 'Student',
+          prn: s.prn ? String(s.prn).trim().toUpperCase() : null,
+          email: s.email ? String(s.email).trim().toLowerCase() : null,
+          sectionId,
+          institution: s.college || s.institution || 'Sanjivani University',
+          status: 'ENROLLED',
+        };
+        if (s.mobile) cleanPayload.mobile = String(s.mobile).trim();
+        batch.set(docRef, cleanPayload, { merge: true });
+      }
+      await batch.commit();
+
+      // 3. Update the parent section document in Firestore with student count
+      try {
+        const secRef = doc(db, 'sections', sectionId);
+        await setDoc(
+          secRef,
+          {
+            _count: { students: mergedRoster.length },
+            updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
-      }
-      await batch.commit();
+      } catch {}
     } catch (err) {
       console.warn('saveEnrolledStudentsToFirestore error:', err);
     }

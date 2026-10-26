@@ -395,10 +395,23 @@ export const SectionManagementPage: React.FC = () => {
       toast.success(`Student ${newStu.name} (${newStu.prn}) enrolled successfully!`);
       setIsAddStudentOpen(false);
       setSingleStudent({ name: '', prn: '', email: '', mobile: '' });
+      if (selectedSection) {
+        setSelectedSection((prev: any) => {
+          if (!prev) return prev;
+          const currentStudents = Array.isArray(prev.students) ? [...prev.students] : [];
+          if (!currentStudents.some((s: any) => (s.prn || s.email || '').toUpperCase() === (newStu.prn || newStu.email || '').toUpperCase())) {
+            currentStudents.push(newStu);
+          }
+          return {
+            ...prev,
+            students: currentStudents,
+            _count: { students: currentStudents.length },
+          };
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
       queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
-      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         refetchDetails(selectedSection.id);

@@ -652,7 +652,8 @@ service cloud.firestore {
       let allowedKeys = [
         'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
         'displayName', 'email', 'mobile', 'sectionId', 'institution',
-        'course', 'subject', 'status', 'enrolledAt', 'createdAt', 'updatedAt'
+        'course', 'subject', 'status', 'college', 'department', 'year',
+        'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -668,7 +669,12 @@ service cloud.firestore {
         && (!('institution' in data) || (data.institution is string && data.institution.size() <= 100))
         && (!('course' in data) || (data.course is string && data.course.size() <= 100))
         && (!('subject' in data) || (data.subject is string && data.subject.size() <= 100))
-        && (!('status' in data) || (data.status is string && data.status.size() <= 50));
+        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
+        && (!('college' in data) || (data.college is string && data.college.size() <= 100))
+        && (!('department' in data) || (data.department is string && data.department.size() <= 50))
+        && (!('year' in data) || (data.year is string && data.year.size() <= 20))
+        && (!('division' in data) || data.division == null || (data.division is string && data.division.size() <= 20))
+        && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50));
     }
 
     match /enrolled_students/{docId} {
