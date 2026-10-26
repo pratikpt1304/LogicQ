@@ -93,12 +93,10 @@ export const LeaderboardPage: React.FC = () => {
     if (!u) return 'Sanjivani University';
     const dept = u.department || (u.isCurrentUser ? currentUser?.department : null);
     const yr = u.year || (u.isCurrentUser ? currentUser?.year : null);
-    const div = u.division || (u.isCurrentUser ? currentUser?.division : null);
     const maskedPrn = u.maskedPrn || (u.isCurrentUser ? currentUser?.maskedPrn : null);
 
     const parts = [
       [dept, yr].filter(Boolean).join(' • '),
-      div ? `Div ${div}` : null,
       maskedPrn ? maskedPrn : null,
     ].filter(Boolean);
 

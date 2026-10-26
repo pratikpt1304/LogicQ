@@ -207,7 +207,7 @@ export const SectionManagementPage: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {
       if (!payload.sectionName.trim()) {
-        throw new Error('Section Name is required (e.g. Div A).');
+        throw new Error('Section Name is required (e.g. First Year).');
       }
       if (!payload.subject.trim()) {
         throw new Error('Subject Name is required (e.g. C Programming).');
@@ -685,7 +685,7 @@ export const SectionManagementPage: React.FC = () => {
                 Academic Sections & Rosters
               </h1>
               <p className="text-sm text-[var(--muted-foreground)]">
-                Create classroom divisions, distribute join codes to students, and manage enrollment rosters.
+                Create academic sections, distribute join codes to students, and manage enrollment rosters.
               </p>
             </div>
           </div>
@@ -732,7 +732,7 @@ export const SectionManagementPage: React.FC = () => {
           </div>
           <h3 className="text-lg font-semibold text-[var(--foreground)]">No Academic Sections Created Yet</h3>
           <p className="text-sm text-[var(--muted-foreground)] max-w-md mx-auto">
-            Create your first course division (e.g., Div A for C Programming) to generate join codes and invite students.
+            Create your first academic section (e.g., First Year for C Programming) to generate join codes and invite students.
           </p>
           <button
             onClick={() => setIsCreateOpen(true)}

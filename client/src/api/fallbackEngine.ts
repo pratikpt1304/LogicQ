@@ -2512,7 +2512,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       institution: payload.institution || 'Sanjivani University',
       course: payload.course || 'B.Tech CSE',
       subject: payload.subject || 'C Programming',
-      sectionName: payload.sectionName || payload.name || 'Div A',
+      sectionName: payload.sectionName || payload.name || 'First Year',
       academicYear: payload.academicYear || '2026-2027',
       semester: payload.semester || 'Semester 1',
       description: payload.description || '',

@@ -1222,7 +1222,7 @@ export class FirestoreDataService {
         institution: section.institution || 'Sanjivani University',
         course: section.course || 'B.Tech CSE',
         subject: section.subject || 'C Programming',
-        sectionName: section.sectionName || section.name || 'Div A',
+        sectionName: section.sectionName || section.name || 'Academic Section',
         isActive: section.isActive !== false,
         updatedAt: serverTimestamp(),
       };
