@@ -1382,6 +1382,10 @@ export class FirestoreDataService {
           institution: s.college || s.institution || 'Sanjivani University',
           status: 'ENROLLED',
         };
+        if (s.department) cleanPayload.department = String(s.department).trim();
+        if (s.year) cleanPayload.year = String(s.year).trim();
+        if (s.division) cleanPayload.division = String(s.division).trim();
+        if (s.joinedVia) cleanPayload.joinedVia = String(s.joinedVia).trim();
         if (s.mobile) cleanPayload.mobile = String(s.mobile).trim();
         batch.set(docRef, cleanPayload, { merge: true });
       }

@@ -32,6 +32,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
+import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS } from '../../config/academic.config.js';
 
 interface StudentRosterItem {
   id?: string;
@@ -93,6 +94,8 @@ export const SectionManagementPage: React.FC = () => {
     prn: '',
     email: '',
     mobile: '',
+    department: '',
+    year: '',
   });
 
   // Excel Preview State
@@ -380,6 +383,8 @@ export const SectionManagementPage: React.FC = () => {
         prn: student.prn.trim().toUpperCase(),
         email: student.email.trim().toLowerCase() || `${student.prn.trim().toLowerCase()}@student.logicq.io`,
         mobile: student.mobile.trim() || null,
+        department: student.department?.trim() || selectedSection?.course || 'CSE',
+        year: student.year?.trim() || 'FY',
         joinedVia: 'MANUAL_ENTRY',
       };
 
@@ -394,7 +399,7 @@ export const SectionManagementPage: React.FC = () => {
     onSuccess: (newStu) => {
       toast.success(`Student ${newStu.name} (${newStu.prn}) enrolled successfully!`);
       setIsAddStudentOpen(false);
-      setSingleStudent({ name: '', prn: '', email: '', mobile: '' });
+      setSingleStudent({ name: '', prn: '', email: '', mobile: '', department: '', year: '' });
       if (selectedSection) {
         setSelectedSection((prev: any) => {
           if (!prev) return prev;
@@ -1358,6 +1363,41 @@ export const SectionManagementPage: React.FC = () => {
                   placeholder="e.g. PRN20261001"
                   className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono focus:outline-none focus:border-indigo-500 uppercase"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                    Department
+                  </label>
+                  <select
+                    value={singleStudent.department || selectedSection.course || ''}
+                    onChange={(e) => setSingleStudent({ ...singleStudent, department: e.target.value })}
+                    className="w-full px-2.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 text-xs"
+                  >
+                    <option value="">Select Dept</option>
+                    {ALLOWED_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                    Year
+                  </label>
+                  <select
+                    value={singleStudent.year || 'FY'}
+                    onChange={(e) => setSingleStudent({ ...singleStudent, year: e.target.value })}
+                    className="w-full px-2.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 text-xs"
+                  >
+                    <option value="FY">FY (First Year)</option>
+                    <option value="SY">SY (Second Year)</option>
+                    <option value="TY">TY (Third Year)</option>
+                    <option value="Final Year">Final Year</option>
+                  </select>
+                </div>
               </div>
 
               <div>

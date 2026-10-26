@@ -474,6 +474,8 @@ export class SectionService {
     prn: string;
     email: string;
     mobile?: string | null;
+    department?: string | null;
+    year?: string | null;
   }) {
     const cleanPrn = input.prn.trim().toUpperCase();
     const cleanEmail = input.email.trim().toLowerCase();
@@ -519,6 +521,8 @@ export class SectionService {
             prn: cleanPrn,
             email: cleanEmail,
             mobile: cleanMobile,
+            department: input.department?.trim() || section.course || 'CSE',
+            year: input.year?.trim() || 'FY',
             passwordHash: '$2a$10$VerifiedStudentJoinedViaInstantForm000000000',
             role: 'STUDENT',
             accountState: 'ACTIVE',
@@ -534,6 +538,8 @@ export class SectionService {
           data: {
             prn: cleanPrn,
             mobile: cleanMobile,
+            department: input.department?.trim() || student.department || section.course || 'CSE',
+            year: input.year?.trim() || student.year || 'FY',
             accountState: 'ACTIVE',
             emailOtpVerifiedAt: verifiedEmailOtp.verifiedAt || new Date(),
             mobileOtpVerifiedAt: null,

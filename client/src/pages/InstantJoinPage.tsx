@@ -18,7 +18,9 @@ import {
   Clock,
   Sparkles,
   BookOpen,
+  Calendar,
 } from 'lucide-react';
+import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS } from '../config/academic.config.js';
 
 interface PublicSectionInfo {
   id: string;
@@ -49,6 +51,8 @@ export const InstantJoinPage: React.FC = () => {
   const [name, setName] = useState('');
   const [prn, setPrn] = useState('');
   const [email, setEmail] = useState('');
+  const [department, setDepartment] = useState('');
+  const [year, setYear] = useState('');
 
   // Email OTP state
   const [emailOtp, setEmailOtp] = useState('');
@@ -272,6 +276,28 @@ export const InstantJoinPage: React.FC = () => {
     };
   }, [joinToken]);
 
+  // Pre-fill department and year from section details if available
+  useEffect(() => {
+    if (!section) return;
+    if (!department) {
+      const course = (section.course || '').toUpperCase();
+      const matchedDept = ALLOWED_DEPARTMENTS.find((d) => course.includes(d.toUpperCase())) || 'AIML';
+      setDepartment(matchedDept);
+    }
+    if (!year) {
+      const text = `${section.sectionName || ''} ${section.academicYear || ''} ${section.semester || ''}`.toUpperCase();
+      if (text.includes('FIRST') || text.includes('FY') || text.includes('SEM 1') || text.includes('SEM 2')) {
+        setYear('FY');
+      } else if (text.includes('SECOND') || text.includes('SY') || text.includes('SEM 3') || text.includes('SEM 4')) {
+        setYear('SY');
+      } else if (text.includes('THIRD') || text.includes('TY')) {
+        setYear('TY');
+      } else {
+        setYear('FY');
+      }
+    }
+  }, [section]);
+
   // Cooldown countdown timer
   useEffect(() => {
     if (emailCooldown <= 0) return;
@@ -348,6 +374,14 @@ export const InstantJoinPage: React.FC = () => {
       toast.error('Please enter your PRN or Roll No.');
       return;
     }
+    if (!department) {
+      toast.error('Please select your academic department.');
+      return;
+    }
+    if (!year) {
+      toast.error('Please select your academic year.');
+      return;
+    }
     if (!emailOtpVerified) {
       toast.error('Please complete Email verification first.');
       return;
@@ -355,13 +389,19 @@ export const InstantJoinPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      const studentData = {
+        name: name.trim(),
+        prn: prn.trim().toUpperCase(),
+        email: email.trim().toLowerCase(),
+        department: department.trim(),
+        year: year.trim(),
+      };
+
       let enrolled = false;
       try {
         const res = await api.post('/sections/instant-join', {
           joinToken,
-          name: name.trim(),
-          prn: prn.trim().toUpperCase(),
-          email: email.trim().toLowerCase(),
+          ...studentData,
         });
         if (res.success) enrolled = true;
       } catch (apiErr: any) {
@@ -370,17 +410,9 @@ export const InstantJoinPage: React.FC = () => {
 
       // Always save to Firestore roster so faculty see student immediately
       const targetSecId = section?.id || section?.joinCode || joinToken || 'instant';
-      await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [{
-        name: name.trim(),
-        prn: prn.trim().toUpperCase(),
-        email: email.trim().toLowerCase(),
-      }]);
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [studentData]);
       if (section?.joinCode && section.joinCode !== targetSecId) {
-        await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [{
-          name: name.trim(),
-          prn: prn.trim().toUpperCase(),
-          email: email.trim().toLowerCase(),
-        }]);
+        await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [studentData]);
       }
       enrolled = true;
 
@@ -462,6 +494,10 @@ export const InstantJoinPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
               <span className="text-[var(--muted-foreground)]">Student PRN</span>
               <span className="font-mono font-bold text-indigo-400">{prn.toUpperCase()}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
+              <span className="text-[var(--muted-foreground)]">Department & Year</span>
+              <span className="font-medium text-[var(--foreground)]">{department} • {year}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--muted-foreground)]">Identity State</span>
@@ -581,7 +617,53 @@ export const InstantJoinPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Email Address & Email OTP */}
+            {/* 3. Academic Department & Year */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+                  Academic Department <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <GraduationCap className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
+                  <select
+                    required
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="" disabled>Select Department</option>
+                    {ALLOWED_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5">
+                  Academic Year <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] pointer-events-none" />
+                  <select
+                    required
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="" disabled>Select Year</option>
+                    <option value="FY">First Year (FY)</option>
+                    <option value="SY">Second Year (SY)</option>
+                    <option value="TY">Third Year (TY)</option>
+                    <option value="Final Year">Final Year</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Email Address & Email OTP */}
             <div className="space-y-2 p-4 rounded-2xl bg-[var(--background)]/60 border border-[var(--border)]">
               <label className="block text-xs font-medium text-[var(--foreground)] flex items-center justify-between">
                 <span>Academic Email Address</span>

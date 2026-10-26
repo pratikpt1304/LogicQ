@@ -2795,7 +2795,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/sections/instant-join' && method === 'POST') {
-    const { joinToken, name, prn, email } = body || {};
+    const { joinToken, name, prn, email, department, year } = body || {};
     const cleanToken = String(joinToken || '').trim();
     const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
     let localSections: any[] = [];
@@ -2832,6 +2832,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       name: (name || 'Student').trim(),
       prn: String(prn || '').trim().toUpperCase(),
       email: String(email || '').trim().toLowerCase(),
+      department: String(department || '').trim() || undefined,
+      year: String(year || '').trim() || undefined,
       joinedVia: 'INSTANT_JOIN',
       enrolledAt: new Date().toISOString(),
     };

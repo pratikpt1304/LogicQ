@@ -189,7 +189,7 @@ export class SectionController {
    */
   static async instantJoin(req: Request, res: Response) {
     try {
-      const { joinToken, name, prn, email, mobile } = req.body;
+      const { joinToken, name, prn, email, mobile, department, year } = req.body;
 
       if (!joinToken || !name || !prn || !email) {
         return res.status(400).json({
@@ -204,6 +204,8 @@ export class SectionController {
         prn,
         email,
         mobile,
+        department,
+        year,
       });
 
       return res.status(200).json(result);
