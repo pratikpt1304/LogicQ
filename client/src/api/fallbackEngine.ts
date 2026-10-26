@@ -2372,6 +2372,66 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  if (path === '/sections' && method === 'POST') {
+    const payload = body || {};
+    const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+    let stored: any[] = [];
+    try {
+      stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (!Array.isArray(stored)) stored = [];
+    } catch {}
+
+    const newSec = {
+      id: `sec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      institution: payload.institution || 'Sanjivani University',
+      course: payload.course || 'B.Tech CSE',
+      subject: payload.subject || 'C Programming',
+      sectionName: payload.sectionName || payload.name || 'Div A',
+      academicYear: payload.academicYear || '2026-2027',
+      semester: payload.semester || 'Semester 1',
+      description: payload.description || '',
+      joinCode: `LQ-${Math.random().toString(36).slice(-4).toUpperCase()}`,
+      joinToken: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `token_${Date.now()}`,
+      facultyId: payload.facultyId || null,
+      facultyEmail: payload.facultyEmail || null,
+      facultyName: payload.facultyName || null,
+      createdBy: payload.createdBy || payload.facultyId || null,
+      isActive: true,
+      students: [],
+      _count: { students: 0 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    stored.unshift(newSec);
+    try {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(stored));
+    } catch {}
+
+    return {
+      success: true,
+      message: 'Section created successfully.',
+      data: newSec,
+      section: newSec,
+    };
+  }
+
+  if (path.startsWith('/sections/') && method === 'DELETE') {
+    const secId = path.replace('/sections/', '');
+    const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+    try {
+      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(stored)) {
+        const filtered = stored.filter((s: any) => s.id !== secId && s.joinCode !== secId);
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+      }
+    } catch {}
+    return {
+      success: true,
+      message: 'Section deleted successfully.',
+    };
+  }
+
   if (path.startsWith('/sections/') && method === 'GET') {
     const secId = path.replace('/sections/', '');
     let localSections: any[] = [];

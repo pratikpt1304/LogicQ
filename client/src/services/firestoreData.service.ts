@@ -694,9 +694,7 @@ export class FirestoreDataService {
       upperId === '20E4DB09-FE9A-47AB-A034-57B11E49A02F' ||
       token === '20e4db09-fe9a-47ab-a034-57b11e49a02f' ||
       token === '68267c8a-1d8e-426f-97cd-72d215792084' ||
-      token === '54c6ce08-8307-44d2-9125-be8c7d2a38c7' ||
-      name === 'Div A - Computer Science' ||
-      (name.includes('Div A') && desc.includes('Official academic section for B.Tech CSE'))
+      token === '54c6ce08-8307-44d2-9125-be8c7d2a38c7'
     );
   }
 
@@ -836,12 +834,26 @@ export class FirestoreDataService {
     }
     const sectionId = section.id || section.joinToken || `sec_${Date.now()}`;
 
+    const facultyId = section.facultyId || section.createdBy || null;
+    const facultyEmail = (section.facultyEmail || section.faculty?.email || '').toLowerCase().trim() || null;
+    const facultyName = section.facultyName || (section.faculty?.fullName || section.faculty?.name || '').trim() || null;
+
+    const normalizedSection = {
+      ...section,
+      id: sectionId,
+      facultyId,
+      facultyEmail,
+      facultyName,
+    };
+
     // 1. Immediately cache in resilient localStorage
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-      const filtered = existing.filter((s: any) => s.id !== sectionId && s.joinCode !== section.joinCode);
-      filtered.unshift({ ...section, id: sectionId });
+      const filtered = (Array.isArray(existing) ? existing : []).filter(
+        (s: any) => s.id !== sectionId && s.joinCode !== section.joinCode
+      );
+      filtered.unshift(normalizedSection);
       localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
     } catch {}
 
@@ -862,7 +874,9 @@ export class FirestoreDataService {
       if (section.description) cleanPayload.description = String(section.description);
       if (section.joinCode) cleanPayload.joinCode = String(section.joinCode);
       if (section.joinToken) cleanPayload.joinToken = String(section.joinToken);
-      if (section.facultyId && typeof section.facultyId === 'string') cleanPayload.facultyId = section.facultyId;
+      if (facultyId && typeof facultyId === 'string') cleanPayload.facultyId = facultyId;
+      if (facultyEmail && typeof facultyEmail === 'string') cleanPayload.facultyEmail = facultyEmail;
+      if (facultyName && typeof facultyName === 'string') cleanPayload.facultyName = facultyName;
 
       await setDoc(secRef, cleanPayload, { merge: true });
     } catch (err) {
@@ -994,22 +1008,31 @@ export class FirestoreDataService {
     // Purge deleted students in background
     FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
 
-    // Wipe local storage section caches
-    try {
-      localStorage.removeItem('logicq_faculty_sections_backup_v2');
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('logicq_section_') || k.startsWith('logicq_faculty_sections_'))) {
-          keysToRemove.push(k);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-    } catch {}
-
     const sectionMap = new Map<string, any>();
 
-    // 2. Read authoritative Firestore & purge legacy/wiped demo sections
+    // 1. Read persistent local cache first
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(stored)) {
+        stored.forEach((item: any) => {
+          if (
+            item &&
+            !FirestoreDataService.isLegacyDemoSection(item) &&
+            !FirestoreDataService.isSectionDeleted(item.id, item.joinCode) &&
+            item.joinCode !== 'LQ-IMTC' &&
+            item.id !== '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57'
+          ) {
+            const key = item.joinCode || item.id;
+            if (key) sectionMap.set(key, item);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Error reading local sections backup:', e);
+    }
+
+    // 2. Read authoritative Firestore & merge
     try {
       const snap = await getDocs(collection(db, 'sections'));
       for (const d of snap.docs) {
@@ -1018,6 +1041,7 @@ export class FirestoreDataService {
           const item: any = { id: d.id, ...data };
           if (
             FirestoreDataService.isLegacyDemoSection(item) ||
+            FirestoreDataService.isSectionDeleted(item.id, item.joinCode) ||
             item.joinCode === 'LQ-IMTC' ||
             item.id === '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57'
           ) {
@@ -1026,8 +1050,11 @@ export class FirestoreDataService {
           }
           item.students = (item.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
           item._count = { students: item.students.length };
-          const key = item.id || item.joinCode || item.sectionName;
-          sectionMap.set(key, item);
+          const key = item.joinCode || item.id;
+          if (key) {
+            const existing = sectionMap.get(key) || {};
+            sectionMap.set(key, { ...existing, ...item });
+          }
         }
       }
     } catch (err) {
@@ -1038,7 +1065,7 @@ export class FirestoreDataService {
     sectionMap.delete('LQ-IMTC');
     sectionMap.delete('4a8812a1-41eb-4bfb-b50a-ca9f8702ed57');
 
-    return Array.from(sectionMap.values())
+    const result = Array.from(sectionMap.values())
       .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
       .map((s: any) => {
         const filteredStudents = (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
@@ -1048,6 +1075,14 @@ export class FirestoreDataService {
           _count: { students: filteredStudents.length },
         };
       });
+
+    // Update persistent local backup so fallback always has current valid sections
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(result));
+    } catch {}
+
+    return result;
   }
 
   /**

@@ -150,7 +150,7 @@ export const SectionManagementPage: React.FC = () => {
         }
       });
 
-      // Filter out deleted/legacy sections and enforce strict faculty ownership
+      // Filter out deleted/legacy sections and enforce faculty ownership
       const isSuperAdmin = user?.role === 'ADMIN';
       const facultyEmail = user?.email?.toLowerCase().trim();
       const facultyId = user?.id || (user as any)?.uid;
@@ -167,6 +167,9 @@ export const SectionManagementPage: React.FC = () => {
         if (facultyId && sFacultyId === facultyId) return true;
         if (facultyEmail && sFacultyEmail === facultyEmail) return true;
         if (s.createdBy === facultyId || s.createdBy === facultyEmail) return true;
+
+        // If no facultyId/facultyEmail is recorded on the section, keep visible
+        if (!sFacultyId && !sFacultyEmail) return true;
 
         return false;
       });
@@ -188,28 +191,66 @@ export const SectionManagementPage: React.FC = () => {
         throw new Error('Subject Name is required (e.g. C Programming).');
       }
 
+      const facultyEmail = user?.email?.toLowerCase().trim();
+      const facultyId = user?.id || (user as any)?.uid || facultyEmail || 'faculty_user';
+      const facultyName = user?.fullName || (user as any)?.displayName || (user as any)?.name || '';
+
+      const fullPayload = {
+        ...payload,
+        facultyId,
+        facultyEmail,
+        facultyName,
+        createdBy: facultyId,
+      };
+
       let createdSection: any = null;
       try {
-        const res = await api.post('/sections', payload);
-        createdSection = res.data || res.section || res;
+        const res = await api.post('/sections', fullPayload);
+        const candidate = res?.data || res?.section || res;
+        if (candidate && (candidate.id || candidate.joinCode)) {
+          createdSection = {
+            ...candidate,
+            facultyId: candidate.facultyId || facultyId,
+            facultyEmail: candidate.facultyEmail || facultyEmail,
+            facultyName: candidate.facultyName || facultyName,
+          };
+        }
       } catch (err) {
         console.warn('Backend section creation failed, saving to Firestore:', err);
+      }
+
+      if (!createdSection || !createdSection.joinCode) {
         createdSection = {
-          ...payload,
-          id: `sec_${Date.now()}`,
+          ...fullPayload,
+          id: `sec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           joinCode: `LQ-${Math.random().toString(36).slice(-4).toUpperCase()}`,
-          joinToken: crypto.randomUUID(),
+          joinToken: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `token_${Date.now()}`,
           isActive: true,
+          students: [],
+          _count: { students: 0 },
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
       }
-      if (createdSection) {
-        await FirestoreDataService.saveSectionToFirestore(createdSection);
-      }
+
+      // 1. Immediately cache in local storage
+      try {
+        const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+        const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+        const filtered = (Array.isArray(existing) ? existing : []).filter(
+          (s: any) => s.id !== createdSection.id && s.joinCode !== createdSection.joinCode
+        );
+        filtered.unshift(createdSection);
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+      } catch {}
+
+      // 2. Persist to Firestore
+      await FirestoreDataService.saveSectionToFirestore(createdSection);
+
       return createdSection;
     },
-    onSuccess: (res) => {
-      toast.success(res?.message || 'Section created successfully!');
+    onSuccess: (createdSection) => {
+      toast.success('Section created successfully!');
       setIsCreateOpen(false);
       setNewSection({
         sectionName: '',
@@ -219,6 +260,14 @@ export const SectionManagementPage: React.FC = () => {
         semester: 'Semester 1',
         institution: 'Sanjivani University',
         description: '',
+      });
+      // Immediately inject into queryClient cache so it doesn't wait for refetch
+      queryClient.setQueryData(['faculty-sections'], (old: any) => {
+        const list = Array.isArray(old) ? old : [];
+        if (!list.some((s: any) => s.id === createdSection.id || s.joinCode === createdSection.joinCode)) {
+          return [createdSection, ...list];
+        }
+        return list;
       });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
       RealtimeSyncService.emit('SECTIONS');
