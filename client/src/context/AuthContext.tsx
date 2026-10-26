@@ -9,6 +9,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
+import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { isRealPersonName, normalizeDepartment } from '../config/academic.config.js';
@@ -304,6 +305,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
       if (isMountedRef.current) {
+        queryClient.cancelQueries();
+        queryClient.clear();
         setUser(null);
         setAuthState('signedOut');
         setIdleWarningSeconds(null);
@@ -327,6 +330,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore
       }
       if (isMountedRef.current) {
+        queryClient.cancelQueries();
+        queryClient.clear();
         setUser(null);
         setAuthState('signedOut');
         setIdleWarningSeconds(null);
@@ -815,6 +820,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Definitively signed out
         if (isMountedRef.current) {
+          queryClient.cancelQueries();
+          queryClient.clear();
           setUser(null);
           setAuthState('signedOut');
         }

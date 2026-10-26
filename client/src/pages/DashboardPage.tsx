@@ -98,7 +98,7 @@ export const DashboardPage: React.FC = () => {
   // 1. Fetch Faculty / Admin Sections (Live 6s auto-refresh)
   const { data: facultySections = [] } = useQuery({
     queryKey: ['faculty-dashboard-sections'],
-    enabled: !isStudent,
+    enabled: Boolean(user && !isStudent),
     queryFn: async () => {
       let backendList: any[] = [];
       try {
@@ -130,7 +130,7 @@ export const DashboardPage: React.FC = () => {
   // 2. Fetch Faculty / Admin Tests
   const { data: facultyTests = [] } = useQuery({
     queryKey: ['faculty-dashboard-tests'],
-    enabled: !isStudent,
+    enabled: Boolean(user && !isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/assessment-tests');
@@ -146,7 +146,7 @@ export const DashboardPage: React.FC = () => {
   // 3. Fetch Admin / Global Stats (if admin)
   const { data: globalStats } = useQuery({
     queryKey: ['faculty-dashboard-global-stats'],
-    enabled: !isStudent,
+    enabled: Boolean(user && !isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/admin/stats');
@@ -161,7 +161,7 @@ export const DashboardPage: React.FC = () => {
   // 4. Fetch Recent Live Submissions (Live 5s stream)
   const { data: recentSubmissions = [] } = useQuery({
     queryKey: ['faculty-dashboard-recent-submissions'],
-    enabled: !isStudent,
+    enabled: Boolean(user && !isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/admin/submissions?limit=6');
@@ -182,7 +182,7 @@ export const DashboardPage: React.FC = () => {
   // 1. Student Assigned Tests (Live 8s auto-refresh)
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
-    enabled: isStudent,
+    enabled: Boolean(user && isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/exam/my-tests');
@@ -198,7 +198,7 @@ export const DashboardPage: React.FC = () => {
   // 2. Student Practice Modules
   const { data: studentPracticeModules = [] } = useQuery({
     queryKey: ['student-practice-modules'],
-    enabled: isStudent,
+    enabled: Boolean(user && isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/practice/modules');
@@ -214,7 +214,7 @@ export const DashboardPage: React.FC = () => {
   // 3. Student Recent Submissions (Live 6s feed)
   const { data: studentSubmissions = [] } = useQuery({
     queryKey: ['student-my-submissions'],
-    enabled: isStudent,
+    enabled: Boolean(user && isStudent),
     queryFn: async () => {
       try {
         const res = await api.get('/submissions/my?limit=5');

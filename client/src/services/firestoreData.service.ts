@@ -1961,31 +1961,35 @@ export class FirestoreDataService {
         }
       } catch {}
 
-      // 2. Direct lookup by prnIndex/{prnClean}
-      try {
-        const prnSnap = await getDoc(doc(db, 'prnIndex', prnClean));
-        if (prnSnap.exists()) {
-          const pData = prnSnap.data();
-          const targetUid = pData.userId || pData.uid;
-          if (targetUid) {
-            const userDoc = await getDoc(doc(db, 'users', targetUid)).catch(() => null);
-            if (userDoc && userDoc.exists()) {
-              const uData = userDoc.data();
-              if (!FirestoreDataService.isPurgedStudent({ ...uData, prn: prnClean })) {
-                return { id: userDoc.id, uid: userDoc.id, ...uData, prn: prnClean };
+      // 2. Direct lookup by prnIndex/{prnClean} (Only if authenticated in Firebase Auth)
+      if (auth.currentUser) {
+        try {
+          const prnSnap = await getDoc(doc(db, 'prnIndex', prnClean));
+          if (prnSnap.exists()) {
+            const pData = prnSnap.data();
+            const targetUid = pData.userId || pData.uid;
+            if (targetUid) {
+              const userDoc = await getDoc(doc(db, 'users', targetUid)).catch(() => null);
+              if (userDoc && userDoc.exists()) {
+                const uData = userDoc.data();
+                if (!FirestoreDataService.isPurgedStudent({ ...uData, prn: prnClean })) {
+                  return { id: userDoc.id, uid: userDoc.id, ...uData, prn: prnClean };
+                }
               }
-            }
-            const pubDoc = await getDoc(doc(db, 'publicProfiles', targetUid)).catch(() => null);
-            if (pubDoc && pubDoc.exists()) {
-              const pData = pubDoc.data();
-              if (!FirestoreDataService.isPurgedStudent({ ...pData, prn: prnClean })) {
-                return { id: targetUid, uid: targetUid, ...pData, prn: prnClean };
+              const pubDoc = await getDoc(doc(db, 'publicProfiles', targetUid)).catch(() => null);
+              if (pubDoc && pubDoc.exists()) {
+                const pData = pubDoc.data();
+                if (!FirestoreDataService.isPurgedStudent({ ...pData, prn: prnClean })) {
+                  return { id: targetUid, uid: targetUid, ...pData, prn: prnClean };
+                }
               }
             }
           }
+        } catch (err: any) {
+          if (err?.code !== 'permission-denied') {
+            console.warn('prnIndex lookup error in findEnrolledStudent:', err);
+          }
         }
-      } catch (err) {
-        console.warn('prnIndex lookup error in findEnrolledStudent:', err);
       }
 
       // 3. Direct lookup in 'enrolled_students' by various key formats
@@ -2030,32 +2034,46 @@ export class FirestoreDataService {
         }
       } catch {}
 
-      // 5. Query users by PRN or email
-      try {
-        const userPrnQ = query(collection(db, 'users'), where('prn', '==', prnClean));
-        const userPrnSnap = await getDocs(userPrnQ);
-        if (!userPrnSnap.empty) {
-          const uData = userPrnSnap.docs[0].data();
-          if (!FirestoreDataService.isPurgedStudent(uData)) {
-            return { id: userPrnSnap.docs[0].id, ...uData };
-          }
-        }
-      } catch {}
+      // 5. Query users by PRN or email (Admin only)
+      const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
+      const isAdmin = [
+        'admin@logicq.io',
+        'hariprasathset@sanjivani.edu.in',
+        'logicq1304@gmail.com',
+        'ipworker1908@gmail.com',
+        'ipverse1918@gmail.com',
+        'logicqarena@gmail.com',
+      ].includes(currentEmail);
 
-      try {
-        const userEmailQ = query(collection(db, 'users'), where('email', '==', clean));
-        const userEmailSnap = await getDocs(userEmailQ);
-        if (!userEmailSnap.empty) {
-          const uData = userEmailSnap.docs[0].data();
-          if (!FirestoreDataService.isPurgedStudent(uData)) {
-            return { id: userEmailSnap.docs[0].id, ...uData };
+      if (isAdmin) {
+        try {
+          const userPrnQ = query(collection(db, 'users'), where('prn', '==', prnClean));
+          const userPrnSnap = await getDocs(userPrnQ);
+          if (!userPrnSnap.empty) {
+            const uData = userPrnSnap.docs[0].data();
+            if (!FirestoreDataService.isPurgedStudent(uData)) {
+              return { id: userPrnSnap.docs[0].id, ...uData };
+            }
           }
-        }
-      } catch {}
+        } catch {}
+
+        try {
+          const userEmailQ = query(collection(db, 'users'), where('email', '==', clean));
+          const userEmailSnap = await getDocs(userEmailQ);
+          if (!userEmailSnap.empty) {
+            const uData = userEmailSnap.docs[0].data();
+            if (!FirestoreDataService.isPurgedStudent(uData)) {
+              return { id: userEmailSnap.docs[0].id, ...uData };
+            }
+          }
+        } catch {}
+      }
 
       return null;
-    } catch (err) {
-      console.warn('findEnrolledStudentInFirestore error:', err);
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('findEnrolledStudentInFirestore error:', err);
+      }
       return null;
     }
   }

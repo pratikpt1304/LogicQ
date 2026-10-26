@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './config/queryClient.js';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext.js';
 import { SocketProvider } from './context/SocketContext.js';
@@ -49,16 +50,6 @@ if (typeof window !== 'undefined') {
     );
   });
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: true, // Auto-sync immediately when switching tabs between Admin/Faculty/Student
-      staleTime: 5000, // 5 seconds high-freshness cache for real-time responsiveness
-      retry: 1,
-    },
-  },
-});
 
 // Initialize multi-tab & Firestore cross-portal real-time mesh
 RealtimeSyncService.init(queryClient);
