@@ -756,28 +756,24 @@ export const SectionManagementPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      {/* Stylized Division Badge */}
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-mono font-bold text-indigo-400 text-sm shadow-inner shrink-0">
-                        {(section.sectionName || section.subject || 'SEC').slice(0, 5).toUpperCase()}
+                      {/* Stylized 1-Letter Monogram Badge */}
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-sans font-black text-indigo-400 dark:text-indigo-300 text-lg shadow-sm shrink-0">
+                        {(section.subject || section.sectionName || 'C').trim().charAt(0).toUpperCase() || 'C'}
                       </div>
                       <div>
                         <h3 className="text-base font-bold text-[var(--foreground)] line-clamp-1">
                           {section.sectionName || section.subject}
                         </h3>
-                        <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
-                          {section.course || 'Engineering'}
-                        </p>
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <span className="text-[11px] font-mono text-[var(--muted-foreground)] block">
-                        {section.academicYear}
-                      </span>
-                      <span className="text-[11px] text-indigo-400/90 font-medium block">
-                        {section.semester}
-                      </span>
-                    </div>
+                    {section.semester && (
+                      <div className="text-right shrink-0">
+                        <span className="text-xs px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium inline-block">
+                          {section.semester}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {section.description && (
@@ -908,8 +904,8 @@ export const SectionManagementPage: React.FC = () => {
             {/* Roster Header */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[var(--border)] pb-5">
               <div className="flex items-start sm:items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-black font-mono text-base shadow-sm shrink-0">
-                  {(selectedSection.sectionName || selectedSection.subject || 'SEC').slice(0, 3).toUpperCase()}
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-indigo-600/20 text-indigo-400 dark:text-indigo-300 border border-indigo-500/30 flex items-center justify-center font-black font-sans text-xl shadow-sm shrink-0">
+                  {(selectedSection.subject || selectedSection.sectionName || 'C').trim().charAt(0).toUpperCase() || 'C'}
                 </div>
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -932,11 +928,13 @@ export const SectionManagementPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-2">
-                    <span>{selectedSection.course}</span>
-                    <span>•</span>
-                    <span>{selectedSection.semester} ({selectedSection.academicYear})</span>
-                  </p>
+                  {selectedSection.semester && (
+                    <p className="text-xs text-[var(--muted-foreground)] flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium text-[11px]">
+                        {selectedSection.semester}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
