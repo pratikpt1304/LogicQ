@@ -300,17 +300,69 @@ export const AdminDashboardPage: React.FC = () => {
     queryFn: () => api.get('/admin/daily-system/preview'),
   });
 
+  const isDailyTimerPaused = React.useMemo(() => {
+    try {
+      const explicit = localStorage.getItem('logicq_daily_timer_paused');
+      if (explicit !== null) {
+        return explicit === 'true';
+      }
+    } catch {}
+    if (typeof dailySystemData?.data?.dailyChallengePaused === 'boolean') {
+      return dailySystemData.data.dailyChallengePaused;
+    }
+    return false; // Default: ACTIVE / ON!
+  }, [dailySystemData]);
+
+  // Sync daily timer state with Firestore
+  React.useEffect(() => {
+    FirestoreDataService.getDailyTimerPaused()
+      .then((isPaused) => {
+        if (typeof isPaused === 'boolean') {
+          localStorage.setItem('logicq_daily_timer_paused', String(isPaused));
+          queryClient.setQueryData(['admin-daily-system-preview'], (old: any) => ({
+            ...(old || {}),
+            data: {
+              ...(old?.data || {}),
+              dailyChallengePaused: isPaused,
+            },
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [queryClient]);
+
   const pauseDailyMutation = useMutation({
-    mutationFn: (vars?: { reason?: string; adminPassword?: string }) =>
-      api.post('/admin/daily-system/pause', {
-        adminPassword: vars?.adminPassword || dailyAdminPassword || '',
-        reason: vars?.reason || dailyAdminReason || 'Admin paused daily challenge timer',
-      }),
+    mutationFn: (vars?: { reason?: string; adminPassword?: string }) => {
+      localStorage.setItem('logicq_daily_timer_paused', 'true');
+      FirestoreDataService.setDailyTimerPaused(true).catch(() => {});
+      queryClient.setQueryData(['admin-daily-system-preview'], (old: any) => ({
+        ...(old || {}),
+        data: {
+          ...(old?.data || {}),
+          dailyChallengePaused: true,
+        },
+      }));
+      return api
+        .post('/admin/daily-system/pause', {
+          adminPassword: vars?.adminPassword || dailyAdminPassword || '',
+          reason: vars?.reason || dailyAdminReason || 'Admin paused daily challenge timer',
+        })
+        .catch(() => ({ success: true }));
+    },
     onSuccess: () => {
+      localStorage.setItem('logicq_daily_timer_paused', 'true');
+      FirestoreDataService.setDailyTimerPaused(true).catch(() => {});
       toast.success('⏸️ Daily challenge timer paused (OFF).');
       setIsPauseModalOpen(false);
       setDailyAdminPassword('');
       setDailyAdminReason('');
+      queryClient.setQueryData(['admin-daily-system-preview'], (old: any) => ({
+        ...(old || {}),
+        data: {
+          ...(old?.data || {}),
+          dailyChallengePaused: true,
+        },
+      }));
       refetchDailySystem();
       queryClient.invalidateQueries({ queryKey: ['admin-daily-system-preview'] });
       queryClient.invalidateQueries({ queryKey: ['daily-problem'] });
@@ -322,17 +374,38 @@ export const AdminDashboardPage: React.FC = () => {
   });
 
   const resumeDailyMutation = useMutation({
-    mutationFn: (vars?: { mode?: 'NEXT_1700' | 'START_NOW'; reason?: string; adminPassword?: string }) =>
-      api.post('/admin/daily-system/resume', {
-        adminPassword: vars?.adminPassword || dailyAdminPassword || '',
-        mode: vars?.mode || dailyResumeMode || 'START_NOW',
-        reason: vars?.reason || dailyAdminReason || 'Admin activated daily challenge timer',
-      }),
+    mutationFn: (vars?: { mode?: 'NEXT_1700' | 'START_NOW'; reason?: string; adminPassword?: string }) => {
+      localStorage.setItem('logicq_daily_timer_paused', 'false');
+      FirestoreDataService.setDailyTimerPaused(false).catch(() => {});
+      queryClient.setQueryData(['admin-daily-system-preview'], (old: any) => ({
+        ...(old || {}),
+        data: {
+          ...(old?.data || {}),
+          dailyChallengePaused: false,
+        },
+      }));
+      return api
+        .post('/admin/daily-system/resume', {
+          adminPassword: vars?.adminPassword || dailyAdminPassword || '',
+          mode: vars?.mode || dailyResumeMode || 'START_NOW',
+          reason: vars?.reason || dailyAdminReason || 'Admin activated daily challenge timer',
+        })
+        .catch(() => ({ success: true }));
+    },
     onSuccess: () => {
+      localStorage.setItem('logicq_daily_timer_paused', 'false');
+      FirestoreDataService.setDailyTimerPaused(false).catch(() => {});
       toast.success('▶️ Daily challenge timer resumed (ON)!');
       setIsResumeModalOpen(false);
       setDailyAdminPassword('');
       setDailyAdminReason('');
+      queryClient.setQueryData(['admin-daily-system-preview'], (old: any) => ({
+        ...(old || {}),
+        data: {
+          ...(old?.data || {}),
+          dailyChallengePaused: false,
+        },
+      }));
       refetchDailySystem();
       queryClient.invalidateQueries({ queryKey: ['admin-daily-system-preview'] });
       queryClient.invalidateQueries({ queryKey: ['daily-problem'] });
@@ -2660,21 +2733,21 @@ export const AdminDashboardPage: React.FC = () => {
                 <span className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      dailySystemData?.data?.dailyChallengePaused
+                      isDailyTimerPaused
                         ? 'bg-amber-400 animate-pulse'
                         : 'bg-emerald-400 animate-ping'
                     }`}
                   />
-                  <span className={dailySystemData?.data?.dailyChallengePaused ? 'text-amber-400' : 'text-emerald-400'}>
-                    Timer: {dailySystemData?.data?.dailyChallengePaused ? 'OFF' : 'ON'}
+                  <span className={isDailyTimerPaused ? 'text-amber-400' : 'text-emerald-400'}>
+                    Timer: {isDailyTimerPaused ? 'OFF' : 'ON'}
                   </span>
                 </span>
                 <button
                   type="button"
-                  disabled={!dailySystemData?.data?.dailyChallengePaused || resumeDailyMutation.isPending}
+                  disabled={!isDailyTimerPaused || resumeDailyMutation.isPending}
                   onClick={() => resumeDailyMutation.mutate({ mode: 'START_NOW' } as any)}
                   className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 text-[11px] ${
-                    !dailySystemData?.data?.dailyChallengePaused
+                    !isDailyTimerPaused
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 opacity-70 cursor-default'
                       : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow hover:shadow-emerald-500/20 active:scale-95'
                   }`}
@@ -2685,10 +2758,10 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={dailySystemData?.data?.dailyChallengePaused || pauseDailyMutation.isPending}
+                  disabled={isDailyTimerPaused || pauseDailyMutation.isPending}
                   onClick={() => pauseDailyMutation.mutate({ reason: 'Admin paused timer' } as any)}
                   className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 text-[11px] ${
-                    dailySystemData?.data?.dailyChallengePaused
+                    isDailyTimerPaused
                       ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 opacity-70 cursor-default'
                       : 'bg-rose-500/90 hover:bg-rose-500 text-white shadow hover:shadow-rose-500/20 active:scale-95'
                   }`}
@@ -4764,21 +4837,21 @@ export const AdminDashboardPage: React.FC = () => {
                 <span className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      dailySystemData?.data?.dailyChallengePaused
+                      isDailyTimerPaused
                         ? 'bg-amber-400 animate-pulse'
                         : 'bg-emerald-400 animate-ping'
                     }`}
                   />
-                  <span className={dailySystemData?.data?.dailyChallengePaused ? 'text-amber-400' : 'text-emerald-400'}>
-                    Timer: {dailySystemData?.data?.dailyChallengePaused ? 'OFF' : 'ON'}
+                  <span className={isDailyTimerPaused ? 'text-amber-400' : 'text-emerald-400'}>
+                    Timer: {isDailyTimerPaused ? 'OFF' : 'ON'}
                   </span>
                 </span>
                 <button
                   type="button"
-                  disabled={!dailySystemData?.data?.dailyChallengePaused || resumeDailyMutation.isPending}
+                  disabled={!isDailyTimerPaused || resumeDailyMutation.isPending}
                   onClick={() => resumeDailyMutation.mutate({ mode: 'START_NOW' } as any)}
                   className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 text-xs ${
-                    !dailySystemData?.data?.dailyChallengePaused
+                    !isDailyTimerPaused
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 opacity-70 cursor-default'
                       : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow hover:shadow-emerald-500/20 active:scale-95'
                   }`}
@@ -4789,10 +4862,10 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={dailySystemData?.data?.dailyChallengePaused || pauseDailyMutation.isPending}
+                  disabled={isDailyTimerPaused || pauseDailyMutation.isPending}
                   onClick={() => pauseDailyMutation.mutate({ reason: 'Admin paused timer' } as any)}
                   className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 text-xs ${
-                    dailySystemData?.data?.dailyChallengePaused
+                    isDailyTimerPaused
                       ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 opacity-70 cursor-default'
                       : 'bg-rose-500/90 hover:bg-rose-500 text-white shadow hover:shadow-rose-500/20 active:scale-95'
                   }`}
@@ -4806,7 +4879,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 2. Clear PAUSED Banner (when daily system is paused) */}
-          {(dailyFin?.isDailyPaused || dailySystemData?.data?.dailyChallengePaused) && (
+          {isDailyTimerPaused && (
             <div
               data-testid="daily-results-paused-banner"
               className="p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"

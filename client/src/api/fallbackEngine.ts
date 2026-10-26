@@ -1040,25 +1040,59 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return { success: true };
   }
 
-  if (path === '/config' && method === 'GET') {
+  const getDailyTimerPaused = (): boolean => {
+    try {
+      const val = localStorage.getItem('logicq_daily_timer_paused');
+      if (val !== null) return val === 'true';
+    } catch {}
+    return false; // Default: ON / ACTIVE
+  };
+
+  const setDailyTimerPaused = (paused: boolean) => {
+    try {
+      localStorage.setItem('logicq_daily_timer_paused', String(paused));
+    } catch {}
+  };
+
+  if (path === '/admin/daily-system/resume' && method === 'POST') {
+    setDailyTimerPaused(false);
     return {
       success: true,
-      dailyChallengePaused: true,
-      pausedAt: new Date().toISOString(),
-      resumedAt: null,
+      message: 'Daily challenge timer resumed (ON)!',
+      data: { dailyChallengePaused: false },
+    };
+  }
+
+  if (path === '/admin/daily-system/pause' && method === 'POST') {
+    setDailyTimerPaused(true);
+    return {
+      success: true,
+      message: 'Daily challenge timer paused (OFF).',
+      data: { dailyChallengePaused: true },
+    };
+  }
+
+  if (path === '/config' && method === 'GET') {
+    const isPaused = getDailyTimerPaused();
+    return {
+      success: true,
+      dailyChallengePaused: isPaused,
+      pausedAt: isPaused ? new Date().toISOString() : null,
+      resumedAt: !isPaused ? new Date().toISOString() : null,
     };
   }
 
   if (path === '/admin/daily-system/preview' && method === 'GET') {
+    const isPaused = getDailyTimerPaused();
     return {
       success: true,
       data: {
-        dailyChallengePaused: true,
-        pausedAt: new Date().toISOString(),
-        pauseReason: 'Default safe state: Daily challenge pool transitioning to book-only curriculum',
-        scheduledCount: 0,
-        minRequired: 14,
-        canResume: false,
+        dailyChallengePaused: isPaused,
+        pausedAt: isPaused ? new Date().toISOString() : null,
+        pauseReason: isPaused ? 'Admin paused daily challenge timer' : null,
+        scheduledCount: 1,
+        minRequired: 0,
+        canResume: isPaused,
         first7Preview: [],
       },
     };
@@ -1735,14 +1769,14 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   // LEADERBOARD
   if (path.startsWith('/leaderboard')) {
     const rawTab = params.get('tab') || 'today';
-    if (rawTab === 'today' || rawTab === 'yesterday') {
+    if ((rawTab === 'today' || rawTab === 'yesterday') && getDailyTimerPaused()) {
       return {
         success: true,
         data: {
           tab: rawTab,
           dailyChallengePaused: true,
           paused: true,
-          message: 'Daily challenges are not live yet. We will announce the start.',
+          message: 'Daily challenge timer is currently paused by administrator.',
           leaderboard: [],
           pinnedOwnRow: null,
           totalRanked: 0,

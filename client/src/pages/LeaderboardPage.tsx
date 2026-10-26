@@ -52,7 +52,13 @@ export const LeaderboardPage: React.FC = () => {
   const pinnedOwnRow = data?.data?.pinnedOwnRow || null;
   const challenge = data?.data?.challenge || null;
   const totalSolvers = data?.data?.totalSolvers ?? rankedUsers.length;
-  const isDailyPaused = Boolean(data?.data?.dailyChallengePaused || data?.data?.paused);
+  const isDailyPaused = (() => {
+    try {
+      const explicit = localStorage.getItem('logicq_daily_timer_paused');
+      if (explicit !== null) return explicit === 'true';
+    } catch {}
+    return Boolean(data?.data?.dailyChallengePaused || data?.data?.paused);
+  })();
 
   const formatPoints = (val: any) => {
     if (val === null || val === undefined) return '0 PTS';

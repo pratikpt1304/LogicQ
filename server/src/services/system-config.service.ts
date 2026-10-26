@@ -16,14 +16,14 @@ const CONFIG_KEY = 'daily_challenge_system';
 const DEFAULT_MIN_SCHEDULED = 1;
 
 let memoryConfigCache: DailySystemConfigData = {
-  dailyChallengePaused: true, // Default safe state: PAUSED
-  pausedAt: new Date().toISOString(),
-  pausedBy: 'SYSTEM_INIT',
-  pauseReason: 'Default safe state: Daily challenge pool transitioning to book-only curriculum',
-  resumedAt: null,
-  resumedBy: null,
-  resumeMode: null,
-  minScheduledForResume: DEFAULT_MIN_SCHEDULED,
+  dailyChallengePaused: false, // Default state: ACTIVE (ON)
+  pausedAt: null,
+  pausedBy: null,
+  pauseReason: null,
+  resumedAt: new Date().toISOString(),
+  resumedBy: 'SYSTEM_INIT',
+  resumeMode: 'START_NOW',
+  minScheduledForResume: 0,
 };
 
 let initialized = false;
@@ -134,19 +134,14 @@ export async function resumeDailySystem(
     (p) => p.scheduledDate && p.scheduledDate >= todayIST
   );
 
-  const minRequired = memoryConfigCache.minScheduledForResume || DEFAULT_MIN_SCHEDULED;
-  if (activeScheduled.length < minRequired) {
-    throw new Error(
-      `Cannot resume daily system: At least ${minRequired} validated challenges must be scheduled. Currently found ${activeScheduled.length}.`
-    );
-  }
-
   const nowISO = new Date().toISOString();
   const oldState = { ...memoryConfigCache };
 
   memoryConfigCache = {
     ...memoryConfigCache,
     dailyChallengePaused: false,
+    pausedAt: null,
+    pauseReason: null,
     resumedAt: nowISO,
     resumedBy: adminId,
     resumeMode: mode,

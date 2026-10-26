@@ -1960,4 +1960,48 @@ export class FirestoreDataService {
       console.warn('FirestoreDataService.syncProblems error:', err);
     }
   }
+
+  /**
+   * Retrieves whether the Daily Challenge timer is paused.
+   * Default is false (Timer is ON/Active by default).
+   */
+  public static async getDailyTimerPaused(): Promise<boolean> {
+    try {
+      const snap = await getDoc(doc(db, 'streak_pauses', 'daily_challenge_timer'));
+      if (snap.exists()) {
+        const d = snap.data();
+        if (typeof d?.paused === 'boolean') {
+          return d.paused;
+        }
+      }
+    } catch {}
+    try {
+      const local = localStorage.getItem('logicq_daily_timer_paused');
+      if (local !== null) return local === 'true';
+    } catch {}
+    return false; // Default: ON / ACTIVE
+  }
+
+  /**
+   * Updates whether the Daily Challenge timer is paused.
+   * Persists to streak_pauses/daily_challenge_timer and localStorage.
+   */
+  public static async setDailyTimerPaused(paused: boolean): Promise<void> {
+    try {
+      localStorage.setItem('logicq_daily_timer_paused', String(paused));
+    } catch {}
+    try {
+      await setDoc(
+        doc(db, 'streak_pauses', 'daily_challenge_timer'),
+        {
+          paused,
+          isPaused: paused,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('setDailyTimerPaused error:', err);
+    }
+  }
 }
