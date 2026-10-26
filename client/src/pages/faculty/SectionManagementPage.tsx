@@ -102,14 +102,10 @@ export const SectionManagementPage: React.FC = () => {
   const [excelPreview, setExcelPreview] = useState<any>(null);
   const [isParsingExcel, setIsParsingExcel] = useState(false);
 
-  // New Section Form State (Clean placeholders, no annoying forced Sanjivani defaults)
+  // New Section Form State (Clean and simplified)
   const [newSection, setNewSection] = useState({
-    sectionName: '',
     subject: '',
-    course: 'B.Tech Computer Science & Engineering',
-    academicYear: '2026-2027',
     semester: 'Semester 1',
-    institution: 'Sanjivani University',
     description: '',
   });
 
@@ -206,19 +202,25 @@ export const SectionManagementPage: React.FC = () => {
   // Create section mutation
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {
-      if (!payload.sectionName.trim()) {
-        throw new Error('Section Name is required (e.g. First Year).');
-      }
       if (!payload.subject.trim()) {
-        throw new Error('Subject Name is required (e.g. C Programming).');
+        throw new Error('Subject / Coursework name is required (e.g. C Programming).');
       }
 
       const facultyEmail = user?.email?.toLowerCase().trim();
       const facultyId = user?.id || (user as any)?.uid || facultyEmail || 'faculty_user';
       const facultyName = user?.fullName || (user as any)?.displayName || (user as any)?.name || '';
 
+      const subjectName = payload.subject.trim();
+      const currentYear = new Date().getFullYear();
+
       const fullPayload = {
-        ...payload,
+        subject: subjectName,
+        sectionName: subjectName,
+        course: 'Computer Science & Engineering',
+        academicYear: `${currentYear}-${currentYear + 1}`,
+        semester: payload.semester || 'Semester 1',
+        institution: 'Sanjivani University',
+        description: payload.description || '',
         facultyId,
         facultyEmail,
         facultyName,
@@ -275,12 +277,8 @@ export const SectionManagementPage: React.FC = () => {
       toast.success('Section created successfully!');
       setIsCreateOpen(false);
       setNewSection({
-        sectionName: '',
         subject: '',
-        course: 'B.Tech Computer Science & Engineering',
-        academicYear: '2026-2027',
         semester: 'Semester 1',
-        institution: 'Sanjivani University',
         description: '',
       });
       // Immediately inject into queryClient cache so it doesn't wait for refetch
@@ -1222,20 +1220,7 @@ export const SectionManagementPage: React.FC = () => {
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
-                    Section Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newSection.sectionName}
-                    onChange={(e) => setNewSection({ ...newSection, sectionName: e.target.value })}
-                    placeholder="e.g. Section 1, Batch B1"
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold focus:outline-none focus:border-indigo-500"
-                    autoFocus
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
                     Subject / Coursework <span className="text-red-400">*</span>
@@ -1246,36 +1231,11 @@ export const SectionManagementPage: React.FC = () => {
                     onChange={(e) => setNewSection({ ...newSection, subject: e.target.value })}
                     placeholder="e.g. C Programming"
                     className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
-                  Department / Degree Program
-                </label>
-                <input
-                  type="text"
-                  value={newSection.course}
-                  onChange={(e) => setNewSection({ ...newSection, course: e.target.value })}
-                  placeholder="e.g. B.Tech Computer Science & Engineering"
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Academic Year</label>
-                  <input
-                    type="text"
-                    value={newSection.academicYear}
-                    onChange={(e) => setNewSection({ ...newSection, academicYear: e.target.value })}
-                    placeholder="2026-2027"
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                    autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Semester</label>
+                  <label className="block text-[var(--muted-foreground)] font-semibold mb-1">Semester</label>
                   <select
                     value={newSection.semester}
                     onChange={(e) => setNewSection({ ...newSection, semester: e.target.value })}
@@ -1315,7 +1275,7 @@ export const SectionManagementPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                disabled={createMutation.isPending || !newSection.sectionName.trim() || !newSection.subject.trim()}
+                disabled={createMutation.isPending || !newSection.subject.trim()}
                 onClick={() => createMutation.mutate(newSection)}
                 className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-600/20"
               >

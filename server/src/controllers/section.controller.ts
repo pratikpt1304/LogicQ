@@ -9,7 +9,7 @@ export class SectionController {
     try {
       const user = (req as any).user;
       const facultyId = user.userId || user.id;
-      const {
+      let {
         institution,
         course,
         subject,
@@ -21,12 +21,20 @@ export class SectionController {
         endDate,
       } = req.body;
 
-      if (!institution || !course || !subject || !academicYear || !semester || !sectionName) {
+      subject = subject?.trim();
+      if (!subject) {
         return res.status(400).json({
           success: false,
-          message: 'Institution, course, subject, academic year, semester, and section name are required.',
+          message: 'Subject / Coursework is required.',
         });
       }
+
+      const currentYear = new Date().getFullYear();
+      institution = institution?.trim() || 'Sanjivani University';
+      course = course?.trim() || 'Computer Science & Engineering';
+      academicYear = academicYear?.trim() || `${currentYear}-${currentYear + 1}`;
+      semester = semester?.trim() || 'Semester 1';
+      sectionName = sectionName?.trim() || subject;
 
       const section = await SectionService.createSection({
         institution,
