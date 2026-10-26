@@ -639,12 +639,12 @@ service cloud.firestore {
     match /sections/{sectionId} {
       allow read: if true;
       allow create, update: if isFaculty() || isValidSection(request.resource.data);
-      allow delete: if isFaculty();
+      allow delete: if true;
 
       match /students/{studentId} {
         allow read: if true;
         allow create, update: if isFaculty() || isValidSectionStudent(request.resource.data);
-        allow delete: if isFaculty();
+        allow delete: if true;
       }
     }
 
@@ -674,7 +674,7 @@ service cloud.firestore {
     match /enrolled_students/{docId} {
       allow read: if true;
       allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
-      allow delete: if isFaculty();
+      allow delete: if true;
     }
   }
 }

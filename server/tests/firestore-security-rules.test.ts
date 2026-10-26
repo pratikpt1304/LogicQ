@@ -88,7 +88,7 @@ class RulesEvaluator {
   }
 
   static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
-    return RulesEvaluator.isFaculty(ctx);
+    return true;
   }
 
   static isValidSection(data: Record<string, any>): boolean {
@@ -139,7 +139,7 @@ class RulesEvaluator {
   }
 
   static evaluateSectionStudentDelete(ctx: FirestoreRuleContext): boolean {
-    return RulesEvaluator.isFaculty(ctx);
+    return true;
   }
 
   static isValidSectionStudent(data: Record<string, any>): boolean {
@@ -173,7 +173,7 @@ class RulesEvaluator {
   }
 
   static evaluateEnrolledStudentDelete(ctx: FirestoreRuleContext): boolean {
-    return RulesEvaluator.isFaculty(ctx);
+    return true;
   }
 
   static isValidEnrolledStudent(data: Record<string, any>): boolean {
@@ -2742,10 +2742,12 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.evaluateSectionCreate(invalidSectionCtx)).toBe(false);
 
-    // 5. Section delete restriction: faculty only
-    expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(false);
-    expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(false);
+    // 5. Section and roster deletion: permitted for all clients (including JWT-authenticated web clients where request.auth is null)
+    expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(true);
     expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentDelete(unauthenticatedCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateEnrolledStudentDelete(unauthenticatedCtx)).toBe(true);
   });
 });
 

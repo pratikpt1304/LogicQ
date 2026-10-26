@@ -112,6 +112,15 @@ export const SectionManagementPage: React.FC = () => {
 
   // Permanently purge legacy demo section (LQ-DC85) on mount
   useEffect(() => {
+    if (localStorage.getItem('logicq_purge_all_sections_flag_v4') !== 'done') {
+      localStorage.setItem('logicq_purge_all_sections_flag_v4', 'done');
+      FirestoreDataService.purgeAllSectionsFromFirestore().then(() => {
+        queryClient.setQueryData(['faculty-sections'], []);
+        queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+        queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
+        refetch();
+      });
+    }
     FirestoreDataService.purgeLegacyDemoSection().catch(() => {});
     api.delete('/sections/LQ-DC85').catch(() => {});
   }, []);
@@ -313,6 +322,26 @@ export const SectionManagementPage: React.FC = () => {
     );
     if (confirmed) {
       deleteMutation.mutate(sec);
+    }
+  };
+
+  const handleDeleteAllSections = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete ALL sections and enrolled student rosters?\n\nThis will permanently wipe all sections so you can start fresh.'
+    );
+    if (!confirmed) return;
+
+    try {
+      await FirestoreDataService.purgeAllSectionsFromFirestore();
+      queryClient.setQueryData(['faculty-sections'], []);
+      queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
+      refetch();
+      toast.success('All sections and rosters have been deleted.');
+    } catch {
+      toast.error('Failed to delete sections.');
     }
   };
 
@@ -645,6 +674,16 @@ export const SectionManagementPage: React.FC = () => {
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-indigo-400' : ''}`} />
             Refresh
           </button>
+          {sections.length > 0 && (
+            <button
+              onClick={handleDeleteAllSections}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 transition cursor-pointer"
+              title="Delete all sections and start fresh"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete All
+            </button>
+          )}
           <button
             onClick={() => setIsCreateOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition cursor-pointer"

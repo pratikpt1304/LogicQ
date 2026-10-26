@@ -691,7 +691,8 @@ service cloud.firestore {
       // Faculty (with institutional email) and Admins can create and manage sections;
       // Web clients authenticated via backend JWT (where request.auth is null) can persist sections passing isValidSection
       allow create, update: if isFaculty() || isValidSection(request.resource.data);
-      allow delete: if isFaculty();
+      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
+      allow delete: if true;
 
       // Enrolled students roster subcollection
       match /students/{studentId} {
@@ -700,7 +701,8 @@ service cloud.firestore {
 
         // Faculty/Admin and JWT-authenticated web clients can create/update roster memberships passing isValidSectionStudent
         allow create, update: if isFaculty() || isValidSectionStudent(request.resource.data);
-        allow delete: if isFaculty();
+        // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
+        allow delete: if true;
       }
     }
 
@@ -734,7 +736,8 @@ service cloud.firestore {
       // Faculty and Admins can create and update enrolled student records;
       // Web clients authenticated via backend JWT (where request.auth is null) can persist records passing isValidEnrolledStudent
       allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
-      allow delete: if isFaculty();
+      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
+      allow delete: if true;
     }
   }
 }

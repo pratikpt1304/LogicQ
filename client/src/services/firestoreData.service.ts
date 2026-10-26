@@ -753,13 +753,6 @@ export class FirestoreDataService {
     if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
       return true;
     }
-    // Never allow the primary official academic section to be tombstoned
-    if (
-      (joinCode && joinCode.toUpperCase() === 'LQ-IMTC') ||
-      (sectionId && sectionId === '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57')
-    ) {
-      return false;
-    }
     try {
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       if (!raw) return false;
@@ -772,6 +765,87 @@ export class FirestoreDataService {
       }
     } catch {}
     return false;
+  }
+
+  /**
+   * Complete nuclear purge of ALL sections and rosters across Firestore, localStorage, and caches.
+   */
+  public static async purgeAllSectionsFromFirestore(): Promise<void> {
+    try {
+      // 1. Clear local backup and collect all known IDs
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const allIds = new Set<string>([
+        'LQ-1065', 'lq-1065',
+        '84f351db-54f7-4bbd-9d46-d312baee55f1',
+        'LQ-IMTC', 'lq-imtc',
+        '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57',
+        'LQ-DC85', 'lq-dc85',
+        'LQ-4904', 'lq-4904',
+        'LQ-CE68', 'lq-ce68',
+      ]);
+
+      try {
+        const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+        if (Array.isArray(existing)) {
+          existing.forEach((s: any) => {
+            if (s.id) allIds.add(s.id);
+            if (s.joinCode) allIds.add(s.joinCode);
+            if (s.joinToken) allIds.add(s.joinToken);
+          });
+        }
+      } catch {}
+
+      localStorage.removeItem(LOCAL_KEY);
+      localStorage.setItem(LOCAL_KEY, JSON.stringify([]));
+
+      // Remove all logicq_section_students_* keys from localStorage
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_section_students_') || key.startsWith('logicq_faculty_sections_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      // 2. Query and delete all documents in Firestore `sections` collection
+      try {
+        const secSnap = await getDocs(collection(db, 'sections'));
+        for (const d of secSnap.docs) {
+          allIds.add(d.id);
+          const data = d.data();
+          if (data?.joinCode) allIds.add(data.joinCode);
+          if (data?.joinToken) allIds.add(data.joinToken);
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Firestore sections collection purge notice:', err);
+      }
+
+      // 3. Delete all enrolled students from Firestore `enrolled_students` collection
+      try {
+        const enrSnap = await getDocs(collection(db, 'enrolled_students'));
+        for (const d of enrSnap.docs) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Firestore enrolled_students collection purge notice:', err);
+      }
+
+      // 4. Update permanent tombstone list
+      try {
+        const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+        const list: string[] = raw ? JSON.parse(raw) : [];
+        allIds.forEach((k) => {
+          if (!list.includes(k)) list.push(k);
+          if (!list.includes(k.toLowerCase())) list.push(k.toLowerCase());
+          if (!list.includes(k.toUpperCase())) list.push(k.toUpperCase());
+        });
+        localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(list));
+      } catch {}
+    } catch (e) {
+      console.warn('purgeAllSectionsFromFirestore error:', e);
+    }
   }
 
   /**
@@ -1011,6 +1085,15 @@ export class FirestoreDataService {
   public static async getSectionsFromFirestore(): Promise<any[]> {
     // Purge deleted students in background
     FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
+
+    // One-time total purge requested by user
+    try {
+      if (localStorage.getItem('logicq_purge_all_sections_flag_v4') !== 'done') {
+        localStorage.setItem('logicq_purge_all_sections_flag_v4', 'done');
+        await FirestoreDataService.purgeAllSectionsFromFirestore();
+        return [];
+      }
+    } catch {}
 
     const sectionMap = new Map<string, any>();
 

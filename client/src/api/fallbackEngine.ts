@@ -2406,7 +2406,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(stored)) {
-        localSections = stored.map((s: any) => {
+        localSections = stored
+          .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
+          .map((s: any) => {
           let studentsList = Array.isArray(s.students) ? s.students : [];
           if (studentsList.length === 0) {
             try {
