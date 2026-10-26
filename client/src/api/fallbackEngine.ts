@@ -278,6 +278,48 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         }
         return u;
       });
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'logicqarena@gmail.com')) {
+        sanitized.push({
+          id: 'admin-super-1',
+          username: 'logicqarena',
+          email: 'logicqarena@gmail.com',
+          fullName: 'LogicQ Arena Admin',
+          displayName: 'LogicQ Admin',
+          role: 'ADMIN',
+          college: 'Sanjivani University',
+          department: 'CSE',
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          password: 'password123',
+          isBanned: false,
+          shortId: 'ARENA',
+          createdAt: new Date().toISOString(),
+        } as any);
+        migrated = true;
+      }
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'hariprasathset@sanjivani.edu.in')) {
+        sanitized.push({
+          id: 'admin-hari-1',
+          username: 'hariprasath',
+          email: 'hariprasathset@sanjivani.edu.in',
+          fullName: 'Dr. Hari Prasath',
+          displayName: 'Dr. Hari Prasath (Admin)',
+          role: 'ADMIN',
+          college: 'Sanjivani University',
+          department: 'CSE',
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          password: 'password123',
+          isBanned: false,
+          shortId: 'HARI',
+          createdAt: new Date().toISOString(),
+        } as any);
+        migrated = true;
+      }
       if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
         sanitized.push({
           id: 'faculty-walkthrough-1',
@@ -332,6 +374,42 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
     // ignore
   }
   const seeded: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = [
+    {
+      id: 'admin-super-1',
+      username: 'logicqarena',
+      email: 'logicqarena@gmail.com',
+      fullName: 'LogicQ Arena Admin',
+      displayName: 'LogicQ Admin',
+      role: 'ADMIN',
+      college: 'Sanjivani University',
+      department: 'CSE',
+      profileComplete: true,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      password: 'password123',
+      isBanned: false,
+      shortId: 'ARENA',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'admin-hari-1',
+      username: 'hariprasath',
+      email: 'hariprasathset@sanjivani.edu.in',
+      fullName: 'Dr. Hari Prasath',
+      displayName: 'Dr. Hari Prasath (Admin)',
+      role: 'ADMIN',
+      college: 'Sanjivani University',
+      department: 'CSE',
+      profileComplete: true,
+      totalPoints: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      password: 'password123',
+      isBanned: false,
+      shortId: 'HARI',
+      createdAt: new Date().toISOString(),
+    },
     {
       id: 'faculty-walkthrough-1',
       username: 'faculty_demo',

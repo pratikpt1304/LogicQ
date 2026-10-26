@@ -1180,9 +1180,14 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
           'logicq1304@gmail.com',
         ],
       },
-      prn: {
-        notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'],
-      },
+      AND: [
+        {
+          OR: [
+            { prn: null },
+            { prn: { notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
+          ],
+        },
+      ],
     };
     if (department && department !== 'ALL') where.department = department;
     if (year && year !== 'ALL') where.year = year;
@@ -1193,16 +1198,18 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     }
 
     if (search) {
-      where.OR = [
-        { prn: { contains: search } },
-        { email: { contains: search } },
-        { displayName: { contains: search } },
-        { fullName: { contains: search } },
-        { username: { contains: search } },
-        { department: { contains: search } },
-        { year: { contains: search } },
-        { division: { contains: search } },
-      ];
+      where.AND.push({
+        OR: [
+          { prn: { contains: search } },
+          { email: { contains: search } },
+          { displayName: { contains: search } },
+          { fullName: { contains: search } },
+          { username: { contains: search } },
+          { department: { contains: search } },
+          { year: { contains: search } },
+          { division: { contains: search } },
+        ],
+      });
     }
 
     const [users, total] = await Promise.all([
