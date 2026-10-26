@@ -12,6 +12,9 @@ import {
   getAdminUsers,
   updateUserRole,
   updateUserBan,
+  adminDeleteUser,
+  adminRestoreUser,
+  adminPermanentDeleteUser,
   adminUpdateUserPrnAndCollege,
   adminRevealStudentPrn,
   adminResetPrnCooldown,
@@ -88,6 +91,9 @@ adminRouter.put('/users/:id/role', updateUserRole);
 adminRouter.patch('/users/:id/role', updateUserRole);
 adminRouter.put('/users/:id/ban', updateUserBan);
 adminRouter.patch('/users/:id/ban', updateUserBan);
+adminRouter.delete('/users/:id', adminDeleteUser);
+adminRouter.post('/users/:id/restore', adminRestoreUser);
+adminRouter.delete('/users/:id/permanent', adminPermanentDeleteUser);
 adminRouter.get('/audit-logs', getAdminAuditLogs);
 adminRouter.get('/allowlist/status', getAllowlistStatus);
 adminRouter.post('/allowlist/import', importAllowlistCsv);

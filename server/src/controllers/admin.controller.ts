@@ -2211,6 +2211,105 @@ export async function updateUserBan(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
+export async function adminDeleteUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    if (req.user?.userId === id) {
+      res.status(400).json({ success: false, message: 'Admins cannot delete their own account' });
+      return;
+    }
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    const explicitAdmins = ['logicqarena@gmail.com', 'hariprasathset@sanjivani.edu.in'];
+    if (target.email && explicitAdmins.includes(target.email.toLowerCase())) {
+      res.status(403).json({ success: false, message: 'Superadmin accounts cannot be deleted' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (target.prn) {
+        await tx.prnIndex.deleteMany({ where: { OR: [{ prn: target.prn }, { userId: id }] } }).catch(() => {});
+      }
+      await tx.refreshToken.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.sectionStudent.deleteMany({ where: { studentId: id } }).catch(() => {});
+
+      await tx.user.update({
+        where: { id },
+        data: {
+          prn: null,
+          email: `deleted_${id}@anonymized.invalid`,
+          username: `deleted_${id.slice(0, 8)}_${Date.now()}`,
+          fullName: 'Deleted Account',
+          displayName: 'Deleted Account',
+          college: null,
+          department: null,
+          year: null,
+          division: null,
+          isBanned: true,
+          accountState: 'DELETED',
+        },
+      });
+    });
+
+    res.json({ success: true, message: 'User moved to deleted archive' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to delete user' });
+  }
+}
+
+export async function adminRestoreUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    const cleanUsername = target.username.startsWith('deleted_')
+      ? `user_${id.slice(0, 6)}`
+      : target.username;
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        isBanned: false,
+        accountState: 'ACTIVE',
+        username: cleanUsername,
+        fullName: target.fullName === 'Deleted Account' ? 'Restored User' : target.fullName,
+      },
+    });
+
+    res.json({ success: true, message: 'User restored successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to restore user' });
+  }
+}
+
+export async function adminPermanentDeleteUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    if (req.user?.userId === id) {
+      res.status(400).json({ success: false, message: 'Cannot permanently delete self' });
+      return;
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.prnIndex.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.refreshToken.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.uploadedSolution.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.practiceProgress.deleteMany({ where: { userId: id } }).catch(() => {});
+      await tx.sectionStudent.deleteMany({ where: { studentId: id } }).catch(() => {});
+      await tx.user.delete({ where: { id } });
+    });
+    res.json({ success: true, message: 'User permanently deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to permanently delete user' });
+  }
+}
+
 export async function getAdminCheckers(req: AuthRequest, res: Response): Promise<void> {
   try {
     const checkers = await prisma.user.findMany({

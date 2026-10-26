@@ -227,6 +227,34 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 6000,
   });
 
+    // Real-time synchronization across all portals and tabs
+  React.useEffect(() => {
+    const unsubDashboard = RealtimeSyncService.on('DASHBOARD', () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
+    });
+    const unsubTests = RealtimeSyncService.on('TESTS', () => {
+      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-tests'] });
+    });
+    const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+    });
+    const unsubSubmissions = RealtimeSyncService.on('SUBMISSIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-recent-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    });
+    return () => {
+      unsubDashboard();
+      unsubTests();
+      unsubSections();
+      unsubSubmissions();
+    };
+  }, [queryClient]);
+
   const handleDashboardEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dashboardJoinCode.trim()) return;

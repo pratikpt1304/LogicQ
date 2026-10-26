@@ -25,6 +25,11 @@ class RealtimeSyncManager {
   private instanceId: string = Math.random().toString(36).slice(2, 9);
   private isListeningFirestore: boolean = false;
   private unsubscribeFirestoreSections: (() => void) | null = null;
+  private unsubscribeFirestoreUsers: (() => void) | null = null;
+  private unsubscribeFirestoreEnrolled: (() => void) | null = null;
+  private unsubscribeFirestoreTests: (() => void) | null = null;
+  private unsubscribeFirestoreProblems: (() => void) | null = null;
+  private unsubscribeFirestoreSubmissions: (() => void) | null = null;
   private listeners: Map<SyncScope, Set<() => void>> = new Map();
 
   /**
@@ -217,25 +222,90 @@ class RealtimeSyncManager {
     if (this.isListeningFirestore) return;
     this.isListeningFirestore = true;
 
+    // 1. Sections sync
     try {
       this.unsubscribeFirestoreSections = onSnapshot(
         collection(db, 'sections'),
         () => {
-          // Trigger section sync whenever Firestore sections change
           this.handleIncomingSync('SECTIONS');
         },
         (err) => {
-          console.warn('RealtimeSyncService firestore listener warning:', err.message);
+          console.warn('RealtimeSync sections listener notice:', err.message);
         }
       );
     } catch (e) {
-      console.warn('Firestore sections real-time listener notice:', e);
+      console.warn('Firestore sections listener notice:', e);
+    }
+
+    // 2. Enrolled Students sync
+    try {
+      this.unsubscribeFirestoreEnrolled = onSnapshot(
+        collection(db, 'enrolled_students'),
+        () => {
+          this.handleIncomingSync('USERS');
+          this.handleIncomingSync('SECTIONS');
+        },
+        (err) => {
+          console.warn('RealtimeSync enrolled_students listener notice:', err.message);
+        }
+      );
+    } catch (e) {
+      console.warn('Firestore enrolled_students listener notice:', e);
+    }
+
+    // 3. Tests & Assessments sync
+    try {
+      this.unsubscribeFirestoreTests = onSnapshot(
+        collection(db, 'tests'),
+        () => {
+          this.handleIncomingSync('TESTS');
+        },
+        (err) => {
+          console.warn('RealtimeSync tests listener notice:', err.message);
+        }
+      );
+    } catch (e) {
+      console.warn('Firestore tests listener notice:', e);
+    }
+
+    // 4. Problem bank sync
+    try {
+      this.unsubscribeFirestoreProblems = onSnapshot(
+        collection(db, 'problems'),
+        () => {
+          this.handleIncomingSync('PROBLEMS');
+        },
+        (err) => {
+          console.warn('RealtimeSync problems listener notice:', err.message);
+        }
+      );
+    } catch (e) {
+      console.warn('Firestore problems listener notice:', e);
+    }
+
+    // 5. Users sync (admin & profile updates)
+    try {
+      this.unsubscribeFirestoreUsers = onSnapshot(
+        collection(db, 'users'),
+        () => {
+          this.handleIncomingSync('USERS');
+        },
+        (err) => {
+          console.warn('RealtimeSync users listener notice:', err.message);
+        }
+      );
+    } catch (e) {
+      console.warn('Firestore users listener notice:', e);
     }
   }
 
   public cleanup(): void {
     try {
       this.unsubscribeFirestoreSections?.();
+      this.unsubscribeFirestoreEnrolled?.();
+      this.unsubscribeFirestoreTests?.();
+      this.unsubscribeFirestoreProblems?.();
+      this.unsubscribeFirestoreUsers?.();
       this.channel?.close();
     } catch {}
   }

@@ -14,6 +14,8 @@ import { StatementMarkdown } from '../../components/common/StatementMarkdown.js'
 import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -123,7 +125,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Filter States for Users & Submissions & Uploads
   const [filterSearch, setFilterSearch] = useState('');
-  const [filterRole, setFilterRole] = useState<'ALL' | 'STUDENT' | 'FACULTY' | 'ADMIN'>('ALL');
+  const [filterRole, setFilterRole] = useState<'ALL' | 'STUDENT' | 'FACULTY' | 'ADMIN' | 'DELETED'>('ALL');
   const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   const [filterSectionId, setFilterSectionId] = useState('ALL');
   const [filterCollege, setFilterCollege] = useState('ALL');
@@ -557,6 +559,37 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  // Real-time synchronization across all portals and tabs
+  React.useEffect(() => {
+    const unsubUsers = RealtimeSyncService.on('USERS', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-sections-list'] });
+    });
+    const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-sections-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    });
+    const unsubSubmissions = RealtimeSyncService.on('SUBMISSIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    });
+    const unsubProblems = RealtimeSyncService.on('PROBLEMS', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+    });
+    const unsubTests = RealtimeSyncService.on('TESTS', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    });
+    return () => {
+      unsubUsers();
+      unsubSections();
+      unsubSubmissions();
+      unsubProblems();
+      unsubTests();
+    };
+  }, [queryClient]);
+
   // Background auto-healing: If backend SQLite was restarted/wiped by Render, automatically restore all Firestore students!
   React.useEffect(() => {
     if (firestoreUsersData && firestoreUsersData.length > 0) {
@@ -941,10 +974,35 @@ export const AdminDashboardPage: React.FC = () => {
       });
     });
 
+    const isDeletedAccount = (u: any): boolean => {
+      if (!u) return false;
+      if (u.isDeleted === true) return true;
+      if (u.accountState === 'DELETED') return true;
+      if (u.fullName === 'Deleted Account' || u.displayName === 'Deleted Account') return true;
+      const email = String(u.email || '').toLowerCase().trim();
+      if (email.startsWith('deleted_') || email.includes('@anonymized.invalid')) return true;
+      const username = String(u.username || '').toLowerCase().trim();
+      if (username.startsWith('deleted_')) return true;
+      return false;
+    };
+
     const all = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
       (u: any) => !FirestoreDataService.isPurgedStudent(u)
     );
-    let merged = all;
+
+    const activeList = all.filter((u: any) => !isDeletedAccount(u));
+    const deletedList = all.filter((u: any) => isDeletedAccount(u));
+
+    const counts = {
+      ALL: activeList.length,
+      STUDENT: activeList.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === 'STUDENT').length,
+      FACULTY: activeList.filter((u: any) => (u.role || '').toUpperCase() === 'FACULTY').length,
+      ADMIN: activeList.filter((u: any) => (u.role || '').toUpperCase() === 'ADMIN').length,
+      DELETED: deletedList.length,
+    };
+
+    let baseList = filterRole === 'DELETED' ? deletedList : activeList;
+    let merged = baseList;
 
     if (filterSearch) {
       const q = filterSearch.toLowerCase();
@@ -975,15 +1033,8 @@ export const AdminDashboardPage: React.FC = () => {
       merged = merged.filter((u) => u.division === filterDivision.toUpperCase());
     }
 
-    const counts = {
-      ALL: merged.length,
-      STUDENT: merged.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === 'STUDENT').length,
-      FACULTY: merged.filter((u: any) => (u.role || '').toUpperCase() === 'FACULTY').length,
-      ADMIN: merged.filter((u: any) => (u.role || '').toUpperCase() === 'ADMIN').length,
-    };
-
     let filtered = merged;
-    if (filterRole && filterRole !== 'ALL') {
+    if (filterRole && filterRole !== 'ALL' && filterRole !== 'DELETED') {
       filtered = merged.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === filterRole);
     }
 
@@ -1079,6 +1130,111 @@ export const AdminDashboardPage: React.FC = () => {
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update student PRN');
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (u: any) => {
+      try {
+        await api.delete(`/admin/users/${u.id}`);
+      } catch (err: any) {
+        console.warn('Backend user delete warning:', err);
+      }
+      try {
+        if (u.id) {
+          const userDocRef = doc(db, 'users', u.id);
+          await setDoc(userDocRef, {
+            accountState: 'DELETED',
+            isDeleted: true,
+            fullName: 'Deleted Account',
+            displayName: 'Deleted Account',
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
+        }
+        if (u.email || u.prn) {
+          const key = (u.email || u.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+          await deleteDoc(doc(db, 'enrolled_students', key)).catch(() => {});
+        }
+      } catch (fErr) {
+        console.warn('Firestore user delete warning:', fErr);
+      }
+      return u;
+    },
+    onSuccess: (u) => {
+      toast.success(`Account for ${u.displayName || u.fullName || u.email} moved to Deleted tab.`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('SECTIONS');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to delete user account.');
+    },
+  });
+
+  const restoreUserMutation = useMutation({
+    mutationFn: async (u: any) => {
+      try {
+        await api.post(`/admin/users/${u.id}/restore`);
+      } catch (err: any) {
+        console.warn('Backend user restore warning:', err);
+      }
+      try {
+        if (u.id) {
+          const userDocRef = doc(db, 'users', u.id);
+          await updateDoc(userDocRef, {
+            accountState: 'ACTIVE',
+            isDeleted: false,
+            fullName: u.fullName === 'Deleted Account' ? 'Restored User' : u.fullName,
+            updatedAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      } catch (fErr) {
+        console.warn('Firestore user restore warning:', fErr);
+      }
+      return u;
+    },
+    onSuccess: (u) => {
+      toast.success(`Account for ${u.displayName || u.fullName || u.email} restored to active.`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('SECTIONS');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to restore user account.');
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (u: any) => {
+      try {
+        await api.delete(`/admin/users/${u.id}/permanent`);
+      } catch (err: any) {
+        console.warn('Backend permanent delete warning:', err);
+      }
+      try {
+        if (u.id) {
+          await deleteDoc(doc(db, 'users', u.id)).catch(() => {});
+        }
+        if (u.email || u.prn) {
+          const key = (u.email || u.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+          await deleteDoc(doc(db, 'enrolled_students', key)).catch(() => {});
+        }
+      } catch (fErr) {
+        console.warn('Firestore permanent delete warning:', fErr);
+      }
+      return u;
+    },
+    onSuccess: (u) => {
+      toast.success(`Account record for ${u.displayName || u.fullName || u.email} permanently erased.`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('SECTIONS');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to permanently erase account.');
     },
   });
 
@@ -1415,7 +1571,7 @@ export const AdminDashboardPage: React.FC = () => {
             <Users className="w-4 h-4 text-indigo-500" />
           </div>
           <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
-            {allMergedUsers.length}
+            {roleCounts.ALL}
           </span>
           <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">Active in PRN Registry</span>
         </div>
@@ -1466,7 +1622,7 @@ export const AdminDashboardPage: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Student & Faculty Directory ({allMergedUsers.length})</span>
+          <span>Student & Faculty Directory ({roleCounts.ALL})</span>
         </button>
 
         <button
@@ -3782,10 +3938,28 @@ export const AdminDashboardPage: React.FC = () => {
                   {roleCounts.ADMIN}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterRole('DELETED')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  filterRole === 'DELETED'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-[var(--muted-foreground)] hover:text-rose-600 dark:hover:text-rose-300 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Deleted</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  filterRole === 'DELETED' ? 'bg-rose-700 text-white' : 'bg-slate-100 dark:bg-white/[0.08] text-[var(--muted-foreground)] border border-[var(--border)]'
+                }`}>
+                  {roleCounts.DELETED}
+                </span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2 text-xs font-mono text-[var(--muted-foreground)]">
-              <span>Showing <strong className="text-white">{users.length}</strong> of {allMergedUsers.length} total members</span>
+              <span>Showing <strong className="text-[var(--foreground)]">{users.length}</strong> of {filterRole === 'DELETED' ? roleCounts.DELETED : roleCounts.ALL} {filterRole === 'DELETED' ? 'deleted accounts' : 'active members'}</span>
               {(filterSearch || filterRole !== 'ALL' || filterSectionId !== 'ALL' || filterDepartment !== 'ALL') && (
                 <button
                   type="button"
@@ -3846,11 +4020,15 @@ export const AdminDashboardPage: React.FC = () => {
                                 <span className="font-bold text-white text-xs block truncate max-w-[200px]">
                                   {u.displayName || u.fullName}
                                 </span>
-                                {u.isBanned && (
+                                {filterRole === 'DELETED' || u.accountState === 'DELETED' || u.fullName === 'Deleted Account' ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold uppercase tracking-wider">
+                                    DELETED
+                                  </span>
+                                ) : u.isBanned ? (
                                   <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold">
                                     BANNED
                                   </span>
-                                )}
+                                ) : null}
                               </div>
 
                               {u.role === 'STUDENT' ? (
@@ -4049,24 +4227,71 @@ export const AdminDashboardPage: React.FC = () => {
                               </button>
                             )}
 
-                            <select
-                              value={u.role || 'STUDENT'}
-                              onChange={(e) => {
-                                const targetRole = e.target.value;
-                                if (window.confirm(`Change ${u.displayName || u.fullName || u.email}'s role to ${targetRole}?`)) {
-                                  roleMutation.mutate({
-                                    id: u.id,
-                                    role: targetRole,
-                                  });
-                                }
-                              }}
-                              className="px-2 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400 hover:border-white/20 transition cursor-pointer"
-                              title="Change user role"
-                            >
-                              <option value="STUDENT">STUDENT</option>
-                              <option value="FACULTY">FACULTY</option>
-                              <option value="ADMIN">ADMIN</option>
-                            </select>
+                            {filterRole === 'DELETED' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Restore account ${u.displayName || u.fullName || u.email} to active status?`)) {
+                                      restoreUserMutation.mutate(u);
+                                    }
+                                  }}
+                                  disabled={restoreUserMutation.isPending}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-400 hover:bg-emerald-500/25 inline-flex items-center gap-1 font-mono font-bold transition"
+                                  title="Restore Account to Active"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>Restore</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Permanently erase record ${u.displayName || u.fullName || u.email}? This cannot be undone.`)) {
+                                      permanentDeleteMutation.mutate(u);
+                                    }
+                                  }}
+                                  disabled={permanentDeleteMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 transition"
+                                  title="Permanently Erase Record"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <select
+                                  value={u.role || 'STUDENT'}
+                                  onChange={(e) => {
+                                    const targetRole = e.target.value;
+                                    if (window.confirm(`Change ${u.displayName || u.fullName || u.email}'s role to ${targetRole}?`)) {
+                                      roleMutation.mutate({
+                                        id: u.id,
+                                        role: targetRole,
+                                      });
+                                    }
+                                  }}
+                                  className="px-2 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-cyan-400 hover:border-white/20 transition cursor-pointer"
+                                  title="Change user role"
+                                >
+                                  <option value="STUDENT">STUDENT</option>
+                                  <option value="FACULTY">FACULTY</option>
+                                  <option value="ADMIN">ADMIN</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete account ${u.displayName || u.fullName || u.email}? It will be removed from active members and moved to the Deleted tab.`)) {
+                                      deleteUserMutation.mutate(u);
+                                    }
+                                  }}
+                                  disabled={deleteUserMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition"
+                                  title="Delete Account (Move to Deleted tab)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
