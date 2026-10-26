@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase.js';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import {
@@ -68,23 +70,132 @@ export const InstantJoinPage: React.FC = () => {
     setErrorMsg(null);
 
     const loadSectionData = async () => {
+      const cleanToken = (joinToken || '').trim();
+      if (!cleanToken) {
+        setErrorMsg('Invalid or missing section join link.');
+        setLoadingSection(false);
+        return;
+      }
+
       // 1. Try Backend API
       try {
-        const res = await api.get(`/sections/join-info/${joinToken}`);
-        const data = res.section || res.data;
-        if (data && (data.sectionName || data.name || data.subject) && isMounted) {
-          setSection(data);
+        const res = await api.get(`/sections/join-info/${cleanToken}`);
+        const candidate = res?.section || res?.data;
+        if (candidate && (candidate.sectionName || candidate.name || candidate.subject) && isMounted) {
+          setSection({
+            id: candidate.id || cleanToken,
+            institution: candidate.institution || 'Sanjivani University',
+            course: candidate.course || 'B.Tech Computer Science & Engineering',
+            subject: candidate.subject || candidate.name || 'C Programming',
+            academicYear: candidate.academicYear || '2026-2027',
+            semester: candidate.semester || 'Semester 1',
+            sectionName: candidate.sectionName || candidate.name || 'First Year — Programming C',
+            description: candidate.description || null,
+            joinCode: candidate.joinCode || 'LQ-JOIN',
+            joinToken: candidate.joinToken || cleanToken,
+            faculty: candidate.faculty || {
+              fullName: candidate.facultyName || 'Course Faculty',
+              displayName: candidate.facultyName || 'Faculty',
+            },
+          });
           setLoadingSection(false);
           return;
         }
       } catch (backendErr) {
-        console.warn('Backend /sections/join-info lookup failed, checking Firestore fallback:', backendErr);
+        console.warn('Backend /sections/join-info lookup failed, checking Firestore direct:', backendErr);
       }
 
-      // 2. Fallback to Firestore Data Service
+      // 2. Direct Firestore query (Works unauthenticated for students worldwide)
+      try {
+        // 2a. Direct Document Lookup by ID
+        const docRef = doc(db, 'sections', cleanToken);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && isMounted) {
+          const raw = docSnap.data();
+          if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
+            setSection({
+              id: docSnap.id,
+              institution: raw.institution || 'Sanjivani University',
+              course: raw.course || 'B.Tech Computer Science & Engineering',
+              subject: raw.subject || raw.name || 'C Programming',
+              academicYear: raw.academicYear || '2026-2027',
+              semester: raw.semester || 'Semester 1',
+              sectionName: raw.sectionName || raw.name || 'First Year — Programming C',
+              description: raw.description || null,
+              joinCode: raw.joinCode || 'LQ-JOIN',
+              joinToken: raw.joinToken || cleanToken,
+              faculty: raw.faculty || {
+                fullName: raw.facultyName || 'Course Faculty',
+                displayName: raw.facultyName || 'Faculty',
+              },
+            });
+            setLoadingSection(false);
+            return;
+          }
+        }
+
+        // 2b. Query by joinToken field
+        const tokenQuery = query(collection(db, 'sections'), where('joinToken', '==', cleanToken));
+        const tokenSnap = await getDocs(tokenQuery);
+        if (!tokenSnap.empty && isMounted) {
+          const firstDoc = tokenSnap.docs[0];
+          const raw = firstDoc.data();
+          if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
+            setSection({
+              id: firstDoc.id,
+              institution: raw.institution || 'Sanjivani University',
+              course: raw.course || 'B.Tech Computer Science & Engineering',
+              subject: raw.subject || raw.name || 'C Programming',
+              academicYear: raw.academicYear || '2026-2027',
+              semester: raw.semester || 'Semester 1',
+              sectionName: raw.sectionName || raw.name || 'First Year — Programming C',
+              description: raw.description || null,
+              joinCode: raw.joinCode || 'LQ-JOIN',
+              joinToken: raw.joinToken || cleanToken,
+              faculty: raw.faculty || {
+                fullName: raw.facultyName || 'Course Faculty',
+                displayName: raw.facultyName || 'Faculty',
+              },
+            });
+            setLoadingSection(false);
+            return;
+          }
+        }
+
+        // 2c. Query by joinCode field (case-insensitive check: uppercase and as-is)
+        const codeQueryUpper = query(collection(db, 'sections'), where('joinCode', '==', cleanToken.toUpperCase()));
+        const codeSnap = await getDocs(codeQueryUpper);
+        if (!codeSnap.empty && isMounted) {
+          const firstDoc = codeSnap.docs[0];
+          const raw = firstDoc.data();
+          if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
+            setSection({
+              id: firstDoc.id,
+              institution: raw.institution || 'Sanjivani University',
+              course: raw.course || 'B.Tech Computer Science & Engineering',
+              subject: raw.subject || raw.name || 'C Programming',
+              academicYear: raw.academicYear || '2026-2027',
+              semester: raw.semester || 'Semester 1',
+              sectionName: raw.sectionName || raw.name || 'First Year — Programming C',
+              description: raw.description || null,
+              joinCode: raw.joinCode || cleanToken.toUpperCase(),
+              joinToken: raw.joinToken || cleanToken,
+              faculty: raw.faculty || {
+                fullName: raw.facultyName || 'Course Faculty',
+                displayName: raw.facultyName || 'Faculty',
+              },
+            });
+            setLoadingSection(false);
+            return;
+          }
+        }
+      } catch (directFirestoreErr) {
+        console.warn('Direct Firestore sections lookup notice:', directFirestoreErr);
+      }
+
+      // 3. Fallback to Firestore Data Service
       try {
         const allSections = await FirestoreDataService.getSectionsFromFirestore();
-        const cleanToken = joinToken.trim();
         const found = allSections.find(
           (s: any) =>
             s.id === cleanToken ||
@@ -95,12 +206,12 @@ export const InstantJoinPage: React.FC = () => {
         if (found && isMounted) {
           setSection({
             id: found.id || cleanToken,
-            institution: found.institution || 'Institutional LMS',
-            course: found.course || 'B.Tech Computer Engineering',
+            institution: found.institution || 'Sanjivani University',
+            course: found.course || 'B.Tech Computer Science & Engineering',
             subject: found.subject || found.name || 'C Programming',
-            academicYear: found.academicYear || '2025-2026',
+            academicYear: found.academicYear || '2026-2027',
             semester: found.semester || 'Semester 1',
-            sectionName: found.sectionName || found.name || 'Division A',
+            sectionName: found.sectionName || found.name || 'First Year — Programming C',
             description: found.description || null,
             joinCode: found.joinCode || 'LQ-JOIN',
             joinToken: found.joinToken || cleanToken,
@@ -115,6 +226,38 @@ export const InstantJoinPage: React.FC = () => {
       } catch (firestoreErr) {
         console.warn('Firestore fallback lookup error:', firestoreErr);
       }
+
+      // 4. Fallback to Local Storage sections backup
+      try {
+        const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+        const localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+        const foundLocal = (Array.isArray(localSections) ? localSections : []).find(
+          (s: any) =>
+            s.id === cleanToken ||
+            s.joinToken === cleanToken ||
+            (s.joinCode && s.joinCode.toUpperCase() === cleanToken.toUpperCase())
+        );
+        if (foundLocal && isMounted) {
+          setSection({
+            id: foundLocal.id || cleanToken,
+            institution: foundLocal.institution || 'Sanjivani University',
+            course: foundLocal.course || 'B.Tech Computer Science & Engineering',
+            subject: foundLocal.subject || foundLocal.name || 'C Programming',
+            academicYear: foundLocal.academicYear || '2026-2027',
+            semester: foundLocal.semester || 'Semester 1',
+            sectionName: foundLocal.sectionName || foundLocal.name || 'First Year — Programming C',
+            description: foundLocal.description || null,
+            joinCode: foundLocal.joinCode || 'LQ-JOIN',
+            joinToken: foundLocal.joinToken || cleanToken,
+            faculty: foundLocal.faculty || {
+              fullName: foundLocal.facultyName || 'Course Faculty',
+              displayName: foundLocal.facultyName || 'Faculty',
+            },
+          });
+          setLoadingSection(false);
+          return;
+        }
+      } catch {}
 
       if (isMounted) {
         setErrorMsg('Section not found or enrollment is currently inactive.');
@@ -226,11 +369,19 @@ export const InstantJoinPage: React.FC = () => {
       }
 
       // Always save to Firestore roster so faculty see student immediately
-      await FirestoreDataService.saveEnrolledStudentsToFirestore(section?.id || joinToken || 'instant', [{
+      const targetSecId = section?.id || section?.joinCode || joinToken || 'instant';
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [{
         name: name.trim(),
         prn: prn.trim().toUpperCase(),
         email: email.trim().toLowerCase(),
       }]);
+      if (section?.joinCode && section.joinCode !== targetSecId) {
+        await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [{
+          name: name.trim(),
+          prn: prn.trim().toUpperCase(),
+          email: email.trim().toLowerCase(),
+        }]);
+      }
       enrolled = true;
 
       if (enrolled) {

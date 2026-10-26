@@ -1038,10 +1038,33 @@ export class FirestoreDataService {
 
     // 2. Read authoritative Firestore & merge
     try {
+      // 2a. Pre-fetch enrolled students from Firestore to accurately compute student counts
+      const enrolledBySection = new Map<string, any[]>();
+      try {
+        const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
+        enrolledSnap.forEach((d) => {
+          const sData = d.data();
+          if (sData && !FirestoreDataService.isPurgedStudent(sData)) {
+            const secId = String(sData.sectionId || '').trim();
+            if (secId) {
+              if (!enrolledBySection.has(secId)) enrolledBySection.set(secId, []);
+              enrolledBySection.get(secId)!.push({ id: d.id, ...sData });
+            }
+          }
+        });
+      } catch (enrErr) {
+        console.warn('enrolled_students pre-fetch notice:', enrErr);
+      }
+
+      const remoteKeys = new Set<string>();
       const snap = await getDocs(collection(db, 'sections'));
       for (const d of snap.docs) {
         const data = d.data();
         if (data) {
+          remoteKeys.add(d.id);
+          if (data.joinCode) remoteKeys.add(data.joinCode);
+          if (data.joinToken) remoteKeys.add(data.joinToken);
+
           const item: any = { id: d.id, ...data };
           if (
             FirestoreDataService.isLegacyDemoSection(item) ||
@@ -1055,8 +1078,20 @@ export class FirestoreDataService {
           const key = item.joinCode || item.id;
           const existing: any = key ? sectionMap.get(key) || {} : {};
 
-          // Resolve enrolled students from local backup if not in doc payload
+          // Resolve enrolled students from local backup, doc payload, or enrolled_students collection
           let studentsList = Array.isArray(item.students) && item.students.length > 0 ? item.students : (existing.students || []);
+          
+          // Check enrolled_students collection by id, joinCode, or joinToken
+          const fsEnrolled = [
+            item.id ? enrolledBySection.get(item.id) : null,
+            item.joinCode ? enrolledBySection.get(item.joinCode) : null,
+            item.joinToken ? enrolledBySection.get(item.joinToken) : null,
+          ].find((arr) => Array.isArray(arr) && arr.length > 0);
+
+          if (fsEnrolled && fsEnrolled.length > studentsList.length) {
+            studentsList = fsEnrolled;
+          }
+
           if (studentsList.length === 0) {
             try {
               const possibleKeys = [
@@ -1086,9 +1121,26 @@ export class FirestoreDataService {
           item.students = filteredStudents;
           item._count = { students: calculatedCount };
 
+          // Cache in localStorage per section for offline instant sync
+          try {
+            if (item.id && filteredStudents.length > 0) {
+              localStorage.setItem(`logicq_section_students_${item.id}`, JSON.stringify(filteredStudents));
+            }
+            if (item.joinCode && filteredStudents.length > 0) {
+              localStorage.setItem(`logicq_section_students_${item.joinCode}`, JSON.stringify(filteredStudents));
+            }
+          } catch {}
+
           if (key) {
             sectionMap.set(key, { ...existing, ...item });
           }
+        }
+      }
+
+      // Auto-replicate any locally-saved section to Firestore if missing remotely
+      for (const [, sec] of sectionMap.entries()) {
+        if (sec && sec.id && !remoteKeys.has(sec.id) && (!sec.joinCode || !remoteKeys.has(sec.joinCode))) {
+          FirestoreDataService.saveSectionToFirestore(sec).catch(() => {});
         }
       }
     } catch (err) {

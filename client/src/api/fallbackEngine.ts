@@ -2661,12 +2661,24 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     try {
       localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
     } catch {}
-    const found = localSections.find(
+    let found = localSections.find(
       (s: any) =>
         s.id === cleanToken ||
         s.joinToken === cleanToken ||
         (s.joinCode && s.joinCode.toUpperCase() === cleanToken.toUpperCase())
     ) || null;
+
+    if (!found) {
+      try {
+        const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
+        found = firestoreSections.find(
+          (s: any) =>
+            s.id === cleanToken ||
+            s.joinToken === cleanToken ||
+            (s.joinCode && s.joinCode.toUpperCase() === cleanToken.toUpperCase())
+        ) || null;
+      } catch {}
+    }
 
     if (!found) {
       return { success: false, message: 'Section not found', data: null, section: null };
@@ -2683,12 +2695,24 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       localSections = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
     } catch {}
 
-    const sec = localSections.find(
+    let sec = localSections.find(
       (s: any) =>
         s.id === cleanToken ||
         s.joinToken === cleanToken ||
         (s.joinCode && s.joinCode.toUpperCase() === cleanToken.toUpperCase())
     );
+
+    if (!sec) {
+      try {
+        const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
+        sec = firestoreSections.find(
+          (s: any) =>
+            s.id === cleanToken ||
+            s.joinToken === cleanToken ||
+            (s.joinCode && s.joinCode.toUpperCase() === cleanToken.toUpperCase())
+        ) || null;
+      } catch {}
+    }
 
     if (!sec) {
       throw new Error('Section not found. Please contact your instructor for a valid link or code.');
@@ -2713,7 +2737,21 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       sec.students.push(studentRecord);
       sec._count = { students: sec.students.length };
       try {
-        localStorage.setItem(LOCAL_KEY, JSON.stringify(localSections));
+        const updatedLocal = localSections.filter((s: any) => s.id !== sec.id && s.joinCode !== sec.joinCode);
+        updatedLocal.unshift(sec);
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(updatedLocal));
+      } catch {}
+
+      try {
+        if (sec.id) localStorage.setItem(`logicq_section_students_${sec.id}`, JSON.stringify(sec.students));
+        if (sec.joinCode) localStorage.setItem(`logicq_section_students_${sec.joinCode}`, JSON.stringify(sec.students));
+      } catch {}
+
+      try {
+        FirestoreDataService.saveEnrolledStudentsToFirestore(sec.id || cleanToken, [studentRecord]).catch(() => {});
+        if (sec.joinCode && sec.joinCode !== sec.id) {
+          FirestoreDataService.saveEnrolledStudentsToFirestore(sec.joinCode, [studentRecord]).catch(() => {});
+        }
       } catch {}
     }
 

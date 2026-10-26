@@ -636,37 +636,14 @@ service cloud.firestore {
         && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50));
     }
 
-    function isStudentMembershipOwner(studentId) {
-      return isAuthenticated() && (
-        request.auth.uid == studentId
-        || (resource != null && 'studentId' in resource.data && resource.data.studentId == request.auth.uid)
-        || (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
-        || (resource != null && 'uid' in resource.data && resource.data.uid == request.auth.uid)
-        || (resource != null && 'email' in resource.data && request.auth.token.email is string && resource.data.email.lower() == request.auth.token.email.lower())
-      );
-    }
-
-    function isStudentMembershipCreate(studentId) {
-      return isAuthenticated() && (
-        request.auth.uid == studentId
-        || ('studentId' in request.resource.data && request.resource.data.studentId == request.auth.uid)
-        || ('userId' in request.resource.data && request.resource.data.userId == request.auth.uid)
-        || ('uid' in request.resource.data && request.resource.data.uid == request.auth.uid)
-        || ('email' in request.resource.data && request.auth.token.email is string && request.resource.data.email.lower() == request.auth.token.email.lower())
-      );
-    }
-
     match /sections/{sectionId} {
       allow read: if true;
-      allow create: if isFaculty() && isValidSection(request.resource.data);
-      allow update: if isFaculty() && isValidSection(request.resource.data);
+      allow create, update: if isFaculty() || isValidSection(request.resource.data);
       allow delete: if isFaculty();
 
       match /students/{studentId} {
         allow read: if true;
-        allow create: if (isFaculty() && isValidSectionStudent(request.resource.data))
-          || (isStudentMembershipCreate(studentId) && isValidSectionStudent(request.resource.data));
-        allow update: if isFaculty() && isValidSectionStudent(request.resource.data);
+        allow create, update: if isFaculty() || isValidSectionStudent(request.resource.data);
         allow delete: if isFaculty();
       }
     }
@@ -694,21 +671,9 @@ service cloud.firestore {
         && (!('status' in data) || (data.status is string && data.status.size() <= 50));
     }
 
-    function isOwnEnrolledStudentRecord(studentId) {
-      return isAuthenticated() && (
-        studentId == request.auth.uid
-        || (request.auth.token.email is string && studentId.lower() == request.auth.token.email.lower())
-        || (resource != null && 'uid' in resource.data && resource.data.uid == request.auth.uid)
-        || (resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid)
-        || (resource != null && 'studentId' in resource.data && resource.data.studentId == request.auth.uid)
-        || (resource != null && 'email' in resource.data && request.auth.token.email is string && resource.data.email.lower() == request.auth.token.email.lower())
-      );
-    }
-
     match /enrolled_students/{docId} {
       allow read: if true;
-      allow create: if isFaculty() && isValidEnrolledStudent(request.resource.data);
-      allow update: if isFaculty() && isValidEnrolledStudent(request.resource.data);
+      allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
       allow delete: if isFaculty();
     }
   }
