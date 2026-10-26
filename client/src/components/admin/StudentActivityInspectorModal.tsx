@@ -273,14 +273,7 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
                     </span>
                   </>
                 )}
-                {user.division && (
-                  <>
-                    <span>•</span>
-                    <span className="text-slate-300 font-semibold">
-                      Div: {user.division}
-                    </span>
-                  </>
-                )}
+                
               </div>
             </div>
           </div>

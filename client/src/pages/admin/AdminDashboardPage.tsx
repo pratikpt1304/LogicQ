@@ -1029,9 +1029,7 @@ export const AdminDashboardPage: React.FC = () => {
     if (filterYear && filterYear !== 'ALL') {
       merged = merged.filter((u) => u.year === filterYear);
     }
-    if (filterDivision && filterDivision !== 'ALL') {
-      merged = merged.filter((u) => u.division === filterDivision.toUpperCase());
-    }
+    
 
     let filtered = merged;
     if (filterRole && filterRole !== 'ALL' && filterRole !== 'DELETED') {
@@ -1387,7 +1385,7 @@ export const AdminDashboardPage: React.FC = () => {
         `"Email",${escapeCsv(student.email || '—')}`,
         `"College",${escapeCsv(student.college || 'Sanjivani University')}`,
         `"Department",${escapeCsv(student.department || '—')}`,
-        `"Year & Division",${escapeCsv(`${student.year || '—'} ${student.division ? `Div ${student.division}` : ''}`)}`,
+        `"Academic Year",${escapeCsv(student.year || "—")}`,
         `"Role",${escapeCsv(student.role || 'STUDENT')}`,
         `"Account Status",${escapeCsv(student.isBanned ? 'BANNED' : 'ACTIVE')}`,
         `"Total Score",${escapeCsv(student.totalPoints || 0)}`,
@@ -2356,22 +2354,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="admin-filter-div" className="block text-xs font-mono text-slate-400 mb-1">
-                  Division
-                </label>
-                <input
-                  id="admin-filter-div"
-                  type="text"
-                  maxLength={3}
-                  value={filterDivision}
-                  onChange={(e) =>
-                    setFilterDivision(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())
-                  }
-                  placeholder="e.g. A, B, C1"
-                  className="w-full px-3 py-1.5 rounded-lg bg-dark-950 border border-dark-700 text-xs font-mono text-white"
-                />
-              </div>
+              
             </div>
           )}
 
@@ -3286,7 +3269,6 @@ export const AdminDashboardPage: React.FC = () => {
                           <td className="px-4 py-4 text-slate-300">
                             <span className="block font-semibold text-cyan-400">
                               {sub.user?.department || '—'} • {sub.user?.year || '—'}
-                              {sub.user?.division ? ` (Div ${sub.user.division})` : ''}
                             </span>
                             <span className="text-slate-400 text-xs">
                               {sub.user?.college || 'Sanjivani University'}
@@ -3446,7 +3428,6 @@ export const AdminDashboardPage: React.FC = () => {
                       <td className="px-4 py-4 text-slate-300">
                         <span className="block font-semibold text-cyan-400">
                           {up.department || up.user?.department || '—'} • {up.year || up.user?.year || '—'}
-                          {up.division || up.user?.division ? ` (Div ${up.division || up.user?.division})` : ''}
                         </span>
                       </td>
                       <td className="px-4 py-4 text-slate-300">
@@ -4109,11 +4090,7 @@ export const AdminDashboardPage: React.FC = () => {
                                 <span className="text-indigo-600 dark:text-cyan-300 font-semibold text-xs">{u.department || '—'}</span>
                                 <span className="text-slate-400 dark:text-slate-500 text-xs">•</span>
                                 <span className="text-slate-700 dark:text-slate-300 text-xs font-medium">{u.year || '—'}</span>
-                                {u.division && (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40 shadow-xs">
-                                    Div {u.division}
-                                  </span>
-                                )}
+                                
                               </div>
                               {u.sections && u.sections.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
@@ -4813,7 +4790,7 @@ export const AdminDashboardPage: React.FC = () => {
                           {entry.department || '—'}
                         </td>
                         <td className="px-4 py-3 text-slate-300">
-                          {entry.year || '—'} {entry.division ? `• Div ${entry.division}` : ''}
+                          {entry.year || '—'}
                         </td>
                         <td className="px-4 py-3 text-slate-300">
                           {entry.acceptedAt

@@ -419,7 +419,6 @@ export const PracticeReportView: React.FC<PracticeReportViewProps> = ({ user }) 
                 <span className="text-[10px] text-[#9AA1C4] block uppercase">Department &amp; Year</span>
                 <span className="text-[#E8EAF6]">
                   {user.department || 'Engineering'} • {user.year || 'FY'}
-                  {user.division ? ` (Div ${user.division})` : ''}
                 </span>
               </div>
               <div>

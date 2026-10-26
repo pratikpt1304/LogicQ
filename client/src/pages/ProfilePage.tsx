@@ -1234,15 +1234,7 @@ export const ProfilePage: React.FC = () => {
                     <span>Year: {profile?.year || currentUser?.year}</span>
                   </span>
                 )}
-                {(profile?.division || currentUser?.division) && (
-                  <span
-                    data-testid="profile-division"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-[#9AA1C4]" />
-                    <span>Div: {profile?.division || currentUser?.division}</span>
-                  </span>
-                )}
+                
               </div>
 
               {(profile?.bio || currentUser?.bio) && (
@@ -1998,53 +1990,7 @@ export const ProfilePage: React.FC = () => {
                     </select>
                   </div>
 
-                  {!isAdminOrFaculty && (
-                    <div>
-                      <label
-                        htmlFor="edit-year"
-                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
-                      >
-                        ACADEMIC YEAR
-                      </label>
-                      <select
-                        id="edit-year"
-                        value={editForm.year}
-                        onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
-                      >
-                        {ALLOWED_YEARS.map((yr) => (
-                          <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
-                            {yr}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {/* Division & Bio Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {!isAdminOrFaculty && (
-                    <div className="sm:col-span-1">
-                      <label
-                        htmlFor="edit-division"
-                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
-                      >
-                        DIVISION
-                      </label>
-                      <input
-                        id="edit-division"
-                        type="text"
-                        maxLength={3}
-                        value={editForm.division}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, division: e.target.value.toUpperCase() })
-                        }
-                        placeholder="e.g. A, B"
-                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF] font-mono uppercase"
-                      />
-                    </div>
-                  )}
+                  
 
                   <div className={isAdminOrFaculty ? "sm:col-span-3" : "sm:col-span-2"}>
                     <label htmlFor="edit-bio" className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1">

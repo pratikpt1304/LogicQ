@@ -378,37 +378,7 @@ export const CompleteProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* 6. Division */}
-            <div>
-              <label
-                htmlFor="complete-division-input"
-                className="block text-sm font-mono text-[#E8EAF6] mb-1.5 font-medium"
-              >
-                6. DIVISION <span className="text-[#9AA1C4] text-xs font-normal">(OPTIONAL)</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="complete-division-input"
-                  name="division"
-                  type="text"
-                  maxLength={3}
-                  aria-invalid={Boolean(fieldErrors.division)}
-                  value={formData.division}
-                  onChange={(e) => {
-                    setFormData({ ...formData, division: e.target.value.toUpperCase() });
-                    if (fieldErrors.division) setFieldErrors({ ...fieldErrors, division: undefined });
-                  }}
-                  placeholder="e.g. A, B, C1 (optional)"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4] focus:outline-none focus:border-[#8B9BFF] font-mono uppercase"
-                />
-                <Layers className="w-4 h-4 text-[#9AA1C4] absolute left-3 top-3" />
-              </div>
-              {fieldErrors.division && (
-                <p role="alert" className="text-xs text-[#FF7A8A] mt-1 font-mono">
-                  {fieldErrors.division}
-                </p>
-              )}
-            </div>
+            
 
             <button
               type="submit"

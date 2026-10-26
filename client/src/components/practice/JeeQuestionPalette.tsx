@@ -132,7 +132,7 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
             </h4>
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-muted)] mt-0.5">
               <span className="text-cyan-400 font-semibold">{candidatePrn}</span>
-              {user?.division && <span>• Div {user.division}</span>}
+              
             </div>
           </div>
         </div>

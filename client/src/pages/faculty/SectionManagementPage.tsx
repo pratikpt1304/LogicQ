@@ -199,7 +199,7 @@ export const SectionManagementPage: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: async (payload: typeof newSection) => {
       if (!payload.sectionName.trim()) {
-        throw new Error('Section / Division Name is required (e.g. Div A).');
+        throw new Error('Section Name is required (e.g. Div A).');
       }
       if (!payload.subject.trim()) {
         throw new Error('Subject Name is required (e.g. C Programming).');
@@ -1217,13 +1217,13 @@ export const SectionManagementPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[var(--muted-foreground)] font-semibold mb-1">
-                    Section / Division Name <span className="text-red-400">*</span>
+                    Section Name <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={newSection.sectionName}
                     onChange={(e) => setNewSection({ ...newSection, sectionName: e.target.value })}
-                    placeholder="e.g. Div A, Batch B1"
+                    placeholder="e.g. Section 1, Batch B1"
                     className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold focus:outline-none focus:border-indigo-500"
                     autoFocus
                   />
