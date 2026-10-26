@@ -469,19 +469,37 @@ export const AdminDashboardPage: React.FC = () => {
     refetchInterval: 8000,
   });
 
-  // Fetch Sections for filtering
+  // Fetch Sections for filtering and roster enrichment
   const { data: sectionsData } = useQuery({
     queryKey: ['admin-sections-list'],
     queryFn: async () => {
-      try {
-        const res = await api.get('/sections');
-        if (res?.data?.sections && res.data.sections.length > 0) {
-          return res.data.sections;
+      const [fsSections, backendRes] = await Promise.all([
+        FirestoreDataService.getSectionsFromFirestore().catch(() => []),
+        api.get('/sections').catch(() => null),
+      ]);
+      const sectionMap = new Map<string, any>();
+      (backendRes?.data?.sections || backendRes?.sections || []).forEach((s: any) => {
+        const key = s.id || s.joinCode;
+        if (key) sectionMap.set(key, s);
+      });
+      (fsSections || []).forEach((fs: any) => {
+        const key = fs.id || fs.joinCode;
+        if (key) {
+          const existing = sectionMap.get(key) || {};
+          const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
+            ? fs.students
+            : (existing.students || []);
+          sectionMap.set(key, {
+            ...existing,
+            ...fs,
+            students: mergedStudents,
+            _count: { students: Math.max(mergedStudents.length, fs._count?.students || 0, existing._count?.students || 0) },
+          });
         }
-      } catch {
-        // fallback
-      }
-      return await FirestoreDataService.getSectionsFromFirestore();
+      });
+      return Array.from(sectionMap.values()).filter(
+        (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
+      );
     },
     refetchInterval: 8000,
   });
@@ -865,7 +883,65 @@ export const AdminDashboardPage: React.FC = () => {
       };
     });
 
-    const all = [...enrichedBackend, ...missingFromBackend].filter(
+    // 3. Extract and include students enrolled in any section who are not yet in backend or fUsers
+    const existingEmails = new Set(
+      [...enrichedBackend, ...missingFromBackend].map((u: any) => u.email?.toLowerCase().trim()).filter(Boolean)
+    );
+    const existingPrns = new Set(
+      [...enrichedBackend, ...missingFromBackend].map((u: any) => u.prn?.toUpperCase().trim()).filter(Boolean)
+    );
+
+    const sectionEnrolledStudents: any[] = [];
+    sectionsList.forEach((sec: any) => {
+      const secStudents = Array.isArray(sec.students) ? sec.students : [];
+      secStudents.forEach((st: any) => {
+        if (!st || FirestoreDataService.isPurgedStudent(st)) return;
+        const stEmail = String(st.email || st.student?.email || '').toLowerCase().trim();
+        const stPrn = String(st.prn || st.student?.prn || '').toUpperCase().trim();
+        
+        if ((stEmail && existingEmails.has(stEmail)) || (stPrn && existingPrns.has(stPrn))) {
+          return;
+        }
+        if (stEmail) existingEmails.add(stEmail);
+        if (stPrn) existingPrns.add(stPrn);
+
+        const shortId = stPrn ? stPrn.slice(-4) : (stEmail ? stEmail.slice(0, 4) : '0000');
+        const resolvedName = st.name || st.fullName || st.student?.fullName || st.student?.displayName || (stPrn ? `Student ${shortId}` : 'Enrolled Student');
+        const cleanUsername = stEmail ? stEmail.split('@')[0] : `stu_${shortId}`;
+
+        sectionEnrolledStudents.push({
+          id: st.id || st.uid || `stu_${stPrn || stEmail || Date.now()}`,
+          fullName: resolvedName,
+          displayName: resolvedName,
+          username: cleanUsername,
+          cleanUsername,
+          email: stEmail || '—',
+          prn: stPrn || null,
+          maskedPrn: stPrn ? `••••••••${shortId}` : '••••••••',
+          role: 'STUDENT',
+          department: st.department || sec.course || sec.subject || '—',
+          year: st.year || '—',
+          division: st.division || sec.sectionName || null,
+          college: st.college || st.institution || 'Sanjivani University',
+          sections: [{
+            id: sec.id,
+            sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+            joinCode: sec.joinCode,
+            subject: sec.subject,
+            course: sec.course,
+          }],
+          sectionId: sec.id,
+          sectionName: sec.sectionName || sec.name,
+          accountState: 'ENROLLED',
+          profileComplete: true,
+          totalPoints: Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
+          currentStreak: Number(st.currentStreak ?? st.student?.currentStreak ?? 0),
+          longestStreak: Number(st.longestStreak ?? st.student?.longestStreak ?? 0),
+        });
+      });
+    });
+
+    const all = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
       (u: any) => !FirestoreDataService.isPurgedStudent(u)
     );
     let merged = all;
@@ -884,8 +960,8 @@ export const AdminDashboardPage: React.FC = () => {
     if (filterSectionId && filterSectionId !== 'ALL') {
       merged = merged.filter((u: any) => {
         if (u.sectionId === filterSectionId) return true;
-        if (Array.isArray(u.sections) && u.sections.some((s: any) => s.id === filterSectionId)) return true;
-        if (Array.isArray(u.enrolledSections) && u.enrolledSections.some((es: any) => es.sectionId === filterSectionId || es.section?.id === filterSectionId)) return true;
+        if (Array.isArray(u.sections) && u.sections.some((s: any) => s.id === filterSectionId || s.joinCode === filterSectionId)) return true;
+        if (Array.isArray(u.enrolledSections) && u.enrolledSections.some((es: any) => es.sectionId === filterSectionId || es.section?.id === filterSectionId || es.section?.joinCode === filterSectionId)) return true;
         return false;
       });
     }

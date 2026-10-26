@@ -377,7 +377,7 @@ export class SectionService {
   /**
    * Commits validated Excel rows to the Section with transaction safety.
    */
-  static async commitExcelImport(sectionId: string, students: StudentRowData[], facultyId: string) {
+  static async commitExcelImport(sectionId: string, students: StudentRowData[], facultyId: string, isAdmin = false) {
     const section = await prisma.section.findUnique({
       where: { id: sectionId },
     });
@@ -385,7 +385,7 @@ export class SectionService {
     if (!section) {
       throw new Error('Section not found.');
     }
-    if (section.facultyId !== facultyId) {
+    if (!isAdmin && section.facultyId !== facultyId) {
       throw new Error('Unauthorized to import students into this section.');
     }
 

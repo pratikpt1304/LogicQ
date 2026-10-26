@@ -621,6 +621,51 @@ export class FirestoreDataService {
       console.warn('getAllFirestoreUsers: enrolled_students collection read skipped/failed:', err);
     }
 
+    // 2.5 Scan section student rosters (ensures students enrolled directly in sections appear in directory)
+    try {
+      const fsSections = await FirestoreDataService.getSectionsFromFirestore();
+      for (const sec of fsSections) {
+        const secStudents = Array.isArray(sec.students) ? sec.students : [];
+        for (const st of secStudents) {
+          if (!st || FirestoreDataService.isPurgedStudent(st)) continue;
+          const email = (st.email || st.student?.email || '').toLowerCase().trim();
+          const prn = (st.prn || st.student?.prn) ? String(st.prn || st.student?.prn).toUpperCase().trim() : null;
+          if ((email && seenEmails.has(email)) || (prn && seenPrns.has(prn))) {
+            continue;
+          }
+          if (email) seenEmails.add(email);
+          if (prn) seenPrns.add(prn);
+
+          const shortId = prn ? prn.slice(-4) : (email ? email.slice(0, 4) : '0000');
+          list.push({
+            id: st.id || st.uid || `sec_stu_${shortId}_${Date.now()}`,
+            username: st.username || (email ? email.split('@')[0] : `stu_${shortId}`),
+            email,
+            prn,
+            maskedPrn: prn ? `••••••••${shortId}` : '••••••••',
+            shortId,
+            fullName: st.name || st.fullName || st.student?.fullName || `Student ${shortId}`,
+            displayName: st.displayName || st.name || st.fullName || `Student ${shortId}`,
+            publicDisplayName: st.displayName || st.name || `Student ${shortId}`,
+            role: 'STUDENT',
+            college: st.college || st.institution || 'Sanjivani University',
+            department: st.department || sec.course || sec.subject || 'CSE',
+            year: st.year || 'FY',
+            division: st.division || sec.sectionName || null,
+            sectionId: sec.id,
+            sectionName: sec.sectionName || sec.name,
+            profileComplete: true,
+            totalPoints: Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
+            currentStreak: Number(st.currentStreak ?? st.student?.currentStreak ?? 0),
+            longestStreak: Number(st.longestStreak ?? st.student?.longestStreak ?? 0),
+            createdAt: new Date().toISOString(),
+          } as any);
+        }
+      }
+    } catch (secErr) {
+      console.warn('getAllFirestoreUsers section scan skipped/failed:', secErr);
+    }
+
     // 3. Fallback: If empty, try publicProfiles
     if (list.length === 0) {
       try {

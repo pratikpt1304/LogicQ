@@ -161,6 +161,7 @@ export class SectionController {
     try {
       const user = (req as any).user;
       const facultyId = user.userId || user.id;
+      const isAdmin = user.role === 'ADMIN';
       const { sectionId } = req.params;
       const studentsList = req.body.students || req.body.validStudents;
 
@@ -171,7 +172,7 @@ export class SectionController {
         });
       }
 
-      const result = await SectionService.commitExcelImport(sectionId, studentsList, facultyId);
+      const result = await SectionService.commitExcelImport(sectionId, studentsList, facultyId, isAdmin);
       return res.json({
         ...result,
         data: {
