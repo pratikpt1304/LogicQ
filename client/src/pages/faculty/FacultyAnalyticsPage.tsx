@@ -689,7 +689,9 @@ Generated On   : ${new Date().toLocaleString()}`;
             {metrics.totalEnrolled}
           </div>
           <p className="text-[11px] text-[var(--muted-foreground)] flex items-center gap-1">
-            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{analyticsData?.sections?.length || 1} sections</span> monitored
+            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+              {analyticsData?.sections?.length || 0} {analyticsData?.sections?.length === 1 ? 'section' : 'sections'}
+            </span> monitored
           </p>
         </div>
 
