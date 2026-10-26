@@ -201,7 +201,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
-  'thoratpratik2323@gmail.com',
   'samugangad@gmail.com',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
@@ -210,7 +209,7 @@ export const PURGED_EMAILS = [
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2126PMIF1057', '2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: string | { email?: string; prn?: string } | null): boolean {
   if (!identifier) return false;
@@ -1085,6 +1084,32 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
     await prisma.prnIndex.upsert({
       where: { prn: '2024BCSE0001' },
       create: { prn: '2024BCSE0001', userId: studentUser.id },
+      update: { userId: studentUser.id },
+    }).catch(() => {});
+    return studentUser;
+  }
+  if (lower === 'thoratpratik2323@gmail.com' || cleanId.toUpperCase() === '2126PMIM1039') {
+    const studentUser = await prisma.user.upsert({
+      where: { email: 'thoratpratik2323@gmail.com' },
+      update: { role: 'STUDENT', prn: '2126PMIM1039', profileComplete: true },
+      create: {
+        username: 'pratik_thorat',
+        email: 'thoratpratik2323@gmail.com',
+        prn: '2126PMIM1039',
+        role: 'STUDENT',
+        fullName: 'Pratik Thorat',
+        displayName: 'Pratik Thorat',
+        passwordHash: await bcrypt.hash('StudentPassword123!', 10),
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
+        year: 'TY',
+        division: 'A',
+        profileComplete: true,
+      },
+    });
+    await prisma.prnIndex.upsert({
+      where: { prn: '2126PMIM1039' },
+      create: { prn: '2126PMIM1039', userId: studentUser.id },
       update: { userId: studentUser.id },
     }).catch(() => {});
     return studentUser;

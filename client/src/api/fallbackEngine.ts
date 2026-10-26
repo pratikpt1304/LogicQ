@@ -197,7 +197,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
-  'thoratpratik2323@gmail.com',
   'samugangad@gmail.com',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
@@ -206,7 +205,7 @@ export const PURGED_EMAILS = [
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2126PMIF1057', '2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: any): boolean {
   if (!identifier) return false;
@@ -365,6 +364,30 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'thoratpratik2323@gmail.com')) {
+        sanitized.push({
+          id: 'student-pratik-1',
+          username: 'pratik_thorat',
+          email: 'thoratpratik2323@gmail.com',
+          prn: '2126PMIM1039',
+          fullName: 'Pratik Thorat',
+          displayName: 'Pratik Thorat',
+          role: 'STUDENT',
+          college: 'Sanjivani University',
+          department: 'Integrated M.Tech',
+          year: 'TY',
+          division: 'A',
+          profileComplete: true,
+          totalPoints: 240,
+          currentStreak: 3,
+          longestStreak: 5,
+          password: 'password123',
+          isBanned: false,
+          shortId: '1039',
+          createdAt: new Date().toISOString(),
+        } as any);
+        migrated = true;
+      }
       if (migrated) {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
       }
@@ -447,6 +470,27 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: '0001',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'student-pratik-1',
+      username: 'pratik_thorat',
+      email: 'thoratpratik2323@gmail.com',
+      prn: '2126PMIM1039',
+      fullName: 'Pratik Thorat',
+      displayName: 'Pratik Thorat',
+      role: 'STUDENT',
+      college: 'Sanjivani University',
+      department: 'Integrated M.Tech',
+      year: 'TY',
+      division: 'A',
+      profileComplete: true,
+      totalPoints: 240,
+      currentStreak: 3,
+      longestStreak: 5,
+      password: 'password123',
+      isBanned: false,
+      shortId: '1039',
       createdAt: new Date().toISOString(),
     },
   ];

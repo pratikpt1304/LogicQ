@@ -892,14 +892,12 @@ export class FirestoreDataService {
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
     const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
     return (
-      email === 'thoratpratik2323@gmail.com' ||
       email === 'samugangad@gmail.com' ||
       email === 'rohan_1390@test.edu' ||
       email === 'join_1390@sanjivani.edu.in' ||
       email === 'ipverse1918@gmail.com' ||
       email === 'ipworker1908@gmail.com' ||
       email === 'logicq1304@gmail.com' ||
-      prn === '2126PMIM1039' ||
       prn === '2126PMIF1057' ||
       prn === '2026VAL1390' ||
       prn === '2026JON1390'
@@ -921,7 +919,6 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
-        'thoratpratik2323@gmail.com',
         'samugangad@gmail.com',
         'rohan_1390@test.edu',
         'join_1390@sanjivani.edu.in',
@@ -929,16 +926,14 @@ export class FirestoreDataService {
         'ipworker1908@gmail.com',
         'logicq1304@gmail.com',
       ];
-      const targetPrns = ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'];
+      const targetPrns = ['2126PMIF1057', '2026VAL1390', '2026JON1390'];
       const directKeys = [
-        'thoratpratik2323_gmail_com',
         'samugangad_gmail_com',
         'rohan_1390_test_edu',
         'join_1390_sanjivani_edu_in',
         'ipverse1918_gmail_com',
         'ipworker1908_gmail_com',
         'logicq1304_gmail_com',
-        '2126PMIM1039',
         '2126PMIF1057',
         '2026VAL1390',
         '2026JON1390',

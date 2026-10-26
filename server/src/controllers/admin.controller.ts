@@ -455,7 +455,6 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
     const activeUserWhere = {
       email: {
         notIn: [
-          'thoratpratik2323@gmail.com',
           'samugangad@gmail.com',
           'rohan_1390@test.edu',
           'join_1390@sanjivani.edu.in',
@@ -468,7 +467,7 @@ export async function getAnalytics(req: AuthRequest, res: Response): Promise<voi
         {
           OR: [
             { prn: null },
-            { prn: { notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
+            { prn: { notIn: ['2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
           ],
         },
       ],
@@ -992,7 +991,6 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     const where: any = {
       email: {
         notIn: [
-          'thoratpratik2323@gmail.com',
           'samugangad@gmail.com',
           'rohan_1390@test.edu',
           'join_1390@sanjivani.edu.in',
@@ -1002,7 +1000,7 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
         ],
       },
       prn: {
-        notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'],
+        notIn: ['2126PMIF1057', '2026VAL1390', '2026JON1390'],
       },
     };
     if (verdict && verdict !== 'ALL') where.verdict = verdict;
@@ -1191,7 +1189,6 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const where: any = {
       email: {
         notIn: [
-          'thoratpratik2323@gmail.com',
           'samugangad@gmail.com',
           'rohan_1390@test.edu',
           'join_1390@sanjivani.edu.in',
@@ -1204,7 +1201,7 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
         {
           OR: [
             { prn: null },
-            { prn: { notIn: ['2126PMIM1039', '2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
+            { prn: { notIn: ['2126PMIF1057', '2026VAL1390', '2026JON1390'] } },
           ],
         },
       ],
