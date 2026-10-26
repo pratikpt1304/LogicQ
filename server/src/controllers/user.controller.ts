@@ -57,16 +57,7 @@ const updateProfileSchema = z.object({
     .optional()
     .nullable(),
   division: z
-    .preprocess((val) => {
-      if (val === undefined) return undefined;
-      if (val === null) return null;
-      if (typeof val !== 'string') return String(val);
-      const trimmed = val.trim();
-      return trimmed === '' ? null : trimmed.toUpperCase();
-    }, z.string().nullable().optional())
-    .refine((val) => val === undefined || val === null || DIVISION_REGEX.test(val), {
-      message: 'Division must be up to 3 letters or digits (e.g., A, B, C1).',
-    }),
+    .preprocess(() => null, z.string().nullable().optional()),
   displayName: z
     .preprocess((val) => {
       if (val === undefined) return undefined;

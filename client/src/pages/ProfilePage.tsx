@@ -595,7 +595,7 @@ export const ProfilePage: React.FC = () => {
           '',
         department: validDept,
         year: profile?.year || currentUser?.year || ALLOWED_YEARS[0],
-        division: profile?.division || currentUser?.division || '',
+        division: '',
         bio: (profile?.bio && profile.bio.trim() !== '') ? profile.bio : (currentUser?.bio && currentUser.bio.trim() !== '') ? currentUser.bio : '',
         storagePreference: activeStorage,
         hidePracticeTimer: Boolean((profile?.hidePracticeTimer ?? currentUser?.hidePracticeTimer)),
@@ -697,12 +697,7 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
-    const trimmedDiv = editForm.division.trim().toUpperCase();
-    if (trimmedDiv && !DIVISION_REGEX.test(trimmedDiv)) {
-      setEditError('Division must be up to 3 letters or digits (e.g., A, B, C1).');
-      return;
-    }
-
+    // Division is completely removed from the app - always set to null
     const effectiveBio = editForm.bio.trim() || null;
     const effectiveUid = auth.currentUser?.uid || currentUser?.id;
     if (effectiveUid) {
@@ -710,7 +705,7 @@ export const ProfilePage: React.FC = () => {
         displayName: trimmedDisplay || null,
         department: editForm.department,
         year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
-        division: isAdminOrFaculty ? (profile?.division || currentUser?.division || null) : (trimmedDiv || null),
+        division: null,
         bio: effectiveBio,
         storagePreference: editForm.storagePreference as any,
       }).catch((e) => console.warn('Firestore profile update non-fatal error:', e));
@@ -725,7 +720,7 @@ export const ProfilePage: React.FC = () => {
         fullName: trimmedDisplay || activeObj.fullName || 'Student',
         department: editForm.department,
         year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
-        division: isAdminOrFaculty ? (profile?.division || currentUser?.division || null) : (trimmedDiv || null),
+        division: null,
         bio: effectiveBio,
         storagePreference: editForm.storagePreference,
         hidePracticeTimer: editForm.hidePracticeTimer,
@@ -736,7 +731,8 @@ export const ProfilePage: React.FC = () => {
     updateMutation.mutate({
       displayName: trimmedDisplay || null,
       department: editForm.department,
-      ...(isAdminOrFaculty ? {} : { year: editForm.year, division: trimmedDiv || null }),
+      ...(isAdminOrFaculty ? {} : { year: editForm.year }),
+      division: null,
       bio: effectiveBio,
       storagePreference: editForm.storagePreference,
       hidePracticeTimer: editForm.hidePracticeTimer,

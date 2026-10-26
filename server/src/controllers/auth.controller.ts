@@ -55,15 +55,7 @@ export const academicFieldsSchema = z.object({
     errorMap: () => ({ message: 'Please select a valid academic year (FY, SY, or TY).' }),
   }),
   division: z
-    .preprocess((val) => {
-      if (val === undefined || val === null) return null;
-      if (typeof val !== 'string') return String(val);
-      const trimmed = val.trim();
-      return trimmed === '' ? null : trimmed.toUpperCase();
-    }, z.string().nullable().optional())
-    .refine((val) => val === null || val === undefined || DIVISION_REGEX.test(val), {
-      message: 'Division must be up to 3 letters or digits (e.g., A, B, C1).',
-    }),
+    .preprocess(() => null, z.string().nullable().optional()),
   displayName: z
     .string()
     .trim()

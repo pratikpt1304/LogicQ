@@ -99,10 +99,6 @@ export const CompleteProfilePage: React.FC = () => {
     if (!formData.year || !ALLOWED_YEARS.includes(formData.year as any)) {
       nextErrors.year = 'Please select your academic year.';
     }
-    const trimmedDiv = formData.division.trim().toUpperCase();
-    if (trimmedDiv && !DIVISION_REGEX.test(trimmedDiv)) {
-      nextErrors.division = 'Division must be up to 3 letters or digits (e.g., A, B, C1).';
-    }
 
     setFieldErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;

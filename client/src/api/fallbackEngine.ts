@@ -1405,11 +1405,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error('Please select a valid academic year (FY, SY, or TY).');
     }
 
-    const trimmedDiv = typeof body.division === 'string' ? body.division.trim().toUpperCase() : body.division;
-    if (trimmedDiv && !DIVISION_REGEX.test(trimmedDiv)) {
-      throw new Error('Division must be up to 3 letters or digits (e.g., A, B, C1).');
-    }
-
     const users = getStoredUsers();
     const idx = users.findIndex(
       (u) =>
@@ -1426,7 +1421,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       fullName: trimmedDisplay || existing.fullName || existing.username,
       department: body.department ?? existing.department,
       year: body.year ?? existing.year,
-      division: trimmedDiv === '' ? null : (trimmedDiv ?? existing.division ?? null),
+      division: null,
       bio: typeof body.bio === 'string' ? body.bio.trim() : (body.bio ?? existing.bio ?? null),
       avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
       shortId,
