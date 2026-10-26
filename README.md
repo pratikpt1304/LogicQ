@@ -38,6 +38,8 @@ flowchart TD
         StudentUI["Student Client (/practice, /challenge, /student/tests, /analytics)"]
         FacultyUI["Faculty Dashboard (/faculty/sections, /faculty/tests, /faculty/analytics)"]
         AdminUI["Institutional SuperAdmin Console (/admin)"]
+        FallbackEngine["Client Resilient Fallback Engine (Cold-Start & Sleep Immunity)"]
+        TokenManager["Singleton Token Concurrency & Refresh Guard"]
     end
 
     subgraph FirebaseLayer ["Firebase & Google Cloud Platform"]
@@ -50,7 +52,7 @@ flowchart TD
     subgraph BackendLayer ["High-Performance Node.js / Express API Runtime"]
         APIServer["Express REST API (Render Docker Container)"]
         PrismaORM["Prisma ORM (SQLite Dev / PostgreSQL Production)"]
-        IdentityService["1:1:1 PRN + Dual OTP Verification Service"]
+        IdentityService["1:1:1 PRN + Dual-Domain OTP Verification (@sanjivani.edu.in / @sanjivani.org.in)"]
         ExamEngine["Smart Exam Engine (Time Scoring & Zero-Reattempt Locks)"]
         TelemetryService["Silent Telemetry Collector (Bursts, Evolution, Ratios)"]
         VivaEngine["AI Viva Voce Engine (2nd Successive Solve Trigger)"]
@@ -70,6 +72,9 @@ flowchart TD
 
     StudentUI -->|Token Exchange| Auth
     StudentUI -->|Direct Profile & Draft Sync| Firestore
+    StudentUI -->|API Requests & Deduplicated Refresh| TokenManager
+    TokenManager -->|Network API Calls| APIServer
+    TokenManager -.->|Fail-Safe Intercept on Backend Sleep| FallbackEngine
     StudentUI -->|Proctored Submissions & Telemetry| APIServer
     FacultyUI -->|Section Roster & Test Builder| APIServer
 
@@ -120,23 +125,37 @@ flowchart TD
 ### 2. 👥 Academic Sections & Streamlined Roster Management
 - **One-Click Section Sharing**:
   - **Join Code Pill**: Immediate 1-click clipboard copy (`LQ-IMTC`).
-  - **Direct Join Link**: 1-click URL sharing for instant access.
-  - **WhatsApp & QR Integration**: Instant mobile dispatch and classroom projector QR code generation.
+  - **Direct Join Link**: 1-click URL sharing (`https://logicq-clanguage.web.app/join/LQ-IMTC`) for rapid student onboarding.
+  - **WhatsApp & Projector QR Integration**: Instant mobile dispatch and interactive modal QR code generation for lecture hall projector scanning.
 - **Modernized Roster Table**:
   - Full student profile with name, avatar, and PRN roll number in monospace font.
   - Status indicator: Clean green **`ENROLLED`** badge.
   - Real-time student coding performance: live points (`240 pts`) and active streak indicators (`🔥 3d`).
   - Student removal/drop action with instant confirmation dialog.
-- **Auto-Healing Section Persistence**:
-  - Guaranteed baseline persistence across PostgreSQL, Cloud Firestore, and client fallback cache.
-  - Prevents sections from vanishing during database wake-up or multi-faculty logins.
+- **Dual-Layer Auto-Healing Persistence**:
+  - Continuous synchronization across PostgreSQL, Cloud Firestore, and client-side fallback storage.
+  - Prevents sections or rosters from vanishing during multi-faculty logins or server container restarts.
 
-### 3. 🔐 Pre-Registration Gate & OTP Authentication
-- **Strict Identity Binding**: One PRN belongs to exactly one verified college email. Unregistered users cannot sign in or self-register unless invited or pre-enrolled by faculty.
+### 3. 🔐 Pre-Registration Gate & Dual-Domain OTP Authentication
+- **Dual Institutional Domain Support**: Restricts registration and OTP generation to authorized university domains:
+  - `@sanjivani.edu.in` (Students, Faculty, University Staff)
+  - `@sanjivani.org.in` (Institutional Campus Accounts)
+- **Strict 1:1:1 Identity Binding**: One PRN belongs to exactly one verified college email. Unregistered users cannot sign in or generate OTPs unless invited or pre-enrolled by faculty (`EMAIL_NOT_PRE_REGISTERED`).
 - **Secure Email OTP Authentication**: 6-digit cryptographic verification delivered via Resend / Google Apps Script dispatchers.
-- **Dedicated Walkthrough Accounts**: Hardened developer walkthrough accounts (`faculty@logicq.io` and `student@logicq.io`) with strict allowlist isolation. Master bypass codes are completely disabled for any standard student or faculty account.
+- **Singleton Token Refresh Concurrency Guard**: Deduplicates token refresh calls across concurrent 401 API responses, preventing race conditions, expired session loops, and accidental user logouts.
+- **Dedicated Walkthrough Accounts**: Hardened developer walkthrough accounts (`faculty@logicq.io` and `student@logicq.io`) with strict allowlist isolation. Master bypass codes are completely disabled for all production student accounts.
 
-### 4. 🧠 Smart Exam Engine & Proctored Telemetry
+### 4. 🛡️ Resilient Offline Fallback & Cold-Start Immunity
+- **Sleep & Cold-Start Resilience**: Cloud container runtimes (e.g., Render free tier) sleep during periods of inactivity. The client-side **Fallback Engine** transparently intercepts network drops, 502/503 timeouts, and offline states.
+- **Full Route Emulation**: Seamlessly serves fallback data for:
+  - Instant Section Joining (`/sections/join-info/:joinToken`, `/sections/instant-join`)
+  - Modular Assessment Tests (`/assessment-tests`, `/exam/my-tests`)
+  - Curated Question Bank & Practice Modules (`/questions/bank`)
+  - Analytics & Continuous Score Dashboards (`/analytics/student/dashboard`, `/analytics/faculty/overview`)
+  - SuperAdmin Overview & Institutional Metrics (`/admin/stats`)
+- **Defensive UI Rendering**: Built-in NaN/undefined defensive guards ensure dashboards, scoring graphs, and rosters render smoothly without runtime crashes.
+
+### 5. 🧠 Smart Exam Engine & Proctored Telemetry
 - **Environment & Input Restrictions**: Text selection, context menu right-clicks, copy, paste, and drag-and-drop are restricted within the exam coding workspace.
 - **Comprehensive Behavioral Metrics**:
   - **Active Work Ratio**: Genuine interaction time vs total question duration.
@@ -146,13 +165,13 @@ flowchart TD
 - **5-Tier Calibrated Integrity Risk Classification**:
   $$\text{Normal (0–20)} \quad\vert\quad \text{Low Risk (21–40)} \quad\vert\quad \text{Moderate Risk (41–60)} \quad\vert\quad \text{High Risk (61–80)} \quad\vert\quad \text{Critical Risk (81–100)}$$
 
-### 5. 🎙️ AI Viva Voce Engine
+### 6. 🎙️ AI Viva Voce Engine
 - **Deterministic 2nd Successive Solve Trigger**: When a student solves two questions correctly in a row (#2, #4, #6, ...), the AI Viva Voce modal immediately interrupts the workflow.
 - **Code-Specific Oral/Written Prompts**: Questions are generated dynamically from the student's *actual submitted C code* (probing specific variable choices, pointer arithmetic, loop bounds, and edge-case handling).
 - **Strict 60-Second Timer**: Mandatory submission or automated timeout logging.
 - **Faculty Review & Human Override**: Course faculty can inspect the recorded viva response alongside the student's source code and override the assessment status.
 
-### 6. 🧩 Integrated Mini-Project Framework
+### 7. 🧩 Integrated Mini-Project Framework
 - **20-Mark Structured Rubric**:
   - Section 1 Competency (Control Structures): 5 Marks
   - Section 2 Competency (Pointers & Functions): 5 Marks
@@ -160,7 +179,7 @@ flowchart TD
   - Section 4 Competency (Dynamic Memory & Structs): 5 Marks
 - **Strict Anti-Bulk Activation Rule**: Mini-projects are initially `INACTIVE`. Bulk activation ("Select All", batch scripts) is strictly banned. Faculty must inspect each student's eligibility and activate on an individual student-by-student basis.
 
-### 7. 📘 5-Module Sequential Practice Curriculum (`/practice`)
+### 8. 📘 5-Module Sequential Practice Curriculum (`/practice`)
 - **Curated Modules (20 Questions per Module)**:
   - **Module 1**: Control Structures (Branching, Loops, Switch-Case, Iteration flow)
   - **Module 2**: Pointers and Functions (Addresses, Dereferencing, Pass-by-reference, Recursion)
@@ -170,10 +189,15 @@ flowchart TD
 - **Sequential Mastery Rule**: Module $N+1$ unlocks only after all questions in Module $N$ are solved.
 - **Fair Points & Anti-Farming**: Base points awarded on first Accepted solve (+10 Easy, +20 Medium, +30 Hard). Repeat submissions award +0 PTS.
 
-### 8. ⚡ Daily 17:00 IST Challenge & Streak Engine (`/challenge`)
+### 9. ⚡ Daily 17:00 IST Challenge & Streak Engine (`/challenge`)
 - **Single Active Question**: Exactly one daily challenge active from 17:00 IST to 17:00 IST (+10 min drain grace).
 - **Streak Consistency (🔥)**: Increments daily upon accepted solve before cutoff.
 - **Auto-Freeze Protection**: 1 automated freeze per rolling 7-day window protects student streaks against unforeseen disruptions.
+
+### 10. 👑 SuperAdmin Console & Institutional Governance (`/admin`)
+- **Unified Identity Counters**: Top PRN and Active User cards are synchronized dynamically with registered academic accounts.
+- **Role Badge Auditing**: Clear indicators for `SUPERADMIN`, `FACULTY`, and `STUDENT` across system-wide rosters.
+- **Platform Analytics & System Health**: Real-time memory, active test sessions, and institutional problem bank distribution.
 
 ---
 
@@ -203,8 +227,10 @@ LogicQ/
 ├── client/                                 # Frontend Vite + React 18 SPA & PWA
 │   ├── public/                             # Favicons, PWA manifest, brand SVGs, icons
 │   ├── src/
-│   │   ├── api/                            # Axios API client with fallback retry engine
-│   │   ├── components/                     # Monaco editor, Navbar, Workspace, Donut charts
+│   │   ├── api/                            # Axios API client with singleton token concurrency guard & fallback engine
+│   │   │   ├── client.ts                   # Token refresh deduplication & HTTP client
+│   │   │   └── fallbackEngine.ts           # Client-side resilient mock/offline engine for zero downtime
+│   │   ├── components/                     # Monaco editor, Navbar, Workspace, Donut charts, JoinQRModal
 │   │   ├── config/                         # Academic PRN rules, practice configs, brand tokens
 │   │   ├── context/                        # AuthContext state machine & role guards
 │   │   ├── pages/
@@ -212,6 +238,7 @@ LogicQ/
 │   │   │   ├── exam/                       # StudentTestListPage, StudentExamWorkspacePage
 │   │   │   ├── faculty/                    # SectionManagementPage, TestBuilderPage
 │   │   │   ├── admin/                      # AdminDashboardPage, ProblemManager
+│   │   │   ├── InstantJoinPage.tsx         # 1-Click QR/URL Section Enrollment (/join/:joinToken)
 │   │   │   ├── LeaderboardPage.tsx         # University Overall & Daily Sprint Leaderboard
 │   │   │   └── PracticeModulesPage.tsx     # 5-Module Sequential Practice Curriculum
 │   │   └── services/                       # FirestoreDataService & RealtimeSyncService
