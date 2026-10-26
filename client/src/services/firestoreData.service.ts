@@ -1052,11 +1052,41 @@ export class FirestoreDataService {
             deleteDoc(d.ref).catch(() => {});
             continue;
           }
-          item.students = (item.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
-          item._count = { students: item.students.length };
           const key = item.joinCode || item.id;
+          const existing: any = key ? sectionMap.get(key) || {} : {};
+
+          // Resolve enrolled students from local backup if not in doc payload
+          let studentsList = Array.isArray(item.students) && item.students.length > 0 ? item.students : (existing.students || []);
+          if (studentsList.length === 0) {
+            try {
+              const possibleKeys = [
+                item.id ? `logicq_section_students_${item.id}` : null,
+                item.joinCode ? `logicq_section_students_${item.joinCode}` : null,
+                item.joinToken ? `logicq_section_students_${item.joinToken}` : null,
+              ].filter(Boolean) as string[];
+              for (const pk of possibleKeys) {
+                const raw = localStorage.getItem(pk);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (Array.isArray(parsed) && parsed.length > studentsList.length) {
+                    studentsList = parsed;
+                  }
+                }
+              }
+            } catch {}
+          }
+
+          const filteredStudents = (studentsList || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+          const calculatedCount = Math.max(
+            filteredStudents.length,
+            existing._count?.students || 0,
+            item._count?.students || 0
+          );
+
+          item.students = filteredStudents;
+          item._count = { students: calculatedCount };
+
           if (key) {
-            const existing = sectionMap.get(key) || {};
             sectionMap.set(key, { ...existing, ...item });
           }
         }
@@ -1072,11 +1102,31 @@ export class FirestoreDataService {
     const result = Array.from(sectionMap.values())
       .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
       .map((s: any) => {
-        const filteredStudents = (s.students || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+        let studentsList = Array.isArray(s.students) ? s.students : [];
+        if (studentsList.length === 0) {
+          try {
+            const possibleKeys = [
+              s.id ? `logicq_section_students_${s.id}` : null,
+              s.joinCode ? `logicq_section_students_${s.joinCode}` : null,
+              s.joinToken ? `logicq_section_students_${s.joinToken}` : null,
+            ].filter(Boolean) as string[];
+            for (const pk of possibleKeys) {
+              const raw = localStorage.getItem(pk);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > studentsList.length) {
+                  studentsList = parsed;
+                }
+              }
+            }
+          } catch {}
+        }
+        const filteredStudents = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+        const finalCount = Math.max(filteredStudents.length, s._count?.students || 0);
         return {
           ...s,
           students: filteredStudents,
-          _count: { students: filteredStudents.length },
+          _count: { students: finalCount },
         };
       });
 

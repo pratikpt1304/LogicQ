@@ -439,6 +439,39 @@ export const SectionManagementPage: React.FC = () => {
     }
   };
 
+  const getSectionStudentCount = (section: SectionItem): number => {
+    let count = Math.max(
+      section._count?.students || 0,
+      section.students?.length || 0,
+      selectedSection && (selectedSection.id === section.id || selectedSection.joinCode === section.joinCode)
+        ? selectedSection.students?.length || 0
+        : 0
+    );
+
+    try {
+      const keys = [
+        section.id ? `logicq_section_students_${section.id}` : null,
+        section.joinCode ? `logicq_section_students_${section.joinCode}` : null,
+        section.joinToken ? `logicq_section_students_${section.joinToken}` : null,
+      ].filter(Boolean) as string[];
+
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const valid = parsed.filter((s: any) => !FirestoreDataService.isPurgedStudent(s));
+            if (valid.length > count) {
+              count = valid.length;
+            }
+          }
+        }
+      }
+    } catch {}
+
+    return count;
+  };
+
   const refetchDetails = async (id: string) => {
     try {
       const res = await api.get(`/sections/${id}`);
@@ -450,7 +483,16 @@ export const SectionManagementPage: React.FC = () => {
             sec.students = fsStudents;
           }
         }
+        sec._count = { students: sec.students?.length || 0 };
         setSelectedSection(sec);
+        queryClient.setQueryData(['faculty-sections'], (old: any) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((s: any) =>
+            s.id === id || s.joinCode === sec.joinCode
+              ? { ...s, students: sec.students, _count: { students: sec.students?.length || 0 } }
+              : s
+          );
+        });
         return;
       }
     } catch (err) {
@@ -460,9 +502,17 @@ export const SectionManagementPage: React.FC = () => {
     const localSec = sections.find((s) => s.id === id);
     if (localSec) {
       const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
-      setSelectedSection({
+      const updated = {
         ...localSec,
         students: fsStudents,
+        _count: { students: fsStudents.length },
+      };
+      setSelectedSection(updated);
+      queryClient.setQueryData(['faculty-sections'], (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((s: any) =>
+          s.id === id ? { ...s, students: fsStudents, _count: { students: fsStudents.length } } : s
+        );
       });
     }
   };
@@ -618,7 +668,7 @@ export const SectionManagementPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section) => {
-            const studentCount = section._count?.students ?? section.students?.length ?? 0;
+            const studentCount = getSectionStudentCount(section);
             const joinUrl = `${window.location.origin}/join/${section.joinToken || section.joinCode}`;
 
             return (

@@ -2406,7 +2406,34 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(stored)) {
-        localSections = stored;
+        localSections = stored.map((s: any) => {
+          let studentsList = Array.isArray(s.students) ? s.students : [];
+          if (studentsList.length === 0) {
+            try {
+              const keys = [
+                s.id ? `logicq_section_students_${s.id}` : null,
+                s.joinCode ? `logicq_section_students_${s.joinCode}` : null,
+                s.joinToken ? `logicq_section_students_${s.joinToken}` : null,
+              ].filter(Boolean) as string[];
+              for (const k of keys) {
+                const raw = localStorage.getItem(k);
+                if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (Array.isArray(parsed) && parsed.length > studentsList.length) {
+                    studentsList = parsed;
+                  }
+                }
+              }
+            } catch {}
+          }
+          const valid = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+          const count = Math.max(valid.length, s._count?.students || 0);
+          return {
+            ...s,
+            students: valid,
+            _count: { students: count },
+          };
+        });
       }
     } catch {}
     return {
