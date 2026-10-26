@@ -72,7 +72,7 @@ export const InstantJoinPage: React.FC = () => {
       try {
         const res = await api.get(`/sections/join-info/${joinToken}`);
         const data = res.section || res.data;
-        if (data && isMounted) {
+        if (data && (data.sectionName || data.name || data.subject) && isMounted) {
           setSection(data);
           setLoadingSection(false);
           return;

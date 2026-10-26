@@ -49,7 +49,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   }
 
   const anl = data?.data;
-  if (!anl) {
+  if (!anl || (typeof anl === 'object' && Object.keys(anl).length === 0)) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center font-mono text-slate-400 space-y-4">
         <Brain className="w-10 h-10 text-slate-500 mx-auto opacity-40" />
@@ -67,7 +67,12 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     );
   }
 
-  const isCleanSession = anl.integrityRisk === 'NORMAL' || anl.integrityRisk === 'LOW';
+  const academicScore = typeof anl.academicScore === 'number' ? anl.academicScore : 0;
+  const totalQuestionsSolved = anl.totalQuestionsSolved || 0;
+  const totalQuestionsAttempted = anl.totalQuestionsAttempted || 0;
+  const integrityScore = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
+  const integrityRisk = anl.integrityRisk || 'NORMAL';
+  const isCleanSession = integrityRisk === 'NORMAL' || integrityRisk === 'LOW';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 font-mono text-xs">
@@ -119,7 +124,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
 
           <div className="space-y-1">
             <div className="text-4xl sm:text-5xl font-black text-white font-mono">
-              {anl.academicScore.toFixed(1)} <span className="text-xl text-slate-400 font-normal">/ 100</span>
+              {academicScore.toFixed(1)} <span className="text-xl text-slate-400 font-normal">/ 100</span>
             </div>
             <p className="text-slate-300 text-xs font-sans">
               Cumulative score across all evaluated section questions and test submissions.
@@ -127,9 +132,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
 
           <div className="pt-3 border-t border-[#252C4F] flex items-center justify-between text-[11px] text-slate-300">
-            <span>Questions Solved: <strong className="text-white">{anl.totalQuestionsSolved}</strong> / {anl.totalQuestionsAttempted}</span>
+            <span>Questions Solved: <strong className="text-white">{totalQuestionsSolved}</strong> / {totalQuestionsAttempted}</span>
             <span className="text-emerald-400 font-bold">
-              {anl.academicScore >= 40 ? 'Passing Range ✅' : 'Attempt Tests to Boost'}
+              {academicScore >= 40 ? 'Passing Range ✅' : 'Attempt Tests to Boost'}
             </span>
           </div>
         </div>

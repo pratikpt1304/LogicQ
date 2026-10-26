@@ -56,6 +56,7 @@ adminRouter.use('/badges', (_req, res) => {
 adminRouter.use(authenticate, requireRole('ADMIN'));
 
 adminRouter.get('/analytics', getAnalytics);
+adminRouter.get('/stats', getAnalytics);
 adminRouter.get('/problems', getAdminProblems);
 adminRouter.post('/problems', validate(problemAdminSchema), createProblem);
 adminRouter.put('/problems/:id', updateProblem);
