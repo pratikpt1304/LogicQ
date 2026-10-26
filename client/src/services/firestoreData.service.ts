@@ -560,6 +560,26 @@ export class FirestoreDataService {
   }
 
   /**
+   * Fetches all submissions from Firestore for administrative oversight
+   */
+  public static async getAllFirestoreSubmissions(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'submissions'));
+      const list: any[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        if (data) {
+          list.push({ id: d.id, ...data });
+        }
+      });
+      return list;
+    } catch (err) {
+      console.warn('getAllFirestoreSubmissions notice:', err);
+      return [];
+    }
+  }
+
+  /**
    * Subscribes to real-time submissions for the student
    */
   public static subscribeUserSubmissions(

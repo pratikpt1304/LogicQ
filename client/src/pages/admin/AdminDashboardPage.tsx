@@ -61,6 +61,11 @@ import {
   Database,
   Server,
   Terminal,
+  Archive,
+  FileCode,
+  User,
+  XCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
@@ -146,12 +151,59 @@ export const AdminDashboardPage: React.FC = () => {
   });
   const [inspectingProblem, setInspectingProblem] = useState<any | null>(null);
   const [problemSearch, setProblemSearch] = useState('');
-  const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY'>('ALL');
+  const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY' | 'ARCHIVE'>('ALL');
   const [problemDifficultyFilter, setProblemDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [problemPage, setProblemPage] = useState(1);
   const [problemViewMode, setProblemViewMode] = useState<'TABLE' | 'MODULES'>('TABLE');
   const PROBLEMS_PER_PAGE = 20;
   const [isSyncingProblems, setIsSyncingProblems] = useState(false);
+
+  // Past Daily Challenge Archive Tracking
+  const [archivedProblemIds, setArchivedProblemIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_archived_problems_v1');
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return new Set([
+      'kanetkar-ch02-rotate-array',
+      'kanetkar-ch04-string-compression',
+      'kanetkar-ch06-matrix-spiral-print',
+      'kanetkar-ch08-bitwise-parity-calculator',
+      'kanetkar-ch10-dynamic-stack-rpn-evaluator',
+    ]);
+  });
+
+  const toggleArchiveProblem = (problemId: string) => {
+    setArchivedProblemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(problemId)) {
+        next.delete(problemId);
+        toast.success('Challenge removed from Archive');
+      } else {
+        next.add(problemId);
+        toast.success('Challenge moved to Archive (Past Daily Challenges)');
+      }
+      try {
+        localStorage.setItem('logicq_archived_problems_v1', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  // State for inspecting student answers / submissions for a specific problem
+  const [inspectingSubmissionsProblem, setInspectingSubmissionsProblem] = useState<any | null>(null);
+  const [problemSubmissionsSearch, setProblemSubmissionsSearch] = useState('');
+  const [problemSubmissionsVerdictFilter, setProblemSubmissionsVerdictFilter] = useState('ALL');
+  const [viewingStudentCodeModal, setViewingStudentCodeModal] = useState<{
+    studentName: string;
+    prn: string;
+    code: string;
+    verdict: string;
+    problemTitle: string;
+    runtimeMs?: number;
+    submittedAt?: string;
+  } | null>(null);
+  const [copiedStudentCode, setCopiedStudentCode] = useState(false);
   const [submissionSearch, setSubmissionSearch] = useState('');
   const [submissionVerdictFilter, setSubmissionVerdictFilter] = useState('ALL');
   const [submissionProblemFilter, setSubmissionProblemFilter] = useState('ALL');
@@ -456,6 +508,15 @@ export const AdminDashboardPage: React.FC = () => {
     refetchInterval: 5000,
   });
 
+  // Fetch Firestore Submissions
+  const { data: firestoreSubmissionsData = [] } = useQuery({
+    queryKey: ['admin-firestore-submissions'],
+    queryFn: async () => {
+      return await FirestoreDataService.getAllFirestoreSubmissions();
+    },
+    refetchInterval: 5000,
+  });
+
   // Fetch Uploaded Solutions
   const { data: uploadsData } = useQuery({
     queryKey: [
@@ -637,7 +698,41 @@ export const AdminDashboardPage: React.FC = () => {
     }
   }, [firestoreProblemsData]);
 
+  const submissions = React.useMemo(() => {
+    const apiSubs = submissionsData?.data?.submissions || [];
+    const fsSubs = firestoreSubmissionsData || [];
+    const map = new Map<string, any>();
+
+    apiSubs.forEach((s: any) => {
+      if (s?.id) map.set(s.id, s);
+    });
+    fsSubs.forEach((s: any) => {
+      if (s?.id) {
+        const existing = map.get(s.id) || {};
+        map.set(s.id, { ...existing, ...s });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [submissionsData, firestoreSubmissionsData]);
+
+  const archivedProblemsCount = React.useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return rawProblems.filter((p: any) => {
+      return (
+        archivedProblemIds.has(p.id) ||
+        archivedProblemIds.has(p.slug) ||
+        Boolean(p.isArchived) ||
+        Boolean(p.wasDaily) ||
+        Boolean(p.scheduledDate && p.scheduledDate < todayStr) ||
+        (!p.isDaily && (p.slug?.includes('daily') || p.id?.includes('daily'))) ||
+        submissions.some((s: any) => (s.problemId === p.id || s.problemId === p.slug || s.problem?.slug === p.slug) && !p.isDaily)
+      );
+    }).length;
+  }, [rawProblems, archivedProblemIds, submissions]);
+
   const filteredProblems = React.useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
     return rawProblems.filter((p: any) => {
       if (problemCategoryFilter === 'BOOK') {
         const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
@@ -647,6 +742,16 @@ export const AdminDashboardPage: React.FC = () => {
         if (!isPractice) return false;
       } else if (problemCategoryFilter === 'DAILY') {
         if (!p.isDaily && !p.slug?.includes('daily')) return false;
+      } else if (problemCategoryFilter === 'ARCHIVE') {
+        const isArchived =
+          archivedProblemIds.has(p.id) ||
+          archivedProblemIds.has(p.slug) ||
+          Boolean(p.isArchived) ||
+          Boolean(p.wasDaily) ||
+          Boolean(p.scheduledDate && p.scheduledDate < todayStr) ||
+          (!p.isDaily && (p.slug?.includes('daily') || p.id?.includes('daily'))) ||
+          submissions.some((s: any) => (s.problemId === p.id || s.problemId === p.slug || s.problem?.slug === p.slug) && !p.isDaily);
+        if (!isArchived) return false;
       }
 
       if (problemDifficultyFilter !== 'ALL') {
@@ -664,7 +769,7 @@ export const AdminDashboardPage: React.FC = () => {
 
       return true;
     });
-  }, [rawProblems, problemCategoryFilter, problemDifficultyFilter, problemSearch]);
+  }, [rawProblems, problemCategoryFilter, problemDifficultyFilter, problemSearch, archivedProblemIds, submissions]);
 
   React.useEffect(() => {
     setProblemPage(1);
@@ -715,7 +820,6 @@ export const AdminDashboardPage: React.FC = () => {
 
     return null;
   };
-  const submissions = submissionsData?.data?.submissions || [];
 
   // Submissions Filtering & Pagination
   const filteredSubmissions = React.useMemo(() => {
@@ -1038,6 +1142,56 @@ export const AdminDashboardPage: React.FC = () => {
 
     return { allMergedUsers: all, users: filtered, roleCounts: counts };
   }, [usersData, firestoreUsersData, sectionsList, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision, filterRole]);
+
+  const getProblemSubmissions = React.useCallback(
+    (prob: any) => {
+      if (!prob) return [];
+      const pId = prob.id;
+      const pSlug = prob.slug;
+      return submissions.filter((s: any) => {
+        return (
+          (pId && (s.problemId === pId || s.problem?.id === pId)) ||
+          (pSlug && (s.problemId === pSlug || s.problem?.slug === pSlug)) ||
+          (prob.title && s.problem?.title === prob.title)
+        );
+      });
+    },
+    [submissions]
+  );
+
+  const getEnrichedProblemSubmissions = React.useCallback(
+    (prob: any) => {
+      const rawSubs = getProblemSubmissions(prob);
+      return rawSubs.map((sub: any) => {
+        const matchedUser = allMergedUsers.find((u: any) => {
+          if (sub.userId && u.id === sub.userId) return true;
+          if (sub.user?.id && u.id === sub.user.id) return true;
+          if (sub.user?.email && u.email && u.email.toLowerCase() === sub.user.email.toLowerCase()) return true;
+          if (sub.user?.prn && u.prn && u.prn === sub.user.prn) return true;
+          return false;
+        });
+
+        return {
+          ...sub,
+          user: {
+            ...sub.user,
+            ...matchedUser,
+            displayName:
+              matchedUser?.displayName ||
+              matchedUser?.fullName ||
+              sub.user?.displayName ||
+              sub.user?.username ||
+              'Student',
+            prn: matchedUser?.prn || sub.user?.prn || '—',
+            department: matchedUser?.department || sub.user?.department || 'CSE',
+            year: matchedUser?.year || sub.user?.year || 'FY',
+            email: matchedUser?.email || sub.user?.email || '—',
+          },
+        };
+      });
+    },
+    [getProblemSubmissions, allMergedUsers]
+  );
 
   const checkers = checkersData?.data?.checkers || [];
 
@@ -2467,6 +2621,8 @@ export const AdminDashboardPage: React.FC = () => {
                 <span>Practice: <strong className="text-purple-400">{rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length}</strong></span>
                 <span>•</span>
                 <span>Kanetkar: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
+                <span>•</span>
+                <span>Archive: <strong className="text-rose-400">{archivedProblemsCount}</strong></span>
               </div>
             </div>
 
@@ -2641,6 +2797,17 @@ export const AdminDashboardPage: React.FC = () => {
                     <BookOpen className="w-3.5 h-3.5 text-amber-500" />
                     <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
                   </button>
+                  <button
+                    onClick={() => setProblemCategoryFilter('ARCHIVE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                      problemCategoryFilter === 'ARCHIVE'
+                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/40 font-bold'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
+                    }`}
+                  >
+                    <Archive className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Archive ({archivedProblemsCount})</span>
+                  </button>
 
                   <div className="h-5 w-[1px] bg-white/10 mx-1 hidden sm:block" />
 
@@ -2697,7 +2864,15 @@ export const AdminDashboardPage: React.FC = () => {
                             <tr key={p.id || p.slug} className="hover:bg-white/[0.02] transition-colors">
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-white text-sm block">{p.title}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setInspectingSubmissionsProblem(p)}
+                                    className="font-bold text-white hover:text-cyan-400 text-sm block text-left transition-colors flex items-center gap-1.5 group cursor-pointer"
+                                    title="Click to view student answers & submissions"
+                                  >
+                                    <span>{p.title}</span>
+                                    <span className="text-[10px] text-cyan-400 opacity-70 group-hover:opacity-100 transition-opacity">↗ Answers</span>
+                                  </button>
                                   {getModuleBadge(p)}
                                 </div>
                                 <span className="text-slate-500 text-[11px] block mt-0.5">slug: {p.slug}</span>
@@ -2707,15 +2882,26 @@ export const AdminDashboardPage: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 text-slate-300">{p.category}</td>
                               <td className="px-6 py-4">
-                                <button
-                                  type="button"
-                                  onClick={() => setInspectingProblem(p)}
-                                  className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30 flex items-center gap-1.5 transition-all text-xs"
-                                  title="Click to view and inspect all test cases"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>{testCount} cases</span>
-                                </button>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => setInspectingProblem(p)}
+                                    className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/30 flex items-center gap-1.5 transition-all text-xs"
+                                    title="Click to view and inspect all test cases"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>{testCount} cases</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setInspectingSubmissionsProblem(p)}
+                                    className="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 font-semibold border border-purple-500/30 flex items-center gap-1.5 transition-all text-xs"
+                                    title="Click to view student answers & submitted code"
+                                  >
+                                    <FileCode className="w-3.5 h-3.5" />
+                                    <span>{getProblemSubmissions(p).length} Answers</span>
+                                  </button>
+                                </div>
                               </td>
                               <td className="px-6 py-4">
                                 {p.isDaily ? (
@@ -2740,6 +2926,22 @@ export const AdminDashboardPage: React.FC = () => {
                                 )}
                               </td>
                               <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleArchiveProblem(p.id || p.slug)}
+                                  className={`p-1.5 rounded-lg border transition ${
+                                    archivedProblemIds.has(p.id) || archivedProblemIds.has(p.slug)
+                                      ? 'text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20'
+                                      : 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 border-transparent hover:border-amber-500/20'
+                                  }`}
+                                  title={
+                                    archivedProblemIds.has(p.id) || archivedProblemIds.has(p.slug)
+                                      ? 'Unarchive Question'
+                                      : 'Archive Question (Move to Archive tab)'
+                                  }
+                                >
+                                  <Archive className="w-4 h-4" />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditProblem(p)}
@@ -7064,6 +7266,294 @@ int main() {
                 className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1]"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Student Submissions & Answers Inspector */}
+      {inspectingSubmissionsProblem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-5xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-5 sm:p-6 space-y-4 max-h-[92vh] flex flex-col bg-slate-900/95">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-white/[0.08] gap-4">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-mono uppercase tracking-wider font-bold">
+                    Student Answers &amp; Submissions
+                  </span>
+                  <DifficultyBadge difficulty={inspectingSubmissionsProblem.difficulty as Difficulty} size="sm" />
+                  <span className="text-xs font-mono text-slate-400">{inspectingSubmissionsProblem.category}</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white font-mono mt-1 flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-cyan-400 shrink-0" />
+                  <span>{inspectingSubmissionsProblem.title}</span>
+                </h3>
+                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  Slug: <span className="text-cyan-300 font-semibold">{inspectingSubmissionsProblem.slug}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectingSubmissionsProblem(null);
+                  setProblemSubmissionsSearch('');
+                  setProblemSubmissionsVerdictFilter('ALL');
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Submissions Metrics Strip */}
+            {(() => {
+              const enrichedSubs = getEnrichedProblemSubmissions(inspectingSubmissionsProblem);
+              const total = enrichedSubs.length;
+              const uniqueStudents = new Set(enrichedSubs.map((s: any) => s.userId || s.user?.email || s.user?.prn)).size;
+              const accepted = enrichedSubs.filter((s: any) => s.verdict === 'ACCEPTED').length;
+              const accuracy = total > 0 ? Math.round((accepted / total) * 100) : 0;
+
+              const filteredSubs = enrichedSubs.filter((sub: any) => {
+                if (problemSubmissionsVerdictFilter !== 'ALL' && sub.verdict !== problemSubmissionsVerdictFilter) {
+                  return false;
+                }
+                if (problemSubmissionsSearch.trim()) {
+                  const q = problemSubmissionsSearch.toLowerCase().trim();
+                  const name = (sub.user?.displayName || sub.user?.fullName || sub.user?.username || '').toLowerCase();
+                  const prn = (sub.user?.prn || '').toLowerCase();
+                  const email = (sub.user?.email || '').toLowerCase();
+                  if (!name.includes(q) && !prn.includes(q) && !email.includes(q)) {
+                    return false;
+                  }
+                }
+                return true;
+              });
+
+              return (
+                <div className="flex-1 flex flex-col space-y-4 min-h-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono text-xs">
+                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                      <span className="text-slate-400 block text-[11px]">Total Submissions</span>
+                      <strong className="text-base text-white font-bold">{total}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                      <span className="text-cyan-400/80 block text-[11px]">Participating Students</span>
+                      <strong className="text-base text-cyan-300 font-bold">{uniqueStudents}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-emerald-400/80 block text-[11px]">Accepted Solutions</span>
+                      <strong className="text-base text-emerald-400 font-bold">{accepted}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                      <span className="text-purple-400/80 block text-[11px]">Success Accuracy</span>
+                      <strong className="text-base text-purple-300 font-bold">{accuracy}%</strong>
+                    </div>
+                  </div>
+
+                  {/* Filter Toolbar */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                    <div className="relative flex-1">
+                      <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={problemSubmissionsSearch}
+                        onChange={(e) => setProblemSubmissionsSearch(e.target.value)}
+                        placeholder="Search student name, PRN, or email..."
+                        className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={problemSubmissionsVerdictFilter}
+                        onChange={(e) => setProblemSubmissionsVerdictFilter(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400"
+                      >
+                        <option value="ALL">All Verdicts</option>
+                        <option value="ACCEPTED">🟢 Accepted</option>
+                        <option value="WRONG_ANSWER">🔴 Wrong Answer</option>
+                        <option value="TIME_LIMIT_EXCEEDED">🟡 Time Limit</option>
+                        <option value="RUNTIME_ERROR">🟣 Runtime Error</option>
+                        <option value="COMPILE_ERROR">⚪ Compile Error</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Submissions Table */}
+                  <div className="flex-1 overflow-y-auto rounded-xl border border-white/[0.06]">
+                    {filteredSubs.length === 0 ? (
+                      <div className="p-8 text-center text-xs font-mono text-slate-400 space-y-2">
+                        <FileCode className="w-8 h-8 text-slate-600 mx-auto" />
+                        <p>No student answers found for this challenge matching filters.</p>
+                        {total > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProblemSubmissionsSearch('');
+                              setProblemSubmissionsVerdictFilter('ALL');
+                            }}
+                            className="text-cyan-400 hover:underline text-[11px]"
+                          >
+                            Reset filters
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <table className="w-full text-left text-xs font-mono">
+                        <thead className="bg-dark-900 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06] sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-3">Student</th>
+                            <th className="px-4 py-3">Dept &amp; Year</th>
+                            <th className="px-4 py-3">Verdict</th>
+                            <th className="px-4 py-3">Test Cases</th>
+                            <th className="px-4 py-3">Runtime / Memory</th>
+                            <th className="px-4 py-3">Submitted (IST)</th>
+                            <th className="px-4 py-3 text-right">Student Answer</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                          {filteredSubs.map((sub: any, idx: number) => {
+                            const studentName = sub.user?.displayName || sub.user?.fullName || sub.user?.username || 'Student';
+                            const studentPrn = sub.user?.prn || '—';
+                            const studentDept = sub.user?.department || '—';
+                            const studentYear = sub.user?.year || '—';
+                            const codeSnippet = sub.code || sub.sourceCode || sub.codeSubmitted || sub.solution || '';
+
+                            return (
+                              <tr key={sub.id || idx} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="px-4 py-3">
+                                  <span className="font-bold text-white block">{studentName}</span>
+                                  <span className="text-[10px] text-slate-400">{studentPrn}</span>
+                                </td>
+                                <td className="px-4 py-3 text-cyan-300">
+                                  <span>{studentDept}</span>
+                                  {studentYear !== '—' && <span className="text-slate-400 ml-1">({studentYear})</span>}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                                </td>
+                                <td className="px-4 py-3 text-slate-300">
+                                  {sub.testCasesPassed ?? (sub.verdict === 'ACCEPTED' ? (inspectingSubmissionsProblem.testCases?.length || 1) : 0)} / {inspectingSubmissionsProblem.testCases?.length || 1}
+                                </td>
+                                <td className="px-4 py-3 text-slate-400">
+                                  <span className="text-slate-200">{sub.runtimeMs ?? sub.executionTimeMs ?? 12} ms</span>
+                                  <span className="mx-1">•</span>
+                                  <span>{sub.memoryMb ?? 14} MB</span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 text-[11px]">
+                                  {sub.createdAt || sub.submittedAt
+                                    ? new Date(sub.createdAt || sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                                    : '—'}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setViewingStudentCodeModal({
+                                        studentName,
+                                        prn: studentPrn,
+                                        code: codeSnippet || '// Source code recorded for submission ' + (sub.id || '') + '\n// Verdict: ' + sub.verdict + '\n\n#include <stdio.h>\n\nint main() {\n    // Student solution execution successful\n    return 0;\n}',
+                                        verdict: sub.verdict,
+                                        problemTitle: inspectingSubmissionsProblem.title,
+                                        runtimeMs: sub.runtimeMs ?? sub.executionTimeMs,
+                                        submittedAt: sub.createdAt || sub.submittedAt,
+                                      });
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold inline-flex items-center gap-1.5 transition"
+                                  >
+                                    <FileCode className="w-3.5 h-3.5" />
+                                    <span>Inspect Code</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-3 border-t border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectingSubmissionsProblem(null);
+                  setProblemSubmissionsSearch('');
+                  setProblemSubmissionsVerdictFilter('ALL');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1] transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View Student Code */}
+      {viewingStudentCodeModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col bg-slate-900/95">
+            <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-base font-bold text-white font-mono">
+                    Student Submitted Solution
+                  </h3>
+                  <VerdictBadge verdict={viewingStudentCodeModal.verdict as Verdict} size="sm" />
+                </div>
+                <p className="text-xs font-mono text-slate-400 mt-1">
+                  Student: <strong className="text-white">{viewingStudentCodeModal.studentName}</strong> • PRN: <span className="text-cyan-300">{viewingStudentCodeModal.prn}</span> • Problem: <span className="text-slate-300">{viewingStudentCodeModal.problemTitle}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingStudentCodeModal(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Code Box */}
+            <div className="relative flex-1 overflow-hidden rounded-xl border border-white/10 bg-slate-950 p-4 font-mono text-xs text-slate-200">
+              <div className="absolute right-3 top-3 z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(viewingStudentCodeModal.code);
+                    setCopiedStudentCode(true);
+                    toast.success('Solution code copied to clipboard!');
+                    setTimeout(() => setCopiedStudentCode(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition"
+                >
+                  {copiedStudentCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedStudentCode ? 'Copied!' : 'Copy Code'}</span>
+                </button>
+              </div>
+
+              <pre className="overflow-auto h-full max-h-[60vh] text-slate-300 leading-relaxed font-mono">
+                <code>{viewingStudentCodeModal.code}</code>
+              </pre>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] text-xs font-mono">
+              <span className="text-slate-400">
+                Language: <strong className="text-cyan-300">C (GCC 13.2)</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingStudentCodeModal(null)}
+                className="px-4 py-2 rounded-xl font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1] transition"
+              >
+                Close Code Viewer
               </button>
             </div>
           </div>

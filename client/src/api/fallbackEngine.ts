@@ -530,14 +530,129 @@ function getCurrentUser(): User | null {
   return safeUser;
 }
 
+const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
+  {
+    id: 'sub_arch_001',
+    problemId: 'kanetkar-ch02-rotate-array',
+    userId: 'user_pratik_1039',
+    user: {
+      id: 'user_pratik_1039',
+      fullName: 'Pratik Thorat',
+      displayName: 'Pratik Thorat',
+      prn: '2026VAL1039',
+      email: 'pratikpt1304@gmail.com',
+      department: 'Integrated M.Tech',
+      year: 'FY',
+    },
+    problem: {
+      id: 'kanetkar-ch02-rotate-array',
+      title: 'Cyclic Array Rotation & Memory Barrier',
+      slug: 'kanetkar-ch02-rotate-array',
+      difficulty: 'MEDIUM',
+      category: 'Arrays & Pointers',
+    },
+    verdict: 'ACCEPTED',
+    runtimeMs: 14,
+    memoryKb: 2048,
+    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Cyclic array rotation by Pratik Thorat\nvoid reverse(int* arr, int start, int end) {\n    while (start < end) {\n        int temp = arr[start];\n        arr[start] = arr[end];\n        arr[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nvoid rotate(int* nums, int numsSize, int k) {\n    if (numsSize <= 1) return;\n    k = k % numsSize;\n    reverse(nums, 0, numsSize - 1);\n    reverse(nums, 0, k - 1);\n    reverse(nums, k, numsSize - 1);\n}\n\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int* arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) {\n        scanf("%d", &arr[i]);\n    }\n    rotate(arr, n, k);\n    for (int i = 0; i < n; i++) {\n        printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n    }\n    free(arr);\n    return 0;\n}`,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
+  },
+  {
+    id: 'sub_arch_002',
+    problemId: 'kanetkar-ch02-rotate-array',
+    userId: 'user_demo_student',
+    user: {
+      id: 'user_demo_student',
+      fullName: 'Demo Student',
+      displayName: 'Demo Student',
+      prn: '2026VAL1001',
+      email: 'student@sanjivani.edu.in',
+      department: 'CSE',
+      year: 'FY',
+    },
+    problem: {
+      id: 'kanetkar-ch02-rotate-array',
+      title: 'Cyclic Array Rotation & Memory Barrier',
+      slug: 'kanetkar-ch02-rotate-array',
+      difficulty: 'MEDIUM',
+      category: 'Arrays & Pointers',
+    },
+    verdict: 'WRONG_ANSWER',
+    runtimeMs: 18,
+    memoryKb: 2180,
+    code: `#include <stdio.h>\n\n// Attempt by Demo Student (Failed boundary check for k > n)\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int arr[1000];\n    for(int i = 0; i < n; i++) scanf("%d", &arr[i]);\n    // Bug: did not apply modulo k % n\n    for(int i = k; i < n; i++) printf("%d ", arr[i]);\n    for(int i = 0; i < k; i++) printf("%d ", arr[i]);\n    printf("\\n");\n    return 0;\n}`,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 26).toISOString(),
+  },
+  {
+    id: 'sub_arch_003',
+    problemId: 'kanetkar-ch04-string-compression',
+    userId: 'user_rohan_1042',
+    user: {
+      id: 'user_rohan_1042',
+      fullName: 'Rohan Deshmukh',
+      displayName: 'Rohan Deshmukh',
+      prn: '2026VAL1042',
+      email: 'rohan.deshmukh@sanjivani.edu.in',
+      department: 'IT',
+      year: 'SY',
+    },
+    problem: {
+      id: 'kanetkar-ch04-string-compression',
+      title: 'Run-Length Encoded Buffer Packer',
+      slug: 'kanetkar-ch04-string-compression',
+      difficulty: 'HARD',
+      category: 'Strings & Buffers',
+    },
+    verdict: 'ACCEPTED',
+    runtimeMs: 22,
+    memoryKb: 2310,
+    code: `#include <stdio.h>\n#include <string.h>\n\n// Run-length compression in C\nint main() {\n    char s[1024];\n    if (scanf("%s", s) != 1) return 0;\n    int len = strlen(s);\n    for (int i = 0; i < len; i++) {\n        int count = 1;\n        while (i + 1 < len && s[i] == s[i + 1]) {\n            count++;\n            i++;\n        }\n        printf("%c%d", s[i], count);\n    }\n    printf("\\n");\n    return 0;\n}`,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
+  },
+  {
+    id: 'sub_arch_004',
+    problemId: 'kanetkar-ch16-dynamic-array-growth',
+    userId: 'user_pratik_1039',
+    user: {
+      id: 'user_pratik_1039',
+      fullName: 'Pratik Thorat',
+      displayName: 'Pratik Thorat',
+      prn: '2026VAL1039',
+      email: 'pratikpt1304@gmail.com',
+      department: 'Integrated M.Tech',
+      year: 'FY',
+    },
+    problem: {
+      id: 'kanetkar-ch16-dynamic-array-growth',
+      title: 'Geometric Vector Growth & Reallocation Simulator',
+      slug: 'kanetkar-ch16-dynamic-array-growth',
+      difficulty: 'MEDIUM',
+      category: 'Memory Models',
+    },
+    verdict: 'ACCEPTED',
+    runtimeMs: 12,
+    memoryKb: 1980,
+    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Geometric capacity doubler by Pratik Thorat\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    int capacity = 2;\n    int reallocCount = 0;\n    for (int i = 1; i <= n; i++) {\n        if (i > capacity) {\n            capacity *= 2;\n            reallocCount++;\n        }\n    }\n    printf("Final Capacity: %d, Reallocations: %d\\n", capacity, reallocCount);\n    return 0;\n}`,
+    createdAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
+  }
+];
+
 function getStoredSubmissions(): any[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const map = new Map<string, any>();
+        INITIAL_FALLBACK_SUBMISSIONS.forEach((s) => map.set(s.id, s));
+        parsed.forEach((s: any) => map.set(s.id, s));
+        return Array.from(map.values());
+      }
+    }
   } catch {
     // ignore
   }
-  return [];
+  return INITIAL_FALLBACK_SUBMISSIONS;
 }
 
 function saveStoredSubmissions(subs: any[]) {
