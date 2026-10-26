@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import {
   FileCode2,
@@ -44,8 +45,36 @@ export const CreateTestPage: React.FC = () => {
   const { data: sectionsData } = useQuery({
     queryKey: ['faculty-sections'],
     queryFn: async () => {
-      const res = await api.get('/sections');
-      return res.sections || res.data || [];
+      const sectionMap = new Map<string, any>();
+      try {
+        const fsSections = await FirestoreDataService.getSectionsFromFirestore();
+        if (Array.isArray(fsSections)) {
+          fsSections.forEach((s: any) => {
+            if (s && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)) {
+              const key = s.id || s.joinCode;
+              if (key) sectionMap.set(key, s);
+            }
+          });
+        }
+      } catch {}
+
+      try {
+        const res = await api.get('/sections');
+        const apiSections = res.sections || res.data || [];
+        if (Array.isArray(apiSections)) {
+          apiSections.forEach((s: any) => {
+            if (s && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)) {
+              const key = s.id || s.joinCode;
+              if (key) {
+                const existing = sectionMap.get(key) || {};
+                sectionMap.set(key, { ...existing, ...s });
+              }
+            }
+          });
+        }
+      } catch {}
+
+      return Array.from(sectionMap.values());
     },
     refetchInterval: 8000,
   });

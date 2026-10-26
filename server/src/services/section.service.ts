@@ -81,27 +81,13 @@ export class SectionService {
   }
 
   /**
-   * Fetch academic sections belonging to the authenticated faculty member (or all sections if admin).
+   * Fetch academic sections belonging to the faculty or institution (visible across faculty and admin).
    */
-  static async getFacultySections(facultyId: string, isAdmin = false) {
+  static async getFacultySections(facultyId?: string, isAdmin = false) {
     const baseWhere: any = {
       joinCode: { notIn: ['LQ-DC85', 'LQ-4904', 'LQ-CE68'] },
       sectionName: { not: 'Div A - Computer Science' },
     };
-
-    if (!isAdmin && facultyId) {
-      const facultyUser = await prisma.user.findUnique({
-        where: { id: facultyId },
-        select: { id: true, email: true },
-      }).catch(() => null);
-
-      const isDemoFaculty = facultyUser?.email === 'faculty@logicq.io';
-
-      baseWhere.OR = [
-        { facultyId },
-        ...(isDemoFaculty ? [{ joinCode: 'LQ-IMTC' }] : []),
-      ];
-    }
 
     let list = await prisma.section.findMany({
       where: baseWhere,
@@ -167,15 +153,11 @@ export class SectionService {
       },
     });
 
-    if (section && facultyId && section.facultyId !== facultyId) {
-      throw new Error('Access denied: You are not authorized to view this section.');
-    }
-
     return section;
   }
 
   /**
-   * Delete an academic section (ADMIN-ONLY / Faculty Owner).
+   * Delete an academic section (Admin or Faculty).
    */
   static async deleteSection(sectionIdOrCode: string, isAdmin: boolean, facultyId?: string) {
     const section = await prisma.section.findFirst({
@@ -189,9 +171,6 @@ export class SectionService {
     });
     if (!section) {
       return { success: true, message: 'Section already deleted or removed.' };
-    }
-    if (!isAdmin && facultyId && section.facultyId && section.facultyId !== facultyId) {
-      throw new Error('Access denied: You can only delete sections that belong to your account.');
     }
     // Remove assessment test references if any
     try {

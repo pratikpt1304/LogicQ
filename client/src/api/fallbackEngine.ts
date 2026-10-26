@@ -2402,40 +2402,64 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path === '/sections' && method === 'GET') {
     let localSections: any[] = [];
     try {
+      const sectionMap = new Map<string, any>();
+
+      // 1. Fetch from Firestore first for true multi-window/multi-account sync
+      try {
+        const fsSections = await FirestoreDataService.getSectionsFromFirestore();
+        if (Array.isArray(fsSections)) {
+          fsSections.forEach((s: any) => {
+            if (s && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)) {
+              const key = s.id || s.joinCode;
+              if (key) sectionMap.set(key, s);
+            }
+          });
+        }
+      } catch {}
+
+      // 2. Merge local storage backup
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(stored)) {
-        localSections = stored
+        stored
           .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
-          .map((s: any) => {
-          let studentsList = Array.isArray(s.students) ? s.students : [];
-          if (studentsList.length === 0) {
-            try {
-              const keys = [
-                s.id ? `logicq_section_students_${s.id}` : null,
-                s.joinCode ? `logicq_section_students_${s.joinCode}` : null,
-                s.joinToken ? `logicq_section_students_${s.joinToken}` : null,
-              ].filter(Boolean) as string[];
-              for (const k of keys) {
-                const raw = localStorage.getItem(k);
-                if (raw) {
-                  const parsed = JSON.parse(raw);
-                  if (Array.isArray(parsed) && parsed.length > studentsList.length) {
-                    studentsList = parsed;
-                  }
+          .forEach((s: any) => {
+            const key = s.id || s.joinCode;
+            if (key) {
+              const existing = sectionMap.get(key) || {};
+              sectionMap.set(key, { ...existing, ...s });
+            }
+          });
+      }
+
+      localSections = Array.from(sectionMap.values()).map((s: any) => {
+        let studentsList = Array.isArray(s.students) ? s.students : [];
+        if (studentsList.length === 0) {
+          try {
+            const keys = [
+              s.id ? `logicq_section_students_${s.id}` : null,
+              s.joinCode ? `logicq_section_students_${s.joinCode}` : null,
+              s.joinToken ? `logicq_section_students_${s.joinToken}` : null,
+            ].filter(Boolean) as string[];
+            for (const k of keys) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > studentsList.length) {
+                  studentsList = parsed;
                 }
               }
-            } catch {}
-          }
-          const valid = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
-          const count = Math.max(valid.length, s._count?.students || 0);
-          return {
-            ...s,
-            students: valid,
-            _count: { students: count },
-          };
-        });
-      }
+            }
+          } catch {}
+        }
+        const valid = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+        const count = Math.max(valid.length, s._count?.students || 0);
+        return {
+          ...s,
+          students: valid,
+          _count: { students: count },
+        };
+      });
     } catch {}
     return {
       success: true,

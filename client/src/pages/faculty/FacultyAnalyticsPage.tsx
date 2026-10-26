@@ -167,19 +167,12 @@ export const FacultyAnalyticsPage: React.FC = () => {
         }
       });
 
-      // Strict Faculty Scoping: Only sections belonging to this faculty
+      // Institutional Scoping: All active non-deleted sections
       const mySections = Array.from(sectionMap.values()).filter((s: any) => {
         if (FirestoreDataService.isSectionDeleted(s.id, s.joinCode) || FirestoreDataService.isLegacyDemoSection(s)) {
           return false;
         }
-        if (isSuperAdmin) return true;
-        const sFacultyId = s.facultyId;
-        const sFacultyEmail = (s.facultyEmail || s.faculty?.email || '').toLowerCase().trim();
-        if (facultyId && sFacultyId === facultyId) return true;
-        if (facultyEmail && sFacultyEmail === facultyEmail) return true;
-        if (s.createdBy === facultyId || s.createdBy === facultyEmail) return true;
-        if (!sFacultyId && !sFacultyEmail) return true;
-        return false;
+        return true;
       });
 
       // Map to deduplicate students across all sections by email or PRN
