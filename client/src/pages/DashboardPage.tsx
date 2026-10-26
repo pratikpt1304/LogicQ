@@ -143,10 +143,10 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 8000,
   });
 
-  // 3. Fetch Admin / Global Stats (if admin)
+  // 3. Fetch Admin / Global Stats (strictly admin only)
   const { data: globalStats } = useQuery({
     queryKey: ['faculty-dashboard-global-stats'],
-    enabled: Boolean(user && !isStudent),
+    enabled: Boolean(user && isAdmin),
     queryFn: async () => {
       try {
         const res = await api.get('/admin/stats');
@@ -158,10 +158,10 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 12000,
   });
 
-  // 4. Fetch Recent Live Submissions (Live 5s stream)
+  // 4. Fetch Recent Live Submissions (strictly admin only)
   const { data: recentSubmissions = [] } = useQuery({
     queryKey: ['faculty-dashboard-recent-submissions'],
-    enabled: Boolean(user && !isStudent),
+    enabled: Boolean(user && isAdmin),
     queryFn: async () => {
       try {
         const res = await api.get('/admin/submissions?limit=6');

@@ -188,6 +188,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 }
 
 export const ADMIN_EMAILS = [
+  'admin@logicq.io',
   'logicqarena@gmail.com',
   'hariprasathset@sanjivani.edu.in',
 ];
