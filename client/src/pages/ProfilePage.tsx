@@ -8,6 +8,7 @@ import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
+  normalizeDepartment,
   DIVISION_REGEX,
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
@@ -412,11 +413,12 @@ export const ProfilePage: React.FC = () => {
               currentUser?.fullName,
             ].find(isRealPersonName) || null;
 
-          const resolvedDepartment =
+          const rawDept =
             serverUser?.department ||
             currentUser?.department ||
             fsUser?.department ||
             null;
+          const resolvedDepartment = normalizeDepartment(rawDept) || rawDept;
 
           const resolvedYear =
             serverUser?.year ||
@@ -580,10 +582,13 @@ export const ProfilePage: React.FC = () => {
         (localStorage.getItem('logicq_storage_preference') as any) ||
         'FIRESTORE_FALLBACK';
 
-      const resolvedCurrentDept = profile?.department || currentUser?.department;
-      const validDept = resolvedCurrentDept && ALLOWED_DEPARTMENTS.includes(resolvedCurrentDept as any)
-        ? resolvedCurrentDept
-        : ALLOWED_DEPARTMENTS[0];
+      const rawCurrentDept = profile?.department || currentUser?.department;
+      const normalizedCurrentDept = normalizeDepartment(rawCurrentDept);
+      const validDept =
+        normalizedCurrentDept ||
+        (rawCurrentDept && ALLOWED_DEPARTMENTS.includes(rawCurrentDept as any)
+          ? rawCurrentDept
+          : ALLOWED_DEPARTMENTS[0]);
 
       setEditForm({
         displayName:
@@ -697,13 +702,20 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
+    // Department preservation: Use normalized edit form department or preserve existing
+    const rawExistingDept = profile?.department || currentUser?.department;
+    const existingDept = normalizeDepartment(rawExistingDept) || rawExistingDept || ALLOWED_DEPARTMENTS[0];
+    const finalDept = editForm.department
+      ? (normalizeDepartment(editForm.department) || editForm.department)
+      : existingDept;
+
     // Division is completely removed from the app - always set to null
     const effectiveBio = editForm.bio.trim() || null;
     const effectiveUid = auth.currentUser?.uid || currentUser?.id;
     if (effectiveUid) {
       FirestoreDataService.updateUserProfile(effectiveUid, {
         displayName: trimmedDisplay || null,
-        department: editForm.department,
+        department: finalDept,
         year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
         division: null,
         bio: effectiveBio,
@@ -718,7 +730,7 @@ export const ProfilePage: React.FC = () => {
         ...activeObj,
         displayName: trimmedDisplay || activeObj.displayName || null,
         fullName: trimmedDisplay || activeObj.fullName || 'Student',
-        department: editForm.department,
+        department: finalDept,
         year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
         division: null,
         bio: effectiveBio,
@@ -730,7 +742,7 @@ export const ProfilePage: React.FC = () => {
 
     updateMutation.mutate({
       displayName: trimmedDisplay || null,
-      department: editForm.department,
+      department: finalDept,
       ...(isAdminOrFaculty ? {} : { year: editForm.year }),
       division: null,
       bio: effectiveBio,
@@ -969,7 +981,7 @@ export const ProfilePage: React.FC = () => {
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)]">
                       <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{profile.department || 'Computer Engineering'}</span>
+                      <span>{normalizeDepartment(profile.department) || profile.department || 'CSE'}</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)]">
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />

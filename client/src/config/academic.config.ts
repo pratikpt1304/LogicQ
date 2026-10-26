@@ -2,14 +2,88 @@ export const ALLOWED_COLLEGES = ['Sanjivani University'] as const;
 export type AllowedCollege = (typeof ALLOWED_COLLEGES)[number];
 
 export const ALLOWED_DEPARTMENTS = [
+  'CSE',
   'AIML',
   'AIDS',
   'Integrated M.Tech',
   'Mechanical',
-  'CSE',
   'Integrated B.Tech',
 ] as const;
 export type AllowedDepartment = (typeof ALLOWED_DEPARTMENTS)[number];
+
+export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Exact match first (case-insensitive)
+  const exact = (ALLOWED_DEPARTMENTS as readonly string[]).find(
+    (d) => d.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (exact) return exact as AllowedDepartment;
+
+  const upper = trimmed.toUpperCase();
+
+  // Computer Science & Engineering variations
+  if (
+    upper.includes('COMPUTER') ||
+    upper.includes('COMP') ||
+    upper === 'CS' ||
+    upper === 'CSE' ||
+    upper.includes('SOFTWARE') ||
+    upper.includes('INFORMATION TECH') ||
+    upper === 'IT'
+  ) {
+    return 'CSE';
+  }
+
+  // Artificial Intelligence & Machine Learning
+  if (
+    upper.includes('MACHINE LEARNING') ||
+    upper.includes('AIML') ||
+    upper.includes('AI/ML') ||
+    upper.includes('AI & ML') ||
+    (upper.includes('INTELLIGENCE') && upper.includes('LEARNING'))
+  ) {
+    return 'AIML';
+  }
+
+  // Artificial Intelligence & Data Science
+  if (
+    upper.includes('DATA SCIENCE') ||
+    upper.includes('AIDS') ||
+    upper.includes('AI/DS') ||
+    upper.includes('AI & DS') ||
+    (upper.includes('INTELLIGENCE') && upper.includes('DATA'))
+  ) {
+    return 'AIDS';
+  }
+
+  // Integrated M.Tech
+  if (
+    upper.includes('INTEGRATED M') ||
+    upper.includes('INT M') ||
+    upper.includes('M.TECH') ||
+    upper.includes('MTECH')
+  ) {
+    return 'Integrated M.Tech';
+  }
+
+  // Integrated B.Tech
+  if (
+    upper.includes('INTEGRATED B') ||
+    upper.includes('INT B')
+  ) {
+    return 'Integrated B.Tech';
+  }
+
+  // Mechanical
+  if (upper.includes('MECH')) {
+    return 'Mechanical';
+  }
+
+  return null;
+}
 
 export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
 export type AllowedYear = (typeof ALLOWED_YEARS)[number];

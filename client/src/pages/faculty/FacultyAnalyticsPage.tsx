@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { normalizeDepartment } from '../../config/academic.config.js';
 import { toast } from 'sonner';
 import {
   Users,
@@ -203,7 +204,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
             displayName: st.displayName || fullName,
             prn: prn || 'PENDING',
             email: email || '—',
-            department: st.department || sec.course || 'CSE',
+            department: normalizeDepartment(st.department) || normalizeDepartment(sec.course) || 'CSE',
             year: st.year || 'SY',
             division: st.division || sec.sectionName || 'A',
             totalPoints: points,
@@ -297,7 +298,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
           displayName: u.displayName || u.fullName || existing?.displayName,
           prn: prn || existing?.prn || 'PENDING',
           email: email || existing?.email || '—',
-          department: u.department || existing?.department || matchedSec?.course || 'CSE',
+          department: normalizeDepartment(u.department) || normalizeDepartment(existing?.department) || normalizeDepartment(matchedSec?.course) || 'CSE',
           year: u.year || existing?.year || 'SY',
           division: u.division || existing?.division || matchedSec?.name || 'A',
           totalPoints: points,
@@ -384,7 +385,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
               displayName: fsStudent.displayName || fsStudent.fullName || 'Student',
               prn: fsStudent.prn || selectedStudentForInspect,
               email: fsStudent.email || '—',
-              department: fsStudent.department || 'CSE',
+              department: normalizeDepartment(fsStudent.department) || 'CSE',
               year: fsStudent.year || 'SY',
               division: fsStudent.division || '—',
               totalPoints: Number(fsStudent.totalPoints || 0),

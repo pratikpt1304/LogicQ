@@ -20,7 +20,7 @@ import {
   BookOpen,
   Calendar,
 } from 'lucide-react';
-import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS } from '../config/academic.config.js';
+import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../config/academic.config.js';
 
 interface PublicSectionInfo {
   id: string;
@@ -280,8 +280,8 @@ export const InstantJoinPage: React.FC = () => {
   useEffect(() => {
     if (!section) return;
     if (!department) {
-      const course = (section.course || '').toUpperCase();
-      const matchedDept = ALLOWED_DEPARTMENTS.find((d) => course.includes(d.toUpperCase())) || 'AIML';
+      const course = section.course || '';
+      const matchedDept = normalizeDepartment(course) || 'CSE';
       setDepartment(matchedDept);
     }
     if (!year) {

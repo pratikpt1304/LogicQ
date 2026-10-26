@@ -3,6 +3,7 @@ import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
+  normalizeDepartment,
   DIVISION_REGEX,
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
@@ -1397,7 +1398,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (body.department && !ALLOWED_DEPARTMENTS.includes(body.department)) {
+    const normalizedDept = body.department ? (normalizeDepartment(body.department) || body.department) : undefined;
+    if (normalizedDept && !ALLOWED_DEPARTMENTS.includes(normalizedDept as any)) {
       throw new Error('Please select a valid department.');
     }
 
@@ -1419,7 +1421,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       ...existing,
       displayName: trimmedDisplay === '' ? null : (trimmedDisplay ?? existing.displayName ?? null),
       fullName: trimmedDisplay || existing.fullName || existing.username,
-      department: body.department ?? existing.department,
+      department: normalizedDept ?? existing.department,
       year: body.year ?? existing.year,
       division: null,
       bio: typeof body.bio === 'string' ? body.bio.trim() : (body.bio ?? existing.bio ?? null),

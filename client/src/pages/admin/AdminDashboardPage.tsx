@@ -7,6 +7,7 @@ import {
   ALLOWED_COLLEGES,
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
+  normalizeDepartment,
 } from '../../config/academic.config.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
@@ -1129,7 +1130,7 @@ export const AdminDashboardPage: React.FC = () => {
           prn: stPrn || null,
           maskedPrn: stPrn ? `••••••••${shortId}` : '••••••••',
           role: 'STUDENT',
-          department: st.department || sec.course || sec.subject || '—',
+          department: normalizeDepartment(st.department) || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || st.department || '—',
           year: st.year || '—',
           division: st.division || sec.sectionName || null,
           college: st.college || st.institution || 'Sanjivani University',
@@ -4465,7 +4466,7 @@ export const AdminDashboardPage: React.FC = () => {
                                   setAcademicEditForm({
                                     prn: u.prn || '',
                                     college: u.college || 'Sanjivani University',
-                                    department: u.department || 'CSE',
+                                    department: normalizeDepartment(u.department) || u.department || 'CSE',
                                     year: u.year || 'FY',
                                     division: u.division || '',
                                     adminPassword: '',
@@ -5713,7 +5714,7 @@ int main() {
             setAcademicEditForm({
               prn: u.prn || '',
               college: u.college || 'Sanjivani University',
-              department: u.department || 'CSE',
+              department: normalizeDepartment(u.department) || u.department || 'CSE',
               year: u.year || 'FY',
               division: u.division || '',
               adminPassword: '',

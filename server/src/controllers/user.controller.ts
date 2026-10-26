@@ -6,6 +6,7 @@ import { isExplicitAdminEmail } from './auth.controller.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
+  normalizeDepartment,
   DIVISION_REGEX,
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,
@@ -46,9 +47,9 @@ function stripHtmlTags(str: string): string {
 
 const updateProfileSchema = z.object({
   department: z
-    .enum(ALLOWED_DEPARTMENTS, {
+    .preprocess((val) => (typeof val === 'string' ? normalizeDepartment(val) || val : val), z.enum(ALLOWED_DEPARTMENTS, {
       errorMap: () => ({ message: 'Please select a valid department.' }),
-    })
+    }))
     .optional(),
   year: z
     .enum(ALLOWED_YEARS, {

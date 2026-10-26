@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
-import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName } from '../config/academic.config.js';
+import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
 
@@ -863,7 +863,7 @@ export class FirestoreDataService {
           publicDisplayName: raw.displayName || raw.name || `Student ${shortId}`,
           role: 'STUDENT',
           college: raw.college || 'Sanjivani University',
-          department: raw.department || 'CSE',
+          department: normalizeDepartment(raw.department) || raw.department || 'CSE',
           year: raw.year || 'SY',
           division: raw.division || null,
           sectionId: raw.sectionId || null,
@@ -907,7 +907,7 @@ export class FirestoreDataService {
             publicDisplayName: st.displayName || st.name || `Student ${shortId}`,
             role: 'STUDENT',
             college: st.college || st.institution || 'Sanjivani University',
-            department: st.department || sec.course || sec.subject || 'CSE',
+            department: normalizeDepartment(st.department) || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || st.department || 'CSE',
             year: st.year || 'FY',
             division: st.division || sec.sectionName || null,
             sectionId: sec.id,

@@ -7,6 +7,7 @@ import {
   ALLOWED_COLLEGES,
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
+  normalizeDepartment,
   PRN_REGEX,
   PRN_ERROR_MESSAGE,
   isValidPrn,
@@ -43,7 +44,7 @@ export const CompleteProfilePage: React.FC = () => {
     prn: user?.prn || '',
     fullName: user?.fullName || user?.displayName || '',
     college: user?.college || ALLOWED_COLLEGES[0] || 'Sanjivani University',
-    department: user?.department || '',
+    department: normalizeDepartment(user?.department) || user?.department || '',
     year: user?.year || '',
     division: user?.division || '',
   });
@@ -93,7 +94,8 @@ export const CompleteProfilePage: React.FC = () => {
     if (!formData.college || !ALLOWED_COLLEGES.includes(formData.college as any)) {
       nextErrors.college = 'Please select your college.';
     }
-    if (!formData.department || !ALLOWED_DEPARTMENTS.includes(formData.department as any)) {
+    const normalizedDept = normalizeDepartment(formData.department) || formData.department;
+    if (!normalizedDept || !ALLOWED_DEPARTMENTS.includes(normalizedDept as any)) {
       nextErrors.department = 'Please select your department.';
     }
     if (!formData.year || !ALLOWED_YEARS.includes(formData.year as any)) {
@@ -115,14 +117,15 @@ export const CompleteProfilePage: React.FC = () => {
     setLoading(true);
     try {
       const trimmedFullName = formData.fullName.trim();
+      const normalizedDept = normalizeDepartment(formData.department) || formData.department;
       await completeProfile({
         prn: trimmedPrn,
         fullName: trimmedFullName,
         displayName: trimmedFullName,
         college: formData.college,
-        department: formData.department,
+        department: normalizedDept,
         year: formData.year,
-        division: formData.division.trim().toUpperCase() || undefined,
+        division: undefined,
       });
 
       // Synchronize in real-time across Firestore users, enrolled_students, sections, and admin/faculty portals
@@ -132,9 +135,9 @@ export const CompleteProfilePage: React.FC = () => {
         newPrn: trimmedPrn,
         displayName: trimmedFullName,
         fullName: trimmedFullName,
-        department: formData.department,
+        department: normalizedDept,
         year: formData.year,
-        division: formData.division.trim().toUpperCase() || undefined,
+        division: undefined,
       }).catch(() => {});
 
       navigate('/dashboard', { replace: true });

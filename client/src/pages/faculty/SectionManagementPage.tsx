@@ -32,7 +32,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS } from '../../config/academic.config.js';
+import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../../config/academic.config.js';
 
 interface StudentRosterItem {
   id?: string;
@@ -216,7 +216,8 @@ export const SectionManagementPage: React.FC = () => {
       const fullPayload = {
         subject: subjectName,
         sectionName: subjectName,
-        course: 'Computer Science & Engineering',
+        course: 'CSE',
+        department: 'CSE',
         academicYear: `${currentYear}-${currentYear + 1}`,
         semester: payload.semester || 'Semester 1',
         institution: 'Sanjivani University',
@@ -389,7 +390,7 @@ export const SectionManagementPage: React.FC = () => {
         prn: student.prn.trim().toUpperCase(),
         email: student.email.trim().toLowerCase() || `${student.prn.trim().toLowerCase()}@student.logicq.io`,
         mobile: student.mobile.trim() || null,
-        department: student.department?.trim() || selectedSection?.course || 'CSE',
+        department: normalizeDepartment(student.department?.trim()) || normalizeDepartment(selectedSection?.course) || 'CSE',
         year: student.year?.trim() || 'FY',
         joinedVia: 'MANUAL_ENTRY',
       };
@@ -1339,7 +1340,7 @@ export const SectionManagementPage: React.FC = () => {
                     Department
                   </label>
                   <select
-                    value={singleStudent.department || selectedSection.course || ''}
+                    value={normalizeDepartment(singleStudent.department) || normalizeDepartment(selectedSection?.course) || ''}
                     onChange={(e) => setSingleStudent({ ...singleStudent, department: e.target.value })}
                     className="w-full px-2.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 text-xs"
                   >

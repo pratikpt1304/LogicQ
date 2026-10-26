@@ -11,7 +11,7 @@ import {
 import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
-import { isRealPersonName } from '../config/academic.config.js';
+import { isRealPersonName, normalizeDepartment } from '../config/academic.config.js';
 
 function pickBestRealName(...candidates: (string | null | undefined)[]): string | null {
   for (const c of candidates) {
@@ -211,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
       const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
       const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
-      const retainedDepartment = finalUser.department || active?.department || null;
+      const retainedDepartment = normalizeDepartment(finalUser.department) || normalizeDepartment(active?.department) || finalUser.department || active?.department || null;
       const retainedYear = finalUser.year || active?.year || null;
       const retainedDivision = finalUser.division || active?.division || null;
       const retainedBio = (finalUser.bio && finalUser.bio.trim() !== '') ? finalUser.bio : (active?.bio && active.bio.trim() !== '') ? active.bio : (finalUser.bio ?? null);
@@ -949,7 +949,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatarUrl: cred.user.photoURL || null,
           role: 'STUDENT',
           college: enrolledRecord.college || 'Sanjivani University',
-          department: enrolledRecord.department || 'Integrated M.Tech',
+          department: normalizeDepartment(enrolledRecord.department) || 'CSE',
           year: enrolledRecord.year || 'FY',
           division: enrolledRecord.division || null,
           prn: enrolledRecord.prn || null,
