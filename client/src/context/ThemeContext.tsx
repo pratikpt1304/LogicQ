@@ -16,8 +16,14 @@ function getSystemTheme(): Theme {
 }
 
 function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   try {
+    const defaultMigrated = localStorage.getItem('logicq_theme_default_v2');
+    if (!defaultMigrated) {
+      localStorage.setItem('logicq_theme_default_v2', 'true');
+      localStorage.setItem('logicq_theme', 'light');
+      return 'light';
+    }
     const saved = localStorage.getItem('logicq_theme');
     if (saved === 'dark' || saved === 'light') {
       return saved;
@@ -25,7 +31,7 @@ function getInitialTheme(): Theme {
   } catch {
     // Ignore storage access errors
   }
-  return getSystemTheme();
+  return 'light';
 }
 
 function applyThemeToDocument(theme: Theme) {
@@ -42,7 +48,7 @@ function applyThemeToDocument(theme: Theme) {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   toggleTheme: () => {},
   setTheme: () => {},
 });
