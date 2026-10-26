@@ -25,6 +25,21 @@ class RealtimeSyncManager {
   private instanceId: string = Math.random().toString(36).slice(2, 9);
   private isListeningFirestore: boolean = false;
   private unsubscribeFirestoreSections: (() => void) | null = null;
+  private listeners: Map<SyncScope, Set<() => void>> = new Map();
+
+  /**
+   * Subscribes to real-time events for a specific sync scope.
+   * Returns an unsubscribe function.
+   */
+  public on(scope: SyncScope, callback: () => void): () => void {
+    if (!this.listeners.has(scope)) {
+      this.listeners.set(scope, new Set());
+    }
+    this.listeners.get(scope)!.add(callback);
+    return () => {
+      this.listeners.get(scope)?.delete(callback);
+    };
+  }
 
   /**
    * Initializes the real-time mesh for the active tab/window.
@@ -97,6 +112,28 @@ class RealtimeSyncManager {
    * Invalidates React Query caches according to sync scope.
    */
   private handleIncomingSync(scope: SyncScope): void {
+    // 1. Invoke all custom callback subscribers
+    const callbacks = this.listeners.get(scope);
+    if (callbacks) {
+      callbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch (err) {
+          console.warn('RealtimeSyncManager callback error:', err);
+        }
+      });
+    }
+    const allCallbacks = this.listeners.get('ALL');
+    if (allCallbacks && scope !== 'ALL') {
+      allCallbacks.forEach((cb) => {
+        try {
+          cb();
+        } catch (err) {
+          console.warn('RealtimeSyncManager callback error:', err);
+        }
+      });
+    }
+
     if (!this.queryClient) return;
 
     switch (scope) {
@@ -125,6 +162,7 @@ class RealtimeSyncManager {
         this.queryClient.invalidateQueries({ queryKey: ['faculty-tests'] });
         this.queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
         this.queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+        this.queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
         break;
 
       case 'TESTS':
@@ -144,6 +182,7 @@ class RealtimeSyncManager {
         this.queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         this.queryClient.invalidateQueries({ queryKey: ['admin-practice-analytics'] });
         this.queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+        this.queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
         break;
 
       case 'USERS':
@@ -152,6 +191,7 @@ class RealtimeSyncManager {
         this.queryClient.invalidateQueries({ queryKey: ['user-profile'] });
         this.queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         this.queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-global-stats'] });
+        this.queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
         break;
 
       case 'DASHBOARD':

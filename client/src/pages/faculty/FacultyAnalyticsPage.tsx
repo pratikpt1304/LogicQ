@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   Users,
@@ -29,6 +31,7 @@ import {
   Check,
   RotateCcw,
   Terminal,
+  BookOpen,
 } from 'lucide-react';
 
 interface StudentRosterItem {
@@ -50,11 +53,33 @@ interface StudentRosterItem {
   copyPasteAttempts: number;
   statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG';
   sectionId?: string;
+  sectionName?: string;
+  sectionJoinCode?: string;
 }
 
 export const FacultyAnalyticsPage: React.FC = () => {
   const { user } = useAuth();
-  const [selectedSectionId, setSelectedSectionId] = useState<string>('ALL');
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSectionId = searchParams.get('sectionId');
+  const [selectedSectionId, setSelectedSectionId] = useState<string>(urlSectionId || 'ALL');
+
+  useEffect(() => {
+    if (urlSectionId) {
+      setSelectedSectionId(urlSectionId);
+    }
+  }, [urlSectionId]);
+
+  const handleSectionSelect = (newId: string) => {
+    setSelectedSectionId(newId);
+    if (newId === 'ALL') {
+      searchParams.delete('sectionId');
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ sectionId: newId }, { replace: true });
+    }
+  };
+
   const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStudentForInspect, setSelectedStudentForInspect] = useState<string | null>(null);
@@ -68,7 +93,12 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [copiedPrn, setCopiedPrn] = useState(false);
 
   // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions scoped strictly to this faculty
-  const { data: analyticsData, isLoading } = useQuery({
+  const {
+    data: analyticsData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ['faculty-analytics-hub-data', user?.id, user?.email, user?.role],
     queryFn: async () => {
       const isSuperAdmin = user?.role === 'ADMIN';
@@ -92,29 +122,48 @@ export const FacultyAnalyticsPage: React.FC = () => {
       // Merge Sections
       const sectionMap = new Map<string, any>();
       (backendOverview?.sections || []).forEach((s: any) => {
-        sectionMap.set(s.sectionId || s.id, {
-          id: s.sectionId || s.id,
-          name: s.sectionName || 'Academic Section',
-          course: s.course || 'B.Tech CSE',
-          studentCount: s.studentCount || 0,
-          facultyId: s.facultyId,
-          facultyEmail: s.facultyEmail,
-        });
+        const key = s.sectionId || s.id || s.joinCode;
+        if (key) {
+          sectionMap.set(key, {
+            id: s.sectionId || s.id,
+            name: s.sectionName || s.name || 'Academic Section',
+            course: s.course || 'B.Tech CSE',
+            studentCount: s.studentCount || 0,
+            students: s.students || [],
+            facultyId: s.facultyId,
+            facultyEmail: s.facultyEmail,
+            joinCode: s.joinCode,
+          });
+        }
       });
 
       fsSections.forEach((fs: any) => {
-        const key = fs.id || fs.joinCode;
-        if (!sectionMap.has(key)) {
-          sectionMap.set(key, {
-            id: fs.id,
-            name: fs.sectionName || fs.subject || 'Academic Section',
-            course: fs.course || 'B.Tech CSE',
-            studentCount: fs.students?.length || 0,
-            students: fs.students || [],
-            facultyId: fs.facultyId,
-            facultyEmail: fs.facultyEmail,
-            joinCode: fs.joinCode,
-          });
+        if (!FirestoreDataService.isLegacyDemoSection(fs) && !FirestoreDataService.isSectionDeleted(fs.id, fs.joinCode)) {
+          const key = fs.id || fs.joinCode;
+          if (key) {
+            const existing = sectionMap.get(key) || {};
+            const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
+              ? fs.students
+              : (existing.students || []);
+            const calculatedCount = Math.max(
+              mergedStudents.length,
+              fs._count?.students || 0,
+              existing.studentCount || 0
+            );
+
+            sectionMap.set(key, {
+              ...existing,
+              ...fs,
+              id: fs.id || existing.id,
+              name: fs.sectionName || fs.name || fs.subject || existing.name || 'Academic Section',
+              course: fs.course || existing.course || 'B.Tech CSE',
+              studentCount: calculatedCount,
+              students: mergedStudents,
+              facultyId: fs.facultyId || existing.facultyId,
+              facultyEmail: fs.facultyEmail || existing.facultyEmail,
+              joinCode: fs.joinCode || existing.joinCode,
+            });
+          }
         }
       });
 
@@ -128,93 +177,151 @@ export const FacultyAnalyticsPage: React.FC = () => {
         const sFacultyEmail = (s.facultyEmail || s.faculty?.email || '').toLowerCase().trim();
         if (facultyId && sFacultyId === facultyId) return true;
         if (facultyEmail && sFacultyEmail === facultyEmail) return true;
+        if (s.createdBy === facultyId || s.createdBy === facultyEmail) return true;
+        if (!sFacultyId && !sFacultyEmail) return true;
         return false;
       });
 
-      // Collect all student identifiers enrolled across mySections
-      const enrolledStudentKeys = new Set<string>();
-      const sectionIdSet = new Set(mySections.map((s) => s.id));
+      // Map to deduplicate students across all sections by email or PRN
+      const studentMap = new Map<string, StudentRosterItem>();
 
+      // A. Populate students enrolled directly in mySections
       mySections.forEach((sec: any) => {
+        const secId = sec.id;
+        const secName = sec.name || sec.sectionName || 'Academic Section';
+        const secCode = sec.joinCode || '';
+
         (sec.students || []).forEach((st: any) => {
-          if (st.email) enrolledStudentKeys.add(st.email.toLowerCase().trim());
-          if (st.student?.email) enrolledStudentKeys.add(st.student.email.toLowerCase().trim());
-          if (st.prn) enrolledStudentKeys.add(st.prn.toUpperCase().trim());
-          if (st.student?.prn) enrolledStudentKeys.add(st.student.prn.toUpperCase().trim());
-          if (st.id) enrolledStudentKeys.add(st.id);
-          if (st.student?.id) enrolledStudentKeys.add(st.student.id);
-        });
-      });
+          if (!st || FirestoreDataService.isPurgedStudent(st)) return;
+          const email = String(st.email || st.student?.email || '').toLowerCase().trim();
+          const prn = String(st.prn || st.student?.prn || '').toUpperCase().trim();
+          const id = st.id || st.uid || st.student?.id || email || prn;
+          const key = (prn || email || id).toUpperCase();
+          if (!key) return;
 
-      // Filter genuine student users enrolled in THIS faculty's sections
-      const studentsList: StudentRosterItem[] = fsUsers
-        .filter((u: any) => {
-          if (u.role !== 'STUDENT' && u.role && u.role !== 'USER') return false;
-          if (isSuperAdmin) return true;
-          const email = (u.email || '').toLowerCase().trim();
-          const prn = (u.prn || '').toUpperCase().trim();
-          const id = u.id || u.uid;
-          const belongsToMySection =
-            enrolledStudentKeys.has(email) ||
-            enrolledStudentKeys.has(prn) ||
-            enrolledStudentKeys.has(id) ||
-            (u.sectionId && sectionIdSet.has(u.sectionId));
-          return belongsToMySection;
-        })
-        .map((u: any) => {
-          const points = Number(u.totalPoints || 0);
-          const streak = Number(u.currentStreak || 0);
-          const prn = u.prn ? String(u.prn).trim().toUpperCase() : 'PENDING';
-          
-          // Integrity & anti-cheat telemetry detection
-          const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || 0);
-          const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || 0);
-          
-          let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
-          let integrityScore = 100;
+          const points = Number(st.totalPoints ?? st.student?.totalPoints ?? 0);
+          const streak = Number(st.currentStreak ?? st.student?.currentStreak ?? 0);
+          const fullName = st.name || st.fullName || st.student?.fullName || st.student?.displayName || (prn ? `Student ${prn.slice(-4)}` : 'Enrolled Student');
 
-          if (tabSwitches >= 5 || pasteAttempts >= 5) {
-            integrityRisk = 'CRITICAL';
-            integrityScore = 20;
-          } else if (tabSwitches >= 3 || pasteAttempts >= 3) {
-            integrityRisk = 'HIGH';
-            integrityScore = 40;
-          } else if (tabSwitches > 1 || pasteAttempts > 1) {
-            integrityRisk = 'MODERATE';
-            integrityScore = 70;
-          } else if (tabSwitches === 1) {
-            integrityRisk = 'LOW';
-            integrityScore = 90;
-          }
-
-          let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
-          if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
-            statusCategory = 'INTEGRITY_FLAG';
-          } else if (points < 50 && streak === 0) {
-            statusCategory = 'NEEDS_HELP';
-          }
-
-          return {
-            id: u.id || u.uid || prn,
-            uid: u.uid || u.id,
-            fullName: u.fullName || u.displayName || (prn !== 'PENDING' ? `Student ${prn.slice(-4)}` : 'Enrolled Student'),
-            displayName: u.displayName || u.fullName,
-            prn,
-            email: u.email || '—',
-            department: u.department || 'CSE',
-            year: u.year || 'SY',
-            division: u.division || 'A',
+          studentMap.set(key, {
+            id,
+            uid: st.uid || st.id,
+            fullName,
+            displayName: st.displayName || fullName,
+            prn: prn || 'PENDING',
+            email: email || '—',
+            department: st.department || sec.course || 'CSE',
+            year: st.year || 'SY',
+            division: st.division || sec.sectionName || 'A',
             totalPoints: points,
             currentStreak: streak,
             solvedCount: Math.round(points / 25),
-            integrityScore,
-            integrityRisk,
-            tabSwitchCount: tabSwitches,
-            copyPasteAttempts: pasteAttempts,
-            statusCategory,
-            sectionId: u.sectionId || undefined,
-          };
+            integrityScore: 100,
+            integrityRisk: 'NORMAL',
+            tabSwitchCount: Number(st.tabSwitchCount || 0),
+            copyPasteAttempts: Number(st.copyPasteAttempts || 0),
+            statusCategory: points < 50 && streak === 0 ? 'NEEDS_HELP' : 'CONSISTENT',
+            sectionId: secId,
+            sectionName: secName,
+            sectionJoinCode: secCode,
+          });
         });
+      });
+
+      // B. Enrich / overlay with full Firestore registered users
+      const enrolledStudentKeys = new Set<string>();
+      mySections.forEach((sec: any) => {
+        (sec.students || []).forEach((st: any) => {
+          if (st.email) enrolledStudentKeys.add(st.email.toLowerCase().trim());
+          if (st.prn) enrolledStudentKeys.add(st.prn.toUpperCase().trim());
+          if (st.id) enrolledStudentKeys.add(st.id);
+        });
+      });
+      const sectionIdSet = new Set(mySections.map((s) => s.id));
+      const sectionCodeSet = new Set(mySections.map((s) => (s.joinCode || '').toUpperCase()));
+
+      fsUsers.forEach((u: any) => {
+        if (u.role !== 'STUDENT' && u.role && u.role !== 'USER') return;
+        if (FirestoreDataService.isPurgedStudent(u)) return;
+
+        const email = (u.email || '').toLowerCase().trim();
+        const prn = (u.prn || '').toUpperCase().trim();
+        const id = u.id || u.uid;
+        const key = (prn || email || id).toUpperCase();
+
+        const matchedSec = mySections.find((sec: any) => {
+          if (u.sectionId && (sec.id === u.sectionId || sec.joinCode === u.sectionId)) return true;
+          return (sec.students || []).some((st: any) => {
+            const stE = (st.email || st.student?.email || '').toLowerCase().trim();
+            const stP = (st.prn || st.student?.prn || '').toUpperCase().trim();
+            return (email && stE === email) || (prn && stP === prn);
+          });
+        });
+
+        const belongs = isSuperAdmin || Boolean(matchedSec) ||
+          enrolledStudentKeys.has(email) ||
+          enrolledStudentKeys.has(prn) ||
+          enrolledStudentKeys.has(id) ||
+          (u.sectionId && (sectionIdSet.has(u.sectionId) || sectionCodeSet.has(u.sectionId.toUpperCase())));
+
+        if (!belongs) return;
+
+        const existing = studentMap.get(key);
+
+        const points = Number(u.totalPoints ?? existing?.totalPoints ?? 0);
+        const streak = Number(u.currentStreak ?? existing?.currentStreak ?? 0);
+        const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || 0);
+        const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || 0);
+
+        let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
+        let integrityScore = 100;
+
+        if (tabSwitches >= 5 || pasteAttempts >= 5) {
+          integrityRisk = 'CRITICAL';
+          integrityScore = 20;
+        } else if (tabSwitches >= 3 || pasteAttempts >= 3) {
+          integrityRisk = 'HIGH';
+          integrityScore = 40;
+        } else if (tabSwitches > 1 || pasteAttempts > 1) {
+          integrityRisk = 'MODERATE';
+          integrityScore = 70;
+        } else if (tabSwitches === 1) {
+          integrityRisk = 'LOW';
+          integrityScore = 90;
+        }
+
+        let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
+        if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
+          statusCategory = 'INTEGRITY_FLAG';
+        } else if (points < 50 && streak === 0) {
+          statusCategory = 'NEEDS_HELP';
+        }
+
+        studentMap.set(key, {
+          id: id || existing?.id || prn,
+          uid: u.uid || u.id || existing?.uid,
+          fullName: u.fullName || u.displayName || existing?.fullName || (prn ? `Student ${prn.slice(-4)}` : 'Student'),
+          displayName: u.displayName || u.fullName || existing?.displayName,
+          prn: prn || existing?.prn || 'PENDING',
+          email: email || existing?.email || '—',
+          department: u.department || existing?.department || matchedSec?.course || 'CSE',
+          year: u.year || existing?.year || 'SY',
+          division: u.division || existing?.division || matchedSec?.name || 'A',
+          totalPoints: points,
+          currentStreak: streak,
+          solvedCount: Math.round(points / 25),
+          integrityScore,
+          integrityRisk,
+          tabSwitchCount: tabSwitches,
+          copyPasteAttempts: pasteAttempts,
+          statusCategory,
+          sectionId: matchedSec?.id || u.sectionId || existing?.sectionId,
+          sectionName: matchedSec?.name || existing?.sectionName,
+          sectionJoinCode: matchedSec?.joinCode || existing?.sectionJoinCode,
+        });
+      });
+
+      const studentsList = Array.from(studentMap.values());
 
       return {
         sections: mySections,
@@ -237,8 +344,23 @@ export const FacultyAnalyticsPage: React.FC = () => {
         ],
       };
     },
-    refetchOnWindowFocus: false,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
+
+  // Subscribe to real-time events from Section Management Page
+  useEffect(() => {
+    const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
+      refetch();
+    });
+    const unsubUsers = RealtimeSyncService.on('USERS', () => {
+      refetch();
+    });
+    return () => {
+      unsubSections();
+      unsubUsers();
+    };
+  }, [refetch]);
 
   // 2. Candidate Deep Dive Query
   const { data: deepDiveData, isLoading: isDeepDiveLoading } = useQuery({
@@ -295,10 +417,22 @@ export const FacultyAnalyticsPage: React.FC = () => {
   // Filtered Students List
   const filteredStudents = useMemo(() => {
     if (!analyticsData?.students) return [];
-    return analyticsData.students.filter((st) => {
+    return analyticsData.students.filter((st: any) => {
       // Section filter
-      if (selectedSectionId !== 'ALL' && st.sectionId && st.sectionId !== selectedSectionId) {
-        return false;
+      if (selectedSectionId !== 'ALL') {
+        const matchesSection =
+          st.sectionId === selectedSectionId ||
+          st.sectionJoinCode === selectedSectionId ||
+          (analyticsData?.sections || []).some(
+            (sec: any) =>
+              (sec.id === selectedSectionId || sec.joinCode === selectedSectionId) &&
+              (sec.students || []).some((s: any) => {
+                const sP = (s.prn || s.student?.prn || '').toUpperCase();
+                const sE = (s.email || s.student?.email || '').toLowerCase();
+                return (st.prn && sP === st.prn) || (st.email && sE === st.email.toLowerCase());
+              })
+          );
+        if (!matchesSection) return false;
       }
       // Tab filter
       if (activeFilterTab !== 'ALL' && st.statusCategory !== activeFilterTab) {
@@ -307,14 +441,14 @@ export const FacultyAnalyticsPage: React.FC = () => {
       // Text search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchesName = st.fullName.toLowerCase().includes(q);
-        const matchesPrn = st.prn.toLowerCase().includes(q);
-        const matchesEmail = st.email.toLowerCase().includes(q);
+        const matchesName = (st.fullName || '').toLowerCase().includes(q);
+        const matchesPrn = (st.prn || '').toLowerCase().includes(q);
+        const matchesEmail = (st.email || '').toLowerCase().includes(q);
         return matchesName || matchesPrn || matchesEmail;
       }
       return true;
     });
-  }, [analyticsData?.students, selectedSectionId, activeFilterTab, searchQuery]);
+  }, [analyticsData?.students, analyticsData?.sections, selectedSectionId, activeFilterTab, searchQuery]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -498,11 +632,35 @@ Generated On   : ${new Date().toLocaleString()}`;
 
           {/* Section Filter & Export CSV */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Quick Link to Section Management */}
+            <Link
+              to="/faculty/sections"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-indigo-500/40 text-[var(--foreground)] text-xs font-semibold shadow-sm transition"
+              title="Go to Section Management to add or edit sections and rosters"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Sections ({analyticsData?.sections?.length || 0})</span>
+            </Link>
+
+            {/* Manual Sync / Refresh Button */}
+            <button
+              onClick={() => {
+                refetch();
+                toast.success('Classroom analytics synchronized with latest sections!');
+              }}
+              disabled={isFetching}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-indigo-500/40 text-[var(--foreground)] text-xs font-semibold shadow-sm transition cursor-pointer"
+              title="Instant sync with sections and student rosters"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 text-indigo-400 ${isFetching ? 'animate-spin' : ''}`} />
+              <span>{isFetching ? 'Syncing...' : 'Sync Now'}</span>
+            </button>
+
             <div className="flex items-center gap-2 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs">
               <Filter className="w-3.5 h-3.5 text-indigo-500" />
               <select
                 value={selectedSectionId}
-                onChange={(e) => setSelectedSectionId(e.target.value)}
+                onChange={(e) => handleSectionSelect(e.target.value)}
                 className="bg-transparent text-[var(--foreground)] text-xs font-medium focus:outline-none cursor-pointer"
               >
                 <option value="ALL" className="bg-[var(--card)] text-[var(--foreground)]">All Academic Sections</option>
@@ -689,10 +847,23 @@ Generated On   : ${new Date().toLocaleString()}`;
 
         {/* Students Table */}
         {filteredStudents.length === 0 ? (
-          <div className="py-12 text-center space-y-2">
+          <div className="py-12 text-center space-y-3 bg-[var(--background)]/30 rounded-2xl border border-dashed border-[var(--border)]">
             <Users className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
             <p className="text-sm font-semibold text-[var(--foreground)]">No students found matching your criteria</p>
-            <p className="text-xs text-[var(--muted-foreground)]">Try adjusting your search query or section filter.</p>
+            <p className="text-xs text-[var(--muted-foreground)] max-w-md mx-auto">
+              {selectedSectionId !== 'ALL'
+                ? 'No students found enrolled in this selected section yet. You can add or import students from the Section Management dashboard.'
+                : 'Try adjusting your search query, filter tabs, or select a different academic section.'}
+            </p>
+            <div className="pt-2">
+              <Link
+                to="/faculty/sections"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Go to Sections & Rosters
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -720,7 +891,12 @@ Generated On   : ${new Date().toLocaleString()}`;
                       {student.prn}
                     </td>
                     <td className="py-3.5 px-4 text-[var(--foreground)]">
-                      {student.department} • Year {student.year}
+                      <div>{student.department} • Year {student.year}</div>
+                      {student.sectionName && (
+                        <div className="text-[10px] text-indigo-400 font-medium font-sans mt-0.5">
+                          {student.sectionName}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-[var(--foreground)]">
                       {student.totalPoints} PTS

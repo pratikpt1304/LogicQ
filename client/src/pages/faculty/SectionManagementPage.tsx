@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
@@ -27,6 +28,7 @@ import {
   Download,
   GraduationCap,
   ExternalLink,
+  Brain,
   X,
   Sparkles,
 } from 'lucide-react';
@@ -270,7 +272,9 @@ export const SectionManagementPage: React.FC = () => {
         return list;
       });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to create section.');
@@ -291,7 +295,9 @@ export const SectionManagementPage: React.FC = () => {
     onSuccess: () => {
       toast.success('Section deleted successfully.');
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       if (selectedSection?.id) {
         setSelectedSection(null);
       }
@@ -321,7 +327,9 @@ export const SectionManagementPage: React.FC = () => {
       setIsExcelModalOpen(false);
       setExcelPreview(null);
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         refetchDetails(selectedSection.id);
@@ -359,7 +367,9 @@ export const SectionManagementPage: React.FC = () => {
       setIsAddStudentOpen(false);
       setSingleStudent({ name: '', prn: '', email: '', mobile: '' });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         refetchDetails(selectedSection.id);
@@ -398,7 +408,9 @@ export const SectionManagementPage: React.FC = () => {
     onSuccess: (_, variables) => {
       toast.success('Student removed from section.');
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('USERS');
       if (selectedSection) {
         setSelectedSection((prev: any) => {
@@ -771,6 +783,15 @@ export const SectionManagementPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    <Link
+                      to={`/faculty/analytics?sectionId=${section.id}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition cursor-pointer"
+                      title="View Section Analytics & Student Insights"
+                    >
+                      <Brain className="w-3.5 h-3.5" />
+                      <span>Analytics</span>
+                    </Link>
+
                     <button
                       onClick={async () => {
                         await refetchDetails(section.id);
@@ -981,6 +1002,15 @@ export const SectionManagementPage: React.FC = () => {
                   <Upload className="w-3.5 h-3.5" />
                   Import Excel
                 </button>
+
+                <Link
+                  to={`/faculty/analytics?sectionId=${selectedSection.id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-purple-500/20 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition cursor-pointer"
+                  title="Inspect Section Analytics & Submissions"
+                >
+                  <Brain className="w-3.5 h-3.5" />
+                  Analytics
+                </Link>
 
                 <button
                   onClick={() => exportRosterCsv(selectedSection)}
