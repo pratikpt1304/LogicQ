@@ -8,6 +8,8 @@ import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
   normalizeDepartment,
+  formatNameFromEmail,
+  isRealPersonName,
 } from '../../config/academic.config.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
@@ -74,6 +76,19 @@ import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSec
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 import { SectionManagementPage } from '../faculty/SectionManagementPage.js';
 import { StudentActivityInspectorModal } from '../../components/admin/StudentActivityInspectorModal.js';
+
+const isRawSystemId = (val?: string | null): boolean => {
+  if (!val || typeof val !== 'string') return true;
+  const trimmed = val.trim();
+  if (!trimmed || trimmed.length < 2) return true;
+  if (/^(stu|student|sec_stu|std|admin|usr|user|qa_student)_[a-z0-9_]+/i.test(trimmed)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return true;
+  if (trimmed.length === 25 && trimmed.startsWith('c')) return true;
+  if (trimmed.length >= 18 && /^[a-zA-Z0-9_-]+$/.test(trimmed) && !trimmed.includes(' ')) return true;
+  if (trimmed.includes('••••') || trimmed.includes(' • ')) return true;
+  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student' || trimmed.toLowerCase() === 'enrolled student') return true;
+  return false;
+};
 
 export const AdminDashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -959,37 +974,58 @@ export const AdminDashboardPage: React.FC = () => {
       (u: any) => !FirestoreDataService.isPurgedStudent(u)
     );
 
-    const isRawSystemId = (val?: string | null) => {
-      if (!val || typeof val !== 'string') return false;
-      const trimmed = val.trim();
-      if (trimmed.length === 25 && trimmed.startsWith('c')) return true;
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return true;
-      if (trimmed.length === 28 && /^[a-zA-Z0-9_-]+$/.test(trimmed) && !trimmed.includes(' ')) return true;
-      return false;
-    };
-
     // 1. Enrich backend users with Firestore real names & clean handles
     const enrichedBackend = backendUsers.map((bu: any) => {
       const buEmail = bu.email?.toLowerCase().trim();
-      const buPrn = bu.prn?.toUpperCase().trim();
+      const buPrn = bu.prn ? String(bu.prn).toUpperCase().trim() : null;
       const fu = fUsers.find(
-        (f: any) =>
-          (buEmail && f.email?.toLowerCase().trim() === buEmail) ||
-          (buPrn && f.prn?.toUpperCase().trim() === buPrn)
+        (f: any) => {
+          const fEmail = f.email?.toLowerCase().trim();
+          const fPrn = f.prn ? String(f.prn).toUpperCase().trim() : null;
+          return (
+            (buEmail && fEmail === buEmail) ||
+            (buPrn && fPrn && (buPrn === fPrn || buPrn.endsWith(fPrn) || fPrn.endsWith(buPrn)))
+          );
+        }
       );
 
-      const resolvedName =
-        (fu?.fullName && !isRawSystemId(fu.fullName) ? fu.fullName : '') ||
-        (fu?.name && !isRawSystemId(fu.name) ? fu.name : '') ||
-        (bu.fullName && !isRawSystemId(bu.fullName) ? bu.fullName : '') ||
-        (fu?.displayName && !isRawSystemId(fu.displayName) ? fu.displayName : '') ||
-        (bu.displayName && !isRawSystemId(bu.displayName) ? bu.displayName : '') ||
-        (bu.prn ? `Student ${bu.prn.slice(-4)}` : (bu.email ? bu.email.split('@')[0] : 'Student'));
+      // Cross-match with section rosters to find faculty-enrolled real student name
+      const sectionRosterMatch = sectionsList
+        .flatMap((s: any) => (Array.isArray(s.students) ? s.students : []))
+        .find((st: any) => {
+          const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+          const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+          return (
+            (buEmail && stEmail === buEmail) ||
+            (buPrn && stPrn && (buPrn === stPrn || buPrn.endsWith(stPrn) || stPrn.endsWith(buPrn)))
+          );
+        });
+
+      const rosterName = sectionRosterMatch?.name || sectionRosterMatch?.fullName || sectionRosterMatch?.student?.fullName || sectionRosterMatch?.displayName;
+
+      const candidateNames = [
+        fu?.fullName,
+        fu?.displayName,
+        fu?.name,
+        rosterName,
+        bu.fullName,
+        bu.displayName,
+        bu.name,
+      ];
+
+      const cleanHumanName = candidateNames.find(
+        (cand) => cand && typeof cand === 'string' && !isRawSystemId(cand) && isRealPersonName(cand)
+      );
+
+      const emailDerivedName = (buEmail ? formatNameFromEmail(buEmail) : null) || (fu?.email ? formatNameFromEmail(fu.email) : null);
+      const prnShort = bu.prn ? String(bu.prn).slice(-4) : (fu?.prn ? String(fu.prn).slice(-4) : null);
+
+      const resolvedName = cleanHumanName || emailDerivedName || (prnShort ? `Student ${prnShort}` : 'Student');
 
       const cleanUsername =
         (!isRawSystemId(bu.username) && bu.username) ? bu.username :
         (fu?.username && !isRawSystemId(fu.username) ? fu.username :
-        (bu.email ? bu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_')));
+        (buEmail ? buEmail.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_')));
 
       const role = ((bu.role || fu?.role || 'STUDENT') as string).toUpperCase();
 
@@ -1021,12 +1057,18 @@ export const AdminDashboardPage: React.FC = () => {
         const matchedStudentSections = sectionsList.filter(
           (sec: any) =>
             Array.isArray(sec.students) &&
-            sec.students.some((st: any) =>
-              (buEmail && st.email?.toLowerCase().trim() === buEmail) ||
-              (buPrn && st.prn?.toUpperCase().trim() === buPrn) ||
-              (bu.id && (st.id === bu.id || st.uid === bu.id || st.userId === bu.id)) ||
-              (fu?.id && (st.id === fu.id || st.uid === fu.id || st.userId === fu.id))
-            )
+            sec.students.some((st: any) => {
+              const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+              const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+              const stId = st.id || st.uid || st.userId;
+              return (
+                (buEmail && stEmail === buEmail) ||
+                (buPrn && stPrn && (buPrn === stPrn || buPrn.endsWith(stPrn) || stPrn.endsWith(buPrn))) ||
+                (bu.id && stId === bu.id) ||
+                (fu?.id && stId === fu.id) ||
+                (fu?.uid && stId === fu.uid)
+              );
+            })
         );
         matchedStudentSections.forEach((ms: any) => {
           if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
@@ -1039,12 +1081,12 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
-        if (userSections.length === 0 && (bu.sectionId || fu?.sectionId || bu.sectionName || fu?.sectionName)) {
-          const targetSecId = bu.sectionId || fu?.sectionId;
+        if (userSections.length === 0 && (bu.sectionId || fu?.sectionId || bu.sectionName || fu?.sectionName || bu.joinCode || fu?.joinCode)) {
+          const targetSecId = bu.sectionId || fu?.sectionId || bu.joinCode || fu?.joinCode;
           const targetSecName = bu.sectionName || fu?.sectionName;
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
-              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId)) ||
+              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId || String(s.joinCode).toUpperCase() === String(targetSecId).toUpperCase())) ||
               (targetSecName && (s.sectionName === targetSecName || s.name === targetSecName || s.subject === targetSecName))
           );
           if (matchedByIdOrName) {
@@ -1077,7 +1119,7 @@ export const AdminDashboardPage: React.FC = () => {
         displayName: resolvedName,
         username: bu.username,
         cleanUsername,
-        department: fu?.department || bu.department || (role === 'FACULTY' ? 'Integrated M.Tech' : '—'),
+        department: fu?.department || bu.department || (role === 'FACULTY' ? 'Faculty' : '—'),
         year: fu?.year || bu.year || '—',
         division: fu?.division || bu.division || null,
         college: fu?.college || bu.college || 'Sanjivani University',
@@ -1091,15 +1133,41 @@ export const AdminDashboardPage: React.FC = () => {
       (fu: any) => fu.email && !backendEmails.has(fu.email.toLowerCase().trim())
     ).map((fu: any) => {
       const fuEmail = fu.email?.toLowerCase().trim();
-      const fuPrn = fu.prn?.toUpperCase().trim();
-      const resolvedName =
-        (fu.fullName && !isRawSystemId(fu.fullName) ? fu.fullName : '') ||
-        (fu.name && !isRawSystemId(fu.name) ? fu.name : '') ||
-        (fu.displayName && !isRawSystemId(fu.displayName) ? fu.displayName : '') ||
-        (fu.prn ? `Student ${fu.prn.slice(-4)}` : (fu.email ? fu.email.split('@')[0] : 'Student'));
+      const fuPrn = fu.prn ? String(fu.prn).toUpperCase().trim() : null;
+
+      // Cross-match with section rosters to find faculty-enrolled real student name
+      const sectionRosterMatch = sectionsList
+        .flatMap((s: any) => (Array.isArray(s.students) ? s.students : []))
+        .find((st: any) => {
+          const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+          const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+          return (
+            (fuEmail && stEmail === fuEmail) ||
+            (fuPrn && stPrn && (fuPrn === stPrn || fuPrn.endsWith(stPrn) || stPrn.endsWith(fuPrn)))
+          );
+        });
+
+      const rosterName = sectionRosterMatch?.name || sectionRosterMatch?.fullName || sectionRosterMatch?.student?.fullName || sectionRosterMatch?.displayName;
+
+      const candidateNames = [
+        fu.fullName,
+        fu.displayName,
+        fu.name,
+        rosterName,
+      ];
+
+      const cleanHumanName = candidateNames.find(
+        (cand) => cand && typeof cand === 'string' && !isRawSystemId(cand) && isRealPersonName(cand)
+      );
+
+      const emailDerivedName = fuEmail ? formatNameFromEmail(fuEmail) : null;
+      const prnShort = fu.prn ? String(fu.prn).slice(-4) : null;
+
+      const resolvedName = cleanHumanName || emailDerivedName || (prnShort ? `Student ${prnShort}` : 'Student');
+
       const cleanUsername = !isRawSystemId(fu.username) && fu.username
         ? fu.username
-        : (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'));
+        : (fuEmail ? fuEmail.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'));
       const role = ((fu.role || 'STUDENT') as string).toUpperCase();
 
       const userSections: any[] = Array.isArray(fu.sections) && fu.sections.length > 0
@@ -1127,11 +1195,17 @@ export const AdminDashboardPage: React.FC = () => {
         const matchedStudentSections = sectionsList.filter(
           (sec: any) =>
             Array.isArray(sec.students) &&
-            sec.students.some((st: any) =>
-              (fuEmail && st.email?.toLowerCase().trim() === fuEmail) ||
-              (fuPrn && st.prn?.toUpperCase().trim() === fuPrn) ||
-              (fu.id && (st.id === fu.id || st.uid === fu.id || st.userId === fu.id))
-            )
+            sec.students.some((st: any) => {
+              const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+              const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+              const stId = st.id || st.uid || st.userId;
+              return (
+                (fuEmail && stEmail === fuEmail) ||
+                (fuPrn && stPrn && (fuPrn === stPrn || fuPrn.endsWith(stPrn) || stPrn.endsWith(fuPrn))) ||
+                (fu.id && stId === fu.id) ||
+                (fu.uid && stId === fu.uid)
+              );
+            })
         );
         matchedStudentSections.forEach((ms: any) => {
           if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
@@ -1144,10 +1218,11 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
-        if (userSections.length === 0 && (fu.sectionId || fu.sectionName)) {
+        if (userSections.length === 0 && (fu.sectionId || fu.sectionName || fu.joinCode)) {
+          const targetSecId = fu.sectionId || fu.joinCode;
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
-              (fu.sectionId && (s.id === fu.sectionId || s.joinCode === fu.sectionId)) ||
+              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId || String(s.joinCode).toUpperCase() === String(targetSecId).toUpperCase())) ||
               (fu.sectionName && (s.sectionName === fu.sectionName || s.name === fu.sectionName || s.subject === fu.sectionName))
           );
           if (matchedByIdOrName) {
@@ -1161,9 +1236,9 @@ export const AdminDashboardPage: React.FC = () => {
           } else {
             // Direct fallback so student NEVER loses their enrolled section badge
             userSections.push({
-              id: fu.sectionId || 'section-enrolled',
+              id: targetSecId || 'section-enrolled',
               sectionName: fu.sectionName || 'Academic Section',
-              joinCode: fu.sectionId || '',
+              joinCode: targetSecId || '',
             });
           }
         }
@@ -1204,7 +1279,18 @@ export const AdminDashboardPage: React.FC = () => {
         if (stPrn) existingPrns.add(stPrn);
 
         const shortId = stPrn ? stPrn.slice(-4) : (stEmail ? stEmail.slice(0, 4) : '0000');
-        const resolvedName = st.name || st.fullName || st.student?.fullName || st.student?.displayName || (stPrn ? `Student ${shortId}` : 'Enrolled Student');
+        const candidateNames = [
+          st.name,
+          st.fullName,
+          st.student?.fullName,
+          st.student?.displayName,
+          st.displayName,
+        ];
+        const cleanHumanName = candidateNames.find(
+          (cand) => cand && typeof cand === 'string' && !isRawSystemId(cand) && isRealPersonName(cand)
+        );
+        const emailDerivedName = stEmail ? formatNameFromEmail(stEmail) : null;
+        const resolvedName = cleanHumanName || emailDerivedName || (stPrn ? `Student ${shortId}` : 'Enrolled Student');
         const cleanUsername = stEmail ? stEmail.split('@')[0] : `stu_${shortId}`;
 
         sectionEnrolledStudents.push({
@@ -4337,7 +4423,13 @@ export const AdminDashboardPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {users.map((u: any) => {
-                    const initials = ((u.displayName || u.fullName || u.email || 'U')
+                    const displayHumanName =
+                      (!isRawSystemId(u.displayName) && isRealPersonName(u.displayName) && u.displayName) ||
+                      (!isRawSystemId(u.fullName) && isRealPersonName(u.fullName) && u.fullName) ||
+                      formatNameFromEmail(u.email) ||
+                      (u.prn ? `Student ${String(u.prn).slice(-4)}` : 'Student');
+
+                    const initials = (displayHumanName
                       .split(' ')
                       .map((n: string) => n[0])
                       .filter(Boolean)
@@ -4351,6 +4443,26 @@ export const AdminDashboardPage: React.FC = () => {
                         ? 'from-blue-600 to-indigo-700 text-blue-100 ring-1 ring-blue-500/30'
                         : 'from-cyan-600 to-indigo-600 text-cyan-100 ring-1 ring-cyan-500/30';
 
+                    const studentSections = (u.sections && u.sections.length > 0)
+                      ? u.sections
+                      : sectionsList.filter((sec: any) =>
+                          Array.isArray(sec.students) &&
+                          sec.students.some((st: any) => {
+                            const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+                            const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+                            const uEmail = (u.email || '').toLowerCase().trim();
+                            const uPrn = (u.prn || '').toUpperCase().trim();
+                            return (
+                              (uEmail && stEmail === uEmail) ||
+                              (uPrn && stPrn && (uPrn === stPrn || uPrn.endsWith(stPrn) || stPrn.endsWith(uPrn)))
+                            );
+                          })
+                        ).map((sec: any) => ({
+                          id: sec.id,
+                          sectionName: sec.sectionName || sec.name || sec.subject,
+                          joinCode: sec.joinCode,
+                        }));
+
                     return (
                       <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
                         {/* 1. User & Identity */}
@@ -4362,7 +4474,7 @@ export const AdminDashboardPage: React.FC = () => {
                             <div className="space-y-0.5 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold text-white text-xs block truncate max-w-[200px]">
-                                  {u.displayName || u.fullName}
+                                  {displayHumanName}
                                 </span>
                                 {filterRole === 'DELETED' || u.accountState === 'DELETED' || u.fullName === 'Deleted Account' ? (
                                   <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-bold uppercase tracking-wider">
@@ -4384,7 +4496,7 @@ export const AdminDashboardPage: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        if (window.confirm(`Reveal full PRN for ${u.displayName || u.fullName}? This action is recorded in the administrative audit log.`)) {
+                                        if (window.confirm(`Reveal full PRN for ${displayHumanName}? This action is recorded in the administrative audit log.`)) {
                                           revealPrnMutation.mutate(u.id);
                                         }
                                       }}
@@ -4450,16 +4562,19 @@ export const AdminDashboardPage: React.FC = () => {
                           ) : (
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-indigo-600 dark:text-cyan-300 font-semibold text-xs">{u.department || '—'}</span>
-                                <span className="text-slate-400 dark:text-slate-500 text-xs">•</span>
+                                {u.department && u.department !== '—' && u.department !== 'General' && u.department !== 'CSE' && (
+                                  <>
+                                    <span className="text-indigo-600 dark:text-cyan-300 font-semibold text-xs">{u.department}</span>
+                                    <span className="text-slate-400 dark:text-slate-500 text-xs">•</span>
+                                  </>
+                                )}
                                 <span className="text-slate-700 dark:text-slate-300 text-xs font-medium">{u.year || '—'}</span>
-                                
                               </div>
-                              {u.sections && u.sections.length > 0 ? (
+                              {studentSections && studentSections.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {u.sections.map((sec: any) => (
+                                  {studentSections.map((sec: any) => (
                                     <span
-                                      key={sec.id}
+                                      key={sec.id || sec.joinCode}
                                       className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30"
                                       title={`Join Code: ${sec.joinCode || '—'}`}
                                     >
@@ -5813,7 +5928,7 @@ int main() {
             if (
               window.confirm(
                 `Are you sure you want to ${newBanStatus ? 'BAN' : 'UNBAN'} student ${
-                  u.displayName || u.username
+                  u.displayName || u.fullName || u.cleanUsername || 'Student'
                 }?`
               )
             ) {

@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
-import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment } from '../config/academic.config.js';
+import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
 
@@ -779,12 +779,13 @@ export class FirestoreDataService {
     const profileComplete = isAdmin ? true : Boolean(data.profileComplete && prn);
 
     const realCandidate = [data.displayName, data.fullName, data.name].find(isRealPersonName);
-    const resolvedFullName = realCandidate || (isAdmin ? 'LogicQ Admin' : `Student ${shortId}`);
-    const resolvedDisplayName = isRealPersonName(data.displayName) ? data.displayName : (isAdmin ? 'Admin' : (realCandidate || null));
+    const emailCandidate = formatNameFromEmail(email);
+    const resolvedFullName = realCandidate || emailCandidate || (isAdmin ? 'LogicQ Admin' : `Student ${shortId}`);
+    const resolvedDisplayName = isRealPersonName(data.displayName) ? data.displayName : (isAdmin ? 'Admin' : (realCandidate || emailCandidate || null));
 
     return {
       id: uid,
-      username: data.username || (isAdmin ? 'admin' : `stu_${shortId.toLowerCase()}`),
+      username: (data.username && isRealPersonName(data.username)) ? data.username : (isAdmin ? 'admin' : (email ? email.split('@')[0] : `stu_${shortId.toLowerCase()}`)),
       email,
       prn,
       maskedPrn: masked,
@@ -896,19 +897,21 @@ export class FirestoreDataService {
         if (prn) seenPrns.add(prn);
 
         const shortId = prn ? prn.slice(-4) : '0000';
+        const rawRealName = [raw.displayName, raw.fullName, raw.name].find(isRealPersonName);
+        const cleanHuman = rawRealName || formatNameFromEmail(email) || `Student ${shortId}`;
         list.push({
           id: d.id,
-          username: raw.username || (email ? email.split('@')[0] : `stu_${shortId}`),
+          username: raw.username && isRealPersonName(raw.username) ? raw.username : (email ? email.split('@')[0] : `stu_${shortId}`),
           email,
           prn,
           maskedPrn: prn ? `••••••••${shortId}` : '••••••••',
           shortId,
-          fullName: raw.name || raw.fullName || `Student ${shortId}`,
-          displayName: raw.displayName || raw.name || `Student ${shortId}`,
-          publicDisplayName: raw.displayName || raw.name || `Student ${shortId}`,
+          fullName: cleanHuman,
+          displayName: cleanHuman,
+          publicDisplayName: cleanHuman,
           role: 'STUDENT',
           college: raw.college || 'Sanjivani University',
-          department: normalizeDepartment(raw.department) || raw.department || 'General',
+          department: normalizeDepartment(raw.department) || raw.department || null,
           year: raw.year || 'SY',
           division: raw.division || null,
           sectionId: raw.sectionId || null,
@@ -968,19 +971,21 @@ export class FirestoreDataService {
           if (prn) seenPrns.add(prn);
 
           const shortId = prn ? prn.slice(-4) : (email ? email.slice(0, 4) : '0000');
+          const rawRealName = [st.displayName, st.fullName, st.name, st.student?.fullName, st.student?.displayName].find(isRealPersonName);
+          const cleanHuman = rawRealName || formatNameFromEmail(email) || `Student ${shortId}`;
           list.push({
             id: st.id || st.uid || `sec_stu_${shortId}_${Date.now()}`,
-            username: st.username || (email ? email.split('@')[0] : `stu_${shortId}`),
+            username: st.username && isRealPersonName(st.username) ? st.username : (email ? email.split('@')[0] : `stu_${shortId}`),
             email,
             prn,
             maskedPrn: prn ? `••••••••${shortId}` : '••••••••',
             shortId,
-            fullName: st.name || st.fullName || st.student?.fullName || `Student ${shortId}`,
-            displayName: st.displayName || st.name || st.fullName || `Student ${shortId}`,
-            publicDisplayName: st.displayName || st.name || `Student ${shortId}`,
+            fullName: cleanHuman,
+            displayName: cleanHuman,
+            publicDisplayName: cleanHuman,
             role: 'STUDENT',
             college: st.college || st.institution || 'Sanjivani University',
-            department: normalizeDepartment(st.department) || st.department || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || 'General',
+            department: normalizeDepartment(st.department) || st.department || null,
             year: st.year || 'FY',
             division: st.division || sec.sectionName || null,
             sectionId: sec.id,

@@ -530,7 +530,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
 Candidate Name : ${s.fullName}
 PRN / Roll No  : ${s.prn || 'N/A'}
 Email Address  : ${s.email}
-Academic Dept  : ${s.department || 'CSE'} (Year ${s.year || 'SY'})
+Academic Dept  : ${s.department || '—'} (Year ${s.year || 'SY'})
 Total Points   : ${s.totalPoints || 0} PTS
 Current Streak : ${s.currentStreak || 0} Days
 Total Submissions: ${submissions.length} (${acceptedCount} Accepted)
@@ -992,7 +992,7 @@ Generated On   : ${new Date().toLocaleString()}`;
                       )}
                     </div>
                     <p className="text-xs text-[var(--muted-foreground)]">
-                      {deepDiveData?.student?.email || '—'} • {deepDiveData?.student?.department || 'CSE'} (Year {deepDiveData?.student?.year || 'SY'})
+                      {deepDiveData?.student?.email || '—'}{deepDiveData?.student?.department ? ` • ${deepDiveData.student.department}` : ''} (Year {deepDiveData?.student?.year || 'SY'})
                     </p>
                   </div>
                 </div>

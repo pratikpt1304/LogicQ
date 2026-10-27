@@ -284,8 +284,11 @@ export function isRealPersonName(name?: string | null): boolean {
   const trimmed = name.trim();
   if (trimmed.length < 2) return false;
   if (trimmed.includes('••••') || trimmed.includes(' • ')) return false;
-  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student') return false;
-  if (/^stu_[a-z0-9]+/i.test(trimmed)) return false;
+  if (/^Student\s+[a-z0-9]+/i.test(trimmed) || trimmed.toLowerCase() === 'student' || trimmed.toLowerCase() === 'enrolled student') return false;
+  if (/^(stu|student|sec_stu|std|admin|usr|user|qa_student)_[a-z0-9_]+/i.test(trimmed)) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) return false;
+  if (/^[a-zA-Z0-9_-]{18,}$/i.test(trimmed) && !trimmed.includes(' ')) return false;
+  if (trimmed.length === 25 && trimmed.startsWith('c')) return false;
   return true;
 }
 

@@ -4,7 +4,7 @@ import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { VerdictBadge } from '../common/Badge.js';
-import { maskPrn } from '../../config/academic.config.js';
+import { maskPrn, formatNameFromEmail, isRealPersonName } from '../../config/academic.config.js';
 import {
   Download,
   Edit3,
@@ -201,7 +201,11 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
     'advanced-competitive-c': 0,
   };
 
-  const displayName = user.displayName || user.fullName || user.username || 'Student';
+  const displayName =
+    (isRealPersonName(user.displayName) && user.displayName) ||
+    (isRealPersonName(user.fullName) && user.fullName) ||
+    formatNameFromEmail(user.email) ||
+    (user.prn ? `Student ${String(user.prn).slice(-4)}` : 'Student');
   const prnDisplay = revealedPrn || user.maskedPrn || user.prn || '—';
 
   // Filter submissions
@@ -259,11 +263,15 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
                   <Building2 className="w-3 h-3 text-indigo-400" />
                   <span>{user.college || 'Sanjivani University'}</span>
                 </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                  <GraduationCap className="w-3 h-3" />
-                  <span>{user.department || 'CSE'}</span>
-                </span>
+                {user.department && user.department !== '—' && user.department !== 'General' && (
+                  <>
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                      <GraduationCap className="w-3 h-3" />
+                      <span>{user.department}</span>
+                    </span>
+                  </>
+                )}
                 {user.year && (
                   <>
                     <span>•</span>
