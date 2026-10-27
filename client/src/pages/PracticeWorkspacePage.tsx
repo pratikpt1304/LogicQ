@@ -51,6 +51,8 @@ import { JeeQuestionPalette } from '../components/practice/JeeQuestionPalette.js
 import { JeeSubmitModal } from '../components/practice/JeeSubmitModal.js';
 import { JeeQuestionPaperModal } from '../components/practice/JeeQuestionPaperModal.js';
 import { JeeInstructionsModal } from '../components/practice/JeeInstructionsModal.js';
+import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
+import { Flag } from 'lucide-react';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 
 interface ExecutionErrorState {
@@ -80,6 +82,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isQuestionPaperOpen, setIsQuestionPaperOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   const [hasAgreedRules, setHasAgreedRules] = useState<boolean>(() => {
     try {
@@ -903,6 +906,15 @@ export const PracticeWorkspacePage: React.FC = () => {
             >
               <FileText className="w-3.5 h-3.5 text-cyan-400" />
               <span>Question Paper</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsIssueModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-xs font-mono text-rose-400 transition"
+              title="Report an issue to faculty"
+            >
+              <Flag className="w-3.5 h-3.5" />
+              <span>Raise Issue</span>
             </button>
             <button
               type="button"

@@ -144,13 +144,13 @@ export const PracticeModulesPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-1 font-bold">
               <BookOpen className="w-4 h-4" />
-              <span>SEQUENTIAL MASTERY CURRICULUM</span>
+              <span>LAB INTERNAL • CONTINUOUS EVALUATION</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-              C Programming Practice Modules
+              Lab Internal (Coursework Modules)
             </h1>
             <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-mono">
-              Complete each module's 20 problems sequentially to unlock the next advanced module.
+              Official lab coursework modules. Practice prerequisites must be completed to unlock each module.
             </p>
           </div>
 
@@ -161,6 +161,13 @@ export const PracticeModulesPage: React.FC = () => {
                 <span>Instructor View</span>
               </div>
             )}
+            <Link
+              to="/practice"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-emerald-600/20"
+            >
+              <Code2 className="w-4 h-4" />
+              <span>Practice Arena</span>
+            </Link>
             <Link
               to="/student/tests"
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-indigo-600/20"

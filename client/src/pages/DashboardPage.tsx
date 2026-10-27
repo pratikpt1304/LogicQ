@@ -44,6 +44,7 @@ import {
   Target,
   KeyRound,
   Award,
+  Code2,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -936,20 +937,27 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Action buttons on header */}
-              <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto sm:flex sm:items-center sm:gap-3">
-                <Link
-                  to="/student/tests"
-                  className="justify-center px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold font-mono bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>My Tests & Labs</span>
-                </Link>
+              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
                 <Link
                   to="/practice"
-                  className="justify-center px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold font-mono border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 text-[var(--text-main)] transition-all flex items-center gap-2"
+                  className="justify-center px-3 sm:px-3.5 py-2.5 rounded-xl text-xs font-bold font-mono bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Practice Arena</span>
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>Practice Hub</span>
+                </Link>
+                <Link
+                  to="/lab-internal"
+                  className="justify-center px-3 sm:px-3.5 py-2.5 rounded-xl text-xs font-bold font-mono bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Lab Internal</span>
+                </Link>
+                <Link
+                  to="/student/tests"
+                  className="justify-center px-3 sm:px-3.5 py-2.5 rounded-xl text-xs font-bold font-mono border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/40 text-[var(--text-main)] transition-all flex items-center gap-1.5"
+                >
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Tests</span>
                 </Link>
               </div>
             </div>
@@ -1152,7 +1160,7 @@ export const DashboardPage: React.FC = () => {
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-cyan-400" />
-                  <span>C Syllabus Practice Modules</span>
+                  <span>Lab Internal Coursework Modules</span>
                 </h2>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
                   Sequential topic modules from Control Structures to Dynamic Memory
@@ -1160,10 +1168,10 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <Link
-                to="/practice"
-                className="text-xs font-mono text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition"
+                to="/lab-internal"
+                className="text-xs font-mono text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
               >
-                <span>View All Modules</span>
+                <span>View Lab Modules</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -1176,7 +1184,7 @@ export const DashboardPage: React.FC = () => {
                   return (
                     <Link
                       key={m.id || idx}
-                      to={isLocked ? '/practice' : `/practice/${m.slug}`}
+                      to={isLocked ? '/practice' : `/lab-internal/${m.slug}`}
                       className={`p-4 rounded-xl border transition flex flex-col justify-between ${
                         isLocked
                           ? 'border-[var(--border-line)] bg-[var(--bg-surface)] opacity-75'

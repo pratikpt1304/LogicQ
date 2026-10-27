@@ -7,6 +7,8 @@ import { api } from '../../api/client.js';
 import { CodeEditor } from '../../components/editor/CodeEditor.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
+import { RaiseIssueModal } from '../../components/common/RaiseIssueModal.js';
+import { Flag } from 'lucide-react';
 import {
   Play,
   Send,
@@ -45,6 +47,7 @@ export const ExamWorkspacePage: React.FC = () => {
   const [testResults, setTestResults] = useState<any[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<'tests' | 'telemetry'>('tests');
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor'>('statement');
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
 
   // Behavioral Integrity Tracking (Sections 20 - 28)
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -390,6 +393,16 @@ export const ExamWorkspacePage: React.FC = () => {
             </span>
           </div>
 
+          {/* Raise Issue Button */}
+          <button
+            onClick={() => setIsIssueModalOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors"
+            title="Flag question issue to faculty"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Raise Issue</span>
+          </button>
+
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
@@ -688,6 +701,15 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Raise Issue Modal */}
+      <RaiseIssueModal
+        isOpen={isIssueModalOpen}
+        onClose={() => setIsIssueModalOpen(false)}
+        questionTitle={problemData?.title || 'Exam Question'}
+        questionId={problemId}
+        contextType="EXAM"
+      />
 
       {/* AI Viva Verification Modal (Sections 29 - 33) */}
       {activeViva && (

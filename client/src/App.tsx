@@ -25,6 +25,7 @@ import { CheckerReviewsPage } from './pages/checker/CheckerReviewsPage.js';
 import { PracticeModulesPage } from './pages/PracticeModulesPage.js';
 import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.js';
 import { PracticeWorkspacePage } from './pages/PracticeWorkspacePage.js';
+import { TopicPracticeHubPage } from './pages/TopicPracticeHubPage.js';
 import { PublicReportVerificationPage } from './pages/PublicReportVerificationPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { SectionManagementPage } from './pages/faculty/SectionManagementPage.js';
@@ -168,6 +169,7 @@ export const App: React.FC = () => {
   const isWorkspaceRoute =
     location.pathname.startsWith('/challenge') ||
     location.pathname.startsWith('/practice/') ||
+    location.pathname.startsWith('/lab-internal/') ||
     location.pathname.startsWith('/exam/') ||
     location.pathname.startsWith('/mini-project/');
 
@@ -253,14 +255,43 @@ export const App: React.FC = () => {
           />
 
           {/* Practice Modules Track (Protected for authenticated students) */}
+          {/* Topic Practice Hub (Zero Restrictions, 1 Open + 1 Hidden, Tip Box) */}
           <Route
             path="/practice"
+            element={
+              <ProtectedRoute>
+                <TopicPracticeHubPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Lab Internal Modules Track (4 Sequential Coursework Modules) */}
+          <Route
+            path="/lab-internal"
             element={
               <ProtectedRoute>
                 <PracticeModulesPage />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/lab-internal/:moduleSlug"
+            element={
+              <ProtectedRoute>
+                <PracticeModuleProblemsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lab-internal/:moduleSlug/:problemSlug"
+            element={
+              <ProtectedRoute>
+                <PracticeWorkspacePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Backward compatibility aliases */}
           <Route
             path="/practice/:moduleSlug"
             element={
