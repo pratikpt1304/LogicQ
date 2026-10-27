@@ -1,4 +1,4 @@
-import { User } from '../types/index.js';
+import { User, Role } from '../types/index.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
@@ -2015,6 +2015,43 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return { success: true, data: { users: activeUsers } };
   }
 
+  if (path === '/admin/users' && method === 'POST') {
+    const payload = body || {};
+    const cleanEmail = String(payload.email || '').toLowerCase().trim();
+    const cleanRole: Role = (String(payload.role || '').toUpperCase() === 'ADMIN') ? 'ADMIN' : 'FACULTY';
+    const cleanName = String(payload.fullName || payload.name || cleanEmail.split('@')[0]).trim();
+    const users = getStoredUsers();
+    const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    let targetUser: any;
+    if (existing) {
+      existing.role = cleanRole;
+      existing.fullName = cleanName;
+      existing.displayName = cleanName;
+      if (payload.department) existing.department = payload.department;
+      targetUser = existing;
+    } else {
+      targetUser = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        email: cleanEmail,
+        username: cleanEmail.split('@')[0],
+        fullName: cleanName,
+        displayName: cleanName,
+        role: cleanRole,
+        department: payload.department || (cleanRole === 'ADMIN' ? 'Administration' : 'Faculty'),
+        college: payload.college || 'Sanjivani University',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        createdAt: new Date().toISOString(),
+      };
+      users.unshift(targetUser);
+    }
+    saveStoredUsers(users);
+    return { success: true, message: `Successfully registered new ${cleanRole}: ${cleanName}`, user: targetUser };
+  }
+
   if (path.startsWith('/admin/users/') && path.endsWith('/ban') && method === 'PUT') {
     const id = path.replace('/admin/users/', '').replace('/ban', '');
     const users = getStoredUsers();
@@ -2030,7 +2067,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const id = path.replace('/admin/users/', '').replace('/role', '');
     const users = getStoredUsers();
     const idx = users.findIndex((u) => u.id === id);
-    if (idx !== -1 && (body.role === 'ADMIN' || body.role === 'STUDENT')) {
+    if (idx !== -1 && (body.role === 'ADMIN' || body.role === 'STUDENT' || body.role === 'FACULTY')) {
       users[idx].role = body.role;
       saveStoredUsers(users);
     }

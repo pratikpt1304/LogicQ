@@ -10,6 +10,7 @@ import {
   getAdminSubmissions,
   rejudgeSubmission,
   getAdminUsers,
+  createAdminUser,
   updateUserRole,
   updateUserBan,
   adminDeleteUser,
@@ -81,6 +82,7 @@ adminRouter.get('/checkers', getAdminCheckers);
 adminRouter.patch('/checkers/:id/pause', toggleCheckerPause);
 
 adminRouter.get('/users', getAdminUsers);
+adminRouter.post('/users', createAdminUser);
 adminRouter.post('/users/sync-firestore', syncFirestoreUsers);
 adminRouter.post('/users/:id/reveal-prn', adminRevealStudentPrn);
 adminRouter.post('/users/:id/reset-prn-cooldown', adminResetPrnCooldown);

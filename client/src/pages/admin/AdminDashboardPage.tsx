@@ -52,6 +52,7 @@ import {
   CheckCircle,
   Zap,
   Sparkles,
+  UserPlus,
   Clock,
   ShieldAlert,
   BookOpen,
@@ -156,6 +157,15 @@ export const AdminDashboardPage: React.FC = () => {
   const [filterDivision, setFilterDivision] = useState('');
   const [filterUploadStatus, setFilterUploadStatus] = useState('ALL');
   const [filterSuspicionFlag, setFilterSuspicionFlag] = useState('ALL');
+
+  // Add Faculty / Admin Modal State
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    fullName: '',
+    email: '',
+    role: 'FACULTY',
+    department: 'Integrated M.Tech',
+  });
 
   // Modal States
   const [isCreateProblemOpen, setIsCreateProblemOpen] = useState(false);
@@ -1684,6 +1694,48 @@ export const AdminDashboardPage: React.FC = () => {
     },
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (payload: typeof newUserForm) => {
+      const res = await api.post('/admin/users', payload);
+      try {
+        const candidateUser = res?.data?.user || res?.user;
+        const uid = candidateUser?.id || `usr_${Date.now()}`;
+        const cleanEmail = payload.email.toLowerCase().trim();
+        const cleanName = payload.fullName.trim();
+        await setDoc(doc(db, 'users', uid), {
+          email: cleanEmail,
+          fullName: cleanName,
+          displayName: cleanName,
+          role: payload.role,
+          department: payload.department,
+          college: 'Sanjivani University',
+          profileComplete: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+        await setDoc(doc(db, 'publicProfiles', uid), {
+          email: cleanEmail,
+          displayName: cleanName,
+          role: payload.role,
+          department: payload.department,
+        }, { merge: true }).catch(() => {});
+      } catch (e) {
+        console.warn('Firestore user doc sync notice:', e);
+      }
+      return res;
+    },
+    onSuccess: (data: any) => {
+      toast.success(data?.message || 'New member registered successfully!');
+      setIsAddUserModalOpen(false);
+      setNewUserForm({ fullName: '', email: '', role: 'FACULTY', department: 'Integrated M.Tech' });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      RealtimeSyncService.emit('USERS');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to register new member');
+    },
+  });
+
   const auditedPrnMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) =>
       api.put(`/admin/users/${id}/prn`, body),
@@ -2751,7 +2803,7 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="glass-card rounded-2xl border border-white/[0.08] p-4 space-y-3">
           {activeTab === 'users' ? (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-5">
+              <div className="md:col-span-4">
                 <label htmlFor="admin-search" className="block text-xs font-mono text-slate-400 mb-1">
                   Search PRN / Email / Name
                 </label>
@@ -2781,7 +2833,7 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="md:col-span-4">
+              <div className="md:col-span-3">
                 <label htmlFor="admin-filter-section" className="block text-xs font-mono text-slate-400 mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-bold text-cyan-400">
                     <GraduationCap className="w-3.5 h-3.5" />
@@ -2839,6 +2891,18 @@ export const AdminDashboardPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(true)}
+                  className="w-full px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5 transition"
+                  title="Pre-authorize and register a new Faculty instructor or Co-Administrator"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Add Member</span>
+                </button>
               </div>
             </div>
           ) : (
@@ -7944,6 +8008,149 @@ int main() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Faculty / Admin */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-6 space-y-5 bg-slate-900/95">
+            <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-mono">
+                    Register New Member
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Pre-authorize a new Faculty instructor or Co-Administrator
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddUserModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newUserForm.fullName.trim()) {
+                  toast.error('Please enter full name');
+                  return;
+                }
+                if (!newUserForm.email.trim() || !newUserForm.email.includes('@')) {
+                  toast.error('Please enter a valid email address');
+                  return;
+                }
+                createUserMutation.mutate(newUserForm);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1.5 font-bold">
+                  Full Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newUserForm.fullName}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+                  placeholder="e.g. Dr. Rajesh Sharma"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-950 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-slate-300 mb-1.5 font-bold">
+                  Email Address <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  placeholder="e.g. professor@sanjivani.edu.in"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-dark-950 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  They will use this email to receive their 6-digit login OTP at <span className="text-cyan-300">/login</span>.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1.5 font-bold">
+                    System Role <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={newUserForm.role}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-dark-950 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                  >
+                    <option value="FACULTY">FACULTY (Course Instructor)</option>
+                    <option value="ADMIN">ADMIN (Global Super Administrator)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-300 mb-1.5 font-bold">
+                    Department
+                  </label>
+                  <select
+                    value={newUserForm.department}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, department: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-dark-950 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 transition"
+                  >
+                    {ALLOWED_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                    <option value="Administration">Administration</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-[11px] text-cyan-200 leading-relaxed font-mono">
+                💡 <strong>How it works:</strong> Once created, this user is immediately authorized. They can open <strong>/login</strong>, enter their email, receive an OTP, and log in directly with their assigned role!
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  disabled={createUserMutation.isPending}
+                  className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createUserMutation.isPending}
+                  className="px-5 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-md shadow-cyan-500/20 transition flex items-center gap-1.5"
+                >
+                  {createUserMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Authorizing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Register & Authorize</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

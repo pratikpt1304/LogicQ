@@ -2182,6 +2182,60 @@ export async function updateUserRole(req: AuthRequest, res: Response): Promise<v
   }
 }
 
+export async function createAdminUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { email, fullName, role, department, college } = req.body;
+    if (!email || !fullName) {
+      res.status(400).json({ success: false, message: 'Email and Full Name are required.' });
+      return;
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanRole = ['FACULTY', 'ADMIN'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'FACULTY';
+    const cleanName = String(fullName).trim();
+    const username = cleanEmail.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6);
+
+    const existing = await prisma.user.findFirst({
+      where: { email: cleanEmail },
+    });
+
+    if (existing) {
+      const updated = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          role: cleanRole,
+          fullName: cleanName,
+          displayName: cleanName,
+          department: department || existing.department || (cleanRole === 'ADMIN' ? 'Administration' : 'Faculty'),
+          profileComplete: true,
+        },
+      });
+      res.json({ success: true, message: `Account already existed; upgraded to ${cleanRole}.`, user: updated });
+      return;
+    }
+
+    const placeholderHash = await bcrypt.hash('LogicQDefaultPass123!', 10);
+    const newUser = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        username,
+        fullName: cleanName,
+        displayName: cleanName,
+        role: cleanRole,
+        department: department || (cleanRole === 'ADMIN' ? 'Administration' : 'Faculty'),
+        college: college || 'Sanjivani University',
+        passwordHash: placeholderHash,
+        profileComplete: true,
+        accountState: 'ACTIVE',
+      },
+    });
+
+    res.json({ success: true, message: `Successfully registered new ${cleanRole}: ${cleanName}`, user: newUser });
+  } catch (err: any) {
+    console.error('createAdminUser error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to create user' });
+  }
+}
+
 export async function updateUserBan(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
