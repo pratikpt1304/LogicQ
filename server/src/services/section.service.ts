@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { prisma } from '../utils/prisma.js';
 import { OtpService } from './otp.service.js';
+import { normalizeDepartment, deriveDepartmentFromPrn } from '../config/academic.config.js';
 
 export interface CreateSectionInput {
   institution: string;

@@ -131,40 +131,64 @@ export const SectionManagementPage: React.FC = () => {
 
       const firestoreSections = await FirestoreDataService.getSectionsFromFirestore();
 
-      // Merge both backend & Firestore: Map by joinCode or id
+      // Merge both backend & Firestore: Map with alias-awareness (joinCode, id, joinToken)
       const sectionMap = new Map<string, SectionItem>();
 
-      // 1. Put backend sections
-      backendList.forEach((s: any) => {
-        if (!FirestoreDataService.isLegacyDemoSection(s)) {
-          const key = s.joinCode || s.id;
-          if (key) sectionMap.set(key, s);
+      const allSectionsRaw = [...backendList, ...firestoreSections];
+      allSectionsRaw.forEach((s: any) => {
+        if (!s || FirestoreDataService.isLegacyDemoSection(s) || FirestoreDataService.isSectionDeleted(s.id, s.joinCode)) {
+          return;
         }
-      });
 
-      // 2. Put / overlay Firestore sections
-      firestoreSections.forEach((fs: any) => {
-        if (!FirestoreDataService.isLegacyDemoSection(fs)) {
-          const key = fs.joinCode || fs.id;
-          if (key) {
-            const existing: any = sectionMap.get(key) || {};
-            const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
-              ? fs.students
-              : (Array.isArray(existing.students) && existing.students.length > 0 ? existing.students : []);
-            const studentCountVal = Math.max(
-              mergedStudents.length,
-              fs.studentsCount || 0,
-              fs._count?.students || 0,
-              existing._count?.students || 0
-            );
-            sectionMap.set(key, {
-              ...existing,
-              ...fs,
-              students: mergedStudents,
-              studentsCount: studentCountVal,
-              _count: { students: studentCountVal },
-            });
-          }
+        const cleanCode = s.joinCode ? String(s.joinCode).toUpperCase().trim() : null;
+        const cleanId = s.id ? String(s.id).trim() : null;
+        const cleanToken = s.joinToken ? String(s.joinToken).trim() : null;
+
+        let existingKey: string | null = null;
+        let existing: any = null;
+        for (const [k, sec] of sectionMap.entries()) {
+          const secCode = sec.joinCode ? String(sec.joinCode).toUpperCase().trim() : null;
+          const secId = sec.id ? String(sec.id).trim() : null;
+          const secToken = sec.joinToken ? String(sec.joinToken).trim() : null;
+          if (cleanCode && secCode && cleanCode === secCode) { existingKey = k; existing = sec; break; }
+          if (cleanId && secId && cleanId === secId) { existingKey = k; existing = sec; break; }
+          if (cleanToken && secToken && cleanToken === secToken) { existingKey = k; existing = sec; break; }
+        }
+
+        const primaryKey = cleanCode || cleanId || `sec_${Date.now()}`;
+        if (!existing) {
+          const studentsList = Array.isArray(s.students) ? [...s.students] : [];
+          sectionMap.set(primaryKey, {
+            ...s,
+            id: s.id || primaryKey,
+            joinCode: s.joinCode || (primaryKey.startsWith('LQ-') ? primaryKey : ''),
+            students: studentsList,
+            studentsCount: Math.max(studentsList.length, s.studentsCount || 0, s._count?.students || 0),
+            _count: { students: Math.max(studentsList.length, s.studentsCount || 0, s._count?.students || 0) },
+          });
+        } else {
+          const existingStudents = Array.isArray(existing.students) ? [...existing.students] : [];
+          const incomingStudents = Array.isArray(s.students) ? s.students : [];
+          incomingStudents.forEach((st: any) => {
+            const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+            const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+            if (!existingStudents.some((ex: any) =>
+              (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail) ||
+              (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn)
+            )) {
+              existingStudents.push(st);
+            }
+          });
+          const countVal = Math.max(existingStudents.length, existing.studentsCount || 0, s.studentsCount || 0, s._count?.students || 0);
+          sectionMap.set(existingKey || primaryKey, {
+            ...existing,
+            ...s,
+            id: existing.id || s.id,
+            joinCode: existing.joinCode || s.joinCode,
+            students: existingStudents,
+            studentsCount: countVal,
+            _count: { students: countVal },
+          });
         }
       });
 
@@ -572,8 +596,11 @@ export const SectionManagementPage: React.FC = () => {
       console.warn('Backend /sections/:id failed, falling back to Firestore/local:', err);
     }
 
-    const localSec = sections.find((s) => s.id === id || s.joinCode === id) || backendSec;
-    const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
+    const localSec = sections.find(
+      (s) => s.id === id || s.joinCode === id || (s.joinCode && String(s.joinCode).toUpperCase() === String(id).toUpperCase())
+    ) || backendSec;
+    const targetObj = localSec || backendSec;
+    const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id, targetObj);
 
     const mergedStudents = (Array.isArray(backendSec?.students) && backendSec.students.length > 0)
       ? [...backendSec.students]
@@ -601,7 +628,7 @@ export const SectionManagementPage: React.FC = () => {
     queryClient.setQueryData(['faculty-sections'], (old: any) => {
       if (!Array.isArray(old)) return old;
       return old.map((s: any) =>
-        s.id === id || s.joinCode === updated.joinCode
+        s.id === id || s.joinCode === updated.joinCode || (s.joinCode && updated.joinCode && String(s.joinCode).toUpperCase() === String(updated.joinCode).toUpperCase())
           ? { ...s, students: mergedStudents, _count: { students: updatedCount }, studentsCount: updatedCount }
           : s
       );

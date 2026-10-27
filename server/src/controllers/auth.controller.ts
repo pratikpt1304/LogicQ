@@ -18,6 +18,8 @@ import {
   PRN_ERROR_MESSAGE,
   isValidPrn,
   normalizePrn,
+  normalizeDepartment,
+  deriveDepartmentFromPrn,
   DIVISION_REGEX,
   DISPLAY_NAME_MIN,
   DISPLAY_NAME_MAX,

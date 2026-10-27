@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
-import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, formatNameFromEmail } from '../config/academic.config.js';
+import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
 
@@ -1330,7 +1330,7 @@ export class FirestoreDataService {
       const cleanPayload: Record<string, any> = {
         id: sectionId,
         institution: section.institution || 'Sanjivani University',
-        course: section.course || 'B.Tech CSE',
+        course: section.course || section.subject || 'Coursework',
         subject: section.subject || 'C Programming',
         sectionName: section.sectionName || section.name || 'Academic Section',
         isActive: section.isActive !== false,
@@ -1713,41 +1713,100 @@ export class FirestoreDataService {
    * Thoroughly searches all section identifiers (ID, joinCode, joinToken) across
    * enrolled_students, users, and persistent caches.
    */
-  public static async getEnrolledStudentsForSection(sectionId: string): Promise<any[]> {
+  /**
+   * Fetches enrolled students for a specific section from Firestore or local cache.
+   * Thoroughly searches all section identifiers (ID, joinCode, joinToken, sectionName, subject)
+   * across enrolled_students, users, sections, and persistent caches.
+   */
+  public static async getEnrolledStudentsForSection(sectionId: string, fallbackSec?: any): Promise<any[]> {
     const list: any[] = [];
     const seen = new Set<string>();
 
     const targetKey = String(sectionId || '').trim();
-    if (!targetKey) return [];
+    if (!targetKey && !fallbackSec) return [];
 
-    // Find section metadata to gather all possible identifiers (id, joinCode, joinToken, sectionName, subject)
+    const matchKeys = new Set<string>();
+    const addKey = (k?: string | null) => {
+      if (!k) return;
+      const s = String(k).trim();
+      if (!s) return;
+      matchKeys.add(s.toUpperCase());
+      matchKeys.add(s.toLowerCase());
+      matchKeys.add(s);
+    };
+
+    addKey(targetKey);
+
+    if (fallbackSec) {
+      addKey(fallbackSec.id);
+      addKey(fallbackSec.joinCode);
+      addKey(fallbackSec.joinToken);
+      addKey(fallbackSec.sectionName);
+      addKey(fallbackSec.subject);
+      if (Array.isArray(fallbackSec.students)) {
+        fallbackSec.students.forEach((s: any) => {
+          if (!s || FirestoreDataService.isPurgedStudent(s)) return;
+          const key = (s.prn || s.email || s.id || '').toUpperCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            list.push(s);
+          }
+        });
+      }
+    }
+
+    // Read local section backup to expand matchKeys
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const rawStored = localStorage.getItem(LOCAL_KEY);
+      if (rawStored) {
+        const stored = JSON.parse(rawStored);
+        if (Array.isArray(stored)) {
+          stored.forEach((s: any) => {
+            if (
+              (targetKey && (s.id === targetKey || s.joinCode === targetKey || String(s.joinCode).toUpperCase() === targetKey.toUpperCase())) ||
+              (s.id && matchKeys.has(s.id.toUpperCase())) ||
+              (s.joinCode && matchKeys.has(s.joinCode.toUpperCase()))
+            ) {
+              addKey(s.id);
+              addKey(s.joinCode);
+              addKey(s.joinToken);
+              addKey(s.sectionName);
+              addKey(s.subject);
+              if (Array.isArray(s.students)) {
+                s.students.forEach((st: any) => {
+                  if (!st || FirestoreDataService.isPurgedStudent(st)) return;
+                  const key = (st.prn || st.email || st.id || '').toUpperCase();
+                  if (key && !seen.has(key)) {
+                    seen.add(key);
+                    list.push(st);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+    } catch {}
+
+    // Find section metadata from Firestore sections to gather all possible identifiers
     const allSecs = await FirestoreDataService.getSectionsFromFirestore().catch(() => []);
     const matchedSec = allSecs.find(
       (s: any) =>
-        (s.id && String(s.id).toLowerCase() === targetKey.toLowerCase()) ||
-        (s.joinCode && String(s.joinCode).toLowerCase() === targetKey.toLowerCase()) ||
-        (s.joinToken && String(s.joinToken).toLowerCase() === targetKey.toLowerCase())
+        (s.id && (s.id === targetKey || matchKeys.has(String(s.id).toUpperCase()))) ||
+        (s.joinCode && (s.joinCode === targetKey || matchKeys.has(String(s.joinCode).toUpperCase()))) ||
+        (s.joinToken && (s.joinToken === targetKey || matchKeys.has(String(s.joinToken).toUpperCase())))
     );
 
-    const matchKeys = new Set<string>([
-      targetKey.toUpperCase(),
-      targetKey.toLowerCase(),
-    ]);
     if (matchedSec) {
-      if (matchedSec.id) {
-        matchKeys.add(String(matchedSec.id).toUpperCase());
-        matchKeys.add(String(matchedSec.id).toLowerCase());
-      }
-      if (matchedSec.joinCode) {
-        matchKeys.add(String(matchedSec.joinCode).toUpperCase());
-        matchKeys.add(String(matchedSec.joinCode).toLowerCase());
-      }
-      if (matchedSec.joinToken) {
-        matchKeys.add(String(matchedSec.joinToken).toUpperCase());
-        matchKeys.add(String(matchedSec.joinToken).toLowerCase());
-      }
+      addKey(matchedSec.id);
+      addKey(matchedSec.joinCode);
+      addKey(matchedSec.joinToken);
+      addKey(matchedSec.sectionName);
+      addKey(matchedSec.subject);
       if (Array.isArray(matchedSec.students)) {
         matchedSec.students.forEach((s: any) => {
+          if (!s || FirestoreDataService.isPurgedStudent(s)) return;
           const key = (s.prn || s.email || s.id || '').toUpperCase();
           if (key && !seen.has(key)) {
             seen.add(key);
@@ -1765,6 +1824,7 @@ export class FirestoreDataService {
           const cached = JSON.parse(raw);
           if (Array.isArray(cached)) {
             cached.forEach((s) => {
+              if (!s || FirestoreDataService.isPurgedStudent(s)) return;
               const key = (s.prn || s.email || s.id || '').toUpperCase();
               if (key && !seen.has(key)) {
                 seen.add(key);
@@ -1781,10 +1841,17 @@ export class FirestoreDataService {
       const snap = await getDocs(collection(db, 'enrolled_students'));
       snap.forEach((d) => {
         const data = d.data();
-        if (data) {
-          const secId = String(data.sectionId || '').trim();
-          const jCode = String(data.joinCode || '').trim();
-          if (matchKeys.has(secId) || matchKeys.has(secId.toUpperCase()) || matchKeys.has(jCode) || matchKeys.has(jCode.toUpperCase())) {
+        if (data && !FirestoreDataService.isPurgedStudent(data)) {
+          const secId = String(data.sectionId || '').trim().toUpperCase();
+          const jCode = String(data.joinCode || '').trim().toUpperCase();
+          const secName = String(data.sectionName || '').trim().toUpperCase();
+          const subj = String(data.subject || '').trim().toUpperCase();
+          if (
+            (secId && matchKeys.has(secId)) ||
+            (jCode && matchKeys.has(jCode)) ||
+            (secName && matchKeys.has(secName)) ||
+            (subj && matchKeys.has(subj))
+          ) {
             const key = (data.prn || data.email || d.id).toUpperCase();
             if (!seen.has(key)) {
               seen.add(key);
@@ -1803,24 +1870,34 @@ export class FirestoreDataService {
       uSnap.forEach((d) => {
         const u = d.data();
         if (u && !FirestoreDataService.isPurgedStudent(u)) {
-          const uSec = String(u.sectionId || '').trim();
-          const uCode = String(u.joinCode || '').trim();
-          const enrolledList = Array.isArray(u.enrolledSections) ? u.enrolledSections.map((x: any) => String(x).toUpperCase()) : [];
-          const matches = matchKeys.has(uSec) || matchKeys.has(uSec.toUpperCase()) || matchKeys.has(uCode) || matchKeys.has(uCode.toUpperCase()) || enrolledList.some((el: string) => matchKeys.has(el));
+          const uSec = String(u.sectionId || '').trim().toUpperCase();
+          const uCode = String(u.joinCode || '').trim().toUpperCase();
+          const uName = String(u.sectionName || '').trim().toUpperCase();
+          const enrolledList = Array.isArray(u.enrolledSections) ? u.enrolledSections.map((x: any) => String(x).toUpperCase().trim()) : [];
+          const matches =
+            (uSec && matchKeys.has(uSec)) ||
+            (uCode && matchKeys.has(uCode)) ||
+            (uName && matchKeys.has(uName)) ||
+            enrolledList.some((el: string) => matchKeys.has(el));
           if (matches) {
             const key = (u.prn || u.email || d.id).toUpperCase();
             if (!seen.has(key)) {
               seen.add(key);
               const shortId = u.prn ? String(u.prn).slice(-4) : '0000';
+              const candidateNames = [u.fullName, u.displayName, u.name];
+              const resolvedName = candidateNames.find((cand) => cand && typeof cand === 'string' && isRealPersonName(cand)) ||
+                (u.email ? formatNameFromEmail(u.email) : null) || `Student ${shortId}`;
               list.push({
                 id: d.id,
                 userId: d.id,
-                name: u.fullName || u.displayName || u.name || `Student ${shortId}`,
-                fullName: u.fullName || u.displayName || u.name || `Student ${shortId}`,
+                name: resolvedName,
+                fullName: resolvedName,
+                displayName: resolvedName,
                 email: (u.email || '').toLowerCase().trim(),
                 prn: u.prn ? String(u.prn).toUpperCase().trim() : null,
-                department: u.department || 'General',
+                department: (u.department && u.department !== 'CSE' ? u.department : null) || deriveDepartmentFromPrn(u.prn) || u.department || 'General',
                 year: u.year || 'FY',
+                division: u.division || null,
                 status: 'ENROLLED',
               });
             }
@@ -1837,6 +1914,21 @@ export class FirestoreDataService {
    */
   public static async saveEnrolledStudentsToFirestore(sectionId: string, students: any[]): Promise<void> {
     if (!students || students.length === 0) return;
+
+    // Discover section joinCode and name if available
+    let joinCodeResolved: string | null = sectionId.startsWith('LQ-') ? sectionId : null;
+    let sectionNameResolved: string | null = null;
+    try {
+      const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
+      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      if (Array.isArray(stored)) {
+        const found = stored.find((s: any) => s.id === sectionId || s.joinCode === sectionId);
+        if (found) {
+          joinCodeResolved = found.joinCode || joinCodeResolved;
+          sectionNameResolved = found.sectionName || found.subject || null;
+        }
+      }
+    } catch {}
 
     // 1. Resilient localStorage roster merging per section
     let mergedRoster: any[] = [];
@@ -1861,6 +1953,8 @@ export class FirestoreDataService {
             email: s.email ? String(s.email).trim().toLowerCase() : null,
             mobile: s.mobile ? String(s.mobile).trim() : null,
             sectionId,
+            joinCode: s.joinCode || joinCodeResolved,
+            sectionName: s.sectionName || sectionNameResolved,
             joinedVia: s.joinedVia || 'MANUAL_ENTRY',
             enrolledAt: new Date().toISOString(),
             status: 'ENROLLED',
@@ -1900,6 +1994,8 @@ export class FirestoreDataService {
           institution: s.college || s.institution || 'Sanjivani University',
           status: 'ENROLLED',
         };
+        if (s.joinCode || joinCodeResolved) cleanPayload.joinCode = s.joinCode || joinCodeResolved;
+        if (s.sectionName || sectionNameResolved) cleanPayload.sectionName = s.sectionName || sectionNameResolved;
         if (s.department) cleanPayload.department = String(s.department).trim();
         if (s.year) cleanPayload.year = String(s.year).trim();
         if (s.division) cleanPayload.division = String(s.division).trim();

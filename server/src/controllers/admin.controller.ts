@@ -1206,7 +1206,17 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     if (division && division !== 'ALL') where.division = division.toUpperCase();
     if (college && college !== 'ALL') where.college = college;
     if (sectionId && sectionId !== 'ALL') {
-      where.enrolledSections = { some: { sectionId } };
+      const cleanSec = sectionId.trim();
+      where.enrolledSections = {
+        some: {
+          OR: [
+            { sectionId: cleanSec },
+            { section: { id: cleanSec } },
+            { section: { joinCode: cleanSec } },
+            { section: { joinCode: cleanSec.toUpperCase() } },
+          ],
+        },
+      };
     }
 
     if (search) {

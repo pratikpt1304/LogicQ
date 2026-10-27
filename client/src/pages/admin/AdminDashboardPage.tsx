@@ -636,27 +636,68 @@ export const AdminDashboardPage: React.FC = () => {
         api.get('/sections').catch(() => null),
       ]);
       const sectionMap = new Map<string, any>();
-      (backendRes?.data?.sections || backendRes?.sections || []).forEach((s: any) => {
-        const key = s.id || s.joinCode;
-        if (key) sectionMap.set(key, s);
-      });
-      (fsSections || []).forEach((fs: any) => {
-        const key = fs.id || fs.joinCode;
-        if (key) {
-          const existing = sectionMap.get(key) || {};
-          const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
-            ? fs.students
-            : (existing.students || []);
-          const studentCountVal = Math.max(mergedStudents.length, fs.studentsCount || 0, fs._count?.students || 0, existing._count?.students || 0);
-          sectionMap.set(key, {
+      const allRaw = [
+        ...(backendRes?.data?.sections || backendRes?.sections || []),
+        ...(fsSections || []),
+      ];
+
+      allRaw.forEach((s: any) => {
+        if (!s || FirestoreDataService.isLegacyDemoSection(s) || FirestoreDataService.isSectionDeleted(s.id, s.joinCode)) {
+          return;
+        }
+
+        const cleanCode = s.joinCode ? String(s.joinCode).toUpperCase().trim() : null;
+        const cleanId = s.id ? String(s.id).trim() : null;
+        const cleanToken = s.joinToken ? String(s.joinToken).trim() : null;
+
+        let existingKey: string | null = null;
+        let existing: any = null;
+        for (const [k, sec] of sectionMap.entries()) {
+          const secCode = sec.joinCode ? String(sec.joinCode).toUpperCase().trim() : null;
+          const secId = sec.id ? String(sec.id).trim() : null;
+          const secToken = sec.joinToken ? String(sec.joinToken).trim() : null;
+          if (cleanCode && secCode && cleanCode === secCode) { existingKey = k; existing = sec; break; }
+          if (cleanId && secId && cleanId === secId) { existingKey = k; existing = sec; break; }
+          if (cleanToken && secToken && cleanToken === secToken) { existingKey = k; existing = sec; break; }
+        }
+
+        const primaryKey = cleanCode || cleanId || `sec_${Date.now()}`;
+        if (!existing) {
+          const studentsList = Array.isArray(s.students) ? [...s.students] : [];
+          sectionMap.set(primaryKey, {
+            ...s,
+            id: s.id || primaryKey,
+            joinCode: s.joinCode || (primaryKey.startsWith('LQ-') ? primaryKey : ''),
+            students: studentsList,
+            studentsCount: Math.max(studentsList.length, s.studentsCount || 0, s._count?.students || 0),
+            _count: { students: Math.max(studentsList.length, s.studentsCount || 0, s._count?.students || 0) },
+          });
+        } else {
+          const existingStudents = Array.isArray(existing.students) ? [...existing.students] : [];
+          const incomingStudents = Array.isArray(s.students) ? s.students : [];
+          incomingStudents.forEach((st: any) => {
+            const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+            const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+            if (!existingStudents.some((ex: any) =>
+              (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail) ||
+              (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn)
+            )) {
+              existingStudents.push(st);
+            }
+          });
+          const countVal = Math.max(existingStudents.length, existing.studentsCount || 0, s.studentsCount || 0, s._count?.students || 0);
+          sectionMap.set(existingKey || primaryKey, {
             ...existing,
-            ...fs,
-            students: mergedStudents,
-            studentsCount: studentCountVal,
-            _count: { students: studentCountVal },
+            ...s,
+            id: existing.id || s.id,
+            joinCode: existing.joinCode || s.joinCode,
+            students: existingStudents,
+            studentsCount: countVal,
+            _count: { students: countVal },
           });
         }
       });
+
       return Array.from(sectionMap.values()).filter(
         (s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s)
       );
@@ -1082,12 +1123,24 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
-        if (userSections.length === 0 && (bu.sectionId || fu?.sectionId || bu.sectionName || fu?.sectionName || bu.joinCode || fu?.joinCode)) {
-          const targetSecId = bu.sectionId || fu?.sectionId || bu.joinCode || fu?.joinCode;
+        const enrolledCandidateKeys = [
+          bu.sectionId,
+          fu?.sectionId,
+          bu.joinCode,
+          fu?.joinCode,
+          ...(Array.isArray(fu?.enrolledSections) ? fu.enrolledSections : []),
+          ...(Array.isArray(bu.enrolledSections) ? bu.enrolledSections.map((e: any) => e.sectionId || e.section?.joinCode || e.section?.id) : [])
+        ].filter(Boolean).map((k: any) => String(k).trim());
+
+        if (userSections.length === 0 && (enrolledCandidateKeys.length > 0 || bu.sectionName || fu?.sectionName)) {
           const targetSecName = bu.sectionName || fu?.sectionName;
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
-              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId || String(s.joinCode).toUpperCase() === String(targetSecId).toUpperCase())) ||
+              enrolledCandidateKeys.some((k: string) =>
+                (s.id && String(s.id).toLowerCase() === k.toLowerCase()) ||
+                (s.joinCode && String(s.joinCode).toLowerCase() === k.toLowerCase()) ||
+                (s.joinToken && String(s.joinToken).toLowerCase() === k.toLowerCase())
+              ) ||
               (targetSecName && (s.sectionName === targetSecName || s.name === targetSecName || s.subject === targetSecName))
           );
           if (matchedByIdOrName) {
@@ -1098,12 +1151,12 @@ export const AdminDashboardPage: React.FC = () => {
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
-          } else {
+          } else if (enrolledCandidateKeys[0] || targetSecName) {
             // Direct fallback so student NEVER loses their enrolled section badge
             userSections.push({
-              id: targetSecId || 'section-enrolled',
+              id: enrolledCandidateKeys[0] || 'section-enrolled',
               sectionName: targetSecName || 'Academic Section',
-              joinCode: targetSecId || '',
+              joinCode: enrolledCandidateKeys[0] || '',
             });
           }
         }
@@ -1225,11 +1278,20 @@ export const AdminDashboardPage: React.FC = () => {
             });
           }
         });
-        if (userSections.length === 0 && (fu.sectionId || fu.sectionName || fu.joinCode)) {
-          const targetSecId = fu.sectionId || fu.joinCode;
+        const fuCandidateKeys = [
+          fu.sectionId,
+          fu.joinCode,
+          ...(Array.isArray(fu.enrolledSections) ? fu.enrolledSections : [])
+        ].filter(Boolean).map((k: any) => String(k).trim());
+
+        if (userSections.length === 0 && (fuCandidateKeys.length > 0 || fu.sectionName)) {
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
-              (targetSecId && (s.id === targetSecId || s.joinCode === targetSecId || String(s.joinCode).toUpperCase() === String(targetSecId).toUpperCase())) ||
+              fuCandidateKeys.some((k: string) =>
+                (s.id && String(s.id).toLowerCase() === k.toLowerCase()) ||
+                (s.joinCode && String(s.joinCode).toLowerCase() === k.toLowerCase()) ||
+                (s.joinToken && String(s.joinToken).toLowerCase() === k.toLowerCase())
+              ) ||
               (fu.sectionName && (s.sectionName === fu.sectionName || s.name === fu.sectionName || s.subject === fu.sectionName))
           );
           if (matchedByIdOrName) {
@@ -1240,12 +1302,12 @@ export const AdminDashboardPage: React.FC = () => {
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
-          } else {
+          } else if (fuCandidateKeys[0] || fu.sectionName) {
             // Direct fallback so student NEVER loses their enrolled section badge
             userSections.push({
-              id: targetSecId || 'section-enrolled',
+              id: fuCandidateKeys[0] || 'section-enrolled',
               sectionName: fu.sectionName || 'Academic Section',
-              joinCode: targetSecId || '',
+              joinCode: fuCandidateKeys[0] || '',
             });
           }
         }
@@ -1379,10 +1441,36 @@ export const AdminDashboardPage: React.FC = () => {
       );
     }
     if (filterSectionId && filterSectionId !== 'ALL') {
+      const cleanFilter = String(filterSectionId).trim().toUpperCase();
+      const targetSec = sectionsList.find((s: any) =>
+        (s.id && String(s.id).trim().toUpperCase() === cleanFilter) ||
+        (s.joinCode && String(s.joinCode).trim().toUpperCase() === cleanFilter) ||
+        (s.joinToken && String(s.joinToken).trim().toUpperCase() === cleanFilter)
+      );
+      const targetStudents = Array.isArray(targetSec?.students) ? targetSec.students : [];
+      const targetEmails = new Set(targetStudents.map((st: any) => (st.email || st.student?.email || '').toLowerCase().trim()).filter(Boolean));
+      const targetPrns = new Set(targetStudents.map((st: any) => (st.prn || st.student?.prn || '').toUpperCase().trim()).filter(Boolean));
+      const targetSecKeys = new Set<string>([cleanFilter]);
+      if (targetSec?.id) targetSecKeys.add(String(targetSec.id).toUpperCase());
+      if (targetSec?.joinCode) targetSecKeys.add(String(targetSec.joinCode).toUpperCase());
+      if (targetSec?.joinToken) targetSecKeys.add(String(targetSec.joinToken).toUpperCase());
+
       merged = merged.filter((u: any) => {
-        if (u.sectionId === filterSectionId) return true;
-        if (Array.isArray(u.sections) && u.sections.some((s: any) => s.id === filterSectionId || s.joinCode === filterSectionId)) return true;
-        if (Array.isArray(u.enrolledSections) && u.enrolledSections.some((es: any) => es.sectionId === filterSectionId || es.section?.id === filterSectionId || es.section?.joinCode === filterSectionId)) return true;
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const uPrn = (u.prn || '').toUpperCase().trim();
+        if (uEmail && targetEmails.has(uEmail)) return true;
+        if (uPrn && targetPrns.has(uPrn)) return true;
+        if (u.sectionId && targetSecKeys.has(String(u.sectionId).toUpperCase())) return true;
+        if (u.joinCode && targetSecKeys.has(String(u.joinCode).toUpperCase())) return true;
+        if (Array.isArray(u.sections) && u.sections.some((s: any) =>
+          (s.id && targetSecKeys.has(String(s.id).toUpperCase())) ||
+          (s.joinCode && targetSecKeys.has(String(s.joinCode).toUpperCase()))
+        )) return true;
+        if (Array.isArray(u.enrolledSections) && u.enrolledSections.some((es: any) =>
+          (es.sectionId && targetSecKeys.has(String(es.sectionId).toUpperCase())) ||
+          (es.section?.id && targetSecKeys.has(String(es.section.id).toUpperCase())) ||
+          (es.section?.joinCode && targetSecKeys.has(String(es.section.joinCode).toUpperCase()))
+        )) return true;
         return false;
       });
     }
