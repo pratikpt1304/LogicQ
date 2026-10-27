@@ -314,6 +314,11 @@ export const AdminDashboardPage: React.FC = () => {
     return false; // Default: ACTIVE / ON!
   }, [dailySystemData]);
 
+  // Safety cleanup: remove stale local section tombstones so newly created faculty sections are never masked
+  React.useEffect(() => {
+    FirestoreDataService.clearStaleSectionTombstones();
+  }, []);
+
   // Sync daily timer state with Firestore
   React.useEffect(() => {
     FirestoreDataService.getDailyTimerPaused()
@@ -626,11 +631,13 @@ export const AdminDashboardPage: React.FC = () => {
           const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
             ? fs.students
             : (existing.students || []);
+          const studentCountVal = Math.max(mergedStudents.length, fs.studentsCount || 0, fs._count?.students || 0, existing._count?.students || 0);
           sectionMap.set(key, {
             ...existing,
             ...fs,
             students: mergedStudents,
-            _count: { students: Math.max(mergedStudents.length, fs._count?.students || 0, existing._count?.students || 0) },
+            studentsCount: studentCountVal,
+            _count: { students: studentCountVal },
           });
         }
       });
@@ -987,7 +994,10 @@ export const AdminDashboardPage: React.FC = () => {
       const role = ((bu.role || fu?.role || 'STUDENT') as string).toUpperCase();
 
       // Resolve assigned sections for faculty and enrolled sections for students
-      const userSections = Array.isArray(bu.sections) ? [...bu.sections] : [];
+      const userSections: any[] = Array.isArray(bu.sections) && bu.sections.length > 0
+        ? [...bu.sections]
+        : (Array.isArray(fu?.sections) && fu.sections.length > 0 ? [...fu.sections] : []);
+
       if (role === 'FACULTY') {
         const matchedFacultySections = sectionsList.filter(
           (sec: any) =>
@@ -1045,6 +1055,13 @@ export const AdminDashboardPage: React.FC = () => {
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
+          } else {
+            // Direct fallback so student NEVER loses their enrolled section badge
+            userSections.push({
+              id: targetSecId || 'section-enrolled',
+              sectionName: targetSecName || 'Academic Section',
+              joinCode: targetSecId || '',
+            });
           }
         }
       }
@@ -1054,6 +1071,8 @@ export const AdminDashboardPage: React.FC = () => {
         ...bu,
         role,
         sections: userSections,
+        sectionId: userSections[0]?.id || bu.sectionId || fu?.sectionId || null,
+        sectionName: userSections[0]?.sectionName || bu.sectionName || fu?.sectionName || null,
         fullName: resolvedName,
         displayName: resolvedName,
         username: bu.username,
@@ -1083,7 +1102,9 @@ export const AdminDashboardPage: React.FC = () => {
         : (fu.email ? fu.email.split('@')[0] : resolvedName.toLowerCase().replace(/\s+/g, '_'));
       const role = ((fu.role || 'STUDENT') as string).toUpperCase();
 
-      const userSections: any[] = [];
+      const userSections: any[] = Array.isArray(fu.sections) && fu.sections.length > 0
+        ? [...fu.sections]
+        : [];
       if (role === 'FACULTY') {
         const matchedFacultySections = sectionsList.filter(
           (sec: any) =>
@@ -1137,6 +1158,13 @@ export const AdminDashboardPage: React.FC = () => {
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
+          } else {
+            // Direct fallback so student NEVER loses their enrolled section badge
+            userSections.push({
+              id: fu.sectionId || 'section-enrolled',
+              sectionName: fu.sectionName || 'Academic Section',
+              joinCode: fu.sectionId || '',
+            });
           }
         }
       }
@@ -1145,6 +1173,8 @@ export const AdminDashboardPage: React.FC = () => {
         ...fu,
         role,
         sections: userSections,
+        sectionId: userSections[0]?.id || fu.sectionId || null,
+        sectionName: userSections[0]?.sectionName || fu.sectionName || null,
         fullName: resolvedName,
         displayName: resolvedName,
         cleanUsername,

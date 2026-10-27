@@ -862,9 +862,36 @@ export class FirestoreDataService {
         if (!raw) return;
         const email = (raw.email || '').toLowerCase().trim();
         const prn = raw.prn ? String(raw.prn).toUpperCase().trim() : null;
-        if ((email && seenEmails.has(email)) || (prn && seenPrns.has(prn))) {
+
+        // Enrich existing student if already in list from users collection
+        const existingStudent = list.find((u: any) => 
+          (email && u.email && u.email.toLowerCase().trim() === email) ||
+          (prn && u.prn && u.prn.toUpperCase().trim() === prn)
+        );
+
+        if (existingStudent) {
+          if (raw.sectionId && !existingStudent.sectionId) existingStudent.sectionId = raw.sectionId;
+          if ((raw.sectionName || raw.subject) && !existingStudent.sectionName) {
+            existingStudent.sectionName = raw.sectionName || raw.subject;
+          }
+          if (raw.department && (!existingStudent.department || existingStudent.department === 'General' || existingStudent.department === '—')) {
+            existingStudent.department = normalizeDepartment(raw.department) || raw.department;
+          }
+          if (raw.year && (!existingStudent.year || existingStudent.year === '—')) existingStudent.year = raw.year;
+          if (raw.division && !existingStudent.division) existingStudent.division = raw.division;
+          if (!existingStudent.sections) existingStudent.sections = [];
+          if (raw.sectionId && !existingStudent.sections.some((s: any) => s.id === raw.sectionId || s.joinCode === raw.sectionId)) {
+            existingStudent.sections.push({
+              id: raw.sectionId,
+              sectionName: raw.sectionName || raw.subject || 'Academic Section',
+              joinCode: raw.joinCode || raw.sectionId,
+              subject: raw.subject,
+              course: raw.course,
+            });
+          }
           return;
         }
+
         if (email) seenEmails.add(email);
         if (prn) seenPrns.add(prn);
 
@@ -886,6 +913,11 @@ export class FirestoreDataService {
           division: raw.division || null,
           sectionId: raw.sectionId || null,
           sectionName: raw.sectionName || null,
+          sections: raw.sectionId ? [{
+            id: raw.sectionId,
+            sectionName: raw.sectionName || 'Academic Section',
+            joinCode: raw.joinCode || raw.sectionId,
+          }] : [],
           profileComplete: true,
           totalPoints: Number(raw.totalPoints || 0),
           currentStreak: Number(raw.currentStreak || 0),
@@ -908,9 +940,30 @@ export class FirestoreDataService {
           if (!st || FirestoreDataService.isPurgedStudent(st)) continue;
           const email = (st.email || st.student?.email || '').toLowerCase().trim();
           const prn = (st.prn || st.student?.prn) ? String(st.prn || st.student?.prn).toUpperCase().trim() : null;
-          if ((email && seenEmails.has(email)) || (prn && seenPrns.has(prn))) {
+
+          const existingStudent = list.find((u: any) => 
+            (email && u.email && u.email.toLowerCase().trim() === email) ||
+            (prn && u.prn && u.prn.toUpperCase().trim() === prn)
+          );
+
+          if (existingStudent) {
+            if (sec.id && !existingStudent.sectionId) existingStudent.sectionId = sec.id;
+            if ((sec.sectionName || sec.subject) && !existingStudent.sectionName) {
+              existingStudent.sectionName = sec.sectionName || sec.subject;
+            }
+            if (!existingStudent.sections) existingStudent.sections = [];
+            if (!existingStudent.sections.some((s: any) => s.id === sec.id || s.joinCode === sec.joinCode)) {
+              existingStudent.sections.push({
+                id: sec.id,
+                sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+                joinCode: sec.joinCode || sec.id,
+                subject: sec.subject,
+                course: sec.course,
+              });
+            }
             continue;
           }
+
           if (email) seenEmails.add(email);
           if (prn) seenPrns.add(prn);
 
@@ -932,6 +985,13 @@ export class FirestoreDataService {
             division: st.division || sec.sectionName || null,
             sectionId: sec.id,
             sectionName: sec.sectionName || sec.name,
+            sections: [{
+              id: sec.id,
+              sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+              joinCode: sec.joinCode || sec.id,
+              subject: sec.subject,
+              course: sec.course,
+            }],
             profileComplete: true,
             totalPoints: Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
             currentStreak: Number(st.currentStreak ?? st.student?.currentStreak ?? 0),
@@ -985,7 +1045,18 @@ export class FirestoreDataService {
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
 
-  private static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
+  public static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
+
+  /**
+   * Clears any stale or poisoned section tombstone keys in localStorage so active sections are never hidden.
+   */
+  public static clearStaleSectionTombstones(): void {
+    try {
+      localStorage.removeItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      localStorage.removeItem('logicq_deleted_sections_tombstones');
+      localStorage.removeItem('logicq_purge_all_sections_flag_v4');
+    } catch {}
+  }
 
   /**
    * Identifies the legacy auto-seeded demo section (LQ-DC85) that must be permanently wiped.
@@ -1075,22 +1146,12 @@ export class FirestoreDataService {
 
   /**
    * Checks if a section has been deleted locally or marked as tombstoned.
+   * Only matches verified legacy demo sections (e.g. LQ-DC85) so real teacher sections are never hidden.
    */
   public static isSectionDeleted(sectionId?: string, joinCode?: string): boolean {
     if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
       return true;
     }
-    try {
-      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
-      if (!raw) return false;
-      const set = new Set<string>(JSON.parse(raw));
-      if (sectionId && (set.has(sectionId) || set.has(sectionId.toLowerCase()) || set.has(sectionId.toUpperCase()))) {
-        return true;
-      }
-      if (joinCode && (set.has(joinCode) || set.has(joinCode.toLowerCase()) || set.has(joinCode.toUpperCase()))) {
-        return true;
-      }
-    } catch {}
     return false;
   }
 
@@ -1408,15 +1469,6 @@ export class FirestoreDataService {
     // Purge deleted students in background
     FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
 
-    // One-time total purge requested by user
-    try {
-      if (localStorage.getItem('logicq_purge_all_sections_flag_v4') !== 'done') {
-        localStorage.setItem('logicq_purge_all_sections_flag_v4', 'done');
-        await FirestoreDataService.purgeAllSectionsFromFirestore();
-        return [];
-      }
-    } catch {}
-
     const sectionMap = new Map<string, any>();
 
     // 1. Read persistent local cache first
@@ -1477,7 +1529,6 @@ export class FirestoreDataService {
             item.joinCode === 'LQ-IMTC' ||
             item.id === '4a8812a1-41eb-4bfb-b50a-ca9f8702ed57'
           ) {
-            deleteDoc(d.ref).catch(() => {});
             continue;
           }
           const key = item.joinCode || item.id;
@@ -1724,7 +1775,7 @@ export class FirestoreDataService {
         await setDoc(
           secRef,
           {
-            _count: { students: mergedRoster.length },
+            studentsCount: mergedRoster.length,
             updatedAt: serverTimestamp(),
           },
           { merge: true }

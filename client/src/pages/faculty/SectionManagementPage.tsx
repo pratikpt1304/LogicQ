@@ -109,17 +109,9 @@ export const SectionManagementPage: React.FC = () => {
     description: '',
   });
 
-  // Permanently purge legacy demo section (LQ-DC85) on mount
+  // Clean up only the specific legacy demo section (LQ-DC85) on mount and clear stale local tombstones
   useEffect(() => {
-    if (localStorage.getItem('logicq_purge_all_sections_flag_v4') !== 'done') {
-      localStorage.setItem('logicq_purge_all_sections_flag_v4', 'done');
-      FirestoreDataService.purgeAllSectionsFromFirestore().then(() => {
-        queryClient.setQueryData(['faculty-sections'], []);
-        queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
-        queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
-        refetch();
-      });
-    }
+    FirestoreDataService.clearStaleSectionTombstones();
     FirestoreDataService.purgeLegacyDemoSection().catch(() => {});
     api.delete('/sections/LQ-DC85').catch(() => {});
   }, []);
