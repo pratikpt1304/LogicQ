@@ -348,8 +348,14 @@ export async function buildCurrentWeekStrip(userId?: string): Promise<CurrentWee
 
 function sanitizeProblemForStudent(problem: any) {
   const { solutionCode, sourceRefJson, sourceType, ...safeProblem } = problem;
+  let cleanDescription = problem.description || '';
+  cleanDescription = cleanDescription
+    .replace(/Yashavant\s+Kanetkar/gi, 'LogicQ Author')
+    .replace(/Kanetkar/gi, 'LogicQ Author')
+    .replace(/Test\s+Your\s+C\s+Skills/gi, 'LogicQ Problem Bank');
   return {
     ...safeProblem,
+    description: cleanDescription,
     tags: typeof problem.tags === 'string' ? JSON.parse(problem.tags) : (problem.tags || []),
   };
 }

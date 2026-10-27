@@ -426,7 +426,7 @@ static inline char* __lq_getenv(const char *name) {
    * Phase 1: Compile code once using GCC C11 standard.
    * Returns binary path and cleanup handle for subsequent multi-test executions.
    */
-  async compile(code: string, options?: { timeLimitMs?: number }): Promise<CompilationResult> {
+  async compile(code: string, options?: { timeLimitMs?: number; memoryLimitMb?: number }): Promise<CompilationResult> {
     const securityError = this.validateSourceSecurity(code);
     if (securityError) {
       const diagReport = mapCompilerOutput(securityError, code);
@@ -456,7 +456,7 @@ static inline char* __lq_getenv(const char *name) {
     }
 
     try {
-      fs.writeFileSync(preludeFile, this.buildSandboxPrelude(128), 'utf8');
+      fs.writeFileSync(preludeFile, this.buildSandboxPrelude(options?.memoryLimitMb ?? 128), 'utf8');
       fs.writeFileSync(sourceFile, code, 'utf8');
 
       const gcc = this.getGccExecutable();
@@ -903,7 +903,7 @@ static inline char* __lq_getenv(const char *name) {
     timeLimitMs: number = 1000,
     memoryLimitMb: number = 64
   ): Promise<ExecutionResult> {
-    const compilation = await this.compile(code, { timeLimitMs: 10000 });
+    const compilation = await this.compile(code, { timeLimitMs: 10000, memoryLimitMb });
     if (!compilation.success) {
       return {
         verdict: Verdict.COMPILE_ERROR,
