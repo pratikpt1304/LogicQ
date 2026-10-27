@@ -185,6 +185,17 @@ export const AdminDashboardPage: React.FC = () => {
   const PROBLEMS_PER_PAGE = 20;
   const [isSyncingProblems, setIsSyncingProblems] = useState(false);
 
+  // Section 16: AI Question Generator Modal for Admin
+  const [isAdminAiModalOpen, setIsAdminAiModalOpen] = useState(false);
+  const [adminAiForm, setAdminAiForm] = useState({
+    module: 'Module 1 - C Fundamentals',
+    section: 'Section 1',
+    topic: 'Nested Loops and Matrix Multiplication',
+    difficulty: 'MEDIUM' as 'EASY' | 'MEDIUM' | 'HARD',
+    bloomsLevel: 'APPLY' as 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE',
+    scenarioContext: 'Real-time sensor telemetry packet parsing',
+  });
+
   // Past Daily Challenge Archive Tracking
   const [archivedProblemIds, setArchivedProblemIds] = useState<Set<string>>(() => {
     try {
@@ -1642,6 +1653,25 @@ export const AdminDashboardPage: React.FC = () => {
       RealtimeSyncService.emit('PROBLEMS');
     },
     onError: (err: any) => toast.error(err.message || 'Failed to create problem'),
+  });
+
+  const generateAdminAiMutation = useMutation({
+    mutationFn: async (payload: typeof adminAiForm) => {
+      return await api.post('/questions/generate-ai', payload);
+    },
+    onSuccess: (res) => {
+      toast.success('✨ Question generated and verified in C sandbox!');
+      setIsAdminAiModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['admin-problems'] });
+      queryClient.invalidateQueries({ queryKey: ['question-bank'] });
+      RealtimeSyncService.emit('PROBLEMS');
+      if (res.data?.problem) {
+        setInspectingProblem(res.data.problem);
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || err.message || 'Failed to generate AI question');
+    },
   });
 
   const updateProblemMutation = useMutation({
@@ -3196,6 +3226,16 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingProblems ? 'animate-spin' : ''}`} />
                 <span>{isSyncingProblems ? 'Syncing...' : 'Sync Cloud'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAdminAiModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/25 transition-all whitespace-nowrap active:scale-95"
+                title="Generate algorithmic C questions using AI and verify in GCC sandbox (Section 16)"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>✨ Generate with AI</span>
               </button>
 
               <button
@@ -6754,6 +6794,150 @@ int main() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin AI Question Generator Modal (Section 16 & 17) */}
+      {isAdminAiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/30">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--foreground)] font-mono">
+                    AI Question Generator (Section 16)
+                  </h3>
+                  <p className="text-[11px] text-[var(--muted-foreground)] font-sans">
+                    Produces algorithm, starter code, 2 visible + 1 hidden test cases verified in GCC sandbox
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminAiModalOpen(false)}
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs font-sans">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                    TARGET MODULE
+                  </label>
+                  <select
+                    value={adminAiForm.module}
+                    onChange={(e) => setAdminAiForm({ ...adminAiForm, module: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs"
+                  >
+                    <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals</option>
+                    <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions</option>
+                    <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory</option>
+                    <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                    SECTION (1 TO 4)
+                  </label>
+                  <select
+                    value={adminAiForm.section}
+                    onChange={(e) => setAdminAiForm({ ...adminAiForm, section: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs"
+                  >
+                    <option value="Section 1">Section 1</option>
+                    <option value="Section 2">Section 2</option>
+                    <option value="Section 3">Section 3</option>
+                    <option value="Section 4">Section 4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                  TOPIC / PROBLEM CONCEPT
+                </label>
+                <input
+                  type="text"
+                  value={adminAiForm.topic}
+                  onChange={(e) => setAdminAiForm({ ...adminAiForm, topic: e.target.value })}
+                  placeholder="e.g. Dynamic Memory & Pointer Arithmetic"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                    DIFFICULTY
+                  </label>
+                  <select
+                    value={adminAiForm.difficulty}
+                    onChange={(e) => setAdminAiForm({ ...adminAiForm, difficulty: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs"
+                  >
+                    <option value="EASY">Easy (2–8 min)</option>
+                    <option value="MEDIUM">Medium (8–15 min)</option>
+                    <option value="HARD">Hard (15–25 min)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                    BLOOM'S TAXONOMY LEVEL
+                  </label>
+                  <select
+                    value={adminAiForm.bloomsLevel}
+                    onChange={(e) => setAdminAiForm({ ...adminAiForm, bloomsLevel: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs"
+                  >
+                    <option value="REMEMBER">Remember</option>
+                    <option value="UNDERSTAND">Understand</option>
+                    <option value="APPLY">Apply</option>
+                    <option value="ANALYZE">Analyze</option>
+                    <option value="EVALUATE">Evaluate</option>
+                    <option value="CREATE">Create</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[var(--foreground)] font-medium mb-1 font-mono text-[11px]">
+                  SCENARIO CONTEXT (REAL-WORLD SETTING)
+                </label>
+                <input
+                  type="text"
+                  value={adminAiForm.scenarioContext}
+                  onChange={(e) => setAdminAiForm({ ...adminAiForm, scenarioContext: e.target.value })}
+                  placeholder="e.g. Satellite Telemetry Packet Decoding"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border)]">
+              <button
+                type="button"
+                onClick={() => setIsAdminAiModalOpen(false)}
+                className="px-4 py-2 text-xs rounded-xl border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={generateAdminAiMutation.isPending}
+                onClick={() => generateAdminAiMutation.mutate(adminAiForm)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-600/25 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                {generateAdminAiMutation.isPending ? 'Generating & Compiling in GCC Sandbox...' : 'Generate & Validate'}
+              </button>
+            </div>
           </div>
         </div>
       )}
