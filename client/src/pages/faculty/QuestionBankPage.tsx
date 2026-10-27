@@ -269,8 +269,15 @@ export const QuestionBankPage: React.FC = () => {
                 </tr>
               ) : (
                 questions.map((q) => {
-                  const isPassed = q.validationStatus === 'VALIDATION_PASSED' || q.validationStatus === 'FACULTY_APPROVED';
-                  const isApproved = q.validationStatus === 'FACULTY_APPROVED';
+                  const isPassed =
+                    q.validationStatus === 'VALIDATION_PASSED' ||
+                    q.validationStatus === 'FACULTY_APPROVED' ||
+                    q.validationStatus === 'PUBLISHED' ||
+                    q.status === 'PUBLISHED';
+                  const isApproved =
+                    q.validationStatus === 'FACULTY_APPROVED' ||
+                    q.validationStatus === 'PUBLISHED' ||
+                    q.status === 'PUBLISHED';
 
                   return (
                     <tr key={q.id} className="hover:bg-[var(--accent)]/5 transition">
@@ -315,7 +322,7 @@ export const QuestionBankPage: React.FC = () => {
                           }`}
                         >
                           {isPassed ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                          {q.validationStatus}
+                          {q.validationStatus === 'PUBLISHED' ? 'PASSED & LIVE' : q.validationStatus}
                         </span>
                       </td>
 
@@ -323,7 +330,7 @@ export const QuestionBankPage: React.FC = () => {
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
                             isApproved
-                              ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                               : 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
                           }`}
                         >
@@ -351,7 +358,11 @@ export const QuestionBankPage: React.FC = () => {
                           Re-check
                         </button>
 
-                        {!isApproved && (
+                        {isApproved ? (
+                          <span className="px-2.5 py-1 text-xs text-emerald-400 font-medium inline-flex items-center gap-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                            <Check className="w-3.5 h-3.5" /> Approved
+                          </span>
+                        ) : (
                           <button
                             onClick={() => approveMutation.mutate(q.id)}
                             disabled={approveMutation.isPending || !isPassed}
