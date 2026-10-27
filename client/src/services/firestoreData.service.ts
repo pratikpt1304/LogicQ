@@ -822,6 +822,9 @@ export class FirestoreDataService {
    * Fetches all registered and enrolled student profiles directly from Firestore (Admin only)
    */
   public static async getAllFirestoreUsers(): Promise<User[]> {
+    // Purge deleted / demo accounts in background
+    FirestoreDataService.purgeDeletedStudentsFromFirestore().catch(() => {});
+
     const list: User[] = [];
     const seenEmails = new Set<string>();
     const seenPrns = new Set<string>();
@@ -1358,7 +1361,16 @@ export class FirestoreDataService {
     if (!student) return false;
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
     const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
+    const fullName = String(student.fullName || student.name || student.displayName || '').toLowerCase().trim();
+    const username = String(student.username || '').toLowerCase().trim();
     return (
+      email === 'student@logicq.io' ||
+      email.startsWith('student@logicq') ||
+      username === 'student_demo' ||
+      fullName.includes('demo student') ||
+      prn === '2026IMTM0001' ||
+      prn === '2024BCSE0001' ||
+      (prn.endsWith('0001') && email.includes('logicq')) ||
       email === 'rohan_1390@test.edu' ||
       email === 'join_1390@sanjivani.edu.in' ||
       email === 'ipverse1918@gmail.com' ||
@@ -1384,14 +1396,20 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
+        'student@logicq.io',
         'rohan_1390@test.edu',
         'join_1390@sanjivani.edu.in',
         'ipverse1918@gmail.com',
         'ipworker1908@gmail.com',
         'logicq1304@gmail.com',
       ];
-      const targetPrns = ['2026VAL1390', '2026JON1390'];
+      const targetPrns = ['2026IMTM0001', '2024BCSE0001', '2026VAL1390', '2026JON1390'];
       const directKeys = [
+        'student-walkthrough-1',
+        'student_demo',
+        'student_logicq_io',
+        '2026IMTM0001',
+        '2024BCSE0001',
         'rohan_1390_test_edu',
         'join_1390_sanjivani_edu_in',
         'ipverse1918_gmail_com',
@@ -1404,6 +1422,7 @@ export class FirestoreDataService {
       for (const k of directKeys) {
         await deleteDoc(doc(db, 'enrolled_students', k)).catch(() => {});
         await deleteDoc(doc(db, 'publicProfiles', k)).catch(() => {});
+        await deleteDoc(doc(db, 'users', k)).catch(() => {});
       }
       for (const prn of targetPrns) {
         await deleteDoc(doc(db, 'prnIndex', prn)).catch(() => {});

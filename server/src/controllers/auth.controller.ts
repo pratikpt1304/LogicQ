@@ -196,6 +196,7 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
+  'student@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -203,7 +204,7 @@ export const PURGED_EMAILS = [
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2026IMTM0001', '2024BCSE0001', '2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: string | { email?: string; prn?: string } | null): boolean {
   if (!identifier) return false;
@@ -215,7 +216,6 @@ export function isExplicitlyPurgedUser(identifier?: string | { email?: string; p
 
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
-  'student@logicq.io',
   'hariprasathset@sanjivani.edu.in',
   'logicqarena@gmail.com',
 ];
@@ -1055,32 +1055,6 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         profileComplete: true,
       },
     });
-  }
-  if (lower === 'student@logicq.io' || cleanId.toUpperCase() === '2024BCSE0001') {
-    const studentUser = await prisma.user.upsert({
-      where: { email: 'student@logicq.io' },
-      update: { role: 'STUDENT', prn: '2024BCSE0001', profileComplete: true },
-      create: {
-        username: 'student_demo',
-        email: 'student@logicq.io',
-        prn: '2024BCSE0001',
-        role: 'STUDENT',
-        fullName: 'Demo Student (Walkthrough)',
-        displayName: 'Demo Student',
-        passwordHash: await bcrypt.hash('StudentWalkthrough123!', 10),
-        college: 'Sanjivani University',
-        department: 'CSE',
-        year: 'FY',
-        division: 'A',
-        profileComplete: true,
-      },
-    });
-    await prisma.prnIndex.upsert({
-      where: { prn: '2024BCSE0001' },
-      create: { prn: '2024BCSE0001', userId: studentUser.id },
-      update: { userId: studentUser.id },
-    }).catch(() => {});
-    return studentUser;
   }
   if (lower === 'thoratpratik2323@gmail.com' || cleanId.toUpperCase() === '2126PMIM1039') {
     const studentUser = await prisma.user.upsert({

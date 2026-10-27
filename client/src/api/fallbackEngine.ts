@@ -199,6 +199,7 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
+  'student@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -206,19 +207,28 @@ export const PURGED_EMAILS = [
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2024BCSE0001', '2026IMTM0001', '2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: any): boolean {
   if (!identifier) return false;
   const email = (typeof identifier === 'string' ? identifier : identifier.email || '').toLowerCase().trim();
   const prn = (typeof identifier === 'string' ? identifier : identifier.prn || '').toUpperCase().trim();
-  if (PURGED_EMAILS.includes(email) || PURGED_PRNS.includes(prn)) return true;
+  const fullName = (typeof identifier === 'object' ? (identifier.fullName || identifier.name || identifier.displayName || '') : '').toLowerCase().trim();
+  const username = (typeof identifier === 'object' ? (identifier.username || '') : '').toLowerCase().trim();
+  if (
+    PURGED_EMAILS.includes(email) ||
+    PURGED_PRNS.includes(prn) ||
+    email === 'student@logicq.io' ||
+    username === 'student_demo' ||
+    fullName.includes('demo student') ||
+    prn === '2024BCSE0001' ||
+    prn === '2026IMTM0001'
+  ) return true;
   return false;
 }
 
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
-  'student@logicq.io',
   'hariprasathset@sanjivani.edu.in',
   'logicqarena@gmail.com',
 ];
@@ -251,7 +261,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         }
         return true;
       });
-      const sanitized = filtered.map((u) => {
+      let sanitized = filtered.map((u) => {
         let updated = false;
         let college = u.college;
         if (!college || college === 'Sanjivani College of Engineering') {
@@ -341,28 +351,10 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'student@logicq.io')) {
-        sanitized.push({
-          id: 'student-walkthrough-1',
-          username: 'student_demo',
-          email: 'student@logicq.io',
-          prn: '2024BCSE0001',
-          fullName: 'Demo Student (Walkthrough)',
-          displayName: 'Demo Student',
-          role: 'STUDENT',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          year: 'FY',
-          division: 'A',
-          profileComplete: true,
-          totalPoints: 120,
-          currentStreak: 3,
-          longestStreak: 5,
-          password: 'password123',
-          isBanned: false,
-          shortId: '0001',
-          createdAt: new Date().toISOString(),
-        } as any);
+      // Active purge: permanently ensure demo student (student@logicq.io) is wiped from stored users
+      const beforeCount = sanitized.length;
+      sanitized = sanitized.filter((u) => !isExplicitlyPurgedUser(u) && u.email.toLowerCase() !== 'student@logicq.io');
+      if (sanitized.length !== beforeCount) {
         migrated = true;
       }
       if (!sanitized.some((u) => u.email.toLowerCase() === 'thoratpratik2323@gmail.com')) {
@@ -450,27 +442,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: 'FAC1',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'student-walkthrough-1',
-      username: 'student_demo',
-      email: 'student@logicq.io',
-      prn: '2024BCSE0001',
-      fullName: 'Demo Student (Walkthrough)',
-      displayName: 'Demo Student',
-      role: 'STUDENT',
-      college: 'Sanjivani University',
-      department: 'CSE',
-      year: 'FY',
-      division: 'A',
-      profileComplete: true,
-      totalPoints: 120,
-      currentStreak: 3,
-      longestStreak: 5,
-      password: 'password123',
-      isBanned: false,
-      shortId: '0001',
       createdAt: new Date().toISOString(),
     },
     {

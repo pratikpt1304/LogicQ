@@ -1472,7 +1472,13 @@ export const AdminDashboardPage: React.FC = () => {
     };
 
     const all = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
-      (u: any) => !FirestoreDataService.isPurgedStudent(u)
+      (u: any) =>
+        !FirestoreDataService.isPurgedStudent(u) &&
+        String(u.email || '').toLowerCase().trim() !== 'student@logicq.io' &&
+        String(u.prn || '').toUpperCase().trim() !== '2026IMTM0001' &&
+        String(u.prn || '').toUpperCase().trim() !== '2024BCSE0001' &&
+        String(u.username || '').toLowerCase().trim() !== 'student_demo' &&
+        !String(u.fullName || '').toLowerCase().includes('demo student')
     );
 
     const activeList = all.filter((u: any) => !isDeletedAccount(u));
