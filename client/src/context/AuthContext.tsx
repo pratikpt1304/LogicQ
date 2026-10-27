@@ -12,7 +12,7 @@ import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js'
 import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
-import { isRealPersonName, normalizeDepartment } from '../config/academic.config.js';
+import { isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn } from '../config/academic.config.js';
 
 function pickBestRealName(...candidates: (string | null | undefined)[]): string | null {
   for (const c of candidates) {
@@ -212,7 +212,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
       const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
       const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
-      const retainedDepartment = normalizeDepartment(finalUser.department) || normalizeDepartment(active?.department) || finalUser.department || active?.department || null;
+      const prnDerivedDept = deriveDepartmentFromPrn(finalUser.prn || active?.prn);
+      const retainedDepartment =
+        (finalUser.department && finalUser.department !== 'CSE' ? normalizeDepartment(finalUser.department) || finalUser.department : null) ||
+        (active?.department && active.department !== 'CSE' ? normalizeDepartment(active.department) || active.department : null) ||
+        prnDerivedDept ||
+        normalizeDepartment(finalUser.department) ||
+        normalizeDepartment(active?.department) ||
+        finalUser.department ||
+        active?.department ||
+        null;
       const retainedYear = finalUser.year || active?.year || null;
       const retainedDivision = finalUser.division || active?.division || null;
       const retainedBio = (finalUser.bio && finalUser.bio.trim() !== '') ? finalUser.bio : (active?.bio && active.bio.trim() !== '') ? active.bio : (finalUser.bio ?? null);
@@ -468,7 +477,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...serverUser,
             prn: existingCompleted.prn || serverUser.prn,
             college: existingCompleted.college || serverUser.college,
-            department: serverUser.department || existingCompleted.department,
+            department:
+              (existingCompleted.department && existingCompleted.department !== 'CSE' ? existingCompleted.department : null) ||
+              (serverUser.department && serverUser.department !== 'CSE' ? serverUser.department : null) ||
+              deriveDepartmentFromPrn(existingCompleted.prn || serverUser.prn) ||
+              existingCompleted.department ||
+              serverUser.department ||
+              null,
             year: serverUser.year || existingCompleted.year,
             division: serverUser.division || existingCompleted.division,
             bio: (serverUser.bio && serverUser.bio.trim() !== '') ? serverUser.bio : (existingCompleted.bio && existingCompleted.bio.trim() !== '') ? existingCompleted.bio : (serverUser.bio ?? null),
@@ -931,7 +946,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...authenticatedUser,
             prn: firestoreProfile.prn || authenticatedUser.prn,
             college: firestoreProfile.college || authenticatedUser.college,
-            department: authenticatedUser.department || firestoreProfile.department,
+            department:
+              (firestoreProfile.department && firestoreProfile.department !== 'CSE' ? firestoreProfile.department : null) ||
+              (authenticatedUser.department && authenticatedUser.department !== 'CSE' ? authenticatedUser.department : null) ||
+              deriveDepartmentFromPrn(firestoreProfile.prn || authenticatedUser.prn) ||
+              firestoreProfile.department ||
+              authenticatedUser.department ||
+              null,
             year: authenticatedUser.year || firestoreProfile.year,
             division: authenticatedUser.division || firestoreProfile.division,
             bio: (authenticatedUser.bio && authenticatedUser.bio.trim() !== '') ? authenticatedUser.bio : (firestoreProfile.bio && firestoreProfile.bio.trim() !== '') ? firestoreProfile.bio : (authenticatedUser.bio ?? null),

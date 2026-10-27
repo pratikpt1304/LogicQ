@@ -23,6 +23,7 @@ import {
   formatPublicDisplayName,
   generateShortId,
   isRealPersonName,
+  deriveDepartmentFromPrn,
 } from '../config/academic.config.js';
 import { toast } from 'sonner';
 import { VerdictBadge } from '../components/common/Badge.js';
@@ -414,10 +415,15 @@ export const ProfilePage: React.FC = () => {
               currentUser?.fullName,
             ].find(isRealPersonName) || null;
 
+          const prnForDept = fsUser?.prn || currentUser?.prn || serverUser?.prn;
+          const prnDept = deriveDepartmentFromPrn(prnForDept);
           const rawDept =
-            serverUser?.department ||
-            currentUser?.department ||
+            (fsUser?.department && fsUser.department !== 'CSE' ? fsUser.department : null) ||
+            (currentUser?.department && currentUser.department !== 'CSE' ? currentUser.department : null) ||
+            prnDept ||
             fsUser?.department ||
+            currentUser?.department ||
+            serverUser?.department ||
             null;
           const resolvedDepartment = normalizeDepartment(rawDept) || rawDept;
 
@@ -583,13 +589,20 @@ export const ProfilePage: React.FC = () => {
         (localStorage.getItem('logicq_storage_preference') as any) ||
         'FIRESTORE_FALLBACK';
 
-      const rawCurrentDept = profile?.department || currentUser?.department;
+      const prnForDept = profile?.prn || currentUser?.prn;
+      const prnDerived = deriveDepartmentFromPrn(prnForDept);
+      const rawCurrentDept = (profile?.department && profile.department !== 'CSE' ? profile.department : null) ||
+        (currentUser?.department && currentUser.department !== 'CSE' ? currentUser.department : null) ||
+        prnDerived ||
+        profile?.department ||
+        currentUser?.department;
       const normalizedCurrentDept = normalizeDepartment(rawCurrentDept);
       const validDept =
         normalizedCurrentDept ||
+        prnDerived ||
         (rawCurrentDept && ALLOWED_DEPARTMENTS.includes(rawCurrentDept as any)
           ? rawCurrentDept
-          : ALLOWED_DEPARTMENTS[0]);
+          : (prnDerived || ALLOWED_DEPARTMENTS[1]));
 
       setEditForm({
         displayName:
@@ -704,11 +717,13 @@ export const ProfilePage: React.FC = () => {
     }
 
     // Department preservation: Use normalized edit form department or preserve existing
+    const prnForDept = profile?.prn || currentUser?.prn;
+    const prnDerived = deriveDepartmentFromPrn(prnForDept);
     const rawExistingDept = profile?.department || currentUser?.department;
-    const existingDept = normalizeDepartment(rawExistingDept) || rawExistingDept || ALLOWED_DEPARTMENTS[0];
+    const existingDept = normalizeDepartment(rawExistingDept) || prnDerived || rawExistingDept || null;
     const finalDept = editForm.department
       ? (normalizeDepartment(editForm.department) || editForm.department)
-      : existingDept;
+      : (existingDept || prnDerived || 'IT');
 
     // Division is completely removed from the app - always set to null
     const effectiveBio = editForm.bio.trim() || null;

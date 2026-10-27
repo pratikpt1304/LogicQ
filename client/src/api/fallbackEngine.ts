@@ -951,7 +951,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
-      if (!found.department && body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
       if (!found.year && body.firestoreProfile.year) found.year = body.firestoreProfile.year;
       if (!found.division && body.firestoreProfile.division) found.division = body.firestoreProfile.division;
       if (body.firestoreProfile.bio && !found.bio) found.bio = body.firestoreProfile.bio;
@@ -1006,7 +1006,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
-      if (!found.department && body.firestoreProfile.department) found.department = body.firestoreProfile.department;
+      if (body.firestoreProfile.department) found.department = body.firestoreProfile.department;
       if (!found.year && body.firestoreProfile.year) found.year = body.firestoreProfile.year;
       if (!found.division && body.firestoreProfile.division) found.division = body.firestoreProfile.division;
       if (body.firestoreProfile.bio && !found.bio) found.bio = body.firestoreProfile.bio;

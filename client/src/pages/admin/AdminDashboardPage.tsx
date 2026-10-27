@@ -10,6 +10,7 @@ import {
   normalizeDepartment,
   formatNameFromEmail,
   isRealPersonName,
+  deriveDepartmentFromPrn,
 } from '../../config/academic.config.js';
 import { PRACTICE_CONFIG } from '../../config/practice.config.js';
 import { PrnFormatGuide } from '../../components/common/PrnFormatGuide.js';
@@ -1119,7 +1120,13 @@ export const AdminDashboardPage: React.FC = () => {
         displayName: resolvedName,
         username: bu.username,
         cleanUsername,
-        department: fu?.department || bu.department || (role === 'FACULTY' ? 'Faculty' : '—'),
+        department:
+          (fu?.department && fu.department !== 'CSE' ? fu.department : null) ||
+          (bu.department && bu.department !== 'CSE' ? bu.department : null) ||
+          deriveDepartmentFromPrn(fu?.prn || bu.prn) ||
+          fu?.department ||
+          bu.department ||
+          (role === 'FACULTY' ? 'Faculty' : '—'),
         year: fu?.year || bu.year || '—',
         division: fu?.division || bu.division || null,
         college: fu?.college || bu.college || 'Sanjivani University',
@@ -1253,6 +1260,11 @@ export const AdminDashboardPage: React.FC = () => {
         fullName: resolvedName,
         displayName: resolvedName,
         cleanUsername,
+        department:
+          (fu.department && fu.department !== 'CSE' ? fu.department : null) ||
+          deriveDepartmentFromPrn(fu.prn) ||
+          fu.department ||
+          '—',
       };
     });
 

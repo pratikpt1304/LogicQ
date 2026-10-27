@@ -123,6 +123,23 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
   return null;
 }
 
+export function deriveDepartmentFromPrn(prn?: string | null): AllowedDepartment | null {
+  if (!prn || typeof prn !== 'string') return null;
+  const upper = prn.toUpperCase().trim();
+  // Check program / branch codes in PRN (e.g., 2126PMIF1057 -> IF -> IT)
+  if (upper.includes('IF') || upper.includes('IT')) return 'IT';
+  if (upper.includes('AIML') || upper.includes('AIM')) return 'AIML';
+  if (upper.includes('AIDS') || upper.includes('AID')) return 'AIDS';
+  if (upper.includes('IMTC') || upper.includes('MTECH')) return 'Integrated M.Tech';
+  if (upper.includes('IBTC') || upper.includes('BTECH')) return 'Integrated B.Tech';
+  if (upper.includes('MECH') || upper.includes('ME')) return 'Mechanical';
+  if (upper.includes('CIVIL') || upper.includes('CE')) return 'Civil';
+  if (upper.includes('ELECT') || upper.includes('EE')) return 'Electrical';
+  if (upper.includes('ETC') || upper.includes('ENTC')) return 'E&TC';
+  if (upper.includes('CSE') || upper.includes('CS') || upper.includes('CO')) return 'CSE';
+  return null;
+}
+
 export const ALLOWED_YEARS = ['FY', 'SY', 'TY'] as const;
 export type AllowedYear = (typeof ALLOWED_YEARS)[number];
 
