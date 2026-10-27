@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.js';
 import { Navbar } from './components/layout/Navbar.js';
 import { Footer } from './components/layout/Footer.js';
+import { MobileBottomNav } from './components/layout/MobileBottomNav.js';
 import { PwaManager } from './components/common/PwaManager.js';
 import { Logo } from './components/common/Logo.js';
 
@@ -424,6 +425,7 @@ export const App: React.FC = () => {
       </main>
 
       {!isWorkspaceRoute && <Footer />}
+      <MobileBottomNav />
     </div>
   );
 };

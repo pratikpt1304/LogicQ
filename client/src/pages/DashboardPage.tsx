@@ -464,7 +464,7 @@ export const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-8">
       {/* EXECUTIVE ADMIN & FACULTY HOME DASHBOARD */}
       {!isStudent ? (
         <div className="space-y-8 animate-in fade-in duration-200">
@@ -533,7 +533,7 @@ export const DashboardPage: React.FC = () => {
           {/* 4 Quick Metric KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Students */}
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
                 <span>ENROLLED STUDENTS</span>
                 <Users className="w-4 h-4 text-indigo-400" />
@@ -547,7 +547,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Active Sections */}
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
                 <span>ACTIVE DIVISIONS</span>
                 <GraduationCap className="w-4 h-4 text-purple-400" />
@@ -561,7 +561,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Scheduled Tests */}
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
                 <span>ASSESSMENT TESTS</span>
                 <Calendar className="w-4 h-4 text-cyan-400" />
@@ -575,7 +575,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Compiler Sandbox Health */}
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)] font-mono">
                 <span>GCC 14 SANDBOX</span>
                 <Zap className="w-4 h-4 text-emerald-400" />
@@ -866,7 +866,7 @@ export const DashboardPage: React.FC = () => {
         /* ========================================================================= */
         <div className="space-y-8 animate-in fade-in duration-200">
           {/* 1. Welcome & Enrolled Section Header */}
-          <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm">
+          <div className="glass-card p-4 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -890,17 +890,17 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Action buttons on header */}
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto sm:flex sm:items-center sm:gap-3">
                 <Link
                   to="/student/tests"
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold font-mono bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2"
+                  className="justify-center px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold font-mono bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>My Tests & Labs</span>
                 </Link>
                 <Link
                   to="/practice"
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold font-mono border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 text-[var(--text-main)] transition-all flex items-center gap-2"
+                  className="justify-center px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold font-mono border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/40 text-[var(--text-main)] transition-all flex items-center gap-2"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Practice Arena</span>
@@ -910,8 +910,8 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* 2. Four Live Student KPI Metric Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
                 <span>PROBLEMS SOLVED</span>
                 <Target className="w-4 h-4 text-emerald-400" />
@@ -924,7 +924,7 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
                 <span>DAILY STREAK</span>
                 <Flame className="w-4 h-4 text-amber-400" />
@@ -938,7 +938,7 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
                 <span>TOTAL XP / POINTS</span>
                 <Trophy className="w-4 h-4 text-yellow-400" />
@@ -952,7 +952,7 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
+            <div className="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-1">
               <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
                 <span>GCC 14 SANDBOX</span>
                 <ShieldCheck className="w-4 h-4 text-cyan-400" />
@@ -968,7 +968,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* 3. ASSIGNED LAB TESTS & ASSESSMENTS (Top Priority for Students) */}
-          <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-5">
+          <div className="glass-card p-4 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4 sm:space-y-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--border-line)] pb-4">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">

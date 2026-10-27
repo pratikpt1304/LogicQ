@@ -183,7 +183,7 @@ export const LeaderboardPage: React.FC = () => {
           </div>
 
           {/* Scope Filters */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
             {currentUser?.department && (
               <button
                 type="button"
@@ -200,6 +200,7 @@ export const LeaderboardPage: React.FC = () => {
               </button>
             )}
 
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center w-full sm:w-auto">
             <div className="flex items-center gap-1.5 bg-[var(--bg-surface)] px-2.5 py-1.5 rounded-xl border border-[var(--border-line)]">
               <GraduationCap className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
               <select
@@ -233,12 +234,13 @@ export const LeaderboardPage: React.FC = () => {
                 ))}
               </select>
             </div>
+            </div>
           </div>
         </div>
 
         {/* View Mode Tabs + Instant Search */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-6 pt-5 border-t border-[var(--border-line)]/80">
-          <div className="flex items-center gap-2 text-xs font-mono">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center text-xs font-mono w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setActiveTab('overall')}
@@ -483,7 +485,56 @@ export const LeaderboardPage: React.FC = () => {
 
           {/* Full Standings Table */}
           <div className="glass-card rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
+            {/* Mobile Card List (< sm) */}
+            <div className="sm:hidden divide-y divide-[var(--border-line)]/70">
+              {filteredUsers.map((u: any) => {
+                const isMe = Boolean(u.isCurrentUser || (currentUser && u.id === currentUser.id));
+                return (
+                  <div
+                    key={u.id}
+                    className={`p-3.5 transition-colors flex items-center justify-between gap-3 ${
+                      isMe ? 'bg-indigo-500/10' : 'hover:bg-[var(--bg-surface)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="shrink-0">{renderRankBadge(u.rank)}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            to={`/profile/${u.shortId || u.id}`}
+                            className="font-bold text-xs text-[var(--text-main)] hover:text-indigo-400 transition-colors truncate max-w-[150px]"
+                          >
+                            {getDisplayName(u)}
+                          </Link>
+                          {isMe && (
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-mono font-bold">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] font-mono text-[var(--text-muted)] truncate mt-0.5">
+                          {getSubtitle(u)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 font-mono">
+                      <div className="text-xs font-extrabold text-indigo-400">
+                        {formatPoints(u.totalPoints ?? u.score ?? 0)}
+                      </div>
+                      <div className="text-[10px] text-[var(--text-muted)] flex items-center justify-end gap-1 mt-0.5">
+                        <Flame className="w-3 h-3 text-emerald-400" />
+                        <span>{u.currentStreak || 0}d</span>
+                        <span>•</span>
+                        <span>{resolveSolvedCount(u)} solved</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-[var(--bg-surface)]/70 text-[var(--text-muted)] uppercase text-[11px] tracking-wider border-b border-[var(--border-line)] font-semibold">
                   <tr>

@@ -137,9 +137,9 @@ export const PracticeModulesPage: React.FC = () => {
   const overallPercent = Math.round((totalSolved / totalProblems) * 100);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
       {/* Clean Practice Header with Overall Progress */}
-      <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm space-y-5">
+      <div className="glass-card p-4 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm space-y-4 sm:space-y-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-1 font-bold">
@@ -196,7 +196,7 @@ export const PracticeModulesPage: React.FC = () => {
           </div>
 
           {/* Module Step Indicators */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
             {displayModules.map((m) => (
               <span
                 key={m.id}
@@ -218,7 +218,7 @@ export const PracticeModulesPage: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-6">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}

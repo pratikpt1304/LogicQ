@@ -363,13 +363,13 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Mobile Actions (minimum 44x44px tap targets) */}
-        <div className="flex md:hidden items-center gap-1.5">
+        <div className="flex md:hidden items-center gap-2">
           <button
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
             title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)]"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] active:scale-95 transition-transform"
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 text-[var(--color-warning)]" />
@@ -379,14 +379,17 @@ export const Navbar: React.FC = () => {
           </button>
 
           {user ? (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono">
+            <div
+              title="Daily challenge streak"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
+            >
               <Flame className="w-3.5 h-3.5 text-[var(--color-warning)]" />
               <span>{user.currentStreak}d</span>
             </div>
           ) : (
             <Link
               to="/login"
-              className="inline-flex items-center justify-center min-h-[40px] px-3 py-1 rounded-lg text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] border border-[var(--border-line)]"
+              className="inline-flex items-center justify-center min-h-[36px] px-3.5 py-1 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
             >
               Sign In
             </Link>
@@ -397,9 +400,9 @@ export const Navbar: React.FC = () => {
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-[var(--text-main)] hover:bg-[var(--bg-surface)]"
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-[var(--text-main)] hover:bg-[var(--bg-surface)] active:scale-95 transition-transform"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
