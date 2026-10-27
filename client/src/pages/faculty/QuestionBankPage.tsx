@@ -51,6 +51,33 @@ interface QuestionItem {
   testCases?: TestCase[];
 }
 
+export const MODULE_TOPIC_SUGGESTIONS: Record<string, string[]> = {
+  'Module 1 - C Fundamentals': [
+    'Nested Loops & Pattern Output',
+    'Bitwise Operators & Masking',
+    'Switch-Case Menu Calculator',
+    'Prime & Palindrome Checker',
+  ],
+  'Module 2 - Pointers & Functions': [
+    'Pointer Arithmetic & Swapping',
+    'Array Reversal via Pointers',
+    'Recursive Factorial & Fibonacci',
+    'String Copy without string.h',
+  ],
+  'Module 3 - Structures & Memory': [
+    'Dynamic Memory Allocation (malloc/free)',
+    'Array of Structures (Student Roster)',
+    'Dynamic Array Resizing (realloc)',
+    'Nested Structs & Memory Layout',
+  ],
+  'Module 4 - Algorithms & Complexity': [
+    'Matrix Spiral & Transpose',
+    'String Tokenization & Anagrams',
+    'Binary Search on Sorted Array',
+    'Frequency Count of Elements',
+  ],
+};
+
 export const QuestionBankPage: React.FC = () => {
   const queryClient = useQueryClient();
 
@@ -65,15 +92,12 @@ export const QuestionBankPage: React.FC = () => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [inspectQuestion, setInspectQuestion] = useState<QuestionItem | null>(null);
 
-  // AI Gen Form State
+  // Simplified AI Gen Form State
   const [aiForm, setAiForm] = useState({
     module: 'Module 1 - C Fundamentals',
-    section: 'Section 1',
-    topic: 'Nested Loops and 2D Grid Traversal',
+    topic: 'Nested Loops & Pattern Output',
     difficulty: 'MEDIUM' as 'EASY' | 'MEDIUM' | 'HARD',
-    bloomsLevel: 'APPLY' as 'REMEMBER' | 'UNDERSTAND' | 'APPLY' | 'ANALYZE' | 'EVALUATE' | 'CREATE',
-    scenarioContext: 'Industrial robotics coordinate translation',
-    learningOutcome: 'Apply nested iterations to compute path metrics',
+    style: 'SCENARIO' as 'SCENARIO' | 'ALGORITHM',
   });
 
   // Query question bank
@@ -94,13 +118,32 @@ export const QuestionBankPage: React.FC = () => {
 
   const questions: QuestionItem[] = Array.isArray(data) ? data : [];
 
-  // AI Generation Mutation
+  // AI Generation Mutation with Auto-Derived Pedagogical Parameters
   const generateAiMutation = useMutation({
     mutationFn: async (payload: typeof aiForm) => {
-      return await api.post('/questions/generate-ai', payload);
+      const autoBlooms =
+        payload.difficulty === 'EASY'
+          ? 'UNDERSTAND'
+          : payload.difficulty === 'MEDIUM'
+          ? 'APPLY'
+          : 'ANALYZE';
+
+      const scenarioContext =
+        payload.style === 'SCENARIO'
+          ? `Real-world practical engineering scenario applying ${payload.topic}`
+          : `Direct pure algorithmic computation and edge-case testing for ${payload.topic}`;
+
+      return await api.post('/questions/generate-ai', {
+        module: payload.module,
+        section: 'Section 1',
+        topic: payload.topic,
+        difficulty: payload.difficulty,
+        bloomsLevel: autoBlooms,
+        scenarioContext,
+      });
     },
     onSuccess: (res) => {
-      toast.success('Question generated and compiled against C sandbox!');
+      toast.success('✨ Question generated and verified in GCC sandbox!');
       setIsAiModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['question-bank'] });
       if (res.data?.problem) {
@@ -108,7 +151,7 @@ export const QuestionBankPage: React.FC = () => {
       }
     },
     onError: (err: any) => {
-      toast.error(err.message || 'AI Generation failed.');
+      toast.error(err.response?.data?.message || err.message || 'AI Generation failed.');
     },
   });
 
@@ -383,113 +426,174 @@ export const QuestionBankPage: React.FC = () => {
         </div>
       </div>
 
-      {/* AI GENERATION MODAL (Section 16) */}
+      {/* AI GENERATION MODAL (Section 16 - Streamlined) */}
       {isAiModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-[var(--foreground)]">AI Question Generator</h3>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--foreground)]">
+                    AI Question Generator
+                  </h3>
+                  <p className="text-[11px] text-[var(--muted-foreground)]">
+                    Creates algorithm + starter code + compiler-verified test cases
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsAiModalOpen(false)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-[var(--accent)]/10 text-sm transition"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Target Module</label>
-                  <select
-                    value={aiForm.module}
-                    onChange={(e) => setAiForm({ ...aiForm, module: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  >
-                    <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals</option>
-                    <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions</option>
-                    <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory</option>
-                    <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Section (1 to 4)</label>
-                  <select
-                    value={aiForm.section}
-                    onChange={(e) => setAiForm({ ...aiForm, section: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  >
-                    <option value="Section 1">Section 1</option>
-                    <option value="Section 2">Section 2</option>
-                    <option value="Section 3">Section 3</option>
-                    <option value="Section 4">Section 4</option>
-                  </select>
-                </div>
+              {/* 1. Target Module */}
+              <div>
+                <label className="block text-[var(--foreground)] font-semibold mb-1">
+                  1. Target Curriculum Module
+                </label>
+                <select
+                  value={aiForm.module}
+                  onChange={(e) => {
+                    const newMod = e.target.value;
+                    const defaultTopic = MODULE_TOPIC_SUGGESTIONS[newMod]?.[0] || 'Core C Programming';
+                    setAiForm({ ...aiForm, module: newMod, topic: defaultTopic });
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-medium text-xs focus:ring-2 focus:ring-indigo-500/30"
+                >
+                  <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals & Control Flow</option>
+                  <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions</option>
+                  <option value="Module 3 - Structures & Memory">Module 3 - Structures & Dynamic Memory</option>
+                  <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms, Arrays & Complexity</option>
+                </select>
               </div>
 
+              {/* 2. Topic with Quick Suggestions */}
               <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">Topic</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[var(--foreground)] font-semibold">
+                    2. Topic / Concept
+                  </label>
+                  <span className="text-[10px] text-indigo-400 font-mono">Quick Pick below</span>
+                </div>
                 <input
                   type="text"
                   value={aiForm.topic}
                   onChange={(e) => setAiForm({ ...aiForm, topic: e.target.value })}
-                  placeholder="e.g. Dynamic Memory & Pointer Arithmetic"
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                  placeholder="e.g. Dynamic Memory Allocation"
+                  className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-medium text-xs focus:ring-2 focus:ring-indigo-500/30"
                 />
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Difficulty</label>
-                  <select
-                    value={aiForm.difficulty}
-                    onChange={(e) => setAiForm({ ...aiForm, difficulty: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  >
-                    <option value="EASY">Easy (2–8 min)</option>
-                    <option value="MEDIUM">Medium (8–15 min)</option>
-                    <option value="HARD">Hard (15–25 min)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Bloom's Level</label>
-                  <select
-                    value={aiForm.bloomsLevel}
-                    onChange={(e) => setAiForm({ ...aiForm, bloomsLevel: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  >
-                    <option value="REMEMBER">Remember</option>
-                    <option value="UNDERSTAND">Understand</option>
-                    <option value="APPLY">Apply</option>
-                    <option value="ANALYZE">Analyze</option>
-                    <option value="EVALUATE">Evaluate</option>
-                    <option value="CREATE">Create</option>
-                  </select>
+                {/* Quick Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(MODULE_TOPIC_SUGGESTIONS[aiForm.module] || []).map((sugg) => (
+                    <button
+                      key={sugg}
+                      type="button"
+                      onClick={() => setAiForm({ ...aiForm, topic: sugg })}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition border ${
+                        aiForm.topic === sugg
+                          ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 font-bold shadow-sm'
+                          : 'bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-[var(--border)] hover:bg-[var(--accent)]/10'
+                      }`}
+                    >
+                      + {sugg}
+                    </button>
+                  ))}
                 </div>
               </div>
 
+              {/* 3. Difficulty (Clickable Segmented Cards) */}
               <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
-                  Scenario Context (Real-World Setting)
+                <label className="block text-[var(--foreground)] font-semibold mb-1.5">
+                  3. Difficulty Level
                 </label>
-                <input
-                  type="text"
-                  value={aiForm.scenarioContext}
-                  onChange={(e) => setAiForm({ ...aiForm, scenarioContext: e.target.value })}
-                  placeholder="e.g. Satellite Telemetry Packet Decoding"
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'EASY', label: 'Easy', time: '2–8 min', color: 'emerald' },
+                    { key: 'MEDIUM', label: 'Medium', time: '8–15 min', color: 'amber' },
+                    { key: 'HARD', label: 'Hard', time: '15–25 min', color: 'rose' },
+                  ].map((d) => {
+                    const active = aiForm.difficulty === d.key;
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => setAiForm({ ...aiForm, difficulty: d.key as any })}
+                        className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center ${
+                          active
+                            ? d.color === 'emerald'
+                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 font-bold'
+                              : d.color === 'amber'
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-400 font-bold'
+                              : 'bg-rose-500/15 border-rose-500/40 text-rose-400 font-bold'
+                            : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                        }`}
+                      >
+                        <span className="text-xs">{d.label}</span>
+                        <span className="text-[10px] opacity-70 mt-0.5">{d.time}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Question Style (Scenario vs Direct Algorithm) */}
+              <div>
+                <label className="block text-[var(--foreground)] font-semibold mb-1.5">
+                  4. Question Style
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiForm({ ...aiForm, style: 'SCENARIO' })}
+                    className={`p-2.5 rounded-xl border text-left transition ${
+                      aiForm.style === 'SCENARIO'
+                        ? 'bg-indigo-600/15 border-indigo-500/40 text-indigo-300 font-semibold'
+                        : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    <div className="text-xs font-bold flex items-center gap-1.5">
+                      <span>🏢 Real-World Story</span>
+                    </div>
+                    <div className="text-[10px] opacity-70 mt-0.5">
+                      Anti-cheating, industry scenario
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAiForm({ ...aiForm, style: 'ALGORITHM' })}
+                    className={`p-2.5 rounded-xl border text-left transition ${
+                      aiForm.style === 'ALGORITHM'
+                        ? 'bg-indigo-600/15 border-indigo-500/40 text-indigo-300 font-semibold'
+                        : 'border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    <div className="text-xs font-bold flex items-center gap-1.5">
+                      <span>⚡ Pure Algorithm</span>
+                    </div>
+                    <div className="text-[10px] opacity-70 mt-0.5">
+                      Direct mathematical / logic problem
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[var(--border)]">
               <button
                 type="button"
                 onClick={() => setIsAiModalOpen(false)}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)]"
+                className="px-4 py-2 text-xs font-medium rounded-xl border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition"
               >
                 Cancel
               </button>
@@ -497,10 +601,10 @@ export const QuestionBankPage: React.FC = () => {
                 type="button"
                 disabled={generateAiMutation.isPending}
                 onClick={() => generateAiMutation.mutate(aiForm)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/25 disabled:opacity-50 flex items-center gap-2 transition active:scale-95"
               >
-                <Sparkles className="w-4 h-4" />
-                {generateAiMutation.isPending ? 'Generating & Compiling in C Sandbox...' : 'Generate & Validate'}
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                {generateAiMutation.isPending ? 'Compiling in GCC Sandbox...' : 'Generate & Validate (GCC)'}
               </button>
             </div>
           </div>
