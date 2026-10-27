@@ -127,6 +127,16 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 6000,
   });
 
+  // 1b. Fetch Student Sections from Firestore (so student always sees their real enrolled section name)
+  const { data: studentFirestoreSections = [] } = useQuery({
+    queryKey: ['student-firestore-sections', user?.id, (user as any)?.sectionId, (user as any)?.joinCode],
+    enabled: Boolean(user && isStudent),
+    queryFn: async () => {
+      return await FirestoreDataService.getSectionsFromFirestore().catch(() => []);
+    },
+    refetchInterval: 8000,
+  });
+
   // 2. Fetch Faculty / Admin Tests
   const { data: facultyTests = [] } = useQuery({
     queryKey: ['faculty-dashboard-tests'],
@@ -319,8 +329,44 @@ export const DashboardPage: React.FC = () => {
   const studentAssignedList: any[] = Array.isArray(studentTests) ? studentTests : [];
   const studentModulesList: any[] = Array.isArray(studentPracticeModules) ? studentPracticeModules : [];
   const studentSubmissionsList: any[] = Array.isArray(studentSubmissions) ? studentSubmissions : [];
-  const detectedSection = studentAssignedList[0]?.test?.section || (user as any)?.enrolledSection || null;
-  const sectionDisplayName = detectedSection?.sectionName || (user as any)?.sectionName || 'Division A (C Programming)';
+  const availableSectionsForStudent: any[] = isStudent
+    ? (Array.isArray(studentFirestoreSections) && studentFirestoreSections.length > 0 ? studentFirestoreSections : sectionsList)
+    : sectionsList;
+
+  const matchedStudentSection = availableSectionsForStudent.find((s: any) => {
+    if (!s) return false;
+    const sId = String(s.id || '').toUpperCase();
+    const sCode = String(s.joinCode || '').toUpperCase();
+    const uSecId = String((user as any)?.sectionId || '').toUpperCase();
+    const uCode = String((user as any)?.joinCode || '').toUpperCase();
+    if (uSecId && (sId === uSecId || sCode === uSecId)) return true;
+    if (uCode && (sId === uCode || sCode === uCode)) return true;
+    if (Array.isArray((user as any)?.enrolledSections) && (user as any).enrolledSections.some((es: any) => {
+      const esClean = String(es || '').toUpperCase();
+      return esClean === sId || esClean === sCode;
+    })) return true;
+    const uEmail = (user?.email || '').toLowerCase().trim();
+    const uPrn = ((user as any)?.prn || '').toUpperCase().trim();
+    if (Array.isArray(s.students) && s.students.some((st: any) => {
+      const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+      const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+      return (uEmail && stEmail === uEmail) || (uPrn && stPrn === uPrn);
+    })) return true;
+    return false;
+  });
+
+  const detectedSection = studentAssignedList[0]?.test?.section || matchedStudentSection || (user as any)?.enrolledSection || null;
+  const rawSecName = matchedStudentSection?.sectionName || matchedStudentSection?.subject || detectedSection?.sectionName || detectedSection?.subject || (user as any)?.sectionName || (user as any)?.section || null;
+
+  const isLegacyDemoName = (n?: string | null) => {
+    if (!n) return true;
+    const clean = String(n).trim().toLowerCase();
+    return clean === 'division a (c programming)' || clean === 'div a - computer science' || clean === 'division a';
+  };
+
+  const sectionDisplayName = (!isLegacyDemoName(rawSecName) && rawSecName)
+    ? rawSecName
+    : (matchedStudentSection?.subject || detectedSection?.subject || 'C Programming');
 
   const totalEnrolledAcrossSections = sectionsList.reduce((acc: number, s: any) => {
     return acc + (s?._count?.students ?? s?.students?.length ?? 0);

@@ -232,6 +232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (localStorage.getItem('logicq_storage_preference') as any) ||
         'FIRESTORE_FALLBACK';
 
+      const retainedSectionId = finalUser.sectionId || (finalUser as any)?.enrolledSection?.id || (active as any)?.sectionId || (active as any)?.enrolledSection?.id || null;
+      const retainedSectionName = finalUser.sectionName || (finalUser as any)?.enrolledSection?.sectionName || (active as any)?.sectionName || (active as any)?.enrolledSection?.sectionName || null;
+      const retainedJoinCode = (finalUser as any)?.joinCode || (finalUser as any)?.enrolledSection?.joinCode || (active as any)?.joinCode || (active as any)?.enrolledSection?.joinCode || null;
+      const retainedEnrolledSections = (Array.isArray((finalUser as any).enrolledSections) && (finalUser as any).enrolledSections.length > 0)
+        ? (finalUser as any).enrolledSections
+        : (Array.isArray((active as any)?.enrolledSections) ? (active as any).enrolledSections : []);
+      const retainedSections = (Array.isArray((finalUser as any).sections) && (finalUser as any).sections.length > 0)
+        ? (finalUser as any).sections
+        : (Array.isArray((active as any)?.sections) ? (active as any).sections : []);
+
       finalUser = {
         ...finalUser,
         department: retainedDepartment,
@@ -243,6 +253,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         longestStreak: retainedLongestStreak,
         totalSolved: retainedSolved,
         storagePreference: retainedStorage,
+        sectionId: retainedSectionId,
+        sectionName: retainedSectionName,
+        joinCode: retainedJoinCode,
+        enrolledSections: retainedEnrolledSections,
+        sections: retainedSections,
       };
 
       try {
@@ -493,6 +508,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             totalPoints: authoritativePoints,
             currentStreak: authoritativeCurrentStreak,
             longestStreak: authoritativeLongestStreak,
+            sectionId: existingCompleted.sectionId || serverUser.sectionId || null,
+            sectionName: existingCompleted.sectionName || serverUser.sectionName || null,
+            joinCode: existingCompleted.joinCode || serverUser.joinCode || null,
+            enrolledSections: existingCompleted.enrolledSections || serverUser.enrolledSections || [],
+            sections: existingCompleted.sections || serverUser.sections || [],
           };
         } else {
           serverUser = {

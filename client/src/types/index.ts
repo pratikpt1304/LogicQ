@@ -44,6 +44,8 @@ export interface User {
   storagePreference?: 'GOOGLE_DRIVE' | 'FIRESTORE_FALLBACK' | 'LOCAL_STORAGE' | null;
   sectionId?: string | null;
   sectionName?: string | null;
+  joinCode?: string | null;
+  enrolledSections?: string[];
   sections?: Array<{ id: string; sectionName: string; joinCode?: string; subject?: string; course?: string }>;
   createdAt?: string;
 }
