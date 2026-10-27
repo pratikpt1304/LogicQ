@@ -190,10 +190,12 @@ export const App: React.FC = () => {
           <span>STAGING ENVIRONMENT — TEST DATA ONLY (ISOLATED FROM PRODUCTION)</span>
         </div>
       )}
-      <Navbar />
+      <div className={isWorkspaceRoute ? 'hidden md:block' : 'block'}>
+        <Navbar />
+      </div>
       <PwaManager />
 
-      <main className="flex-1 w-full overflow-x-hidden">
+      <main className={`flex-1 w-full overflow-x-hidden ${isWorkspaceRoute ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         <Routes>
           {/* Root: if loading show splash, if authenticated go to dashboard, else landing */}
           <Route
@@ -425,7 +427,7 @@ export const App: React.FC = () => {
       </main>
 
       {!isWorkspaceRoute && <Footer />}
-      <MobileBottomNav />
+      {!isWorkspaceRoute && <MobileBottomNav />}
     </div>
   );
 };

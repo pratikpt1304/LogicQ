@@ -956,7 +956,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatarUrl: cred.user.photoURL || null,
           role: 'STUDENT',
           college: enrolledRecord.college || 'Sanjivani University',
-          department: normalizeDepartment(enrolledRecord.department) || 'CSE',
+          department: normalizeDepartment(enrolledRecord.department) || enrolledRecord.department || 'General',
           year: enrolledRecord.year || 'FY',
           division: enrolledRecord.division || null,
           prn: enrolledRecord.prn || null,

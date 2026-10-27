@@ -6,10 +6,14 @@ export type AllowedCollege = (typeof ALLOWED_COLLEGES)[number];
 
 export const ALLOWED_DEPARTMENTS = [
   'CSE',
+  'IT',
   'AIML',
   'AIDS',
   'Integrated M.Tech',
   'Mechanical',
+  'Civil',
+  'Electrical',
+  'E&TC',
   'Integrated B.Tech',
 ] as const;
 export type AllowedDepartment = (typeof ALLOWED_DEPARTMENTS)[number];
@@ -27,15 +31,25 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
 
   const upper = trimmed.toUpperCase();
 
-  // Computer Science & Engineering variations
+  // Information Technology (must come before general checks)
+  if (
+    upper.includes('INFORMATION TECH') ||
+    upper.includes('INFO TECH') ||
+    upper === 'IT' ||
+    upper === 'IF' ||
+    upper.startsWith('IT ') ||
+    upper.endsWith(' IT')
+  ) {
+    return 'IT';
+  }
+
+  // Computer Science & Engineering variations (NEVER include IT here)
   if (
     upper.includes('COMPUTER') ||
     upper.includes('COMP') ||
     upper === 'CS' ||
     upper === 'CSE' ||
-    upper.includes('SOFTWARE') ||
-    upper.includes('INFORMATION TECH') ||
-    upper === 'IT'
+    upper.includes('SOFTWARE')
   ) {
     return 'CSE';
   }
@@ -83,6 +97,27 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
   // Mechanical
   if (upper.includes('MECH')) {
     return 'Mechanical';
+  }
+
+  // Civil
+  if (upper.includes('CIVIL')) {
+    return 'Civil';
+  }
+
+  // Electrical
+  if (upper.includes('ELECTRICAL') || upper === 'EE') {
+    return 'Electrical';
+  }
+
+  // Electronics & Telecommunication (E&TC)
+  if (
+    upper.includes('ELECTRONIC') ||
+    upper.includes('TELECOM') ||
+    upper === 'ENTC' ||
+    upper === 'E&TC' ||
+    upper === 'ETC'
+  ) {
+    return 'E&TC';
   }
 
   return null;

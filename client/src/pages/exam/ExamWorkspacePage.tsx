@@ -44,6 +44,7 @@ export const ExamWorkspacePage: React.FC = () => {
   // Test Results
   const [testResults, setTestResults] = useState<any[]>([]);
   const [activeBottomTab, setActiveBottomTab] = useState<'tests' | 'telemetry'>('tests');
+  const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor'>('statement');
 
   // Behavioral Integrity Tracking (Sections 20 - 28)
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -347,7 +348,7 @@ export const ExamWorkspacePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col">
+    <div className="h-[100dvh] md:h-[calc(100dvh-4rem)] max-h-[100dvh] md:max-h-[calc(100dvh-4rem)] bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col overflow-hidden">
       {/* Top Proctoring & Institutional Header Bar */}
       <header className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2.5 flex items-center justify-between text-xs font-mono">
         <div className="flex items-center gap-3">
@@ -419,10 +420,38 @@ export const ExamWorkspacePage: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile Segmented Switcher (Statement | Editor & Results) */}
+      <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('statement')}
+          className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            activeMobileTab === 'statement'
+              ? 'bg-[var(--bg-panel)] text-cyan-400 font-bold border border-[var(--border-line)] shadow-sm'
+              : 'text-[var(--text-muted)]'
+          }`}
+        >
+          <span>Statement</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('editor')}
+          className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+            activeMobileTab === 'editor'
+              ? 'bg-[var(--bg-panel)] text-cyan-400 font-bold border border-[var(--border-line)] shadow-sm'
+              : 'text-[var(--text-muted)]'
+          }`}
+        >
+          <span>Editor &amp; Results</span>
+        </button>
+      </div>
+
       {/* Main Two-Pane Split Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Pane: Question Statement & Visible Test Cases (Section 6) */}
-        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6">
+        <div className={`w-full lg:w-1/2 p-4 sm:p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6 ${
+          activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:block'
+        }`}>
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] mb-2">
               <span>{problemData?.module}</span>
@@ -487,27 +516,37 @@ export const ExamWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right Pane: Code Editor & Execution Panel */}
-        <div className="w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 border-[var(--border-line)] bg-[var(--bg-base)]">
+        <div className={`w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 border-[var(--border-line)] bg-[var(--bg-base)] ${
+          activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
+        }`}>
           {/* Editor Header Bar */}
-          <div className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2 flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--text-muted)] font-semibold">C11 Editor (GCC Sandbox)</span>
-            <div className="flex items-center gap-2">
+          <div className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono">
+            <span className="hidden sm:inline text-[var(--text-muted)] font-semibold">C11 Editor (GCC Sandbox)</span>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <button
                 disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                onClick={() => runMutation.mutate()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 text-[var(--text-main)] font-medium transition-colors"
+                onClick={() => {
+                  setActiveMobileTab('editor');
+                  runMutation.mutate();
+                }}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 text-[var(--text-main)] font-medium transition-colors text-xs cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 fill-cyan-600 dark:fill-cyan-400" />
-                <span>{runMutation.isPending ? 'Running...' : 'Run Visible Tests'}</span>
+                <span className="hidden sm:inline">{runMutation.isPending ? 'Running...' : 'Run Visible Tests'}</span>
+                <span className="sm:hidden">{runMutation.isPending ? 'Running...' : 'Run Tests'}</span>
               </button>
 
               <button
                 disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                onClick={() => submitMutation.mutate()}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors shadow-md shadow-emerald-900/20"
+                onClick={() => {
+                  setActiveMobileTab('editor');
+                  submitMutation.mutate();
+                }}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors shadow-md shadow-emerald-900/20 text-xs cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
+                <span className="hidden sm:inline">{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
+                <span className="sm:hidden">{submitMutation.isPending ? 'Evaluating...' : 'Submit'}</span>
               </button>
             </div>
           </div>

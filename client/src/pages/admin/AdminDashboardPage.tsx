@@ -1314,7 +1314,7 @@ export const AdminDashboardPage: React.FC = () => {
               sub.user?.username ||
               'Student',
             prn: matchedUser?.prn || sub.user?.prn || '—',
-            department: matchedUser?.department || sub.user?.department || 'CSE',
+            department: matchedUser?.department || sub.user?.department || 'General',
             year: matchedUser?.year || sub.user?.year || 'FY',
             email: matchedUser?.email || sub.user?.email || '—',
           },
@@ -4523,7 +4523,7 @@ export const AdminDashboardPage: React.FC = () => {
                                   setAcademicEditForm({
                                     prn: u.prn || '',
                                     college: u.college || 'Sanjivani University',
-                                    department: normalizeDepartment(u.department) || u.department || 'CSE',
+                                    department: normalizeDepartment(u.department) || u.department || ALLOWED_DEPARTMENTS[0],
                                     year: u.year || 'FY',
                                     division: u.division || '',
                                     adminPassword: '',
@@ -5771,7 +5771,7 @@ int main() {
             setAcademicEditForm({
               prn: u.prn || '',
               college: u.college || 'Sanjivani University',
-              department: normalizeDepartment(u.department) || u.department || 'CSE',
+              department: normalizeDepartment(u.department) || u.department || ALLOWED_DEPARTMENTS[0],
               year: u.year || 'FY',
               division: u.division || '',
               adminPassword: '',

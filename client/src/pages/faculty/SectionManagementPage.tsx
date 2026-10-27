@@ -404,7 +404,7 @@ export const SectionManagementPage: React.FC = () => {
         prn: student.prn.trim().toUpperCase(),
         email: student.email.trim().toLowerCase() || `${student.prn.trim().toLowerCase()}@student.logicq.io`,
         mobile: student.mobile.trim() || null,
-        department: normalizeDepartment(student.department?.trim()) || normalizeDepartment(selectedSection?.course) || 'CSE',
+        department: normalizeDepartment(student.department?.trim()) || student.department?.trim() || normalizeDepartment(selectedSection?.course) || 'General',
         year: student.year?.trim() || 'FY',
         joinedVia: 'MANUAL_ENTRY',
       };

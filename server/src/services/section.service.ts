@@ -500,7 +500,7 @@ export class SectionService {
             prn: cleanPrn,
             email: cleanEmail,
             mobile: cleanMobile,
-            department: input.department?.trim() || section.course || 'CSE',
+            department: input.department?.trim() || normalizeDepartment(section.course) || 'General',
             year: input.year?.trim() || 'FY',
             passwordHash: '$2a$10$VerifiedStudentJoinedViaInstantForm000000000',
             role: 'STUDENT',
@@ -517,7 +517,7 @@ export class SectionService {
           data: {
             prn: cleanPrn,
             mobile: cleanMobile,
-            department: input.department?.trim() || student.department || section.course || 'CSE',
+            department: input.department?.trim() || student.department || normalizeDepartment(section.course) || 'General',
             year: input.year?.trim() || student.year || 'FY',
             accountState: 'ACTIVE',
             emailOtpVerifiedAt: verifiedEmailOtp.verifiedAt || new Date(),

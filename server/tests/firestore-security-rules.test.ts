@@ -294,7 +294,7 @@ class RulesEvaluator {
 
     // Validate department enum
     if ('department' in incomingData && incomingData.department !== undefined && incomingData.department !== null) {
-      const allowedDepts = ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
+      const allowedDepts = ['CSE', 'IT', 'AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'Civil', 'Electrical', 'E&TC', 'Integrated B.Tech'];
       if (!allowedDepts.includes(incomingData.department)) {
         return false;
       }
@@ -457,7 +457,7 @@ class RulesEvaluator {
     if (data.college !== 'Sanjivani University') return false;
 
     // isAllowedDepartment(request.resource.data.department)
-    const allowedDepts = ['AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'CSE', 'Integrated B.Tech'];
+    const allowedDepts = ['CSE', 'IT', 'AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'Civil', 'Electrical', 'E&TC', 'Integrated B.Tech'];
     if (!data.department || typeof data.department !== 'string' || !allowedDepts.includes(data.department)) {
       return false;
     }
@@ -1821,6 +1821,22 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       },
     };
     expect(RulesEvaluator.evaluateUserCreate(aliceUserCreateCtx, 'student_alice', [])).toBe(true);
+
+    // Verify all supported Sanjivani University departments pass onboarding validation
+    const supportedDepartments = [
+      'CSE', 'IT', 'AIML', 'AIDS', 'Integrated M.Tech', 'Mechanical', 'Civil', 'Electrical', 'E&TC', 'Integrated B.Tech'
+    ];
+    for (const dept of supportedDepartments) {
+      const deptCtx: FirestoreRuleContext = {
+        auth: studentAlice,
+        request: {
+          resource: {
+            data: { ...validInitialStudentProfile, department: dept },
+          },
+        },
+      };
+      expect(RulesEvaluator.evaluateUserCreate(deptCtx, 'student_alice', [])).toBe(true);
+    }
 
     // 2. Student Alice registers matching prnIndex/{prn} document during onboarding
     const alicePrnIndexCreateCtx: FirestoreRuleContext = {

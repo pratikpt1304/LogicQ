@@ -281,8 +281,10 @@ export const InstantJoinPage: React.FC = () => {
     if (!section) return;
     if (!department) {
       const course = section.course || '';
-      const matchedDept = normalizeDepartment(course) || 'CSE';
-      setDepartment(matchedDept);
+      const matchedDept = normalizeDepartment(course);
+      if (matchedDept) {
+        setDepartment(matchedDept);
+      }
     }
     if (!year) {
       const text = `${section.sectionName || ''} ${section.academicYear || ''} ${section.semester || ''}`.toUpperCase();

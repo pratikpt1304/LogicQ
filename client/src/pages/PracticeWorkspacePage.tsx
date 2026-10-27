@@ -844,9 +844,8 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   return (
     <div
-      style={{ minHeight: 'calc(100dvh - var(--navbar-height, 4rem))' }}
-      className={`flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden ${
-        isFullscreen ? 'fixed inset-0 z-50 h-screen' : ''
+      className={`flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden h-[100dvh] max-h-[100dvh] md:h-[calc(100dvh-4rem)] md:max-h-[calc(100dvh-4rem)] ${
+        isFullscreen ? 'fixed inset-0 z-50 h-screen max-h-screen' : ''
       }`}
     >
       {/* Inactive Fullscreen Warning Banner */}
@@ -1519,23 +1518,22 @@ export const PracticeWorkspacePage: React.FC = () => {
       </div>
 
       {/* Pinned Bottom JEE CBT Action Bar */}
-      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20">
-        <div className="flex items-center gap-2">
+      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-2 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={handleClearResponse}
-            className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer shrink-0"
             title="Clear editor and revert to starter template"
           >
-            <RotateCcw className="w-3.5 h-3.5 inline mr-1" />
+            <RotateCcw className="w-3.5 h-3.5 inline sm:mr-1" />
             <span className="hidden sm:inline">Clear Response</span>
-            <span className="sm:hidden">Clear</span>
           </button>
 
           <button
             type="button"
             onClick={handleMarkForReviewAndNext}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0 ${
               markedForReview.has(problemSlug || '')
                 ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
                 : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30'
@@ -1543,19 +1541,21 @@ export const PracticeWorkspacePage: React.FC = () => {
             title="Mark question for review and move to next"
           >
             <Bookmark className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">
+            <span className="hidden md:inline">
               {markedForReview.has(problemSlug || '') ? 'Unmark Review & Next' : 'Mark for Review & Next'}
             </span>
-            <span className="sm:hidden">Review &amp; Next</span>
+            <span className="hidden sm:inline md:hidden">Review &amp; Next</span>
+            <span className="sm:hidden">Review</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
             type="button"
             disabled={!prevProblem}
             onClick={() => prevProblem && handleSelectProblem(prevProblem.slug)}
-            className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer"
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer shrink-0"
+            title="Previous question"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Previous</span>
@@ -1565,7 +1565,7 @@ export const PracticeWorkspacePage: React.FC = () => {
             type="button"
             onClick={handleSaveAndNext}
             disabled={submitMutation.isPending || runMutation.isPending}
-            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="px-2.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition flex items-center gap-1 sm:gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
             title="Save & Submit solution, then advance to next question"
           >
             <span>{submitMutation.isPending ? 'Submitting...' : 'Save & Next'}</span>
@@ -1575,7 +1575,7 @@ export const PracticeWorkspacePage: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSubmitModalOpen(true)}
-            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5 cursor-pointer ml-1 sm:ml-2"
+            className="px-2.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-500/20 transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ml-0.5 sm:ml-2 shrink-0"
             title="Submit entire module test"
           >
             <Send className="w-3.5 h-3.5" />

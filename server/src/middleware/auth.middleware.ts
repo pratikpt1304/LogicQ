@@ -100,7 +100,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
                 passwordHash: placeholderHash,
                 profileComplete: true,
                 college: 'Sanjivani University',
-                department: 'CSE',
+                department: (payload as any).department || 'General',
               },
               select: { id: true, email: true, username: true, role: true, isBanned: true, profileComplete: true },
             });

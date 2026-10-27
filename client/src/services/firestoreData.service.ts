@@ -881,7 +881,7 @@ export class FirestoreDataService {
           publicDisplayName: raw.displayName || raw.name || `Student ${shortId}`,
           role: 'STUDENT',
           college: raw.college || 'Sanjivani University',
-          department: normalizeDepartment(raw.department) || raw.department || 'CSE',
+          department: normalizeDepartment(raw.department) || raw.department || 'General',
           year: raw.year || 'SY',
           division: raw.division || null,
           sectionId: raw.sectionId || null,
@@ -927,7 +927,7 @@ export class FirestoreDataService {
             publicDisplayName: st.displayName || st.name || `Student ${shortId}`,
             role: 'STUDENT',
             college: st.college || st.institution || 'Sanjivani University',
-            department: normalizeDepartment(st.department) || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || st.department || 'CSE',
+            department: normalizeDepartment(st.department) || st.department || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || 'General',
             year: st.year || 'FY',
             division: st.division || sec.sectionName || null,
             sectionId: sec.id,
@@ -1784,7 +1784,7 @@ export class FirestoreDataService {
     const cleanEmail = (currentUser.email || auth.currentUser?.email || '').toLowerCase().trim();
     const cleanPrn = (currentUser.prn || '').toUpperCase().trim();
     const effectiveName = (currentUser.fullName || currentUser.displayName || auth.currentUser?.displayName || 'Student').trim();
-    const effectiveDept = normalizeDepartment(currentUser.department) || currentUser.department || 'CSE';
+    const effectiveDept = normalizeDepartment(currentUser.department) || currentUser.department || 'General';
     const effectiveYear = currentUser.year || 'FY';
     const effectiveCollege = currentUser.college || 'Sanjivani University';
 

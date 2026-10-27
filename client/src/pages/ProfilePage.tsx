@@ -60,6 +60,7 @@ import {
   LogOut,
   ArrowRight,
   UserCheck,
+  Mail,
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
@@ -721,6 +722,19 @@ export const ProfilePage: React.FC = () => {
         bio: effectiveBio,
         storagePreference: editForm.storagePreference as any,
       }).catch((e) => console.warn('Firestore profile update non-fatal error:', e));
+
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: effectiveUid,
+        email: profile?.email || currentUser?.email,
+        displayName: trimmedDisplay || null,
+        fullName: trimmedDisplay || null,
+        department: finalDept,
+        year: isAdminOrFaculty ? (profile?.year || currentUser?.year || null) : editForm.year,
+        division: null,
+        bio: effectiveBio,
+        storagePreference: editForm.storagePreference as any,
+        hidePracticeTimer: editForm.hidePracticeTimer,
+      }).catch((e) => console.warn('Firestore syncStudentProfileUpdate non-fatal error:', e));
     }
     try {
       localStorage.setItem('logicq_storage_preference', editForm.storagePreference);
@@ -981,7 +995,7 @@ export const ProfilePage: React.FC = () => {
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)]">
                       <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{normalizeDepartment(profile.department) || profile.department || 'CSE'}</span>
+                      <span>{normalizeDepartment(profile.department) || profile.department || 'General'}</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)]">
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
@@ -1896,7 +1910,7 @@ export const ProfilePage: React.FC = () => {
 
                 {!isAdminOrFaculty ? (
                   /* Compact Student Academic Identity Card */
-                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 text-xs font-mono">
+                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-[#9AA1C4]">
                         <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
@@ -1917,7 +1931,7 @@ export const ProfilePage: React.FC = () => {
                                     setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
                                     setIsPrnModalOpen(true);
                                   }}
-                                  className="px-2.5 py-1 rounded bg-[#8B9BFF]/20 hover:bg-[#8B9BFF]/30 text-[#8B9BFF] border border-[#8B9BFF]/40 text-xs font-bold transition-colors"
+                                  className="px-2.5 py-1 rounded bg-[#8B9BFF]/20 hover:bg-[#8B9BFF]/30 text-[#8B9BFF] border border-[#8B9BFF]/40 text-xs font-bold transition-colors cursor-pointer"
                                 >
                                   Change PRN
                                 </button>
@@ -1940,6 +1954,16 @@ export const ProfilePage: React.FC = () => {
                           })()}
                         </div>
                       )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
+                      <span className="flex items-center gap-1.5">
+                        <Mail className="w-3 h-3 text-emerald-400" />
+                        <span>Registered Email:</span>
+                      </span>
+                      <span className="text-[#E8EAF6] font-medium truncate max-w-[220px]" title={profile.email || currentUser?.email || ''}>
+                        {profile.email || currentUser?.email || '—'}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
@@ -2003,7 +2027,7 @@ export const ProfilePage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Department & Year (Compact Grid) */}
+                {/* Department & Year (Clean 2-Column Responsive Grid) */}
                 <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
                   <div>
                     <label
@@ -2026,9 +2050,30 @@ export const ProfilePage: React.FC = () => {
                     </select>
                   </div>
 
-                  
+                  {!isAdminOrFaculty && (
+                    <div>
+                      <label
+                        htmlFor="edit-year"
+                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
+                      >
+                        ACADEMIC YEAR
+                      </label>
+                      <select
+                        id="edit-year"
+                        value={editForm.year}
+                        onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
+                      >
+                        {ALLOWED_YEARS.map((yr) => (
+                          <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
+                            {yr === 'FY' ? 'FY (First Year)' : yr === 'SY' ? 'SY (Second Year)' : 'TY (Third Year)'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-                  <div className={isAdminOrFaculty ? "sm:col-span-3" : "sm:col-span-2"}>
+                  <div className={isAdminOrFaculty ? "sm:col-span-1" : "sm:col-span-2"}>
                     <label htmlFor="edit-bio" className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1">
                       BIO (OPTIONAL)
                     </label>
@@ -2044,108 +2089,18 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Google Drive Backup Card (Clean & Streamlined) */}
-                <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Folder className="w-4 h-4 text-[#8B9BFF]" />
-                      <span className="text-xs font-mono font-bold text-[#E8EAF6]">
-                        Google Drive Code Backup
-                      </span>
-                    </div>
-                    {editForm.storagePreference === 'GOOGLE_DRIVE' ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Connected
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20 font-mono">
-                        Optional
-                      </span>
-                    )}
-                  </div>
-
-                  {profileWorkspaceBlockMsg && (
-                    <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-2">
-                      <div className="flex items-start gap-1.5">
-                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                        <span className="leading-relaxed">{profileWorkspaceBlockMsg}</span>
-                      </div>
-                      {driveApiDisabled && (
-                        <a
-                          href="https://console.cloud.google.com/apis/library/drive.googleapis.com?project=logicq-clanguage"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black font-semibold text-xs hover:bg-amber-400 transition-colors w-fit shadow"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Enable Google Drive API</span>
-                        </a>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[#252C4F]/40 text-xs font-mono">
-                    <div className="text-[11px] text-[#9AA1C4]">
-                      {editForm.storagePreference === 'GOOGLE_DRIVE'
-                        ? 'Syncs copies of your solved code directly to your personal Drive in "LogicQ/" folder.'
-                        : 'Solved code is safely stored in LogicQ Vault. You can connect Drive anytime.'}
-                    </div>
-                    {editForm.storagePreference === 'GOOGLE_DRIVE' ? (
-                      <button
-                        type="button"
-                        onClick={handleDisconnectGoogleDrive}
-                        className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-mono text-[#FF7A8A] border border-[#FF7A8A]/30 hover:bg-[#FF7A8A]/10 transition-colors"
-                      >
-                        Disconnect
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleConnectGoogleDrive}
-                        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-[#E8EAF6] bg-[#8B9BFF]/20 border border-[#8B9BFF]/40 hover:bg-[#8B9BFF]/30 transition-colors flex items-center gap-1.5"
-                      >
-                        <Cloud className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                        <span>Connect Drive</span>
-                      </button>
-                    )}
-                  </div>
+                {/* Preferences Section (Clean & Streamlined) */}
+                <div className="pt-2 border-t border-[#252C4F]/40">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono text-[#9AA1C4] hover:text-[#E8EAF6]">
+                    <input
+                      type="checkbox"
+                      checked={editForm.hidePracticeTimer}
+                      onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
+                      className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF] cursor-pointer"
+                    />
+                    <span>Hide active timer count-up while solving practice problems</span>
+                  </label>
                 </div>
-
-                {/* Practice Timer Display Toggle */}
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono text-[#9AA1C4] hover:text-[#E8EAF6] pt-1">
-                  <input
-                    type="checkbox"
-                    checked={editForm.hidePracticeTimer}
-                    onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
-                    className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF]"
-                  />
-                  <span>Hide active timer count-up while solving practice problems</span>
-                </label>
-
-                {/* Collapsible Danger Zone for Account Deletion */}
-                {isOwnProfile && (
-                  <details className="group border border-[#FF7A8A]/20 bg-[#FF7A8A]/5 rounded-xl text-xs font-mono overflow-hidden">
-                    <summary className="p-3 cursor-pointer text-[#FF7A8A] font-bold flex items-center justify-between hover:bg-[#FF7A8A]/10 transition-colors select-none">
-                      <span className="flex items-center gap-2">
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Danger Zone (Account Deletion)</span>
-                      </span>
-                      <span className="text-[10px] text-[#FF7A8A]/70 group-open:rotate-180 transition-transform">▼</span>
-                    </summary>
-                    <div className="p-3 pt-1 border-t border-[#FF7A8A]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="text-[11px] text-[#9AA1C4]">
-                        Permanently delete your account, wipe profile data, and release your PRN registration.
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleDeleteAccount}
-                        className="shrink-0 px-3 py-1.5 rounded-lg bg-[#FF7A8A]/10 border border-[#FF7A8A]/40 text-[#FF7A8A] hover:bg-[#FF7A8A]/20 font-bold text-xs transition-colors"
-                      >
-                        Delete Account
-                      </button>
-                    </div>
-                  </details>
-                )}
               </div>
 
               {/* Sticky Footer: Always visible on 360px and with mobile keyboard */}
