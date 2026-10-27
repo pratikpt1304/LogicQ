@@ -1076,6 +1076,21 @@ export const AdminDashboardPage: React.FC = () => {
         ? [...bu.sections]
         : (Array.isArray(fu?.sections) && fu.sections.length > 0 ? [...fu.sections] : []);
 
+      // Cleanse existing userSections from generic placeholders
+      userSections.forEach((us: any) => {
+        const matched = sectionsList.find((s: any) =>
+          (us.id && (s.id === us.id || s.joinCode === us.id)) ||
+          (us.joinCode && (s.joinCode === us.joinCode || s.id === us.joinCode))
+        );
+        if (matched) {
+          const realName = (matched.sectionName && matched.sectionName !== 'Academic Section') ? matched.sectionName : (matched.name || matched.subject || 'C Programming');
+          us.sectionName = realName;
+          if (!us.joinCode && matched.joinCode) us.joinCode = matched.joinCode;
+        } else if (!us.sectionName || us.sectionName === 'Academic Section' || us.sectionName === 'section-enrolled' || us.sectionName === 'Section') {
+          us.sectionName = us.subject || 'C Programming';
+        }
+      });
+
       if (role === 'FACULTY') {
         const matchedFacultySections = sectionsList.filter(
           (sec: any) =>
@@ -1085,10 +1100,15 @@ export const AdminDashboardPage: React.FC = () => {
             (buEmail && (sec.facultyEmail === buEmail || sec.faculty?.email === buEmail))
         );
         matchedFacultySections.forEach((ms: any) => {
-          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+          const realName = (ms.sectionName && ms.sectionName !== 'Academic Section') ? ms.sectionName : (ms.name || ms.subject || 'C Programming');
+          const existingIdx = userSections.findIndex((us: any) => us.id === ms.id || us.joinCode === ms.joinCode);
+          if (existingIdx >= 0) {
+            userSections[existingIdx].sectionName = realName;
+            if (!userSections[existingIdx].joinCode && ms.joinCode) userSections[existingIdx].joinCode = ms.joinCode;
+          } else {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              sectionName: realName,
               joinCode: ms.joinCode,
               subject: ms.subject,
               course: ms.course,
@@ -1113,10 +1133,15 @@ export const AdminDashboardPage: React.FC = () => {
             })
         );
         matchedStudentSections.forEach((ms: any) => {
-          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+          const realName = (ms.sectionName && ms.sectionName !== 'Academic Section') ? ms.sectionName : (ms.name || ms.subject || 'C Programming');
+          const existingIdx = userSections.findIndex((us: any) => us.id === ms.id || us.joinCode === ms.joinCode);
+          if (existingIdx >= 0) {
+            userSections[existingIdx].sectionName = realName;
+            if (!userSections[existingIdx].joinCode && ms.joinCode) userSections[existingIdx].joinCode = ms.joinCode;
+          } else {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject,
+              sectionName: realName,
               joinCode: ms.joinCode,
               subject: ms.subject,
               course: ms.course,
@@ -1132,8 +1157,10 @@ export const AdminDashboardPage: React.FC = () => {
           ...(Array.isArray(bu.enrolledSections) ? bu.enrolledSections.map((e: any) => e.sectionId || e.section?.joinCode || e.section?.id) : [])
         ].filter(Boolean).map((k: any) => String(k).trim());
 
-        if (userSections.length === 0 && (enrolledCandidateKeys.length > 0 || bu.sectionName || fu?.sectionName)) {
-          const targetSecName = bu.sectionName || fu?.sectionName;
+        const rawSecName = bu.sectionName || fu?.sectionName;
+        const targetSecName = (rawSecName && rawSecName !== 'Academic Section' && rawSecName !== 'section-enrolled') ? rawSecName : null;
+
+        if (userSections.length === 0 && (enrolledCandidateKeys.length > 0 || targetSecName)) {
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
               enrolledCandidateKeys.some((k: string) =>
@@ -1144,19 +1171,21 @@ export const AdminDashboardPage: React.FC = () => {
               (targetSecName && (s.sectionName === targetSecName || s.name === targetSecName || s.subject === targetSecName))
           );
           if (matchedByIdOrName) {
+            const realName = (matchedByIdOrName.sectionName && matchedByIdOrName.sectionName !== 'Academic Section') ? matchedByIdOrName.sectionName : (matchedByIdOrName.name || matchedByIdOrName.subject || 'C Programming');
             userSections.push({
               id: matchedByIdOrName.id,
-              sectionName: matchedByIdOrName.sectionName || matchedByIdOrName.name || matchedByIdOrName.subject,
+              sectionName: realName,
               joinCode: matchedByIdOrName.joinCode,
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
           } else if (enrolledCandidateKeys[0] || targetSecName) {
             // Direct fallback so student NEVER loses their enrolled section badge
+            const displayCode = enrolledCandidateKeys.find(k => k.startsWith('LQ-')) || enrolledCandidateKeys[0] || '';
             userSections.push({
               id: enrolledCandidateKeys[0] || 'section-enrolled',
-              sectionName: targetSecName || 'Academic Section',
-              joinCode: enrolledCandidateKeys[0] || '',
+              sectionName: targetSecName || 'C Programming',
+              joinCode: displayCode,
             });
           }
         }
@@ -1233,6 +1262,22 @@ export const AdminDashboardPage: React.FC = () => {
       const userSections: any[] = Array.isArray(fu.sections) && fu.sections.length > 0
         ? [...fu.sections]
         : [];
+
+      // Cleanse existing userSections from generic placeholders
+      userSections.forEach((us: any) => {
+        const matched = sectionsList.find((s: any) =>
+          (us.id && (s.id === us.id || s.joinCode === us.id)) ||
+          (us.joinCode && (s.joinCode === us.joinCode || s.id === us.joinCode))
+        );
+        if (matched) {
+          const realName = (matched.sectionName && matched.sectionName !== 'Academic Section') ? matched.sectionName : (matched.name || matched.subject || 'C Programming');
+          us.sectionName = realName;
+          if (!us.joinCode && matched.joinCode) us.joinCode = matched.joinCode;
+        } else if (!us.sectionName || us.sectionName === 'Academic Section' || us.sectionName === 'section-enrolled' || us.sectionName === 'Section') {
+          us.sectionName = us.subject || 'C Programming';
+        }
+      });
+
       if (role === 'FACULTY') {
         const matchedFacultySections = sectionsList.filter(
           (sec: any) =>
@@ -1241,10 +1286,15 @@ export const AdminDashboardPage: React.FC = () => {
             (fuEmail && (sec.facultyEmail === fuEmail || sec.faculty?.email === fuEmail))
         );
         matchedFacultySections.forEach((ms: any) => {
-          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+          const realName = (ms.sectionName && ms.sectionName !== 'Academic Section') ? ms.sectionName : (ms.name || ms.subject || 'C Programming');
+          const existingIdx = userSections.findIndex((us: any) => us.id === ms.id || us.joinCode === ms.joinCode);
+          if (existingIdx >= 0) {
+            userSections[existingIdx].sectionName = realName;
+            if (!userSections[existingIdx].joinCode && ms.joinCode) userSections[existingIdx].joinCode = ms.joinCode;
+          } else {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              sectionName: realName,
               joinCode: ms.joinCode,
               subject: ms.subject,
               course: ms.course,
@@ -1268,10 +1318,15 @@ export const AdminDashboardPage: React.FC = () => {
             })
         );
         matchedStudentSections.forEach((ms: any) => {
-          if (!userSections.some((us: any) => us.id === ms.id || us.joinCode === ms.joinCode)) {
+          const realName = (ms.sectionName && ms.sectionName !== 'Academic Section') ? ms.sectionName : (ms.name || ms.subject || 'C Programming');
+          const existingIdx = userSections.findIndex((us: any) => us.id === ms.id || us.joinCode === ms.joinCode);
+          if (existingIdx >= 0) {
+            userSections[existingIdx].sectionName = realName;
+            if (!userSections[existingIdx].joinCode && ms.joinCode) userSections[existingIdx].joinCode = ms.joinCode;
+          } else {
             userSections.push({
               id: ms.id,
-              sectionName: ms.sectionName || ms.name || ms.subject || 'Academic Section',
+              sectionName: realName,
               joinCode: ms.joinCode,
               subject: ms.subject,
               course: ms.course,
@@ -1284,7 +1339,10 @@ export const AdminDashboardPage: React.FC = () => {
           ...(Array.isArray(fu.enrolledSections) ? fu.enrolledSections : [])
         ].filter(Boolean).map((k: any) => String(k).trim());
 
-        if (userSections.length === 0 && (fuCandidateKeys.length > 0 || fu.sectionName)) {
+        const rawSecName = fu.sectionName;
+        const targetSecName = (rawSecName && rawSecName !== 'Academic Section' && rawSecName !== 'section-enrolled') ? rawSecName : null;
+
+        if (userSections.length === 0 && (fuCandidateKeys.length > 0 || targetSecName)) {
           const matchedByIdOrName = sectionsList.find(
             (s: any) =>
               fuCandidateKeys.some((k: string) =>
@@ -1292,22 +1350,24 @@ export const AdminDashboardPage: React.FC = () => {
                 (s.joinCode && String(s.joinCode).toLowerCase() === k.toLowerCase()) ||
                 (s.joinToken && String(s.joinToken).toLowerCase() === k.toLowerCase())
               ) ||
-              (fu.sectionName && (s.sectionName === fu.sectionName || s.name === fu.sectionName || s.subject === fu.sectionName))
+              (targetSecName && (s.sectionName === targetSecName || s.name === targetSecName || s.subject === targetSecName))
           );
           if (matchedByIdOrName) {
+            const realName = (matchedByIdOrName.sectionName && matchedByIdOrName.sectionName !== 'Academic Section') ? matchedByIdOrName.sectionName : (matchedByIdOrName.name || matchedByIdOrName.subject || 'C Programming');
             userSections.push({
               id: matchedByIdOrName.id,
-              sectionName: matchedByIdOrName.sectionName || matchedByIdOrName.name || matchedByIdOrName.subject || 'Academic Section',
+              sectionName: realName,
               joinCode: matchedByIdOrName.joinCode,
               subject: matchedByIdOrName.subject,
               course: matchedByIdOrName.course,
             });
-          } else if (fuCandidateKeys[0] || fu.sectionName) {
+          } else if (fuCandidateKeys[0] || targetSecName) {
             // Direct fallback so student NEVER loses their enrolled section badge
+            const displayCode = fuCandidateKeys.find(k => k.startsWith('LQ-')) || fuCandidateKeys[0] || '';
             userSections.push({
               id: fuCandidateKeys[0] || 'section-enrolled',
-              sectionName: fu.sectionName || 'Academic Section',
-              joinCode: fuCandidateKeys[0] || '',
+              sectionName: targetSecName || 'C Programming',
+              joinCode: displayCode,
             });
           }
         }
@@ -1383,13 +1443,13 @@ export const AdminDashboardPage: React.FC = () => {
           college: st.college || st.institution || 'Sanjivani University',
           sections: [{
             id: sec.id,
-            sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+            sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
             joinCode: sec.joinCode,
             subject: sec.subject,
             course: sec.course,
           }],
           sectionId: sec.id,
-          sectionName: sec.sectionName || sec.name,
+          sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
           accountState: 'ENROLLED',
           profileComplete: true,
           totalPoints: Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
@@ -2740,7 +2800,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <option value="ALL">All Academic Sections ({sectionsList.length})</option>
                   {sectionsList.map((s: any) => (
                     <option key={s.id} value={s.id}>
-                      {s.sectionName || s.subject || 'Section'} [{s.joinCode || 'CODE'}]
+                      {(s.sectionName && s.sectionName !== 'Academic Section') ? s.sectionName : (s.subject || 'C Programming')} [{s.joinCode || 'CODE'}]
                       {s._count?.students || s.studentCount ? ` · ${s._count?.students || s.studentCount} students` : ''}
                     </option>
                   ))}
@@ -4559,7 +4619,7 @@ export const AdminDashboardPage: React.FC = () => {
                           })
                         ).map((sec: any) => ({
                           id: sec.id,
-                          sectionName: sec.sectionName || sec.name || sec.subject,
+                          sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
                           joinCode: sec.joinCode,
                         }));
 
@@ -4650,7 +4710,7 @@ export const AdminDashboardPage: React.FC = () => {
                                       title={`Course: ${sec.course || 'Integrated M.Tech'} | Join Code: ${sec.joinCode || 'LQ-IMTC'}`}
                                     >
                                       <BookOpen className="w-3 h-3 text-blue-500 shrink-0" />
-                                      <span>{sec.sectionName || 'Integrated M.Tech - Programming in C'}</span>
+                                      <span>{(sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.subject || 'C Programming')}</span>
                                       <span className="opacity-75 font-mono text-[9px]">({sec.joinCode || 'LQ-IMTC'})</span>
                                     </span>
                                   ))}
@@ -4672,19 +4732,30 @@ export const AdminDashboardPage: React.FC = () => {
                               </div>
                               {studentSections && studentSections.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {studentSections.map((sec: any) => (
-                                    <span
-                                      key={sec.id || sec.joinCode}
-                                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30"
-                                      title={`Join Code: ${sec.joinCode || '—'}`}
-                                    >
-                                      {sec.sectionName || sec.joinCode || 'Section'}
-                                    </span>
-                                  ))}
+                                  {studentSections.map((sec: any) => {
+                                    const matched = sectionsList.find(
+                                      (s: any) =>
+                                        (sec.id && (s.id === sec.id || s.joinCode === sec.id)) ||
+                                        (sec.joinCode && (s.joinCode === sec.joinCode || s.id === sec.joinCode))
+                                    );
+                                    let displayName = (sec.sectionName && sec.sectionName !== 'Academic Section' && sec.sectionName !== 'section-enrolled' && sec.sectionName !== 'Section')
+                                      ? sec.sectionName
+                                      : (matched?.sectionName || matched?.name || matched?.subject || sec.subject || 'C Programming');
+                                    const code = sec.joinCode || matched?.joinCode || (sec.id && String(sec.id).startsWith('LQ-') ? sec.id : null);
+                                    return (
+                                      <span
+                                        key={sec.id || sec.joinCode || displayName}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30"
+                                        title={`Join Code: ${code || '—'}`}
+                                      >
+                                        {displayName}{code ? ` [${code}]` : ''}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
-                              ) : u.sectionName || u.sectionId ? (
+                              ) : (u.sectionName && u.sectionName !== 'Academic Section') || u.sectionId ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30">
-                                  {u.sectionName || u.sectionId}
+                                  {u.sectionName && u.sectionName !== 'Academic Section' ? u.sectionName : 'C Programming'}{u.joinCode ? ` [${u.joinCode}]` : ''}
                                 </span>
                               ) : (
                                 <span className="text-slate-500 dark:text-slate-400 text-[10px] italic">General Student Roster</span>

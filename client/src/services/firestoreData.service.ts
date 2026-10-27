@@ -884,7 +884,7 @@ export class FirestoreDataService {
           if (raw.sectionId && !existingStudent.sections.some((s: any) => s.id === raw.sectionId || s.joinCode === raw.sectionId)) {
             existingStudent.sections.push({
               id: raw.sectionId,
-              sectionName: raw.sectionName || raw.subject || 'Academic Section',
+              sectionName: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || 'C Programming'),
               joinCode: raw.joinCode || raw.sectionId,
               subject: raw.subject,
               course: raw.course,
@@ -915,10 +915,10 @@ export class FirestoreDataService {
           year: raw.year || 'SY',
           division: raw.division || null,
           sectionId: raw.sectionId || null,
-          sectionName: raw.sectionName || null,
+          sectionName: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || null),
           sections: raw.sectionId ? [{
             id: raw.sectionId,
-            sectionName: raw.sectionName || 'Academic Section',
+            sectionName: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || 'C Programming'),
             joinCode: raw.joinCode || raw.sectionId,
           }] : [],
           profileComplete: true,
@@ -958,7 +958,7 @@ export class FirestoreDataService {
             if (!existingStudent.sections.some((s: any) => s.id === sec.id || s.joinCode === sec.joinCode)) {
               existingStudent.sections.push({
                 id: sec.id,
-                sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+                sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
                 joinCode: sec.joinCode || sec.id,
                 subject: sec.subject,
                 course: sec.course,
@@ -989,10 +989,10 @@ export class FirestoreDataService {
             year: st.year || 'FY',
             division: st.division || sec.sectionName || null,
             sectionId: sec.id,
-            sectionName: sec.sectionName || sec.name,
+            sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
             sections: [{
               id: sec.id,
-              sectionName: sec.sectionName || sec.name || sec.subject || 'Academic Section',
+              sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
               joinCode: sec.joinCode || sec.id,
               subject: sec.subject,
               course: sec.course,
@@ -1332,7 +1332,7 @@ export class FirestoreDataService {
         institution: section.institution || 'Sanjivani University',
         course: section.course || section.subject || 'Coursework',
         subject: section.subject || 'C Programming',
-        sectionName: section.sectionName || section.name || 'Academic Section',
+        sectionName: (section.sectionName && section.sectionName !== 'Academic Section') ? section.sectionName : (section.name || section.subject || 'C Programming'),
         isActive: section.isActive !== false,
         updatedAt: serverTimestamp(),
       };
@@ -2089,7 +2089,7 @@ export class FirestoreDataService {
       college: effectiveCollege,
       institution: effectiveCollege,
       sectionId: targetSec.id,
-      sectionName: targetSec.sectionName || targetSec.subject || 'Academic Section',
+      sectionName: (targetSec.sectionName && targetSec.sectionName !== 'Academic Section') ? targetSec.sectionName : (targetSec.subject || 'C Programming'),
       joinCode: targetSec.joinCode,
       joinedVia: 'JOIN_CODE',
       enrolledAt: new Date().toISOString(),
