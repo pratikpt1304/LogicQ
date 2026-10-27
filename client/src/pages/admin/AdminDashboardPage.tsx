@@ -1217,7 +1217,7 @@ export const AdminDashboardPage: React.FC = () => {
           prn: stPrn || null,
           maskedPrn: stPrn ? `••••••••${shortId}` : '••••••••',
           role: 'STUDENT',
-          department: normalizeDepartment(st.department) || normalizeDepartment(sec.course) || normalizeDepartment(sec.subject) || st.department || '—',
+          department: normalizeDepartment(st.department) || st.department || '—',
           year: st.year || '—',
           division: st.division || sec.sectionName || null,
           college: st.college || st.institution || 'Sanjivani University',
@@ -2554,7 +2554,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <option value="ALL">All Academic Sections ({sectionsList.length})</option>
                   {sectionsList.map((s: any) => (
                     <option key={s.id} value={s.id}>
-                      {s.sectionName || `${s.course} - ${s.subject}`} [{s.joinCode || 'CODE'}]
+                      {s.sectionName || s.subject || 'Section'} [{s.joinCode || 'CODE'}]
                       {s._count?.students || s.studentCount ? ` · ${s._count?.students || s.studentCount} students` : ''}
                     </option>
                   ))}

@@ -1495,22 +1495,66 @@ export class FirestoreDataService {
 
     // 2. Read authoritative Firestore & merge
     try {
-      // 2a. Pre-fetch enrolled students from Firestore to accurately compute student counts
+      // 2a. Pre-fetch enrolled students from Firestore (enrolled_students collection and users collection)
       const enrolledBySection = new Map<string, any[]>();
+      const addEnrolledRecord = (secKey: string, rec: any) => {
+        if (!secKey) return;
+        const normKey = String(secKey).trim().toUpperCase();
+        if (!enrolledBySection.has(normKey)) enrolledBySection.set(normKey, []);
+        const arr = enrolledBySection.get(normKey)!;
+        const eEmail = (rec.email || rec.student?.email || '').toLowerCase().trim();
+        const ePrn = (rec.prn || rec.student?.prn || '').toUpperCase().trim();
+        if (!arr.some((ex: any) => (eEmail && (ex.email || '').toLowerCase().trim() === eEmail) || (ePrn && (ex.prn || '').toUpperCase().trim() === ePrn))) {
+          arr.push(rec);
+        }
+      };
+
       try {
         const enrolledSnap = await getDocs(collection(db, 'enrolled_students'));
         enrolledSnap.forEach((d) => {
           const sData = d.data();
           if (sData && !FirestoreDataService.isPurgedStudent(sData)) {
-            const secId = String(sData.sectionId || '').trim();
-            if (secId) {
-              if (!enrolledBySection.has(secId)) enrolledBySection.set(secId, []);
-              enrolledBySection.get(secId)!.push({ id: d.id, ...sData });
-            }
+            const item = { id: d.id, ...sData };
+            if (sData.sectionId) addEnrolledRecord(sData.sectionId, item);
+            if (sData.joinCode) addEnrolledRecord(sData.joinCode, item);
+            if (sData.sectionName) addEnrolledRecord(sData.sectionName, item);
+            if (sData.subject) addEnrolledRecord(sData.subject, item);
           }
         });
       } catch (enrErr) {
         console.warn('enrolled_students pre-fetch notice:', enrErr);
+      }
+
+      // Also scan users collection for students enrolled in sections
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach((d) => {
+          const uData = d.data();
+          if (uData && !FirestoreDataService.isPurgedStudent(uData)) {
+            const shortId = uData.prn ? String(uData.prn).slice(-4) : '0000';
+            const studentItem = {
+              id: d.id,
+              userId: d.id,
+              name: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
+              fullName: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
+              email: (uData.email || '').toLowerCase().trim(),
+              prn: uData.prn ? String(uData.prn).toUpperCase().trim() : null,
+              department: uData.department || 'General',
+              year: uData.year || 'FY',
+              status: 'ENROLLED',
+            };
+            if (uData.sectionId) addEnrolledRecord(uData.sectionId, studentItem);
+            if (uData.joinCode) addEnrolledRecord(uData.joinCode, studentItem);
+            if (uData.sectionName) addEnrolledRecord(uData.sectionName, studentItem);
+            if (Array.isArray(uData.enrolledSections)) {
+              uData.enrolledSections.forEach((secId: any) => {
+                if (typeof secId === 'string') addEnrolledRecord(secId, studentItem);
+              });
+            }
+          }
+        });
+      } catch (uErr) {
+        console.warn('users pre-fetch for sections notice:', uErr);
       }
 
       const remoteKeys = new Set<string>();
@@ -1535,18 +1579,29 @@ export class FirestoreDataService {
           const existing: any = key ? sectionMap.get(key) || {} : {};
 
           // Resolve enrolled students from local backup, doc payload, or enrolled_students collection
-          let studentsList = Array.isArray(item.students) && item.students.length > 0 ? item.students : (existing.students || []);
+          let studentsList = Array.isArray(item.students) && item.students.length > 0 ? [...item.students] : (Array.isArray(existing.students) ? [...existing.students] : []);
           
-          // Check enrolled_students collection by id, joinCode, or joinToken
-          const fsEnrolled = [
-            item.id ? enrolledBySection.get(item.id) : null,
-            item.joinCode ? enrolledBySection.get(item.joinCode) : null,
-            item.joinToken ? enrolledBySection.get(item.joinToken) : null,
-          ].find((arr) => Array.isArray(arr) && arr.length > 0);
+          // Check all possible section keys against pre-fetched enrolled rosters
+          const candidates = [
+            item.id,
+            item.joinCode,
+            item.joinToken,
+            item.sectionName,
+            item.subject,
+          ].filter(Boolean).map((k: string) => String(k).trim().toUpperCase());
 
-          if (fsEnrolled && fsEnrolled.length > studentsList.length) {
-            studentsList = fsEnrolled;
-          }
+          candidates.forEach((cand) => {
+            const found = enrolledBySection.get(cand);
+            if (Array.isArray(found)) {
+              found.forEach((st: any) => {
+                const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+                const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+                if (!studentsList.some((ex: any) => (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail) || (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn))) {
+                  studentsList.push(st);
+                }
+              });
+            }
+          });
 
           if (studentsList.length === 0) {
             try {
@@ -1575,6 +1630,7 @@ export class FirestoreDataService {
           );
 
           item.students = filteredStudents;
+          item.studentsCount = calculatedCount;
           item._count = { students: calculatedCount };
 
           // Cache in localStorage per section for offline instant sync
@@ -1649,45 +1705,124 @@ export class FirestoreDataService {
 
   /**
    * Fetches enrolled students for a specific section from Firestore or local cache.
+   * Thoroughly searches all section identifiers (ID, joinCode, joinToken) across
+   * enrolled_students, users, and persistent caches.
    */
   public static async getEnrolledStudentsForSection(sectionId: string): Promise<any[]> {
     const list: any[] = [];
     const seen = new Set<string>();
 
-    // 1. Check local backup
+    const targetKey = String(sectionId || '').trim();
+    if (!targetKey) return [];
+
+    // Find section metadata to gather all possible identifiers (id, joinCode, joinToken, sectionName, subject)
+    const allSecs = await FirestoreDataService.getSectionsFromFirestore().catch(() => []);
+    const matchedSec = allSecs.find(
+      (s: any) =>
+        (s.id && String(s.id).toLowerCase() === targetKey.toLowerCase()) ||
+        (s.joinCode && String(s.joinCode).toLowerCase() === targetKey.toLowerCase()) ||
+        (s.joinToken && String(s.joinToken).toLowerCase() === targetKey.toLowerCase())
+    );
+
+    const matchKeys = new Set<string>([
+      targetKey.toUpperCase(),
+      targetKey.toLowerCase(),
+    ]);
+    if (matchedSec) {
+      if (matchedSec.id) {
+        matchKeys.add(String(matchedSec.id).toUpperCase());
+        matchKeys.add(String(matchedSec.id).toLowerCase());
+      }
+      if (matchedSec.joinCode) {
+        matchKeys.add(String(matchedSec.joinCode).toUpperCase());
+        matchKeys.add(String(matchedSec.joinCode).toLowerCase());
+      }
+      if (matchedSec.joinToken) {
+        matchKeys.add(String(matchedSec.joinToken).toUpperCase());
+        matchKeys.add(String(matchedSec.joinToken).toLowerCase());
+      }
+      if (Array.isArray(matchedSec.students)) {
+        matchedSec.students.forEach((s: any) => {
+          const key = (s.prn || s.email || s.id || '').toUpperCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            list.push(s);
+          }
+        });
+      }
+    }
+
+    // 1. Check local backup for all matchKeys
     try {
-      const raw = localStorage.getItem(`logicq_section_students_${sectionId}`);
-      if (raw) {
-        const cached = JSON.parse(raw);
-        if (Array.isArray(cached)) {
-          cached.forEach((s) => {
-            const key = (s.prn || s.email || s.id || '').toUpperCase();
-            if (key && !seen.has(key)) {
-              seen.add(key);
-              list.push(s);
-            }
-          });
+      for (const k of matchKeys) {
+        const raw = localStorage.getItem(`logicq_section_students_${k}`);
+        if (raw) {
+          const cached = JSON.parse(raw);
+          if (Array.isArray(cached)) {
+            cached.forEach((s) => {
+              const key = (s.prn || s.email || s.id || '').toUpperCase();
+              if (key && !seen.has(key)) {
+                seen.add(key);
+                list.push(s);
+              }
+            });
+          }
         }
       }
     } catch {}
 
-    // 2. Query 'enrolled_students' where sectionId == sectionId
+    // 2. Query 'enrolled_students' matching any matchKeys
     try {
-      const q = query(collection(db, 'enrolled_students'), where('sectionId', '==', sectionId));
-      const snap = await getDocs(q);
+      const snap = await getDocs(collection(db, 'enrolled_students'));
       snap.forEach((d) => {
         const data = d.data();
         if (data) {
-          const key = (data.prn || data.email || d.id).toUpperCase();
-          if (!seen.has(key)) {
-            seen.add(key);
-            list.push({ id: d.id, ...data });
+          const secId = String(data.sectionId || '').trim();
+          const jCode = String(data.joinCode || '').trim();
+          if (matchKeys.has(secId) || matchKeys.has(secId.toUpperCase()) || matchKeys.has(jCode) || matchKeys.has(jCode.toUpperCase())) {
+            const key = (data.prn || data.email || d.id).toUpperCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              list.push({ id: d.id, ...data });
+            }
           }
         }
       });
     } catch (e) {
       console.warn('getEnrolledStudentsForSection query error:', e);
     }
+
+    // 3. Query 'users' collection where student is assigned to this section
+    try {
+      const uSnap = await getDocs(collection(db, 'users'));
+      uSnap.forEach((d) => {
+        const u = d.data();
+        if (u && !FirestoreDataService.isPurgedStudent(u)) {
+          const uSec = String(u.sectionId || '').trim();
+          const uCode = String(u.joinCode || '').trim();
+          const enrolledList = Array.isArray(u.enrolledSections) ? u.enrolledSections.map((x: any) => String(x).toUpperCase()) : [];
+          const matches = matchKeys.has(uSec) || matchKeys.has(uSec.toUpperCase()) || matchKeys.has(uCode) || matchKeys.has(uCode.toUpperCase()) || enrolledList.some((el: string) => matchKeys.has(el));
+          if (matches) {
+            const key = (u.prn || u.email || d.id).toUpperCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              const shortId = u.prn ? String(u.prn).slice(-4) : '0000';
+              list.push({
+                id: d.id,
+                userId: d.id,
+                name: u.fullName || u.displayName || u.name || `Student ${shortId}`,
+                fullName: u.fullName || u.displayName || u.name || `Student ${shortId}`,
+                email: (u.email || '').toLowerCase().trim(),
+                prn: u.prn ? String(u.prn).toUpperCase().trim() : null,
+                department: u.department || 'General',
+                year: u.year || 'FY',
+                status: 'ENROLLED',
+              });
+            }
+          }
+        }
+      });
+    } catch {}
 
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }

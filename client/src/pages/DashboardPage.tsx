@@ -641,10 +641,10 @@ export const DashboardPage: React.FC = () => {
                             </div>
                             <div>
                               <div className="font-semibold text-sm text-[var(--text-main)]">
-                                {sName} — {subj}
+                                {sName && subj && sName.toLowerCase().trim() !== subj.toLowerCase().trim() ? `${sName} — ${subj}` : (sName || subj)}
                               </div>
                               <div className="text-[11px] text-[var(--text-muted)]">
-                                {sec?.course || 'Engineering'} • {count} student{count === 1 ? '' : 's'} enrolled
+                                {count} student{count === 1 ? '' : 's'} enrolled
                               </div>
                             </div>
                           </div>

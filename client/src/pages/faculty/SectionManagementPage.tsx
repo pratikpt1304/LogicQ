@@ -70,6 +70,7 @@ interface SectionItem {
   endDate?: string | null;
   isActive?: boolean;
   createdAt?: string;
+  studentsCount?: number;
   _count?: { students: number };
   students?: StudentRosterItem[];
 }
@@ -142,12 +143,27 @@ export const SectionManagementPage: React.FC = () => {
       });
 
       // 2. Put / overlay Firestore sections
-      firestoreSections.forEach((s: any) => {
-        if (!FirestoreDataService.isLegacyDemoSection(s)) {
-          const key = s.joinCode || s.id;
+      firestoreSections.forEach((fs: any) => {
+        if (!FirestoreDataService.isLegacyDemoSection(fs)) {
+          const key = fs.joinCode || fs.id;
           if (key) {
-            const existing = sectionMap.get(key) || {};
-            sectionMap.set(key, { ...existing, ...s });
+            const existing: any = sectionMap.get(key) || {};
+            const mergedStudents = (Array.isArray(fs.students) && fs.students.length > 0)
+              ? fs.students
+              : (Array.isArray(existing.students) && existing.students.length > 0 ? existing.students : []);
+            const studentCountVal = Math.max(
+              mergedStudents.length,
+              fs.studentsCount || 0,
+              fs._count?.students || 0,
+              existing._count?.students || 0
+            );
+            sectionMap.set(key, {
+              ...existing,
+              ...fs,
+              students: mergedStudents,
+              studentsCount: studentCountVal,
+              _count: { students: studentCountVal },
+            });
           }
         }
       });
@@ -222,8 +238,8 @@ export const SectionManagementPage: React.FC = () => {
       const fullPayload = {
         subject: subjectName,
         sectionName: subjectName,
-        course: 'CSE',
-        department: 'CSE',
+        course: subjectName,
+        department: '',
         academicYear: `${currentYear}-${currentYear + 1}`,
         semester: payload.semester || 'Semester 1',
         institution: 'Sanjivani University',
@@ -513,10 +529,11 @@ export const SectionManagementPage: React.FC = () => {
 
   const getSectionStudentCount = (section: SectionItem): number => {
     let count = Math.max(
+      section.studentsCount || 0,
       section._count?.students || 0,
       section.students?.length || 0,
       selectedSection && (selectedSection.id === section.id || selectedSection.joinCode === section.joinCode)
-        ? selectedSection.students?.length || 0
+        ? (selectedSection.students?.length || selectedSection.studentsCount || selectedSection._count?.students || 0)
         : 0
     );
 
@@ -545,48 +562,50 @@ export const SectionManagementPage: React.FC = () => {
   };
 
   const refetchDetails = async (id: string) => {
+    let backendSec: any = null;
     try {
       const res = await api.get(`/sections/${id}`);
       if (res?.section || res?.data) {
-        const sec = res.section || res.data;
-        if (!sec.students || sec.students.length === 0) {
-          const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
-          if (fsStudents.length > 0) {
-            sec.students = fsStudents;
-          }
-        }
-        sec._count = { students: sec.students?.length || 0 };
-        setSelectedSection(sec);
-        queryClient.setQueryData(['faculty-sections'], (old: any) => {
-          if (!Array.isArray(old)) return old;
-          return old.map((s: any) =>
-            s.id === id || s.joinCode === sec.joinCode
-              ? { ...s, students: sec.students, _count: { students: sec.students?.length || 0 } }
-              : s
-          );
-        });
-        return;
+        backendSec = res.section || res.data;
       }
     } catch (err) {
       console.warn('Backend /sections/:id failed, falling back to Firestore/local:', err);
     }
 
-    const localSec = sections.find((s) => s.id === id);
-    if (localSec) {
-      const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
-      const updated = {
-        ...localSec,
-        students: fsStudents,
-        _count: { students: fsStudents.length },
-      };
-      setSelectedSection(updated);
-      queryClient.setQueryData(['faculty-sections'], (old: any) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((s: any) =>
-          s.id === id ? { ...s, students: fsStudents, _count: { students: fsStudents.length } } : s
-        );
-      });
-    }
+    const localSec = sections.find((s) => s.id === id || s.joinCode === id) || backendSec;
+    const fsStudents = await FirestoreDataService.getEnrolledStudentsForSection(id);
+
+    const mergedStudents = (Array.isArray(backendSec?.students) && backendSec.students.length > 0)
+      ? [...backendSec.students]
+      : (Array.isArray(localSec?.students) && localSec.students.length > 0 ? [...localSec.students] : []);
+
+    fsStudents.forEach((st: any) => {
+      const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+      const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+      if (!mergedStudents.some((ex: any) => (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail) || (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn))) {
+        mergedStudents.push(st);
+      }
+    });
+
+    const updatedCount = Math.max(mergedStudents.length, localSec?._count?.students || 0, localSec?.studentsCount || 0);
+
+    const updated = {
+      ...(localSec || {}),
+      ...(backendSec || {}),
+      students: mergedStudents,
+      studentsCount: updatedCount,
+      _count: { students: updatedCount },
+    };
+
+    setSelectedSection(updated);
+    queryClient.setQueryData(['faculty-sections'], (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((s: any) =>
+        s.id === id || s.joinCode === updated.joinCode
+          ? { ...s, students: mergedStudents, _count: { students: updatedCount }, studentsCount: updatedCount }
+          : s
+      );
+    });
   };
 
   const handleCopy = (text: string, key: string) => {
