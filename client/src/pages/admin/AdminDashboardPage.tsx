@@ -6818,12 +6818,12 @@ int main() {
 
       {/* Admin AI Question Generator Modal (Section 16 - Streamlined) */}
       {isAdminAiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg glass-card rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl p-6 sm:p-7 space-y-5 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-lg glass-card rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl max-h-[90vh] flex flex-col my-auto overflow-hidden animate-in zoom-in-95">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-[var(--border)]">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)] shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 shrink-0">
                   <Sparkles className="w-4 h-4 text-amber-300" />
                 </div>
                 <div>
@@ -6838,13 +6838,14 @@ int main() {
               <button
                 type="button"
                 onClick={() => setIsAdminAiModalOpen(false)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs font-sans">
+            {/* Scrollable Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs font-sans flex-1">
               {/* 1. Target Module */}
               <div>
                 <label className="block text-[var(--foreground)] font-semibold mb-1">
@@ -6980,7 +6981,7 @@ int main() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[var(--border)]">
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-[var(--border)] shrink-0 bg-[var(--card)]">
               <button
                 type="button"
                 onClick={() => setIsAdminAiModalOpen(false)}

@@ -428,12 +428,12 @@ export const QuestionBankPage: React.FC = () => {
 
       {/* AI GENERATION MODAL (Section 16 - Streamlined) */}
       {isAiModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 my-auto overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3.5">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)] shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 shrink-0">
                   <Sparkles className="w-4 h-4 text-amber-300" />
                 </div>
                 <div>
@@ -447,13 +447,14 @@ export const QuestionBankPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsAiModalOpen(false)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1 rounded-lg hover:bg-[var(--accent)]/10 text-sm transition"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] p-1.5 rounded-lg hover:bg-[var(--accent)]/10 text-sm transition"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            {/* Scrollable Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs flex-1">
               {/* 1. Target Module */}
               <div>
                 <label className="block text-[var(--foreground)] font-semibold mb-1">
@@ -589,7 +590,7 @@ export const QuestionBankPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[var(--border)]">
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-[var(--border)] shrink-0 bg-[var(--card)]">
               <button
                 type="button"
                 onClick={() => setIsAiModalOpen(false)}
