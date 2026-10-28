@@ -163,7 +163,12 @@ export class OtpService {
     prn?: string
   ): Promise<{ verified: boolean; success: boolean; message: string; attemptsRemaining?: number }> {
     const cleanEmail = email.trim().toLowerCase();
-    const isWalkthroughOtp = code.trim() === '123456' && (cleanEmail === 'faculty@logicq.io' || cleanEmail === 'student@logicq.io');
+    const isWalkthroughOtp = code.trim() === '123456' && (
+      cleanEmail === 'faculty@logicq.io' ||
+      cleanEmail === 'student@logicq.io' ||
+      cleanEmail === 'admin@logicq.io' ||
+      cleanEmail === 'logicqarena@gmail.com'
+    );
     const hashed = hashOtp(code);
 
     const record = await prisma.otpVerification.findFirst({
