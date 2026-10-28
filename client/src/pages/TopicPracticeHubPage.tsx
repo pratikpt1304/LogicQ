@@ -64,15 +64,16 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [activeTopic, setActiveTopic] = useState<TopicPracticeItem | null>(null);
   const [solvedTopics, setSolvedTopics] = useState<string[]>(getSolvedPracticeTopicIds());
 
-  // Workspace modal state
+  // Workspace state
   const [code, setCode] = useState<string>('');
+  const [customInput, setCustomInput] = useState<string>('');
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
-  const [leftPanelTab, setLeftPanelTab] = useState<'problem' | 'tips'>('problem');
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('output');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'app' | 'example'>('syntax');
-  const [isTipOpen, setIsTipOpen] = useState<boolean>(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
 
   // Computed navigation between topics
@@ -93,45 +94,49 @@ export const TopicPracticeHubPage: React.FC = () => {
   const handleOpenTopic = (topic: TopicPracticeItem) => {
     setActiveTopic(topic);
     setCode(topic.problem.starterCode);
+    setCustomInput('');
     setRunResult(null);
     setSubmitResult(null);
-    setIsTipOpen(false);
-    setLeftPanelTab('problem');
+    setIsDrawerOpen(false);
+    setActiveBottomTab('output');
   };
 
   const handleCloseTopic = () => {
     setActiveTopic(null);
   };
 
-  // Run visible test case
+  // Run test case
   const handleRunOpenTest = async () => {
     if (!activeTopic) return;
     setIsRunning(true);
     setRunResult(null);
     setSubmitResult(null);
+    setIsDrawerOpen(true);
+    setActiveBottomTab('output');
 
     try {
+      const inputToUse = customInput.trim() ? customInput : activeTopic.problem.openTestCase.input;
       const res = await api.post('/problems/run', {
         code,
-        input: activeTopic.problem.openTestCase.input,
+        input: inputToUse,
       });
 
       const actualOut = (res.output || res.stdout || '').trim();
       const expectedOut = activeTopic.problem.openTestCase.expectedOutput.trim();
-      const isPassed = actualOut === expectedOut;
+      const isPassed = customInput.trim() ? true : actualOut === expectedOut;
 
       setRunResult({
         success: isPassed,
         actualOutput: actualOut,
-        expectedOutput: expectedOut,
+        expectedOutput: customInput.trim() ? '(Custom Stdin Ran)' : expectedOut,
         compileError: res.compileError || res.error,
-        executionTimeMs: res.executionTimeMs || 12,
+        executionTimeMs: res.executionTimeMs || 14,
       });
 
       if (isPassed) {
-        toast.success('Open Test Case Passed! Click Submit to test hidden case.');
+        toast.success('Run finished successfully.');
       } else {
-        toast.error('Open Test Case Mismatch. Check your logic and try again.');
+        toast.error('Output mismatch. Check logic and retry.');
       }
     } catch (err: any) {
       setRunResult({
@@ -149,6 +154,8 @@ export const TopicPracticeHubPage: React.FC = () => {
     if (!activeTopic) return;
     setIsSubmitting(true);
     setSubmitResult(null);
+    setIsDrawerOpen(true);
+    setActiveBottomTab('output');
 
     try {
       // 1. Run open test
@@ -597,304 +604,317 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
-          {/* Workspace Body: 2 Split Panels */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden select-text">
+          {/* Main Two-Pane Split View (Exact Lab Internal Structure) */}
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 select-text">
             
-            {/* LEFT COLUMN: Problem Specification & Tabs (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col h-full bg-[var(--bg-panel)] border-r border-[var(--border-line)] overflow-hidden">
+            {/* Left Pane: Problem Description Statement (50% width) */}
+            <div className="lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)]">
               
-              {/* Tab Selector */}
-              <div className="px-5 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center gap-4 shrink-0">
-                <button
-                  onClick={() => setLeftPanelTab('problem')}
-                  className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
-                    leftPanelTab === 'problem'
-                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Problem Statement</span>
-                </button>
-
-                <button
-                  onClick={() => setLeftPanelTab('tips')}
-                  className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
-                    leftPanelTab === 'tips'
-                      ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  <span>Syntax Cheat Sheet</span>
-                </button>
+              {/* Problem Title & Category Meta */}
+              <div className="space-y-2">
+                <h2 className="text-lg sm:text-xl font-bold text-[var(--text-main)]">
+                  {activeTopic.problem.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+                  <span>{activeTopic.moduleTitle}</span>
+                  <span>•</span>
+                  <span>Standard GCC C11</span>
+                  <span>•</span>
+                  <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25">
+                    {activeTopic.problem.difficulty}
+                  </span>
+                </div>
               </div>
 
-              {/* Tab Content: Problem */}
-              {leftPanelTab === 'problem' && (
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  <div>
-                    <h1 className="text-xl font-bold text-[var(--text-main)] tracking-tight">
-                      {activeTopic.problem.title}
-                    </h1>
-                    <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
-                      {activeTopic.summary}
-                    </p>
+              {/* Topic Syntax Reference (Clean Glass Card) */}
+              <div className="glass-card rounded-xl p-3.5 border border-amber-500/30 bg-amber-500/5 space-y-2.5 text-xs font-mono">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
+                    <Lightbulb className="w-4 h-4 shrink-0" />
+                    <span>Topic Reference</span>
                   </div>
-
-                  {/* Clean Markdown rendering adhering to theme text colors */}
-                  <div className="text-[var(--text-main)] text-sm leading-relaxed">
-                    <StatementMarkdown content={activeTopic.problem.description} />
-                  </div>
-
-                  {/* Standard LeetCode-style Example Card */}
-                  <div className="space-y-2 pt-3 border-t border-[var(--border-line)]">
-                    <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                      Sample Testcase (Visible):
-                    </div>
-                    <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-xs space-y-2.5">
-                      <div>
-                        <span className="text-[var(--text-muted)] font-bold block text-[11px] uppercase tracking-wider">Input:</span>
-                        <pre className="text-[var(--text-main)] mt-1 p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] whitespace-pre-wrap font-mono">
-                          {activeTopic.problem.openTestCase.input}
-                        </pre>
-                      </div>
-                      <div>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold block text-[11px] uppercase tracking-wider">Expected Output:</span>
-                        <pre className="text-emerald-600 dark:text-emerald-400 mt-1 p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] font-bold whitespace-pre-wrap font-mono">
-                          {activeTopic.problem.openTestCase.expectedOutput}
-                        </pre>
-                      </div>
-                      {activeTopic.problem.openTestCase.explanation && (
-                        <div className="text-[var(--text-muted)] font-sans text-xs pt-2 border-t border-[var(--border-line)]">
-                          <span className="text-[var(--text-main)] font-semibold">Explanation: </span>
-                          {activeTopic.problem.openTestCase.explanation}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Subtle Hidden Case Info */}
-                  <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                    <ShieldCheck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                    <span>Additional hidden edge cases are evaluated upon clicking <strong>Submit Solution</strong>.</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab Content: Tips */}
-              {leftPanelTab === 'tips' && (
-                <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                  <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-lg border border-[var(--border-line)] w-fit">
+                  <div className="flex items-center gap-1">
                     <button
+                      type="button"
                       onClick={() => setActiveTipTab('syntax')}
-                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
                         activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       Syntax
                     </button>
                     <button
+                      type="button"
                       onClick={() => setActiveTipTab('app')}
-                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
                         activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
-                      Real-world Use
+                      Application
                     </button>
                     <button
+                      type="button"
                       onClick={() => setActiveTipTab('example')}
-                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
                         activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
-                      Full Example
+                      Example
                     </button>
                   </div>
-
-                  <div className="text-xs text-[var(--text-main)] font-mono leading-relaxed">
-                    {activeTipTab === 'syntax' && (
-                      <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase font-mono">C Syntax Blueprint:</div>
-                        <pre className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs">
-                          {activeTopic.tipBox.syntax}
-                        </pre>
-                      </div>
-                    )}
-                    {activeTipTab === 'app' && (
-                      <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase font-mono">Industry Application:</div>
-                        <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] font-sans text-xs leading-relaxed">
-                          {activeTopic.tipBox.application}
-                        </div>
-                      </div>
-                    )}
-                    {activeTipTab === 'example' && (
-                      <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase font-mono">Working Implementation:</div>
-                        <pre className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-emerald-700 dark:text-emerald-300 overflow-x-auto text-xs">
-                          {activeTopic.tipBox.example}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
                 </div>
-              )}
+
+                {activeTipTab === 'syntax' && (
+                  <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)]">
+                    {activeTopic.tipBox.syntax}
+                  </pre>
+                )}
+                {activeTipTab === 'app' && (
+                  <div className="p-2.5 rounded-lg bg-[var(--bg-main)] text-[var(--text-main)] text-xs font-sans leading-relaxed border border-[var(--border-line)]">
+                    {activeTopic.tipBox.application}
+                  </div>
+                )}
+                {activeTipTab === 'example' && (
+                  <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-700 dark:text-emerald-400 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)]">
+                    {activeTopic.tipBox.example}
+                  </pre>
+                )}
+              </div>
+
+              {/* Safe Markdown Renderer with clean math */}
+              <StatementMarkdown content={activeTopic.problem.description} />
+
+              {/* Sample Test Cases (Exact Lab Internal layout) */}
+              <div className="space-y-4 pt-4 border-t border-[var(--border-line)]">
+                <h3 className="text-xs font-mono font-bold tracking-wider text-[var(--text-main)] uppercase">
+                  Sample Test Cases
+                </h3>
+                <div className="glass-card rounded-xl p-3.5 border border-[var(--border-line)] space-y-2 text-xs font-mono">
+                  <div className="text-[11px] text-[var(--accent)] font-semibold">
+                    Sample #1 (Visible Test)
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                      Input
+                    </span>
+                    <pre className="p-2 rounded bg-[var(--bg-main)] text-[var(--text-main)] overflow-x-auto mt-0.5 border border-[var(--border-line)]">
+                      {activeTopic.problem.openTestCase.input}
+                    </pre>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
+                      Expected Output
+                    </span>
+                    <pre className="p-2 rounded bg-[var(--bg-main)] text-emerald-600 dark:text-emerald-400 overflow-x-auto mt-0.5 font-bold border border-[var(--border-line)]">
+                      {activeTopic.problem.openTestCase.expectedOutput}
+                    </pre>
+                  </div>
+                  {activeTopic.problem.openTestCase.explanation && (
+                    <div className="text-[var(--text-muted)] font-sans text-xs pt-1 border-t border-[var(--border-line)]">
+                      <span className="font-semibold text-[var(--text-main)]">Explanation: </span>
+                      {activeTopic.problem.openTestCase.explanation}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+                  <ShieldCheck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  <span>Hidden edge cases are evaluated automatically when you submit.</span>
+                </div>
+              </div>
 
             </div>
 
-            {/* RIGHT COLUMN: Full-Height Code Editor & Console (7 cols) */}
-            <div className="lg:col-span-7 flex flex-col h-full bg-[var(--bg-panel)] overflow-hidden">
+            {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer (50% width) */}
+            <div className="lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)]">
               
-              {/* Editor Top Bar */}
-              <div className="px-4 py-2 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between text-xs font-mono shrink-0">
-                <div className="flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                  <span className="text-[var(--text-main)] font-bold">solution.c</span>
-                  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)]">
-                    C11 (GCC 14)
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => setCode(activeTopic.problem.starterCode)}
-                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono"
-                  title="Reset code to original starter boilerplate"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Reset Code</span>
-                </button>
-              </div>
-
-              {/* Full-Height Monaco Code Editor Area */}
-              <div className="flex-1 min-h-[260px] relative overflow-hidden bg-[var(--bg-panel)]">
+              {/* Editor Container */}
+              <div className="flex-1 min-h-[300px] relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
                   code={code}
                   onChange={(val) => setCode(val || '')}
-                  onRun={handleRunOpenTest}
-                  onSubmit={handleSubmitCode}
                   onReset={() => setCode(activeTopic.problem.starterCode)}
-                  isRunning={isRunning}
-                  isSubmitting={isSubmitting}
+                  readOnly={false}
                   disableCopyPaste={false}
                 />
               </div>
 
-              {/* Output Console / Test Verdict Panel */}
-              <div className="max-h-56 overflow-y-auto shrink-0 border-t border-[var(--border-line)] bg-[var(--bg-surface)] p-4 font-mono text-xs space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pb-1 border-b border-[var(--border-line)]">
-                  <span className="flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="font-bold text-[var(--text-main)]">Execution Output &amp; Verdicts</span>
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)]">Shortcut: <kbd className="px-1 py-0.5 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded text-[var(--text-main)]">Ctrl + Enter</kbd> to run</span>
+              {/* Bottom Tabs Drawer: Strictly Custom Stdin and Verdict & Output */}
+              <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)]/80 flex flex-col shrink-0">
+                <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border-line)]/60">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBottomTab('custom');
+                        setIsDrawerOpen(true);
+                      }}
+                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
+                        activeBottomTab === 'custom' && isDrawerOpen
+                          ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      }`}
+                    >
+                      Custom Stdin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBottomTab('output');
+                        setIsDrawerOpen(true);
+                      }}
+                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 ${
+                        activeBottomTab === 'output' && isDrawerOpen
+                          ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      }`}
+                    >
+                      <span>Verdict &amp; Output</span>
+                      {runResult && (
+                        <span className={`w-2 h-2 rounded-full ${runResult.success ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                      )}
+                      {submitResult && (
+                        <span className={`w-2 h-2 rounded-full ${submitResult.allPassed ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                    title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
+                  >
+                    {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                  </button>
                 </div>
 
-                {runResult && (
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        runResult.success ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                      }`}>
-                        {runResult.success ? '✓ VISIBLE TEST PASSED' : '✗ TEST MISMATCH'}
-                      </span>
-                      <span className="text-[10px] text-[var(--text-muted)]">{runResult.executionTimeMs}ms</span>
-                    </div>
-                    {runResult.actualOutput !== undefined && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)]">
-                          <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase mb-1">Your Output:</div>
-                          <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
-                            {runResult.actualOutput || '(No output)'}
-                          </pre>
-                        </div>
-                        <div className="p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)]">
-                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1">Expected Output:</div>
-                          <pre className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap font-mono font-bold">
-                            {runResult.expectedOutput}
-                          </pre>
-                        </div>
+                {isDrawerOpen && (
+                  <div className="h-60 p-3 overflow-y-auto font-mono text-xs">
+                    {activeBottomTab === 'custom' ? (
+                      <div className="h-full flex flex-col space-y-1.5">
+                        <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
+                          Standard Input (passed to stdin for Run Code):
+                        </label>
+                        <textarea
+                          value={customInput}
+                          onChange={(e) => setCustomInput(e.target.value)}
+                          placeholder="Enter test input data (e.g. 10 20 30)..."
+                          className="w-full flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-[var(--text-main)] border border-[var(--border-line)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                        />
                       </div>
-                    )}
-                    {runResult.compileError && (
-                      <pre className="text-rose-600 dark:text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                        {runResult.compileError}
-                      </pre>
-                    )}
-                  </div>
-                )}
+                    ) : (
+                      <div className="space-y-3">
+                        {runResult && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                runResult.success
+                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                              }`}>
+                                {runResult.success ? 'TEST 1: PASSED ✓' : 'TEST 1: FAILED ✗'}
+                              </span>
+                              <span className="text-[10px] text-[var(--text-muted)]">{runResult.executionTimeMs}ms</span>
+                            </div>
+                            {runResult.actualOutput !== undefined && (
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="p-2 rounded bg-[var(--bg-main)] border border-[var(--border-line)]">
+                                  <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase mb-0.5">Your Output:</div>
+                                  <pre className={`text-xs whitespace-pre-wrap ${runResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
+                                    {runResult.actualOutput || '(No output)'}
+                                  </pre>
+                                </div>
+                                <div className="p-2 rounded bg-[var(--bg-main)] border border-[var(--border-line)]">
+                                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
+                                  <pre className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap font-bold">
+                                    {runResult.expectedOutput}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
+                            {runResult.compileError && (
+                              <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                                {runResult.compileError}
+                              </pre>
+                            )}
+                          </div>
+                        )}
 
-                {submitResult && (
-                  <div className="space-y-2 pt-1">
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2.5 py-1 rounded text-[11px] font-bold ${
-                        submitResult.allPassed
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                      }`}>
-                        {submitResult.allPassed ? '✓ ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : '✗ SUBMISSION FAILED'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className={`p-2.5 rounded-lg border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
-                        Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                      </div>
-                      <div className={`p-2.5 rounded-lg border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
-                        Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                      </div>
-                    </div>
-                    {submitResult.compileError && (
-                      <pre className="text-rose-600 dark:text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                        {submitResult.compileError}
-                      </pre>
-                    )}
-                  </div>
-                )}
+                        {submitResult && (
+                          <div className="space-y-2">
+                            <span className={`px-2.5 py-1 rounded text-[11px] font-bold inline-block ${
+                              submitResult.allPassed
+                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                            }`}>
+                              {submitResult.allPassed ? 'ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : 'SUBMISSION FAILED'}
+                            </span>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className={`p-2 rounded border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
+                                Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                              </div>
+                              <div className={`p-2 rounded border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
+                                Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                              </div>
+                            </div>
+                            {submitResult.compileError && (
+                              <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                                {submitResult.compileError}
+                              </pre>
+                            )}
+                          </div>
+                        )}
 
-                {!runResult && !submitResult && (
-                  <div className="text-[var(--text-muted)] text-xs py-2 text-center">
-                    Write your C code above and click <strong>Run Test</strong> (or press <kbd className="px-1 py-0.5 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded text-[var(--text-main)]">Ctrl+Enter</kbd>) to evaluate.
+                        {!runResult && !submitResult && (
+                          <div className="text-[var(--text-muted)] text-xs py-8 text-center">
+                            Click <strong>Run Code</strong> or <strong>Submit</strong> to evaluate your solution.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Pinned Bottom Action Bar */}
-              <div className="h-14 px-4 bg-[var(--bg-panel)] border-t border-[var(--border-line)] flex items-center justify-between shrink-0">
+              {/* Action Bar (Exact Lab Internal layout) */}
+              <div className="border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-4 py-2.5 flex items-center justify-between shrink-0">
                 <div>
                   {submitResult?.allPassed && nextTopic ? (
                     <button
+                      type="button"
                       onClick={() => handleOpenTopic(nextTopic)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-500/20 animate-pulse"
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-mono text-xs font-bold transition flex items-center gap-2 shadow-md shadow-emerald-500/20 animate-pulse"
                     >
-                      <span>Next Problem: {nextTopic.topicTitle}</span>
+                      <span>Next Question: Q{currentTopicIndex + 2}</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <span className="text-xs font-mono text-[var(--text-muted)] hidden sm:inline">
-                      Unlimited attempts • Standard C11 GCC Environment
+                    <span className="text-xs font-mono text-[var(--text-muted)]">
+                      Unlimited attempts permitted
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2.5">
                   <button
+                    type="button"
                     onClick={handleRunOpenTest}
                     disabled={isRunning || isSubmitting}
-                    className="px-4 py-2 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50"
-                    title="Run Visible Sample Test (Ctrl+Enter)"
+                    className="px-4 py-2 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-bold text-[var(--text-main)] transition flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Play className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{isRunning ? 'Running...' : 'Run Test'}</span>
+                    <span>{isRunning ? 'Running...' : 'Run Code'}</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleSubmitCode}
                     disabled={isRunning || isSubmitting}
                     className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
-                    title="Submit & Evaluate on all tests"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmitting ? 'Evaluating...' : 'Submit Solution'}</span>
+                    <span>{isSubmitting ? 'Submitting...' : 'Submit'}</span>
                   </button>
                 </div>
               </div>
