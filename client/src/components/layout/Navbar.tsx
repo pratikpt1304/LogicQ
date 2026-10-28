@@ -64,7 +64,6 @@ export const Navbar: React.FC = () => {
         { label: 'Home', path: '/dashboard', icon: Home },
         { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
-        { label: 'Tests', path: '/student/tests', icon: FileCode2 },
         { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
         { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
       ]
@@ -241,6 +240,15 @@ export const Navbar: React.FC = () => {
 
                         {isStudent && (
                           <>
+                            <Link
+                              to="/student/tests"
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            >
+                              <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>My Assigned Tests</span>
+                            </Link>
+
                             <Link
                               to="/history"
                               onClick={() => setProfileDropdownOpen(false)}
