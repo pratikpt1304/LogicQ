@@ -26,24 +26,32 @@ export class OtpService {
     ipAddress?: string
   ): Promise<{ success: boolean; message: string; code?: string; cooldownRemaining?: number }> {
     const cleanEmail = email.trim().toLowerCase();
+    const isWalkthroughEmail = (
+      cleanEmail === 'faculty@logicq.io' ||
+      cleanEmail === 'student@logicq.io' ||
+      cleanEmail === 'admin@logicq.io' ||
+      cleanEmail === 'logicqarena@gmail.com'
+    );
 
-    // 1. Rate-limit cooldown check (must wait 60s between requests)
-    const recent = await prisma.otpVerification.findFirst({
-      where: {
-        target: cleanEmail,
-        type: 'EMAIL',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // 1. Rate-limit cooldown check (must wait 60s between requests, bypassed for walkthrough/testing accounts)
+    if (!isWalkthroughEmail) {
+      const recent = await prisma.otpVerification.findFirst({
+        where: {
+          target: cleanEmail,
+          type: 'EMAIL',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    if (recent) {
-      const elapsedSeconds = (Date.now() - recent.createdAt.getTime()) / 1000;
-      if (elapsedSeconds < OTP_COOLDOWN_SECONDS) {
-        return {
-          success: false,
-          message: `Please wait ${Math.ceil(OTP_COOLDOWN_SECONDS - elapsedSeconds)}s before requesting a new email code.`,
-          cooldownRemaining: Math.ceil(OTP_COOLDOWN_SECONDS - elapsedSeconds),
-        };
+      if (recent) {
+        const elapsedSeconds = (Date.now() - recent.createdAt.getTime()) / 1000;
+        if (elapsedSeconds < OTP_COOLDOWN_SECONDS) {
+          return {
+            success: false,
+            message: `Please wait ${Math.ceil(OTP_COOLDOWN_SECONDS - elapsedSeconds)}s before requesting a new email code.`,
+            cooldownRemaining: Math.ceil(OTP_COOLDOWN_SECONDS - elapsedSeconds),
+          };
+        }
       }
     }
 
