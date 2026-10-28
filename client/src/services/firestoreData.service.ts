@@ -1565,16 +1565,9 @@ export class FirestoreDataService {
     if (!student) return false;
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
     const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
-    const fullName = String(student.fullName || student.name || student.displayName || '').toLowerCase().trim();
-    const username = String(student.username || '').toLowerCase().trim();
     return (
-      email === 'student@logicq.io' ||
-      email.startsWith('student@logicq') ||
-      username === 'student_demo' ||
-      fullName.includes('demo student') ||
       prn === '2026IMTM0001' ||
       prn === '2024BCSE0001' ||
-      (prn.endsWith('0001') && email.includes('logicq')) ||
       email === 'rohan_1390@test.edu' ||
       email === 'join_1390@sanjivani.edu.in' ||
       email === 'ipverse1918@gmail.com' ||
