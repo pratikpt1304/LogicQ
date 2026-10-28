@@ -847,8 +847,8 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   return (
     <div
-      className={`flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden h-[100dvh] max-h-[100dvh] md:h-[calc(100dvh-4rem)] md:max-h-[calc(100dvh-4rem)] ${
-        isFullscreen ? 'fixed inset-0 z-50 h-screen max-h-screen' : ''
+      className={`fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden bg-[var(--bg-main)] text-[var(--text-main)] ${
+        isFullscreen ? 'z-50' : ''
       }`}
     >
       {/* Inactive Fullscreen Warning Banner */}

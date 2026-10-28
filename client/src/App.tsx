@@ -192,7 +192,7 @@ export const App: React.FC = () => {
           <span>STAGING ENVIRONMENT — TEST DATA ONLY (ISOLATED FROM PRODUCTION)</span>
         </div>
       )}
-      <div className={isWorkspaceRoute ? 'hidden md:block' : 'block'}>
+      <div className={isWorkspaceRoute ? 'hidden' : 'block'}>
         <Navbar />
       </div>
       <PwaManager />

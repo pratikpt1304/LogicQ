@@ -351,7 +351,7 @@ export const ExamWorkspacePage: React.FC = () => {
   };
 
   return (
-    <div className="h-[100dvh] md:h-[calc(100dvh-4rem)] max-h-[100dvh] md:max-h-[calc(100dvh-4rem)] bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col overflow-hidden">
       {/* Top Proctoring & Institutional Header Bar */}
       <header className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2.5 flex items-center justify-between text-xs font-mono">
         <div className="flex items-center gap-3">
