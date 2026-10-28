@@ -509,43 +509,43 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE */}
       {activeTopic && (
-        <div className="fixed inset-0 z-50 bg-[#0A0D18] flex flex-col overflow-hidden animate-fadeIn select-none">
+        <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen z-[100] bg-[var(--bg-main)] flex flex-col overflow-hidden animate-fadeIn select-none">
           
           {/* Topbar: Minimalist & Clean */}
-          <div className="h-13 px-4 border-b border-[#1E2438] bg-[#0E1326] flex items-center justify-between shrink-0 select-none">
+          <div className="h-14 px-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 select-none">
             
             {/* Left: Back to Hub + Problem Identity */}
             <div className="flex items-center gap-3">
               <button
                 onClick={handleCloseTopic}
-                className="px-3 py-1.5 rounded-lg border border-[#232B45] bg-[#141A30] hover:bg-[#1E2544] text-slate-300 hover:text-white text-xs font-mono font-medium transition flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-medium transition flex items-center gap-1.5"
                 title="Return to Practice Arena"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Practice Hub</span>
+                <ArrowLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                <span className="hidden sm:inline font-bold">Practice Hub</span>
               </button>
 
-              <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+              <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block" />
 
               <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-bold text-white max-w-[200px] sm:max-w-md truncate">
+                <span className="text-xs sm:text-sm font-bold text-[var(--text-main)] max-w-[200px] sm:max-w-md truncate">
                   {activeTopic.topicTitle}
                 </span>
 
                 <span
                   className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
                     activeTopic.problem.difficulty === 'HARD'
-                      ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                       : activeTopic.problem.difficulty === 'MEDIUM'
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                   }`}
                 >
                   {activeTopic.problem.difficulty}
                 </span>
 
                 {solvedTopics.includes(activeTopic.id) && (
-                  <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                     <CheckCircle2 className="w-3 h-3" />
                     Solved
                   </span>
@@ -554,23 +554,23 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             {/* Center: Prev / Next Problem Navigator */}
-            <div className="flex items-center gap-1 bg-[#141A30] p-1 rounded-xl border border-[#232B45]">
+            <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-xl border border-[var(--border-line)]">
               <button
                 onClick={() => prevTopic && handleOpenTopic(prevTopic)}
                 disabled={!prevTopic}
                 title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-xs font-mono px-2 text-slate-300 font-medium whitespace-nowrap">
+              <span className="text-xs font-mono px-2 text-[var(--text-main)] font-semibold whitespace-nowrap">
                 {currentTopicIndex + 1} / {TOPIC_PRACTICE_DATA.length}
               </span>
               <button
                 onClick={() => nextTopic && handleOpenTopic(nextTopic)}
                 disabled={!nextTopic}
                 title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -580,7 +580,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsIssueModalOpen(true)}
-                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition"
                 title="Report issue with problem or test cases"
               >
                 <Flag className="w-4 h-4" />
@@ -588,7 +588,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
               <button
                 onClick={handleCloseTopic}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition"
                 title="Exit workspace"
               >
                 <X className="w-4 h-4" />
@@ -601,19 +601,19 @@ export const TopicPracticeHubPage: React.FC = () => {
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden select-text">
             
             {/* LEFT COLUMN: Problem Specification & Tabs (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col h-full bg-[#0E1326] border-r border-[#1E2438] overflow-hidden">
+            <div className="lg:col-span-5 flex flex-col h-full bg-[var(--bg-panel)] border-r border-[var(--border-line)] overflow-hidden">
               
               {/* Tab Selector */}
-              <div className="px-4 border-b border-[#1E2438] bg-[#0E1326] flex items-center gap-4 shrink-0">
+              <div className="px-5 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center gap-4 shrink-0">
                 <button
                   onClick={() => setLeftPanelTab('problem')}
                   className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
                     leftPanelTab === 'problem'
-                      ? 'border-indigo-500 text-white'
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <BookOpen className="w-3.5 h-3.5" />
                   <span>Problem Statement</span>
                 </button>
 
@@ -621,11 +621,11 @@ export const TopicPracticeHubPage: React.FC = () => {
                   onClick={() => setLeftPanelTab('tips')}
                   className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
                     leftPanelTab === 'tips'
-                      ? 'border-amber-500 text-amber-300'
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                      ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
-                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                  <Lightbulb className="w-3.5 h-3.5" />
                   <span>Syntax Cheat Sheet</span>
                 </button>
               </div>
@@ -634,40 +634,40 @@ export const TopicPracticeHubPage: React.FC = () => {
               {leftPanelTab === 'problem' && (
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   <div>
-                    <h1 className="text-xl font-bold text-white tracking-tight">
+                    <h1 className="text-xl font-bold text-[var(--text-main)] tracking-tight">
                       {activeTopic.problem.title}
                     </h1>
-                    <p className="text-xs text-slate-400 font-mono mt-1">
+                    <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
                       {activeTopic.summary}
                     </p>
                   </div>
 
-                  {/* Clean Markdown rendering without nested clutter */}
-                  <div className="text-slate-300 text-sm leading-relaxed">
+                  {/* Clean Markdown rendering adhering to theme text colors */}
+                  <div className="text-[var(--text-main)] text-sm leading-relaxed">
                     <StatementMarkdown content={activeTopic.problem.description} />
                   </div>
 
                   {/* Standard LeetCode-style Example Card */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
-                    <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+                  <div className="space-y-2 pt-3 border-t border-[var(--border-line)]">
+                    <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Sample Testcase (Visible):
                     </div>
-                    <div className="p-4 rounded-xl bg-[#141A30] border border-[#232B45] font-mono text-xs space-y-2.5">
+                    <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-xs space-y-2.5">
                       <div>
-                        <span className="text-slate-400 font-bold block text-[11px] uppercase tracking-wider">Input:</span>
-                        <pre className="text-white mt-1 p-2.5 rounded-lg bg-black/50 border border-slate-800 whitespace-pre-wrap">
+                        <span className="text-[var(--text-muted)] font-bold block text-[11px] uppercase tracking-wider">Input:</span>
+                        <pre className="text-[var(--text-main)] mt-1 p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] whitespace-pre-wrap font-mono">
                           {activeTopic.problem.openTestCase.input}
                         </pre>
                       </div>
                       <div>
-                        <span className="text-emerald-400 font-bold block text-[11px] uppercase tracking-wider">Expected Output:</span>
-                        <pre className="text-emerald-400 mt-1 p-2.5 rounded-lg bg-black/50 border border-slate-800 font-bold whitespace-pre-wrap">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold block text-[11px] uppercase tracking-wider">Expected Output:</span>
+                        <pre className="text-emerald-600 dark:text-emerald-400 mt-1 p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] font-bold whitespace-pre-wrap font-mono">
                           {activeTopic.problem.openTestCase.expectedOutput}
                         </pre>
                       </div>
                       {activeTopic.problem.openTestCase.explanation && (
-                        <div className="text-slate-400 font-sans text-xs pt-2 border-t border-slate-800">
-                          <span className="text-slate-200 font-semibold">Explanation: </span>
+                        <div className="text-[var(--text-muted)] font-sans text-xs pt-2 border-t border-[var(--border-line)]">
+                          <span className="text-[var(--text-main)] font-semibold">Explanation: </span>
                           {activeTopic.problem.openTestCase.explanation}
                         </div>
                       )}
@@ -675,8 +675,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                   </div>
 
                   {/* Subtle Hidden Case Info */}
-                  <div className="p-3 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 flex items-center gap-2 text-xs font-mono text-slate-400">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+                    <ShieldCheck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                     <span>Additional hidden edge cases are evaluated upon clicking <strong>Submit Solution</strong>.</span>
                   </div>
                 </div>
@@ -685,11 +685,11 @@ export const TopicPracticeHubPage: React.FC = () => {
               {/* Tab Content: Tips */}
               {leftPanelTab === 'tips' && (
                 <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                  <div className="flex items-center gap-1 bg-[#141A30] p-1 rounded-lg border border-[#232B45] w-fit">
+                  <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-lg border border-[var(--border-line)] w-fit">
                     <button
                       onClick={() => setActiveTipTab('syntax')}
                       className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
-                        activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                        activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       Syntax
@@ -697,7 +697,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       onClick={() => setActiveTipTab('app')}
                       className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
-                        activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                        activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       Real-world Use
@@ -705,34 +705,34 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       onClick={() => setActiveTipTab('example')}
                       className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
-                        activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                        activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                       }`}
                     >
                       Full Example
                     </button>
                   </div>
 
-                  <div className="text-xs text-slate-200 font-mono leading-relaxed">
+                  <div className="text-xs text-[var(--text-main)] font-mono leading-relaxed">
                     {activeTipTab === 'syntax' && (
                       <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-amber-400 uppercase font-mono">C Syntax Blueprint:</div>
-                        <pre className="p-4 rounded-xl bg-black/60 border border-slate-800 text-amber-200 overflow-x-auto text-xs">
+                        <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase font-mono">C Syntax Blueprint:</div>
+                        <pre className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs">
                           {activeTopic.tipBox.syntax}
                         </pre>
                       </div>
                     )}
                     {activeTipTab === 'app' && (
                       <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-indigo-400 uppercase font-mono">Industry Application:</div>
-                        <div className="p-4 rounded-xl bg-black/60 border border-slate-800 text-slate-300 font-sans text-xs leading-relaxed">
+                        <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase font-mono">Industry Application:</div>
+                        <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] font-sans text-xs leading-relaxed">
                           {activeTopic.tipBox.application}
                         </div>
                       </div>
                     )}
                     {activeTipTab === 'example' && (
                       <div className="space-y-2">
-                        <div className="text-[11px] font-bold text-emerald-400 uppercase font-mono">Working Implementation:</div>
-                        <pre className="p-4 rounded-xl bg-black/60 border border-slate-800 text-emerald-300 overflow-x-auto text-xs">
+                        <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase font-mono">Working Implementation:</div>
+                        <pre className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-emerald-700 dark:text-emerald-300 overflow-x-auto text-xs">
                           {activeTopic.tipBox.example}
                         </pre>
                       </div>
@@ -744,21 +744,21 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Full-Height Code Editor & Console (7 cols) */}
-            <div className="lg:col-span-7 flex flex-col h-full bg-[#080B14] overflow-hidden">
+            <div className="lg:col-span-7 flex flex-col h-full bg-[var(--bg-panel)] overflow-hidden">
               
               {/* Editor Top Bar */}
-              <div className="px-4 py-2 border-b border-[#1E2438] bg-[#0E1326] flex items-center justify-between text-xs font-mono shrink-0">
+              <div className="px-4 py-2 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between text-xs font-mono shrink-0">
                 <div className="flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-cyan-400" />
-                  <span className="text-slate-200 font-bold">solution.c</span>
-                  <span className="text-[10px] text-slate-500 bg-[#141A30] px-1.5 py-0.5 rounded border border-[#232B45]">
+                  <FileCode className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  <span className="text-[var(--text-main)] font-bold">solution.c</span>
+                  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)]">
                     C11 (GCC 14)
                   </span>
                 </div>
 
                 <button
                   onClick={() => setCode(activeTopic.problem.starterCode)}
-                  className="flex items-center gap-1 text-slate-400 hover:text-white transition text-xs font-mono"
+                  className="flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono"
                   title="Reset code to original starter boilerplate"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -767,7 +767,7 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
 
               {/* Full-Height Monaco Code Editor Area */}
-              <div className="flex-1 min-h-[260px] relative overflow-hidden">
+              <div className="flex-1 min-h-[260px] relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
                   code={code}
                   onChange={(val) => setCode(val || '')}
@@ -781,43 +781,43 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
 
               {/* Output Console / Test Verdict Panel */}
-              <div className="max-h-56 overflow-y-auto shrink-0 border-t border-[#1E2438] bg-[#090D1A] p-4 font-mono text-xs space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
+              <div className="max-h-56 overflow-y-auto shrink-0 border-t border-[var(--border-line)] bg-[var(--bg-surface)] p-4 font-mono text-xs space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pb-1 border-b border-[var(--border-line)]">
                   <span className="flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="font-bold text-slate-200">Execution Output &amp; Verdicts</span>
+                    <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="font-bold text-[var(--text-main)]">Execution Output &amp; Verdicts</span>
                   </span>
-                  <span className="text-[10px] text-slate-500">Shortcut: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl + Enter</kbd> to run</span>
+                  <span className="text-[10px] text-[var(--text-muted)]">Shortcut: <kbd className="px-1 py-0.5 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded text-[var(--text-main)]">Ctrl + Enter</kbd> to run</span>
                 </div>
 
                 {runResult && (
                   <div className="space-y-2 pt-1">
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        runResult.success ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        runResult.success ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                       }`}>
                         {runResult.success ? '✓ VISIBLE TEST PASSED' : '✗ TEST MISMATCH'}
                       </span>
-                      <span className="text-[10px] text-slate-500">{runResult.executionTimeMs}ms</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">{runResult.executionTimeMs}ms</span>
                     </div>
                     {runResult.actualOutput !== undefined && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-lg bg-black/60 border border-slate-800">
-                          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Your Output:</div>
-                          <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>
+                        <div className="p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)]">
+                          <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase mb-1">Your Output:</div>
+                          <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
                             {runResult.actualOutput || '(No output)'}
                           </pre>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-black/60 border border-slate-800">
-                          <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Expected Output:</div>
-                          <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-mono font-bold">
+                        <div className="p-2.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)]">
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1">Expected Output:</div>
+                          <pre className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap font-mono font-bold">
                             {runResult.expectedOutput}
                           </pre>
                         </div>
                       </div>
                     )}
                     {runResult.compileError && (
-                      <pre className="text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                      <pre className="text-rose-600 dark:text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
                         {runResult.compileError}
                       </pre>
                     )}
@@ -829,22 +829,22 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <span className={`px-2.5 py-1 rounded text-[11px] font-bold ${
                         submitResult.allPassed
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                       }`}>
                         {submitResult.allPassed ? '✓ ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : '✗ SUBMISSION FAILED'}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className={`p-2.5 rounded-lg border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                      <div className={`p-2.5 rounded-lg border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
                         Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                       </div>
-                      <div className={`p-2.5 rounded-lg border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                      <div className={`p-2.5 rounded-lg border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
                         Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                       </div>
                     </div>
                     {submitResult.compileError && (
-                      <pre className="text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                      <pre className="text-rose-600 dark:text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
                         {submitResult.compileError}
                       </pre>
                     )}
@@ -852,14 +852,14 @@ export const TopicPracticeHubPage: React.FC = () => {
                 )}
 
                 {!runResult && !submitResult && (
-                  <div className="text-slate-500 text-xs py-2 text-center">
-                    Write your C code above and click <strong>Run Test</strong> (or press <kbd className="px-1 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300">Ctrl+Enter</kbd>) to evaluate.
+                  <div className="text-[var(--text-muted)] text-xs py-2 text-center">
+                    Write your C code above and click <strong>Run Test</strong> (or press <kbd className="px-1 py-0.5 bg-[var(--bg-panel)] border border-[var(--border-line)] rounded text-[var(--text-main)]">Ctrl+Enter</kbd>) to evaluate.
                   </div>
                 )}
               </div>
 
               {/* Pinned Bottom Action Bar */}
-              <div className="h-14 px-4 bg-[#0E1326] border-t border-[#1E2438] flex items-center justify-between shrink-0">
+              <div className="h-14 px-4 bg-[var(--bg-panel)] border-t border-[var(--border-line)] flex items-center justify-between shrink-0">
                 <div>
                   {submitResult?.allPassed && nextTopic ? (
                     <button
@@ -870,7 +870,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <span className="text-xs font-mono text-slate-500 hidden sm:inline">
+                    <span className="text-xs font-mono text-[var(--text-muted)] hidden sm:inline">
                       Unlimited attempts • Standard C11 GCC Environment
                     </span>
                   )}
@@ -880,10 +880,10 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <button
                     onClick={handleRunOpenTest}
                     disabled={isRunning || isSubmitting}
-                    className="px-4 py-2 rounded-xl border border-slate-700 hover:border-emerald-500/60 hover:bg-emerald-500/10 text-slate-200 text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50"
                     title="Run Visible Sample Test (Ctrl+Enter)"
                   >
-                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    <Play className="w-3.5 h-3.5 text-emerald-500" />
                     <span>{isRunning ? 'Running...' : 'Run Test'}</span>
                   </button>
 
