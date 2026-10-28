@@ -1,3 +1,5 @@
+import { ADDITIONAL_PRACTICE_TOPICS } from './topic-practice-part2.data.js';
+
 export interface TopicPracticeItem {
   id: string;
   moduleIndex: number;
@@ -28,7 +30,7 @@ export interface TopicPracticeItem {
   };
 }
 
-export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
+const BASE_TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
   // ==========================================
   // MODULE 1: CONTROL STRUCTURES (6 Topics)
   // ==========================================
@@ -1965,3 +1967,14 @@ int main() {
     },
   },
 ];
+
+export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
+  ...BASE_TOPIC_PRACTICE_DATA,
+  ...ADDITIONAL_PRACTICE_TOPICS,
+].sort((a, b) => {
+  if (a.moduleIndex !== b.moduleIndex) {
+    return a.moduleIndex - b.moduleIndex;
+  }
+  return a.id.localeCompare(b.id, undefined, { numeric: true });
+});
+
