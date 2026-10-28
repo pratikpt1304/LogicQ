@@ -695,6 +695,23 @@ export class FirestoreDataService {
         },
         { merge: true }
       );
+
+      // Keep non-PII publicProfiles mirror in sync for live leaderboard
+      try {
+        const publicRef = doc(db, 'publicProfiles', targetUid);
+        await setDoc(
+          publicRef,
+          {
+            userId: targetUid,
+            totalPoints: mergedPoints,
+            currentStreak: mergedStreak,
+            longestStreak: mergedLongest,
+            totalSolved: mergedSolved,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch {}
     } catch (err) {
       console.warn('FirestoreDataService.saveStatsBackup failed:', err);
     }
@@ -1051,6 +1068,193 @@ export class FirestoreDataService {
     }
 
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+  }
+
+  /**
+   * Retrieves authoritative college leaderboard directly from Firebase Firestore publicProfiles & sections.
+   * Ensures offline/dormant students are never dropped from the leaderboard and enforces proper competitive rules
+   * (zero points = unranked '—', no fake gold medals).
+   */
+  public static async getLeaderboardFromFirestore(filters: {
+    department?: string;
+    year?: string;
+    currentUser?: User | null;
+  }): Promise<{ leaderboard: any[]; pinnedOwnRow: any; totalSolvers: number }> {
+    const list: any[] = [];
+    const seenUids = new Set<string>();
+
+    // 1. Fetch from Firestore 'publicProfiles' (Non-PII public mirror, accessible by all authenticated users)
+    try {
+      const pubSnap = await getDocs(collection(db, 'publicProfiles'));
+      pubSnap.forEach((d) => {
+        const raw = d.data();
+        if (!raw) return;
+        const uid = d.id;
+        seenUids.add(uid);
+
+        const realName = [raw.displayName, raw.fullName].find(isRealPersonName);
+        const cleanName = realName || raw.displayName || raw.fullName || 'Student';
+
+        list.push({
+          id: uid,
+          userId: uid,
+          username: raw.username || cleanName.toLowerCase().replace(/\s+/g, '_'),
+          displayName: cleanName,
+          fullName: cleanName,
+          publicDisplayName: cleanName,
+          shortId: raw.shortId || uid.slice(-4),
+          college: raw.college || 'Sanjivani University',
+          department: normalizeDepartment(raw.department) || raw.department || null,
+          year: raw.year || null,
+          division: raw.division || null,
+          totalPoints: Number(raw.totalPoints || 0),
+          currentStreak: Number(raw.currentStreak || 0),
+          longestStreak: Number(raw.longestStreak || 0),
+          totalSolved: Number(raw.totalSolved || (Number(raw.totalPoints || 0) > 0 ? Math.max(1, Math.floor(Number(raw.totalPoints || 0) / 10)) : 0)),
+        });
+      });
+    } catch (err: any) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('getLeaderboardFromFirestore publicProfiles notice:', err);
+      }
+    }
+
+    // 2. Also incorporate students from active sections (ensures all rostered students appear even if dormant)
+    try {
+      const secSnap = await getDocs(collection(db, 'sections'));
+      secSnap.forEach((d) => {
+        const sec = d.data();
+        if (!sec || !Array.isArray(sec.students)) return;
+        for (const st of sec.students) {
+          const uid = st.id || st.uid;
+          if (uid && !seenUids.has(uid)) {
+            seenUids.add(uid);
+            const realName = [st.displayName, st.fullName, st.name].find(isRealPersonName);
+            const cleanName = realName || st.displayName || st.fullName || 'Student';
+            list.push({
+              id: uid,
+              userId: uid,
+              username: st.username || cleanName.toLowerCase().replace(/\s+/g, '_'),
+              displayName: cleanName,
+              fullName: cleanName,
+              publicDisplayName: cleanName,
+              shortId: st.shortId || uid.slice(-4),
+              college: st.college || 'Sanjivani University',
+              department: normalizeDepartment(st.department) || st.department || null,
+              year: st.year || 'FY',
+              division: st.division || sec.sectionName || null,
+              totalPoints: Number(st.totalPoints || 0),
+              currentStreak: Number(st.currentStreak || 0),
+              longestStreak: Number(st.longestStreak || 0),
+              totalSolved: Number(st.totalSolved || (Number(st.totalPoints || 0) > 0 ? 1 : 0)),
+            });
+          }
+        }
+      });
+    } catch {}
+
+    // 3. Ensure current user is included if authenticated
+    const current = filters.currentUser;
+    if (current && current.id && !seenUids.has(current.id)) {
+      list.push({
+        id: current.id,
+        userId: current.id,
+        username: current.username || 'student',
+        displayName: current.displayName || current.fullName || 'Student',
+        fullName: current.fullName || current.displayName || 'Student',
+        publicDisplayName: current.displayName || current.fullName || 'Student',
+        shortId: current.shortId || (current.prn ? current.prn.slice(-4) : current.id.slice(-4)),
+        maskedPrn: current.prn ? maskPrn(current.prn) : undefined,
+        college: current.college || 'Sanjivani University',
+        department: current.department || null,
+        year: current.year || null,
+        division: current.division || null,
+        totalPoints: Number(current.totalPoints || 0),
+        currentStreak: Number(current.currentStreak || 0),
+        longestStreak: Number(current.longestStreak || 0),
+        totalSolved: Number((current as any).totalSolved || (Number(current.totalPoints || 0) > 0 ? 1 : 0)),
+      });
+    }
+
+    // Filter by department and year
+    let filtered = list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+    if (filters.department && filters.department !== 'ALL') {
+      filtered = filtered.filter((u) => u.department === filters.department);
+    }
+    if (filters.year && filters.year !== 'ALL') {
+      filtered = filtered.filter((u) => u.year === filters.year);
+    }
+
+    // Separate solvers (points > 0 or totalSolved > 0) from unranked (0 points)
+    const solvers = filtered.filter((u) => (u.totalPoints || 0) > 0 || (u.totalSolved || 0) > 0);
+    const unranked = filtered.filter((u) => (u.totalPoints || 0) === 0 && (u.totalSolved || 0) === 0);
+
+    // Sort solvers: points DESC -> streak DESC -> solved DESC
+    solvers.sort((a, b) => {
+      if ((b.totalPoints || 0) !== (a.totalPoints || 0)) {
+        return (b.totalPoints || 0) - (a.totalPoints || 0);
+      }
+      if ((b.currentStreak || 0) !== (a.currentStreak || 0)) {
+        return (b.currentStreak || 0) - (a.currentStreak || 0);
+      }
+      return (b.totalSolved || 0) - (a.totalSolved || 0);
+    });
+
+    const rankedList: any[] = [];
+    solvers.forEach((s, idx) => {
+      const rank = idx + 1;
+      const studentsBeaten = Math.max(0, solvers.length - rank);
+      const percentile = solvers.length <= 1 ? 100 : Math.round(((solvers.length - rank + 1) / solvers.length) * 100);
+      rankedList.push({
+        ...s,
+        rank,
+        studentsBeaten,
+        percentile,
+        isCurrentUser: Boolean(current && s.id === current.id),
+      });
+    });
+
+    // Unranked students (rank: null, no fake medals!)
+    unranked.forEach((u) => {
+      rankedList.push({
+        ...u,
+        rank: null,
+        studentsBeaten: 0,
+        percentile: null,
+        isCurrentUser: Boolean(current && u.id === current.id),
+      });
+    });
+
+    let pinnedOwnRow = rankedList.find((u) => u.isCurrentUser) || null;
+    if (!pinnedOwnRow && current) {
+      pinnedOwnRow = {
+        id: current.id,
+        userId: current.id,
+        displayName: current.displayName || current.fullName || 'Student',
+        fullName: current.fullName || current.displayName || 'Student',
+        publicDisplayName: current.displayName || current.fullName || 'Student',
+        shortId: current.shortId || (current.prn ? current.prn.slice(-4) : current.id.slice(-4)),
+        maskedPrn: current.prn ? maskPrn(current.prn) : undefined,
+        college: current.college || 'Sanjivani University',
+        department: current.department || null,
+        year: current.year || null,
+        division: current.division || null,
+        totalPoints: Number(current.totalPoints || 0),
+        currentStreak: Number(current.currentStreak || 0),
+        longestStreak: Number(current.longestStreak || 0),
+        totalSolved: 0,
+        rank: null,
+        studentsBeaten: 0,
+        percentile: null,
+        isCurrentUser: true,
+      };
+    }
+
+    return {
+      leaderboard: rankedList,
+      pinnedOwnRow,
+      totalSolvers: solvers.length,
+    };
   }
 
   public static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';

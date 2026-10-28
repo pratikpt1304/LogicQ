@@ -679,13 +679,18 @@ async function handleOverallLeaderboard({
     };
   };
 
-  const leaderboard = paginatedStudents.map((s, idx) => formatStudentRow(s, skip + idx + 1));
+  const leaderboard = paginatedStudents.map((s, idx) => {
+    const pts = Number(s.totalPoints || 0);
+    const rank = pts > 0 ? skip + idx + 1 : null;
+    return formatStudentRow(s, rank);
+  });
 
   let pinnedOwnRow: any = null;
   if (currentUserId) {
     const myIndex = filtered.findIndex((s) => s.id === currentUserId);
     if (myIndex !== -1) {
-      pinnedOwnRow = formatStudentRow(filtered[myIndex], myIndex + 1);
+      const myPts = Number(filtered[myIndex].totalPoints || 0);
+      pinnedOwnRow = formatStudentRow(filtered[myIndex], myPts > 0 ? myIndex + 1 : null);
     } else {
       const myUser = await prisma.user.findUnique({
         where: { id: currentUserId },

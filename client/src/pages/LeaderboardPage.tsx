@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -42,7 +43,30 @@ export const LeaderboardPage: React.FC = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['leaderboard', activeTab, departmentFilter, yearFilter],
-    queryFn: () => {
+    queryFn: async () => {
+      // 1. Try authoritative Firestore publicProfiles first (Guarantees dormant/offline students never disappear)
+      try {
+        const firestoreRes = await FirestoreDataService.getLeaderboardFromFirestore({
+          department: departmentFilter,
+          year: yearFilter,
+          currentUser,
+        });
+        if (firestoreRes && firestoreRes.leaderboard.length > 0) {
+          return {
+            success: true,
+            data: {
+              leaderboard: firestoreRes.leaderboard,
+              pinnedOwnRow: firestoreRes.pinnedOwnRow,
+              totalSolvers: firestoreRes.totalSolvers,
+              totalRanked: firestoreRes.totalSolvers,
+            },
+          };
+        }
+      } catch (fErr) {
+        console.warn('LeaderboardPage Firestore publicProfiles notice:', fErr);
+      }
+
+      // 2. Fallback to API/backend
       const qs = queryParams.toString();
       return api.get(`/leaderboard${qs ? `?${qs}` : ''}`);
     },
@@ -51,7 +75,7 @@ export const LeaderboardPage: React.FC = () => {
   const rankedUsers: any[] = data?.data?.leaderboard || [];
   const pinnedOwnRow = data?.data?.pinnedOwnRow || null;
   const challenge = data?.data?.challenge || null;
-  const totalSolvers = data?.data?.totalSolvers ?? rankedUsers.length;
+  const totalSolvers = data?.data?.totalSolvers ?? rankedUsers.filter((u) => (u.totalPoints || 0) > 0).length;
   const isDailyPaused = (() => {
     try {
       const explicit = localStorage.getItem('logicq_daily_timer_paused');
@@ -133,10 +157,19 @@ export const LeaderboardPage: React.FC = () => {
     });
   }, [rankedUsers, searchQuery]);
 
-  const topThree = rankedUsers.slice(0, 3);
-  const showPodium = rankedUsers.length >= 3 && !searchQuery.trim();
+  // Symmetrical podium: ONLY show students who have actually scored points (> 0)
+  const activeSolvers = rankedUsers.filter((u) => (Number(u.totalPoints || 0) > 0 || Number(u.totalSolved || 0) > 0));
+  const topThree = activeSolvers.slice(0, 3);
+  const showPodium = topThree.length >= 3 && !searchQuery.trim();
 
-  const renderRankBadge = (rank: number) => {
+  const renderRankBadge = (rank: number | null | undefined, points: number = 0) => {
+    if (!rank || Number(points) <= 0) {
+      return (
+        <span className="font-mono text-xs text-[var(--text-muted)] font-medium pl-2">
+          —
+        </span>
+      );
+    }
     if (rank === 1) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-xs shadow-sm shadow-amber-500/10">
@@ -286,7 +319,7 @@ export const LeaderboardPage: React.FC = () => {
         <div className="glass-card p-4 sm:p-5 rounded-2xl border-2 border-indigo-500/40 bg-[var(--bg-panel)] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center font-mono font-extrabold text-indigo-400 text-lg shrink-0">
-              {pinnedOwnRow.rank ? `#${pinnedOwnRow.rank}` : '—'}
+              {pinnedOwnRow.rank && Number(pinnedOwnRow.totalPoints || 0) > 0 ? `#${pinnedOwnRow.rank}` : '—'}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -302,7 +335,7 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                {pinnedOwnRow.rank ? (
+                {pinnedOwnRow.rank && Number(pinnedOwnRow.totalPoints || 0) > 0 ? (
                   <>
                     {pinnedOwnRow.percentile != null ? (
                       <strong className="text-emerald-400">Top {pinnedOwnRow.percentile}%</strong>
@@ -314,7 +347,9 @@ export const LeaderboardPage: React.FC = () => {
                     )}
                   </>
                 ) : (
-                  <span>Solve any Practice challenge to climb the college leaderboard!</span>
+                  <span className="text-amber-400 font-medium">
+                    ⚡ Not ranked yet (0 PTS) • Solve any problem in Practice Hub or Daily Challenge to enter the college leaderboard!
+                  </span>
                 )}
               </p>
             </div>
@@ -497,7 +532,7 @@ export const LeaderboardPage: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="shrink-0">{renderRankBadge(u.rank)}</div>
+                      <div className="shrink-0">{renderRankBadge(u.rank, u.totalPoints ?? u.score ?? 0)}</div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Link
@@ -559,7 +594,7 @@ export const LeaderboardPage: React.FC = () => {
                         }`}
                       >
                         <td className="px-4 sm:px-6 py-4">
-                          {renderRankBadge(u.rank)}
+                          {renderRankBadge(u.rank, u.totalPoints ?? u.score ?? 0)}
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <div className="flex items-center gap-2">
