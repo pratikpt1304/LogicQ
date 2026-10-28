@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Layers,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Info,
   X,
@@ -69,6 +70,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
+  const [leftPanelTab, setLeftPanelTab] = useState<'problem' | 'tips'>('problem');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'app' | 'example'>('syntax');
   const [isTipOpen, setIsTipOpen] = useState<boolean>(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
@@ -94,6 +96,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setRunResult(null);
     setSubmitResult(null);
     setIsTipOpen(false);
+    setLeftPanelTab('problem');
   };
 
   const handleCloseTopic = () => {
@@ -504,366 +507,402 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. INTERACTIVE PRACTICE WORKSPACE MODAL */}
+      {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE */}
       {activeTopic && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-3 animate-fadeIn">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl w-full max-w-7xl h-[94vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#0A0D18] flex flex-col overflow-hidden animate-fadeIn select-none">
+          
+          {/* Topbar: Minimalist & Clean */}
+          <div className="h-13 px-4 border-b border-[#1E2438] bg-[#0E1326] flex items-center justify-between shrink-0 select-none">
             
-            {/* Modal Topbar */}
-            <div className="px-4 py-3 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                  <Code2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      TOPIC {currentTopicIndex >= 0 ? currentTopicIndex + 1 : ''} OF {TOPIC_PRACTICE_DATA.length}
-                    </span>
-                    <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)] truncate max-w-xs sm:max-w-md">
-                      {activeTopic.topicTitle}
-                    </h2>
-                    {solvedTopics.includes(activeTopic.id) && (
-                      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Solved
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                    {activeTopic.problem.title} •{' '}
-                    <span
-                      className={
-                        activeTopic.problem.difficulty === 'HARD'
-                          ? 'text-rose-400 font-bold'
-                          : activeTopic.problem.difficulty === 'EASY'
-                          ? 'text-emerald-400 font-bold'
-                          : 'text-amber-400 font-bold'
-                      }
-                    >
-                      {activeTopic.problem.difficulty}
-                    </span>
-                  </p>
-                </div>
-              </div>
+            {/* Left: Back to Hub + Problem Identity */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCloseTopic}
+                className="px-3 py-1.5 rounded-lg border border-[#232B45] bg-[#141A30] hover:bg-[#1E2544] text-slate-300 hover:text-white text-xs font-mono font-medium transition flex items-center gap-1.5"
+                title="Return to Practice Arena"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Practice Hub</span>
+              </button>
+
+              <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
 
               <div className="flex items-center gap-2">
-                {/* Prev / Next Quick Nav */}
-                <div className="hidden md:flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
-                  <button
-                    onClick={() => prevTopic && handleOpenTopic(prevTopic)}
-                    disabled={!prevTopic}
-                    title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
-                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white disabled:opacity-30 disabled:hover:text-[var(--text-muted)] transition"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-mono px-1 text-[var(--text-muted)]">
-                    {currentTopicIndex + 1}/{TOPIC_PRACTICE_DATA.length}
+                <span className="text-xs sm:text-sm font-bold text-white max-w-[200px] sm:max-w-md truncate">
+                  {activeTopic.topicTitle}
+                </span>
+
+                <span
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                    activeTopic.problem.difficulty === 'HARD'
+                      ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                      : activeTopic.problem.difficulty === 'MEDIUM'
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  }`}
+                >
+                  {activeTopic.problem.difficulty}
+                </span>
+
+                {solvedTopics.includes(activeTopic.id) && (
+                  <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Solved
                   </span>
-                  <button
-                    onClick={() => nextTopic && handleOpenTopic(nextTopic)}
-                    disabled={!nextTopic}
-                    title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
-                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white disabled:opacity-30 disabled:hover:text-[var(--text-muted)] transition"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Raise Issue Button */}
-                <button
-                  onClick={() => setIsIssueModalOpen(true)}
-                  className="px-2.5 py-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-mono font-bold transition flex items-center gap-1.5"
-                  title="Report question error or bad test case"
-                >
-                  <Flag className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Report</span>
-                </button>
-
-                {/* Close Button */}
-                <button
-                  onClick={handleCloseTopic}
-                  className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                )}
               </div>
             </div>
 
-            {/* Modal Body: Two Columns */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            {/* Center: Prev / Next Problem Navigator */}
+            <div className="flex items-center gap-1 bg-[#141A30] p-1 rounded-xl border border-[#232B45]">
+              <button
+                onClick={() => prevTopic && handleOpenTopic(prevTopic)}
+                disabled={!prevTopic}
+                title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono px-2 text-slate-300 font-medium whitespace-nowrap">
+                {currentTopicIndex + 1} / {TOPIC_PRACTICE_DATA.length}
+              </span>
+              <button
+                onClick={() => nextTopic && handleOpenTopic(nextTopic)}
+                disabled={!nextTopic}
+                title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsIssueModalOpen(true)}
+                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                title="Report issue with problem or test cases"
+              >
+                <Flag className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleCloseTopic}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Exit workspace"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+          </div>
+
+          {/* Workspace Body: 2 Split Panels */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden select-text">
+            
+            {/* LEFT COLUMN: Problem Specification & Tabs (5 cols) */}
+            <div className="lg:col-span-5 flex flex-col h-full bg-[#0E1326] border-r border-[#1E2438] overflow-hidden">
               
-              {/* LEFT COLUMN: Problem Spec & Tip Drawer (5 cols) */}
-              <div className="lg:col-span-5 p-4 sm:p-5 overflow-y-auto space-y-4 border-b lg:border-b-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-panel)]">
-                
-                {/* COLLAPSIBLE TIP DRAWER (Syntax, Application, Example) */}
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden transition-all">
-                  <button
-                    onClick={() => setIsTipOpen(!isTipOpen)}
-                    className="w-full px-3.5 py-2.5 flex items-center justify-between hover:bg-amber-500/10 transition text-left"
-                  >
-                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs font-mono">
-                      <Lightbulb className="w-4 h-4 shrink-0" />
-                      <span>Topic Cheat Sheet &amp; Syntax</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-mono">
-                      <span>{isTipOpen ? 'Hide' : 'Quick Reference'}</span>
-                      {isTipOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
+              {/* Tab Selector */}
+              <div className="px-4 border-b border-[#1E2438] bg-[#0E1326] flex items-center gap-4 shrink-0">
+                <button
+                  onClick={() => setLeftPanelTab('problem')}
+                  className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
+                    leftPanelTab === 'problem'
+                      ? 'border-indigo-500 text-white'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Problem Statement</span>
+                </button>
 
-                  {isTipOpen && (
-                    <div className="p-3.5 border-t border-amber-500/20 space-y-2.5 bg-black/40">
-                      {/* Tip Tab Selector */}
-                      <div className="flex items-center gap-1 bg-[var(--bg-panel)] p-0.5 rounded-lg border border-[var(--border-line)] w-fit">
-                        <button
-                          onClick={() => setActiveTipTab('syntax')}
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                            activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                          }`}
-                        >
-                          Syntax
-                        </button>
-                        <button
-                          onClick={() => setActiveTipTab('app')}
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                            activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                          }`}
-                        >
-                          Application
-                        </button>
-                        <button
-                          onClick={() => setActiveTipTab('example')}
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                            activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                          }`}
-                        >
-                          Example
-                        </button>
-                      </div>
-
-                      {/* Active Tip Content */}
-                      <div className="text-xs text-[var(--text-main)] font-mono leading-relaxed">
-                        {activeTipTab === 'syntax' && (
-                          <pre className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] overflow-x-auto text-[11px] text-amber-200">
-                            {activeTopic.tipBox.syntax}
-                          </pre>
-                        )}
-                        {activeTipTab === 'app' && (
-                          <div className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] text-slate-300 font-sans text-xs leading-relaxed">
-                            {activeTopic.tipBox.application}
-                          </div>
-                        )}
-                        {activeTipTab === 'example' && (
-                          <pre className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] overflow-x-auto text-[11px] text-emerald-300">
-                            {activeTopic.tipBox.example}
-                          </pre>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Problem Description - Formatted cleanly via StatementMarkdown */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-xs font-bold text-[var(--text-main)] font-mono uppercase tracking-wider">
-                      Problem Statement
-                    </h3>
-                  </div>
-                  <div className="rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] p-3.5">
-                    <StatementMarkdown content={activeTopic.problem.description} />
-                  </div>
-                </div>
-
-                {/* Open Test Case (Visible) */}
-                <div className="space-y-2 pt-1 border-t border-[var(--border-line)]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
-                      <Terminal className="w-3.5 h-3.5" />
-                      <span>Sample Test Case (Open)</span>
-                    </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      VISIBLE
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono space-y-2">
-                    <div>
-                      <span className="text-[10px] text-[var(--text-muted)] font-bold block uppercase">Input:</span>
-                      <pre className="text-white mt-1 p-2 rounded bg-black/50 border border-[var(--border-line)] overflow-x-auto">
-                        {activeTopic.problem.openTestCase.input}
-                      </pre>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[var(--text-muted)] font-bold block uppercase">Expected Output:</span>
-                      <pre className="text-emerald-400 mt-1 p-2 rounded bg-black/50 border border-[var(--border-line)] overflow-x-auto font-bold">
-                        {activeTopic.problem.openTestCase.expectedOutput}
-                      </pre>
-                    </div>
-                    {activeTopic.problem.openTestCase.explanation && (
-                      <div className="text-[11px] text-[var(--text-muted)] font-sans border-t border-[var(--border-line)] pt-2 mt-2">
-                        <span className="font-semibold text-slate-300">Explanation: </span>
-                        {activeTopic.problem.openTestCase.explanation}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Hidden Test Case Indicator */}
-                <div className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[var(--text-muted)] text-[11px]">Hidden Edge Case Test</span>
-                  </div>
-                  <span className="text-[10px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                    TESTED ON SUBMIT
-                  </span>
-                </div>
+                <button
+                  onClick={() => setLeftPanelTab('tips')}
+                  className={`py-3 text-xs font-mono font-bold border-b-2 transition flex items-center gap-1.5 ${
+                    leftPanelTab === 'tips'
+                      ? 'border-amber-500 text-amber-300'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Syntax Cheat Sheet</span>
+                </button>
               </div>
 
-              {/* RIGHT COLUMN: Code Editor & Execution Terminal (7 cols) */}
-              <div className="lg:col-span-7 flex flex-col h-full bg-[#0C0F1F] overflow-hidden">
-                
-                {/* Editor Area with native Monaco toolbar */}
-                <div className="flex-1 min-h-[200px] overflow-hidden relative">
-                  <CodeEditor
-                    code={code}
-                    onChange={(val) => setCode(val || '')}
-                    onRun={handleRunOpenTest}
-                    onSubmit={handleSubmitCode}
-                    onReset={() => setCode(activeTopic.problem.starterCode)}
-                    isRunning={isRunning}
-                    isSubmitting={isSubmitting}
-                    disableCopyPaste={false}
-                  />
-                </div>
-
-                {/* Execution Output Panel (Adaptive height) */}
-                <div className="max-h-48 overflow-y-auto shrink-0 border-t border-[var(--border-line)] bg-black/80 p-3 font-mono text-xs space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pb-1 border-b border-gray-800">
-                    <span className="flex items-center gap-1.5">
-                      <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="font-bold text-slate-300">Console &amp; Test Verdicts</span>
-                    </span>
-                    <span className="text-[10px] text-gray-500">Shortcut: Ctrl + Enter to run</span>
+              {/* Tab Content: Problem */}
+              {leftPanelTab === 'problem' && (
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div>
+                    <h1 className="text-xl font-bold text-white tracking-tight">
+                      {activeTopic.problem.title}
+                    </h1>
+                    <p className="text-xs text-slate-400 font-mono mt-1">
+                      {activeTopic.summary}
+                    </p>
                   </div>
 
-                  {runResult && (
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          runResult.success ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {runResult.success ? 'TEST 1: PASSED ✓' : 'TEST 1: FAILED ✗'}
-                        </span>
-                        <span className="text-[10px] text-gray-500">{runResult.executionTimeMs}ms</span>
-                      </div>
-                      {runResult.actualOutput !== undefined && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <div className="p-2 rounded bg-black/60 border border-[var(--border-line)]">
-                            <div className="text-[10px] text-gray-400 font-bold uppercase mb-0.5">Your Output:</div>
-                            <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {runResult.actualOutput || '(No output)'}
-                            </pre>
-                          </div>
-                          <div className="p-2 rounded bg-black/60 border border-[var(--border-line)]">
-                            <div className="text-[10px] text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
-                            <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-mono">
-                              {runResult.expectedOutput}
-                            </pre>
-                          </div>
-                        </div>
-                      )}
-                      {runResult.compileError && (
-                        <pre className="text-rose-400 text-[10px] bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                          {runResult.compileError}
-                        </pre>
-                      )}
-                    </div>
-                  )}
+                  {/* Clean Markdown rendering without nested clutter */}
+                  <div className="text-slate-300 text-sm leading-relaxed">
+                    <StatementMarkdown content={activeTopic.problem.description} />
+                  </div>
 
-                  {submitResult && (
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          submitResult.allPassed
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {submitResult.allPassed ? '✓ ALL TESTS PASSED (TOPIC MASTERED)' : '✗ SUBMISSION FAILED'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className={`p-2 rounded border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
-                          Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                        </div>
-                        <div className={`p-2 rounded border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
-                          Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                        </div>
-                      </div>
-                      {submitResult.compileError && (
-                        <pre className="text-rose-400 text-[10px] bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                          {submitResult.compileError}
+                  {/* Standard LeetCode-style Example Card */}
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+                      Sample Testcase (Visible):
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#141A30] border border-[#232B45] font-mono text-xs space-y-2.5">
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[11px] uppercase tracking-wider">Input:</span>
+                        <pre className="text-white mt-1 p-2.5 rounded-lg bg-black/50 border border-slate-800 whitespace-pre-wrap">
+                          {activeTopic.problem.openTestCase.input}
                         </pre>
+                      </div>
+                      <div>
+                        <span className="text-emerald-400 font-bold block text-[11px] uppercase tracking-wider">Expected Output:</span>
+                        <pre className="text-emerald-400 mt-1 p-2.5 rounded-lg bg-black/50 border border-slate-800 font-bold whitespace-pre-wrap">
+                          {activeTopic.problem.openTestCase.expectedOutput}
+                        </pre>
+                      </div>
+                      {activeTopic.problem.openTestCase.explanation && (
+                        <div className="text-slate-400 font-sans text-xs pt-2 border-t border-slate-800">
+                          <span className="text-slate-200 font-semibold">Explanation: </span>
+                          {activeTopic.problem.openTestCase.explanation}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
 
-                  {!runResult && !submitResult && (
-                    <div className="text-gray-500 text-xs py-2 text-center">
-                      Click <strong>Run Visible Test</strong> (or press <kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px] text-gray-300">Ctrl+Enter</kbd>) to evaluate your solution.
-                    </div>
-                  )}
+                  {/* Subtle Hidden Case Info */}
+                  <div className="p-3 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 flex items-center gap-2 text-xs font-mono text-slate-400">
+                    <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>Additional hidden edge cases are evaluated upon clicking <strong>Submit Solution</strong>.</span>
+                  </div>
                 </div>
+              )}
 
-                {/* Workspace Footer Action Bar (Strictly Pinned at bottom) */}
-                <div className="p-3 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2">
-                    {submitResult?.allPassed && nextTopic ? (
-                      <button
-                        onClick={() => handleOpenTopic(nextTopic)}
-                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 animate-pulse"
-                      >
-                        <span>Next Topic: {nextTopic.topicTitle.slice(0, 18)}...</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <span className="text-[11px] font-mono text-[var(--text-muted)] hidden sm:inline">
-                        Unlimited attempts • No time pressure
-                      </span>
+              {/* Tab Content: Tips */}
+              {leftPanelTab === 'tips' && (
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                  <div className="flex items-center gap-1 bg-[#141A30] p-1 rounded-lg border border-[#232B45] w-fit">
+                    <button
+                      onClick={() => setActiveTipTab('syntax')}
+                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                        activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Syntax
+                    </button>
+                    <button
+                      onClick={() => setActiveTipTab('app')}
+                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                        activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Real-world Use
+                    </button>
+                    <button
+                      onClick={() => setActiveTipTab('example')}
+                      className={`px-3 py-1 rounded text-xs font-mono font-bold transition ${
+                        activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Full Example
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-200 font-mono leading-relaxed">
+                    {activeTipTab === 'syntax' && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold text-amber-400 uppercase font-mono">C Syntax Blueprint:</div>
+                        <pre className="p-4 rounded-xl bg-black/60 border border-slate-800 text-amber-200 overflow-x-auto text-xs">
+                          {activeTopic.tipBox.syntax}
+                        </pre>
+                      </div>
+                    )}
+                    {activeTipTab === 'app' && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold text-indigo-400 uppercase font-mono">Industry Application:</div>
+                        <div className="p-4 rounded-xl bg-black/60 border border-slate-800 text-slate-300 font-sans text-xs leading-relaxed">
+                          {activeTopic.tipBox.application}
+                        </div>
+                      </div>
+                    )}
+                    {activeTipTab === 'example' && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-bold text-emerald-400 uppercase font-mono">Working Implementation:</div>
+                        <pre className="p-4 rounded-xl bg-black/60 border border-slate-800 text-emerald-300 overflow-x-auto text-xs">
+                          {activeTopic.tipBox.example}
+                        </pre>
+                      </div>
                     )}
                   </div>
+                </div>
+              )}
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleRunOpenTest}
-                      disabled={isRunning || isSubmitting}
-                      className="px-3.5 py-2 rounded-xl border border-[var(--border-line)] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-[var(--text-main)] text-xs font-mono font-bold transition flex items-center gap-1.5 disabled:opacity-50"
-                      title="Run Visible Sample Test (Ctrl+Enter)"
-                    >
-                      <Play className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{isRunning ? 'Running...' : 'Run Test'}</span>
-                    </button>
+            </div>
 
-                    <button
-                      onClick={handleSubmitCode}
-                      disabled={isRunning || isSubmitting}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
-                      title="Submit & Evaluate on all tests"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{isSubmitting ? 'Evaluating...' : 'Submit Solution'}</span>
-                    </button>
-                  </div>
+            {/* RIGHT COLUMN: Full-Height Code Editor & Console (7 cols) */}
+            <div className="lg:col-span-7 flex flex-col h-full bg-[#080B14] overflow-hidden">
+              
+              {/* Editor Top Bar */}
+              <div className="px-4 py-2 border-b border-[#1E2438] bg-[#0E1326] flex items-center justify-between text-xs font-mono shrink-0">
+                <div className="flex items-center gap-2">
+                  <FileCode className="w-4 h-4 text-cyan-400" />
+                  <span className="text-slate-200 font-bold">solution.c</span>
+                  <span className="text-[10px] text-slate-500 bg-[#141A30] px-1.5 py-0.5 rounded border border-[#232B45]">
+                    C11 (GCC 14)
+                  </span>
                 </div>
 
+                <button
+                  onClick={() => setCode(activeTopic.problem.starterCode)}
+                  className="flex items-center gap-1 text-slate-400 hover:text-white transition text-xs font-mono"
+                  title="Reset code to original starter boilerplate"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Code</span>
+                </button>
+              </div>
+
+              {/* Full-Height Monaco Code Editor Area */}
+              <div className="flex-1 min-h-[260px] relative overflow-hidden">
+                <CodeEditor
+                  code={code}
+                  onChange={(val) => setCode(val || '')}
+                  onRun={handleRunOpenTest}
+                  onSubmit={handleSubmitCode}
+                  onReset={() => setCode(activeTopic.problem.starterCode)}
+                  isRunning={isRunning}
+                  isSubmitting={isSubmitting}
+                  disableCopyPaste={false}
+                />
+              </div>
+
+              {/* Output Console / Test Verdict Panel */}
+              <div className="max-h-56 overflow-y-auto shrink-0 border-t border-[#1E2438] bg-[#090D1A] p-4 font-mono text-xs space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
+                  <span className="flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="font-bold text-slate-200">Execution Output &amp; Verdicts</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500">Shortcut: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl + Enter</kbd> to run</span>
+                </div>
+
+                {runResult && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        runResult.success ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        {runResult.success ? '✓ VISIBLE TEST PASSED' : '✗ TEST MISMATCH'}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{runResult.executionTimeMs}ms</span>
+                    </div>
+                    {runResult.actualOutput !== undefined && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 rounded-lg bg-black/60 border border-slate-800">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">Your Output:</div>
+                          <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>
+                            {runResult.actualOutput || '(No output)'}
+                          </pre>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-black/60 border border-slate-800">
+                          <div className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Expected Output:</div>
+                          <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-mono font-bold">
+                            {runResult.expectedOutput}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                    {runResult.compileError && (
+                      <pre className="text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                        {runResult.compileError}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                {submitResult && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-1 rounded text-[11px] font-bold ${
+                        submitResult.allPassed
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        {submitResult.allPassed ? '✓ ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : '✗ SUBMISSION FAILED'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className={`p-2.5 rounded-lg border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                        Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                      </div>
+                      <div className={`p-2.5 rounded-lg border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                        Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                      </div>
+                    </div>
+                    {submitResult.compileError && (
+                      <pre className="text-rose-400 text-[11px] bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                        {submitResult.compileError}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                {!runResult && !submitResult && (
+                  <div className="text-slate-500 text-xs py-2 text-center">
+                    Write your C code above and click <strong>Run Test</strong> (or press <kbd className="px-1 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300">Ctrl+Enter</kbd>) to evaluate.
+                  </div>
+                )}
+              </div>
+
+              {/* Pinned Bottom Action Bar */}
+              <div className="h-14 px-4 bg-[#0E1326] border-t border-[#1E2438] flex items-center justify-between shrink-0">
+                <div>
+                  {submitResult?.allPassed && nextTopic ? (
+                    <button
+                      onClick={() => handleOpenTopic(nextTopic)}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-500/20 animate-pulse"
+                    >
+                      <span>Next Problem: {nextTopic.topicTitle}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <span className="text-xs font-mono text-slate-500 hidden sm:inline">
+                      Unlimited attempts • Standard C11 GCC Environment
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={handleRunOpenTest}
+                    disabled={isRunning || isSubmitting}
+                    className="px-4 py-2 rounded-xl border border-slate-700 hover:border-emerald-500/60 hover:bg-emerald-500/10 text-slate-200 text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50"
+                    title="Run Visible Sample Test (Ctrl+Enter)"
+                  >
+                    <Play className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{isRunning ? 'Running...' : 'Run Test'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleSubmitCode}
+                    disabled={isRunning || isSubmitting}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
+                    title="Submit & Evaluate on all tests"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? 'Evaluating...' : 'Submit Solution'}</span>
+                  </button>
+                </div>
               </div>
 
             </div>
 
           </div>
+
         </div>
       )}
 
