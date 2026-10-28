@@ -5,6 +5,8 @@ import { api } from '../api/client.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
 import { useAuth } from '../context/AuthContext.js';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -54,6 +56,8 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const targetModuleIdx = PRACTICE_CONFIG.MODULES.findIndex((m) => m.slug === moduleSlug);
   const targetModule = targetModuleIdx >= 0 ? PRACTICE_CONFIG.MODULES[targetModuleIdx] : null;
 
+  const solvedTopicIds = getSolvedPracticeTopicIds(user?.id);
+
   let isLockedByProgression = false;
   let lockReason = '';
 
@@ -66,7 +70,10 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     } else {
       const prevModuleSlug = PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.slug;
       const prevMod = allModules.find((m: any) => m.slug === prevModuleSlug);
-      const prevSolved = prevMod?.solvedCount ?? 0;
+      const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
+        (t) => t.moduleSlug === prevModuleSlug && solvedTopicIds.includes(t.id)
+      ).length;
+      const prevSolved = Math.max(prevMod?.solvedCount ?? 0, prevTopicsSolved);
       if (prevSolved < 20) {
         isLockedByProgression = true;
         lockReason = `You must solve all 20 questions in Module ${targetModuleIdx} (${PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.title}) before unlocking this module (${prevSolved}/20 solved).`;
@@ -75,7 +82,21 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   }
 
   const moduleInfo = data?.data?.module;
-  const problems: PracticeProblemRow[] = data?.data?.problems || [];
+  const rawProblems: PracticeProblemRow[] = data?.data?.problems || [];
+  const problems: PracticeProblemRow[] = rawProblems.map((p) => {
+    const isTopicSolved = solvedTopicIds.some((tid) => {
+      const match = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
+      return match && (match.id === p.id || match.id === p.slug || match.topicTitle.toLowerCase() === p.title.toLowerCase());
+    });
+    if (isTopicSolved || p.isSolved) {
+      return {
+        ...p,
+        isSolved: true,
+        status: 'SOLVED' as const,
+      };
+    }
+    return p;
+  });
 
   // Automatically launch into direct JEE CBT Test Mode
   React.useEffect(() => {

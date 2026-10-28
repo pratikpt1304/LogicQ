@@ -1591,3 +1591,73 @@ export async function verifyPracticeReport(req: Request, res: Response): Promise
   }
 }
 
+
+/**
+ * Records a mastered topic practice problem from the Topic Practice Arena.
+ * Automatically synchronizes with prisma.practiceProgress and rewards XP.
+ */
+export async function recordTopicPracticeSolved(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+    const { topicId, moduleSlug } = req.body;
+    const slug = moduleSlug || 'control-structures';
+    const now = new Date();
+
+    let problem = await prisma.problem.findFirst({
+      where: {
+        moduleSlug: slug,
+        isPractice: true,
+      },
+    });
+
+    if (!problem) {
+      problem = await prisma.problem.findFirst({
+        where: { isPractice: true },
+      });
+    }
+
+    if (problem) {
+      await prisma.practiceProgress.upsert({
+        where: {
+          userId_problemId: {
+            userId: req.user.userId,
+            problemId: problem.id,
+          },
+        },
+        update: {
+          isSolved: true,
+          solvedAt: now,
+          attemptsCount: { increment: 1 },
+          lastSyncedAt: now,
+        },
+        create: {
+          userId: req.user.userId,
+          problemId: problem.id,
+          moduleSlug: slug,
+          isSolved: true,
+          solvedAt: now,
+          runsCount: 1,
+          attemptsCount: 1,
+          activeSeconds: 60,
+          firstOpenedAt: now,
+          lastSyncedAt: now,
+        },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: {
+        totalPoints: { increment: 20 },
+      },
+    }).catch(() => {});
+
+    res.status(200).json({ success: true, message: 'Practice topic progress saved successfully' });
+  } catch (err) {
+    console.error('Error in recordTopicPracticeSolved:', err);
+    res.status(500).json({ success: false, message: 'Failed to record topic practice progress' });
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
@@ -8,6 +8,9 @@ import {
   isModule5UnlockedByAdmin,
   setModule5UnlockedByAdmin,
 } from '../config/practice.config.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { toast } from 'sonner';
 import {
   Lock,
@@ -51,6 +54,31 @@ export const PracticeModulesPage: React.FC = () => {
   const isAdmin = user?.role === 'ADMIN';
 
   const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
+  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+
+  // Sync and restore solved practice topics from Firestore
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const stats = await FirestoreDataService.getStatsBackup(user.id);
+        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const cloudSolved = Array.from(
+          new Set([
+            ...(stats?.completedProblems || []),
+            ...(prog?.completedProblems || []),
+            ...getSolvedPracticeTopicIds(user.id),
+          ])
+        );
+        if (cloudSolved.length > 0) {
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
+          setSolvedTopics(getSolvedPracticeTopicIds(user.id));
+        }
+      } catch (err) {
+        console.warn('PracticeModules restore error:', err);
+      }
+    })();
+  }, [user?.id]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-modules'],
@@ -84,7 +112,10 @@ export const PracticeModulesPage: React.FC = () => {
   const allConfigModules = PRACTICE_CONFIG.MODULES;
   const displayModules = allConfigModules.map((cfg, idx) => {
     const fromApi = modules.find((m) => m.slug === cfg.slug);
-    const solvedCount = fromApi?.solvedCount ?? 0;
+    const topicsSolvedInModule = TOPIC_PRACTICE_DATA.filter(
+      (t) => t.moduleSlug === cfg.slug && solvedTopics.includes(t.id)
+    ).length;
+    const solvedCount = Math.max(fromApi?.solvedCount ?? 0, topicsSolvedInModule);
     const totalQuestions = fromApi?.totalQuestions || cfg.totalQuestions || 20;
     const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
 
@@ -106,7 +137,10 @@ export const PracticeModulesPage: React.FC = () => {
     } else {
       const prevModFromApi = modules.find((m) => m.order === cfg.order - 1);
       const prevConfig = allConfigModules[idx - 1];
-      const prevSolved = prevModFromApi?.solvedCount ?? 0;
+      const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
+        (t) => t.moduleSlug === prevConfig.slug && solvedTopics.includes(t.id)
+      ).length;
+      const prevSolved = Math.max(prevModFromApi?.solvedCount ?? 0, prevTopicsSolved);
       const prevRequired = cfg.requiredSolvedToUnlock || 20;
 
       isUnlocked = prevSolved >= prevRequired;

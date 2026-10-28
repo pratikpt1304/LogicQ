@@ -11,6 +11,8 @@ import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth } from '../config/firebase.js';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { toast } from 'sonner';
 import {
   Flame,
@@ -328,7 +330,47 @@ export const DashboardPage: React.FC = () => {
   const submissionsList: any[] = Array.isArray(recentSubmissions) ? recentSubmissions : [];
 
   const studentAssignedList: any[] = Array.isArray(studentTests) ? studentTests : [];
-  const studentModulesList: any[] = Array.isArray(studentPracticeModules) ? studentPracticeModules : [];
+  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+
+  // Sync and restore solved practice topics from Firestore
+  React.useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const stats = await FirestoreDataService.getStatsBackup(user.id);
+        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const cloudSolved = Array.from(
+          new Set([
+            ...(stats?.completedProblems || []),
+            ...(prog?.completedProblems || []),
+            ...getSolvedPracticeTopicIds(user.id),
+          ])
+        );
+        if (cloudSolved.length > 0) {
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
+          setSolvedTopicIds(getSolvedPracticeTopicIds(user.id));
+        }
+      } catch (err) {
+        console.warn('Dashboard restore error:', err);
+      }
+    })();
+  }, [user?.id]);
+
+  const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : []).map(
+    (m: any) => {
+      const topicsInMod = TOPIC_PRACTICE_DATA.filter(
+        (t) => t.moduleSlug === m.slug && solvedTopicIds.includes(t.id)
+      ).length;
+      const solvedCount = Math.max(m.solvedCount || 0, topicsInMod);
+      const totalQuestions = m.totalQuestions || 20;
+      const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
+      return {
+        ...m,
+        solvedCount,
+        progressPercent,
+      };
+    }
+  );
   const studentSubmissionsList: any[] = Array.isArray(studentSubmissions) ? studentSubmissions : [];
   const availableSectionsForStudent: any[] = isStudent
     ? (Array.isArray(studentFirestoreSections) && studentFirestoreSections.length > 0 ? studentFirestoreSections : sectionsList)
@@ -380,8 +422,13 @@ export const DashboardPage: React.FC = () => {
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
 
+  const totalProblemsSolved = Math.max(
+    stats?.problemsSolved ?? (user as any)?.problemsSolved ?? 0,
+    solvedTopicIds.length
+  );
+
   const hasSolvedFirstChallenge = Boolean(
-    (stats?.problemsSolved && stats.problemsSolved >= 1) ||
+    totalProblemsSolved >= 1 ||
       isDailySolved ||
       (user?.totalPoints && user.totalPoints > 0)
   );
@@ -971,7 +1018,7 @@ export const DashboardPage: React.FC = () => {
                 <Target className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="text-2xl font-extrabold text-emerald-400 font-mono">
-                {stats?.problemsSolved ?? (user as any)?.problemsSolved ?? 0}
+                {totalProblemsSolved}
               </div>
               <p className="text-[11px] font-mono text-[var(--text-muted)]">
                 Accepted C code submissions

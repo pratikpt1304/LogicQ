@@ -11,6 +11,7 @@ import {
   getAdminPracticeReports,
   exportAdminPracticeCsv,
   correctStudentPracticeProgress,
+  recordTopicPracticeSolved,
 } from '../controllers/practice.controller.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -38,3 +39,5 @@ practiceRouter.get('/reports/final', authenticate, getPracticeFinalReport);
 practiceRouter.get('/admin/reports', authenticate, requireRole('ADMIN'), getAdminPracticeReports);
 practiceRouter.get('/admin/reports/csv', authenticate, requireRole('ADMIN'), exportAdminPracticeCsv);
 practiceRouter.post('/admin/correct-progress', authenticate, requireRole('ADMIN'), correctStudentPracticeProgress);
+
+practiceRouter.post('/topics/solve', authenticate, recordTopicPracticeSolved);

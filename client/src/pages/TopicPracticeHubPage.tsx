@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import {
@@ -37,35 +38,75 @@ import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../data/topic-practice.d
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
+import { useAuth } from '../context/AuthContext.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
+import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
 import { api } from '../api/client.js';
 
 const STORAGE_KEY = 'logicq_solved_practice_topics';
 
-export function getSolvedPracticeTopicIds(): string[] {
+export function getSolvedPracticeTopicIds(userId?: string): string[] {
   try {
+    const userKey = userId ? `${STORAGE_KEY}_${userId}` : null;
+    const userSaved = userKey ? localStorage.getItem(userKey) : null;
+    if (userSaved) return JSON.parse(userSaved);
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   } catch {
     return [];
   }
 }
 
-export function markPracticeTopicSolved(topicId: string): void {
+export function markPracticeTopicSolved(topicId: string, userId?: string): string[] {
   try {
-    const list = getSolvedPracticeTopicIds();
+    const list = getSolvedPracticeTopicIds(userId);
     if (!list.includes(topicId)) {
       list.push(topicId);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     }
-  } catch {}
+    if (userId) {
+      localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(list));
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    return list;
+  } catch {
+    return [topicId];
+  }
 }
 
 export const TopicPracticeHubPage: React.FC = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(0); // 0 = all
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNSOLVED' | 'SOLVED'>('ALL');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [activeTopic, setActiveTopic] = useState<TopicPracticeItem | null>(null);
-  const [solvedTopics, setSolvedTopics] = useState<string[]>(getSolvedPracticeTopicIds());
+  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+
+  // Sync and restore solved practice topics from Firestore on user load
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const stats = await FirestoreDataService.getStatsBackup(user.id);
+        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const cloudSolved = Array.from(
+          new Set([
+            ...(stats?.completedProblems || []),
+            ...(prog?.completedProblems || []),
+            ...getSolvedPracticeTopicIds(user.id),
+          ])
+        );
+        if (cloudSolved.length > 0) {
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
+          setSolvedTopics(getSolvedPracticeTopicIds(user.id));
+        }
+      } catch (err) {
+        console.warn('Practice progress restore failed:', err);
+      }
+    })();
+  }, [user?.id]);
 
   // Workspace state
   const [code, setCode] = useState<string>('');
@@ -80,11 +121,21 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(document.fullscreenElement));
+  const remoteDraftTimeoutRef = React.useRef<any>(null);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (remoteDraftTimeoutRef.current) {
+        clearTimeout(remoteDraftTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Sync solved topics
   useEffect(() => {
-    setSolvedTopics(getSolvedPracticeTopicIds());
-  }, []);
+    setSolvedTopics(getSolvedPracticeTopicIds(user?.id));
+  }, [user?.id]);
 
   // Fullscreen change tracking
   useEffect(() => {
@@ -139,13 +190,36 @@ export const TopicPracticeHubPage: React.FC = () => {
 
   const handleOpenTopic = async (topic: TopicPracticeItem) => {
     setActiveTopic(topic);
-    setCode(topic.problem.starterCode);
-    setCustomInput('');
+    try {
+      localStorage.setItem('logicq_last_topic_id', topic.id);
+    } catch {}
+
+    // 1. Check local draft first (prevents reset when switching or returning)
+    const draftKey = `topic_${topic.id}`;
+    const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
+    const initialCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : topic.problem.starterCode;
+    setCode(initialCode);
+    setCustomInput(localDraft?.customInput || '');
     setRunResult(null);
     setSubmitResult(null);
     setIsDrawerOpen(false);
     setActiveBottomTab('output');
     setActiveMobileTab('statement');
+
+    // 2. Authoritative cloud draft sync (restores saved solution across devices/cleared browser)
+    if (user?.id) {
+      DraftSyncService.fetchRemoteDraft(user.id, draftKey, true)
+        .then((remoteDraft: DraftData | null) => {
+          if (remoteDraft?.code && remoteDraft.code.trim()) {
+            if (!localDraft || remoteDraft.updatedAt > (localDraft.updatedAt || 0)) {
+              setCode(remoteDraft.code);
+              if (remoteDraft.customInput) setCustomInput(remoteDraft.customInput);
+              DraftSyncService.saveLocalDraft(remoteDraft, true);
+            }
+          }
+        })
+        .catch(() => {});
+    }
 
     // Automatically enter true HTML5 fullscreen on question click (user gesture context)
     try {
@@ -156,6 +230,48 @@ export const TopicPracticeHubPage: React.FC = () => {
     } catch {
       // Browser policy fallback - user can click fullscreen button
     }
+  };
+
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    if (!activeTopic) return;
+    const draftKey = `topic_${activeTopic.id}`;
+    const draft: DraftData = {
+      problemSlug: draftKey,
+      code: newCode,
+      customInput,
+      updatedAt: Date.now(),
+      deviceLabel: getDeviceLabel(),
+    };
+    DraftSyncService.saveLocalDraft(draft, true);
+
+    if (user?.id) {
+      if (remoteDraftTimeoutRef.current) {
+        clearTimeout(remoteDraftTimeoutRef.current);
+      }
+      remoteDraftTimeoutRef.current = setTimeout(() => {
+        DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+      }, 1500);
+    }
+  };
+
+  const handleResetCode = () => {
+    if (!activeTopic) return;
+    const starter = activeTopic.problem.starterCode;
+    setCode(starter);
+    const draftKey = `topic_${activeTopic.id}`;
+    const draft: DraftData = {
+      problemSlug: draftKey,
+      code: starter,
+      customInput,
+      updatedAt: Date.now(),
+      deviceLabel: getDeviceLabel(),
+    };
+    DraftSyncService.saveLocalDraft(draft, true);
+    if (user?.id) {
+      DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+    }
+    toast.info('Code reset to default starter template');
   };
 
   const handleCloseTopic = async () => {
@@ -246,8 +362,48 @@ export const TopicPracticeHubPage: React.FC = () => {
       });
 
       if (allPassed) {
-        markPracticeTopicSolved(activeTopic.id);
-        setSolvedTopics(getSolvedPracticeTopicIds());
+        const updated = markPracticeTopicSolved(activeTopic.id, user?.id);
+        setSolvedTopics(updated);
+
+        // Save verified code as authoritative draft so returning student never sees reset code
+        const draftKey = `topic_${activeTopic.id}`;
+        const draft: DraftData = {
+          problemSlug: draftKey,
+          code,
+          customInput,
+          updatedAt: Date.now(),
+          deviceLabel: getDeviceLabel(),
+        };
+        DraftSyncService.saveLocalDraft(draft, true);
+        if (user?.id) {
+          DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+        }
+
+        // 1. Persist to Firestore immediately (survives tab closure, refresh, and device switch)
+        if (user?.id) {
+          FirestoreDataService.saveStatsBackup(user.id, {
+            totalSolved: updated.length,
+            completedProblems: updated,
+            lastSolvedDate: new Date().toISOString(),
+          }).catch(() => {});
+
+          FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
+        }
+
+        // 2. Sync to backend practice API
+        api.post('/practice/topics/solve', {
+          topicId: activeTopic.id,
+          moduleSlug: activeTopic.moduleSlug,
+          title: activeTopic.topicTitle,
+        }).catch(() => {});
+
+        // 3. Invalidate query cache so /lab-internal and Dashboard reflect solved count instantly
+        queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+        queryClient.invalidateQueries({ queryKey: ['student-practice-modules'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        RealtimeSyncService.emit('SUBMISSIONS');
+        RealtimeSyncService.emit('DASHBOARD');
+
         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
         toast.success(`🎉 Topic Mastered: "${activeTopic.topicTitle}"!`);
       } else {
@@ -616,7 +772,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </span>
 
                 {solvedTopics.includes(activeTopic.id) && (
-                  <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                     <CheckCircle2 className="w-3 h-3" />
                     Solved
                   </span>
@@ -862,8 +1018,8 @@ export const TopicPracticeHubPage: React.FC = () => {
               <div className="flex-1 min-h-0 relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
                   code={code}
-                  onChange={(val) => setCode(val || '')}
-                  onReset={() => setCode(activeTopic.problem.starterCode)}
+                  onChange={handleCodeChange}
+                  onReset={handleResetCode}
                   readOnly={false}
                   disableCopyPaste={false}
                 />

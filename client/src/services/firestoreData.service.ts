@@ -630,19 +630,52 @@ export class FirestoreDataService {
   }
 
   /**
-   * Reads student practice progress from practice_progress/{uid}
+   * Persists student practice progress in users/{uid}/drafts/practice_progress
+   */
+  public static async savePracticeProgress(uid: string, completedProblems: string[]): Promise<void> {
+    const targetUid = uid || auth.currentUser?.uid;
+    if (!targetUid) return;
+    try {
+      const draftRef = doc(db, 'users', targetUid, 'drafts', 'practice_progress');
+      await setDoc(
+        draftRef,
+        {
+          userId: targetUid,
+          completedProblems: Array.from(new Set(completedProblems)),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('FirestoreDataService.savePracticeProgress failed:', err);
+    }
+  }
+
+  /**
+   * Reads student practice progress from users/{uid}/drafts/practice_progress or practice_progress/{uid}
    */
   public static async getPracticeProgress(uid: string): Promise<StudentPracticeProgress | null> {
     if (!uid && !auth.currentUser?.uid) return null;
     const primaryUid = uid || auth.currentUser?.uid || '';
     try {
-      let docRef = doc(db, 'practice_progress', primaryUid);
-      let snap = await getDoc(docRef);
-      if (!snap.exists() && auth.currentUser?.uid && auth.currentUser.uid !== primaryUid) {
-        docRef = doc(db, 'practice_progress', auth.currentUser.uid);
-        snap = await getDoc(docRef);
+      const draftRef = doc(db, 'users', primaryUid, 'drafts', 'practice_progress');
+      const draftSnap = await getDoc(draftRef).catch(() => null);
+      if (draftSnap && draftSnap.exists()) {
+        const data = draftSnap.data();
+        return {
+          userId: primaryUid,
+          completedProblems: Array.isArray(data.completedProblems) ? data.completedProblems : [],
+          moduleProgress: data.moduleProgress || {},
+          updatedAt: data.updatedAt,
+        };
       }
-      if (snap.exists()) {
+      let docRef = doc(db, 'practice_progress', primaryUid);
+      let snap = await getDoc(docRef).catch(() => null);
+      if (!snap?.exists() && auth.currentUser?.uid && auth.currentUser.uid !== primaryUid) {
+        docRef = doc(db, 'practice_progress', auth.currentUser.uid);
+        snap = await getDoc(docRef).catch(() => null);
+      }
+      if (snap?.exists()) {
         const data = snap.data();
         return {
           userId: primaryUid,
