@@ -196,7 +196,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
-  'student@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -1055,6 +1054,32 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         profileComplete: true,
       },
     });
+  }
+  if (lower === 'student@logicq.io') {
+    const studentUser = await prisma.user.upsert({
+      where: { email: 'student@logicq.io' },
+      update: { role: 'STUDENT', prn: '2026STUD0001', profileComplete: true },
+      create: {
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2026STUD0001',
+        role: 'STUDENT',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        passwordHash: await bcrypt.hash('StudentWalkthrough123!', 10),
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'SY',
+        division: 'A',
+        profileComplete: true,
+      },
+    });
+    await prisma.prnIndex.upsert({
+      where: { prn: '2026STUD0001' },
+      create: { prn: '2026STUD0001', userId: studentUser.id },
+      update: { userId: studentUser.id },
+    }).catch(() => {});
+    return studentUser;
   }
   if (lower === 'thoratpratik2323@gmail.com' || cleanId.toUpperCase() === '2126PMIM1039') {
     const studentUser = await prisma.user.upsert({

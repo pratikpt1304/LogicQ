@@ -199,7 +199,6 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
-  'student@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -213,21 +212,15 @@ export function isExplicitlyPurgedUser(identifier?: any): boolean {
   if (!identifier) return false;
   const email = (typeof identifier === 'string' ? identifier : identifier.email || '').toLowerCase().trim();
   const prn = (typeof identifier === 'string' ? identifier : identifier.prn || '').toUpperCase().trim();
-  const fullName = (typeof identifier === 'object' ? (identifier.fullName || identifier.name || identifier.displayName || '') : '').toLowerCase().trim();
-  const username = (typeof identifier === 'object' ? (identifier.username || '') : '').toLowerCase().trim();
   if (
     PURGED_EMAILS.includes(email) ||
-    PURGED_PRNS.includes(prn) ||
-    email === 'student@logicq.io' ||
-    username === 'student_demo' ||
-    fullName.includes('demo student') ||
-    prn === '2024BCSE0001' ||
-    prn === '2026IMTM0001'
+    PURGED_PRNS.includes(prn)
   ) return true;
   return false;
 }
 
 export const WALKTHROUGH_EMAILS = [
+  'student@logicq.io',
   'faculty@logicq.io',
   'hariprasathset@sanjivani.edu.in',
   'logicqarena@gmail.com',
@@ -351,10 +344,28 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      // Active purge: permanently ensure demo student (student@logicq.io) is wiped from stored users
-      const beforeCount = sanitized.length;
-      sanitized = sanitized.filter((u) => !isExplicitlyPurgedUser(u) && u.email.toLowerCase() !== 'student@logicq.io');
-      if (sanitized.length !== beforeCount) {
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'student@logicq.io')) {
+        sanitized.push({
+          id: 'student-walkthrough-1',
+          username: 'student_demo',
+          email: 'student@logicq.io',
+          prn: '2026STUD0001',
+          fullName: 'Demo Student (Walkthrough)',
+          displayName: 'Demo Student',
+          role: 'STUDENT',
+          college: 'Sanjivani University',
+          department: 'CSE',
+          year: 'SY',
+          division: 'A',
+          profileComplete: true,
+          totalPoints: 120,
+          currentStreak: 2,
+          longestStreak: 4,
+          password: 'password123',
+          isBanned: false,
+          shortId: 'STU1',
+          createdAt: new Date().toISOString(),
+        } as any);
         migrated = true;
       }
       if (!sanitized.some((u) => u.email.toLowerCase() === 'thoratpratik2323@gmail.com')) {
