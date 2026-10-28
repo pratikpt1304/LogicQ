@@ -29,6 +29,8 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronLeft,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../data/topic-practice.data.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
@@ -74,7 +76,55 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('output');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'app' | 'example'>('syntax');
+  const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(document.fullscreenElement));
+
+  // Sync solved topics
+  useEffect(() => {
+    setSolvedTopics(getSolvedPracticeTopicIds());
+  }, []);
+
+  // Fullscreen change tracking
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Lock body scroll whenever workspace is open so background never bleeds/scrolls
+  useEffect(() => {
+    if (activeTopic) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [activeTopic]);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+          setIsFullscreen(false);
+        }
+      }
+    } catch {
+      toast.error('Unable to toggle fullscreen on this device.');
+    }
+  };
 
   // Computed navigation between topics
   const currentTopicIndex = activeTopic
@@ -86,12 +136,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       ? TOPIC_PRACTICE_DATA[currentTopicIndex + 1]
       : null;
 
-  // Sync solved topics
-  useEffect(() => {
-    setSolvedTopics(getSolvedPracticeTopicIds());
-  }, []);
-
-  const handleOpenTopic = (topic: TopicPracticeItem) => {
+  const handleOpenTopic = async (topic: TopicPracticeItem) => {
     setActiveTopic(topic);
     setCode(topic.problem.starterCode);
     setCustomInput('');
@@ -99,9 +144,25 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSubmitResult(null);
     setIsDrawerOpen(false);
     setActiveBottomTab('output');
+    setActiveMobileTab('statement');
+
+    // Automatically enter true HTML5 fullscreen on question click (user gesture context)
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      }
+    } catch {
+      // Browser policy fallback - user can click fullscreen button
+    }
   };
 
-  const handleCloseTopic = () => {
+  const handleCloseTopic = async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {}
+    }
     setActiveTopic(null);
   };
 
@@ -113,6 +174,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSubmitResult(null);
     setIsDrawerOpen(true);
     setActiveBottomTab('output');
+    setActiveMobileTab('results');
 
     try {
       const inputToUse = customInput.trim() ? customInput : activeTopic.problem.openTestCase.input;
@@ -156,6 +218,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSubmitResult(null);
     setIsDrawerOpen(true);
     setActiveBottomTab('output');
+    setActiveMobileTab('results');
 
     try {
       // 1. Run open test
@@ -516,7 +579,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE */}
       {activeTopic && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 w-screen h-screen z-[100] bg-[var(--bg-main)] flex flex-col overflow-hidden animate-fadeIn select-none">
+        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-[var(--bg-main)] flex flex-col overflow-hidden select-none">
           
           {/* Topbar: Minimalist & Clean */}
           <div className="h-14 px-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 select-none">
@@ -586,6 +649,20 @@ export const TopicPracticeHubPage: React.FC = () => {
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
               <button
+                type="button"
+                onClick={toggleFullscreen}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition border ${
+                  isFullscreen
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20'
+                }`}
+                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F11)'}
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Go Fullscreen'}</span>
+              </button>
+
+              <button
                 onClick={() => setIsIssueModalOpen(true)}
                 className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition"
                 title="Report issue with problem or test cases"
@@ -604,11 +681,59 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
+          {/* Mobile Segmented Switcher (Statement | Editor | Verdict) for small screens */}
+          <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('statement')}
+              className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                activeMobileTab === 'statement'
+                  ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Statement</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('editor')}
+              className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                activeMobileTab === 'editor'
+                  ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Editor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMobileTab('results');
+                setActiveBottomTab('output');
+                setIsDrawerOpen(true);
+              }}
+              className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                activeMobileTab === 'results'
+                  ? 'bg-[var(--bg-panel)] text-[var(--accent)] font-bold border border-[var(--border-line)] shadow-sm'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Verdict</span>
+            </button>
+          </div>
+
           {/* Main Two-Pane Split View (Exact Lab Internal Structure) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 select-text">
             
             {/* Left Pane: Problem Description Statement (50% width) */}
-            <div className="lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)]">
+            <div
+              className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)] ${
+                activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
+              }`}
+            >
               
               {/* Problem Title & Category Meta */}
               <div className="space-y-2">
@@ -726,7 +851,11 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer (50% width) */}
-            <div className="lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)]">
+            <div
+              className={`lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)] ${
+                activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
+              }`}
+            >
               
               {/* Editor Container */}
               <div className="flex-1 min-h-[300px] relative overflow-hidden bg-[var(--bg-panel)]">
