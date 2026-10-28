@@ -186,6 +186,9 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
         tabSwitchCount: Number(user.tabSwitchCount || user.tabSwitches || 0),
         copyPasteAttempts: Number(user.copyPasteAttempts || user.pasteCount || 0),
         fullscreenExits: Number(user.fullScreenExitCount || user.fullscreenExits || 0),
+        autoLockCount: 0,
+        integrityScore: 100,
+        incidents: [] as any[],
       };
 
       try {
@@ -196,6 +199,11 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
             telemetry.tabSwitchCount = Math.max(telemetry.tabSwitchCount, fsTelem.tabSwitchCount || 0);
             telemetry.copyPasteAttempts = Math.max(telemetry.copyPasteAttempts, fsTelem.copyPasteAttempts || 0);
             telemetry.fullscreenExits = Math.max(telemetry.fullscreenExits, fsTelem.fullscreenExits || 0);
+            telemetry.autoLockCount = fsTelem.autoLockCount || 0;
+            telemetry.integrityScore = typeof fsTelem.integrityScore === 'number'
+              ? fsTelem.integrityScore
+              : FirestoreDataService.computeIntegrityScore(telemetry);
+            telemetry.incidents = fsTelem.incidents || [];
           }
         }
       } catch {}
@@ -212,6 +220,10 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
             telemetry.tabSwitchCount = Math.max(telemetry.tabSwitchCount, totalTabs);
             telemetry.copyPasteAttempts = Math.max(telemetry.copyPasteAttempts, totalPastes);
             telemetry.fullscreenExits = Math.max(telemetry.fullscreenExits, totalFsExits);
+            telemetry.integrityScore = Math.min(
+              telemetry.integrityScore,
+              FirestoreDataService.computeIntegrityScore(telemetry)
+            );
           }
         }
       } catch {}
@@ -232,6 +244,9 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
     tabSwitchCount: Number(user.tabSwitchCount || user.tabSwitches || 0),
     copyPasteAttempts: Number(user.copyPasteAttempts || user.pasteCount || 0),
     fullscreenExits: Number(user.fullScreenExitCount || user.fullscreenExits || 0),
+    autoLockCount: 0,
+    integrityScore: 100,
+    incidents: [] as any[],
   };
   const moduleStats = activityData?.moduleStats || {
     'control-structures': 0,
@@ -440,24 +455,34 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
             <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">
               Anti-Cheat Health
             </span>
-            {telemetry.tabSwitchCount > 0 || telemetry.copyPasteAttempts > 0 ? (
+            {telemetry.autoLockCount > 0 ? (
               <>
                 <div className="flex items-center gap-1.5 text-rose-400 font-bold text-sm">
                   <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <span>Flagged ({telemetry.tabSwitchCount + telemetry.copyPasteAttempts} Events)</span>
+                  <span>Cheat Flags ({telemetry.autoLockCount} Locks)</span>
                 </div>
                 <p className="text-[11px] font-mono text-rose-300">
-                  {telemetry.tabSwitchCount} Tabs • {telemetry.copyPasteAttempts} Pastes
+                  Integrity: {telemetry.integrityScore}/100 • {telemetry.tabSwitchCount} Tabs • {telemetry.copyPasteAttempts} Pastes
+                </p>
+              </>
+            ) : telemetry.tabSwitchCount > 0 || telemetry.copyPasteAttempts > 0 ? (
+              <>
+                <div className="flex items-center gap-1.5 text-amber-400 font-bold text-sm">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Monitored ({telemetry.tabSwitchCount + telemetry.copyPasteAttempts} Events)</span>
+                </div>
+                <p className="text-[11px] font-mono text-amber-300">
+                  Integrity: {telemetry.integrityScore}/100 • {telemetry.tabSwitchCount} Tabs
                 </p>
               </>
             ) : (
               <>
                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-sm">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Clean & Verified</span>
+                  <span>Clean &amp; Verified</span>
                 </div>
-                <p className="text-[11px] font-mono text-[var(--text-muted)]">
-                  0 Proctored Flags
+                <p className="text-[11px] font-mono text-emerald-400 font-bold">
+                  100/100 Clean (0 Flags)
                 </p>
               </>
             )}
@@ -526,13 +551,17 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
         </div>
 
         {/* Anti-Cheat & Device Audit Telemetry */}
-        <div className="p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-2 text-xs font-mono">
+        <div className="p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-3 text-xs font-mono">
           <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-2">
             <span className="font-bold uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span>Proctoring & Audit Telemetry</span>
+              <span>Proctoring &amp; Anti-Cheat Telemetry</span>
             </span>
-            {telemetry.tabSwitchCount >= 3 || telemetry.copyPasteAttempts >= 3 ? (
+            {telemetry.autoLockCount > 0 ? (
+              <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> AUDIT STATUS: CHEAT PENALTY ({telemetry.autoLockCount} AUTO-LOCKS)
+              </span>
+            ) : telemetry.tabSwitchCount >= 3 || telemetry.copyPasteAttempts >= 3 ? (
               <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" /> AUDIT STATUS: FLAGGED ({telemetry.tabSwitchCount + telemetry.copyPasteAttempts} VIOLATIONS)
               </span>
@@ -547,13 +576,31 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
             )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-[11px]">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 text-[11px]">
+            <div>
+              <span className="text-[10px] text-[var(--text-muted)] block">Integrity Score</span>
+              <span className={`font-bold ${
+                telemetry.integrityScore >= 80 ? 'text-emerald-400' : telemetry.integrityScore >= 50 ? 'text-amber-400' : 'text-rose-400'
+              }`}>
+                {telemetry.integrityScore} / 100
+              </span>
+            </div>
             <div>
               <span className="text-[10px] text-[var(--text-muted)] block">Tab Switches</span>
               {telemetry.tabSwitchCount > 0 ? (
-                <span className="text-rose-400 font-bold">⚠️ {telemetry.tabSwitchCount} Detected</span>
+                <span className={telemetry.tabSwitchCount >= 3 ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>
+                  ⚠️ {telemetry.tabSwitchCount} Detected
+                </span>
               ) : (
-                <span className="text-emerald-400 font-bold">0 Detected (Clean)</span>
+                <span className="text-emerald-400 font-bold">0 (Clean)</span>
+              )}
+            </div>
+            <div>
+              <span className="text-[10px] text-[var(--text-muted)] block">Clipboard Guard</span>
+              {telemetry.copyPasteAttempts > 0 ? (
+                <span className="text-rose-400 font-bold">🚫 {telemetry.copyPasteAttempts} Blocked</span>
+              ) : (
+                <span className="text-emerald-400 font-bold">Zero Violations</span>
               )}
             </div>
             <div>
@@ -561,22 +608,50 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
               {telemetry.fullscreenExits > 0 ? (
                 <span className="text-amber-400 font-bold">⚠️ {telemetry.fullscreenExits} Exits</span>
               ) : (
-                <span className="text-emerald-400 font-bold">Enforced & Compliant</span>
+                <span className="text-emerald-400 font-bold">Compliant</span>
               )}
             </div>
             <div>
-              <span className="text-[10px] text-[var(--text-muted)] block">Clipboard Guard</span>
-              {telemetry.copyPasteAttempts > 0 ? (
-                <span className="text-rose-400 font-bold">🚫 {telemetry.copyPasteAttempts} Blocked Attempts</span>
+              <span className="text-[10px] text-[var(--text-muted)] block">Auto-Locks</span>
+              {telemetry.autoLockCount > 0 ? (
+                <span className="text-rose-400 font-bold">🚨 {telemetry.autoLockCount} Penalties</span>
               ) : (
-                <span className="text-emerald-400 font-bold">Zero Violations</span>
+                <span className="text-emerald-400 font-bold">0 Penalties</span>
               )}
-            </div>
-            <div>
-              <span className="text-[10px] text-[var(--text-muted)] block">Coding Sandbox</span>
-              <span className="text-slate-200">GCC 14 (Linux Container)</span>
             </div>
           </div>
+
+          {/* Incidents Detail Log */}
+          {telemetry.incidents && telemetry.incidents.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[var(--border-line)] space-y-2">
+              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">
+                🚨 Cheating Violations &amp; Auto-Lock Log ({telemetry.incidents.length})
+              </span>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {telemetry.incidents.map((inc: any) => (
+                  <div
+                    key={inc.id}
+                    className="p-2 rounded-lg bg-[var(--bg-panel)] border border-rose-500/30 flex items-center justify-between gap-2 text-[11px]"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-bold">
+                          {inc.type}
+                        </span>
+                        <span className="font-bold text-[var(--text-main)] truncate">
+                          {inc.problemTitle || inc.problemSlug || 'Question'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-rose-300 mt-0.5 truncate">{inc.reason}</p>
+                    </div>
+                    <span className="text-[9px] text-[var(--text-muted)] shrink-0 font-mono">
+                      {new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Code Submissions Activity Table */}

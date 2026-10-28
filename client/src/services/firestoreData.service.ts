@@ -2742,6 +2742,83 @@ export class FirestoreDataService {
   }
 
   /**
+   * Computes a normalized integrity score from 0 to 100 based on anti-cheat incidents.
+   */
+  public static computeIntegrityScore(telemetry: {
+    tabSwitchCount?: number;
+    copyPasteAttempts?: number;
+    fullscreenExits?: number;
+    autoLockCount?: number;
+  }): number {
+    let score = 100;
+    score -= (telemetry.tabSwitchCount || 0) * 5;
+    score -= (telemetry.copyPasteAttempts || 0) * 10;
+    score -= (telemetry.fullscreenExits || 0) * 5;
+    score -= (telemetry.autoLockCount || 0) * 20;
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * Records a specific proctoring incident (e.g. 3 tab switches auto-lock, copy paste attempt).
+   */
+  public static async recordProctoringIncident(
+    userId: string,
+    incident: {
+      type: 'EXCEEDED_TAB_SWITCHES' | 'EXCEEDED_COPY_PASTE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'FULLSCREEN_EXIT';
+      problemSlug?: string;
+      problemTitle?: string;
+      reason: string;
+      codeSnippet?: string;
+    }
+  ): Promise<any> {
+    if (!userId) return null;
+    try {
+      const existing = await FirestoreDataService.getProctoringTelemetry(userId);
+      const isAutoLock = incident.type === 'EXCEEDED_TAB_SWITCHES' || incident.type === 'EXCEEDED_COPY_PASTE';
+      const autoLockCount = (existing?.autoLockCount || 0) + (isAutoLock ? 1 : 0);
+      const tabSwitchCount = Math.max(existing?.tabSwitchCount || 0, incident.type === 'TAB_SWITCH' || incident.type === 'EXCEEDED_TAB_SWITCHES' ? (existing?.tabSwitchCount || 0) + 1 : (existing?.tabSwitchCount || 0));
+      const copyPasteAttempts = Math.max(existing?.copyPasteAttempts || 0, incident.type === 'COPY_PASTE' || incident.type === 'EXCEEDED_COPY_PASTE' ? (existing?.copyPasteAttempts || 0) + 1 : (existing?.copyPasteAttempts || 0));
+      const fullscreenExits = Math.max(existing?.fullscreenExits || 0, incident.type === 'FULLSCREEN_EXIT' ? (existing?.fullscreenExits || 0) + 1 : (existing?.fullscreenExits || 0));
+
+      const integrityScore = FirestoreDataService.computeIntegrityScore({
+        tabSwitchCount,
+        copyPasteAttempts,
+        fullscreenExits,
+        autoLockCount,
+      });
+
+      const incidentObj = {
+        id: `inc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        type: incident.type,
+        problemSlug: incident.problemSlug || '',
+        problemTitle: incident.problemTitle || '',
+        reason: incident.reason,
+        codeSnippet: incident.codeSnippet ? incident.codeSnippet.slice(0, 500) : '',
+        timestamp: new Date().toISOString(),
+      };
+
+      const incidents = [incidentObj, ...(existing?.incidents || [])].slice(0, 50);
+
+      const payload = {
+        tabSwitchCount,
+        copyPasteAttempts,
+        fullscreenExits,
+        autoLockCount,
+        integrityScore,
+        incidents,
+        lastIncidentAt: incidentObj.timestamp,
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'), payload, { merge: true });
+      return payload;
+    } catch (err) {
+      console.warn('recordProctoringIncident error:', err);
+      return null;
+    }
+  }
+
+  /**
    * Save student anti-cheat / proctoring telemetry (tab switches, paste attempts, fullscreen exits).
    * Stored under users/{uid}/drafts/proctoring_telemetry
    */
@@ -2751,16 +2828,30 @@ export class FirestoreDataService {
       tabSwitchCount?: number;
       copyPasteAttempts?: number;
       fullscreenExits?: number;
+      autoLockCount?: number;
       lastIncidentAt?: string;
     }
   ): Promise<void> {
     if (!userId) return;
     try {
       const existing = await FirestoreDataService.getProctoringTelemetry(userId);
+      const tabSwitchCount = Math.max(existing?.tabSwitchCount || 0, data.tabSwitchCount || 0);
+      const copyPasteAttempts = Math.max(existing?.copyPasteAttempts || 0, data.copyPasteAttempts || 0);
+      const fullscreenExits = Math.max(existing?.fullscreenExits || 0, data.fullscreenExits || 0);
+      const autoLockCount = Math.max(existing?.autoLockCount || 0, data.autoLockCount || 0);
+      const integrityScore = FirestoreDataService.computeIntegrityScore({
+        tabSwitchCount,
+        copyPasteAttempts,
+        fullscreenExits,
+        autoLockCount,
+      });
+
       const merged = {
-        tabSwitchCount: Math.max(existing?.tabSwitchCount || 0, data.tabSwitchCount || 0),
-        copyPasteAttempts: Math.max(existing?.copyPasteAttempts || 0, data.copyPasteAttempts || 0),
-        fullscreenExits: Math.max(existing?.fullscreenExits || 0, data.fullscreenExits || 0),
+        tabSwitchCount,
+        copyPasteAttempts,
+        fullscreenExits,
+        autoLockCount,
+        integrityScore,
         lastIncidentAt: data.lastIncidentAt || new Date().toISOString(),
         updatedAt: serverTimestamp(),
       };
@@ -2777,18 +2868,40 @@ export class FirestoreDataService {
     tabSwitchCount: number;
     copyPasteAttempts: number;
     fullscreenExits: number;
+    autoLockCount: number;
+    integrityScore: number;
     lastIncidentAt?: string;
+    incidents: Array<{
+      id: string;
+      type: string;
+      problemSlug?: string;
+      problemTitle?: string;
+      reason: string;
+      codeSnippet?: string;
+      timestamp: string;
+    }>;
   } | null> {
     if (!userId) return null;
     try {
       const snap = await getDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'));
       if (snap.exists()) {
         const d = snap.data();
+        const tabSwitchCount = Number(d.tabSwitchCount || 0);
+        const copyPasteAttempts = Number(d.copyPasteAttempts || 0);
+        const fullscreenExits = Number(d.fullscreenExits || 0);
+        const autoLockCount = Number(d.autoLockCount || 0);
+        const integrityScore = typeof d.integrityScore === 'number'
+          ? d.integrityScore
+          : FirestoreDataService.computeIntegrityScore({ tabSwitchCount, copyPasteAttempts, fullscreenExits, autoLockCount });
+
         return {
-          tabSwitchCount: Number(d.tabSwitchCount || 0),
-          copyPasteAttempts: Number(d.copyPasteAttempts || 0),
-          fullscreenExits: Number(d.fullscreenExits || 0),
+          tabSwitchCount,
+          copyPasteAttempts,
+          fullscreenExits,
+          autoLockCount,
+          integrityScore,
           lastIncidentAt: d.lastIncidentAt,
+          incidents: Array.isArray(d.incidents) ? d.incidents : [],
         };
       }
     } catch {}

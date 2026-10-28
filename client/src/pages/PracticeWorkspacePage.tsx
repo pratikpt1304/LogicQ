@@ -151,7 +151,18 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
+  const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
+  const [questionPasteCount, setQuestionPasteCount] = useState(0);
+  const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
+  const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
+
+  // Reset per-question violation counters on problem change
+  useEffect(() => {
+    setQuestionTabSwitchCount(0);
+    setQuestionPasteCount(0);
+    setIsCheatingAutoSubmitTriggered(false);
+  }, [problemSlug]);
 
   const syncTelemetryToCloud = useCallback((updates: { tabSwitchCount?: number; copyPasteAttempts?: number; fullscreenExits?: number }) => {
     if (!user?.id) return;
@@ -236,33 +247,47 @@ export const PracticeWorkspacePage: React.FC = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabSwitchCount((prev) => {
-          const next = prev + 1;
-          syncTelemetryToCloud({ tabSwitchCount: next });
-          return next;
+        setQuestionTabSwitchCount((prevQ) => {
+          const nextQ = prevQ + 1;
+          setTabSwitchCount((prevTotal) => {
+            const nextTotal = prevTotal + 1;
+            syncTelemetryToCloud({ tabSwitchCount: nextTotal });
+            return nextTotal;
+          });
+          if (nextQ >= 3) {
+            triggerAntiCheatAutoSubmitRef.current('TAB_SWITCH_LIMIT', nextQ);
+          }
+          return nextQ;
         });
       } else {
         const now = Date.now();
         if (now - lastTabSwitchToastRef.current > 1500) {
           lastTabSwitchToastRef.current = now;
-          toast.error('⚠️ Tab Switch Detected! All tab switches and window unfocus events are recorded.', {
-            duration: 6000,
+          toast.error('⚠️ Tab Switch Detected! All tab switches are recorded. 3 tab switches on a question auto-locks & advances!', {
+            duration: 5000,
           });
         }
       }
     };
 
     const handleWindowBlur = () => {
-      setTabSwitchCount((prev) => {
-        const next = prev + 1;
-        syncTelemetryToCloud({ tabSwitchCount: next });
-        return next;
+      setQuestionTabSwitchCount((prevQ) => {
+        const nextQ = prevQ + 1;
+        setTabSwitchCount((prevTotal) => {
+          const nextTotal = prevTotal + 1;
+          syncTelemetryToCloud({ tabSwitchCount: nextTotal });
+          return nextTotal;
+        });
+        if (nextQ >= 3) {
+          triggerAntiCheatAutoSubmitRef.current('TAB_SWITCH_LIMIT', nextQ);
+        }
+        return nextQ;
       });
       const now = Date.now();
       if (now - lastTabSwitchToastRef.current > 2000) {
         lastTabSwitchToastRef.current = now;
         toast.warning('⚠️ Window focus lost! Focus away from workspace is monitored.', {
-          duration: 5000,
+          duration: 4000,
         });
       }
     };
@@ -288,12 +313,20 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
     const blockPaste = (e: ClipboardEvent) => {
       e.preventDefault();
-      setCopyPasteAttempts((prev) => {
-        const next = prev + 1;
-        syncTelemetryToCloud({ copyPasteAttempts: next });
-        return next;
+      setQuestionPasteCount((prevQ) => {
+        const nextQ = prevQ + 1;
+        setCopyPasteAttempts((prevTotal) => {
+          const nextTotal = prevTotal + 1;
+          syncTelemetryToCloud({ copyPasteAttempts: nextTotal });
+          return nextTotal;
+        });
+        if (nextQ >= 5) {
+          triggerAntiCheatAutoSubmitRef.current('COPY_PASTE_LIMIT', nextQ);
+        } else {
+          toast.error(`🚫 Pasting is strictly blocked! Attempt ${nextQ}/5 on this question. 5 attempts will auto-submit & penalize!`);
+        }
+        return nextQ;
       });
-      toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
     };
     const blockContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -310,7 +343,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       document.removeEventListener('paste', blockPaste);
       document.removeEventListener('contextmenu', blockContextMenu);
     };
-  }, []);
+  }, [syncTelemetryToCloud]);
 
   // Fetch problem details
   const {
@@ -347,6 +380,64 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
   const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
+
+  // Anti-Cheat Auto-Lock & Advance: Triggers when 3 tab switches or 5 paste attempts occur on current question
+  const triggerAntiCheatAutoSubmit = useCallback(async (reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => {
+    if (isCheatingAutoSubmitTriggered) return;
+    setIsCheatingAutoSubmitTriggered(true);
+
+    const isTab = reason === 'TAB_SWITCH_LIMIT';
+    const violationReason = isTab
+      ? `Exceeded 3 tab switches on question (${count} detected)`
+      : `Exceeded 5 copy-paste attempts on question (${count} detected)`;
+
+    toast.error(
+      `🚨 Violation Limit Exceeded: ${isTab ? `${count} Tab Switches` : `${count} Paste Attempts`} detected! Current question auto-submitted with cheat penalty. Advancing...`,
+      { duration: 8000 }
+    );
+
+    if (user?.id) {
+      FirestoreDataService.recordProctoringIncident(user.id, {
+        type: isTab ? 'EXCEEDED_TAB_SWITCHES' : 'EXCEEDED_COPY_PASTE',
+        problemSlug: problem?.slug || problemSlug || '',
+        problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
+        reason: violationReason,
+        codeSnippet: code,
+      }).catch(() => {});
+    }
+
+    if (problemSlug) {
+      setVisitedProblems((prev) => new Set(prev).add(problemSlug));
+    }
+
+    // Auto-submit current code state as penalised attempt
+    try {
+      if (problem?.id) {
+        api.post('/submissions/submit', {
+          problemId: problem.id,
+          code,
+          isCheatAutoSubmit: true,
+          idempotencyKey: idempotencyKeyRef.current,
+        }).catch(() => {});
+      }
+    } catch {}
+
+    // Auto-advance to next problem
+    setTimeout(() => {
+      const currIdx = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
+      const nextProb = currIdx >= 0 && currIdx < moduleProblems.length - 1 ? moduleProblems[currIdx + 1] : null;
+      if (nextProb) {
+        navigate(`/practice/${moduleSlug}/${nextProb.slug}`);
+      } else {
+        toast.info('Reached the end of this module questions.');
+      }
+      setIsCheatingAutoSubmitTriggered(false);
+    }, 1800);
+  }, [isCheatingAutoSubmitTriggered, user?.id, problem, problemSlug, code, moduleProblems, moduleSlug, navigate]);
+
+  useEffect(() => {
+    triggerAntiCheatAutoSubmitRef.current = triggerAntiCheatAutoSubmit;
+  }, [triggerAntiCheatAutoSubmit]);
   
   // Track visited questions whenever problemSlug changes
   useEffect(() => {

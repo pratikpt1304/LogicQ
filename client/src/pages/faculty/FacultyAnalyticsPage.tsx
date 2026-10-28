@@ -485,23 +485,30 @@ export const FacultyAnalyticsPage: React.FC = () => {
     const totalTabSwitches = Math.max(attemptsTabSwitches, matched?.tabSwitchCount || 0, fsTelem?.tabSwitchCount || 0);
     const totalCopyPaste = Math.max(attemptsCopyPaste, matched?.copyPasteAttempts || 0, fsTelem?.copyPasteAttempts || 0);
     const totalFullScreenExits = Math.max(attemptsFullScreenExits, fsTelem?.fullscreenExits || 0);
+    const autoLockCount = fsTelem?.autoLockCount || 0;
+    const incidents = fsTelem?.incidents || [];
     const vivaList = (deepDiveData.assignments || []).flatMap((a: any) => a.vivaQuestions || []);
 
     const baseScore = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityScore !== undefined)
       ? deepDiveData.assignments[0].integrityScore
       : (matched?.integrityScore !== undefined ? matched.integrityScore : (totalTabSwitches >= 3 ? 35 : totalTabSwitches > 0 ? 75 : 100));
 
-    const baseRisk = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityRisk)
-      ? deepDiveData.assignments[0].integrityRisk
-      : (matched?.integrityRisk || (baseScore <= 40 ? 'HIGH' : baseScore <= 75 ? 'MODERATE' : 'NORMAL'));
+    const computedFsScore = fsTelem?.integrityScore !== undefined
+      ? fsTelem.integrityScore
+      : (autoLockCount > 0 ? Math.max(0, 40 - autoLockCount * 20) : baseScore);
+
+    const finalScore = Math.min(baseScore, computedFsScore);
+    const finalRisk = autoLockCount > 0 ? 'CRITICAL' : (finalScore <= 40 ? 'HIGH' : finalScore <= 75 ? 'MODERATE' : 'NORMAL');
 
     return {
       totalTabSwitches,
       totalCopyPaste,
       totalFullScreenExits,
+      autoLockCount,
+      incidents,
       vivaList,
-      integrityScore: baseScore,
-      integrityRisk: baseRisk,
+      integrityScore: finalScore,
+      integrityRisk: finalRisk,
     };
   }, [deepDiveData, analyticsData?.students, selectedStudentForInspect]);
 
@@ -1156,46 +1163,46 @@ Generated On   : ${new Date().toLocaleString()}`;
                     </button>
                   </div>
 
-                  {/* 3 Real Telemetry Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* 4 Real Telemetry Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Telemetry 1: Tab Switches */}
-                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                    <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-1.5">
                       <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
                         <span className="font-semibold">Tab Switches</span>
                         <Activity className="w-3.5 h-3.5 text-indigo-500" />
                       </div>
                       <div className={`text-2xl font-black font-mono ${
-                        (inspectTelemetry?.totalTabSwitches || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                        (inspectTelemetry?.totalTabSwitches || 0) >= 3 ? 'text-rose-600 dark:text-rose-400' : (inspectTelemetry?.totalTabSwitches || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                       }`}>
                         {inspectTelemetry?.totalTabSwitches || 0}
                       </div>
-                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                      <p className="text-[10px] text-[var(--muted-foreground)] leading-tight">
                         {(inspectTelemetry?.totalTabSwitches || 0) === 0
-                          ? 'Clean: Remained focused on code editor throughout session'
-                          : `Alert: Switched tabs ${(inspectTelemetry?.totalTabSwitches || 0)} times during active test`}
+                          ? 'Clean focus throughout session'
+                          : `Alert: Switched tabs ${(inspectTelemetry?.totalTabSwitches || 0)} times`}
                       </p>
                     </div>
 
                     {/* Telemetry 2: Copy-Paste Events */}
-                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                    <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-1.5">
                       <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
                         <span className="font-semibold">Clipboard Pastes</span>
                         <Copy className="w-3.5 h-3.5 text-rose-500" />
                       </div>
                       <div className={`text-2xl font-black font-mono ${
-                        (inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                        (inspectTelemetry?.totalCopyPaste || 0) >= 5 ? 'text-rose-600 dark:text-rose-400' : (inspectTelemetry?.totalCopyPaste || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                       }`}>
                         {inspectTelemetry?.totalCopyPaste || 0}
                       </div>
-                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                      <p className="text-[10px] text-[var(--muted-foreground)] leading-tight">
                         {(inspectTelemetry?.totalCopyPaste || 0) === 0
-                          ? 'Clean: All C logic written directly via keyboard keystrokes'
-                          : `Alert: ${(inspectTelemetry?.totalCopyPaste || 0)} external code paste attempts logged`}
+                          ? 'Clean: Manual keystrokes'
+                          : `Alert: ${(inspectTelemetry?.totalCopyPaste || 0)} paste attempts`}
                       </p>
                     </div>
 
                     {/* Telemetry 3: Fullscreen Exits */}
-                    <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
+                    <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-1.5">
                       <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
                         <span className="font-semibold">Fullscreen Exits</span>
                         <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
@@ -1205,13 +1212,76 @@ Generated On   : ${new Date().toLocaleString()}`;
                       }`}>
                         {inspectTelemetry?.totalFullScreenExits || 0}
                       </div>
-                      <p className="text-[11px] text-[var(--muted-foreground)] leading-tight">
+                      <p className="text-[10px] text-[var(--muted-foreground)] leading-tight">
                         {(inspectTelemetry?.totalFullScreenExits || 0) === 0
-                          ? 'Clean: Candidate stayed inside locked fullscreen assessment'
-                          : `Alert: ${(inspectTelemetry?.totalFullScreenExits || 0)} window minimize/escape events`}
+                          ? 'Clean: Locked fullscreen'
+                          : `Alert: ${(inspectTelemetry?.totalFullScreenExits || 0)} escape events`}
+                      </p>
+                    </div>
+
+                    {/* Telemetry 4: Auto-Locks (Cheat Penalty) */}
+                    <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-1.5">
+                      <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                        <span className="font-semibold">Cheat Auto-Locks</span>
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                      </div>
+                      <div className={`text-2xl font-black font-mono ${
+                        (inspectTelemetry?.autoLockCount || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {inspectTelemetry?.autoLockCount || 0}
+                      </div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] leading-tight">
+                        {(inspectTelemetry?.autoLockCount || 0) === 0
+                          ? 'Zero cheat lockouts'
+                          : `🚨 ${(inspectTelemetry?.autoLockCount || 0)} questions auto-locked`}
                       </p>
                     </div>
                   </div>
+
+                  {/* Anti-Cheat Infractions & Incidents Log */}
+                  {inspectTelemetry?.incidents && inspectTelemetry.incidents.length > 0 && (
+                    <div className="p-4 rounded-xl bg-[var(--background)] border border-rose-500/30 space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-500" />
+                          <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
+                            Cheating Infractions &amp; Auto-Lock History ({inspectTelemetry.incidents.length})
+                          </h4>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-500 border border-rose-500/30">
+                          Integrity Impact: -{Math.min(80, (inspectTelemetry.incidents.length * 20))} pts
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {inspectTelemetry.incidents.map((inc: any) => (
+                          <div
+                            key={inc.id}
+                            className="p-2.5 rounded-lg bg-[var(--card)] border border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-500 border border-rose-500/30">
+                                  {inc.type === 'EXCEEDED_TAB_SWITCHES' ? '3+ Tab Switches' : inc.type === 'EXCEEDED_COPY_PASTE' ? '5+ Paste Attempts' : inc.type}
+                                </span>
+                                <span className="font-bold text-[var(--foreground)] font-mono truncate">
+                                  {inc.problemTitle || inc.problemSlug || 'Question'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-rose-400 mt-0.5 font-mono truncate">{inc.reason}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] text-amber-500 font-mono block">
+                                Question Auto-Submitted
+                              </span>
+                              <span className="text-[9px] text-[var(--muted-foreground)] font-mono block">
+                                {new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* AI Viva Voce Oral Defense */}
                   <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">

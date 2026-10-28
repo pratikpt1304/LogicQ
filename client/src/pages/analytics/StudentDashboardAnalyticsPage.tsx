@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import { auth } from '../../config/firebase.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import {
   Award,
   ShieldCheck,
@@ -33,6 +35,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
+  const { data: fsTelemetry, isLoading: isFsLoading } = useQuery({
+    queryKey: ['proctoring-telemetry-student', auth.currentUser?.uid],
+    queryFn: () => (auth.currentUser?.uid ? FirestoreDataService.getProctoringTelemetry(auth.currentUser.uid) : null),
+    enabled: Boolean(auth.currentUser?.uid),
+    refetchOnWindowFocus: false,
+  });
+
   const { data: reportData, isLoading: isReportLoading } = useQuery({
     queryKey: ['student-report-data', selectedReportTestId],
     queryFn: () => api.get(`/analytics/student/report/${selectedReportTestId}`),
@@ -48,31 +57,93 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     );
   }
 
-  const anl = data?.data;
-  if (!anl || (typeof anl === 'object' && Object.keys(anl).length === 0)) {
+  const rawAnl = data?.data;
+  const hasBackendData = Boolean(rawAnl && typeof rawAnl === 'object' && Object.keys(rawAnl).length > 0);
+  const hasFsData = Boolean(
+    fsTelemetry &&
+      (fsTelemetry.tabSwitchCount > 0 ||
+        fsTelemetry.copyPasteAttempts > 0 ||
+        fsTelemetry.fullscreenExits > 0 ||
+        fsTelemetry.autoLockCount > 0 ||
+        (fsTelemetry.incidents && fsTelemetry.incidents.length > 0))
+  );
+
+  if (!hasBackendData && !hasFsData) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center font-mono text-slate-400 space-y-4">
         <Brain className="w-10 h-10 text-slate-500 mx-auto opacity-40" />
-        <p className="text-sm text-slate-300">No test analytics recorded yet.</p>
+        <p className="text-sm text-slate-300">No test or practice analytics recorded yet.</p>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          Complete an assigned test or daily challenge to unlock your verified performance analytics.
+          Complete questions in the Practice Hub or take an assigned test to unlock your verified performance analytics.
         </p>
-        <Link
-          to="/tests"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] transition-colors"
-        >
-          <span>View Assigned Tests</span>
-        </Link>
+        <div className="flex items-center justify-center gap-3">
+          <Link
+            to="/practice"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
+          >
+            <span>Open Practice Hub</span>
+          </Link>
+          <Link
+            to="/tests"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FA0FF] transition-colors"
+          >
+            <span>View Assigned Tests</span>
+          </Link>
+        </div>
       </div>
     );
   }
 
+  const anl = hasBackendData
+    ? rawAnl
+    : {
+        academicScore: 0,
+        totalQuestionsSolved: 0,
+        totalQuestionsAttempted: 0,
+        integrityScore: 100,
+        integrityRisk: 'NORMAL',
+        learnerInsightMessage:
+          'Continue solving problems in the Practice Hub to boost your algorithmic problem-solving accuracy.',
+        telemetry: {
+          totalTabSwitches: 0,
+          totalClipboardAttempts: 0,
+          totalFocusLossDurationSec: 0,
+          totalKeystrokes: 0,
+        },
+        difficultyStats: {
+          EASY: { solved: 0, total: 20, avgTimeSec: 0 },
+          MEDIUM: { solved: 0, total: 20, avgTimeSec: 0 },
+          HARD: { solved: 0, total: 10, avgTimeSec: 0 },
+        },
+        netTimeDeviationSec: 0,
+        hiddenTestPassRatio: '0/0 Passed',
+        assignments: [],
+        recommendations: [],
+      };
+
   const academicScore = typeof anl.academicScore === 'number' ? anl.academicScore : 0;
   const totalQuestionsSolved = anl.totalQuestionsSolved || 0;
   const totalQuestionsAttempted = anl.totalQuestionsAttempted || 0;
-  const integrityScore = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
-  const integrityRisk = anl.integrityRisk || 'NORMAL';
-  const isCleanSession = integrityRisk === 'NORMAL' || integrityRisk === 'LOW';
+
+  const totalTabSwitches = (anl.telemetry?.totalTabSwitches || 0) + (fsTelemetry?.tabSwitchCount || 0);
+  const totalClipboardAttempts = (anl.telemetry?.totalClipboardAttempts || 0) + (fsTelemetry?.copyPasteAttempts || 0);
+  const totalFullscreenExits = fsTelemetry?.fullscreenExits || 0;
+  const autoLockCount = fsTelemetry?.autoLockCount || 0;
+  const incidents = fsTelemetry?.incidents || [];
+
+  const baseIntegrity = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
+  const fsIntegrity =
+    fsTelemetry?.integrityScore !== undefined
+      ? fsTelemetry.integrityScore
+      : FirestoreDataService.computeIntegrityScore({
+          tabSwitchCount: totalTabSwitches,
+          copyPasteAttempts: totalClipboardAttempts,
+          fullscreenExits: totalFullscreenExits,
+          autoLockCount,
+        });
+
+  const finalIntegrityScore = Math.max(0, Math.min(baseIntegrity, fsIntegrity));
+  const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 font-mono text-xs">
@@ -143,36 +214,127 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         <div className="bg-[#141932] border border-[#8B9BFF]/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <span className="px-3 py-1 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] font-bold border border-[#8B9BFF]/20 text-[11px]">
-              ASSESSMENT INTEGRITY HEALTH
+              BEHAVIORAL INTEGRITY HEALTH
             </span>
             {isCleanSession ? (
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
             ) : (
-              <ShieldAlert className="w-6 h-6 text-amber-400" />
+              <ShieldAlert className="w-6 h-6 text-rose-400" />
             )}
           </div>
 
           <div className="space-y-1">
-            <div className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2 font-mono">
-              {isCleanSession ? (
-                <span className="text-emerald-400">Clean &amp; Verified</span>
-              ) : (
-                <span className="text-amber-400">Review Flags Noted</span>
+            <div className="text-3xl sm:text-4xl font-black font-mono flex items-center gap-2">
+              <span className={finalIntegrityScore >= 80 ? 'text-emerald-400' : finalIntegrityScore >= 50 ? 'text-amber-400' : 'text-rose-400'}>
+                {finalIntegrityScore}
+              </span>
+              <span className="text-xl text-slate-400 font-normal">/ 100</span>
+              {autoLockCount > 0 && (
+                <span className="text-[11px] px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold ml-auto">
+                  {autoLockCount} AUTO-LOCK PENALTY
+                </span>
               )}
             </div>
             <p className="text-slate-300 text-xs font-sans">
               {isCleanSession
-                ? 'Your proctored test sessions adhered cleanly to examination guidelines.'
-                : 'Focus loss or tab switches were logged during test evaluation windows.'}
+                ? 'Your proctored test & practice sessions adhered cleanly to examination guidelines.'
+                : autoLockCount > 0
+                ? 'Score reduced due to cheating infractions (exceeded tab switches or copy-paste attempts).'
+                : 'Focus loss, tab switches, or paste events were logged during test evaluation windows.'}
             </p>
           </div>
 
           <div className="pt-3 border-t border-[#252C4F] flex items-center justify-between text-[11px] text-slate-300">
-            <span>Tab Switches: <strong className={anl.telemetry.totalTabSwitches > 0 ? "text-amber-400" : "text-white"}>{anl.telemetry.totalTabSwitches}</strong></span>
-            <span>Clipboard Events: <strong className="text-white">{anl.telemetry.totalClipboardAttempts}</strong></span>
-            <span>Focus Loss: <strong className="text-white">{anl.telemetry.totalFocusLossDurationSec}s</strong></span>
+            <span>Tab Switches: <strong className={totalTabSwitches > 0 ? (totalTabSwitches >= 3 ? "text-rose-400 font-bold" : "text-amber-400") : "text-white"}>{totalTabSwitches}</strong></span>
+            <span>Clipboard Guard: <strong className={totalClipboardAttempts > 0 ? (totalClipboardAttempts >= 5 ? "text-rose-400 font-bold" : "text-amber-400") : "text-white"}>{totalClipboardAttempts} blocked</strong></span>
+            <span>Fullscreen Exits: <strong className={totalFullscreenExits > 0 ? "text-amber-400" : "text-white"}>{totalFullscreenExits}</strong></span>
           </div>
         </div>
+      </div>
+
+      {/* Anti-Cheat & Proctoring Audit Record */}
+      <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 sm:p-7 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252C4F] pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className={`w-5 h-5 ${isCleanSession ? 'text-emerald-400' : 'text-rose-400'}`} />
+            <div>
+              <h3 className="font-bold text-sm text-white font-sans">
+                Anti-Cheat Audit &amp; Proctoring Violations Log
+              </h3>
+              <p className="text-xs text-slate-400 font-sans mt-0.5">
+                Review your monitored tab events, blocked clipboard attempts, and questions auto-locked for cheating.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${
+              finalIntegrityScore >= 80
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : finalIntegrityScore >= 50
+                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+            }`}>
+              Integrity: {finalIntegrityScore}/100 {finalIntegrityScore >= 80 ? '✅ Clean' : '⚠️ Flagged'}
+            </span>
+          </div>
+        </div>
+
+        {/* Institutional Rule Explainer Banner */}
+        <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] text-xs text-slate-300 font-sans flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold text-white block">Institutional Anti-Cheat Thresholds:</span>
+            <p className="text-slate-400 leading-relaxed">
+              • Switching tabs <strong>3 times</strong> on a question triggers an automatic submission with a cheat penalty and advances to the next question.<br/>
+              • Attempting copy-paste <strong>5 times</strong> on a question auto-locks and submits with a cheat penalty.<br/>
+              • Every infraction reduces your Behavioral Integrity Score (Starts at 100), monitored by faculty and admin.
+            </p>
+          </div>
+        </div>
+
+        {/* Log of Recorded Incidents */}
+        {incidents.length > 0 ? (
+          <div className="space-y-2.5 pt-1">
+            <div className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+              Recorded Infractions Log ({incidents.length})
+            </div>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {incidents.map((inc: any) => (
+                <div
+                  key={inc.id}
+                  className="p-3.5 rounded-xl bg-[#0C0F1F] border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">
+                        {inc.type === 'EXCEEDED_TAB_SWITCHES' ? '3+ Tab Switches' : inc.type === 'EXCEEDED_COPY_PASTE' ? '5+ Paste Attempts' : inc.type}
+                      </span>
+                      <span className="font-bold text-white font-mono truncate">
+                        {inc.problemTitle || inc.problemSlug || 'Question Problem'}
+                      </span>
+                    </div>
+                    <p className="text-rose-300 text-[11px] font-mono">
+                      {inc.reason}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono block">
+                      Auto-Submitted &amp; Penalized
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                      {new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-emerald-500/20 text-center text-xs text-emerald-400 font-mono flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>Clean Record: No cheating infractions or auto-lock penalties recorded. Excellent academic conduct!</span>
+          </div>
+        )}
       </div>
 
       {/* Learning Insights & Next Steps */}
