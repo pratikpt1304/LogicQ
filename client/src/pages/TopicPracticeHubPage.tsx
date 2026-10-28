@@ -25,10 +25,14 @@ import {
   Search,
   Clock,
   Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
 } from 'lucide-react';
 import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../data/topic-practice.data.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
+import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { api } from '../api/client.js';
 
 const STORAGE_KEY = 'logicq_solved_practice_topics';
@@ -65,7 +69,18 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'app' | 'example'>('syntax');
+  const [isTipOpen, setIsTipOpen] = useState<boolean>(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
+
+  // Computed navigation between topics
+  const currentTopicIndex = activeTopic
+    ? TOPIC_PRACTICE_DATA.findIndex((t) => t.id === activeTopic.id)
+    : -1;
+  const prevTopic = currentTopicIndex > 0 ? TOPIC_PRACTICE_DATA[currentTopicIndex - 1] : null;
+  const nextTopic =
+    currentTopicIndex >= 0 && currentTopicIndex < TOPIC_PRACTICE_DATA.length - 1
+      ? TOPIC_PRACTICE_DATA[currentTopicIndex + 1]
+      : null;
 
   // Sync solved topics
   useEffect(() => {
@@ -77,6 +92,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setCode(topic.problem.starterCode);
     setRunResult(null);
     setSubmitResult(null);
+    setIsTipOpen(false);
   };
 
   const handleCloseTopic = () => {
@@ -432,11 +448,11 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       {/* 4. INTERACTIVE PRACTICE WORKSPACE MODAL */}
       {activeTopic && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl w-full max-w-6xl h-[95vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-3 animate-fadeIn">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl w-full max-w-7xl h-[94vh] flex flex-col shadow-2xl overflow-hidden">
             
             {/* Modal Topbar */}
-            <div className="px-5 py-3.5 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
+            <div className="px-4 py-3 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
                   <Code2 className="w-4 h-4" />
@@ -444,26 +460,56 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      PRACTICE
+                      TOPIC {currentTopicIndex >= 0 ? currentTopicIndex + 1 : ''} OF {TOPIC_PRACTICE_DATA.length}
                     </span>
-                    <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)]">
+                    <h2 className="text-sm sm:text-base font-bold text-[var(--text-main)] truncate max-w-xs sm:max-w-md">
                       {activeTopic.topicTitle}
                     </h2>
+                    {solvedTopics.includes(activeTopic.id) && (
+                      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Solved
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                    Problem: {activeTopic.problem.title} ({activeTopic.problem.difficulty})
+                    {activeTopic.problem.title} • <span className={activeTopic.problem.difficulty === 'EASY' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>{activeTopic.problem.difficulty}</span>
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Prev / Next Quick Nav */}
+                <div className="hidden md:flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
+                  <button
+                    onClick={() => prevTopic && handleOpenTopic(prevTopic)}
+                    disabled={!prevTopic}
+                    title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
+                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white disabled:opacity-30 disabled:hover:text-[var(--text-muted)] transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[11px] font-mono px-1 text-[var(--text-muted)]">
+                    {currentTopicIndex + 1}/{TOPIC_PRACTICE_DATA.length}
+                  </span>
+                  <button
+                    onClick={() => nextTopic && handleOpenTopic(nextTopic)}
+                    disabled={!nextTopic}
+                    title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
+                    className="p-1 rounded-lg text-[var(--text-muted)] hover:text-white disabled:opacity-30 disabled:hover:text-[var(--text-muted)] transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
                 {/* Raise Issue Button */}
                 <button
                   onClick={() => setIsIssueModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-mono font-bold transition flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-mono font-bold transition flex items-center gap-1.5"
+                  title="Report question error or bad test case"
                 >
                   <Flag className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Raise an Issue</span>
+                  <span className="hidden sm:inline">Report</span>
                 </button>
 
                 {/* Close Button */}
@@ -479,83 +525,96 @@ export const TopicPracticeHubPage: React.FC = () => {
             {/* Modal Body: Two Columns */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
               
-              {/* LEFT COLUMN: Tip Box & Problem Spec (5 cols) */}
-              <div className="lg:col-span-5 p-5 overflow-y-auto space-y-5 border-b lg:border-b-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-panel)]">
+              {/* LEFT COLUMN: Problem Spec & Tip Drawer (5 cols) */}
+              <div className="lg:col-span-5 p-4 sm:p-5 overflow-y-auto space-y-4 border-b lg:border-b-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-panel)]">
                 
-                {/* TIP BOX (Syntax, Application, Example) */}
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider font-mono">
-                      <Lightbulb className="w-4 h-4" />
-                      <span>Topic Tip Box</span>
+                {/* COLLAPSIBLE TIP DRAWER (Syntax, Application, Example) */}
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden transition-all">
+                  <button
+                    onClick={() => setIsTipOpen(!isTipOpen)}
+                    className="w-full px-3.5 py-2.5 flex items-center justify-between hover:bg-amber-500/10 transition text-left"
+                  >
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs font-mono">
+                      <Lightbulb className="w-4 h-4 shrink-0" />
+                      <span>Topic Cheat Sheet &amp; Syntax</span>
                     </div>
-
-                    {/* Tip Tab Selector */}
-                    <div className="flex items-center gap-1 bg-[var(--bg-panel)] p-0.5 rounded-lg border border-[var(--border-line)]">
-                      <button
-                        onClick={() => setActiveTipTab('syntax')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                          activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                        }`}
-                      >
-                        Syntax
-                      </button>
-                      <button
-                        onClick={() => setActiveTipTab('app')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                          activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                        }`}
-                      >
-                        Application
-                      </button>
-                      <button
-                        onClick={() => setActiveTipTab('example')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                          activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
-                        }`}
-                      >
-                        Example
-                      </button>
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-mono">
+                      <span>{isTipOpen ? 'Hide' : 'Quick Reference'}</span>
+                      {isTipOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </div>
-                  </div>
+                  </button>
 
-                  {/* Active Tip Content */}
-                  <div className="text-xs text-[var(--text-main)] font-mono leading-relaxed pt-1">
-                    {activeTipTab === 'syntax' && (
-                      <pre className="p-3 rounded-xl bg-black/50 border border-[var(--border-line)] overflow-x-auto text-[11px] text-amber-200">
-                        {activeTopic.tipBox.syntax}
-                      </pre>
-                    )}
-                    {activeTipTab === 'app' && (
-                      <div className="p-3 rounded-xl bg-black/50 border border-[var(--border-line)] text-slate-300 font-sans text-xs leading-relaxed">
-                        {activeTopic.tipBox.application}
+                  {isTipOpen && (
+                    <div className="p-3.5 border-t border-amber-500/20 space-y-2.5 bg-black/40">
+                      {/* Tip Tab Selector */}
+                      <div className="flex items-center gap-1 bg-[var(--bg-panel)] p-0.5 rounded-lg border border-[var(--border-line)] w-fit">
+                        <button
+                          onClick={() => setActiveTipTab('syntax')}
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                            activeTipTab === 'syntax' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
+                          }`}
+                        >
+                          Syntax
+                        </button>
+                        <button
+                          onClick={() => setActiveTipTab('app')}
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                            activeTipTab === 'app' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
+                          }`}
+                        >
+                          Application
+                        </button>
+                        <button
+                          onClick={() => setActiveTipTab('example')}
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                            activeTipTab === 'example' ? 'bg-amber-500 text-black' : 'text-[var(--text-muted)] hover:text-white'
+                          }`}
+                        >
+                          Example
+                        </button>
                       </div>
-                    )}
-                    {activeTipTab === 'example' && (
-                      <pre className="p-3 rounded-xl bg-black/50 border border-[var(--border-line)] overflow-x-auto text-[11px] text-emerald-300">
-                        {activeTopic.tipBox.example}
-                      </pre>
-                    )}
-                  </div>
+
+                      {/* Active Tip Content */}
+                      <div className="text-xs text-[var(--text-main)] font-mono leading-relaxed">
+                        {activeTipTab === 'syntax' && (
+                          <pre className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] overflow-x-auto text-[11px] text-amber-200">
+                            {activeTopic.tipBox.syntax}
+                          </pre>
+                        )}
+                        {activeTipTab === 'app' && (
+                          <div className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] text-slate-300 font-sans text-xs leading-relaxed">
+                            {activeTopic.tipBox.application}
+                          </div>
+                        )}
+                        {activeTipTab === 'example' && (
+                          <pre className="p-3 rounded-xl bg-black/60 border border-[var(--border-line)] overflow-x-auto text-[11px] text-emerald-300">
+                            {activeTopic.tipBox.example}
+                          </pre>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Problem Description */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold text-[var(--text-main)] font-mono uppercase tracking-wider">
-                    Problem Statement
-                  </h3>
-                  <div className="prose prose-invert prose-xs text-xs text-slate-300 leading-relaxed font-sans">
-                    <pre className="whitespace-pre-wrap font-sans bg-transparent p-0 border-0">
-                      {activeTopic.problem.description}
-                    </pre>
+                {/* Problem Description - Formatted cleanly via StatementMarkdown */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-indigo-400" />
+                    <h3 className="text-xs font-bold text-[var(--text-main)] font-mono uppercase tracking-wider">
+                      Problem Statement
+                    </h3>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] p-3.5">
+                    <StatementMarkdown content={activeTopic.problem.description} />
                   </div>
                 </div>
 
                 {/* Open Test Case (Visible) */}
-                <div className="space-y-2 pt-2 border-t border-[var(--border-line)]">
+                <div className="space-y-2 pt-1 border-t border-[var(--border-line)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-emerald-400">
-                      Test Case 1 (Open / Visible)
+                    <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>Sample Test Case (Open)</span>
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       VISIBLE
@@ -563,15 +622,20 @@ export const TopicPracticeHubPage: React.FC = () => {
                   </div>
                   <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono space-y-2">
                     <div>
-                      <span className="text-[10px] text-[var(--text-muted)] block">Input:</span>
-                      <pre className="text-white mt-0.5">{activeTopic.problem.openTestCase.input}</pre>
+                      <span className="text-[10px] text-[var(--text-muted)] font-bold block uppercase">Input:</span>
+                      <pre className="text-white mt-1 p-2 rounded bg-black/50 border border-[var(--border-line)] overflow-x-auto">
+                        {activeTopic.problem.openTestCase.input}
+                      </pre>
                     </div>
                     <div>
-                      <span className="text-[10px] text-[var(--text-muted)] block">Expected Output:</span>
-                      <pre className="text-emerald-400 mt-0.5">{activeTopic.problem.openTestCase.expectedOutput}</pre>
+                      <span className="text-[10px] text-[var(--text-muted)] font-bold block uppercase">Expected Output:</span>
+                      <pre className="text-emerald-400 mt-1 p-2 rounded bg-black/50 border border-[var(--border-line)] overflow-x-auto font-bold">
+                        {activeTopic.problem.openTestCase.expectedOutput}
+                      </pre>
                     </div>
                     {activeTopic.problem.openTestCase.explanation && (
-                      <div className="text-[11px] text-[var(--text-muted)] font-sans border-t border-[var(--border-line)] pt-1.5">
+                      <div className="text-[11px] text-[var(--text-muted)] font-sans border-t border-[var(--border-line)] pt-2 mt-2">
+                        <span className="font-semibold text-slate-300">Explanation: </span>
                         {activeTopic.problem.openTestCase.explanation}
                       </div>
                     )}
@@ -579,122 +643,146 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </div>
 
                 {/* Hidden Test Case Indicator */}
-                <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
+                <div className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                    <span className="text-[var(--text-muted)]">Test Case 2: Hidden Edge Case</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-[var(--text-muted)] text-[11px]">Hidden Edge Case Test</span>
                   </div>
                   <span className="text-[10px] text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                    EVALUATED ON SUBMIT
+                    TESTED ON SUBMIT
                   </span>
                 </div>
               </div>
 
               {/* RIGHT COLUMN: Code Editor & Execution Terminal (7 cols) */}
-              <div className="lg:col-span-7 flex flex-col h-full bg-[#0C0F1F]">
+              <div className="lg:col-span-7 flex flex-col h-full bg-[#0C0F1F] overflow-hidden">
                 
-                {/* Editor Header */}
-                <div className="px-4 py-2 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <FileCode className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[var(--text-main)] font-bold">solution.c (GCC 14 C11)</span>
-                  </div>
-                  <button
-                    onClick={() => setCode(activeTopic.problem.starterCode)}
-                    className="flex items-center gap-1 text-[var(--text-muted)] hover:text-white transition"
-                    title="Reset to starter boilerplate"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reset</span>
-                  </button>
-                </div>
-
-                {/* Editor Area */}
-                <div className="flex-1 min-h-[280px]">
+                {/* Editor Area with native Monaco toolbar */}
+                <div className="flex-1 min-h-[200px] overflow-hidden relative">
                   <CodeEditor
                     code={code}
                     onChange={(val) => setCode(val || '')}
+                    onRun={handleRunOpenTest}
+                    onSubmit={handleSubmitCode}
+                    onReset={() => setCode(activeTopic.problem.starterCode)}
+                    isRunning={isRunning}
+                    isSubmitting={isSubmitting}
+                    disableCopyPaste={false}
                   />
                 </div>
 
-                {/* Execution Output Panel */}
-                <div className="h-44 border-t border-[var(--border-line)] bg-black/60 p-4 font-mono text-xs overflow-y-auto space-y-2">
+                {/* Execution Output Panel (Adaptive height) */}
+                <div className="max-h-48 overflow-y-auto shrink-0 border-t border-[var(--border-line)] bg-black/80 p-3 font-mono text-xs space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] pb-1 border-b border-gray-800">
                     <span className="flex items-center gap-1.5">
-                      <Terminal className="w-3 h-3 text-emerald-400" />
-                      <span>Console &amp; Test Verdicts</span>
+                      <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="font-bold text-slate-300">Console &amp; Test Verdicts</span>
                     </span>
-                    <span>Unlimited Retries Permitted</span>
+                    <span className="text-[10px] text-gray-500">Shortcut: Ctrl + Enter to run</span>
                   </div>
 
                   {runResult && (
-                    <div className="space-y-1.5 pt-1">
+                    <div className="space-y-2 pt-1">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          runResult.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                          runResult.success ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                         }`}>
                           {runResult.success ? 'TEST 1: PASSED ✓' : 'TEST 1: FAILED ✗'}
                         </span>
                         <span className="text-[10px] text-gray-500">{runResult.executionTimeMs}ms</span>
                       </div>
-                      {runResult.actualOutput && (
-                        <div className="text-gray-300 text-[11px]">
-                          <div>Your Output: <span className="text-white">{runResult.actualOutput}</span></div>
-                          <div>Expected: <span className="text-emerald-400">{runResult.expectedOutput}</span></div>
+                      {runResult.actualOutput !== undefined && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 rounded bg-black/60 border border-[var(--border-line)]">
+                            <div className="text-[10px] text-gray-400 font-bold uppercase mb-0.5">Your Output:</div>
+                            <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {runResult.actualOutput || '(No output)'}
+                            </pre>
+                          </div>
+                          <div className="p-2 rounded bg-black/60 border border-[var(--border-line)]">
+                            <div className="text-[10px] text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
+                            <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-mono">
+                              {runResult.expectedOutput}
+                            </pre>
+                          </div>
                         </div>
                       )}
                       {runResult.compileError && (
-                        <pre className="text-rose-400 text-[10px] whitespace-pre-wrap">{runResult.compileError}</pre>
+                        <pre className="text-rose-400 text-[10px] bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                          {runResult.compileError}
+                        </pre>
                       )}
                     </div>
                   )}
 
                   {submitResult && (
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          submitResult.allPassed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                          submitResult.allPassed
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                         }`}>
-                          {submitResult.allPassed ? 'ALL TESTS CLEARED ✓ (Topic Mastered)' : 'SUBMISSION FAILED ✗'}
+                          {submitResult.allPassed ? '✓ ALL TESTS PASSED (TOPIC MASTERED)' : '✗ SUBMISSION FAILED'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-gray-300">
-                        <div>Open Test: {submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</div>
-                        <div>Hidden Test: {submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className={`p-2 rounded border ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                          Open Test: <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                        </div>
+                        <div className={`p-2 rounded border ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                          Hidden Test: <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
+                        </div>
                       </div>
                       {submitResult.compileError && (
-                        <pre className="text-rose-400 text-[10px] whitespace-pre-wrap">{submitResult.compileError}</pre>
+                        <pre className="text-rose-400 text-[10px] bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                          {submitResult.compileError}
+                        </pre>
                       )}
                     </div>
                   )}
 
                   {!runResult && !submitResult && (
-                    <div className="text-gray-500 text-xs py-4 text-center">
-                      Click <strong>Run Visible Test</strong> or <strong>Submit Solution</strong> to evaluate your code.
+                    <div className="text-gray-500 text-xs py-2 text-center">
+                      Click <strong>Run Visible Test</strong> (or press <kbd className="px-1 py-0.5 bg-gray-800 rounded text-[10px] text-gray-300">Ctrl+Enter</kbd>) to evaluate your solution.
                     </div>
                   )}
                 </div>
 
-                {/* Workspace Footer Action Bar */}
-                <div className="p-3.5 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
-                  <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                    No time limit enforced.
-                  </span>
+                {/* Workspace Footer Action Bar (Strictly Pinned at bottom) */}
+                <div className="p-3 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    {submitResult?.allPassed && nextTopic ? (
+                      <button
+                        onClick={() => handleOpenTopic(nextTopic)}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 animate-pulse"
+                      >
+                        <span>Next Topic: {nextTopic.topicTitle.slice(0, 18)}...</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-mono text-[var(--text-muted)] hidden sm:inline">
+                        Unlimited attempts • No time pressure
+                      </span>
+                    )}
+                  </div>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={handleRunOpenTest}
                       disabled={isRunning || isSubmitting}
-                      className="px-4 py-2 rounded-xl border border-[var(--border-line)] hover:border-emerald-500/50 text-[var(--text-main)] text-xs font-mono font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-3.5 py-2 rounded-xl border border-[var(--border-line)] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-[var(--text-main)] text-xs font-mono font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                      title="Run Visible Sample Test (Ctrl+Enter)"
                     >
                       <Play className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{isRunning ? 'Running...' : 'Run Visible Test'}</span>
+                      <span>{isRunning ? 'Running...' : 'Run Test'}</span>
                     </button>
 
                     <button
                       onClick={handleSubmitCode}
                       disabled={isRunning || isSubmitting}
-                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
+                      title="Submit & Evaluate on all tests"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>{isSubmitting ? 'Evaluating...' : 'Submit Solution'}</span>
