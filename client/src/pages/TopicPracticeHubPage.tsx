@@ -1053,19 +1053,19 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
+          {/* Raise Issue Modal (Inside portal so it displays cleanly above the workspace) */}
+          {isIssueModalOpen && (
+            <RaiseIssueModal
+              isOpen={isIssueModalOpen}
+              onClose={() => setIsIssueModalOpen(false)}
+              questionTitle={activeTopic.problem.title}
+              questionId={activeTopic.id}
+              contextType="PRACTICE"
+            />
+          )}
+
         </div>,
         document.body
-      )}
-
-      {/* Raise Issue Modal */}
-      {activeTopic && (
-        <RaiseIssueModal
-          isOpen={isIssueModalOpen}
-          onClose={() => setIsIssueModalOpen(false)}
-          questionTitle={activeTopic.problem.title}
-          questionId={activeTopic.id}
-          contextType="PRACTICE"
-        />
       )}
     </div>
   );

@@ -76,7 +76,7 @@ export const RaiseIssueModal: React.FC<RaiseIssueModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[10000000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
