@@ -1,4 +1,5 @@
 import { ADDITIONAL_PRACTICE_TOPICS } from './topic-practice-part2.data.js';
+import { HARD_PRACTICE_TOPICS } from './topic-practice-hard.data.js';
 
 export interface TopicPracticeItem {
   id: string;
@@ -14,7 +15,7 @@ export interface TopicPracticeItem {
   };
   problem: {
     title: string;
-    difficulty: 'EASY' | 'MEDIUM';
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
     description: string;
     starterCode: string;
     solutionCode: string;
@@ -1971,6 +1972,7 @@ int main() {
 export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
   ...BASE_TOPIC_PRACTICE_DATA,
   ...ADDITIONAL_PRACTICE_TOPICS,
+  ...HARD_PRACTICE_TOPICS,
 ].sort((a, b) => {
   if (a.moduleIndex !== b.moduleIndex) {
     return a.moduleIndex - b.moduleIndex;

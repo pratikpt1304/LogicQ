@@ -59,6 +59,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(0); // 0 = all
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNSOLVED' | 'SOLVED'>('ALL');
+  const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [activeTopic, setActiveTopic] = useState<TopicPracticeItem | null>(null);
   const [solvedTopics, setSolvedTopics] = useState<string[]>(getSolvedPracticeTopicIds());
 
@@ -197,6 +198,9 @@ export const TopicPracticeHubPage: React.FC = () => {
     const isSolved = solvedTopics.includes(topic.id);
     if (statusFilter === 'SOLVED' && !isSolved) return false;
     if (statusFilter === 'UNSOLVED' && isSolved) return false;
+    if (difficultyFilter !== 'ALL' && topic.problem.difficulty !== difficultyFilter) {
+      return false;
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -289,38 +293,86 @@ export const TopicPracticeHubPage: React.FC = () => {
             )}
           </div>
 
-          {/* Status Segmented Filter */}
-          <div className="inline-flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)] shrink-0 self-start sm:self-auto">
-            <button
-              onClick={() => setStatusFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                statusFilter === 'ALL'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              All ({totalTopics})
-            </button>
-            <button
-              onClick={() => setStatusFilter('UNSOLVED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                statusFilter === 'UNSOLVED'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              To Do ({totalTopics - solvedCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter('SOLVED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                statusFilter === 'SOLVED'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              Solved ({solvedCount})
-            </button>
+          {/* Right Controls: Status & Difficulty Filters */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+            {/* Status Segmented Filter */}
+            <div className="inline-flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  statusFilter === 'ALL'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                All ({totalTopics})
+              </button>
+              <button
+                onClick={() => setStatusFilter('UNSOLVED')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  statusFilter === 'UNSOLVED'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                To Do ({totalTopics - solvedCount})
+              </button>
+              <button
+                onClick={() => setStatusFilter('SOLVED')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  statusFilter === 'SOLVED'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                Solved ({solvedCount})
+              </button>
+            </div>
+
+            {/* Difficulty Filter */}
+            <div className="inline-flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
+              <button
+                onClick={() => setDifficultyFilter('ALL')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  difficultyFilter === 'ALL'
+                    ? 'bg-slate-700 text-white shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                All Diff
+              </button>
+              <button
+                onClick={() => setDifficultyFilter('EASY')}
+                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  difficultyFilter === 'EASY'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-emerald-400 hover:text-emerald-300'
+                }`}
+              >
+                Easy
+              </button>
+              <button
+                onClick={() => setDifficultyFilter('MEDIUM')}
+                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
+                  difficultyFilter === 'MEDIUM'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-amber-400 hover:text-amber-300'
+                }`}
+              >
+                Med
+              </button>
+              <button
+                onClick={() => setDifficultyFilter('HARD')}
+                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1 ${
+                  difficultyFilter === 'HARD'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-rose-400 hover:text-rose-300'
+                }`}
+              >
+                <Flame className="w-3 h-3 text-rose-400" />
+                <span>Hard</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -361,6 +413,7 @@ export const TopicPracticeHubPage: React.FC = () => {
               setSearchQuery('');
               setSelectedModuleFilter(0);
               setStatusFilter('ALL');
+              setDifficultyFilter('ALL');
             }}
             className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition"
           >
@@ -371,6 +424,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTopics.map((topic) => {
             const isSolved = solvedTopics.includes(topic.id);
+            const isHard = topic.problem.difficulty === 'HARD';
             const isMedium = topic.problem.difficulty === 'MEDIUM';
 
             return (
@@ -380,6 +434,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                 className={`p-5 rounded-2xl border transition flex flex-col justify-between cursor-pointer group hover:shadow-lg ${
                   isSolved
                     ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60'
+                    : isHard
+                    ? 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/60'
                     : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-indigo-500/50'
                 }`}
               >
@@ -392,13 +448,15 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                     <span
                       className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                        isMedium
+                        isHard
+                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                          : isMedium
                           ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                           : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       }`}
                     >
-                      <Clock className="w-3 h-3" />
-                      {topic.problem.difficulty} • {isMedium ? '~10m' : '~5m'}
+                      {isHard ? <Flame className="w-3 h-3 text-rose-400" /> : <Clock className="w-3 h-3" />}
+                      {topic.problem.difficulty} • {isHard ? '~20m' : isMedium ? '~10m' : '~5m'}
                     </span>
                   </div>
 
@@ -473,7 +531,18 @@ export const TopicPracticeHubPage: React.FC = () => {
                     )}
                   </div>
                   <p className="text-[11px] text-[var(--text-muted)] font-mono">
-                    {activeTopic.problem.title} • <span className={activeTopic.problem.difficulty === 'EASY' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>{activeTopic.problem.difficulty}</span>
+                    {activeTopic.problem.title} •{' '}
+                    <span
+                      className={
+                        activeTopic.problem.difficulty === 'HARD'
+                          ? 'text-rose-400 font-bold'
+                          : activeTopic.problem.difficulty === 'EASY'
+                          ? 'text-emerald-400 font-bold'
+                          : 'text-amber-400 font-bold'
+                      }
+                    >
+                      {activeTopic.problem.difficulty}
+                    </span>
                   </p>
                 </div>
               </div>
