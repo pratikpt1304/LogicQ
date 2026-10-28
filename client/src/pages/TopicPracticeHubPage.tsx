@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -577,9 +578,9 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE */}
-      {activeTopic && (
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-[var(--bg-main)] flex flex-col overflow-hidden select-none">
+      {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE (PORTAL TO <body> TO ELIMINATE ANY PARENT OFFSET OR BLEED) */}
+      {activeTopic && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] z-[999999] bg-[var(--bg-main)] flex flex-col overflow-hidden select-none">
           
           {/* Topbar: Minimalist & Clean */}
           <div className="h-14 px-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 select-none">
@@ -730,7 +731,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             
             {/* Left Pane: Problem Description Statement (50% width) */}
             <div
-              className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)] ${
+              className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)] min-h-0 h-full ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
             >
@@ -852,13 +853,13 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer (50% width) */}
             <div
-              className={`lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)] ${
+              className={`lg:w-1/2 flex flex-col min-h-0 h-full bg-[var(--bg-main)] ${
                 activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
               }`}
             >
               
               {/* Editor Container */}
-              <div className="flex-1 min-h-[300px] relative overflow-hidden bg-[var(--bg-panel)]">
+              <div className="flex-1 min-h-0 relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
                   code={code}
                   onChange={(val) => setCode(val || '')}
@@ -919,7 +920,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </div>
 
                 {isDrawerOpen && (
-                  <div className="h-60 p-3 overflow-y-auto font-mono text-xs">
+                  <div className="h-48 sm:h-56 p-3 overflow-y-auto font-mono text-xs">
                     {activeBottomTab === 'custom' ? (
                       <div className="h-full flex flex-col space-y-1.5">
                         <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
@@ -1052,7 +1053,8 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Raise Issue Modal */}
