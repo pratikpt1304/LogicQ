@@ -23,6 +23,7 @@ import { db } from '../../config/firebase.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
+  AlertTriangle,
   Users,
   Code2,
   CheckCircle2,
@@ -4941,6 +4942,21 @@ export const AdminDashboardPage: React.FC = () => {
                               <div className="text-[11px] text-orange-400/90 font-medium">
                                 🔥 {u.currentStreak || 0}d streak
                               </div>
+                              {Number(u.tabSwitchCount || u.tabSwitches || 0) > 0 || Number(u.copyPasteAttempts || u.pasteCount || 0) > 0 ? (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                                    {Number(u.tabSwitchCount || u.tabSwitches || 0)} Tabs • {Number(u.copyPasteAttempts || u.pasteCount || 0)} Pastes
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20">
+                                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                                    Integrity: Clean
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
@@ -150,7 +150,18 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
   const lastTabSwitchToastRef = useRef<number>(0);
+
+  const syncTelemetryToCloud = useCallback((updates: { tabSwitchCount?: number; copyPasteAttempts?: number; fullscreenExits?: number }) => {
+    if (!user?.id) return;
+    FirestoreDataService.saveProctoringTelemetry(user.id, {
+      tabSwitchCount: updates.tabSwitchCount ?? tabSwitchCount,
+      copyPasteAttempts: updates.copyPasteAttempts ?? copyPasteAttempts,
+      fullscreenExits: updates.fullscreenExits ?? fullscreenExits,
+      lastIncidentAt: new Date().toISOString(),
+    }).catch(() => {});
+  }, [user?.id, tabSwitchCount, copyPasteAttempts, fullscreenExits]);
 
   const requestFullscreen = async () => {
     try {
@@ -205,6 +216,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       if (!active) {
         setFullscreenExits((prev) => {
           const next = prev + 1;
+          syncTelemetryToCloud({ fullscreenExits: next });
           toast.error(`⚠️ Fullscreen exited! (Exit #${next}) Fullscreen is required in proctored mode.`, {
             duration: 6000,
           });
@@ -218,13 +230,17 @@ export const PracticeWorkspacePage: React.FC = () => {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, []);
+  }, [syncTelemetryToCloud]);
 
   // Anti-Cheat: Tab Switch & Window Focus Loss Detection
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabSwitchCount((prev) => prev + 1);
+        setTabSwitchCount((prev) => {
+          const next = prev + 1;
+          syncTelemetryToCloud({ tabSwitchCount: next });
+          return next;
+        });
       } else {
         const now = Date.now();
         if (now - lastTabSwitchToastRef.current > 1500) {
@@ -237,7 +253,11 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
 
     const handleWindowBlur = () => {
-      setTabSwitchCount((prev) => prev + 1);
+      setTabSwitchCount((prev) => {
+        const next = prev + 1;
+        syncTelemetryToCloud({ tabSwitchCount: next });
+        return next;
+      });
       const now = Date.now();
       if (now - lastTabSwitchToastRef.current > 2000) {
         lastTabSwitchToastRef.current = now;
@@ -254,7 +274,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, []);
+  }, [syncTelemetryToCloud]);
 
   // Anti-Cheat: Strict Copy-Paste & Right-Click Prevention (Document-wide)
   useEffect(() => {
@@ -268,6 +288,11 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
     const blockPaste = (e: ClipboardEvent) => {
       e.preventDefault();
+      setCopyPasteAttempts((prev) => {
+        const next = prev + 1;
+        syncTelemetryToCloud({ copyPasteAttempts: next });
+        return next;
+      });
       toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
     };
     const blockContextMenu = (e: MouseEvent) => {

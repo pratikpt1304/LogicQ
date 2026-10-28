@@ -2740,4 +2740,58 @@ export class FirestoreDataService {
       console.warn('setDailyTimerPaused error:', err);
     }
   }
+
+  /**
+   * Save student anti-cheat / proctoring telemetry (tab switches, paste attempts, fullscreen exits).
+   * Stored under users/{uid}/drafts/proctoring_telemetry
+   */
+  public static async saveProctoringTelemetry(
+    userId: string,
+    data: {
+      tabSwitchCount?: number;
+      copyPasteAttempts?: number;
+      fullscreenExits?: number;
+      lastIncidentAt?: string;
+    }
+  ): Promise<void> {
+    if (!userId) return;
+    try {
+      const existing = await FirestoreDataService.getProctoringTelemetry(userId);
+      const merged = {
+        tabSwitchCount: Math.max(existing?.tabSwitchCount || 0, data.tabSwitchCount || 0),
+        copyPasteAttempts: Math.max(existing?.copyPasteAttempts || 0, data.copyPasteAttempts || 0),
+        fullscreenExits: Math.max(existing?.fullscreenExits || 0, data.fullscreenExits || 0),
+        lastIncidentAt: data.lastIncidentAt || new Date().toISOString(),
+        updatedAt: serverTimestamp(),
+      };
+      await setDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'), merged, { merge: true });
+    } catch (err) {
+      console.warn('saveProctoringTelemetry error:', err);
+    }
+  }
+
+  /**
+   * Get student anti-cheat / proctoring telemetry.
+   */
+  public static async getProctoringTelemetry(userId: string): Promise<{
+    tabSwitchCount: number;
+    copyPasteAttempts: number;
+    fullscreenExits: number;
+    lastIncidentAt?: string;
+  } | null> {
+    if (!userId) return null;
+    try {
+      const snap = await getDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'));
+      if (snap.exists()) {
+        const d = snap.data();
+        return {
+          tabSwitchCount: Number(d.tabSwitchCount || 0),
+          copyPasteAttempts: Number(d.copyPasteAttempts || 0),
+          fullscreenExits: Number(d.fullscreenExits || 0),
+          lastIncidentAt: d.lastIncidentAt,
+        };
+      }
+    } catch {}
+    return null;
+  }
 }

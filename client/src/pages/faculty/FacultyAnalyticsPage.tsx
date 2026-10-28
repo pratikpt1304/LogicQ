@@ -403,6 +403,15 @@ export const FacultyAnalyticsPage: React.FC = () => {
         return null;
       }
 
+      // 3. Enrich with real-time Firestore proctoring telemetry
+      try {
+        const studentUid = resultData?.student?.id || selectedStudentForInspect;
+        const fsTelem = await FirestoreDataService.getProctoringTelemetry(studentUid);
+        if (fsTelem) {
+          resultData.proctoringTelemetry = fsTelem;
+        }
+      } catch {}
+
       return resultData;
     },
     enabled: Boolean(selectedStudentForInspect),
@@ -472,9 +481,10 @@ export const FacultyAnalyticsPage: React.FC = () => {
     const attemptsCopyPaste = attempts.reduce((acc: number, att: any) => acc + (att.copyPasteAttempts || 0), 0);
     const attemptsFullScreenExits = attempts.reduce((acc: number, att: any) => acc + (att.fullScreenExitCount || 0), 0);
 
-    const totalTabSwitches = Math.max(attemptsTabSwitches, matched?.tabSwitchCount || 0);
-    const totalCopyPaste = Math.max(attemptsCopyPaste, matched?.copyPasteAttempts || 0);
-    const totalFullScreenExits = attemptsFullScreenExits;
+    const fsTelem = (deepDiveData as any)?.proctoringTelemetry;
+    const totalTabSwitches = Math.max(attemptsTabSwitches, matched?.tabSwitchCount || 0, fsTelem?.tabSwitchCount || 0);
+    const totalCopyPaste = Math.max(attemptsCopyPaste, matched?.copyPasteAttempts || 0, fsTelem?.copyPasteAttempts || 0);
+    const totalFullScreenExits = Math.max(attemptsFullScreenExits, fsTelem?.fullscreenExits || 0);
     const vivaList = (deepDiveData.assignments || []).flatMap((a: any) => a.vivaQuestions || []);
 
     const baseScore = (deepDiveData.assignments && deepDiveData.assignments[0]?.integrityScore !== undefined)

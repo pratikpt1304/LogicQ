@@ -160,6 +160,38 @@ export const TopicPracticeHubPage: React.FC = () => {
     };
   }, [activeTopic]);
 
+  // Proctored Anti-Cheat: Tab Switch & Clipboard Guard while topic workspace is active
+  useEffect(() => {
+    if (!activeTopic || !user?.id) return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        FirestoreDataService.saveProctoringTelemetry(user.id, {
+          tabSwitchCount: 1,
+          lastIncidentAt: new Date().toISOString(),
+        }).catch(() => {});
+        toast.warning('⚠️ Tab Switch Detected! Proctored telemetry records all window unfocus events.');
+      }
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      FirestoreDataService.saveProctoringTelemetry(user.id, {
+        copyPasteAttempts: 1,
+        lastIncidentAt: new Date().toISOString(),
+      }).catch(() => {});
+      toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('paste', handlePaste);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [activeTopic, user?.id]);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
