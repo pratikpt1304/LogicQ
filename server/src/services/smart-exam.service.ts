@@ -404,12 +404,18 @@ export class SmartExamService {
     const deviationPercent = ((actualTimeTakenSec - expectedRefTimeSec) / expectedRefTimeSec) * 100;
 
     let academicScore = 0.0;
+    const passedCount = testOutcomes.filter((t) => t.passed).length;
+    const totalCount = attempt.problem.testCases.length;
+
     if (allPassed) {
       if (actualTimeTakenSec <= expectedMaxSec) {
         academicScore = 1.0; // Correct within prescribed time = 1 mark
       } else {
         academicScore = 0.5; // Correct but outside prescribed time = 0.5 mark
       }
+    } else if (passedCount > 0 && totalCount > 0) {
+      // University Partial Credit: Award proportional partial credit for passed test cases
+      academicScore = Number(((passedCount / totalCount) * 0.5).toFixed(2));
     } else {
       academicScore = 0.0;   // Incorrect = 0 marks
     }

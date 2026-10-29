@@ -66,48 +66,48 @@ export const ExamWorkspacePage: React.FC = () => {
   const totalFocusLossMsRef = useRef<number>(0);
   const previousCodeLenRef = useRef<number>(0);
 
-  // 1. Start or resume question attempt
-  const { isLoading, error, refetch } = useQuery({
+  // 1. Start or resume question attempt (Single authoritative query with zero race condition)
+  const { data: startData, isLoading, error, refetch } = useQuery({
     queryKey: ['start-exam-question', assignmentId, problemId],
     queryFn: async () => {
-      const res = await api.post('/exam/start-question', {
+      return await api.post('/exam/start-question', {
         assignmentId,
         problemId,
       });
-      return res;
     },
     enabled: Boolean(assignmentId && problemId),
     retry: false,
+    refetchOnWindowFocus: false,
   });
 
   // Populate data when attempt query resolves
   useEffect(() => {
-    if (isLoading || !assignmentId || !problemId) return;
+    if (!startData) return;
+    const res: any = startData;
+    setAttemptId(res.attemptId);
+    setVariantId(res.questionVariantId);
+    setProblemData(res.problem);
+    setIsLocked(res.isLocked || false);
+    if (res.problem?.starterCode && !code) {
+      setCode(res.problem.starterCode);
+      previousCodeLenRef.current = res.problem.starterCode.length;
+    }
+    if (res.startedAt) {
+      setStartedAt(new Date(res.startedAt));
+    }
+  }, [startData, code]);
 
-    // Call start-question API on mount
-    api.post('/exam/start-question', { assignmentId, problemId })
-      .then((res) => {
-        setAttemptId(res.attemptId);
-        setVariantId(res.questionVariantId);
-        setProblemData(res.problem);
-        setIsLocked(res.isLocked || false);
-        if (res.problem?.starterCode && !code) {
-          setCode(res.problem.starterCode);
-          previousCodeLenRef.current = res.problem.starterCode.length;
-        }
-        if (res.startedAt) {
-          setStartedAt(new Date(res.startedAt));
-        }
-      })
-      .catch((err: any) => {
-        if (err.message?.includes('QUESTION_LOCKED')) {
-          setIsLocked(true);
-          toast.info('This question was already completed and is locked under institutional policy.');
-        } else {
-          toast.error(err.message || 'Failed to initialize exam question.');
-        }
-      });
-  }, [assignmentId, problemId]);
+  useEffect(() => {
+    if (error) {
+      const err = error as any;
+      if (err.message?.includes('QUESTION_LOCKED')) {
+        setIsLocked(true);
+        toast.info('This question was already completed and is locked under institutional policy.');
+      } else {
+        toast.error(err.message || 'Failed to initialize exam question.');
+      }
+    }
+  }, [error]);
 
   // 2. Question Elapsed Timer (Section 5)
   useEffect(() => {

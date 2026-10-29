@@ -129,6 +129,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   const monacoThemeName = theme === 'dark' ? 'logicq-dark' : 'logicq-light';
 
+  const [fontSize, setFontSize] = React.useState<number>(() => {
+    try {
+      const saved = Number(localStorage.getItem('logicq_editor_fontsize'));
+      return saved >= 11 && saved <= 24 ? saved : 14;
+    } catch {
+      return 14;
+    }
+  });
+
+  const handleAdjustFontSize = (delta: number) => {
+    setFontSize((prev) => {
+      const next = Math.max(11, Math.min(24, prev + delta));
+      try {
+        localStorage.setItem('logicq_editor_fontsize', String(next));
+      } catch {}
+      if (editorRef.current) {
+        editorRef.current.updateOptions({ fontSize: next, lineHeight: Math.round(next * 1.55) });
+      }
+      return next;
+    });
+  };
+
   React.useEffect(() => {
     if (!containerRef.current) return;
 
@@ -138,8 +160,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       language: 'c',
       theme: monacoThemeName,
       fontFamily: "'JetBrains Mono', monospace",
-      fontSize: 14,
-      lineHeight: 22,
+      fontSize,
+      lineHeight: Math.round(fontSize * 1.55),
       fontLigatures: false,
       renderWhitespace: 'none',
       tabSize: 4,
