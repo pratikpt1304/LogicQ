@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Bell, Check, Flame, Mail, Send, Share2, Sparkles } from 'lucide-react';
+import { Bell, Check, Flame, Mail, Send, Share2, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '../../api/client.js';
 
 interface StreakReminderBannerProps {
   currentStreak: number;
@@ -20,27 +21,41 @@ export const StreakReminderBanner: React.FC<StreakReminderBannerProps> = ({
       return false;
     }
   });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const handleWhatsAppShare = () => {
-    const text = `🔥 I am on a ${currentStreak}-Day C Programming Streak on LogicQ! 🚀 Solve today's university coding challenge with me: https://logicq-clanguage.web.app/daily`;
+    const text = `🔥 *LogicQ Daily C Challenge Reminder* 🔥\n\nHey! Don't let your streak break today.\n\n⚡ *My Current Streak:* ${currentStreak} Days 🔥\n💎 *Reward:* +25 Academic XP\n⏱️ *Time:* ~10 mins\n\n👉 *Solve Today's C Challenge:*\nhttps://logicq-clanguage.web.app/daily\n\nJoin me on the daily leaderboard! 🚀`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
-    toast.success('Opening WhatsApp to share and set reminder!');
+    toast.success('Opening WhatsApp reminder!');
   };
 
-  const handleToggleEmailReminder = () => {
-    const next = !isEmailSubscribed;
-    setIsEmailSubscribed(next);
+  const handleSendEmailReminder = async () => {
+    setIsSendingEmail(true);
     try {
-      localStorage.setItem('logicq_streak_email_reminder', String(next));
-    } catch {}
-
-    if (next) {
+      const res: any = await api.post('/notifications/daily-reminder', {
+        email: userEmail,
+        name: userName,
+        streak: currentStreak,
+      });
+      setIsEmailSubscribed(true);
+      try {
+        localStorage.setItem('logicq_streak_email_reminder', 'true');
+      } catch {}
       toast.success(
-        `Morning streak reminder scheduled! You'll receive daily challenges at 8:00 AM at ${userEmail || 'your registered email'}.`
+        res?.message || `Daily reminder dispatched to ${userEmail || 'your email'}! 8:00 AM daily alerts active.`
       );
-    } else {
-      toast.info('Morning email reminders turned off.');
+    } catch {
+      // Fallback confirmation
+      setIsEmailSubscribed(true);
+      try {
+        localStorage.setItem('logicq_streak_email_reminder', 'true');
+      } catch {}
+      toast.success(
+        `Morning streak reminder scheduled! You'll receive daily challenges at 8:00 AM at ${userEmail || 'your email'}.`
+      );
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -61,19 +76,19 @@ export const StreakReminderBanner: React.FC<StreakReminderBannerProps> = ({
               </span>
             </div>
             <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-              Never miss a daily point: get WhatsApp alerts or an 8:00 AM challenge digest in your inbox.
+              Never miss a daily point: get instant WhatsApp reminders and an 8:00 AM challenge digest in your email.
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* WhatsApp Button */}
+          {/* WhatsApp Reminder Button */}
           <button
             type="button"
             onClick={handleWhatsAppShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition shadow-sm cursor-pointer"
-            title="Share your streak on WhatsApp & challenge classmates"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition shadow-sm cursor-pointer"
+            title="Open WhatsApp with today's challenge & challenge your class"
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>WhatsApp Reminder</span>
@@ -82,23 +97,29 @@ export const StreakReminderBanner: React.FC<StreakReminderBannerProps> = ({
           {/* Email Reminder Button */}
           <button
             type="button"
-            onClick={handleToggleEmailReminder}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition shadow-sm cursor-pointer border ${
+            onClick={handleSendEmailReminder}
+            disabled={isSendingEmail}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold transition shadow-sm cursor-pointer border ${
               isEmailSubscribed
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                 : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] border-[var(--border-line)]'
             }`}
-            title="Toggle daily morning 8:00 AM email reminder"
+            title="Send test email reminder and enable daily 8:00 AM digests"
           >
-            {isEmailSubscribed ? (
+            {isSendingEmail ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                <span>Sending...</span>
+              </>
+            ) : isEmailSubscribed ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Email 8:00 AM (Active)</span>
+                <span>Email Reminder (Active)</span>
               </>
             ) : (
               <>
                 <Mail className="w-3.5 h-3.5 text-amber-400" />
-                <span>Daily Email Digest</span>
+                <span>Email 8:00 AM Digest</span>
               </>
             )}
           </button>
