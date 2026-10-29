@@ -192,20 +192,20 @@ export const DashboardPage: React.FC = () => {
   const [dashboardJoinCode, setDashboardJoinCode] = useState('');
   const [isEnrollingCode, setIsEnrollingCode] = useState(false);
 
-  // 1. Student Assigned Tests (Live 8s auto-refresh)
+  // 1. Student Assigned Tests (Live 30s auto-refresh)
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
     enabled: Boolean(user && isStudent),
+    staleTime: 30000,
     queryFn: async () => {
       try {
         const res = await api.get('/exam/my-tests');
         return res?.data || res?.assignments || [];
-      } catch (err) {
-        console.warn('Dashboard /exam/my-tests failed:', err);
+      } catch {
         return [];
       }
     },
-    refetchInterval: 8000,
+    refetchInterval: 30000,
   });
 
   // 2. Student Practice Modules

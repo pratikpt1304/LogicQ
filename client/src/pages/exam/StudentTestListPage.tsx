@@ -31,8 +31,9 @@ export const StudentTestListPage: React.FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: () => api.get('/exam/my-tests'),
-    refetchOnWindowFocus: true,
-    refetchInterval: 8000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000,
   });
 
   const joinMutation = useMutation({

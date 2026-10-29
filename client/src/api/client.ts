@@ -166,7 +166,11 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const maxAttempts = (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice')) ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      response = await fetch(url, config);
+      const fetchConfig: RequestInit = { ...config };
+      if (!fetchConfig.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+        fetchConfig.signal = (AbortSignal as any).timeout(18000);
+      }
+      response = await fetch(url, fetchConfig);
       if (response && (response.status === 502 || response.status === 503 || response.status === 504) && attempt < maxAttempts) {
         await new Promise((res) => setTimeout(res, 2000 * attempt));
         continue;

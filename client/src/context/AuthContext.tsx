@@ -638,7 +638,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Keep Render server warm so users never suffer 50-90s cold boots or spin-downs while using LogicQ
     const warmPing = setInterval(() => {
-      fetch(`${(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')}/health`, { method: 'GET' }).catch(() => {});
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 6000);
+        fetch(`${(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')}/health`, {
+          method: 'GET',
+          signal: controller.signal,
+        })
+          .catch(() => {})
+          .finally(() => clearTimeout(tid));
+      } catch {}
     }, 4 * 60 * 1000); // Ping every 4 minutes (well within Render's 15-minute idle window)
 
     return () => {

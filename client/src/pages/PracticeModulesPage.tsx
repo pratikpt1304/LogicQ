@@ -97,12 +97,15 @@ export const PracticeModulesPage: React.FC = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-modules'],
     queryFn: () => api.get('/practice/modules'),
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const modules: PracticeModuleItem[] = data?.data?.modules || [];
   const { data: testsData } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: () => api.get('/exam/my-tests'),
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
