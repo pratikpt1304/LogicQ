@@ -9,9 +9,23 @@ import {
   setModule5UnlockedByAdmin,
 } from '../config/practice.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
+import { auth } from '../config/firebase.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { toast } from 'sonner';
+
+const MODULE_PROBLEM_SLUGS: Record<string, string[]> = {
+  'control-structures': PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
+  'pointers-and-functions': PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug),
+  'arrays-and-strings': PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug),
+  'recursion-and-bit-manipulation': PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug),
+  'structures-unions-and-dma': PRACTICE_MODULE_5_PROBLEMS.map((p) => p.slug),
+};
 import {
   Lock,
   Unlock,
@@ -53,32 +67,32 @@ export const PracticeModulesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
+  const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
   const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
-  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
 
   // Sync and restore solved practice topics from Firestore
   useEffect(() => {
-    if (!user?.id) return;
     (async () => {
       try {
-        const stats = await FirestoreDataService.getStatsBackup(user.id);
-        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
+        const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
         const cloudSolved = Array.from(
           new Set([
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
-            ...getSolvedPracticeTopicIds(user.id),
+            ...getSolvedPracticeTopicIds(effectiveUid),
           ])
         );
         if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
-          setSolvedTopics(getSolvedPracticeTopicIds(user.id));
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
+          setSolvedTopics(getSolvedPracticeTopicIds(effectiveUid));
         }
       } catch (err) {
         console.warn('PracticeModules restore error:', err);
       }
     })();
-  }, [user?.id]);
+  }, [user, effectiveUid]);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-modules'],
@@ -115,7 +129,9 @@ export const PracticeModulesPage: React.FC = () => {
     const topicsSolvedInModule = TOPIC_PRACTICE_DATA.filter(
       (t) => t.moduleSlug === cfg.slug && solvedTopics.includes(t.id)
     ).length;
-    const solvedCount = Math.max(fromApi?.solvedCount ?? 0, topicsSolvedInModule);
+    const slugsForModule = MODULE_PROBLEM_SLUGS[cfg.slug] || [];
+    const problemsSolvedInModule = slugsForModule.filter((slug) => solvedTopics.includes(slug)).length;
+    const solvedCount = Math.max(fromApi?.solvedCount ?? 0, topicsSolvedInModule, problemsSolvedInModule);
     const totalQuestions = fromApi?.totalQuestions || cfg.totalQuestions || 20;
     const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
 
@@ -140,7 +156,9 @@ export const PracticeModulesPage: React.FC = () => {
       const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
         (t) => t.moduleSlug === prevConfig.slug && solvedTopics.includes(t.id)
       ).length;
-      const prevSolved = Math.max(prevModFromApi?.solvedCount ?? 0, prevTopicsSolved);
+      const prevSlugs = MODULE_PROBLEM_SLUGS[prevConfig.slug] || [];
+      const prevProblemsSolved = prevSlugs.filter((slug) => solvedTopics.includes(slug)).length;
+      const prevSolved = Math.max(prevModFromApi?.solvedCount ?? 0, prevTopicsSolved, prevProblemsSolved);
       const prevRequired = cfg.requiredSolvedToUnlock || 20;
 
       isUnlocked = prevSolved >= prevRequired;

@@ -283,14 +283,17 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={onSubmitTest}
-          className="w-full mt-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono text-xs font-bold tracking-wide shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition cursor-pointer"
-        >
-          <Send className="w-3.5 h-3.5" />
-          <span>SUBMIT MODULE TEST</span>
-        </button>
+        {/* Only render submit button inside mobile drawer where bottom toolbar might be overlaid */}
+        {isMobileDrawer && (
+          <button
+            type="button"
+            onClick={onSubmitTest}
+            className="w-full mt-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-mono text-xs font-bold tracking-wide shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>SUBMIT MODULE TEST</span>
+          </button>
+        )}
       </div>
     </div>
   );

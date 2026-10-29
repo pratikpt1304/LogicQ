@@ -54,6 +54,7 @@ import { JeeInstructionsModal } from '../components/practice/JeeInstructionsModa
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { Flag } from 'lucide-react';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 
 interface ExecutionErrorState {
   message: string;
@@ -466,21 +467,39 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   }, [problemSlug, moduleSlug]);
 
-  // Sync solved problems
+  // Sync solved problems from memory, local storage fallback, and remote progress
   useEffect(() => {
-    if (moduleProblems && moduleProblems.length > 0) {
-      setSolvedSlugs((prev) => {
-        const next = new Set(prev);
+    const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
+    const localSolved = getSolvedPracticeTopicIds(effectiveUid);
+    const fallbackSolvedSlugs: string[] = [];
+    try {
+      const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+      if (rawProg) {
+        const progMap = JSON.parse(rawProg);
+        Object.keys(progMap).forEach((k) => {
+          if (progMap[k]?.isSolved) {
+            const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
+            fallbackSolvedSlugs.push(cleanSlug);
+          }
+        });
+      }
+    } catch {}
+
+    setSolvedSlugs((prev) => {
+      const next = new Set(prev);
+      localSolved.forEach((s) => next.add(s));
+      fallbackSolvedSlugs.forEach((s) => next.add(s));
+      if (moduleProblems && moduleProblems.length > 0) {
         moduleProblems.forEach((p: any) => {
           if (p.isSolved) next.add(p.slug);
         });
-        if (userProgress?.isSolved && problemSlug) {
-          next.add(problemSlug);
-        }
-        return next;
-      });
-    }
-  }, [moduleProblems, userProgress, problemSlug]);
+      }
+      if (userProgress?.isSolved && problemSlug) {
+        next.add(problemSlug);
+      }
+      return next;
+    });
+  }, [moduleProblems, userProgress, problemSlug, user]);
 
   // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved
   const isProblemUnlocked = (idx: number): boolean => {
@@ -781,8 +800,57 @@ export const PracticeWorkspacePage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['practice-problem', problemSlug] });
     queryClient.invalidateQueries({ queryKey: ['practice-module-problems', moduleSlug] });
     queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+    const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
     if (problemSlug) {
       setSolvedSlugs((prev) => new Set(prev).add(problemSlug));
+      markPracticeTopicSolved(problemSlug, effectiveUid);
+
+      try {
+        const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+        const progMap = rawProg ? JSON.parse(rawProg) : {};
+        const entry = {
+          isSolved: true,
+          attemptsCount: (userProgress?.attemptsCount || 0) + 1,
+          bestRuntimeMs: 14,
+          lastVerdict: 'ACCEPTED',
+        };
+        progMap[`${user?.id || effectiveUid}:${problemSlug}`] = entry;
+        progMap[problemSlug] = entry;
+        localStorage.setItem('logicq_fallback_practice_progress_v1', JSON.stringify(progMap));
+      } catch {}
+
+      // Save verified code as authoritative draft so returning student never sees reset code
+      const draftObj: DraftData = {
+        problemId: problem?.id,
+        problemSlug,
+        code,
+        customInput,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(draftObj, true);
+      if (effectiveUid) {
+        DraftSyncService.saveRemoteDraft(effectiveUid, draftObj, true).catch(() => {});
+      }
+
+      // Persist to Firestore immediately
+      const currentList = getSolvedPracticeTopicIds(effectiveUid);
+      const updatedList = Array.from(new Set([...currentList, problemSlug]));
+      FirestoreDataService.savePracticeProgress(effectiveUid, updatedList).catch(() => {});
+      FirestoreDataService.saveStatsBackup(effectiveUid, {
+        totalSolved: updatedList.length,
+        completedProblems: updatedList,
+        lastSolvedDate: new Date().toISOString(),
+      }).catch(() => {});
+
+      // Notify backend if available
+      if (problem?.id) {
+        api.post('/practice/topics/solve', {
+          topicId: problem.id,
+          moduleSlug,
+          title: problem.title,
+        }).catch(() => {});
+      }
     }
 
     const sec = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;

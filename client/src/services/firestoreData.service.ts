@@ -633,8 +633,14 @@ export class FirestoreDataService {
    * Persists student practice progress in users/{uid}/drafts/practice_progress
    */
   public static async savePracticeProgress(uid: string, completedProblems: string[]): Promise<void> {
-    const targetUid = uid || auth.currentUser?.uid;
-    if (!targetUid) return;
+    const effectiveUid = auth.currentUser?.uid || uid;
+    const localKey = effectiveUid ? `logicq_practice_progress_${effectiveUid}` : 'logicq_practice_progress';
+    try {
+      localStorage.setItem(localKey, JSON.stringify(Array.from(new Set(completedProblems))));
+    } catch {}
+
+    if (!auth.currentUser?.uid) return;
+    const targetUid = auth.currentUser.uid;
     try {
       const draftRef = doc(db, 'users', targetUid, 'drafts', 'practice_progress');
       await setDoc(
@@ -646,8 +652,8 @@ export class FirestoreDataService {
         },
         { merge: true }
       );
-    } catch (err) {
-      console.warn('FirestoreDataService.savePracticeProgress failed:', err);
+    } catch {
+      // ignore
     }
   }
 
@@ -655,39 +661,40 @@ export class FirestoreDataService {
    * Reads student practice progress from users/{uid}/drafts/practice_progress or practice_progress/{uid}
    */
   public static async getPracticeProgress(uid: string): Promise<StudentPracticeProgress | null> {
-    if (!uid && !auth.currentUser?.uid) return null;
-    const primaryUid = uid || auth.currentUser?.uid || '';
+    const effectiveUid = auth.currentUser?.uid || uid;
+    const localKey = effectiveUid ? `logicq_practice_progress_${effectiveUid}` : 'logicq_practice_progress';
+    let localCompleted: string[] = [];
+    try {
+      const raw = localStorage.getItem(localKey);
+      if (raw) localCompleted = JSON.parse(raw);
+    } catch {}
+
+    if (!auth.currentUser?.uid) {
+      return localCompleted.length > 0 ? { userId: uid, completedProblems: localCompleted } : null;
+    }
+
+    const primaryUid = auth.currentUser.uid;
     try {
       const draftRef = doc(db, 'users', primaryUid, 'drafts', 'practice_progress');
       const draftSnap = await getDoc(draftRef).catch(() => null);
       if (draftSnap && draftSnap.exists()) {
         const data = draftSnap.data();
+        const mergedCompleted = Array.from(
+          new Set([...localCompleted, ...(Array.isArray(data.completedProblems) ? data.completedProblems : [])])
+        );
+        try {
+          localStorage.setItem(localKey, JSON.stringify(mergedCompleted));
+        } catch {}
         return {
           userId: primaryUid,
-          completedProblems: Array.isArray(data.completedProblems) ? data.completedProblems : [],
+          completedProblems: mergedCompleted,
           moduleProgress: data.moduleProgress || {},
           updatedAt: data.updatedAt,
         };
       }
-      let docRef = doc(db, 'practice_progress', primaryUid);
-      let snap = await getDoc(docRef).catch(() => null);
-      if (!snap?.exists() && auth.currentUser?.uid && auth.currentUser.uid !== primaryUid) {
-        docRef = doc(db, 'practice_progress', auth.currentUser.uid);
-        snap = await getDoc(docRef).catch(() => null);
-      }
-      if (snap?.exists()) {
-        const data = snap.data();
-        return {
-          userId: primaryUid,
-          completedProblems: Array.isArray(data.completedProblems) ? data.completedProblems : [],
-          moduleProgress: data.moduleProgress || {},
-          updatedAt: data.updatedAt,
-        };
-      }
-      return null;
-    } catch (err) {
-      console.warn('FirestoreDataService.getPracticeProgress error:', err);
-      return null;
+      return localCompleted.length > 0 ? { userId: primaryUid, completedProblems: localCompleted } : null;
+    } catch {
+      return localCompleted.length > 0 ? { userId: primaryUid, completedProblems: localCompleted } : null;
     }
   }
 
@@ -696,8 +703,34 @@ export class FirestoreDataService {
    * Permitted by firestore.rules under drafts subcollection.
    */
   public static async saveStatsBackup(uid: string, stats: Partial<StudentStatsBackup>): Promise<void> {
-    const targetUid = uid || auth.currentUser?.uid;
-    if (!targetUid) return;
+    const effectiveUid = auth.currentUser?.uid || (uid && uid.length < 32 ? uid : null);
+    const localKey = effectiveUid || uid ? `logicq_stats_backup_${effectiveUid || uid}` : null;
+
+    if (localKey) {
+      try {
+        const prevRaw = localStorage.getItem(localKey);
+        const prev = prevRaw ? JSON.parse(prevRaw) : {};
+        const merged = {
+          ...prev,
+          ...stats,
+          totalPoints: Math.max(Number(prev.totalPoints || 0), Number(stats.totalPoints || 0)),
+          currentStreak: Math.max(Number(prev.currentStreak || 0), Number(stats.currentStreak || 0)),
+          longestStreak: Math.max(Number(prev.longestStreak || 0), Number(stats.longestStreak || 0)),
+          totalSolved: Math.max(
+            Number(prev.totalSolved || 0),
+            Number(stats.totalSolved || 0),
+            Array.isArray(stats.completedProblems) ? stats.completedProblems.length : 0
+          ),
+          completedProblems: Array.from(
+            new Set([...(prev.completedProblems || []), ...(stats.completedProblems || [])])
+          ),
+        };
+        localStorage.setItem(localKey, JSON.stringify(merged));
+      } catch {}
+    }
+
+    if (!auth.currentUser?.uid) return;
+    const targetUid = auth.currentUser.uid;
     try {
       const statsRef = doc(db, 'users', targetUid, 'drafts', 'stats_backup');
       const existing = await getDoc(statsRef).catch(() => null);
@@ -706,7 +739,11 @@ export class FirestoreDataService {
       const mergedPoints = Math.max(Number(existingData.totalPoints || 0), Number(stats.totalPoints || 0));
       const mergedStreak = Math.max(Number(existingData.currentStreak || 0), Number(stats.currentStreak || 0));
       const mergedLongest = Math.max(Number(existingData.longestStreak || 0), Number(stats.longestStreak || 0));
-      const mergedSolved = Math.max(Number(existingData.totalSolved || 0), Number(stats.totalSolved || 0));
+      const mergedSolved = Math.max(
+        Number(existingData.totalSolved || 0),
+        Number(stats.totalSolved || 0),
+        Array.isArray(stats.completedProblems) ? stats.completedProblems.length : 0
+      );
       const mergedProblems = Array.from(
         new Set([
           ...(Array.isArray(existingData.completedProblems) ? existingData.completedProblems : []),
@@ -745,8 +782,8 @@ export class FirestoreDataService {
           { merge: true }
         );
       } catch {}
-    } catch (err) {
-      console.warn('FirestoreDataService.saveStatsBackup failed:', err);
+    } catch {
+      // ignore
     }
   }
 
@@ -754,15 +791,25 @@ export class FirestoreDataService {
    * Retrieves student stats backup from users/{uid}/drafts/stats_backup
    */
   public static async getStatsBackup(uid: string): Promise<StudentStatsBackup | null> {
-    const targetUid = uid || auth.currentUser?.uid;
-    if (!targetUid) return null;
+    const effectiveUid = auth.currentUser?.uid;
+    const localKey = effectiveUid || uid ? `logicq_stats_backup_${effectiveUid || uid}` : null;
+    let localData: StudentStatsBackup | null = null;
+    if (localKey) {
+      try {
+        const raw = localStorage.getItem(localKey);
+        if (raw) localData = JSON.parse(raw);
+      } catch {}
+    }
+
+    if (!effectiveUid) return localData;
+
     try {
-      const statsRef = doc(db, 'users', targetUid, 'drafts', 'stats_backup');
+      const statsRef = doc(db, 'users', effectiveUid, 'drafts', 'stats_backup');
       const snap = await getDoc(statsRef);
       if (snap.exists()) {
         const d = snap.data();
-        return {
-          userId: targetUid,
+        const remoteData: StudentStatsBackup = {
+          userId: effectiveUid,
           totalPoints: Number(d.totalPoints || 0),
           currentStreak: Number(d.currentStreak || 0),
           longestStreak: Number(d.longestStreak || 0),
@@ -771,11 +818,16 @@ export class FirestoreDataService {
           lastSolvedDate: d.lastSolvedDate || null,
           updatedAt: d.updatedAt,
         };
+        if (localKey) {
+          try {
+            localStorage.setItem(localKey, JSON.stringify(remoteData));
+          } catch {}
+        }
+        return remoteData;
       }
-      return null;
-    } catch (err) {
-      console.warn('FirestoreDataService.getStatsBackup failed:', err);
-      return null;
+      return localData;
+    } catch {
+      return localData;
     }
   }
 
@@ -1779,36 +1831,38 @@ export class FirestoreDataService {
         console.warn('enrolled_students pre-fetch notice:', enrErr);
       }
 
-      // Also scan users collection for students enrolled in sections
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        usersSnap.forEach((d) => {
-          const uData = d.data();
-          if (uData && !FirestoreDataService.isPurgedStudent(uData)) {
-            const shortId = uData.prn ? String(uData.prn).slice(-4) : '0000';
-            const studentItem = {
-              id: d.id,
-              userId: d.id,
-              name: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
-              fullName: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
-              email: (uData.email || '').toLowerCase().trim(),
-              prn: uData.prn ? String(uData.prn).toUpperCase().trim() : null,
-              department: uData.department || 'General',
-              year: uData.year || 'FY',
-              status: 'ENROLLED',
-            };
-            if (uData.sectionId) addEnrolledRecord(uData.sectionId, studentItem);
-            if (uData.joinCode) addEnrolledRecord(uData.joinCode, studentItem);
-            if (uData.sectionName) addEnrolledRecord(uData.sectionName, studentItem);
-            if (Array.isArray(uData.enrolledSections)) {
-              uData.enrolledSections.forEach((secId: any) => {
-                if (typeof secId === 'string') addEnrolledRecord(secId, studentItem);
-              });
+      // Also scan users collection for students enrolled in sections (Admin/Faculty only)
+      if (auth.currentUser) {
+        try {
+          const usersSnap = await getDocs(collection(db, 'users'));
+          usersSnap.forEach((d) => {
+            const uData = d.data();
+            if (uData && !FirestoreDataService.isPurgedStudent(uData)) {
+              const shortId = uData.prn ? String(uData.prn).slice(-4) : '0000';
+              const studentItem = {
+                id: d.id,
+                userId: d.id,
+                name: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
+                fullName: uData.fullName || uData.displayName || uData.name || `Student ${shortId}`,
+                email: (uData.email || '').toLowerCase().trim(),
+                prn: uData.prn ? String(uData.prn).toUpperCase().trim() : null,
+                department: uData.department || 'General',
+                year: uData.year || 'FY',
+                status: 'ENROLLED',
+              };
+              if (uData.sectionId) addEnrolledRecord(uData.sectionId, studentItem);
+              if (uData.joinCode) addEnrolledRecord(uData.joinCode, studentItem);
+              if (uData.sectionName) addEnrolledRecord(uData.sectionName, studentItem);
+              if (Array.isArray(uData.enrolledSections)) {
+                uData.enrolledSections.forEach((secId: any) => {
+                  if (typeof secId === 'string') addEnrolledRecord(secId, studentItem);
+                });
+              }
             }
-          }
-        });
-      } catch (uErr) {
-        console.warn('users pre-fetch for sections notice:', uErr);
+          });
+        } catch {
+          // Expected permission denial for normal students; ignore quietly without noisy console error
+        }
       }
 
       const remoteKeys = new Set<string>();
