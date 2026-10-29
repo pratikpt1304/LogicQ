@@ -71,16 +71,31 @@ export const PracticeModulesPage: React.FC = () => {
   const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
   const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
 
-  // Sync and restore solved practice topics from Firestore
+  // Sync and restore solved practice topics from Firestore and local storage
   useEffect(() => {
     (async () => {
       try {
         const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
         const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
+        const fallbackSolvedSlugs: string[] = [];
+        try {
+          const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+          if (rawProg) {
+            const progMap = JSON.parse(rawProg);
+            Object.keys(progMap).forEach((k) => {
+              if (progMap[k]?.isSolved) {
+                const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
+                fallbackSolvedSlugs.push(cleanSlug);
+              }
+            });
+          }
+        } catch {}
+
         const cloudSolved = Array.from(
           new Set([
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
+            ...fallbackSolvedSlugs,
             ...getSolvedPracticeTopicIds(effectiveUid),
           ])
         );

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
+import { auth } from '../config/firebase.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
 import { useAuth } from '../context/AuthContext.js';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
-import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
+import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -56,7 +58,31 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const targetModuleIdx = PRACTICE_CONFIG.MODULES.findIndex((m) => m.slug === moduleSlug);
   const targetModule = targetModuleIdx >= 0 ? PRACTICE_CONFIG.MODULES[targetModuleIdx] : null;
 
-  const solvedTopicIds = getSolvedPracticeTopicIds(user?.id);
+  const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
+  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
+
+  // Sync and restore solved practice topics from Firestore and local storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
+        const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
+        const cloudSolved = Array.from(
+          new Set([
+            ...(stats?.completedProblems || []),
+            ...(prog?.completedProblems || []),
+            ...getSolvedPracticeTopicIds(effectiveUid),
+          ])
+        );
+        if (cloudSolved.length > 0) {
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
+          setSolvedTopicIds(getSolvedPracticeTopicIds(effectiveUid));
+        }
+      } catch (err) {
+        console.warn('PracticeModuleProblems restore error:', err);
+      }
+    })();
+  }, [user, effectiveUid]);
 
   let isLockedByProgression = false;
   let lockReason = '';
@@ -81,13 +107,33 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     }
   }
 
+  // Read fallback solved slugs from localStorage
+  const fallbackSolvedSet = new Set<string>();
+  try {
+    const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+    if (rawProg) {
+      const progMap = JSON.parse(rawProg);
+      Object.keys(progMap).forEach((k) => {
+        if (progMap[k]?.isSolved) {
+          const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
+          fallbackSolvedSet.add(cleanSlug);
+        }
+      });
+    }
+  } catch {}
+
   const moduleInfo = data?.data?.module;
   const rawProblems: PracticeProblemRow[] = data?.data?.problems || [];
   const problems: PracticeProblemRow[] = rawProblems.map((p) => {
-    const isTopicSolved = solvedTopicIds.some((tid) => {
-      const match = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
-      return match && (match.id === p.id || match.id === p.slug || match.topicTitle.toLowerCase() === p.title.toLowerCase());
-    });
+    const isTopicSolved =
+      solvedTopicIds.includes(p.slug) ||
+      solvedTopicIds.includes(p.id) ||
+      fallbackSolvedSet.has(p.slug) ||
+      fallbackSolvedSet.has(p.id) ||
+      solvedTopicIds.some((tid) => {
+        const match = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
+        return match && (match.id === p.id || match.id === p.slug || match.topicTitle.toLowerCase() === p.title.toLowerCase());
+      });
     if (isTopicSolved || p.isSolved) {
       return {
         ...p,
@@ -98,12 +144,20 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     return p;
   });
 
-  // Automatically launch into direct JEE CBT Test Mode
+  // Automatically launch into direct JEE CBT Test Mode at the user's active / first unsolved question
   React.useEffect(() => {
     if (!isLockedByProgression && problems && problems.length > 0) {
-      const firstUnsolved = problems.find((p) => !p.isSolved) || problems[0];
-      if (firstUnsolved?.slug) {
-        navigate(`/practice/${moduleSlug}/${firstUnsolved.slug}`, { replace: true });
+      // 1. Resume from saved last-active question if valid
+      const savedLastSlug = localStorage.getItem(`logicq_last_active_question_${moduleSlug}`);
+      const lastProb = savedLastSlug ? problems.find((p) => p.slug === savedLastSlug) : null;
+
+      // 2. Or continue at first unsolved question
+      const firstUnsolved = problems.find((p) => !p.isSolved);
+
+      // 3. Fallback to first problem
+      const target = lastProb || firstUnsolved || problems[0];
+      if (target?.slug) {
+        navigate(`/practice/${moduleSlug}/${target.slug}`, { replace: true });
       }
     }
   }, [problems, isLockedByProgression, moduleSlug, navigate]);

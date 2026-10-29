@@ -133,7 +133,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [runResult, setRunResult] = useState<any | null>(null);
   const [submissionResult, setSubmissionResult] = useState<any | null>(null);
   const [executionError, setExecutionError] = useState<ExecutionErrorState | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('custom');
   const [isProblemPickerOpen, setIsProblemPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -452,7 +452,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     triggerAntiCheatAutoSubmitRef.current = triggerAntiCheatAutoSubmit;
   }, [triggerAntiCheatAutoSubmit]);
   
-  // Track visited questions whenever problemSlug changes
+  // Track visited questions and persist last active question so returning students can resume where they left off
   useEffect(() => {
     if (problemSlug) {
       setVisitedProblems((prev) => {
@@ -464,11 +464,18 @@ export const PracticeWorkspacePage: React.FC = () => {
         } catch {}
         return next;
       });
+      if (moduleSlug) {
+        try {
+          localStorage.setItem(`logicq_last_active_question_${moduleSlug}`, problemSlug);
+          localStorage.setItem('logicq_last_active_module', moduleSlug);
+        } catch {}
+      }
     }
   }, [problemSlug, moduleSlug]);
 
-  // Sync solved problems from memory, local storage fallback, and remote progress
+  // Sync solved problems from memory, local storage fallback, and Firestore cloud backup
   useEffect(() => {
+    let isCancelled = false;
     const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
     const localSolved = getSolvedPracticeTopicIds(effectiveUid);
     const fallbackSolvedSlugs: string[] = [];
@@ -499,6 +506,37 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
       return next;
     });
+
+    // Authoritative cloud restore from Firestore
+    (async () => {
+      try {
+        const [stats, prog] = await Promise.all([
+          FirestoreDataService.getStatsBackup(effectiveUid),
+          FirestoreDataService.getPracticeProgress(effectiveUid),
+        ]);
+        if (isCancelled) return;
+        const cloudSolved = Array.from(
+          new Set([
+            ...(stats?.completedProblems || []),
+            ...(prog?.completedProblems || []),
+          ])
+        );
+        if (cloudSolved.length > 0) {
+          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
+          setSolvedSlugs((prev) => {
+            const next = new Set(prev);
+            cloudSolved.forEach((s) => next.add(s));
+            return next;
+          });
+        }
+      } catch (err) {
+        console.warn('PracticeWorkspace cloud restore warning:', err);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [moduleProblems, userProgress, problemSlug, user]);
 
   // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved
@@ -628,12 +666,13 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
   }, [isProblemPickerOpen]);
 
-  // Reset results when navigating between problems
+  // Reset results and collapse drawer when navigating between problems to maximize code editor space
   useEffect(() => {
     setRunResult(null);
     setSubmissionResult(null);
     setExecutionError(null);
     setActiveBottomTab('custom');
+    setIsDrawerOpen(false);
   }, [problemSlug]);
 
   // Restore local draft or starter code, then sync cloud draft
@@ -842,6 +881,12 @@ export const PracticeWorkspacePage: React.FC = () => {
         completedProblems: updatedList,
         lastSolvedDate: new Date().toISOString(),
       }).catch(() => {});
+
+      if (nextProb?.slug && moduleSlug) {
+        try {
+          localStorage.setItem(`logicq_last_active_question_${moduleSlug}`, nextProb.slug);
+        } catch {}
+      }
 
       // Notify backend if available
       if (problem?.id) {
@@ -1399,7 +1444,7 @@ export const PracticeWorkspacePage: React.FC = () => {
             </div>
 
             {isDrawerOpen && (
-              <div className="h-60 p-3 overflow-y-auto font-mono text-xs">
+              <div className="h-44 sm:h-52 p-3 overflow-y-auto font-mono text-xs">
                 {activeBottomTab === 'custom' ? (
                   <div className="h-full flex flex-col space-y-1.5">
                     <label className="text-[10px] uppercase text-[var(--text-muted)]">
