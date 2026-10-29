@@ -154,6 +154,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
   const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
+  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(true);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
 
@@ -1079,9 +1080,25 @@ export const PracticeWorkspacePage: React.FC = () => {
               title={`${tabSwitchCount} tab switch(es) detected`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>${tabSwitchCount}</span>
+              <span>{tabSwitchCount}</span>
             </span>
           )}
+
+          {/* Desktop Question Palette Toggle (Expand/Collapse Editor) */}
+          <button
+            type="button"
+            onClick={() => setIsDesktopPaletteOpen(!isDesktopPaletteOpen)}
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition cursor-pointer"
+            title={isDesktopPaletteOpen ? 'Collapse Question Palette (Expand Editor)' : 'Show Question Palette'}
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Palette ({solvedSlugs.size}/{moduleProblems.length || 20})</span>
+            {isDesktopPaletteOpen ? (
+              <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            ) : (
+              <ChevronLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            )}
+          </button>
 
           {/* Mobile Question Palette Drawer Toggle */}
           <button
@@ -1144,7 +1161,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Pane: Problem Description Statement */}
         <div
-          className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
+          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-[320px] max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
             activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
         >
@@ -1236,7 +1253,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer */}
         <div
-          className={`lg:w-1/2 flex flex-col min-h-0 bg-[var(--bg-main)] ${
+          className={`flex-1 min-w-[360px] flex flex-col min-h-0 bg-[var(--bg-main)] ${
             activeMobileTab !== 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
         >
@@ -1627,23 +1644,41 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right Pane: Authentic JEE Question Palette (Desktop XL+) */}
-        <div className="hidden xl:flex w-72 2xl:w-80 flex-col shrink-0 border-l border-[var(--border-line)] h-full overflow-hidden">
-          <JeeQuestionPalette
-            moduleTitle={moduleConfig.title}
-            moduleOrder={moduleConfig.order}
-            problems={moduleProblems}
-            currentProblemSlug={problemSlug || ''}
-            visitedProblems={visitedProblems}
-            markedForReview={markedForReview}
-            solvedSlugs={solvedSlugs}
-            onSelectProblem={handleSelectProblem}
-            onSubmitTest={() => setIsSubmitModalOpen(true)}
-            user={user}
-            onOpenQuestionPaper={() => setIsQuestionPaperOpen(true)}
-            onOpenInstructions={() => setIsInstructionsOpen(true)}
-          />
-        </div>
+        {isDesktopPaletteOpen && (
+          <div className="hidden xl:flex w-64 2xl:w-72 flex-col shrink-0 border-l border-[var(--border-line)] h-full overflow-hidden animate-in fade-in duration-150">
+            <JeeQuestionPalette
+              moduleTitle={moduleConfig.title}
+              moduleOrder={moduleConfig.order}
+              problems={moduleProblems}
+              currentProblemSlug={problemSlug || ''}
+              visitedProblems={visitedProblems}
+              markedForReview={markedForReview}
+              solvedSlugs={solvedSlugs}
+              onSelectProblem={handleSelectProblem}
+              onSubmitTest={() => setIsSubmitModalOpen(true)}
+              user={user}
+              onOpenQuestionPaper={() => setIsQuestionPaperOpen(true)}
+              onOpenInstructions={() => setIsInstructionsOpen(true)}
+              onCloseMobileDrawer={() => setIsDesktopPaletteOpen(false)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Floating Toggle Tab to reopen Question Palette when collapsed */}
+      {!isDesktopPaletteOpen && (
+        <button
+          type="button"
+          onClick={() => setIsDesktopPaletteOpen(true)}
+          className="hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[var(--bg-panel)] border border-r-0 border-[var(--border-line)] py-3 px-1.5 rounded-l-xl text-xs font-mono font-bold text-cyan-400 hover:text-white hover:bg-[var(--bg-surface-hover)] shadow-xl transition-all cursor-pointer flex-col items-center gap-1.5 group"
+          title="Open Question Palette"
+        >
+          <ChevronLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-0.5 transition-transform" />
+          <span className="[writing-mode:vertical-lr] text-[11px] tracking-wider uppercase">
+            Palette ({solvedSlugs.size}/{moduleProblems.length || 20})
+          </span>
+        </button>
+      )}
 
       {/* Pinned Bottom JEE CBT Action Bar */}
       <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-2 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
