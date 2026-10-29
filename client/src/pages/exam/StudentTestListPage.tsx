@@ -19,6 +19,7 @@ import {
   Plus,
   Layers,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 
 export const StudentTestListPage: React.FC = () => {
@@ -102,6 +103,15 @@ export const StudentTestListPage: React.FC = () => {
     if (filterTab === 'COMPLETED') return a.status === 'SUBMITTED';
     return true;
   });
+
+  const getStudentWhatsAppReminderUrl = (test: any) => {
+    const title = test?.title || 'C Programming Lab Test';
+    const duration = test?.durationMinutes || 60;
+    const qCount = test?.questions?.length || 20;
+    const url = 'https://logicq-clanguage.web.app/student/tests';
+    const text = `⚡ *LogicQ Lab Test Reminder*\n\n📝 *Assessment:* ${title}\n⏱️ *Duration:* ${duration} Mins (${qCount} Questions)\n👉 *Direct Link:* ${url}\n\nDon't forget to submit before the deadline! 🚀`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6 animate-fadeIn">
@@ -374,31 +384,44 @@ export const StudentTestListPage: React.FC = () => {
 
                 {/* Clear Primary CTA and Question Jump Pills */}
                 <div className="flex flex-col sm:items-end gap-3 flex-shrink-0">
-                  {isSubmitted ? (
-                    <Link
-                      to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 flex items-center justify-center gap-2 transition-all font-mono"
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={getStudentWhatsAppReminderUrl(test)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Send test link and reminder to WhatsApp"
+                      className="px-3 py-2 rounded-xl text-xs font-mono font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition flex items-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Review Answers</span>
-                    </Link>
-                  ) : isInProgress ? (
-                    <Link
-                      to={`/exam/${assignment.id}/${targetQuestion?.problemId}`}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-95 text-white flex items-center justify-center gap-2 transition-all shadow-sm shadow-amber-500/20 font-mono"
-                    >
-                      <span>Resume Test (Q{nextUnsolvedIndex + 1})</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  ) : (
-                    <Link
-                      to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white flex items-center justify-center gap-2 transition-all shadow-sm shadow-indigo-600/20 font-mono"
-                    >
-                      <span>Start Test</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  )}
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>WhatsApp Ping</span>
+                    </a>
+
+                    {isSubmitted ? (
+                      <Link
+                        to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
+                        className="px-5 py-2.5 rounded-xl font-bold text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 flex items-center justify-center gap-2 transition-all font-mono"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>Review Answers</span>
+                      </Link>
+                    ) : isInProgress ? (
+                      <Link
+                        to={`/exam/${assignment.id}/${targetQuestion?.problemId}`}
+                        className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-95 text-white flex items-center justify-center gap-2 transition-all shadow-sm shadow-amber-500/20 font-mono"
+                      >
+                        <span>Resume Test (Q{nextUnsolvedIndex + 1})</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
+                        className="px-5 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 text-white flex items-center justify-center gap-2 transition-all shadow-sm shadow-indigo-600/20 font-mono"
+                      >
+                        <span>Start Test</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    )}
+                  </div>
 
                   {/* Individual Question Badges */}
                   {questions.length > 0 && (

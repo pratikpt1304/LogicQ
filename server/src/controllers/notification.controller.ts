@@ -177,4 +177,80 @@ export class NotificationController {
       });
     }
   }
+
+  /**
+   * Broadcasts alert when a new test or assignment is created for a section
+   */
+  static async broadcastNewTestAssigned(req: Request, res: Response) {
+    try {
+      const { testTitle, sectionId, sectionName, durationMinutes, questionCount } = req.body;
+      const title = testTitle || 'New Lab Assessment';
+      const duration = durationMinutes || 60;
+      const qCount = questionCount || 20;
+      const testUrl = 'https://logicq-clanguage.web.app/student/tests';
+
+      let sectionDisplayName = sectionName || 'Class Section';
+      let recipientEmails: string[] = [];
+
+      if (sectionId) {
+        const section = await prisma.section.findUnique({
+          where: { id: sectionId },
+          include: {
+            students: {
+              include: {
+                student: {
+                  select: { email: true, fullName: true },
+                },
+              },
+            },
+          },
+        });
+        if (section) {
+          sectionDisplayName = section.sectionName;
+          recipientEmails = (section.students || [])
+            .map((ss: any) => ss.student?.email?.trim().toLowerCase())
+            .filter((e: any) => typeof e === 'string' && e.includes('@'));
+        }
+      }
+
+      const whatsappText = `📢 *NEW LAB ASSESSMENT ASSIGNED on LogicQ!* 🚀\n\nDear Students of *${sectionDisplayName}*,\nYour faculty mentor has scheduled a new proctored lab test:\n\n📝 *Test:* ${title}\n⏱️ *Duration:* ${duration} Minutes\n❓ *Questions:* ${qCount} Questions\n🎯 *Evaluation:* Auto-graded with C11 GCC & Proctoring\n\n👉 *Start Your Test Here:*\n${testUrl}\n\nPlease join and complete this session before the scheduled deadline! ⚡`;
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+
+      // Dispatch async emails
+      let sentCount = 0;
+      for (const email of recipientEmails.slice(0, 50)) {
+        try {
+          await mailService.sendMail({
+            to: email,
+            subject: `📢 [New Test Assigned]: ${title} (${duration} mins) - ${sectionDisplayName}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; background: #0c101d; color: #fff; padding: 24px; border-radius: 12px; max-width: 500px;">
+                <h2 style="color: #6366f1; margin-top: 0;">New Lab Assessment Assigned</h2>
+                <p>A new practical test <strong>${title}</strong> has been scheduled for <strong>${sectionDisplayName}</strong>.</p>
+                <div style="background: #1e293b; padding: 12px; border-radius: 8px; margin: 16px 0;">
+                  <div>⏱️ <strong>Duration:</strong> ${duration} Minutes</div>
+                  <div>❓ <strong>Questions:</strong> ${qCount} Questions</div>
+                </div>
+                <a href="${testUrl}" style="display: block; text-align: center; background: #4f46e5; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: bold;">Start Assessment Test</a>
+              </div>
+            `,
+          });
+          sentCount++;
+        } catch {}
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Notification dispatched to ${sentCount} students via email & WhatsApp ready!`,
+        sentCount,
+        whatsappText,
+        whatsappUrl,
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        message: err?.message || 'Failed to dispatch test notification.',
+      });
+    }
+  }
 }

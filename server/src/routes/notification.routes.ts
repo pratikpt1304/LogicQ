@@ -9,3 +9,6 @@ notificationRouter.post('/daily-reminder', optionalAuthenticate, NotificationCon
 
 // Faculty broadcast to class section
 notificationRouter.post('/broadcast-section', authenticate, NotificationController.broadcastSectionDailyReminder);
+
+// Faculty broadcast new test assigned
+notificationRouter.post('/test-assigned', authenticate, NotificationController.broadcastNewTestAssigned);

@@ -48,6 +48,7 @@ import {
   KeyRound,
   Award,
   Code2,
+  MessageSquare,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -1195,13 +1196,27 @@ export const DashboardPage: React.FC = () => {
                           </span>
                         )}
 
-                        <Link
-                          to="/student/tests"
-                          className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 transition"
-                        >
-                          <span>{isSubmitted ? 'View Details' : isInProgress ? 'Resume Test' : 'Start Test'}</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                              `⚡ *LogicQ Test Reminder*\n\n📝 *Assessment:* ${test?.title || 'Lab Test'}\n⏱️ *Duration:* ${test?.durationMinutes || 60} Mins\n👉 *Direct Link:* https://logicq-clanguage.web.app/student/tests\n\nSubmit before scheduled deadline!`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ping reminder to WhatsApp"
+                            className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition flex items-center"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </a>
+
+                          <Link
+                            to="/student/tests"
+                            className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 transition"
+                          >
+                            <span>{isSubmitted ? 'View Details' : isInProgress ? 'Resume Test' : 'Start Test'}</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   );

@@ -18,6 +18,8 @@ import {
   Plus,
   RefreshCw,
   Eye,
+  MessageSquare,
+  Mail,
 } from 'lucide-react';
 
 export const CreateTestPage: React.FC = () => {
@@ -93,16 +95,78 @@ export const CreateTestPage: React.FC = () => {
 
   const tests: any[] = Array.isArray(testsData) ? testsData : [];
 
+  const getTestWhatsAppUrl = (test: any) => {
+    const sectionName = test.section?.sectionName || 'Class Section';
+    const duration = test.durationMinutes || 60;
+    const qCount = test._count?.questions ?? test.questionCount ?? 20;
+    const testUrl = 'https://logicq-clanguage.web.app/student/tests';
+
+    const text = `📢 *NEW LAB ASSESSMENT ASSIGNED on LogicQ!* 🚀\n\nDear Students of *${sectionName}*,\nYour faculty mentor has scheduled a new proctored lab test:\n\n📝 *Test:* ${test.title}\n⏱️ *Duration:* ${duration} Minutes\n❓ *Questions:* ${qCount} Questions\n🎯 *Evaluation:* Auto-graded with C11 GCC & Proctoring\n\n👉 *Start Your Test Here:*\n${testUrl}\n\nPlease join and complete this session before the scheduled deadline! ⚡`;
+
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
+
+  const handleDispatchEmailAlert = async (test: any) => {
+    try {
+      toast.info('Dispatching email alerts to enrolled students...');
+      const res = await api.post('/notifications/test-assigned', {
+        testTitle: test.title,
+        sectionId: test.sectionId,
+        sectionName: test.section?.sectionName,
+        durationMinutes: test.durationMinutes,
+        questionCount: test._count?.questions ?? test.questionCount,
+      });
+      toast.success(res?.message || 'Email alerts dispatched successfully!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to dispatch email alerts.');
+    }
+  };
+
   // Create Test Mutation
   const createMutation = useMutation({
     mutationFn: async (payload: typeof form) => {
       return await api.post('/assessment-tests', payload);
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       toast.success(res.message || 'Assessment test published and assigned to section roster!');
       setIsCreateOpen(false);
       queryClient.invalidateQueries({ queryKey: ['faculty-tests'] });
       RealtimeSyncService.emit('TESTS');
+
+      // Trigger automatic background email notification
+      try {
+        const notifRes = await api.post('/notifications/test-assigned', {
+          testTitle: form.title,
+          sectionId: form.sectionId,
+          durationMinutes: form.durationMinutes,
+          questionCount: form.questionCount,
+        });
+
+        if (notifRes?.whatsappUrl) {
+          toast.custom((t) => (
+            <div className="bg-[#0f172a] text-white p-4 rounded-xl border border-indigo-500/40 shadow-2xl flex flex-col gap-2.5">
+              <div className="font-bold text-sm text-emerald-400 flex items-center gap-1.5">
+                <span>📢 Test Created & Emails Sent to Section!</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Share this assessment announcement directly to your section's WhatsApp group with 1-click:
+              </p>
+              <a
+                href={notifRes.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => toast.dismiss(t)}
+                className="inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition"
+              >
+                <span>Open WhatsApp Group Alert</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          ), { duration: 10000 });
+        }
+      } catch (e) {
+        console.warn('Background test notification notice:', e);
+      }
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to create assessment test.');
@@ -218,20 +282,40 @@ export const CreateTestPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--border)] text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border)] text-xs">
                 <span className="text-[var(--muted-foreground)] font-mono">
                   Ratio: {test.easyRatio}E / {test.mediumRatio}M / {test.hardRatio}H
                 </span>
-                <button
-                  onClick={async () => {
-                    const res = await api.get(`/assessment-tests/${test.id}`);
-                    setSelectedTest(res.data);
-                  }}
-                  className="flex items-center gap-1 font-semibold text-indigo-400 hover:text-indigo-300"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  View Details
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={getTestWhatsAppUrl(test)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Share Announcement to Class WhatsApp Group"
+                    className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition flex items-center gap-1 font-mono text-[11px] font-semibold"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
+                  <button
+                    onClick={() => handleDispatchEmailAlert(test)}
+                    title="Dispatch Email Notification to Enrolled Students"
+                    className="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 transition flex items-center gap-1 font-mono text-[11px] font-semibold"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const res = await api.get(`/assessment-tests/${test.id}`);
+                      setSelectedTest(res.data);
+                    }}
+                    className="flex items-center gap-1 font-semibold text-slate-300 hover:text-white p-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
