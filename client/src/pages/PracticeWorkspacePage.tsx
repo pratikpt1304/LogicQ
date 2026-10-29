@@ -165,9 +165,21 @@ export const PracticeWorkspacePage: React.FC = () => {
     setIsCheatingAutoSubmitTriggered(false);
   }, [problemSlug]);
 
+  // Load existing persistent proctoring counters on mount
+  useEffect(() => {
+    const uid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
+    FirestoreDataService.getProctoringTelemetry(uid).then((telem) => {
+      if (telem) {
+        setTabSwitchCount((prev) => Math.max(prev, telem.tabSwitchCount || 0));
+        setCopyPasteAttempts((prev) => Math.max(prev, telem.copyPasteAttempts || 0));
+        setFullscreenExits((prev) => Math.max(prev, telem.fullscreenExits || 0));
+      }
+    }).catch(() => {});
+  }, [user?.id]);
+
   const syncTelemetryToCloud = useCallback((updates: { tabSwitchCount?: number; copyPasteAttempts?: number; fullscreenExits?: number }) => {
-    if (!user?.id) return;
-    FirestoreDataService.saveProctoringTelemetry(user.id, {
+    const uid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
+    FirestoreDataService.saveProctoringTelemetry(uid, {
       tabSwitchCount: updates.tabSwitchCount ?? tabSwitchCount,
       copyPasteAttempts: updates.copyPasteAttempts ?? copyPasteAttempts,
       fullscreenExits: updates.fullscreenExits ?? fullscreenExits,
@@ -397,15 +409,14 @@ export const PracticeWorkspacePage: React.FC = () => {
       { duration: 8000 }
     );
 
-    if (user?.id) {
-      FirestoreDataService.recordProctoringIncident(user.id, {
-        type: isTab ? 'EXCEEDED_TAB_SWITCHES' : 'EXCEEDED_COPY_PASTE',
-        problemSlug: problem?.slug || problemSlug || '',
-        problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
-        reason: violationReason,
-        codeSnippet: code,
-      }).catch(() => {});
-    }
+    const uid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
+    FirestoreDataService.recordProctoringIncident(uid, {
+      type: isTab ? 'EXCEEDED_TAB_SWITCHES' : 'EXCEEDED_COPY_PASTE',
+      problemSlug: problem?.slug || problemSlug || '',
+      problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
+      reason: violationReason,
+      codeSnippet: code,
+    }).catch(() => {});
 
     if (problemSlug) {
       setVisitedProblems((prev) => new Set(prev).add(problemSlug));

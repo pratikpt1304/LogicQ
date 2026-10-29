@@ -2771,9 +2771,9 @@ export class FirestoreDataService {
       codeSnippet?: string;
     }
   ): Promise<any> {
-    if (!userId) return null;
+    const targetUid = auth.currentUser?.uid || userId || 'current';
     try {
-      const existing = await FirestoreDataService.getProctoringTelemetry(userId);
+      const existing = await FirestoreDataService.getProctoringTelemetry(targetUid);
       const isAutoLock = incident.type === 'EXCEEDED_TAB_SWITCHES' || incident.type === 'EXCEEDED_COPY_PASTE';
       const autoLockCount = (existing?.autoLockCount || 0) + (isAutoLock ? 1 : 0);
       const tabSwitchCount = Math.max(existing?.tabSwitchCount || 0, incident.type === 'TAB_SWITCH' || incident.type === 'EXCEEDED_TAB_SWITCHES' ? (existing?.tabSwitchCount || 0) + 1 : (existing?.tabSwitchCount || 0));
@@ -2807,10 +2807,27 @@ export class FirestoreDataService {
         integrityScore,
         incidents,
         lastIncidentAt: incidentObj.timestamp,
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'), payload, { merge: true });
+      // Always save to localStorage immediately for instant resilience
+      try {
+        localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(payload));
+      } catch {}
+
+      // Sync to Firestore
+      try {
+        const primaryUid = auth.currentUser?.uid || targetUid;
+        if (primaryUid) {
+          await setDoc(doc(db, 'users', primaryUid, 'drafts', 'proctoring_telemetry'), {
+            ...payload,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        }
+      } catch (fErr) {
+        console.warn('recordProctoringIncident Firestore sync warning:', fErr);
+      }
+
       return payload;
     } catch (err) {
       console.warn('recordProctoringIncident error:', err);
@@ -2820,7 +2837,7 @@ export class FirestoreDataService {
 
   /**
    * Save student anti-cheat / proctoring telemetry (tab switches, paste attempts, fullscreen exits).
-   * Stored under users/{uid}/drafts/proctoring_telemetry
+   * Stored under users/{uid}/drafts/proctoring_telemetry and cached in localStorage.
    */
   public static async saveProctoringTelemetry(
     userId: string,
@@ -2832,9 +2849,9 @@ export class FirestoreDataService {
       lastIncidentAt?: string;
     }
   ): Promise<void> {
-    if (!userId) return;
+    const targetUid = auth.currentUser?.uid || userId || 'current';
     try {
-      const existing = await FirestoreDataService.getProctoringTelemetry(userId);
+      const existing = await FirestoreDataService.getProctoringTelemetry(targetUid);
       const tabSwitchCount = Math.max(existing?.tabSwitchCount || 0, data.tabSwitchCount || 0);
       const copyPasteAttempts = Math.max(existing?.copyPasteAttempts || 0, data.copyPasteAttempts || 0);
       const fullscreenExits = Math.max(existing?.fullscreenExits || 0, data.fullscreenExits || 0);
@@ -2852,19 +2869,37 @@ export class FirestoreDataService {
         fullscreenExits,
         autoLockCount,
         integrityScore,
+        incidents: existing?.incidents || [],
         lastIncidentAt: data.lastIncidentAt || new Date().toISOString(),
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
       };
-      await setDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'), merged, { merge: true });
+
+      // Always save to localStorage immediately
+      try {
+        localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(merged));
+      } catch {}
+
+      // Sync to Firestore
+      try {
+        const primaryUid = auth.currentUser?.uid || targetUid;
+        if (primaryUid) {
+          await setDoc(doc(db, 'users', primaryUid, 'drafts', 'proctoring_telemetry'), {
+            ...merged,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        }
+      } catch (fErr) {
+        console.warn('saveProctoringTelemetry Firestore sync warning:', fErr);
+      }
     } catch (err) {
       console.warn('saveProctoringTelemetry error:', err);
     }
   }
 
   /**
-   * Get student anti-cheat / proctoring telemetry.
+   * Get student anti-cheat / proctoring telemetry with instant local fallback.
    */
-  public static async getProctoringTelemetry(userId: string): Promise<{
+  public static async getProctoringTelemetry(userId?: string): Promise<{
     tabSwitchCount: number;
     copyPasteAttempts: number;
     fullscreenExits: number;
@@ -2881,30 +2916,61 @@ export class FirestoreDataService {
       timestamp: string;
     }>;
   } | null> {
-    if (!userId) return null;
+    const targetUid = auth.currentUser?.uid || userId;
+    let localData: any = null;
     try {
-      const snap = await getDoc(doc(db, 'users', userId, 'drafts', 'proctoring_telemetry'));
-      if (snap.exists()) {
-        const d = snap.data();
-        const tabSwitchCount = Number(d.tabSwitchCount || 0);
-        const copyPasteAttempts = Number(d.copyPasteAttempts || 0);
-        const fullscreenExits = Number(d.fullscreenExits || 0);
-        const autoLockCount = Number(d.autoLockCount || 0);
-        const integrityScore = typeof d.integrityScore === 'number'
-          ? d.integrityScore
-          : FirestoreDataService.computeIntegrityScore({ tabSwitchCount, copyPasteAttempts, fullscreenExits, autoLockCount });
-
-        return {
-          tabSwitchCount,
-          copyPasteAttempts,
-          fullscreenExits,
-          autoLockCount,
-          integrityScore,
-          lastIncidentAt: d.lastIncidentAt,
-          incidents: Array.isArray(d.incidents) ? d.incidents : [],
-        };
+      const raw = localStorage.getItem('logicq_proctoring_telemetry');
+      if (raw) {
+        localData = JSON.parse(raw);
       }
     } catch {}
-    return null;
+
+    let remoteData: any = null;
+    if (targetUid) {
+      try {
+        const snap = await getDoc(doc(db, 'users', targetUid, 'drafts', 'proctoring_telemetry'));
+        if (snap.exists()) {
+          remoteData = snap.data();
+        }
+      } catch {}
+    }
+
+    if (!localData && !remoteData) {
+      return null;
+    }
+
+    const tabSwitchCount = Math.max(Number(localData?.tabSwitchCount || 0), Number(remoteData?.tabSwitchCount || 0));
+    const copyPasteAttempts = Math.max(Number(localData?.copyPasteAttempts || 0), Number(remoteData?.copyPasteAttempts || 0));
+    const fullscreenExits = Math.max(Number(localData?.fullscreenExits || 0), Number(remoteData?.fullscreenExits || 0));
+    const autoLockCount = Math.max(Number(localData?.autoLockCount || 0), Number(remoteData?.autoLockCount || 0));
+
+    const localIncidents = Array.isArray(localData?.incidents) ? localData.incidents : [];
+    const remoteIncidents = Array.isArray(remoteData?.incidents) ? remoteData.incidents : [];
+    const incidentMap = new Map<string, any>();
+    [...remoteIncidents, ...localIncidents].forEach((inc) => {
+      if (inc && (inc.id || inc.timestamp)) {
+        incidentMap.set(inc.id || `${inc.timestamp}_${inc.reason}`, inc);
+      }
+    });
+    const incidents = Array.from(incidentMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const integrityScore = FirestoreDataService.computeIntegrityScore({
+      tabSwitchCount,
+      copyPasteAttempts,
+      fullscreenExits,
+      autoLockCount,
+    });
+
+    return {
+      tabSwitchCount,
+      copyPasteAttempts,
+      fullscreenExits,
+      autoLockCount,
+      integrityScore,
+      lastIncidentAt: remoteData?.lastIncidentAt || localData?.lastIncidentAt,
+      incidents,
+    };
   }
 }

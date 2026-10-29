@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
 import { auth } from '../../config/firebase.js';
+import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import {
   Award,
@@ -27,6 +28,8 @@ import {
 } from 'lucide-react';
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
+  const { user } = useAuth();
+  const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -36,10 +39,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   });
 
   const { data: fsTelemetry, isLoading: isFsLoading } = useQuery({
-    queryKey: ['proctoring-telemetry-student', auth.currentUser?.uid],
-    queryFn: () => (auth.currentUser?.uid ? FirestoreDataService.getProctoringTelemetry(auth.currentUser.uid) : null),
-    enabled: Boolean(auth.currentUser?.uid),
-    refetchOnWindowFocus: false,
+    queryKey: ['proctoring-telemetry-student', targetUid],
+    queryFn: () => FirestoreDataService.getProctoringTelemetry(targetUid),
+    refetchOnWindowFocus: true,
   });
 
   const { data: reportData, isLoading: isReportLoading } = useQuery({
@@ -131,7 +133,10 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
   const incidents = fsTelemetry?.incidents || [];
 
-  const baseIntegrity = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
+  // Backend integrityScore is RISK POINTS (0 is CLEAN, 100 is MAX CHEAT)
+  const backendRiskPoints = typeof anl.integrityScore === 'number' ? anl.integrityScore : 0;
+  const backendCleanScore = Math.max(0, 100 - backendRiskPoints);
+
   const fsIntegrity =
     fsTelemetry?.integrityScore !== undefined
       ? fsTelemetry.integrityScore
@@ -142,7 +147,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           autoLockCount,
         });
 
-  const finalIntegrityScore = Math.max(0, Math.min(baseIntegrity, fsIntegrity));
+  // Dual-Verified Integrity Score (starts at 100, drops with infractions)
+  const finalIntegrityScore = Math.max(0, Math.min(backendCleanScore, fsIntegrity));
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
   return (
