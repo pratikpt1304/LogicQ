@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { StreakReminderBanner } from '../components/dashboard/StreakReminderBanner.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
@@ -1067,6 +1068,13 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
           </div>
+
+          {/* Morning Streak Reminder (WhatsApp + Email) */}
+          <StreakReminderBanner
+            currentStreak={stats?.currentStreak || user?.currentStreak || 0}
+            userEmail={user?.email || undefined}
+            userName={(user?.fullName || user?.displayName) || undefined}
+          />
 
           {/* 3. ASSIGNED LAB TESTS & ASSESSMENTS (Top Priority for Students) */}
           <div className="glass-card p-4 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] space-y-4 sm:space-y-5">

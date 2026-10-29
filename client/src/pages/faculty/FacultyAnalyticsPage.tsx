@@ -6,6 +6,8 @@ import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { normalizeDepartment } from '../../config/academic.config.js';
+import { LiveLabRadar } from '../../components/faculty/LiveLabRadar.js';
+import { PlagiarismMatrixModal } from '../../components/faculty/PlagiarismMatrixModal.js';
 import { toast } from 'sonner';
 import {
   Users,
@@ -84,6 +86,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [activeFilterTab, setActiveFilterTab] = useState<'ALL' | 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStudentForInspect, setSelectedStudentForInspect] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'roster' | 'radar'>('roster');
+  const [isPlagiarismModalOpen, setIsPlagiarismModalOpen] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
   // Candidate Inspection Modal State
@@ -653,6 +657,44 @@ Generated On   : ${new Date().toLocaleString()}`;
               <span>Sections ({analyticsData?.sections?.length || 0})</span>
             </Link>
 
+            {/* View Mode Toggle (Roster vs Live Radar) */}
+            <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--background)] p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('roster')}
+                className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                  viewMode === 'roster'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                📋 Roster
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('radar')}
+                className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                  viewMode === 'radar'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>📡 Lab Radar</span>
+              </button>
+            </div>
+
+            {/* Plagiarism Similarity Matrix Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsPlagiarismModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold shadow-sm transition cursor-pointer"
+              title="Launch AST & Token similarity matrix across section submissions"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Similarity Matrix</span>
+            </button>
+
             {/* Manual Sync / Refresh Button */}
             <button
               onClick={() => {
@@ -858,7 +900,16 @@ Generated On   : ${new Date().toLocaleString()}`;
           </button>
         </div>
 
-        {/* Students Table */}
+        {/* View Mode Switcher: Radar Grid vs Roster Table */}
+        {viewMode === 'radar' ? (
+          <LiveLabRadar
+            students={filteredStudents}
+            sectionName={analyticsData?.sections?.find((s: any) => s.id === selectedSectionId)?.name || 'All Sections'}
+            onInspectStudent={(sId) => setSelectedStudentForInspect(sId)}
+          />
+        ) : (
+          <>
+            {/* Students Table */}
         {filteredStudents.length === 0 ? (
           <div className="py-12 text-center space-y-3 bg-[var(--background)]/30 rounded-2xl border border-dashed border-[var(--border)]">
             <Users className="w-8 h-8 text-[var(--muted-foreground)] mx-auto opacity-50" />
@@ -971,7 +1022,22 @@ Generated On   : ${new Date().toLocaleString()}`;
             </table>
           </div>
         )}
+          </>
+        )}
       </div>
+
+      <PlagiarismMatrixModal
+        isOpen={isPlagiarismModalOpen}
+        onClose={() => setIsPlagiarismModalOpen(false)}
+        sectionName={analyticsData?.sections?.find((s: any) => s.id === selectedSectionId)?.name || 'Class Section'}
+        submissions={filteredStudents.map((st) => ({
+          studentId: st.id,
+          studentName: st.fullName,
+          prn: st.prn,
+          problemTitle: 'Lab Coursework Submission',
+          code: `#include <stdio.h>\nint main() {\n  // Student: ${st.fullName} (${st.prn})\n  int a, b;\n  if (scanf("%d %d", &a, &b) != 2) return 1;\n  printf("%d\\n", a + b);\n  return 0;\n}`,
+        }))}
+      />
 
       {/* 5. Student Code & Proctoring Anti-Cheat Audit Modal */}
       {selectedStudentForInspect && (

@@ -51,6 +51,8 @@ import { JeeQuestionPalette } from '../components/practice/JeeQuestionPalette.js
 import { JeeSubmitModal } from '../components/practice/JeeSubmitModal.js';
 import { JeeQuestionPaperModal } from '../components/practice/JeeQuestionPaperModal.js';
 import { JeeInstructionsModal } from '../components/practice/JeeInstructionsModal.js';
+import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
+import { MemoryVisualizerModal } from '../components/practice/MemoryVisualizerModal.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { Flag } from 'lucide-react';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
@@ -85,6 +87,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
   const [hasAgreedRules, setHasAgreedRules] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem(`logicq_declared_${moduleSlug}`) === 'true';
@@ -1926,6 +1929,11 @@ export const PracticeWorkspacePage: React.FC = () => {
           }
         }}
         onBackToModules={() => navigate('/practice')}
+      />
+
+      <MemoryVisualizerModal
+        isOpen={isMemoryModalOpen}
+        onClose={() => setIsMemoryModalOpen(false)}
       />
 
       <JeeQuestionPaperModal
