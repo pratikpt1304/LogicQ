@@ -190,26 +190,30 @@ export const ProfilePage: React.FC = () => {
     queryKey: ['profile', targetIdentifier],
     queryFn: async () => {
       let serverUser: any = null;
-      try {
-        const res = await api.get(`/users/profile/${targetIdentifier}`);
-        serverUser = res?.data?.user;
-      } catch (err) {
-        if (isOwnProfile) {
-          if (auth.currentUser) {
-            try {
-              const fsUser = await FirestoreDataService.getUserProfile(auth.currentUser.uid);
-              if (fsUser) serverUser = fsUser;
-            } catch {}
+      if (isOwnProfile && currentUser) {
+        serverUser = currentUser;
+      } else {
+        try {
+          const res = await api.get(`/users/profile/${targetIdentifier}`);
+          serverUser = res?.data?.user;
+        } catch (err) {
+          if (isOwnProfile) {
+            if (auth.currentUser) {
+              try {
+                const fsUser = await FirestoreDataService.getUserProfile(auth.currentUser.uid);
+                if (fsUser) serverUser = fsUser;
+              } catch {}
+            }
+            if (!serverUser && currentUser) {
+              serverUser = currentUser;
+            }
           }
-          if (!serverUser && currentUser) {
-            serverUser = currentUser;
+          if (!serverUser) {
+            if (currentUser && isOwnProfile) {
+              return { user: currentUser };
+            }
+            throw err;
           }
-        }
-        if (!serverUser) {
-          if (currentUser && isOwnProfile) {
-            return { user: currentUser };
-          }
-          throw err;
         }
       }
 

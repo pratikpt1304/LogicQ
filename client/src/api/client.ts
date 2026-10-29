@@ -58,6 +58,10 @@ async function refreshAuthSession(): Promise<string | null> {
               }
               return token;
             }
+          } else if (refreshRes.status === 401 || refreshRes.status === 403) {
+            // Expired/invalid refresh token: wipe immediately to eliminate recursive 401 spam
+            localStorage.removeItem(TOKEN_STORAGE_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
           }
         } catch {
           // Continue to Firebase Auth fallback
@@ -95,6 +99,9 @@ async function refreshAuthSession(): Promise<string | null> {
         }
       }
 
+      // If both backend refresh and Firebase re-exchange fail, wipe dead tokens
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
       return null;
     } finally {
       activeRefreshPromise = null;
@@ -226,9 +233,13 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       if (refreshedAccessToken) {
         headers.set('Authorization', `Bearer ${refreshedAccessToken}`);
         response = await fetch(url, { ...config, headers, skipAuthRefresh: true } as any);
+      } else {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
       }
     } catch {
-      // Refresh failed, continue with original 401 response
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     }
   }
 

@@ -80,9 +80,10 @@ export const DashboardPage: React.FC = () => {
     error: statsError,
     refetch: refetchStats,
   } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', user?.id],
+    enabled: Boolean(user),
+    staleTime: 30000,
     queryFn: () => api.get('/users/dashboard/stats'),
-    refetchInterval: 10000,
   });
 
   const dailyProblem = dailyData?.data?.problem;

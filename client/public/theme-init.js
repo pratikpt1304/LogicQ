@@ -22,10 +22,4 @@
     document.documentElement.setAttribute('data-theme', 'light');
     document.documentElement.style.colorScheme = 'light';
   }
-  try {
-    var gf = document.getElementById('gfonts-css');
-    if (gf) {
-      gf.rel = 'stylesheet';
-    }
-  } catch (e) {}
 })();
