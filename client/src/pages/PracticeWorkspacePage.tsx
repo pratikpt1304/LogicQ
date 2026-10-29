@@ -398,6 +398,26 @@ export const PracticeWorkspacePage: React.FC = () => {
   const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
   const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
 
+  // Sanitize visited problems so locked questions can never be falsely marked visited/unsolved
+  const sanitizedVisitedProblems = React.useMemo(() => {
+    const unlockedSlugs = new Set<string>();
+    for (let i = 0; i < moduleProblems.length; i++) {
+      if (i === 0 || solvedSlugs.has(moduleProblems[i - 1]?.slug)) {
+        unlockedSlugs.add(moduleProblems[i]?.slug);
+      } else {
+        break;
+      }
+    }
+    const clean = new Set<string>();
+    visitedProblems.forEach((slug) => {
+      if (unlockedSlugs.has(slug)) clean.add(slug);
+    });
+    if (problemSlug && unlockedSlugs.has(problemSlug)) {
+      clean.add(problemSlug);
+    }
+    return clean;
+  }, [moduleProblems, solvedSlugs, visitedProblems, problemSlug]);
+
   // Anti-Cheat Auto-Lock & Advance: Triggers when 3 tab switches or 5 paste attempts occur on current question
   const triggerAntiCheatAutoSubmit = useCallback(async (reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => {
     if (isCheatingAutoSubmitTriggered) return;
@@ -1778,7 +1798,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               moduleOrder={moduleConfig.order}
               problems={moduleProblems}
               currentProblemSlug={problemSlug || ''}
-              visitedProblems={visitedProblems}
+              visitedProblems={sanitizedVisitedProblems}
               markedForReview={markedForReview}
               solvedSlugs={solvedSlugs}
               onSelectProblem={handleSelectProblem}
@@ -1884,7 +1904,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               moduleOrder={moduleConfig.order}
               problems={moduleProblems}
               currentProblemSlug={problemSlug || ''}
-              visitedProblems={visitedProblems}
+              visitedProblems={sanitizedVisitedProblems}
               markedForReview={markedForReview}
               solvedSlugs={solvedSlugs}
               onSelectProblem={handleSelectProblem}
@@ -1917,7 +1937,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         problems={moduleProblems}
         solvedSlugs={solvedSlugs}
         markedForReview={markedForReview}
-        visitedProblems={visitedProblems}
+        visitedProblems={sanitizedVisitedProblems}
         user={user}
         onConfirmSubmit={handleConfirmFinalSubmit}
         onGoToNextModule={() => {
@@ -1945,7 +1965,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         currentProblemSlug={problemSlug || ''}
         solvedSlugs={solvedSlugs}
         markedForReview={markedForReview}
-        visitedProblems={visitedProblems}
+        visitedProblems={sanitizedVisitedProblems}
         onSelectProblem={handleSelectProblem}
       />
 

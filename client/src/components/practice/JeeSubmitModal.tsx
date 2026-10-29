@@ -48,14 +48,26 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Progressive locking check
+  const isUnlocked = (idx: number): boolean => {
+    if (idx <= 0) return true;
+    for (let i = 0; i < idx; i++) {
+      const prevP = problems[i];
+      const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
+      if (!isPrevSolved) return false;
+    }
+    return true;
+  };
+
   // Calculate statistics
   let solvedCount = 0;
   let markedCount = 0;
   let notAnsweredCount = 0;
   let notVisitedCount = 0;
 
-  problems.forEach((p) => {
+  problems.forEach((p, idx) => {
     if (p.isSolved || solvedSlugs.has(p.slug)) solvedCount++;
+    else if (!isUnlocked(idx)) notVisitedCount++;
     else if (markedForReview.has(p.slug)) markedCount++;
     else if (visitedProblems.has(p.slug) || (p.attemptsCount && p.attemptsCount > 0)) {
       notAnsweredCount++;

@@ -43,8 +43,9 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
     return true;
   };
 
-  const getStatus = (p: any): JeeQuestionStatus => {
+  const getStatus = (p: any, idx?: number): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
+    if (idx !== undefined && !isUnlocked(idx)) return 'NOT_VISITED';
     if (markedForReview.has(p.slug)) return 'MARKED';
     if (visitedProblems.has(p.slug) || (p.attemptsCount && p.attemptsCount > 0)) {
       return 'NOT_ANSWERED';
@@ -104,7 +105,7 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
           {filteredProblems.map((p, idx) => {
             const num = p.moduleOrder || idx + 1;
-            const status = getStatus(p);
+            const status = getStatus(p, idx);
             const isCurrent = p.slug === currentProblemSlug;
             const unlocked = isUnlocked(idx);
 

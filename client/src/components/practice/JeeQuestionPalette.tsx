@@ -63,9 +63,11 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   };
 
   // Helper to determine question status
-  const getStatus = (p: any): JeeQuestionStatus => {
+  const getStatus = (p: any, idx?: number): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
+    if (idx !== undefined && !isUnlocked(idx)) return 'NOT_VISITED';
     if (markedForReview.has(p.slug)) return 'MARKED';
+    // Only unlocked questions that have been opened or attempted count as NOT_ANSWERED
     if (visitedProblems.has(p.slug) || (p.attemptsCount && p.attemptsCount > 0)) {
       return 'NOT_ANSWERED';
     }
@@ -82,11 +84,9 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   problems.forEach((p, idx) => {
     if (!isUnlocked(idx)) {
       lockedCount++;
+      return; // Locked questions are counted exclusively in lockedCount
     }
-  });
-
-  problems.forEach((p) => {
-    const st = getStatus(p);
+    const st = getStatus(p, idx);
     if (st === 'SOLVED') solvedCount++;
     else if (st === 'MARKED') markedCount++;
     else if (st === 'NOT_ANSWERED') notAnsweredCount++;
@@ -190,7 +190,7 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
         <div className="grid grid-cols-5 gap-2">
           {problems.map((p, idx) => {
             const num = p.moduleOrder || idx + 1;
-            const status = getStatus(p);
+            const status = getStatus(p, idx);
             const isCurrent = p.slug === currentProblemSlug;
             const unlocked = isUnlocked(idx);
 
