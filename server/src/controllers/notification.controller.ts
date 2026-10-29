@@ -18,7 +18,7 @@ export class NotificationController {
 
       // 1. WhatsApp pre-formatted payload
       const whatsappText = `🔥 *LogicQ Daily C Programming Challenge* 🔥\n\nHey ${studentName}! Don't let your ${streak}-day streak break today.\n\n⚡ *Challenge:* ${problemTitle}\n💎 *Reward:* +25 Academic XP\n⏱️ *Time:* ~10 mins\n\n👉 *Solve Now on Phone or Laptop:*\n${problemUrl}\n\nCompete on the Sanjivani University daily leaderboard! 🚀`;
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
 
       // If email is requested or available, send rich HTML digest
       let emailDispatched = false;
@@ -145,7 +145,7 @@ export class NotificationController {
 
       const sectionDisplayName = section?.sectionName || 'Class Section';
       const whatsappText = `📢 *Class Announcement: Today's Daily C Challenge is Live!* 🚀\n\nDear students of ${sectionDisplayName},\nPlease complete today's practical C programming problem:\n\n⚡ *Problem:* ${title}\n🎯 *Academic Reward:* +25 Points\n👉 *Solve Here:* ${url}\n\nEnsure submission before 11:59 PM IST for attendance & streak credit!`;
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
 
       // Dispatch async batch emails
       let sentCount = 0;
@@ -214,7 +214,7 @@ export class NotificationController {
       }
 
       const whatsappText = `📢 *NEW LAB ASSESSMENT ASSIGNED on LogicQ!* 🚀\n\nDear Students of *${sectionDisplayName}*,\nYour faculty mentor has scheduled a new proctored lab test:\n\n📝 *Test:* ${title}\n⏱️ *Duration:* ${duration} Minutes\n❓ *Questions:* ${qCount} Questions\n🎯 *Evaluation:* Auto-graded with C11 GCC & Proctoring\n\n👉 *Start Your Test Here:*\n${testUrl}\n\nPlease join and complete this session before the scheduled deadline! ⚡`;
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
 
       // Dispatch async emails
       let sentCount = 0;

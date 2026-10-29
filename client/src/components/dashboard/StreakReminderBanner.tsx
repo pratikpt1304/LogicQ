@@ -25,7 +25,7 @@ export const StreakReminderBanner: React.FC<StreakReminderBannerProps> = ({
 
   const handleWhatsAppShare = () => {
     const text = `🔥 *LogicQ Daily C Challenge Reminder* 🔥\n\nHey! Don't let your streak break today.\n\n⚡ *My Current Streak:* ${currentStreak} Days 🔥\n💎 *Reward:* +25 Academic XP\n⏱️ *Time:* ~10 mins\n\n👉 *Solve Today's C Challenge:*\nhttps://logicq-clanguage.web.app/daily\n\nJoin me on the daily leaderboard! 🚀`;
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
     toast.success('Opening WhatsApp reminder!');
   };

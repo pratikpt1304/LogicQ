@@ -1198,7 +1198,7 @@ export const DashboardPage: React.FC = () => {
 
                         <div className="flex items-center gap-1.5">
                           <a
-                            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                            href={`https://wa.me/?text=${encodeURIComponent(
                               `⚡ *LogicQ Test Reminder*\n\n📝 *Assessment:* ${test?.title || 'Lab Test'}\n⏱️ *Duration:* ${test?.durationMinutes || 60} Mins\n👉 *Direct Link:* https://logicq-clanguage.web.app/student/tests\n\nSubmit before scheduled deadline!`
                             )}`}
                             target="_blank"

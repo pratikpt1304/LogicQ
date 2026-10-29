@@ -103,7 +103,7 @@ export const CreateTestPage: React.FC = () => {
 
     const text = `📢 *NEW LAB ASSESSMENT ASSIGNED on LogicQ!* 🚀\n\nDear Students of *${sectionName}*,\nYour faculty mentor has scheduled a new proctored lab test:\n\n📝 *Test:* ${test.title}\n⏱️ *Duration:* ${duration} Minutes\n❓ *Questions:* ${qCount} Questions\n🎯 *Evaluation:* Auto-graded with C11 GCC & Proctoring\n\n👉 *Start Your Test Here:*\n${testUrl}\n\nPlease join and complete this session before the scheduled deadline! ⚡`;
 
-    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
   const handleDispatchEmailAlert = async (test: any) => {

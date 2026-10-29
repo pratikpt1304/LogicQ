@@ -384,7 +384,7 @@ export const QuestionBankPage: React.FC = () => {
 
                       <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                         <a
-                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                          href={`https://wa.me/?text=${encodeURIComponent(
                             `📢 *New C Practice Problem on LogicQ!* 💡\n\n📌 *Title:* ${q.title}\n📊 *Difficulty:* ${q.difficulty}\n🏷️ *Module:* ${q.module || 'Lab Coursework'}\n👉 *Practice Now:* https://logicq-clanguage.web.app/lab-internal\n\nSolve this question to level up your C programming mastery! 🚀`
                           )}`}
                           target="_blank"

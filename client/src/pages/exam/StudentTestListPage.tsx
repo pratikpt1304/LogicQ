@@ -110,7 +110,7 @@ export const StudentTestListPage: React.FC = () => {
     const qCount = test?.questions?.length || 20;
     const url = 'https://logicq-clanguage.web.app/student/tests';
     const text = `⚡ *LogicQ Lab Test Reminder*\n\n📝 *Assessment:* ${title}\n⏱️ *Duration:* ${duration} Mins (${qCount} Questions)\n👉 *Direct Link:* ${url}\n\nDon't forget to submit before the deadline! 🚀`;
-    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
   };
 
   return (
