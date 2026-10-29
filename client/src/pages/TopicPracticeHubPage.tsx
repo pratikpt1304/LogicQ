@@ -48,10 +48,61 @@ const STORAGE_KEY = 'logicq_solved_practice_topics';
 
 export function getSolvedPracticeTopicIds(userId?: string): string[] {
   try {
-    const userKey = userId ? `${STORAGE_KEY}_${userId}` : null;
-    const userSaved = userKey ? localStorage.getItem(userKey) : null;
-    if (userSaved) return JSON.parse(userSaved);
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const results = new Set<string>();
+
+    // 1. Check global storage key
+    const rawGlobal = localStorage.getItem(STORAGE_KEY);
+    if (rawGlobal) {
+      try {
+        const arr = JSON.parse(rawGlobal);
+        if (Array.isArray(arr)) arr.forEach((x) => x && results.add(String(x)));
+      } catch {}
+    }
+
+    // 2. Check user-scoped key
+    if (userId && userId !== 'anon') {
+      const userKey = `${STORAGE_KEY}_${userId}`;
+      const rawUser = localStorage.getItem(userKey);
+      if (rawUser) {
+        try {
+          const arr = JSON.parse(rawUser);
+          if (Array.isArray(arr)) arr.forEach((x) => x && results.add(String(x)));
+        } catch {}
+      }
+    }
+
+    // 3. Check fallback practice progress map
+    try {
+      const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+      if (rawProg) {
+        const progMap = JSON.parse(rawProg);
+        Object.keys(progMap).forEach((k) => {
+          if (progMap[k]?.isSolved) {
+            const clean = k.includes(':') ? k.split(':')[1] : k;
+            if (clean) results.add(clean);
+          }
+        });
+      }
+    } catch {}
+
+    // 4. Scan all logicq_practice_progress_* and logicq_stats_backup_* keys
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_practice_progress_') || key.startsWith('logicq_stats_backup_'))) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              const list = Array.isArray(parsed) ? parsed : parsed?.completedProblems;
+              if (Array.isArray(list)) list.forEach((x) => x && results.add(String(x)));
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+
+    return Array.from(results);
   } catch {
     return [];
   }
@@ -63,10 +114,26 @@ export function markPracticeTopicSolved(topicId: string, userId?: string): strin
     if (!list.includes(topicId)) {
       list.push(topicId);
     }
-    if (userId) {
-      localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(list));
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    // Write to both global and user-specific keys so student progress is NEVER lost
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      if (userId && userId !== 'anon') {
+        localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(list));
+        localStorage.setItem(`logicq_practice_progress_${userId}`, JSON.stringify(list));
+      }
+    } catch {}
+
+    // Also persist in fallback progress map
+    try {
+      const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+      const progMap = rawProg ? JSON.parse(rawProg) : {};
+      progMap[topicId] = { isSolved: true, lastVerdict: 'ACCEPTED' };
+      if (userId && userId !== 'anon') {
+        progMap[`${userId}:${topicId}`] = { isSolved: true, lastVerdict: 'ACCEPTED' };
+      }
+      localStorage.setItem('logicq_fallback_practice_progress_v1', JSON.stringify(progMap));
+    } catch {}
+
     return list;
   } catch {
     return [topicId];

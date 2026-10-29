@@ -154,6 +154,8 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [sessionTabSwitches, setSessionTabSwitches] = useState(0);
+  const lastTabSwitchRecordedRef = useRef<number>(0);
   const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
   const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
@@ -264,6 +266,11 @@ export const PracticeWorkspacePage: React.FC = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        const now = Date.now();
+        if (now - lastTabSwitchRecordedRef.current < 1500) return;
+        lastTabSwitchRecordedRef.current = now;
+        setSessionTabSwitches((prev) => prev + 1);
+
         setQuestionTabSwitchCount((prevQ) => {
           const nextQ = prevQ + 1;
           setTabSwitchCount((prevTotal) => {
@@ -288,6 +295,11 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
 
     const handleWindowBlur = () => {
+      const now = Date.now();
+      if (now - lastTabSwitchRecordedRef.current < 1500) return;
+      lastTabSwitchRecordedRef.current = now;
+      setSessionTabSwitches((prev) => prev + 1);
+
       setQuestionTabSwitchCount((prevQ) => {
         const nextQ = prevQ + 1;
         setTabSwitchCount((prevTotal) => {
@@ -300,7 +312,6 @@ export const PracticeWorkspacePage: React.FC = () => {
         }
         return nextQ;
       });
-      const now = Date.now();
       if (now - lastTabSwitchToastRef.current > 2000) {
         lastTabSwitchToastRef.current = now;
         toast.warning('⚠️ Window focus lost! Focus away from workspace is monitored.', {
@@ -1221,13 +1232,13 @@ export const PracticeWorkspacePage: React.FC = () => {
           </button>
 
           {/* Tab Switch Counter Badge */}
-          {tabSwitchCount > 0 && (
+          {sessionTabSwitches > 0 && (
             <span
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 animate-pulse"
               title={`${tabSwitchCount} tab switch(es) detected`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>{tabSwitchCount}</span>
+              <span>{sessionTabSwitches}</span>
             </span>
           )}
 
