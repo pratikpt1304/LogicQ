@@ -13,14 +13,22 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="LogicQ" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <script src="/theme-init.js"></script>
+    <script src="/theme-init.js" defer></script>
     <title>LogicQ — Daily C Programming Challenges & Daily Leaderboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      id="gfonts-css"
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
   </head>
   <body class="min-h-screen font-sans antialiased">
     <div id="root"></div>
