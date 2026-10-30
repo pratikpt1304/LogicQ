@@ -17,9 +17,13 @@ import {
   ShieldCheck,
   Layers,
   ChevronRight,
+  ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatPracticeTime } from './PracticeTimer.js';
 import QRCode from 'qrcode';
+import { auth } from '../../config/firebase.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export interface PracticeReportViewProps {
   user: {
@@ -42,6 +46,51 @@ export const PracticeReportView: React.FC<PracticeReportViewProps> = ({ user }) 
   const [regenerating, setRegenerating] = useState<boolean>(false);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  const targetUid = user?.id || (user as any)?.uid || auth.currentUser?.uid || 'current';
+  const { data: fsTelemetry } = useQuery({
+    queryKey: ['proctoring-telemetry-report', targetUid],
+    queryFn: () => FirestoreDataService.getProctoringTelemetry(targetUid),
+  });
+
+  const quarantinedSlugs = React.useMemo(() => {
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
+          }
+        }
+      }
+    } catch {}
+    return set;
+  }, []);
+
+  const isQuestionCheated = (q: any) => {
+    if (!q) return false;
+    const slug = (q.slug || q.problemSlug || q.problemId || '').toLowerCase().trim();
+    const title = (q.title || '').toLowerCase().trim();
+    if (slug && quarantinedSlugs.has(slug)) return true;
+    if (fsTelemetry?.incidents?.length) {
+      return fsTelemetry.incidents.some((inc: any) => {
+        const iSlug = (inc.problemSlug || '').toLowerCase().trim();
+        const iTitle = (inc.problemTitle || '').toLowerCase().trim();
+        const matchSlug = iSlug && slug && (iSlug === slug || slug.includes(iSlug) || iSlug.includes(slug));
+        const matchTitle = iTitle && title && (iTitle === title || title.includes(iTitle) || iTitle.includes(title));
+        return (
+          (matchSlug || matchTitle) &&
+          (inc.type === 'EXCEEDED_TAB_SWITCHES' ||
+            inc.type === 'EXCEEDED_COPY_PASTE' ||
+            inc.type === 'SECOND_CHANCE_SUBMISSION' ||
+            inc.isCheatAttempt)
+        );
+      });
+    }
+    return false;
+  };
 
   // Handle cooldown countdown
   useEffect(() => {
@@ -475,6 +524,30 @@ export const PracticeReportView: React.FC<PracticeReportViewProps> = ({ user }) 
                 </span>
               </div>
             </div>
+
+            {/* Examination Integrity & Anti-Cheat Summary (Official Verification Box) */}
+            {(fsTelemetry?.autoLockCount || fsTelemetry?.tabSwitchCount || quarantinedSlugs.size > 0) && (
+              <div className="p-4 rounded-xl bg-[#0C0F1F] border border-rose-500/30 space-y-2">
+                <div className="flex items-center justify-between border-b border-rose-500/20 pb-2">
+                  <span className="text-xs font-mono font-bold text-rose-300 uppercase flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                    <span>Examination Integrity &amp; Proctoring Audit Record</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    Behavioral Integrity: {fsTelemetry?.integrityScore ?? 85}/100
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono pt-1 text-slate-300">
+                  <div>Tab Switches: <strong className="text-rose-400">{fsTelemetry?.tabSwitchCount || 0}</strong></div>
+                  <div>Clipboard Blocked: <strong className="text-amber-400">{fsTelemetry?.copyPasteAttempts || 0}</strong></div>
+                  <div>Auto-Lock Penalties: <strong className="text-rose-400">{fsTelemetry?.autoLockCount || quarantinedSlugs.size}</strong></div>
+                  <div>Status: <strong className="text-rose-400">⚠️ Cheating Penalized</strong></div>
+                </div>
+                <p className="text-[10px] font-mono text-slate-400 pt-1">
+                  Institutional Policy: Questions with 3+ tab switches were auto-locked with zero marks (0 PTS) awarded.
+                </p>
+              </div>
+            )}
 
             {/* Visual Charts Section (Time & Attempts per Question) */}
             <div className="p-5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-4">

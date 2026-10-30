@@ -133,6 +133,77 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
   const incidents = fsTelemetry?.incidents || [];
 
+  // Collect local quarantined problem slugs across all module sessions
+  const quarantinedSlugs = React.useMemo(() => {
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
+          }
+        }
+      }
+    } catch {}
+    return set;
+  }, []);
+
+  // Aggregated list of all questions with cheating penalties
+  const cheatedQuestionsList = React.useMemo(() => {
+    const list: Array<{
+      title: string;
+      slug: string;
+      reason: string;
+      type: string;
+      timestamp: string;
+    }> = [];
+
+    const seenSlugs = new Set<string>();
+
+    if (incidents?.length) {
+      for (const inc of incidents) {
+        const itemAny = inc as any;
+        if (
+          inc.type === 'EXCEEDED_TAB_SWITCHES' ||
+          inc.type === 'EXCEEDED_COPY_PASTE' ||
+          inc.type === 'SECOND_CHANCE_SUBMISSION' ||
+          itemAny.isCheatAttempt ||
+          (typeof inc.reason === 'string' && inc.reason.includes('tab switch'))
+        ) {
+          const slug = (inc.problemSlug || inc.problemTitle || '').toLowerCase().trim();
+          if (!seenSlugs.has(slug)) {
+            seenSlugs.add(slug);
+            list.push({
+              title: inc.problemTitle || inc.problemSlug || 'Practice Question',
+              slug: inc.problemSlug || '',
+              reason: inc.reason || 'Exceeded 3 tab switches on question',
+              type: inc.type,
+              timestamp: inc.timestamp || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    quarantinedSlugs.forEach((qSlug) => {
+      if (!seenSlugs.has(qSlug)) {
+        seenSlugs.add(qSlug);
+        const title = qSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        list.push({
+          title,
+          slug: qSlug,
+          reason: 'Exceeded 3 tab switches (Quarantined Attempt)',
+          type: 'EXCEEDED_TAB_SWITCHES',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    return list;
+  }, [incidents, quarantinedSlugs]);
+
   // Backend integrityScore is RISK POINTS (0 is CLEAN, 100 is MAX CHEAT)
   const backendRiskPoints = typeof anl.integrityScore === 'number' ? anl.integrityScore : 0;
   const backendCleanScore = Math.max(0, 100 - backendRiskPoints);
@@ -257,6 +328,133 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Cheating Penalties & Academic Score Loss Breakdown */}
+      {cheatedQuestionsList.length > 0 && (
+        <div className="bg-[#141932] border border-rose-500/40 rounded-2xl p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
+          {/* Ambient Warning Radial */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-500/20 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                <AlertTriangle className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white font-sans flex items-center gap-2 flex-wrap">
+                  <span>Cheating Penalties &amp; Score Deduction Record</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                    {cheatedQuestionsList.length} Question{cheatedQuestionsList.length > 1 ? 's' : ''} Penalized
+                  </span>
+                </h3>
+                <p className="text-xs text-rose-300/80 font-sans mt-0.5">
+                  Detailed academic audit of questions where score was reduced to 0 due to tab switches or copy-paste violations.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-mono font-bold">
+                Total Score Forfeited: -{cheatedQuestionsList.length * 20} PTS
+              </span>
+            </div>
+          </div>
+
+          {/* Table of Cheated Questions & Lost Scores */}
+          <div className="space-y-3">
+            <span className="text-xs font-bold font-mono text-white uppercase tracking-wider block">
+              Affected Questions &amp; Lost Marks
+            </span>
+            <div className="overflow-x-auto rounded-xl border border-rose-500/30">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-[#0C0F1F] text-slate-400 uppercase text-[10px] tracking-wider border-b border-rose-500/20">
+                  <tr>
+                    <th className="py-3 px-4">Question Title</th>
+                    <th className="py-3 px-4">Violation Detected</th>
+                    <th className="py-3 px-4">Score Impact</th>
+                    <th className="py-3 px-4">Integrity Deduction</th>
+                    <th className="py-3 px-4 text-right">Academic Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-rose-500/10 bg-[#0C0F1F]/60">
+                  {cheatedQuestionsList.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-rose-500/5 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-white">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping shrink-0" />
+                          <span>{item.title}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-rose-300">
+                        <span className="inline-flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <span>{item.reason}</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-rose-400">
+                        0 / 20 PTS (-100% Forfeited)
+                      </td>
+                      <td className="py-3.5 px-4 text-amber-400 font-bold">
+                        -15 Integrity Points
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                          🚨 You have cheated in this
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4 Steps: Institutional Consequences (Cheating karne pe kya hota hai) */}
+          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-rose-500/20 space-y-3">
+            <span className="text-xs font-bold text-white font-mono uppercase tracking-wider block">
+              Institutional Consequences (Cheating karne pe kya hota hai):
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-sans">
+              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
+                <div className="text-rose-400 font-bold font-mono text-[11px] flex items-center gap-1">
+                  <span>1. Instant Auto-Lock</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  3 tab switches or 5 paste events instantly freeze your workspace to prevent external AI / web lookup.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
+                <div className="text-rose-400 font-bold font-mono text-[11px] flex items-center gap-1">
+                  <span>2. 0 Marks Forfeited</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  The C judge auto-submits current incomplete code with a cheat penalty. Zero marks (0 PTS) are credited.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
+                <div className="text-amber-400 font-bold font-mono text-[11px] flex items-center gap-1">
+                  <span>3. Integrity Score Drop</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Behavioral integrity rating drops (-15 PTS per lock), permanently flagged for college faculty &amp; admin review.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
+                <div className="text-[#8B9BFF] font-bold font-mono text-[11px] flex items-center gap-1">
+                  <span>4. 1-Chance Mercy Lock</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  The question is quarantined. You must solve all remaining module problems to unlock 1 final mercy attempt.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Anti-Cheat & Proctoring Audit Record */}
       <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 sm:p-7 space-y-4">
