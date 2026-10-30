@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,11 +31,14 @@ import {
   FileText,
   WifiOff,
   AlertCircle,
+  AlertTriangle,
   Cloud,
   Maximize2,
   Minimize2,
   ShieldAlert,
   ShieldCheck,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -44,11 +47,14 @@ import {
   getDeviceLabel,
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { auth } from '../config/firebase.js';
 export const ChallengePage: React.FC = () => {
   const { slug } = useParams<{ slug?: string }>();
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
+  const navigate = useNavigate();
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [code, setCode] = useState<string>('');
   const [customInput, setCustomInput] = useState<string>('');
@@ -77,12 +83,79 @@ export const ChallengePage: React.FC = () => {
     return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
   };
 
-  // Anti-Cheat & Proctoring State
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Anti-Cheat & Strict Proctoring State
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [fullscreenExits, setFullscreenExits] = useState(0);
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
-  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
   const [isWorkspaceLocked, setIsWorkspaceLocked] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const lastTabSwitchRecordedRef = useRef<number>(0);
+  const lastTabSwitchToastRef = useRef<number>(0);
+  const prevCodeLengthRef = useRef<number>(0);
+  const lastCodeChangeTimeRef = useRef<number>(Date.now());
   const MAX_TAB_SWITCHES = 3;
+
+  // Real-time Proctoring Alert HUD & Web Audio Warning
+  const [proctorWarningBanner, setProctorWarningBanner] = useState<{
+    message: string;
+    type: 'tab' | 'fullscreen' | 'paste' | 'cadence';
+  } | null>(null);
+  const warningBannerTimerRef = useRef<any>(null);
+
+  const playProctorAlertSound = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(329.63, ctx.currentTime + 0.28);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.28);
+    } catch {}
+  }, []);
+
+  const triggerProctorWarning = useCallback(
+    (message: string, type: 'tab' | 'fullscreen' | 'paste' | 'cadence') => {
+      playProctorAlertSound();
+      setProctorWarningBanner({ message, type });
+      if (warningBannerTimerRef.current) clearTimeout(warningBannerTimerRef.current);
+      warningBannerTimerRef.current = setTimeout(() => {
+        setProctorWarningBanner(null);
+      }, 5000);
+    },
+    [playProctorAlertSound]
+  );
+
+  const syncTelemetryToCloud = useCallback((updates: { tabSwitchCount?: number; copyPasteAttempts?: number; fullscreenExits?: number }) => {
+    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+    FirestoreDataService.saveProctoringTelemetry(uid, {
+      tabSwitchCount: updates.tabSwitchCount ?? tabSwitchCount,
+      copyPasteAttempts: updates.copyPasteAttempts ?? copyPasteAttempts,
+      fullscreenExits: updates.fullscreenExits ?? fullscreenExits,
+      lastIncidentAt: new Date().toISOString(),
+    }).catch(() => {});
+  }, [user, tabSwitchCount, copyPasteAttempts, fullscreenExits]);
+
+  const requestFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreen(true);
+      setShowFullscreenModal(false);
+    } catch {
+      toast.error('Unable to enter fullscreen mode. Please grant browser permissions.');
+    }
+  };
 
   const toggleFullscreen = async () => {
     try {
@@ -96,32 +169,158 @@ export const ChallengePage: React.FC = () => {
     }
   };
 
+  // Auto-request / prompt fullscreen on load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen()
+          .then(() => {
+            setIsFullscreen(true);
+            setShowFullscreenModal(false);
+          })
+          .catch(() => {
+            setShowFullscreenModal(true);
+          });
+      } else {
+        setIsFullscreen(true);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Fullscreen Exit Detection & Enforcement
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setTabSwitchCount((prev) => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      if (!active) {
+        setFullscreenExits((prev) => {
           const next = prev + 1;
-          if (next >= MAX_TAB_SWITCHES) {
-            setIsWorkspaceLocked(true);
-          }
+          syncTelemetryToCloud({ fullscreenExits: next });
+          triggerProctorWarning(`Fullscreen exited (#${next})! Fullscreen is required in proctored mode.`, 'fullscreen');
+          toast.error(`⚠️ Fullscreen exited! (Exit #${next}) Fullscreen is required during daily challenge.`, {
+            duration: 6000,
+          });
+          const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+          FirestoreDataService.recordProctoringIncident(uid, {
+            type: 'FULLSCREEN_EXIT',
+            problemSlug: slug || 'daily-challenge',
+            problemTitle: 'Daily Challenge',
+            reason: `Fullscreen exited (Exit #${next})`,
+          }).catch(() => {});
+          setShowFullscreenModal(true);
           return next;
         });
-        setShowTabSwitchWarning(true);
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [syncTelemetryToCloud, triggerProctorWarning, slug, user]);
+
+  // Tab switch & Window focus loss detection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        const now = Date.now();
+        if (now - lastTabSwitchRecordedRef.current < 1500) return;
+        lastTabSwitchRecordedRef.current = now;
+        setTabSwitchCount((prev) => {
+          const next = prev + 1;
+          syncTelemetryToCloud({ tabSwitchCount: next });
+          triggerProctorWarning(`Tab switch #${next} detected! Focus loss is logged for faculty audit.`, 'tab');
+          if (next >= MAX_TAB_SWITCHES) {
+            setIsWorkspaceLocked(true);
+            const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+            FirestoreDataService.recordProctoringIncident(uid, {
+              type: 'EXCEEDED_TAB_SWITCHES',
+              problemSlug: slug || 'daily-challenge',
+              problemTitle: 'Daily Challenge',
+              reason: `Exceeded ${MAX_TAB_SWITCHES} tab switches on Daily Challenge`,
+              codeSnippet: code,
+            }).catch(() => {});
+          }
+          return next;
+        });
+      } else {
+        const now = Date.now();
+        if (now - lastTabSwitchToastRef.current > 1500) {
+          lastTabSwitchToastRef.current = now;
+          toast.error('⚠️ Tab Switch Detected! Daily challenge is proctored.', {
+            duration: 5000,
+          });
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      const now = Date.now();
+      if (now - lastTabSwitchRecordedRef.current < 1500) return;
+      lastTabSwitchRecordedRef.current = now;
+      setTabSwitchCount((prev) => {
+        const next = prev + 1;
+        syncTelemetryToCloud({ tabSwitchCount: next });
+        triggerProctorWarning(`Window focus lost! Focus away from challenge workspace is monitored.`, 'tab');
+        return next;
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [syncTelemetryToCloud, triggerProctorWarning, slug, user, code]);
+
+  // Anti-Cheat: Strict Copy-Paste & Right-Click Prevention (Document-wide)
+  useEffect(() => {
+    const blockCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      toast.error('🚫 Copying text is strictly disabled during Daily Challenge!');
+    };
+    const blockCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      toast.error('🚫 Cutting text is disabled during Daily Challenge.');
+    };
+    const blockPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      setCopyPasteAttempts((prev) => {
+        const next = prev + 1;
+        syncTelemetryToCloud({ copyPasteAttempts: next });
+        triggerProctorWarning(`🚫 Pasting is strictly blocked! Please type your code manually.`, 'paste');
+        toast.error(`🚫 Pasting is disabled! Type code manually. Clipboard actions are recorded.`);
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: 'COPY_PASTE',
+          problemSlug: slug || 'daily-challenge',
+          problemTitle: 'Daily Challenge',
+          reason: `Clipboard paste attempted (#${next})`,
+          codeSnippet: code,
+        }).catch(() => {});
+        return next;
+      });
+    };
+    const blockContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener('copy', blockCopy);
+    document.addEventListener('cut', blockCut);
+    document.addEventListener('paste', blockPaste);
+    document.addEventListener('contextmenu', blockContextMenu);
+
+    return () => {
+      document.removeEventListener('copy', blockCopy);
+      document.removeEventListener('cut', blockCut);
+      document.removeEventListener('paste', blockPaste);
+      document.removeEventListener('contextmenu', blockContextMenu);
+    };
+  }, [syncTelemetryToCloud, triggerProctorWarning, slug, user, code]);
 
   // Track online/offline state for mobile PWA resilience
   useEffect(() => {
@@ -225,7 +424,20 @@ export const ChallengePage: React.FC = () => {
 
   // Persist draft to local cache immediately and debounce Firestore cloud sync
   const handleCodeChange = (nextCode: string) => {
-    if (isWindowExpired) return;
+    if (isWindowExpired || isWorkspaceLocked) return;
+
+    const now = Date.now();
+    const timeDelta = now - lastCodeChangeTimeRef.current;
+    const lengthDelta = nextCode.length - prevCodeLengthRef.current;
+    prevCodeLengthRef.current = nextCode.length;
+    lastCodeChangeTimeRef.current = now;
+
+    // Keystroke cadence detector: sudden injection of >160 chars in <250ms indicates automated script/paste
+    if (lengthDelta > 160 && timeDelta < 250) {
+      triggerProctorWarning('Rapid code burst detected (>160 chars/s)! All inputs are cadence monitored.', 'cadence');
+      toast.warning('⚠️ Unusually fast typing / code insertion detected. Keystroke cadence is logged.');
+    }
+
     setCode(nextCode);
 
     if (problem?.slug) {
@@ -617,9 +829,97 @@ export const ChallengePage: React.FC = () => {
 
   return (
     <div
-      style={{ height: 'calc(100dvh - var(--navbar-height, 4rem))' }}
-      className="flex flex-col w-full bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden"
+      /* Non-proctored fallback height: calc(100dvh - var(--navbar-height, 4rem)) */
+      className={`fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden bg-[var(--bg-main)] text-[var(--text-main)] ${
+        isFullscreen ? 'z-50' : ''
+      }`}
     >
+      {/* Real-time Proctoring Alert HUD Banner */}
+      {proctorWarningBanner && (
+        <div className="bg-rose-500/20 border-b border-rose-500/40 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-rose-300 shrink-0 z-30 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
+            <span className="truncate font-semibold">{proctorWarningBanner.message}</span>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-500/50 text-[10px] font-bold shrink-0">
+            PROCTORING LOGGED
+          </span>
+        </div>
+      )}
+
+      {/* Inactive Fullscreen Warning Banner */}
+      {!isFullscreen && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-amber-300 shrink-0 z-30">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <span className="truncate">
+              Fullscreen is inactive{fullscreenExits > 0 ? ` (Exits: ${fullscreenExits})` : ''}. Daily Challenge requires proctored fullscreen mode.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={requestFullscreen}
+            className="px-2.5 py-1 rounded-lg bg-amber-500 text-black font-bold text-[11px] hover:bg-amber-400 transition-colors shrink-0 ml-3 cursor-pointer"
+          >
+            Go Fullscreen 🔒
+          </button>
+        </div>
+      )}
+
+      {/* Dedicated Proctored Header Bar */}
+      <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsExitConfirmOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-rose-400 transition shrink-0 cursor-pointer"
+            title="Exit challenge and return to dashboard"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
+
+          <div className="h-4 w-[1px] bg-[var(--border-line)] shrink-0" />
+
+          <div className="min-w-0 flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[11px] font-mono font-bold shrink-0">
+              DAILY CHALLENGE
+            </span>
+            <span className="font-mono text-xs font-bold text-[var(--text-main)] truncate max-w-[140px] sm:max-w-[280px]">
+              {problem.title}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* 17:00 IST Window Timer */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-xs">
+            <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="text-[var(--text-muted)] hidden md:inline">17:00 IST Window:</span>
+            <span className="text-cyan-400 font-bold">{formatCountdown(remainingSeconds)}</span>
+          </div>
+
+          {/* Fullscreen Toggle */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline text-emerald-400 font-semibold">Proctored 🔒</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline text-amber-400 font-semibold">Go Fullscreen</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
       {/* 17:00 IST Switch Banner when the page stays open across the daily cutoff */}
       {isWindowExpired && (
         <div
@@ -923,12 +1223,33 @@ export const ChallengePage: React.FC = () => {
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
-              onRun={() => !isOffline && !isWindowExpired && runMutation.mutate()}
-              onSubmit={() => !isOffline && !isWindowExpired && submitMutation.mutate()}
+              onRun={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && runMutation.mutate()}
+              onSubmit={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && submitMutation.mutate()}
               onReset={handleResetCode}
               isSubmitting={submitMutation.isPending}
               isRunning={runMutation.isPending}
-              readOnly={isWindowExpired}
+              readOnly={isWindowExpired || isWorkspaceLocked}
+              disableCopyPaste={true}
+              onBlockedAction={(action) => {
+                if (action === 'paste') {
+                  setCopyPasteAttempts((prev) => {
+                    const next = prev + 1;
+                    syncTelemetryToCloud({ copyPasteAttempts: next });
+                    triggerProctorWarning('🚫 Pasting is strictly blocked! Please type code manually.', 'paste');
+                    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+                    FirestoreDataService.recordProctoringIncident(uid, {
+                      type: 'COPY_PASTE',
+                      problemSlug: problem?.slug || slug || 'daily-challenge',
+                      problemTitle: problem?.title || 'Daily Challenge',
+                      reason: `Editor paste blocked (Attempt #${next})`,
+                      codeSnippet: code,
+                    }).catch(() => {});
+                    return next;
+                  });
+                } else if (action === 'copy' || action === 'cut') {
+                  toast.error(`🚫 ${action === 'copy' ? 'Copying' : 'Cutting'} code is disabled during Daily Challenge.`);
+                }
+              }}
             />
           </div>
 
@@ -1209,6 +1530,118 @@ export const ChallengePage: React.FC = () => {
           onKeepLocal={handleKeepLocalDraft}
           onKeepRemote={handleKeepRemoteDraft}
         />
+      )}
+
+      {/* Proctored Fullscreen Required Modal */}
+      {showFullscreenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-400 mx-auto shadow-lg shadow-indigo-500/10">
+                <ShieldAlert className="w-8 h-8 animate-pulse text-indigo-400" />
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono tracking-wider uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                  Strict Proctoring Active
+                </span>
+                <h3 className="text-lg font-bold font-mono text-[var(--text-main)]">
+                  Proctored Daily Challenge Mode
+                </h3>
+                <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                  Daily Challenge is university proctored. Fullscreen mode is mandatory to write and submit code.
+                </p>
+              </div>
+
+              {/* Anti-cheat feature pills */}
+              <div className="grid grid-cols-3 gap-2 text-[10px] font-mono text-center">
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">🖥️</span>
+                  <span className="text-[var(--text-muted)] font-semibold">Fullscreen</span>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">🚫</span>
+                  <span className="text-[var(--text-muted)] font-semibold">No Paste</span>
+                </div>
+                <div className="p-2 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex flex-col items-center justify-center gap-1">
+                  <span className="text-sm">👁️</span>
+                  <span className="text-[var(--text-muted)] font-semibold">Track Tabs</span>
+                </div>
+              </div>
+
+              {fullscreenExits > 0 && (
+                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-mono">
+                  ⚠️ {fullscreenExits} Fullscreen Exit(s) recorded on your account!
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="p-4 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel)]/80 border border-[var(--border-line)] transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Dashboard</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={requestFullscreen}
+                className="flex-1 py-2.5 rounded-xl font-mono text-xs font-bold tracking-wide transition flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white shadow-lg shadow-cyan-500/20 cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>{fullscreenExits > 0 ? 'Resume Fullscreen ⛶' : 'Enter Fullscreen & Begin 🚀'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Confirmation Dialog */}
+      {isExitConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-[var(--text-main)] font-mono">
+                  Leave Challenge?
+                </h4>
+                <p className="text-xs text-[var(--text-muted)] font-mono">
+                  Your draft code is safely autosaved.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsExitConfirmOpen(false)}
+                className="px-3 py-2 rounded-xl text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] transition cursor-pointer"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExitConfirmOpen(false);
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(() => {});
+                  }
+                  navigate('/dashboard');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-mono font-bold text-white bg-rose-600 hover:bg-rose-500 transition cursor-pointer"
+              >
+                Exit to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
