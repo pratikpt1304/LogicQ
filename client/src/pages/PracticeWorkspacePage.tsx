@@ -133,6 +133,31 @@ export const PracticeWorkspacePage: React.FC = () => {
   });
 
   const [solvedSlugs, setSolvedSlugs] = useState<Set<string>>(new Set());
+
+  // Quarantined / Auto-locked questions due to proctoring infractions (3 tab switches)
+  const [quarantinedSlugs, setQuarantinedSlugs] = useState<Set<string>>(() => {
+    try {
+      const uid = (user as any)?.uid || (user as any)?.id || 'current';
+      const raw = localStorage.getItem(`logicq_quarantined_${moduleSlug}_${uid}`) || localStorage.getItem(`logicq_quarantined_${moduleSlug}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Second Chance Mercy Mode: Activated when user accepts the 1 chance to attempt locked questions
+  const [secondChanceSlugs, setSecondChanceSlugs] = useState<Set<string>>(() => {
+    try {
+      const uid = (user as any)?.uid || (user as any)?.id || 'current';
+      const raw = localStorage.getItem(`logicq_second_chance_${moduleSlug}_${uid}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Mercy Modal: Prompt shown when student finishes questions or submits with locked problems
+  const [showMercyModal, setShowMercyModal] = useState(false);
   const sessionCodeMapRef = useRef<Record<string, string>>({});
   const [code, setCode] = useState<string>('');
   const [customInput, setCustomInput] = useState<string>('');
@@ -468,7 +493,9 @@ export const PracticeWorkspacePage: React.FC = () => {
   const sanitizedVisitedProblems = React.useMemo(() => {
     const unlockedSlugs = new Set<string>();
     for (let i = 0; i < moduleProblems.length; i++) {
-      if (i === 0 || solvedSlugs.has(moduleProblems[i - 1]?.slug)) {
+      const prevP = i > 0 ? moduleProblems[i - 1] : null;
+      const isPrevPassed = i === 0 || solvedSlugs.has(prevP?.slug) || quarantinedSlugs.has(prevP?.slug);
+      if (isPrevPassed) {
         unlockedSlugs.add(moduleProblems[i]?.slug);
       } else {
         break;
@@ -482,7 +509,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       clean.add(problemSlug);
     }
     return clean;
-  }, [moduleProblems, solvedSlugs, visitedProblems, problemSlug]);
+  }, [moduleProblems, solvedSlugs, quarantinedSlugs, visitedProblems, problemSlug]);
 
   // Anti-Cheat Auto-Lock & Advance: Triggers when 3 tab switches or 5 paste attempts occur on current question
   const triggerAntiCheatAutoSubmit = useCallback(async (reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => {
@@ -495,11 +522,11 @@ export const PracticeWorkspacePage: React.FC = () => {
       : `Exceeded 5 copy-paste attempts on question (${count} detected)`;
 
     toast.error(
-      `🚨 Violation Limit Exceeded: ${isTab ? `${count} Tab Switches` : `${count} Paste Attempts`} detected! Current question auto-submitted with cheat penalty. Advancing...`,
+      `🚨 Violation Limit Exceeded: ${isTab ? `${count} Tab Switches` : `${count} Paste Attempts`} detected! Current question auto-locked & quarantined. Advancing to next question...`,
       { duration: 8000 }
     );
 
-    const uid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
+    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
     FirestoreDataService.recordProctoringIncident(uid, {
       type: isTab ? 'EXCEEDED_TAB_SWITCHES' : 'EXCEEDED_COPY_PASTE',
       problemSlug: problem?.slug || problemSlug || '',
@@ -508,7 +535,17 @@ export const PracticeWorkspacePage: React.FC = () => {
       codeSnippet: code,
     }).catch(() => {});
 
+    // Mark current question as QUARANTINED in state & local storage
     if (problemSlug) {
+      setQuarantinedSlugs((prev) => {
+        const next = new Set(prev);
+        next.add(problemSlug);
+        try {
+          localStorage.setItem(`logicq_quarantined_${moduleSlug}_${uid}`, JSON.stringify([...next]));
+          localStorage.setItem(`logicq_quarantined_${moduleSlug}`, JSON.stringify([...next]));
+        } catch {}
+        return next;
+      });
       setVisitedProblems((prev) => new Set(prev).add(problemSlug));
     }
 
@@ -532,10 +569,11 @@ export const PracticeWorkspacePage: React.FC = () => {
         navigate(`/practice/${moduleSlug}/${nextProb.slug}`);
       } else {
         toast.info('Reached the end of this module questions.');
+        setShowMercyModal(true);
       }
       setIsCheatingAutoSubmitTriggered(false);
-    }, 1800);
-  }, [isCheatingAutoSubmitTriggered, user?.id, problem, problemSlug, code, moduleProblems, moduleSlug, navigate]);
+    }, 1200);
+  }, [isCheatingAutoSubmitTriggered, user, problem, problemSlug, code, moduleProblems, moduleSlug, navigate]);
 
   useEffect(() => {
     triggerAntiCheatAutoSubmitRef.current = triggerAntiCheatAutoSubmit;
@@ -628,14 +666,15 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
   }, [moduleProblems, userProgress, problemSlug, user]);
 
-  // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved
+  // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved OR quarantined
   const isProblemUnlocked = (idx: number): boolean => {
     if (user?.role === 'ADMIN') return true;
     if (idx <= 0) return true;
     for (let i = 0; i < idx; i++) {
       const p = moduleProblems[i];
       const isSolved = p?.isSolved || solvedSlugs.has(p?.slug);
-      if (!isSolved) return false;
+      const isQuar = quarantinedSlugs.has(p?.slug);
+      if (!isSolved && !isQuar) return false;
     }
     return true;
   };
@@ -644,13 +683,59 @@ export const PracticeWorkspacePage: React.FC = () => {
   const handleSelectProblem = (targetSlug: string) => {
     const targetIdx = moduleProblems.findIndex((p: any) => p.slug === targetSlug);
     if (targetIdx > 0 && !isProblemUnlocked(targetIdx)) {
-      toast.error(`🔒 Question #${targetIdx + 1} is locked! Solve Question #${targetIdx} first to unlock.`);
+      toast.error(`🔒 Question #${targetIdx + 1} is locked! Solve previous questions first.`);
+      return;
+    }
+    if (quarantinedSlugs.has(targetSlug) && !secondChanceSlugs.has(targetSlug) && user?.role !== 'ADMIN') {
+      toast.error(`🔒 Question #${targetIdx + 1} is quarantined! Finish other questions to unlock your 1 final chance.`);
       return;
     }
     if (problem?.slug) {
       sessionCodeMapRef.current[problem.slug] = code;
     }
     navigate(`/practice/${moduleSlug}/${targetSlug}`);
+  };
+
+  // Open Mercy Modal or standard Submit Modal
+  const handleOpenSubmitOrMercy = () => {
+    const unresolvedQuarantined = moduleProblems.filter(
+      (p: any) => quarantinedSlugs.has(p.slug) && !p.isSolved && !solvedSlugs.has(p.slug) && !secondChanceSlugs.has(p.slug)
+    );
+    if (unresolvedQuarantined.length > 0) {
+      setShowMercyModal(true);
+      return;
+    }
+    setIsSubmitModalOpen(true);
+  };
+
+  const handleAcceptMercyChance = () => {
+    const unresolvedQuarantined = moduleProblems.filter(
+      (p: any) => quarantinedSlugs.has(p.slug) && !p.isSolved && !solvedSlugs.has(p.slug)
+    );
+    if (unresolvedQuarantined.length > 0) {
+      const nextSecond = new Set(secondChanceSlugs);
+      unresolvedQuarantined.forEach((p: any) => nextSecond.add(p.slug));
+      setSecondChanceSlugs(nextSecond);
+      const uid = (user as any)?.uid || (user as any)?.id || 'current';
+      try {
+        localStorage.setItem(`logicq_second_chance_${moduleSlug}_${uid}`, JSON.stringify([...nextSecond]));
+      } catch {}
+      setShowMercyModal(false);
+      toast.success('1 Final Chance unlocked! Solve the question and submit.');
+      const firstTarget = unresolvedQuarantined[0];
+      if (problem?.slug) {
+        sessionCodeMapRef.current[problem.slug] = code;
+      }
+      navigate(`/practice/${moduleSlug}/${firstTarget.slug}`);
+    } else {
+      setShowMercyModal(false);
+      setIsSubmitModalOpen(true);
+    }
+  };
+
+  const handleDeclineMercyChance = () => {
+    setShowMercyModal(false);
+    setIsSubmitModalOpen(true);
   };
 
   const handleMarkForReviewAndNext = () => {
@@ -703,7 +788,7 @@ export const PracticeWorkspacePage: React.FC = () => {
           if (nextProblem) {
             handleSelectProblem(nextProblem.slug);
           } else {
-            setIsSubmitModalOpen(true);
+            handleOpenSubmitOrMercy();
           }
           return;
         } else {
@@ -719,7 +804,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       if (nextProblem) {
         handleSelectProblem(nextProblem.slug);
       } else {
-        setIsSubmitModalOpen(true);
+        handleOpenSubmitOrMercy();
       }
     } else {
       toast.error(`🔒 Please solve and pass Question #${problem?.moduleOrder} first to unlock Question #${(problem?.moduleOrder || 0) + 1}.`);
@@ -1031,10 +1116,14 @@ export const PracticeWorkspacePage: React.FC = () => {
       if (practiceTimerRef.current) {
         await practiceTimerRef.current.syncNow('submit');
       }
+      const isCheatAttempt = Boolean(problemSlug && quarantinedSlugs.has(problemSlug));
       return api.post('/submissions/submit', {
         problemId: problem.id,
         code,
         idempotencyKey: idempotencyKeyRef.current,
+        isCheatAttempt,
+        quarantinedAttempt: isCheatAttempt,
+        tag: isCheatAttempt ? 'TRY_TO_CHEAT' : undefined,
       });
     },
     onSuccess: (res) => {
@@ -1045,6 +1134,21 @@ export const PracticeWorkspacePage: React.FC = () => {
       setActiveMobileTab('results');
       // Rotate idempotency key after successful submission dispatch
       idempotencyKeyRef.current = `prac-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      const isCheatAttempt = Boolean(problemSlug && quarantinedSlugs.has(problemSlug));
+      if (isCheatAttempt) {
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: 'SECOND_CHANCE_SUBMISSION',
+          problemSlug: problem.slug,
+          problemTitle: problem.title,
+          reason: 'Student submitted a previously tab-switch quarantined question during 1-chance mercy mode',
+          codeSnippet: code,
+          isCheatAttempt: true,
+          tag: 'TRY_TO_CHEAT',
+        } as any).catch(() => {});
+        toast.warning('⚠️ Quarantined Question Submitted: Flagged for faculty audit as "Try to Cheat".');
+      }
 
       const immediateSub = res?.data?.submission;
       if (
@@ -1158,9 +1262,55 @@ export const PracticeWorkspacePage: React.FC = () => {
     );
   }
 
-  // Barrier check: if user attempts to directly access a locked question
+  // Barrier 1: If current question was quarantined due to 3 tab switches
+  const isCurrentQuarantined = Boolean(
+    problemSlug &&
+    quarantinedSlugs.has(problemSlug) &&
+    !secondChanceSlugs.has(problemSlug) &&
+    user?.role !== 'ADMIN'
+  );
+
+  if (isCurrentQuarantined) {
+    const nextPlayable = moduleProblems.find(
+      (p: any, idx: number) =>
+        isProblemUnlocked(idx) &&
+        !p.isSolved &&
+        !solvedSlugs.has(p.slug) &&
+        !quarantinedSlugs.has(p.slug)
+    ) || moduleProblems[moduleProblems.length - 1];
+
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-5 max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 mx-auto shadow-lg shadow-amber-500/10">
+          <AlertTriangle className="w-8 h-8 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold font-mono bg-amber-500/20 text-amber-400 border border-amber-500/40">
+            PROCTORING QUARANTINE
+          </span>
+          <h2 className="text-xl font-bold font-mono text-[var(--text-main)]">
+            Question #{problem.moduleOrder} is Quarantined 🔒
+          </h2>
+          <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+            This question was locked after 3 tab switches. Please complete all remaining questions in this module first. You will be given <strong>1 final chance</strong> to attempt this question before submitting the module!
+          </p>
+        </div>
+        {nextPlayable && nextPlayable.slug !== problemSlug && (
+          <button
+            type="button"
+            onClick={() => handleSelectProblem(nextPlayable.slug)}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition cursor-pointer"
+          >
+            ← Continue to Active Question (#{nextPlayable.moduleOrder}: {nextPlayable.title})
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Barrier 2: Sequential lock check
   if (moduleProblems.length > 0 && currentProblemIndex > 0 && !isProblemUnlocked(currentProblemIndex)) {
-    const firstUnsolved = moduleProblems.find((p: any) => !p.isSolved && !solvedSlugs.has(p.slug)) || moduleProblems[0];
+    const firstUnsolved = moduleProblems.find((p: any, idx: number) => isProblemUnlocked(idx) && !p.isSolved && !solvedSlugs.has(p.slug)) || moduleProblems[0];
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center space-y-5 max-w-lg mx-auto">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-lg shadow-amber-500/10">
@@ -1171,7 +1321,7 @@ export const PracticeWorkspacePage: React.FC = () => {
             Question #{problem.moduleOrder} is Locked 🔒
           </h2>
           <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
-            In this module, questions must be completed in order. You must solve <strong>Question #{problem.moduleOrder - 1}</strong> before unlocking Question #{problem.moduleOrder}.
+            In this module, questions must be completed in order. You must complete or clear previous questions before unlocking Question #{problem.moduleOrder}.
           </p>
         </div>
         {firstUnsolved && (
@@ -1193,6 +1343,21 @@ export const PracticeWorkspacePage: React.FC = () => {
         isFullscreen ? 'z-50' : ''
       }`}
     >
+      {/* 1 Final Chance Mercy Mode Active Banner */}
+      {problemSlug && secondChanceSlugs.has(problemSlug) && (
+        <div className="bg-rose-500/15 border-b border-rose-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-rose-300 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+            <span className="truncate">
+              <strong>1 Final Chance Mode:</strong> This question was previously quarantined for tab-switching. Submissions will be flagged as <strong>🚨 Try to Cheat / Quarantined Solution</strong> for faculty audit.
+            </span>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold shrink-0">
+            FLAGGED ATTEMPT
+          </span>
+        </div>
+      )}
+
       {/* Inactive Fullscreen Warning Banner */}
       {!isFullscreen && (
         <div className="bg-amber-500/15 border-b border-amber-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-amber-300 shrink-0">
@@ -1916,8 +2081,9 @@ export const PracticeWorkspacePage: React.FC = () => {
               visitedProblems={sanitizedVisitedProblems}
               markedForReview={markedForReview}
               solvedSlugs={solvedSlugs}
+              quarantinedSlugs={quarantinedSlugs}
               onSelectProblem={handleSelectProblem}
-              onSubmitTest={() => setIsSubmitModalOpen(true)}
+              onSubmitTest={handleOpenSubmitOrMercy}
               user={user}
               onOpenQuestionPaper={() => setIsQuestionPaperOpen(true)}
               onOpenInstructions={() => setIsInstructionsOpen(true)}
@@ -1999,7 +2165,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => setIsSubmitModalOpen(true)}
+            onClick={handleOpenSubmitOrMercy}
             className="px-2.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-500/20 transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ml-0.5 sm:ml-2 shrink-0"
             title="Submit entire module test"
           >
@@ -2022,10 +2188,11 @@ export const PracticeWorkspacePage: React.FC = () => {
               visitedProblems={sanitizedVisitedProblems}
               markedForReview={markedForReview}
               solvedSlugs={solvedSlugs}
+              quarantinedSlugs={quarantinedSlugs}
               onSelectProblem={handleSelectProblem}
               onSubmitTest={() => {
                 setIsPaletteDrawerOpen(false);
-                setIsSubmitModalOpen(true);
+                handleOpenSubmitOrMercy();
               }}
               user={user}
               onOpenQuestionPaper={() => {
@@ -2043,6 +2210,47 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
       )}
 
+      {/* 1 Final Chance Mercy Modal for Locked Questions */}
+      {showMercyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[var(--bg-panel)] border border-amber-500/40 rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-bold font-mono text-[var(--text-main)]">
+                Locked Questions Detected 🔒
+              </h3>
+              <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                You have <strong>{moduleProblems.filter((p: any) => quarantinedSlugs.has(p.slug) && !p.isSolved && !solvedSlugs.has(p.slug)).length} question(s)</strong> that were locked due to 3 tab switch violations.
+              </p>
+              <div className="text-xs font-mono text-amber-300 font-medium bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 text-left space-y-1">
+                <span className="font-bold block uppercase text-[10px] tracking-wider text-amber-400">1 Final Chance Policy:</span>
+                <p>You have 1 chance to solve locked question(s). Did you want to solve them now before final submission?</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={handleAcceptMercyChance}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-mono font-bold text-xs shadow-lg shadow-amber-500/20 transition cursor-pointer"
+              >
+                Yes, Solve Locked Question(s) (1 Final Chance) →
+              </button>
+              <button
+                type="button"
+                onClick={handleDeclineMercyChance}
+                className="w-full py-2.5 px-4 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+              >
+                No, Final Submit (Keep Pending)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* JEE Assessment Modals */}
       <JeeSubmitModal
         isOpen={isSubmitModalOpen}
@@ -2053,6 +2261,8 @@ export const PracticeWorkspacePage: React.FC = () => {
         solvedSlugs={solvedSlugs}
         markedForReview={markedForReview}
         visitedProblems={sanitizedVisitedProblems}
+        quarantinedSlugs={quarantinedSlugs}
+        onAttemptQuarantined={handleAcceptMercyChance}
         user={user}
         onConfirmSubmit={handleConfirmFinalSubmit}
         onGoToNextModule={() => {
@@ -2081,6 +2291,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         solvedSlugs={solvedSlugs}
         markedForReview={markedForReview}
         visitedProblems={sanitizedVisitedProblems}
+        quarantinedSlugs={quarantinedSlugs}
         onSelectProblem={handleSelectProblem}
       />
 

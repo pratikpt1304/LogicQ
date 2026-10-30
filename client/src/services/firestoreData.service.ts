@@ -2818,11 +2818,13 @@ export class FirestoreDataService {
   public static async recordProctoringIncident(
     userId: string,
     incident: {
-      type: 'EXCEEDED_TAB_SWITCHES' | 'EXCEEDED_COPY_PASTE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'FULLSCREEN_EXIT';
+      type: 'EXCEEDED_TAB_SWITCHES' | 'EXCEEDED_COPY_PASTE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'FULLSCREEN_EXIT' | 'SECOND_CHANCE_SUBMISSION';
       problemSlug?: string;
       problemTitle?: string;
       reason: string;
       codeSnippet?: string;
+      isCheatAttempt?: boolean;
+      tag?: string;
     }
   ): Promise<any> {
     const targetUid = auth.currentUser?.uid || userId || 'current';
@@ -2848,6 +2850,8 @@ export class FirestoreDataService {
         problemTitle: incident.problemTitle || '',
         reason: incident.reason,
         codeSnippet: incident.codeSnippet ? incident.codeSnippet.slice(0, 500) : '',
+        isCheatAttempt: Boolean(incident.isCheatAttempt || incident.type === 'SECOND_CHANCE_SUBMISSION'),
+        tag: incident.tag || (incident.type === 'SECOND_CHANCE_SUBMISSION' ? 'TRY_TO_CHEAT' : ''),
         timestamp: new Date().toISOString(),
       };
 

@@ -13,9 +13,10 @@ import {
   Clock,
   ShieldCheck,
   Lock,
+  AlertTriangle,
 } from 'lucide-react';
 
-export type JeeQuestionStatus = 'SOLVED' | 'MARKED' | 'NOT_ANSWERED' | 'NOT_VISITED';
+export type JeeQuestionStatus = 'SOLVED' | 'MARKED' | 'NOT_ANSWERED' | 'NOT_VISITED' | 'QUARANTINED';
 
 interface JeeQuestionPaletteProps {
   moduleTitle: string;
@@ -25,6 +26,7 @@ interface JeeQuestionPaletteProps {
   visitedProblems: Set<string>;
   markedForReview: Set<string>;
   solvedSlugs: Set<string>;
+  quarantinedSlugs?: Set<string>;
   onSelectProblem: (slug: string) => void;
   onSubmitTest: () => void;
   user: any;
@@ -42,6 +44,7 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   visitedProblems,
   markedForReview,
   solvedSlugs,
+  quarantinedSlugs,
   onSelectProblem,
   onSubmitTest,
   user,
@@ -50,14 +53,15 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   isMobileDrawer,
   onCloseMobileDrawer,
 }) => {
-  // Strict progressive locking: Question N requires Question N-1 to be solved
+  // Strict progressive locking: Question N requires Question N-1 to be solved OR quarantined
   const isUnlocked = (idx: number): boolean => {
     if (user?.role === 'ADMIN') return true;
     if (idx <= 0) return true;
     for (let i = 0; i < idx; i++) {
       const prevP = problems[i];
       const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
-      if (!isPrevSolved) return false;
+      const isPrevQuarantined = quarantinedSlugs?.has(prevP?.slug);
+      if (!isPrevSolved && !isPrevQuarantined) return false;
     }
     return true;
   };
@@ -65,6 +69,7 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   // Helper to determine question status
   const getStatus = (p: any, idx?: number): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
+    if (quarantinedSlugs?.has(p.slug)) return 'QUARANTINED';
     if (idx !== undefined && !isUnlocked(idx)) return 'NOT_VISITED';
     if (markedForReview.has(p.slug)) return 'MARKED';
     // Only unlocked questions that have been opened or attempted count as NOT_ANSWERED
@@ -80,8 +85,14 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
   let notAnsweredCount = 0;
   let notVisitedCount = 0;
   let lockedCount = 0;
+  let quarantinedCount = 0;
 
   problems.forEach((p, idx) => {
+    const isQuar = quarantinedSlugs?.has(p?.slug);
+    if (isQuar) {
+      quarantinedCount++;
+      return;
+    }
     if (!isUnlocked(idx)) {
       lockedCount++;
       return; // Locked questions are counted exclusively in lockedCount
@@ -175,6 +186,14 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
             </span>
             <span className="text-[var(--text-muted)] font-medium">Not Visited</span>
           </div>
+          {quarantinedCount > 0 && (
+            <div className="flex items-center gap-2 col-span-2">
+              <span className="w-5 h-5 rounded bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[10px] border border-amber-500/40">
+                <AlertTriangle className="w-2.5 h-2.5" />
+              </span>
+              <span className="text-amber-400 font-medium">Tab-Locked / Quarantined ({quarantinedCount})</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -200,10 +219,10 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
                   key={p.id || p.slug || idx}
                   type="button"
                   onClick={() => {
-                    toast.error(`🔒 Question #${num} is locked! Complete Question #${num - 1} first to unlock it.`);
+                    toast.error(`🔒 Question #${num} is locked! Complete previous questions or advance first.`);
                   }}
                   className="relative h-10 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center bg-slate-900/60 text-slate-500 border border-slate-800/80 cursor-not-allowed opacity-50 transition"
-                  title={`Q${num}: ${p.title} • Locked (Solve Q${num - 1} first)`}
+                  title={`Q${num}: ${p.title} • Locked`}
                 >
                   <span className="text-[11px] leading-tight">{num}</span>
                   <Lock className="w-2.5 h-2.5 text-slate-500" />
@@ -214,6 +233,8 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
             let bgClass = 'bg-slate-800 text-slate-300 border border-slate-700/70 hover:bg-slate-700';
             if (status === 'SOLVED') {
               bgClass = 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm shadow-emerald-600/30';
+            } else if (status === 'QUARANTINED') {
+              bgClass = 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30 shadow-sm';
             } else if (status === 'MARKED') {
               bgClass = 'bg-purple-600 text-white hover:bg-purple-500 shadow-sm shadow-purple-600/30';
             } else if (status === 'NOT_ANSWERED') {
@@ -236,6 +257,9 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
                 title={`Q${num}: ${p.title} (${p.difficulty}) • ${status}`}
               >
                 <span>{num}</span>
+                {status === 'QUARANTINED' && (
+                  <AlertTriangle className="w-2.5 h-2.5 absolute top-0.5 right-0.5 text-amber-400" />
+                )}
                 {status === 'MARKED' && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-purple-800" />
                 )}

@@ -14,6 +14,7 @@ interface JeeQuestionPaperModalProps {
   solvedSlugs: Set<string>;
   markedForReview: Set<string>;
   visitedProblems: Set<string>;
+  quarantinedSlugs?: Set<string>;
   onSelectProblem: (slug: string) => void;
 }
 
@@ -27,6 +28,7 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
   solvedSlugs,
   markedForReview,
   visitedProblems,
+  quarantinedSlugs,
   onSelectProblem,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,13 +40,15 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
     for (let i = 0; i < idx; i++) {
       const prevP = problems[i];
       const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
-      if (!isPrevSolved) return false;
+      const isPrevQuar = quarantinedSlugs?.has(prevP?.slug);
+      if (!isPrevSolved && !isPrevQuar) return false;
     }
     return true;
   };
 
   const getStatus = (p: any, idx?: number): JeeQuestionStatus => {
     if (p.isSolved || solvedSlugs.has(p.slug)) return 'SOLVED';
+    if (quarantinedSlugs?.has(p.slug)) return 'QUARANTINED';
     if (idx !== undefined && !isUnlocked(idx)) return 'NOT_VISITED';
     if (markedForReview.has(p.slug)) return 'MARKED';
     if (visitedProblems.has(p.slug) || (p.attemptsCount && p.attemptsCount > 0)) {
@@ -131,6 +135,8 @@ export const JeeQuestionPaperModal: React.FC<JeeQuestionPaperModalProps> = ({
                     className={`w-7 h-7 rounded-lg text-xs font-mono font-bold flex items-center justify-center shrink-0 ${
                       status === 'SOLVED'
                         ? 'bg-emerald-600 text-white'
+                        : status === 'QUARANTINED'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
                         : status === 'MARKED'
                         ? 'bg-purple-600 text-white'
                         : status === 'NOT_ANSWERED'

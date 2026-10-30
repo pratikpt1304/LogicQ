@@ -23,6 +23,8 @@ interface JeeSubmitModalProps {
   solvedSlugs: Set<string>;
   markedForReview: Set<string>;
   visitedProblems: Set<string>;
+  quarantinedSlugs?: Set<string>;
+  onAttemptQuarantined?: () => void;
   user: any;
   onConfirmSubmit: () => Promise<void> | void;
   onGoToNextModule: () => void;
@@ -38,6 +40,8 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
   solvedSlugs,
   markedForReview,
   visitedProblems,
+  quarantinedSlugs,
+  onAttemptQuarantined,
   user,
   onConfirmSubmit,
   onGoToNextModule,
@@ -54,7 +58,8 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
     for (let i = 0; i < idx; i++) {
       const prevP = problems[i];
       const isPrevSolved = prevP?.isSolved || solvedSlugs.has(prevP?.slug);
-      if (!isPrevSolved) return false;
+      const isPrevQuarantined = quarantinedSlugs?.has(prevP?.slug);
+      if (!isPrevSolved && !isPrevQuarantined) return false;
     }
     return true;
   };
@@ -64,9 +69,11 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
   let markedCount = 0;
   let notAnsweredCount = 0;
   let notVisitedCount = 0;
+  let quarantinedCount = 0;
 
   problems.forEach((p, idx) => {
     if (p.isSolved || solvedSlugs.has(p.slug)) solvedCount++;
+    else if (quarantinedSlugs?.has(p.slug)) quarantinedCount++;
     else if (!isUnlocked(idx)) notVisitedCount++;
     else if (markedForReview.has(p.slug)) markedCount++;
     else if (visitedProblems.has(p.slug) || (p.attemptsCount && p.attemptsCount > 0)) {
@@ -178,6 +185,33 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
             </div>
 
             {/* Progression Warning or Success Message */}
+            {quarantinedCount > 0 && (
+              <div className="p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-mono space-y-2">
+                <div className="flex items-center justify-between font-bold text-amber-400">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{quarantinedCount} Tab-Locked Question(s)</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/25 text-amber-300 text-[10px]">1 Chance Available</span>
+                </div>
+                <p className="leading-relaxed text-[11px] text-amber-300/90">
+                  You have {quarantinedCount} question(s) that were auto-locked due to 3 tab switches. You have 1 final chance to attempt and solve them now before final submission. If skipped, they will remain pending.
+                </p>
+                {onAttemptQuarantined && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onAttemptQuarantined();
+                    }}
+                    className="w-full mt-1 px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <span>Attempt Locked Question(s) Now (1 Final Chance) →</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {!isMasteryComplete ? (
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-amber-400">

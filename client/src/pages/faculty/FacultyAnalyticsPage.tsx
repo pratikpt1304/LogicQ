@@ -1413,7 +1413,13 @@ Generated On   : ${new Date().toLocaleString()}`;
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-500 border border-rose-500/30">
-                                  {inc.type === 'EXCEEDED_TAB_SWITCHES' ? '3+ Tab Switches' : inc.type === 'EXCEEDED_COPY_PASTE' ? '5+ Paste Attempts' : inc.type}
+                                  {inc.type === 'SECOND_CHANCE_SUBMISSION'
+                                    ? '🚨 Try to Cheat (Second Chance)'
+                                    : inc.type === 'EXCEEDED_TAB_SWITCHES'
+                                    ? '3+ Tab Switches (Quarantined)'
+                                    : inc.type === 'EXCEEDED_COPY_PASTE'
+                                    ? '5+ Paste Attempts'
+                                    : inc.type}
                                 </span>
                                 <span className="font-bold text-[var(--foreground)] font-mono truncate">
                                   {inc.problemTitle || inc.problemSlug || 'Question'}
@@ -1423,7 +1429,7 @@ Generated On   : ${new Date().toLocaleString()}`;
                             </div>
                             <div className="text-right shrink-0">
                               <span className="text-[10px] text-amber-500 font-mono block">
-                                Question Auto-Submitted
+                                {inc.type === 'SECOND_CHANCE_SUBMISSION' ? 'Audit: Try to Cheat' : 'Question Auto-Locked'}
                               </span>
                               <span className="text-[9px] text-[var(--muted-foreground)] font-mono block">
                                 {new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1526,12 +1532,40 @@ Generated On   : ${new Date().toLocaleString()}`;
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {/* Quarantined Questions Pending Cheating Audit Notice */}
+                      {inspectTelemetry?.incidents?.some((i: any) => i.type === 'EXCEEDED_TAB_SWITCHES' && !(deepDiveData.submissions || []).some((s: any) => (s.problem?.slug === i.problemSlug || s.problem?.title === i.problemTitle) && s.verdict === 'ACCEPTED')) && (
+                        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                            <span>Unsolved Quarantined Problems (Pending Cheating Audit)</span>
+                          </div>
+                          <div className="space-y-1">
+                            {inspectTelemetry.incidents
+                              .filter((i: any) => i.type === 'EXCEEDED_TAB_SWITCHES' && !(deepDiveData.submissions || []).some((s: any) => (s.problem?.slug === i.problemSlug || s.problem?.title === i.problemTitle) && s.verdict === 'ACCEPTED'))
+                              .map((i: any) => (
+                                <div key={i.id} className="p-2 rounded bg-[var(--card)] border border-amber-500/20 flex items-center justify-between text-xs font-mono">
+                                  <span className="text-[var(--foreground)] font-semibold">{i.problemTitle || i.problemSlug}</span>
+                                  <span className="px-2 py-0.5 rounded text-[10px] bg-rose-500/15 text-rose-400 font-bold border border-rose-500/30">
+                                    🚨 Try to Cheat &bull; Left Pending
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
                       {deepDiveData.submissions.map((sub: any) => {
                         const isExpanded = expandedCodeId === sub.id;
+                        const hasCheatIncident = inspectTelemetry?.incidents?.some(
+                          (i: any) =>
+                            (i.problemSlug === sub.problem?.slug || i.problemTitle === sub.problem?.title) &&
+                            (i.type === 'EXCEEDED_TAB_SWITCHES' || i.type === 'SECOND_CHANCE_SUBMISSION' || i.isCheatAttempt)
+                        ) || sub.isCheatAttempt || sub.quarantinedAttempt || sub.tag === 'TRY_TO_CHEAT';
+
                         return (
                           <div key={sub.id} className="p-4 bg-[var(--background)] border border-[var(--border)] rounded-xl space-y-3 text-xs">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                   className={`px-2.5 py-0.5 rounded text-[10px] font-bold font-mono ${
                                     sub.verdict === 'ACCEPTED'
@@ -1549,6 +1583,11 @@ Generated On   : ${new Date().toLocaleString()}`;
                                 <span className="text-[var(--muted-foreground)] text-[10px] font-mono">
                                   ({sub.problem?.difficulty || 'C PRACTICE'})
                                 </span>
+                                {hasCheatIncident && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-500 border border-rose-500/40 flex items-center gap-1">
+                                    🚨 Try to Cheat
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-3 text-[11px] text-[var(--muted-foreground)] font-mono">
