@@ -2924,17 +2924,20 @@ export class FirestoreDataService {
         localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(payload));
       } catch {}
 
-      // Sync to Firestore
+      // Sync to Firestore (only if actively signed in to Firebase Auth)
       try {
-        const primaryUid = auth.currentUser?.uid || targetUid;
+        const primaryUid = auth.currentUser?.uid;
         if (primaryUid) {
           await setDoc(doc(db, 'users', primaryUid, 'drafts', 'proctoring_telemetry'), {
             ...payload,
             updatedAt: serverTimestamp(),
           }, { merge: true });
         }
-      } catch (fErr) {
-        console.warn('recordProctoringIncident Firestore sync warning:', fErr);
+      } catch (fErr: any) {
+        // Log cleanly without noisy alerts if permissions are temporarily unready
+        if (fErr?.code !== 'permission-denied') {
+          console.warn('recordProctoringIncident Firestore sync warning:', fErr);
+        }
       }
 
       return payload;
@@ -2988,17 +2991,19 @@ export class FirestoreDataService {
         localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(merged));
       } catch {}
 
-      // Sync to Firestore
+      // Sync to Firestore (only if actively signed in to Firebase Auth)
       try {
-        const primaryUid = auth.currentUser?.uid || targetUid;
+        const primaryUid = auth.currentUser?.uid;
         if (primaryUid) {
           await setDoc(doc(db, 'users', primaryUid, 'drafts', 'proctoring_telemetry'), {
             ...merged,
             updatedAt: serverTimestamp(),
           }, { merge: true });
         }
-      } catch (fErr) {
-        console.warn('saveProctoringTelemetry Firestore sync warning:', fErr);
+      } catch (fErr: any) {
+        if (fErr?.code !== 'permission-denied') {
+          console.warn('saveProctoringTelemetry Firestore sync warning:', fErr);
+        }
       }
     } catch (err) {
       console.warn('saveProctoringTelemetry error:', err);
@@ -3025,7 +3030,6 @@ export class FirestoreDataService {
       timestamp: string;
     }>;
   } | null> {
-    const targetUid = auth.currentUser?.uid || userId;
     let localData: any = null;
     try {
       const raw = localStorage.getItem('logicq_proctoring_telemetry');
@@ -3034,6 +3038,7 @@ export class FirestoreDataService {
       }
     } catch {}
 
+    const targetUid = auth.currentUser?.uid;
     let remoteData: any = null;
     if (targetUid) {
       try {
