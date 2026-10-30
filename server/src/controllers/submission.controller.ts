@@ -29,6 +29,8 @@ export const submitSolutionSchema = z.object({
       .min(1, 'Source code cannot be empty')
       .max(65536, 'Source code cannot exceed 64KB'),
     contestId: z.string().uuid().optional().nullable(),
+    isCheatAutoSubmit: z.boolean().optional(),
+    violationReason: z.string().optional(),
   }),
 });
 
@@ -174,7 +176,7 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
     }
 
     await ensureCurrentWeekSchedule();
-    const { problemId, code, contestId } = req.body;
+    const { problemId, code, contestId, isCheatAutoSubmit, violationReason } = req.body;
 
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
@@ -247,6 +249,39 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
 
     // Create submission record with PENDING status, authoritative submittedAt, and appropriate submissionType
     const submissionType = problem.isPractice ? 'PRACTICE' : 'DAILY';
+
+    if (isCheatAutoSubmit) {
+      const compileOutput = `[Anti-Cheat Auto-Lock]: ${violationReason || 'Proctoring violation detected (tab switches/copy-paste). Disqualified with 0 marks.'}`;
+      const submission = await prisma.submission.create({
+        data: {
+          userId: req.user.userId,
+          problemId,
+          contestId: contestId || null,
+          submissionType,
+          code,
+          verdict: 'WRONG_ANSWER',
+          pointsAwarded: 0,
+          compileOutput,
+          createdAt: submittedAt,
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Cheat submission quarantined and recorded with 0 points penalty.',
+        data: {
+          submissionId: submission.id,
+          submittedAt: submission.createdAt,
+          status: 'COMPLETED',
+          submissionType,
+          verdict: 'WRONG_ANSWER',
+          pointsAwarded: 0,
+          isCheatAutoSubmit: true,
+          compileOutput,
+        },
+      });
+      return;
+    }
     const submission = await prisma.submission.create({
       data: {
         userId: req.user.userId,

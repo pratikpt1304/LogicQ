@@ -235,13 +235,51 @@ export const ChallengePage: React.FC = () => {
           if (next >= MAX_TAB_SWITCHES) {
             setIsWorkspaceLocked(true);
             const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+            const violationReason = `Exceeded ${MAX_TAB_SWITCHES} tab switches on Daily Challenge`;
             FirestoreDataService.recordProctoringIncident(uid, {
               type: 'EXCEEDED_TAB_SWITCHES',
-              problemSlug: slug || 'daily-challenge',
-              problemTitle: 'Daily Challenge',
-              reason: `Exceeded ${MAX_TAB_SWITCHES} tab switches on Daily Challenge`,
+              problemSlug: problem?.slug || slug || 'daily-challenge',
+              problemTitle: problem?.title || 'Daily Challenge',
+              reason: violationReason,
               codeSnippet: code,
+              isCheatAttempt: true,
+              tag: 'TRY_TO_CHEAT',
             }).catch(() => {});
+
+            try {
+              const qKey = 'logicq_quarantined_problems';
+              const existing = JSON.parse(localStorage.getItem(qKey) || '[]');
+              existing.push(problem?.slug || slug || 'daily-challenge');
+              existing.push(problem?.title || 'Daily Challenge');
+              localStorage.setItem(qKey, JSON.stringify(Array.from(new Set(existing))));
+              localStorage.setItem(`logicq_quarantined_daily_${uid}`, 'true');
+            } catch {}
+
+            if (problem?.id) {
+              api.post('/submissions/submit', {
+                problemId: problem.id,
+                code: code || '// Quarantined attempt',
+                isCheatAutoSubmit: true,
+                violationReason,
+              }).then((res) => {
+                if (res?.data?.submission) {
+                  setSubmissionResult(res.data.submission);
+                }
+              }).catch(() => {});
+            }
+
+            FirestoreDataService.recordCheatSubmission(uid, {
+              problemId: problem?.id || 'daily-challenge',
+              problemTitle: problem?.title || 'Daily Challenge',
+              problemSlug: problem?.slug || slug || 'daily-challenge',
+              code: code || '// Quarantined attempt',
+              violationReason,
+              difficulty: problem?.difficulty || 'EASY',
+            }).catch(() => {});
+
+            setIsDrawerOpen(true);
+            setActiveBottomTab('output');
+            toast.error('🚨 Exceeded tab switches! Daily Challenge auto-locked & submitted with 0 marks penalty.', { duration: 10000 });
           }
           return next;
         });
@@ -1196,11 +1234,11 @@ export const ChallengePage: React.FC = () => {
                 onClick={() => runMutation.mutate()}
                 disabled={runMutation.isPending || isOffline || isWindowExpired}
                 title="Run code with active stdin (Ctrl + Enter)"
-                className="flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-colors shadow-sm"
+                className="flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-xl text-xs font-mono font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-all duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.96] shadow-sm hover:shadow cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 text-[var(--color-accent)] fill-current" />
                 <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
-                <span className="hidden sm:inline text-[10px] text-slate-400 bg-black/20 px-1.5 py-0.5 rounded border border-white/5 font-sans">Ctrl+↵</span>
+                <kbd className="hidden sm:inline text-[10px] text-[var(--text-muted)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-sans">Ctrl+↵</kbd>
               </button>
 
               <button
@@ -1209,11 +1247,11 @@ export const ChallengePage: React.FC = () => {
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending || isOffline || isWindowExpired}
                 title="Submit solution to judge all test cases (Ctrl + Shift + Enter)"
-                className="flex items-center gap-1.5 min-h-[38px] px-4 py-1.5 rounded-lg text-xs font-mono font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md hover:shadow-cyan-500/20 disabled:opacity-50 transition-all active:scale-95"
+                className="flex items-center gap-2 min-h-[40px] px-5 py-2 rounded-xl text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-[0.96] disabled:opacity-50 transition-all duration-200 ease-out cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
-                <span className="hidden sm:inline text-[10px] text-black/60 bg-black/10 px-1.5 py-0.5 rounded font-bold font-sans">Ctrl+⇧+↵</span>
+                <kbd className="hidden sm:inline text-[10px] text-white/80 bg-black/20 px-1.5 py-0.5 rounded border border-white/10 font-sans">Ctrl+⇧+↵</kbd>
               </button>
             </div>
           </div>
@@ -1253,15 +1291,15 @@ export const ChallengePage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Execution Panel Drawer (Tabs: Sample Cases, Custom Stdin, Verdict & Output) */}
+                    {/* Bottom Execution Panel Drawer (Apple-style Segmented Dock & Spring Inspector) */}
           <div
-            className={`border-t border-[var(--border-line)] bg-[var(--bg-panel)] transition-all duration-200 flex flex-col shrink-0 ${
-              isDrawerOpen ? 'h-64 max-h-[44%]' : 'h-11'
+            className={`border-t border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
+              isDrawerOpen ? 'h-72 sm:h-84 max-h-[52%]' : 'h-12'
             }`}
           >
-            {/* Drawer Header */}
+            {/* Drawer Header with Apple Segmented Control */}
             <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0 font-mono text-xs">
-              <div className="flex items-center gap-1.5 overflow-x-auto">
+              <div className="apple-segmented-group">
                 <button
                   type="button"
                   data-testid="tab-sample-cases"
@@ -1269,9 +1307,9 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('cases');
                     setIsDrawerOpen(true);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
-                    activeBottomTab === 'cases'
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
+                  className={`apple-segmented-item ${
+                    activeBottomTab === 'cases' && isDrawerOpen
+                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
@@ -1286,9 +1324,9 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('custom');
                     setIsDrawerOpen(true);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
-                    activeBottomTab === 'custom'
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
+                  className={`apple-segmented-item ${
+                    activeBottomTab === 'custom' && isDrawerOpen
+                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
@@ -1303,9 +1341,9 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('output');
                     setIsDrawerOpen(true);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
-                    activeBottomTab === 'output'
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-panel)] border border-[var(--color-accent)] font-bold'
+                  className={`apple-segmented-item ${
+                    activeBottomTab === 'output' && isDrawerOpen
+                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
@@ -1321,9 +1359,10 @@ export const ChallengePage: React.FC = () => {
                 type="button"
                 aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+                className="px-2.5 py-1 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)] transition-all duration-200 active:scale-95 flex items-center gap-1.5 font-mono text-xs cursor-pointer"
               >
-                {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                <span className="hidden sm:inline font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
               </button>
             </div>
 

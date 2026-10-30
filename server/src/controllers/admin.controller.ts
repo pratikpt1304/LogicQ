@@ -2805,7 +2805,7 @@ export async function adminResumeDailySystem(req: AuthRequest, res: Response): P
       data: result,
     });
   } catch (err: any) {
-    if (String(err?.message || '').includes('Cannot resume')) {
+    if (String(err?.message || '').includes('Cannot resume') || String(err?.message || '').includes('validated challenge problems')) {
       res.status(400).json({
         success: false,
         message: err.message,

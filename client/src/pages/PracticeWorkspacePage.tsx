@@ -1820,18 +1820,18 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
 
           {/* Bottom Tabs Drawer: Strictly Custom Stdin and Verdict & Output */}
-          <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)]/80 flex flex-col shrink-0">
-            <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border-line)]/60">
-              <div className="flex items-center gap-1">
+          <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)]/80 shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden">
+            <div className="px-4 py-2 flex items-center justify-between border-b border-[var(--border-line)]/60">
+              <div className="apple-segmented-group">
                 <button
                   type="button"
                   onClick={() => {
                     setActiveBottomTab('custom');
                     setIsDrawerOpen(true);
                   }}
-                  className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
+                  className={`apple-segmented-item ${
                     activeBottomTab === 'custom' && isDrawerOpen
-                      ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
+                      ? 'bg-[var(--bg-panel)] text-[var(--accent)] shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
@@ -1843,15 +1843,15 @@ export const PracticeWorkspacePage: React.FC = () => {
                     setActiveBottomTab('output');
                     setIsDrawerOpen(true);
                   }}
-                  className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 ${
+                  className={`apple-segmented-item ${
                     activeBottomTab === 'output' && isDrawerOpen
-                      ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
+                      ? 'bg-[var(--bg-panel)] text-[var(--accent)] shadow-sm'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                   }`}
                 >
                   <span>Verdict &amp; Output</span>
                   {executionError && (
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                   )}
                 </button>
               </div>
@@ -1859,10 +1859,11 @@ export const PracticeWorkspacePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                className="px-2.5 py-1 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)] transition-all duration-200 active:scale-95 flex items-center gap-1.5 font-mono text-xs cursor-pointer"
                 title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
               >
-                {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                <span className="hidden sm:inline font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
               </button>
             </div>
 

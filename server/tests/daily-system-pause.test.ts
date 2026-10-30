@@ -42,7 +42,8 @@ describe('Daily Challenge System Safe Pause Architecture (Gate 1 Verification)',
     setAutoScheduleSyncEnabled(false);
 
     // Initialize or get default system config
-    await initSystemConfig();
+    await initSystemConfig(true);
+    await pauseDailySystem('SYSTEM_TEST', 'Safe Pause Architecture Test Suite');
 
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 

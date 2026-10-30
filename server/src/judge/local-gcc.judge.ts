@@ -61,13 +61,6 @@ if (typeof process !== 'undefined') {
 }
 
 function getJudgeWorkingRoot(): string {
-  if (process.platform === 'win32') {
-    const modDir = getModuleDir();
-    const runnerDir = modDir.includes('dist')
-      ? path.resolve(modDir, '../../src/judge')
-      : modDir;
-    return runnerDir;
-  }
   return os.tmpdir();
 }
 
@@ -676,7 +669,7 @@ static inline char* __lq_getenv(const char *name) {
         const kernelTimeMs = parseInt(match[5], 10);
         const peakMemKb = parseInt(match[6], 10);
 
-        if (timedOut || userTimeMs >= timeLimitMs || exitCode === EXIT_CODE_TIMEOUT || runnerExitCode === EXIT_CODE_TIMEOUT) {
+        if (timedOut || userTimeMs >= timeLimitMs || runtimeMs >= timeLimitMs || exitCode === EXIT_CODE_TIMEOUT || runnerExitCode === EXIT_CODE_TIMEOUT) {
           resolve({
             verdict: Verdict.TIME_LIMIT_EXCEEDED,
             runtimeMs: Math.max(runtimeMs, userTimeMs),
@@ -789,10 +782,26 @@ static inline char* __lq_getenv(const char *name) {
         return;
       }
 
+      if (child.stdin) {
+        child.stdin.on('error', () => {});
+        if (stdin) {
+          child.stdin.write(stdin);
+        }
+        child.stdin.end();
+      }
+
       const timer = setTimeout(() => {
         timedOut = true;
         killed = true;
-        child.kill('SIGKILL');
+        try {
+          if (process.platform === 'win32' && child.pid) {
+            spawnSync('taskkill', ['/pid', String(child.pid), '/f', '/t'], { stdio: 'ignore' });
+          } else {
+            child.kill('SIGKILL');
+          }
+        } catch {
+          try { child.kill('SIGKILL'); } catch {}
+        }
       }, timeLimitMs);
 
       child.stdout.on('data', (data: Buffer | string) => {
@@ -822,9 +831,20 @@ static inline char* __lq_getenv(const char *name) {
 
       child.on('error', (err: Error) => {
         clearTimeout(timer);
+        const runtimeMs = Math.round(performance.now() - startTime);
+        if (timedOut || killed || runtimeMs >= timeLimitMs) {
+          resolve({
+            verdict: Verdict.TIME_LIMIT_EXCEEDED,
+            runtimeMs,
+            stdout,
+            stderr: 'Execution timed out',
+            exitCode: EXIT_CODE_TIMEOUT,
+          });
+          return;
+        }
         resolve({
           verdict: Verdict.RUNTIME_ERROR,
-          runtimeMs: Math.round(performance.now() - startTime),
+          runtimeMs,
           stdout,
           stderr: err.message,
         });
@@ -834,7 +854,7 @@ static inline char* __lq_getenv(const char *name) {
         clearTimeout(timer);
         const runtimeMs = Math.round(performance.now() - startTime);
 
-        if (timedOut || signal === 'SIGKILL' || signal === 'SIGTERM') {
+        if (timedOut || killed || runtimeMs >= timeLimitMs || signal === 'SIGKILL' || signal === 'SIGTERM') {
           resolve({
             verdict: Verdict.TIME_LIMIT_EXCEEDED,
             runtimeMs,
