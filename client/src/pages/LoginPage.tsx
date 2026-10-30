@@ -293,7 +293,7 @@ export const LoginPage: React.FC = () => {
                 <form onSubmit={handleSendOtp} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
-                      Institutional Email Address
+                      Email Address
                     </label>
                     <div className="relative">
                       <input
@@ -302,7 +302,7 @@ export const LoginPage: React.FC = () => {
                         autoFocus
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="e.g. pratik.thorat@sanjivani.edu.in"
+                        placeholder="e.g. rohitsharma@gmail.com"
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
                       <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
