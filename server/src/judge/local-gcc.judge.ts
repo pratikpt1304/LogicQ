@@ -61,6 +61,18 @@ if (typeof process !== 'undefined') {
 }
 
 function getJudgeWorkingRoot(): string {
+  if (process.platform === 'win32') {
+    const cwd = process.cwd();
+    const baseDir = cwd.endsWith('server')
+      ? path.resolve(cwd, '.tmp_judge')
+      : path.resolve(cwd, 'server', '.tmp_judge');
+    try {
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+      return baseDir;
+    } catch {}
+  }
   return os.tmpdir();
 }
 
@@ -130,11 +142,12 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
    */
   async ensureSandboxRunner(): Promise<string> {
     if (process.platform !== 'win32' || LocalGccJudge.runnerDisabledByPolicy) return '';
-    if (LocalGccJudge.cachedRunnerPath && fs.existsSync(LocalGccJudge.cachedRunnerPath)) {
+    const targetRunnerPath = path.join(getJudgeWorkingRoot(), 'win-sandbox-runner.exe');
+    if (LocalGccJudge.cachedRunnerPath === targetRunnerPath && fs.existsSync(LocalGccJudge.cachedRunnerPath)) {
       this.runnerExecutablePath = LocalGccJudge.cachedRunnerPath;
       return LocalGccJudge.cachedRunnerPath;
     }
-    if (this.runnerExecutablePath && fs.existsSync(this.runnerExecutablePath)) {
+    if (this.runnerExecutablePath === targetRunnerPath && fs.existsSync(this.runnerExecutablePath)) {
       LocalGccJudge.cachedRunnerPath = this.runnerExecutablePath;
       return this.runnerExecutablePath;
     }
@@ -151,10 +164,12 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
           : modDir;
         let runnerSource = path.join(runnerDir, 'win-sandbox-runner.c');
         if (!fs.existsSync(runnerSource)) {
-          runnerSource = path.resolve(process.cwd(), 'src/judge/win-sandbox-runner.c');
+          const candidate1 = path.resolve(process.cwd(), 'server/src/judge/win-sandbox-runner.c');
+          const candidate2 = path.resolve(process.cwd(), 'src/judge/win-sandbox-runner.c');
+          runnerSource = fs.existsSync(candidate1) ? candidate1 : candidate2;
         }
 
-        const runnerExe = path.join(path.dirname(runnerSource), 'win-sandbox-runner.exe');
+        const runnerExe = path.join(getJudgeWorkingRoot(), 'win-sandbox-runner.exe');
 
         const testExecutablePermission = (exePath: string): boolean => {
           try {
@@ -168,11 +183,15 @@ export class LocalGccJudge implements ITwoPhaseJudge, IJudge {
           }
         };
 
-        // Check if existing binary is newer than or equal to source
-        if (fs.existsSync(runnerExe) && fs.existsSync(runnerSource)) {
-          const cMtime = fs.statSync(runnerSource).mtimeMs;
-          const exeMtime = fs.statSync(runnerExe).mtimeMs;
-          if (exeMtime >= cMtime) {
+        // Check if existing binary is newer than or equal to source, or valid if source not present
+        if (fs.existsSync(runnerExe)) {
+          let isUpToDate = true;
+          if (fs.existsSync(runnerSource)) {
+            const cMtime = fs.statSync(runnerSource).mtimeMs;
+            const exeMtime = fs.statSync(runnerExe).mtimeMs;
+            isUpToDate = exeMtime >= cMtime;
+          }
+          if (isUpToDate) {
             if (!testExecutablePermission(runnerExe)) {
               LocalGccJudge.runnerDisabledByPolicy = true;
               return '';
@@ -458,9 +477,10 @@ static inline char* __lq_getenv(const char *name) {
       const compileArgs = [
         '-O2',
         '-Wall',
+        '-s',
         '-std=c11',
         '-fno-asm',
-        '-D__LQ_BUILD__="LOGICQ"',
+        '-D__LQ_BUILD__=LOGICQ',
         '-include',
         preludeFile,
         '-o',

@@ -99,6 +99,29 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   });
 
+  const [isOffline, setIsOffline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success('Internet reconnected. GCC compilation available.');
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.warning('Offline Mode: GCC judging requires active internet connection. Local draft auto-saved.', {
+        duration: 5000,
+      });
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const showDeclarationModal = !hasAgreedRules;
 
   const handleAgreeAndStart = async () => {
@@ -1100,6 +1123,14 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Run Code Mutation
   const runMutation = useMutation({
     mutationFn: () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const err: any = new Error(
+          'Offline Mode: Active internet connection is required to compile and judge C code on the backend GCC engine. Your code draft has been saved locally.'
+        );
+        err.code = 'OFFLINE_MODE';
+        err.canRetry = false;
+        throw err;
+      }
       setExecutionError(null);
       if (problem?.id) {
         api.post('/practice/track-run', { problemId: problem.id }).catch(() => {});
@@ -1232,6 +1263,14 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Submit Solution Mutation (Practice submission)
   const submitMutation = useMutation({
     mutationFn: async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const err: any = new Error(
+          'Offline Mode: Active internet connection is required to evaluate test cases on the backend GCC engine. Your code draft has been saved locally.'
+        );
+        err.code = 'OFFLINE_MODE';
+        err.canRetry = false;
+        throw err;
+      }
       setExecutionError(null);
       if (practiceTimerRef.current) {
         await practiceTimerRef.current.syncNow('submit');

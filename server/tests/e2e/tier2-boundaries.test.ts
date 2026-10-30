@@ -128,9 +128,10 @@ describe('Tier 2: Boundary & Corner Cases Test Suite (F1 to F10)', () => {
     it('F2-B3: Sleeping or idle program is terminated within 3.0s by watchdog timer', async () => {
       const code = `
         #include <stdio.h>
+        #include <time.h>
         int main() {
             volatile long long i = 0;
-            while (1) { i++; }
+            while (1) { clock(); i++; }
             return 0;
         }
       `;

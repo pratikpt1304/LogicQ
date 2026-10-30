@@ -213,11 +213,11 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
           <h2 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
-            Sign In to LogicQ
+            Sign In
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
             {step === 'identifier'
-              ? 'Enter your registered email to receive a 6-digit OTP'
+              ? 'Enter your email to receive a 6-digit OTP'
               : `Enter the 6-digit code sent to ${targetDisplay}`}
           </p>
         </div>
