@@ -254,8 +254,16 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Practice Modules Track (Protected for authenticated students) */}
-          {/* Topic Practice Hub (Zero Restrictions, 1 Open + 1 Hidden, Tip Box) */}
+          {/* Daily Track (Topic Practice Arena with 100 Kanetkar problems) */}
+          <Route
+            path="/daily"
+            element={
+              <ProtectedRoute>
+                <TopicPracticeHubPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Topic Practice Hub alias */}
           <Route
             path="/practice"
             element={
