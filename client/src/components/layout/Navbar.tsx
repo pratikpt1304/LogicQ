@@ -181,40 +181,6 @@ export const Navbar: React.FC = () => {
                 </kbd>
               </button>
 
-              {/* Student Gamification Stats (Only visible to Students) */}
-              {isStudent && (
-                <>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    title="Current Daily Challenge Streak"
-                    className="relative flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-mono font-semibold shadow-sm overflow-hidden"
-                  >
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.25, 1],
-                        rotate: [-4, 4, -4],
-                      }}
-                      transition={{
-                        duration: 1.8,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                    >
-                      <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
-                    </motion.div>
-                    <span>{user.currentStreak}d streak</span>
-                  </motion.div>
-
-                  <div
-                    title="Total LogicQ Score"
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-accent)] text-xs font-mono font-semibold"
-                  >
-                    <span>PTS</span>
-                    <span>{user.totalPoints}</span>
-                  </div>
-                </>
-              )}
-
               {/* User Dropdown */}
               <div className="relative" ref={profileDropdownRef}>
                 <button
@@ -265,6 +231,26 @@ export const Navbar: React.FC = () => {
                       <p className="text-[var(--text-muted)] font-mono text-[11px] truncate">
                         {user.maskedPrn || user.email || `@${user.username}`}
                       </p>
+
+                      {/* Student Stats Badges (Streak & Total Points) inside Profile Dropdown */}
+                      {isStudent && (
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--border-line)]/60 font-mono text-[11px]">
+                          <div
+                            title="Daily Streak"
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-500 dark:text-amber-400 font-semibold"
+                          >
+                            <Flame className="w-3 h-3 text-amber-500 fill-amber-500/20" />
+                            <span>{user.currentStreak}d streak</span>
+                          </div>
+                          <div
+                            title="Total Points"
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-500 dark:text-indigo-400 font-semibold"
+                          >
+                            <span className="text-[10px] text-slate-400">PTS</span>
+                            <span>{user.totalPoints}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="max-h-[80vh] overflow-y-auto py-1 divide-y divide-[var(--border-line)]">
@@ -469,15 +455,7 @@ export const Navbar: React.FC = () => {
             </button>
           )}
 
-          {user ? (
-            <div
-              title="Daily challenge streak"
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
-            >
-              <Flame className="w-3.5 h-3.5 text-[var(--color-warning)]" />
-              <span>{user.currentStreak}d</span>
-            </div>
-          ) : (
+          {!user && (
             <Link
               to="/login"
               className="inline-flex items-center justify-center min-h-[36px] px-3.5 py-1 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
