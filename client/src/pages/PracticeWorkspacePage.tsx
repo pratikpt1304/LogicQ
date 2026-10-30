@@ -533,6 +533,8 @@ export const PracticeWorkspacePage: React.FC = () => {
       problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
       reason: violationReason,
       codeSnippet: code,
+      isCheatAttempt: true,
+      tag: 'TRY_TO_CHEAT',
     }).catch(() => {});
 
     // Mark current question as QUARANTINED in state & local storage
@@ -549,7 +551,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       setVisitedProblems((prev) => new Set(prev).add(problemSlug));
     }
 
-    // Auto-submit current code state as penalised attempt
+    // Auto-submit current code state as penalised attempt (Server backend + Firestore sync)
     try {
       if (problem?.id) {
         api.post('/submissions/submit', {
@@ -559,6 +561,16 @@ export const PracticeWorkspacePage: React.FC = () => {
           idempotencyKey: idempotencyKeyRef.current,
         }).catch(() => {});
       }
+      FirestoreDataService.recordCheatSubmission(uid, {
+        problemId: problem?.id || problemSlug || 'unknown',
+        problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
+        problemSlug: problem?.slug || problemSlug || '',
+        code: code || '// Quarantined attempt',
+        violationReason,
+        difficulty: (problem as any)?.difficulty || 'EASY',
+      }).catch(() => {});
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('DASHBOARD');
     } catch {}
 
     // Auto-advance to next problem

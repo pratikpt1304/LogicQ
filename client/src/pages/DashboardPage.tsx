@@ -227,26 +227,108 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 12000,
   });
 
-  // 3. Student Recent Submissions (Live 6s feed)
+  // 3. Student Recent Submissions (Live 6s feed with Firestore authoritative merge)
+  const studentUid = user?.id || (user as any)?.uid || auth.currentUser?.uid || '';
+
+  const { data: studentProctorTelemetry } = useQuery({
+    queryKey: ['student-proctor-telemetry-dash', studentUid],
+    enabled: Boolean(studentUid && isStudent),
+    queryFn: async () => {
+      if (!studentUid) return null;
+      return FirestoreDataService.getProctoringTelemetry(studentUid);
+    },
+    staleTime: 5000,
+  });
+
+  const studentQuarantinedSlugs = React.useMemo(() => {
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
+          }
+        }
+      }
+    } catch {}
+    return set;
+  }, []);
+
+  const isStudentCheatSub = (sub: any) => {
+    if (!sub) return false;
+    if (sub.isCheatAutoSubmit || sub.isCheatAttempt || sub.quarantinedAttempt || sub.tag === 'TRY_TO_CHEAT') {
+      return true;
+    }
+    const subSlug = (sub.problem?.slug || sub.problemSlug || sub.problemId || '').toLowerCase().trim();
+    const subTitle = (sub.problem?.title || sub.problemTitle || '').toLowerCase().trim();
+
+    if (subSlug && studentQuarantinedSlugs.has(subSlug)) return true;
+
+    if (studentProctorTelemetry?.incidents?.length) {
+      return studentProctorTelemetry.incidents.some((inc: any) => {
+        const incSlug = (inc.problemSlug || '').toLowerCase().trim();
+        const incTitle = (inc.problemTitle || '').toLowerCase().trim();
+        const slugMatch = incSlug && subSlug && (incSlug === subSlug || subSlug.includes(incSlug) || incSlug.includes(subSlug));
+        const titleMatch = incTitle && subTitle && (incTitle === subTitle || subTitle.includes(incTitle) || incTitle.includes(subTitle));
+        if (slugMatch || titleMatch) {
+          return (
+            inc.type === 'EXCEEDED_TAB_SWITCHES' ||
+            inc.type === 'EXCEEDED_COPY_PASTE' ||
+            inc.type === 'SECOND_CHANCE_SUBMISSION' ||
+            inc.isCheatAttempt ||
+            inc.tag === 'TRY_TO_CHEAT' ||
+            (typeof inc.reason === 'string' && (inc.reason.includes('tab switch') || inc.reason.includes('copy-paste') || inc.reason.includes('cheat')))
+          );
+        }
+        return false;
+      });
+    }
+    return false;
+  };
+
   const { data: studentSubmissions = [] } = useQuery({
     queryKey: ['student-my-submissions'],
     enabled: Boolean(user && isStudent),
     queryFn: async () => {
+      let serverSubs: any[] = [];
       try {
         const res = await api.get('/submissions/my?limit=5');
         const list = res?.submissions || res?.data?.submissions || res?.data;
-        if (Array.isArray(list) && list.length > 0) return list;
-      } catch {
-        // Fallback to Firestore submissions
-      }
-      try {
-        const uid = user?.id || (user as any)?.uid || auth.currentUser?.uid;
-        if (uid) {
-          const fsSubs = await FirestoreDataService.getUserSubmissions(uid);
-          if (Array.isArray(fsSubs) && fsSubs.length > 0) return fsSubs.slice(0, 5);
-        }
+        if (Array.isArray(list)) serverSubs = list;
       } catch {}
-      return [];
+
+      let fsSubs: any[] = [];
+      if (studentUid) {
+        try {
+          fsSubs = await FirestoreDataService.getUserSubmissions(studentUid);
+        } catch {}
+      }
+
+      const map = new Map<string, any>();
+      for (const s of fsSubs) map.set(s.id, s);
+      for (const s of serverSubs) {
+        if (!map.has(s.id)) {
+          map.set(s.id, s);
+        } else {
+          const ex = map.get(s.id);
+          map.set(s.id, {
+            ...ex,
+            ...s,
+            isCheatAutoSubmit: ex.isCheatAutoSubmit || s.isCheatAutoSubmit,
+            isCheatAttempt: ex.isCheatAttempt || s.isCheatAttempt,
+            quarantinedAttempt: ex.quarantinedAttempt || s.quarantinedAttempt,
+            tag: ex.tag || s.tag,
+            cheatReason: ex.cheatReason || s.cheatReason,
+          });
+        }
+      }
+
+      const combined = Array.from(map.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      return combined.slice(0, 5);
     },
     refetchInterval: 6000,
   });
@@ -1567,14 +1649,20 @@ export const DashboardPage: React.FC = () => {
                     const verdict = sub?.verdict || 'PENDING';
                     const isAccepted = verdict === 'ACCEPTED';
                     const isWrong = verdict === 'WRONG_ANSWER';
+                    const isCheat = isStudentCheatSub(sub);
                     return (
                       <div
                         key={sub?.id || Math.random()}
                         className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs transition hover:border-indigo-500/30"
                       >
                         <div className="space-y-0.5 truncate max-w-[65%]">
-                          <div className="font-semibold text-[var(--text-main)] truncate font-mono">
-                            {sub?.problem?.title || 'C Program Problem'}
+                          <div className="font-semibold text-[var(--text-main)] truncate font-mono flex items-center gap-2">
+                            <span className="truncate">{sub?.problem?.title || 'C Program Problem'}</span>
+                            {isCheat && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                                🚨 Cheated
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">
                             GCC 14 (C11) • {sub?.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Recent'}
@@ -1582,17 +1670,23 @@ export const DashboardPage: React.FC = () => {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span
-                            className={`inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg ${
-                              isAccepted
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                : isWrong
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            }`}
-                          >
-                            {verdict}
-                          </span>
+                          {isCheat ? (
+                            <span className="inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                              🚨 You Cheated
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg ${
+                                isAccepted
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : isWrong
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              }`}
+                            >
+                              {verdict}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

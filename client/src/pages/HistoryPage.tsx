@@ -22,6 +22,8 @@ import {
   Sparkles,
   ExternalLink,
   RotateCcw,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../types/index.js';
 
@@ -33,6 +35,35 @@ export const HistoryPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const effectiveUid = auth.currentUser?.uid || user?.id || '';
+
+  // 1. Fetch Proctoring Telemetry (incidents, tab switches, quarantined history)
+  const { data: proctorTelemetry } = useQuery({
+    queryKey: ['student-proctor-telemetry', effectiveUid],
+    queryFn: async () => {
+      if (!effectiveUid) return null;
+      return FirestoreDataService.getProctoringTelemetry(effectiveUid);
+    },
+    staleTime: 5000,
+  });
+
+  // 2. Collect local quarantined problem slugs across all module sessions
+  const quarantinedSlugs = useMemo(() => {
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
+          }
+        }
+      }
+    } catch {}
+    return set;
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-submissions', user?.id, auth.currentUser?.uid],
@@ -47,32 +78,55 @@ export const HistoryPage: React.FC = () => {
         console.warn('Backend submissions/my error, attempting Firestore fallback:', err);
       }
 
-      // If backend has 0 submissions, fetch authoritative from Firestore / local storage
-      const effectiveUid = auth.currentUser?.uid || user?.id || '';
-      if (serverSubs.length === 0 && effectiveUid) {
+      // Fetch authoritative submissions from Firestore
+      let fsSubs: any[] = [];
+      if (effectiveUid) {
         try {
-          const fsSubs = await FirestoreDataService.getUserSubmissions(effectiveUid);
-          if (fsSubs && fsSubs.length > 0) {
-            serverSubs = fsSubs;
-          }
+          fsSubs = await FirestoreDataService.getUserSubmissions(effectiveUid);
         } catch (fsErr) {
           console.warn('Firestore fallback submissions error:', fsErr);
         }
+      }
 
-        if (serverSubs.length === 0) {
-          try {
-            const raw = localStorage.getItem('logicq_fallback_submissions_v1');
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              serverSubs = Array.isArray(parsed) ? parsed : [];
-            }
-          } catch {}
+      // Merge backend and Firestore submissions
+      const combinedMap = new Map<string, any>();
+      for (const s of fsSubs) {
+        combinedMap.set(s.id, s);
+      }
+      for (const s of serverSubs) {
+        if (!combinedMap.has(s.id)) {
+          combinedMap.set(s.id, s);
+        } else {
+          const existing = combinedMap.get(s.id);
+          combinedMap.set(s.id, {
+            ...existing,
+            ...s,
+            isCheatAutoSubmit: existing.isCheatAutoSubmit || s.isCheatAutoSubmit,
+            isCheatAttempt: existing.isCheatAttempt || s.isCheatAttempt,
+            quarantinedAttempt: existing.quarantinedAttempt || s.quarantinedAttempt,
+            tag: existing.tag || s.tag,
+            cheatReason: existing.cheatReason || s.cheatReason,
+          });
         }
       }
 
+      let allSubs = Array.from(combinedMap.values());
+
+      if (allSubs.length === 0) {
+        try {
+          const raw = localStorage.getItem('logicq_fallback_submissions_v1');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            allSubs = Array.isArray(parsed) ? parsed : [];
+          }
+        } catch {}
+      }
+
+      allSubs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       return {
         data: {
-          submissions: serverSubs,
+          submissions: allSubs,
           uploadedSolutions: serverUploads,
         },
       };
@@ -81,6 +135,99 @@ export const HistoryPage: React.FC = () => {
 
   const submissions = data?.data?.submissions || [];
   const uploadedSolutions = data?.data?.uploadedSolutions || [];
+
+  // Helper: check if a submission was triggered as a cheat auto-lock / tab violation
+  const isCheatSubmission = useMemo(() => {
+    return (sub: any) => {
+      if (!sub) return false;
+      if (sub.isCheatAutoSubmit || sub.isCheatAttempt || sub.quarantinedAttempt || sub.tag === 'TRY_TO_CHEAT') {
+        return true;
+      }
+
+      const subSlug = (sub.problem?.slug || sub.problemSlug || sub.problemId || '').toLowerCase().trim();
+      const subTitle = (sub.problem?.title || sub.problemTitle || '').toLowerCase().trim();
+
+      // Check quarantined slugs set
+      if (subSlug && quarantinedSlugs.has(subSlug)) {
+        return true;
+      }
+
+      // Check proctoring telemetry incidents
+      if (proctorTelemetry?.incidents?.length) {
+        const matchedIncident = proctorTelemetry.incidents.find((inc: any) => {
+          const incSlug = (inc.problemSlug || '').toLowerCase().trim();
+          const incTitle = (inc.problemTitle || '').toLowerCase().trim();
+
+          const slugMatch = incSlug && subSlug && (incSlug === subSlug || subSlug.includes(incSlug) || incSlug.includes(subSlug));
+          const titleMatch = incTitle && subTitle && (incTitle === subTitle || subTitle.includes(incTitle) || incTitle.includes(subTitle));
+
+          if (slugMatch || titleMatch) {
+            return (
+              inc.type === 'EXCEEDED_TAB_SWITCHES' ||
+              inc.type === 'EXCEEDED_COPY_PASTE' ||
+              inc.type === 'SECOND_CHANCE_SUBMISSION' ||
+              inc.isCheatAttempt ||
+              inc.tag === 'TRY_TO_CHEAT' ||
+              (typeof inc.reason === 'string' && (inc.reason.includes('tab switch') || inc.reason.includes('copy-paste') || inc.reason.includes('cheat')))
+            );
+          }
+          return false;
+        });
+
+        if (matchedIncident) return true;
+      }
+
+      return false;
+    };
+  }, [quarantinedSlugs, proctorTelemetry]);
+
+  // Helper: get specific violation reason
+  const getCheatDetails = (sub: any) => {
+    if (!sub) return null;
+    const subSlug = (sub.problem?.slug || sub.problemSlug || sub.problemId || '').toLowerCase().trim();
+    const subTitle = (sub.problem?.title || sub.problemTitle || '').toLowerCase().trim();
+
+    if (proctorTelemetry?.incidents?.length) {
+      const inc = proctorTelemetry.incidents.find((i: any) => {
+        const incSlug = (i.problemSlug || '').toLowerCase().trim();
+        const incTitle = (i.problemTitle || '').toLowerCase().trim();
+        const slugMatch = incSlug && subSlug && (incSlug === subSlug || subSlug.includes(incSlug) || incSlug.includes(subSlug));
+        const titleMatch = incTitle && subTitle && (incTitle === subTitle || subTitle.includes(incTitle) || incTitle.includes(subTitle));
+        return (
+          (slugMatch || titleMatch) &&
+          (i.type === 'EXCEEDED_TAB_SWITCHES' ||
+            i.type === 'EXCEEDED_COPY_PASTE' ||
+            i.type === 'SECOND_CHANCE_SUBMISSION' ||
+            i.isCheatAttempt ||
+            i.tag === 'TRY_TO_CHEAT' ||
+            (typeof i.reason === 'string' && (i.reason.includes('tab switch') || i.reason.includes('copy-paste'))))
+        );
+      });
+      if (inc) {
+        return {
+          reason: inc.reason || 'Exceeded tab switches / copy-paste anti-cheat limit',
+          type: inc.type,
+          timestamp: inc.timestamp,
+        };
+      }
+    }
+    if (sub.cheatReason) {
+      return {
+        reason: sub.cheatReason,
+        type: 'EXCEEDED_TAB_SWITCHES',
+      };
+    }
+    if (subSlug && quarantinedSlugs.has(subSlug)) {
+      return {
+        reason: 'Exceeded 3 tab switches on question (Auto-Locked & Quarantined)',
+        type: 'EXCEEDED_TAB_SWITCHES',
+      };
+    }
+    return {
+      reason: 'Proctoring violation detected: 3 tab switches on question. Auto-locked and submitted with penalty.',
+      type: 'EXCEEDED_TAB_SWITCHES',
+    };
+  };
 
   // Compute stats
   const totalSubmissions = submissions.length;
@@ -113,7 +260,12 @@ export const HistoryPage: React.FC = () => {
       const verdict = (sub.verdict || '').toLowerCase();
       const query = searchQuery.trim().toLowerCase();
 
-      const matchesSearch = !query || title.includes(query) || verdict.includes(query);
+      const isCheated = isCheatSubmission(sub);
+      const matchesSearch =
+        !query ||
+        title.includes(query) ||
+        verdict.includes(query) ||
+        (isCheated && ('cheated'.includes(query) || 'cheat'.includes(query)));
       if (!matchesSearch) return false;
 
       if (filterTab === 'ACCEPTED') {
@@ -124,7 +276,7 @@ export const HistoryPage: React.FC = () => {
       }
       return true;
     });
-  }, [submissions, searchQuery, filterTab]);
+  }, [submissions, searchQuery, filterTab, isCheatSubmission]);
 
   const handleCopyCode = () => {
     if (selectedSubmission?.code) {
@@ -409,7 +561,21 @@ export const HistoryPage: React.FC = () => {
                           <DifficultyBadge difficulty={sub.problem?.difficulty as Difficulty} size="sm" />
                         </td>
                         <td className="px-6 py-4">
-                          <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                          {isCheatSubmission(sub) ? (
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm animate-pulse">
+                                🚨 You have cheated in this
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                                <span className="text-[10px] text-rose-300/80 font-mono">
+                                  Auto-Submitted (Cheat Penalty)
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                          )}
                         </td>
                         <td className="px-4 py-4 text-slate-300 font-mono text-[11px]">
                           <div>{sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}</div>
@@ -460,7 +626,19 @@ export const HistoryPage: React.FC = () => {
                           Attempt #{attemptNum} • {new Date(sub.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                      <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                      {isCheatSubmission(sub) ? (
+                        <div className="flex flex-col gap-1 items-end text-right">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-sm animate-pulse">
+                            🚨 You have cheated in this
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                            <span className="text-[9px] text-rose-300/80 font-mono">Cheat Penalty</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <VerdictBadge verdict={sub.verdict as Verdict} size="sm" />
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] pt-1">
@@ -491,9 +669,15 @@ export const HistoryPage: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 bg-[#141932] border-b border-white/[0.08]">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 flex-wrap">
                   <span>{selectedSubmission.problem?.title || 'Submission Details'}</span>
-                  <VerdictBadge verdict={selectedSubmission.verdict} size="sm" />
+                  {isCheatSubmission(selectedSubmission) ? (
+                    <span className="px-2.5 py-0.5 rounded text-xs font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                      🚨 You have cheated in this
+                    </span>
+                  ) : (
+                    <VerdictBadge verdict={selectedSubmission.verdict} size="sm" />
+                  )}
                 </h3>
                 <span className="text-xs font-mono text-slate-400">
                   {selectedSubmission.runtimeMs !== null ? `${selectedSubmission.runtimeMs}ms` : ''} •{' '}
@@ -517,6 +701,23 @@ export const HistoryPage: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Proctor Violation Alert Banner */}
+            {isCheatSubmission(selectedSubmission) && (
+              <div className="mx-5 sm:mx-6 mt-4 p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 flex items-start gap-3 text-rose-200">
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-xs sm:text-sm text-rose-300 font-mono flex items-center gap-2">
+                    <span>🚨 Proctoring Violation Detected: You have cheated in this question</span>
+                  </div>
+                  <p className="text-xs text-rose-300/80 mt-1 font-mono leading-relaxed">
+                    {getCheatDetails(selectedSubmission)?.reason ||
+                      'Exceeded 3 tab switches on question (3 detected).'}{' '}
+                    This solution was automatically locked and auto-submitted with a cheating violation penalty.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Code Body */}
             <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-[#0C0F1F] font-mono text-xs">

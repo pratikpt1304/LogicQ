@@ -4,6 +4,7 @@ import {
   updateDoc,
   setDoc,
   deleteDoc,
+  addDoc,
   writeBatch,
   collection,
   query,
@@ -540,6 +541,11 @@ export class FirestoreDataService {
                 compileOutput: data.compileOutput ?? null,
                 pointsAwarded: Number(data.pointsAwarded || data.points || 0),
                 createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt || new Date().toISOString()),
+                isCheatAutoSubmit: Boolean(data.isCheatAutoSubmit),
+                isCheatAttempt: Boolean(data.isCheatAttempt),
+                quarantinedAttempt: Boolean(data.quarantinedAttempt),
+                tag: data.tag || (data.isCheatAttempt ? 'TRY_TO_CHEAT' : undefined),
+                cheatReason: data.cheatReason || undefined,
                 problem: data.problem || {
                   id: data.problemId || '',
                   title: data.problemTitle || 'Challenge Problem',
@@ -557,6 +563,51 @@ export class FirestoreDataService {
     } catch (err) {
       console.warn('FirestoreDataService.getUserSubmissions error:', err);
       return [];
+    }
+  }
+
+  /**
+   * Directly logs an anti-cheat auto-submitted penalised attempt into Firestore submissions
+   */
+  public static async recordCheatSubmission(
+    userId: string,
+    data: {
+      problemId: string;
+      problemTitle: string;
+      problemSlug: string;
+      code: string;
+      violationReason: string;
+      difficulty?: string;
+    }
+  ): Promise<void> {
+    try {
+      const primaryUid = auth.currentUser?.uid || userId;
+      if (!primaryUid) return;
+      await addDoc(collection(db, 'submissions'), {
+        userId: primaryUid,
+        problemId: data.problemId,
+        code: data.code || '// Auto-submitted cheat penalty',
+        language: 'c',
+        verdict: 'WRONG_ANSWER',
+        runtimeMs: 0,
+        memoryKb: 0,
+        compileOutput: `[Anti-Cheat Auto-Lock]: ${data.violationReason}`,
+        pointsAwarded: 0,
+        isCheatAutoSubmit: true,
+        isCheatAttempt: true,
+        quarantinedAttempt: true,
+        tag: 'TRY_TO_CHEAT',
+        cheatReason: data.violationReason,
+        createdAt: serverTimestamp(),
+        problem: {
+          id: data.problemId,
+          title: data.problemTitle,
+          slug: data.problemSlug,
+          difficulty: data.difficulty || 'EASY',
+        },
+      });
+    } catch (err) {
+      console.warn('FirestoreDataService.recordCheatSubmission warning:', err);
     }
   }
 

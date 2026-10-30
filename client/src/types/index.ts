@@ -114,4 +114,9 @@ export interface Submission {
     avatarUrl?: string | null;
   };
   testCaseResults?: SubmissionTestCaseResult[];
+  isCheatAutoSubmit?: boolean;
+  isCheatAttempt?: boolean;
+  quarantinedAttempt?: boolean;
+  tag?: string;
+  cheatReason?: string;
 }

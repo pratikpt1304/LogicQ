@@ -1744,7 +1744,16 @@ export const ProfilePage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3">
-                      <VerdictBadge verdict={sub.verdict} size="sm" />
+                      {sub.isCheatAutoSubmit || sub.isCheatAttempt || sub.tag === 'TRY_TO_CHEAT' ? (
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                            🚨 Cheated
+                          </span>
+                          <VerdictBadge verdict={sub.verdict} size="sm" />
+                        </div>
+                      ) : (
+                        <VerdictBadge verdict={sub.verdict} size="sm" />
+                      )}
                     </td>
                     <td className="py-3 text-[#46D9A0] font-bold">
                       +{sub.pointsAwarded || 0} PTS
