@@ -42,6 +42,22 @@ export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const profileDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
 
   // Global Cmd+K / Ctrl+K keyboard shortcut listener
   useEffect(() => {
@@ -199,23 +215,8 @@ export const Navbar: React.FC = () => {
                 </>
               )}
 
-              {/* Theme Toggle Button */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] hover:border-[var(--color-accent)] transition-colors"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-4 h-4 text-[var(--color-warning)]" />
-                ) : (
-                  <Moon className="w-4 h-4 text-[var(--color-accent)]" />
-                )}
-              </button>
-
               {/* User Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={profileDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
@@ -385,6 +386,29 @@ export const Navbar: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Theme Toggle (Inside profile menu, directly above Sign Out) */}
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleTheme()}
+                          className="w-[calc(100%-8px)] flex items-center justify-between px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {theme === 'dark' ? (
+                              <Sun className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-45 transition-transform" />
+                            ) : (
+                              <Moon className="w-3.5 h-3.5 text-indigo-500 group-hover:-rotate-12 transition-transform" />
+                            )}
+                            <span className="font-medium">
+                              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] group-hover:border-indigo-400/40 transition-colors">
+                            {theme === 'dark' ? 'Switch' : 'Switch'}
+                          </span>
+                        </button>
+                      </div>
+
                       {/* Section 4: Sign Out */}
                       <div className="pt-1">
                         <button
@@ -429,19 +453,21 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Actions (minimum 44x44px tap targets) */}
         <div className="flex md:hidden items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] active:scale-95 transition-transform"
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-[var(--color-warning)]" />
-            ) : (
-              <Moon className="w-4 h-4 text-[var(--color-accent)]" />
-            )}
-          </button>
+          {!user && (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-main)] active:scale-95 transition-transform"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-[var(--color-warning)]" />
+              ) : (
+                <Moon className="w-4 h-4 text-[var(--color-accent)]" />
+              )}
+            </button>
+          )}
 
           {user ? (
             <div
@@ -575,6 +601,26 @@ export const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--text-main)] hover:bg-[var(--bg-surface)] text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-indigo-500" />
+                    )}
+                    <span className="font-medium">
+                      Theme ({theme === 'dark' ? 'Dark Mode' : 'Light Mode'})
+                    </span>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] font-mono">
+                    {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+                  </span>
+                </button>
 
                 <button
                   type="button"
