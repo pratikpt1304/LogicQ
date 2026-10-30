@@ -1,5 +1,7 @@
 import { ADDITIONAL_PRACTICE_TOPICS } from './topic-practice-part2.data.js';
 import { HARD_PRACTICE_TOPICS } from './topic-practice-hard.data.js';
+import { EXPANSION_PRACTICE_TOPICS_1 } from './topic-practice-expansion-1.data.js';
+import { EXPANSION_PRACTICE_TOPICS_2 } from './topic-practice-expansion-2.data.js';
 
 export interface TopicPracticeItem {
   id: string;
@@ -1973,6 +1975,8 @@ export const TOPIC_PRACTICE_DATA: TopicPracticeItem[] = [
   ...BASE_TOPIC_PRACTICE_DATA,
   ...ADDITIONAL_PRACTICE_TOPICS,
   ...HARD_PRACTICE_TOPICS,
+  ...EXPANSION_PRACTICE_TOPICS_1,
+  ...EXPANSION_PRACTICE_TOPICS_2,
 ].sort((a, b) => {
   if (a.moduleIndex !== b.moduleIndex) {
     return a.moduleIndex - b.moduleIndex;
