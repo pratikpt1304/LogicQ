@@ -169,8 +169,48 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-block mb-3">
-            <Logo size="lg" />
+          <div className="inline-flex items-center justify-center mb-3">
+            <div className="relative flex items-center justify-center rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-line)] p-2.5 shadow-sm transition-colors duration-200">
+              <svg viewBox="0 0 100 100" className="w-10 h-10" fill="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="loginLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#8B9BFF" />
+                    <stop offset="100%" stopColor="#46D9A0" />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="48"
+                  cy="44"
+                  r="28"
+                  stroke="url(#loginLogoGrad)"
+                  strokeWidth="9"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 38 38 L 47 44 L 38 50"
+                  stroke="#8B9BFF"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <line
+                  x1="51"
+                  y1="50"
+                  x2="59"
+                  y2="50"
+                  stroke="#46D9A0"
+                  strokeWidth="4.5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 64 60 L 80 76 M 73 76 L 80 76 L 80 69"
+                  stroke="url(#loginLogoGrad)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
           </div>
           <h2 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
             Sign In to LogicQ
