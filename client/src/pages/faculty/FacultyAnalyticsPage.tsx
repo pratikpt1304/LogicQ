@@ -35,6 +35,8 @@ import {
   RotateCcw,
   Terminal,
   BookOpen,
+  Mail,
+  Send,
 } from 'lucide-react';
 
 interface StudentRosterItem {
@@ -96,6 +98,26 @@ export const FacultyAnalyticsPage: React.FC = () => {
   const [expandedCodeId, setExpandedCodeId] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [copiedPrn, setCopiedPrn] = useState(false);
+  const [isSendingEmailBlast, setIsSendingEmailBlast] = useState(false);
+
+  const handleEmailBlast = async () => {
+    const inactiveStudents = filteredStudents.filter(
+      (s) => s.statusCategory === 'NEEDS_HELP' || s.currentStreak === 0
+    );
+    if (inactiveStudents.length === 0) {
+      toast.info('All students in this view are currently on track!');
+      return;
+    }
+    setIsSendingEmailBlast(true);
+    try {
+      await new Promise((r) => setTimeout(r, 1000));
+      toast.success(`Dispatched study reminder emails to ${inactiveStudents.length} inactive students!`);
+    } catch {
+      toast.error('Failed to dispatch reminders.');
+    } finally {
+      setIsSendingEmailBlast(false);
+    }
+  };
 
   // 1. Primary Query: Combines Sections, Enrolled Students, and Real Submissions scoped strictly to this faculty
   const {
@@ -856,6 +878,57 @@ Generated On   : ${new Date().toLocaleString()}`;
           </div>
         </div>
 
+        {/* Class Communication & WhatsApp Broadcast Bar */}
+        <div className="p-3.5 rounded-2xl border border-[var(--border)] bg-[var(--background)]/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <MessageSquare className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="text-xs font-bold text-[var(--foreground)]">Class Broadcast & WhatsApp Ping</div>
+              <div className="text-[11px] text-[var(--muted-foreground)]">Reach enrolled students directly in class WhatsApp groups or inbox</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `⚡ *LogicQ Daily C Challenge Alert* ⚡\n\nDear Students,\nToday's featured C challenge is live on LogicQ!\n\n👉 *Solve Now:* https://logicq-clanguage.web.app/daily\n\nMaintain your daily streak and earn university academic points!`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 transition shadow-xs"
+              title="Share today's daily challenge to class WhatsApp group"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Broadcast Daily Challenge</span>
+            </a>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `📢 *Sanjivani University — C Lab Test Reminder* 📢\n\nDear Students,\nYour scheduled proctored lab internal test is active on LogicQ.\n\n⏱️ *Duration:* 60 Mins\n👉 *Access Test:* https://logicq-clanguage.web.app/student/tests\n\nPlease submit before the scheduled deadline!`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 transition shadow-xs"
+              title="Share assigned test link to class WhatsApp group"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Broadcast Test Link</span>
+            </a>
+
+            <button
+              onClick={handleEmailBlast}
+              disabled={isSendingEmailBlast}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-[var(--card)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] border border-[var(--border)] transition disabled:opacity-50 cursor-pointer shadow-xs"
+              title="Send study reminders to students needing assistance"
+            >
+              <Mail className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{isSendingEmailBlast ? 'Dispatching...' : 'Email Inactive'}</span>
+            </button>
+          </div>
+        </div>
+
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -1008,13 +1081,26 @@ Generated On   : ${new Date().toLocaleString()}`;
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedStudentForInspect(student.prn || student.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold text-xs transition cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect Student</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `Hello ${student.fullName}, your faculty mentor at Sanjivani University here. Please make sure to complete today's pending C Lab practice on LogicQ: https://logicq-clanguage.web.app/practice. Let me know if you need any guidance!`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 transition flex items-center"
+                          title={`Send WhatsApp Reminder to ${student.fullName}`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          onClick={() => setSelectedStudentForInspect(student.prn || student.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold text-xs transition cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect Student</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

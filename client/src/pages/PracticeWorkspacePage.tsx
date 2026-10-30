@@ -38,6 +38,9 @@ import {
   Lock,
   Bookmark,
   FileText,
+  Loader2,
+  Check,
+  CloudOff,
 } from 'lucide-react';
 import {
   DraftSyncService,
@@ -164,6 +167,48 @@ export const PracticeWorkspacePage: React.FC = () => {
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
 
+  // Real-time Proctoring Alert HUD & Web Audio Warning
+  const [proctorWarningBanner, setProctorWarningBanner] = useState<{
+    message: string;
+    type: 'tab' | 'fullscreen' | 'paste' | 'cadence';
+  } | null>(null);
+  const warningBannerTimerRef = useRef<any>(null);
+  const prevCodeLengthRef = useRef<number>(0);
+  const lastCodeChangeTimeRef = useRef<number>(Date.now());
+
+  const playProctorAlertSound = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(329.63, ctx.currentTime + 0.28);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.28);
+    } catch {
+      // Audio autoplay policy catch
+    }
+  }, []);
+
+  const triggerProctorWarning = useCallback(
+    (message: string, type: 'tab' | 'fullscreen' | 'paste' | 'cadence') => {
+      playProctorAlertSound();
+      setProctorWarningBanner({ message, type });
+      if (warningBannerTimerRef.current) clearTimeout(warningBannerTimerRef.current);
+      warningBannerTimerRef.current = setTimeout(() => {
+        setProctorWarningBanner(null);
+      }, 5000);
+    },
+    [playProctorAlertSound]
+  );
+
   // Reset per-question violation counters on problem change
   useEffect(() => {
     setQuestionTabSwitchCount(0);
@@ -247,6 +292,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         setFullscreenExits((prev) => {
           const next = prev + 1;
           syncTelemetryToCloud({ fullscreenExits: next });
+          triggerProctorWarning(`Fullscreen exited (#${next})! Fullscreen is required in proctored mode.`, 'fullscreen');
           toast.error(`⚠️ Fullscreen exited! (Exit #${next}) Fullscreen is required in proctored mode.`, {
             duration: 6000,
           });
@@ -260,7 +306,7 @@ export const PracticeWorkspacePage: React.FC = () => {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [syncTelemetryToCloud]);
+  }, [syncTelemetryToCloud, triggerProctorWarning]);
 
   // Anti-Cheat: Tab Switch & Window Focus Loss Detection
   useEffect(() => {
@@ -269,7 +315,11 @@ export const PracticeWorkspacePage: React.FC = () => {
         const now = Date.now();
         if (now - lastTabSwitchRecordedRef.current < 1500) return;
         lastTabSwitchRecordedRef.current = now;
-        setSessionTabSwitches((prev) => prev + 1);
+        setSessionTabSwitches((prev) => {
+          const nextSession = prev + 1;
+          triggerProctorWarning(`Tab switch #${nextSession} detected! Focus loss is logged for faculty audit.`, 'tab');
+          return nextSession;
+        });
 
         setQuestionTabSwitchCount((prevQ) => {
           const nextQ = prevQ + 1;
@@ -298,7 +348,11 @@ export const PracticeWorkspacePage: React.FC = () => {
       const now = Date.now();
       if (now - lastTabSwitchRecordedRef.current < 1500) return;
       lastTabSwitchRecordedRef.current = now;
-      setSessionTabSwitches((prev) => prev + 1);
+      setSessionTabSwitches((prev) => {
+        const nextSession = prev + 1;
+        triggerProctorWarning(`Window focus lost! Focus away from workspace is logged for faculty audit.`, 'tab');
+        return nextSession;
+      });
 
       setQuestionTabSwitchCount((prevQ) => {
         const nextQ = prevQ + 1;
@@ -327,7 +381,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [syncTelemetryToCloud]);
+  }, [syncTelemetryToCloud, triggerProctorWarning]);
 
   // Anti-Cheat: Strict Copy-Paste & Right-Click Prevention (Document-wide)
   useEffect(() => {
@@ -348,6 +402,7 @@ export const PracticeWorkspacePage: React.FC = () => {
           syncTelemetryToCloud({ copyPasteAttempts: nextTotal });
           return nextTotal;
         });
+        triggerProctorWarning(`🚫 Pasting is strictly blocked! Attempt ${nextQ}/5 on this question.`, 'paste');
         if (nextQ >= 5) {
           triggerAntiCheatAutoSubmitRef.current('COPY_PASTE_LIMIT', nextQ);
         } else {
@@ -754,6 +809,18 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const handleCodeChange = (nextCode: string) => {
     setCode(nextCode);
+
+    // Keystroke cadence anomaly check: Detect rapid code block insertions
+    const prevLen = prevCodeLengthRef.current;
+    const diff = nextCode.length - prevLen;
+    const now = Date.now();
+    const timeDiff = now - lastCodeChangeTimeRef.current;
+    if (diff > 160 && timeDiff < 250) {
+      triggerProctorWarning('Rapid code block insertion detected (>160 characters). Keystroke telemetry audited.', 'cadence');
+    }
+    prevCodeLengthRef.current = nextCode.length;
+    lastCodeChangeTimeRef.current = now;
+
     if (problem?.slug) {
       sessionCodeMapRef.current[problem.slug] = nextCode;
       const draftObj: DraftData = {
@@ -1216,6 +1283,26 @@ export const PracticeWorkspacePage: React.FC = () => {
             />
           )}
 
+          {/* Cloud & Offline Autosave Status Pill */}
+          <div className="hidden sm:flex items-center">
+            {draftSyncStatus === 'saving' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" title="Saving code draft...">
+                <Loader2 className="w-3 h-3 animate-spin text-cyan-500" />
+                <span>Saving...</span>
+              </span>
+            ) : draftSyncStatus === 'offline' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Saved safely in local storage (Offline)">
+                <CloudOff className="w-3 h-3 text-amber-500" />
+                <span>Saved Offline</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="All keystrokes autosaved to cloud">
+                <Check className="w-3 h-3 text-emerald-500" />
+                <span>Autosaved</span>
+              </span>
+            )}
+          </div>
+
           {/* Proctoring Badge & Fullscreen Toggle */}
           <button
             type="button"
@@ -1421,6 +1508,23 @@ export const PracticeWorkspacePage: React.FC = () => {
               activeMobileTab === 'results' ? 'hidden sm:block' : 'block'
             }`}
           >
+            {/* Real-time Proctoring Alert HUD */}
+            {proctorWarningBanner && (
+              <div className="absolute top-2 left-3 right-3 z-30 p-2.5 rounded-xl border border-rose-500/40 bg-[#160c18]/95 dark:bg-[#160c18]/95 text-rose-300 flex items-center justify-between gap-3 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
+                  <span className="font-semibold">{proctorWarningBanner.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProctorWarningBanner(null)}
+                  className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 cursor-pointer"
+                  title="Acknowledge warning"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <CodeEditor
               code={code}
               onChange={handleCodeChange}

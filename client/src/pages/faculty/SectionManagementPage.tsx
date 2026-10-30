@@ -659,7 +659,7 @@ export const SectionManagementPage: React.FC = () => {
     const text = encodeURIComponent(
       `📚 *LogicQ Exam & Practice Section*\nSubject: *${section.subject}* (${section.sectionName})\n\n🔑 Join Code: *${section.joinCode}*\n🔗 Join Link: ${joinUrl}\n\nPlease enter this Join Code in your LogicQ portal to access assigned programming tests and coursework.`
     );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
