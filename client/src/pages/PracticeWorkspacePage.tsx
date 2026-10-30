@@ -184,6 +184,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [sessionTabSwitches, setSessionTabSwitches] = useState(0);
   const lastTabSwitchRecordedRef = useRef<number>(0);
+  const blurStartTimeRef = useRef<number>(0);
   const [copyPasteAttempts, setCopyPasteAttempts] = useState(0);
   const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
@@ -191,6 +192,16 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(true);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
+
+  // Inactivity / Heartbeat Tracking (Step 3: Bot / Extension Bypass Protection)
+  const lastUserInteractionTimeRef = useRef<number>(Date.now());
+  const [showInactivityWarning, setShowInactivityWarning] = useState<boolean>(false);
+  const inactivityPromptTimeoutRef = useRef<any>(null);
+
+  // Keystroke Cadence & Velocity Detection (Step 5: Phone/ChatGPT Manual Transcription Detector)
+  const keyStrokeTimesRef = useRef<number[]>([]);
+  const backspaceCountRef = useRef<number>(0);
+  const totalKeystrokesRef = useRef<number>(0);
 
   // Real-time Proctoring Alert HUD & Web Audio Warning
   const [proctorWarningBanner, setProctorWarningBanner] = useState<{
@@ -333,49 +344,27 @@ export const PracticeWorkspacePage: React.FC = () => {
     };
   }, [syncTelemetryToCloud, triggerProctorWarning]);
 
-  // Anti-Cheat: Tab Switch & Window Focus Loss Detection
+  // Step 2 & 4: Anti-Cheat Tab Switch, Window Focus, 1.5s Grace Period & 1-Strike Mercy Mode
+  const isCurrentProblemMercy = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
+
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        const now = Date.now();
-        if (now - lastTabSwitchRecordedRef.current < 1500) return;
-        lastTabSwitchRecordedRef.current = now;
-        setSessionTabSwitches((prev) => {
-          const nextSession = prev + 1;
-          triggerProctorWarning(`Tab switch #${nextSession} detected! Focus loss is logged for faculty audit.`, 'tab');
-          return nextSession;
-        });
-
-        setQuestionTabSwitchCount((prevQ) => {
-          const nextQ = prevQ + 1;
-          setTabSwitchCount((prevTotal) => {
-            const nextTotal = prevTotal + 1;
-            syncTelemetryToCloud({ tabSwitchCount: nextTotal });
-            return nextTotal;
-          });
-          if (nextQ >= 3) {
-            triggerAntiCheatAutoSubmitRef.current('TAB_SWITCH_LIMIT', nextQ);
-          }
-          return nextQ;
-        });
-      } else {
-        const now = Date.now();
-        if (now - lastTabSwitchToastRef.current > 1500) {
-          lastTabSwitchToastRef.current = now;
-          toast.error('⚠️ Tab Switch Detected! All tab switches are recorded. 3 tab switches on a question auto-locks & advances!', {
-            duration: 5000,
-          });
-        }
-      }
-    };
-
-    const handleWindowBlur = () => {
+    const recordTabViolation = (isProlonged: boolean) => {
       const now = Date.now();
-      if (now - lastTabSwitchRecordedRef.current < 1500) return;
+      if (now - lastTabSwitchRecordedRef.current < 2000) return;
       lastTabSwitchRecordedRef.current = now;
+
+      // Check if current question is under Mercy (Second Chance) Mode
+      const isMercyAttempt = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
+      const maxAllowedSwitches = isMercyAttempt ? 1 : 3;
+
       setSessionTabSwitches((prev) => {
         const nextSession = prev + 1;
-        triggerProctorWarning(`Window focus lost! Focus away from workspace is logged for faculty audit.`, 'tab');
+        triggerProctorWarning(
+          isMercyAttempt
+            ? `🚨 MERCY MODE BREACH: 1-Strike policy active! Tab switch detected.`
+            : `Tab switch #${nextSession} detected! Focus loss is logged for faculty audit.`,
+          'tab'
+        );
         return nextSession;
       });
 
@@ -386,17 +375,53 @@ export const PracticeWorkspacePage: React.FC = () => {
           syncTelemetryToCloud({ tabSwitchCount: nextTotal });
           return nextTotal;
         });
-        if (nextQ >= 3) {
+
+        if (nextQ >= maxAllowedSwitches) {
           triggerAntiCheatAutoSubmitRef.current('TAB_SWITCH_LIMIT', nextQ);
         }
         return nextQ;
       });
-      if (now - lastTabSwitchToastRef.current > 2000) {
-        lastTabSwitchToastRef.current = now;
-        toast.warning('⚠️ Window focus lost! Focus away from workspace is monitored.', {
-          duration: 4000,
-        });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        blurStartTimeRef.current = Date.now();
+      } else {
+        const awayDuration = Date.now() - blurStartTimeRef.current;
+        // Step 4: Grace Period (If away for < 1500ms, treat as accidental OS/antivirus flicker)
+        if (blurStartTimeRef.current > 0 && awayDuration < 1500) {
+          toast.info('Brief focus loss restored (< 1.5s grace period). Stay in full workspace!', {
+            duration: 2500,
+          });
+          blurStartTimeRef.current = 0;
+          return;
+        }
+
+        blurStartTimeRef.current = 0;
+        recordTabViolation(true);
+
+        const now = Date.now();
+        if (now - lastTabSwitchToastRef.current > 1500) {
+          lastTabSwitchToastRef.current = now;
+          const isMercy = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
+          toast.error(
+            isMercy
+              ? '🚨 Mercy Mode Violation! Even 1 tab switch permanently auto-locks question!'
+              : '⚠️ Tab Switch Detected! All tab switches are recorded. 3 tab switches on a question auto-locks & advances!',
+            { duration: 5000 }
+          );
+        }
       }
+    };
+
+    const handleWindowBlur = () => {
+      blurStartTimeRef.current = Date.now();
+      setTimeout(() => {
+        // If window still blurred or document hidden after 1.5s, log violation
+        if (document.hidden || !document.hasFocus()) {
+          recordTabViolation(true);
+        }
+      }, 1600);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -406,7 +431,55 @@ export const PracticeWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [syncTelemetryToCloud, triggerProctorWarning]);
+  }, [syncTelemetryToCloud, triggerProctorWarning, problemSlug, secondChanceSlugs]);
+
+  // Step 3: Inactivity / Heartbeat Tracker (45s Extension / Secondary Screen Bypass Protection)
+  useEffect(() => {
+    const handleUserActivity = () => {
+      lastUserInteractionTimeRef.current = Date.now();
+      if (showInactivityWarning) {
+        setShowInactivityWarning(false);
+      }
+    };
+
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('scroll', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
+
+    const interval = setInterval(() => {
+      const inactiveDuration = Date.now() - lastUserInteractionTimeRef.current;
+      // If student hasn't touched the keyboard/mouse for 45s while question is active
+      if (inactiveDuration >= 45000 && !showInactivityWarning && !showMercyModal) {
+        setShowInactivityWarning(true);
+        triggerProctorWarning('⚠️ Heartbeat Check: 45s inactivity detected. Keep active focus on editor!', 'cadence');
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('scroll', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+      clearInterval(interval);
+    };
+  }, [showInactivityWarning, showMercyModal, triggerProctorWarning]);
+
+  // Step 1: Split-Screen & Dual Monitor Detection
+  useEffect(() => {
+    const checkSplitScreen = () => {
+      if (typeof window === 'undefined' || typeof screen === 'undefined') return;
+      const isSplit = window.outerWidth < (screen.availWidth * 0.82) || window.outerHeight < (screen.availHeight * 0.75);
+      if (isSplit && !document.fullscreenElement) {
+        triggerProctorWarning('⚠️ Split-screen layout detected! Maximize your workspace window to avoid penalty.', 'fullscreen');
+      }
+    };
+
+    window.addEventListener('resize', checkSplitScreen);
+    return () => {
+      window.removeEventListener('resize', checkSplitScreen);
+    };
+  }, [triggerProctorWarning]);
 
   // Anti-Cheat: Strict Copy-Paste & Right-Click Prevention (Document-wide)
   useEffect(() => {
@@ -517,12 +590,17 @@ export const PracticeWorkspacePage: React.FC = () => {
     setIsCheatingAutoSubmitTriggered(true);
 
     const isTab = reason === 'TAB_SWITCH_LIMIT';
+    const isMercyAttempt = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
     const violationReason = isTab
-      ? `Exceeded 3 tab switches on question (${count} detected)`
+      ? isMercyAttempt
+        ? `Breached 1-strike mercy policy on question (${count} tab switch detected)`
+        : `Exceeded 3 tab switches on question (${count} detected)`
       : `Exceeded 5 copy-paste attempts on question (${count} detected)`;
 
     toast.error(
-      `🚨 Violation Limit Exceeded: ${isTab ? `${count} Tab Switches` : `${count} Paste Attempts`} detected! Current question auto-locked & quarantined. Advancing to next question...`,
+      isMercyAttempt
+        ? `🚨 Mercy Strike Policy: 1 Tab switch detected during final mercy chance! Question permanently locked with 0 marks.`
+        : `🚨 Violation Limit Exceeded: ${isTab ? `${count} Tab Switches` : `${count} Paste Attempts`} detected! Current question auto-locked & quarantined. Advancing to next question...`,
       { duration: 8000 }
     );
 
@@ -907,14 +985,44 @@ export const PracticeWorkspacePage: React.FC = () => {
   const handleCodeChange = (nextCode: string) => {
     setCode(nextCode);
 
-    // Keystroke cadence anomaly check: Detect rapid code block insertions
+    // Step 5: Keystroke Velocity & Transcription Anomaly Detector
     const prevLen = prevCodeLengthRef.current;
     const diff = nextCode.length - prevLen;
     const now = Date.now();
     const timeDiff = now - lastCodeChangeTimeRef.current;
-    if (diff > 160 && timeDiff < 250) {
-      triggerProctorWarning('Rapid code block insertion detected (>160 characters). Keystroke telemetry audited.', 'cadence');
+
+    totalKeystrokesRef.current += 1;
+    keyStrokeTimesRef.current.push(now);
+    if (keyStrokeTimesRef.current.length > 50) {
+      keyStrokeTimesRef.current.shift();
     }
+
+    // Flag 1: Large block drops (AI copy or paste injection)
+    if (diff > 120 && timeDiff < 300) {
+      triggerProctorWarning('Rapid code block insertion detected (>120 characters). Keystroke telemetry audited.', 'cadence');
+      const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+      FirestoreDataService.recordProctoringIncident(uid, {
+        type: 'COPY_PASTE',
+        problemSlug: problem?.slug || problemSlug || '',
+        problemTitle: problem?.title || 'Practice Question',
+        reason: `Rapid code insertion anomaly (${diff} chars in ${timeDiff}ms)`,
+      }).catch(() => {});
+    }
+
+    // Flag 2: Robotic Cadence (Phone transcription / steady typing without human syntax pauses)
+    if (keyStrokeTimesRef.current.length >= 25) {
+      const intervals: number[] = [];
+      for (let i = 1; i < keyStrokeTimesRef.current.length; i++) {
+        intervals.push(keyStrokeTimesRef.current[i] - keyStrokeTimesRef.current[i - 1]);
+      }
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const variance = intervals.reduce((sum, int) => sum + Math.pow(int - avgInterval, 2), 0) / intervals.length;
+      // Ultra-low variance (< 400ms^2) with rapid typing indicates robotic transcription
+      if (variance < 400 && avgInterval < 120 && diff > 0) {
+        triggerProctorWarning('High-velocity robotic keystroke cadence detected. Code transcription monitored.', 'cadence');
+      }
+    }
+
     prevCodeLengthRef.current = nextCode.length;
     lastCodeChangeTimeRef.current = now;
 
