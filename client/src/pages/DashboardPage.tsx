@@ -1543,7 +1543,7 @@ export const DashboardPage: React.FC = () => {
                   to="/practice"
                   className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 transition"
                 >
-                  <span>Practice Arena</span>
+                  <span>Practice Hub</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -1643,7 +1643,7 @@ export const DashboardPage: React.FC = () => {
                   className="w-full py-2.5 rounded-xl font-mono text-xs font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 flex items-center justify-center gap-2 transition"
                 >
                   <Code2 className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-                  <span>Open Coding Arena</span>
+                  <span>Open Coding Workspace</span>
                 </Link>
               </div>
             </div>

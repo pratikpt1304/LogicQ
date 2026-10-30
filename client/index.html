@@ -13,7 +13,34 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="LogicQ" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <script src="/theme-init.js" defer></script>
+    <script>
+      (function () {
+        try {
+          var defaultMigrated = localStorage.getItem('logicq_theme_default_v2');
+          if (!defaultMigrated) {
+            localStorage.setItem('logicq_theme_default_v2', 'true');
+            localStorage.setItem('logicq_theme', 'light');
+          }
+          var saved = localStorage.getItem('logicq_theme');
+          var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = saved || (systemDark ? 'dark' : 'light');
+          var root = document.documentElement;
+          root.classList.remove('dark', 'light');
+          root.classList.add(theme);
+          root.setAttribute('data-theme', theme);
+          root.style.colorScheme = theme;
+          var meta = document.getElementById('meta-theme-color');
+          if (meta) {
+            meta.setAttribute('content', theme === 'dark' ? '#0C0F1F' : '#F4F6FB');
+          }
+        } catch (e) {
+          var root = document.documentElement;
+          root.classList.add('light');
+          root.setAttribute('data-theme', 'light');
+          root.style.colorScheme = 'light';
+        }
+      })();
+    </script>
     <title>LogicQ — Daily C Programming Challenges & Daily Leaderboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

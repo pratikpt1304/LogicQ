@@ -33,7 +33,7 @@ export const LandingPage: React.FC = () => {
         {/* Top Institutional Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 text-xs font-mono mb-8 backdrop-blur-md shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-          <span className="font-semibold tracking-wide">Sanjivani University • Institutional C Programming Arena</span>
+          <span className="font-semibold tracking-wide">Sanjivani University • Institutional C Programming Platform</span>
         </div>
 
         {/* Main Headline */}
@@ -57,7 +57,7 @@ export const LandingPage: React.FC = () => {
             to={user ? '/dashboard' : '/login'}
             className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-mono text-sm font-bold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-xl shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
           >
-            <span>{user ? 'Enter Your Dashboard' : 'Sign In to Arena'}</span>
+            <span>{user ? 'Enter Your Dashboard' : 'Sign In to LogicQ'}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
 
@@ -145,7 +145,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <div className="text-cyan-400 pt-1 border-t border-[#1A2238] flex items-center justify-between font-bold">
               <span>All 10 Evaluation Test Suites Passed • Zero Memory Leaks</span>
-              <span className="text-amber-400">+25 Arena Points Earned</span>
+              <span className="text-amber-400">+25 Academic XP Earned</span>
             </div>
           </div>
         </div>
