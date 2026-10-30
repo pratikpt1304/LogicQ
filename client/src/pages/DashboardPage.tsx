@@ -1009,50 +1009,50 @@ export const DashboardPage: React.FC = () => {
         /* ========================================================================= */
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
           {/* 1. DYNAMIC TIME-OF-DAY HERO & IDENTITY BANNER */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0e1628] via-[#090d16] to-[#05070c] p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--border-line)] bg-gradient-to-br from-indigo-50/70 via-[var(--bg-panel)] to-cyan-50/50 dark:from-[#0d1527] dark:via-[var(--bg-panel)] dark:to-[#08101e] p-6 sm:p-8 shadow-xl">
             {/* Ambient Background Glows */}
-            <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div className="flex items-start sm:items-center gap-4 sm:gap-5">
                 {/* Modern Avatar with Live Ring */}
                 <div className="relative shrink-0">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-[2px] shadow-lg shadow-indigo-500/25">
-                    <div className="w-full h-full bg-[#0b0f19] rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black font-mono text-white">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-500 p-[2px] shadow-lg shadow-indigo-500/25">
+                    <div className="w-full h-full bg-gradient-to-tr from-indigo-600 to-cyan-600 rounded-2xl flex items-center justify-center text-xl sm:text-2xl font-black font-mono text-white">
                       {(user?.fullName || user?.displayName || 'S').charAt(0).toUpperCase()}
                     </div>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#090d16] flex items-center justify-center" title="Online & Active">
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[var(--bg-panel)] flex items-center justify-center shadow-sm" title="Online & Active">
                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
                       <span>{greeting.icon}</span>
                       <span>{greeting.text}</span>
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                       {user?.prn || 'STUDENT'}
                     </span>
                     <span className="text-xs font-mono text-[var(--text-muted)] hidden sm:inline-flex items-center gap-1">
-                      <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                       <span>{user?.college || 'Sanjivani University'}</span>
                     </span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight font-sans">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--text-main)] tracking-tight font-sans">
                     {resolveGreetingName(user, auth.currentUser?.displayName)}
                   </h1>
 
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
                     <span>Enrolled Section:</span>
-                    <span className="font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                       {sectionDisplayName}
                     </span>
-                    <span className="text-slate-600">•</span>
+                    <span>•</span>
                     <span>C11 GCC 14 Sandbox</span>
                   </div>
                 </div>
@@ -1062,16 +1062,16 @@ export const DashboardPage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                 <Link
                   to={activeResumeModule ? `/lab-internal/${activeResumeModule.slug}` : '/practice'}
-                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>Resume Practice</span>
                 </Link>
                 <Link
                   to="/student/tests"
-                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-[#131b2e] hover:bg-[#1a253d] text-indigo-300 border border-indigo-500/30 flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-mono text-xs font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] border border-[var(--border-line)] flex items-center justify-center gap-2 transition-all"
                 >
-                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  <FileText className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                   <span>Assigned Tests ({studentAssignedList.length})</span>
                 </Link>
               </div>
@@ -1081,18 +1081,18 @@ export const DashboardPage: React.FC = () => {
           {/* 2. TOP BENTO ROW: MASTERY RING + 7-DAY CONSISTENCY MATRIX */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* BENTO TILE 1: COURSE MASTERY & PROGRESS RING (5 Cols) */}
-            <div className="lg:col-span-5 rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md relative overflow-hidden group hover:border-indigo-500/30 transition-all">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="lg:col-span-5 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
                     <Target className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-white">Coursework Mastery</h3>
-                    <p className="text-[11px] font-mono text-slate-400">100 Sequential Lab Questions</p>
+                    <h3 className="font-bold text-sm text-[var(--text-main)]">Coursework Mastery</h3>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">100 Sequential Lab Questions</p>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   {overallMasteryPercent}% Done
                 </span>
               </div>
@@ -1106,7 +1106,7 @@ export const DashboardPage: React.FC = () => {
                       cx="50"
                       cy="50"
                       r="40"
-                      className="stroke-slate-800"
+                      className="stroke-[var(--border-line)] opacity-60"
                       strokeWidth="9"
                       fill="transparent"
                     />
@@ -1124,68 +1124,68 @@ export const DashboardPage: React.FC = () => {
                     />
                     <defs>
                       <linearGradient id="masteryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="0%" stopColor="#4f46e5" />
                         <stop offset="50%" stopColor="#06b6d4" />
                         <stop offset="100%" stopColor="#10b981" />
                       </linearGradient>
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-                    <span className="text-2xl font-black text-white">{totalProblemsSolved}</span>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">/ 100</span>
+                    <span className="text-2xl font-black text-[var(--text-main)]">{totalProblemsSolved}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 100</span>
                   </div>
                 </div>
 
                 {/* Breakdown List */}
                 <div className="space-y-2 font-mono text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <span className="text-slate-400">Easy Core:</span>
-                    <span className="font-bold text-white ml-auto">40 Probs</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-[var(--text-muted)]">Easy Core:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">40 Probs</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    <span className="text-slate-400">Medium Logic:</span>
-                    <span className="font-bold text-white ml-auto">40 Probs</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <span className="text-[var(--text-muted)]">Medium Logic:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">40 Probs</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-rose-400" />
-                    <span className="text-slate-400">Hard Mastery:</span>
-                    <span className="font-bold text-white ml-auto">20 Probs</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <span className="text-[var(--text-muted)]">Hard Mastery:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">20 Probs</span>
                   </div>
                 </div>
               </div>
 
               {/* Footer XP bar */}
-              <div className="pt-4 border-t border-white/5 flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+              <div className="pt-4 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
+                <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
                   <span>Academic XP</span>
                 </span>
-                <span className="font-extrabold text-yellow-400">
+                <span className="font-extrabold text-amber-600 dark:text-amber-400">
                   {user?.totalPoints || 0} PTS
                 </span>
               </div>
             </div>
 
             {/* BENTO TILE 2: 7-DAY CONSISTENCY & ACTIVITY MATRIX (7 Cols) */}
-            <div className="lg:col-span-7 rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md relative overflow-hidden group hover:border-amber-500/30 transition-all">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="lg:col-span-7 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all">
+              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
                     <Flame className="w-4 h-4 animate-bounce" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-white">Daily Streak & Consistency</h3>
-                    <p className="text-[11px] font-mono text-slate-400">Solve every day for university streak bonus</p>
+                    <h3 className="font-bold text-sm text-[var(--text-main)]">Daily Streak & Consistency</h3>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">Solve every day for university streak bonus</p>
                   </div>
                 </div>
                 <div className="text-right font-mono">
-                  <span className="text-xl font-black text-amber-400 flex items-center gap-1 justify-end">
+                  <span className="text-xl font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 justify-end">
                     <span>{stats?.currentStreak || user?.currentStreak || 0}</span>
-                    <span className="text-xs font-normal text-slate-400">Days 🔥</span>
+                    <span className="text-xs font-normal text-[var(--text-muted)]">Days 🔥</span>
                   </span>
-                  <span className="text-[10px] text-slate-500 block">Personal Best: {stats?.longestStreak || user?.longestStreak || 0}d</span>
+                  <span className="text-[10px] text-[var(--text-muted)] block">Personal Best: {stats?.longestStreak || user?.longestStreak || 0}d</span>
                 </div>
               </div>
 
@@ -1197,20 +1197,20 @@ export const DashboardPage: React.FC = () => {
                       key={i}
                       className={`flex-1 py-3 px-1 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
                         d.isActive
-                          ? 'bg-gradient-to-b from-emerald-500/20 to-emerald-500/5 border-emerald-500/40 text-emerald-400 shadow-md shadow-emerald-500/10'
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-sm'
                           : d.isToday
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 animate-pulse'
-                          : 'bg-[#121829] border-white/5 text-slate-500'
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-300 ring-2 ring-amber-400/30'
+                          : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-muted)]'
                       }`}
                     >
                       <span className="text-[10px] font-mono uppercase font-bold">{d.dayName}</span>
                       <div
-                        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
+                        className={`w-4 h-4 rounded-full flex items-center justify-center ${
                           d.isActive
-                            ? 'bg-emerald-400 text-[#090d16]'
+                            ? 'bg-emerald-500 text-white shadow-sm'
                             : d.isToday
-                            ? 'border-2 border-amber-400'
-                            : 'bg-slate-700'
+                            ? 'border-2 border-amber-500'
+                            : 'bg-[var(--border-line)]'
                         }`}
                       >
                         {d.isActive ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : null}
@@ -1222,50 +1222,50 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Instant WhatsApp Streak Reminder Button */}
-              <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-mono">Save streak & invite classmates</span>
+              <div className="pt-4 border-t border-[var(--border-line)] flex items-center justify-between">
+                <span className="text-xs text-[var(--text-muted)] font-mono">Save streak & invite classmates</span>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
                     `🔥 *LogicQ Daily C Challenge Reminder* 🔥\n\nHey! Don't let your streak break today.\n\n⚡ *My Current Streak:* ${stats?.currentStreak || user?.currentStreak || 0} Days 🔥\n💎 *Reward:* +25 Academic XP\n👉 *Solve Now:* https://logicq-clanguage.web.app/daily\n\nCompete on the Sanjivani University daily leaderboard! 🚀`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-mono text-xs font-bold flex items-center gap-1.5 transition"
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold flex items-center gap-1.5 transition"
                 >
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span>Ping to WhatsApp</span>
                 </a>
               </div>
             </div>
           </div>
 
-          {/* 3. TODAY'S DAILY CHALLENGE SPOTLIGHT (Glowing Neon Hero Card) */}
-          <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-[#0e1426] to-[#0c101c] p-6 sm:p-7 shadow-xl relative overflow-hidden">
+          {/* 3. TODAY'S DAILY CHALLENGE SPOTLIGHT (Glowing Hero Card) */}
+          <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-[var(--bg-panel)] to-cyan-500/10 p-6 sm:p-7 shadow-md relative overflow-hidden">
             <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-300" />
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-300" />
                     <span>DAILY C CHALLENGE</span>
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30">
                     +25 ACADEMIC XP
                   </span>
                   {secondsLeft != null && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono text-slate-400 bg-white/5 border border-white/10 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-400" />
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono text-[var(--text-muted)] bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-[var(--text-muted)]" />
                       <span>Resets in {formatCountdown(secondsLeft)}</span>
                     </span>
                   )}
                 </div>
 
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
                   {dailyProblem?.title || "Today's C Algorithm Challenge"}
                 </h2>
 
-                <p className="text-xs text-slate-400 max-w-2xl font-mono leading-relaxed">
+                <p className="text-xs text-[var(--text-muted)] max-w-2xl font-mono leading-relaxed">
                   Solve today's curated C problem to claim your attendance points, maintain your streak, and climb the university leaderboard!
                 </p>
               </div>
@@ -1277,7 +1277,7 @@ export const DashboardPage: React.FC = () => {
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                  className="px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition"
                   title="Share challenge to class WhatsApp group"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
@@ -1296,21 +1296,21 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* 4. ASSIGNED LAB ASSESSMENTS & TESTS (High Institutional Priority) */}
-          <div className="rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 sm:p-7 shadow-xl backdrop-blur-md space-y-5">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+          <div className="rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--border-line)] pb-4">
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-400" />
+                <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                   <span>Assigned Lab Assessments & Tests</span>
                 </h2>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
                   Proctored coursework tests scheduled by your faculty mentor
                 </p>
               </div>
 
               <Link
                 to="/student/tests"
-                className="text-xs font-mono text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
+                className="text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1 transition"
               >
                 <span>View Full Tests Hub</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1318,21 +1318,21 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {isLoadingStudentTests ? (
-              <div className="py-8 text-center text-xs font-mono text-slate-400">
-                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-400" />
+              <div className="py-8 text-center text-xs font-mono text-[var(--text-muted)]">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
                 <span>Checking section assignments...</span>
               </div>
             ) : studentAssignedList.length === 0 ? (
-              <div className="p-6 rounded-2xl border border-dashed border-white/10 bg-[#121829] text-center space-y-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+              <div className="p-6 rounded-2xl border border-dashed border-[var(--border-line)] bg-[var(--bg-surface)] text-center space-y-4">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center mx-auto">
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-white font-mono">
+                  <h3 className="text-sm font-bold text-[var(--text-main)] font-mono">
                     No Active Tests Assigned Right Now
                   </h3>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto font-mono leading-relaxed">
-                    Have a 6-character Join Code from your professor (e.g. <code className="text-indigo-400 font-bold">LQ-A1B2</code>)? Enter it to enroll and unlock tests:
+                  <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto font-mono leading-relaxed">
+                    Have a 6-character Join Code from your professor (e.g. <code className="text-indigo-600 dark:text-indigo-400 font-bold">LQ-A1B2</code>)? Enter it to enroll and unlock tests:
                   </p>
                 </div>
 
@@ -1345,7 +1345,7 @@ export const DashboardPage: React.FC = () => {
                     placeholder="e.g. LQ-A1B2"
                     value={dashboardJoinCode}
                     onChange={(e) => setDashboardJoinCode(e.target.value.toUpperCase())}
-                    className="w-full sm:flex-1 px-3.5 py-2.5 rounded-xl border border-white/10 bg-[#0c101c] text-sm font-mono font-bold tracking-widest placeholder:tracking-normal placeholder:font-normal text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full sm:flex-1 px-3.5 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-sm font-mono font-bold tracking-widest placeholder:tracking-normal placeholder:font-normal text-[var(--text-main)] focus:outline-none focus:border-indigo-500"
                   />
                   <button
                     type="submit"
@@ -1369,48 +1369,48 @@ export const DashboardPage: React.FC = () => {
                   return (
                     <div
                       key={assignment?.id}
-                      className="p-5 rounded-2xl border border-white/10 bg-[#121829] hover:border-indigo-500/40 transition-all space-y-3.5 shadow-sm"
+                      className="p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-indigo-500/40 transition-all space-y-3.5 shadow-sm"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                           {test?.section?.sectionName || 'Class Section'}
                         </span>
 
                         {isSubmitted ? (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" />
                             SUBMITTED
                           </span>
                         ) : isInProgress ? (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                             IN PROGRESS ({completedCount}/{questions.length})
                           </span>
                         ) : (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                             ASSIGNED
                           </span>
                         )}
                       </div>
 
                       <div>
-                        <h3 className="font-bold text-sm text-white truncate font-mono">
+                        <h3 className="font-bold text-sm text-[var(--text-main)] truncate font-mono">
                           {test?.title || 'Assessment Test'}
                         </h3>
-                        <p className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2">
+                        <p className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5 flex items-center gap-2">
                           <span>⏱️ {test?.durationMinutes || 60} Mins</span>
                           <span>•</span>
                           <span>❓ {questions.length} Questions</span>
                         </p>
                       </div>
 
-                      <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+                      <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between">
                         {isSubmitted && assignment?.academicScore > 0 ? (
-                          <span className="text-xs font-mono font-bold text-emerald-400">
+                          <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
                             Score: {assignment.academicScore.toFixed(1)} / {questions.length}
                           </span>
                         ) : (
-                          <span className="text-[11px] font-mono text-slate-400">
+                          <span className="text-[11px] font-mono text-[var(--text-muted)]">
                             {completedCount} of {questions.length} completed
                           </span>
                         )}
@@ -1423,7 +1423,7 @@ export const DashboardPage: React.FC = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Ping reminder to WhatsApp"
-                            className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition flex items-center"
+                            className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 transition flex items-center"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </a>
@@ -1445,21 +1445,21 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* 5. 5 SEQUENTIAL LAB COURSEWORK MODULES (BENTO CARDS) */}
-          <div className="rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 sm:p-7 shadow-xl backdrop-blur-md space-y-5">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+          <div className="rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--border-line)] pb-4">
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
                   <span>Lab Internal Coursework Modules</span>
                 </h2>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
                   5 sequential topic modules from Control Structures to Dynamic Memory Allocation
                 </p>
               </div>
 
               <Link
                 to="/lab-internal"
-                className="text-xs font-mono text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition"
+                className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 transition"
               >
                 <span>View All 5 Modules</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -1477,44 +1477,44 @@ export const DashboardPage: React.FC = () => {
                       to={isLocked ? '/practice' : `/lab-internal/${m.slug}`}
                       className={`p-5 rounded-2xl border transition-all flex flex-col justify-between group hover:scale-[1.02] ${
                         isLocked
-                          ? 'border-white/5 bg-[#121829]/60 opacity-70'
-                          : 'border-white/10 bg-[#121829] hover:border-cyan-500/50 shadow-sm'
+                          ? 'border-[var(--border-line)] bg-[var(--bg-surface)]/60 opacity-60'
+                          : 'border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-cyan-500/50 shadow-sm'
                       }`}
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#0c101c] text-slate-400 border border-white/10">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-line)]">
                             MOD 0{m.order || idx + 1}
                           </span>
                           {isLocked ? (
-                            <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
+                            <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
                               <Lock className="w-3 h-3" /> Locked
                             </span>
                           ) : (
-                            <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3" /> {percent}%
                             </span>
                           )}
                         </div>
 
-                        <h3 className="font-bold text-sm text-white line-clamp-1 group-hover:text-cyan-400 transition-colors">
+                        <h3 className="font-bold text-sm text-[var(--text-main)] line-clamp-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                           {m.title}
                         </h3>
-                        <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                        <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
                           {m.description}
                         </p>
                       </div>
 
-                      <div className="pt-3 mt-4 border-t border-white/5 space-y-2">
-                        <div className="w-full bg-[#0c101c] h-1.5 rounded-full overflow-hidden">
+                      <div className="pt-3 mt-4 border-t border-[var(--border-line)] space-y-2">
+                        <div className="w-full bg-[var(--bg-panel)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
                           <div
-                            className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-300"
+                            className="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-300"
                             style={{ width: `${percent}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                        <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
                           <span>{m.solvedCount || 0}/20 Solved</span>
-                          <span className="text-cyan-400 font-semibold">{isLocked ? 'Unlock →' : 'Practice →'}</span>
+                          <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{isLocked ? 'Unlock →' : 'Practice →'}</span>
                         </div>
                       </div>
                     </Link>
@@ -1527,21 +1527,21 @@ export const DashboardPage: React.FC = () => {
           {/* 6. BOTTOM BENTO ROW: RECENT CODE SUBMISSIONS + GCC 14 COMPILER SANDBOX STATUS */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Recent Code Submissions Feed (8 Cols) */}
-            <div className="lg:col-span-8 rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 sm:p-7 shadow-xl backdrop-blur-md space-y-4">
-              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <div className="lg:col-span-8 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                     <span>My Recent Submissions</span>
                   </h2>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
                     Real-time execution log from the automated C judge
                   </p>
                 </div>
 
                 <Link
                   to="/practice"
-                  className="text-xs font-mono text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 transition"
+                  className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 transition"
                 >
                   <span>Practice Arena</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1550,13 +1550,13 @@ export const DashboardPage: React.FC = () => {
 
               {studentSubmissionsList.length === 0 ? (
                 <div className="py-8 text-center space-y-2">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-400 mx-auto opacity-40" />
-                  <p className="text-xs text-slate-400 font-mono">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-500 dark:text-emerald-400 mx-auto opacity-40" />
+                  <p className="text-xs text-[var(--text-muted)] font-mono">
                     No submissions yet. Pick a practice problem to run your first C code!
                   </p>
                   <Link
                     to="/practice"
-                    className="inline-block mt-2 px-4 py-2 rounded-xl text-xs font-mono font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
+                    className="inline-block mt-2 px-4 py-2 rounded-xl text-xs font-mono font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
                   >
                     Start Coding &rarr;
                   </Link>
@@ -1570,13 +1570,13 @@ export const DashboardPage: React.FC = () => {
                     return (
                       <div
                         key={sub?.id || Math.random()}
-                        className="flex items-center justify-between p-3.5 rounded-2xl border border-white/5 bg-[#121829] text-xs transition hover:border-white/15"
+                        className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs transition hover:border-indigo-500/30"
                       >
                         <div className="space-y-0.5 truncate max-w-[65%]">
-                          <div className="font-semibold text-white truncate font-mono">
+                          <div className="font-semibold text-[var(--text-main)] truncate font-mono">
                             {sub?.problem?.title || 'C Program Problem'}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono truncate">
+                          <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">
                             GCC 14 (C11) • {sub?.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Recent'}
                           </div>
                         </div>
@@ -1585,10 +1585,10 @@ export const DashboardPage: React.FC = () => {
                           <span
                             className={`inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg ${
                               isAccepted
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                                 : isWrong
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                             }`}
                           >
                             {verdict}
@@ -1602,47 +1602,47 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* GCC 14 Environment Status Card (4 Cols) */}
-            <div className="lg:col-span-4 rounded-3xl border border-white/10 bg-[#0c101c]/90 p-6 sm:p-7 shadow-xl backdrop-blur-md flex flex-col justify-between space-y-4">
+            <div className="lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
-                  <span className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                     ONLINE
                   </span>
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-base text-white font-mono">GCC 14 C11 Sandbox</h3>
-                  <p className="text-xs text-slate-400 font-mono mt-1 leading-relaxed">
+                  <h3 className="font-bold text-base text-[var(--text-main)] font-mono">GCC 14 C11 Sandbox</h3>
+                  <p className="text-xs text-[var(--text-muted)] font-mono mt-1 leading-relaxed">
                     Strict isolated container runtime with memory limits and zero network socket leakage.
                   </p>
                 </div>
 
                 <div className="space-y-2 pt-2 text-xs font-mono">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[#121829] border border-white/5">
-                    <span className="text-slate-400">Execution Limit:</span>
-                    <span className="text-white font-bold">1000 ms</span>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+                    <span className="text-[var(--text-muted)]">Execution Limit:</span>
+                    <span className="text-[var(--text-main)] font-bold">1000 ms</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[#121829] border border-white/5">
-                    <span className="text-slate-400">Memory Quota:</span>
-                    <span className="text-white font-bold">64 MB RAM</span>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+                    <span className="text-[var(--text-muted)]">Memory Quota:</span>
+                    <span className="text-[var(--text-main)] font-bold">64 MB RAM</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[#121829] border border-white/5">
-                    <span className="text-slate-400">Compiler Standard:</span>
-                    <span className="text-cyan-400 font-bold">-std=c11 -O2</span>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+                    <span className="text-[var(--text-muted)]">Compiler Standard:</span>
+                    <span className="text-cyan-600 dark:text-cyan-400 font-bold">-std=c11 -O2</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-white/5">
+              <div className="pt-4 border-t border-[var(--border-line)]">
                 <Link
                   to="/practice"
-                  className="w-full py-2.5 rounded-xl font-mono text-xs font-bold bg-[#131b2e] hover:bg-[#1a253d] text-cyan-300 border border-cyan-500/30 flex items-center justify-center gap-2 transition"
+                  className="w-full py-2.5 rounded-xl font-mono text-xs font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 flex items-center justify-center gap-2 transition"
                 >
-                  <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <Code2 className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                   <span>Open Coding Arena</span>
                 </Link>
               </div>
