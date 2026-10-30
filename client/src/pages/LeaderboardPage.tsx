@@ -24,6 +24,7 @@ import {
   Users,
   Medal,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export const LeaderboardPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -417,12 +418,15 @@ export const LeaderboardPage: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Top 3 Symmetrical Podium (Only shown if at least 3 students exist) */}
+          {/* Top 3 Symmetrical Podium (Enhanced Watermelon-style Cards) */}
           {showPodium && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
               {/* Rank 2 (Silver) */}
-              <div className="glass-card p-5 rounded-2xl border border-slate-400/30 bg-[var(--bg-panel)] flex flex-col items-center text-center order-2 md:order-1 mt-0 md:mt-5 shadow-sm">
-                <span className="w-9 h-9 rounded-full bg-slate-400/15 border border-slate-400/40 text-slate-300 flex items-center justify-center font-extrabold text-sm mb-2.5">
+              <motion.div
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="glass-card p-5 rounded-2xl border border-slate-300/40 dark:border-slate-600/40 bg-gradient-to-b from-slate-200/10 dark:from-slate-700/10 to-[var(--bg-panel)] flex flex-col items-center text-center order-2 md:order-1 mt-0 md:mt-5 shadow-sm relative overflow-hidden"
+              >
+                <span className="w-10 h-10 rounded-full bg-slate-400/20 border border-slate-400/50 text-slate-300 flex items-center justify-center font-extrabold text-sm mb-2.5 shadow-sm">
                   🥈 2
                 </span>
                 <Link
@@ -446,17 +450,26 @@ export const LeaderboardPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] text-[var(--text-muted)] block uppercase">STREAK</span>
-                    <strong className="text-emerald-400 text-sm">{topThree[1].currentStreak || 0}d</strong>
+                    <strong className="text-emerald-400 text-sm flex items-center justify-center gap-0.5">
+                      <Flame className="w-3 h-3 text-emerald-400" />
+                      {topThree[1].currentStreak || 0}d
+                    </strong>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              {/* Rank 1 (Gold) */}
-              <div className="glass-card p-6 rounded-2xl border-2 border-amber-400/50 bg-[var(--bg-panel)] flex flex-col items-center text-center order-1 md:order-2 shadow-lg shadow-amber-500/10 relative">
-                <div className="absolute -top-3 px-3 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-bold font-mono uppercase tracking-wider shadow-sm">
-                  Rank #1 Champion
+              {/* Rank 1 (Gold - Elevated Champion Card) */}
+              <motion.div
+                whileHover={{ y: -6, scale: 1.01, transition: { duration: 0.2 } }}
+                className="glass-card p-6 rounded-2xl border-2 border-amber-400/60 bg-gradient-to-b from-amber-500/10 via-[var(--bg-panel)] to-[var(--bg-panel)] flex flex-col items-center text-center order-1 md:order-2 shadow-xl shadow-amber-500/10 relative overflow-hidden"
+              >
+                {/* Glow ring */}
+                <div className="absolute -top-12 -right-12 w-28 h-28 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+                
+                <div className="absolute -top-3 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[10px] font-extrabold font-mono uppercase tracking-wider shadow-md">
+                  👑 Rank #1 Champion
                 </div>
-                <span className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 flex items-center justify-center font-extrabold text-base mb-2.5 mt-1">
+                <span className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-500/30 to-amber-300/30 border-2 border-amber-400 text-amber-400 flex items-center justify-center font-extrabold text-base mb-2.5 mt-1 shadow-md">
                   🥇 1
                 </span>
                 <Link
@@ -480,14 +493,20 @@ export const LeaderboardPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] text-[var(--text-muted)] block uppercase">STREAK</span>
-                    <strong className="text-emerald-400 text-base">{topThree[0].currentStreak || 0}d</strong>
+                    <strong className="text-emerald-400 text-base flex items-center justify-center gap-0.5">
+                      <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
+                      {topThree[0].currentStreak || 0}d
+                    </strong>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Rank 3 (Bronze) */}
-              <div className="glass-card p-5 rounded-2xl border border-amber-700/30 bg-[var(--bg-panel)] flex flex-col items-center text-center order-3 mt-0 md:mt-5 shadow-sm">
-                <span className="w-9 h-9 rounded-full bg-amber-700/15 border border-amber-700/40 text-amber-500 flex items-center justify-center font-extrabold text-sm mb-2.5">
+              <motion.div
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="glass-card p-5 rounded-2xl border border-amber-700/40 bg-gradient-to-b from-amber-700/10 to-[var(--bg-panel)] flex flex-col items-center text-center order-3 mt-0 md:mt-5 shadow-sm relative overflow-hidden"
+              >
+                <span className="w-10 h-10 rounded-full bg-amber-700/20 border border-amber-700/50 text-amber-500 flex items-center justify-center font-extrabold text-sm mb-2.5 shadow-sm">
                   🥉 3
                 </span>
                 <Link
@@ -511,10 +530,13 @@ export const LeaderboardPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] text-[var(--text-muted)] block uppercase">STREAK</span>
-                    <strong className="text-emerald-400 text-sm">{topThree[2].currentStreak || 0}d</strong>
+                    <strong className="text-emerald-400 text-sm flex items-center justify-center gap-0.5">
+                      <Flame className="w-3 h-3 text-emerald-400" />
+                      {topThree[2].currentStreak || 0}d
+                    </strong>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
 

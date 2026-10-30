@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { Logo } from '../common/Logo.js';
+import { CommandPalette } from '../common/CommandPalette.js';
 import {
   clearPwaUserCachesAndDrafts,
   triggerPwaInstallPrompt,
@@ -27,6 +29,7 @@ import {
   Sparkles,
   FileCode2,
   Brain,
+  Search,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -38,6 +41,19 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/challenge') {
@@ -135,16 +151,43 @@ export const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-2.5">
           {user ? (
             <>
+              {/* Global Command Palette Search Pill */}
+              <button
+                type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-indigo-500/50 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono shadow-sm group"
+                title="Search topics & actions (Ctrl+K)"
+              >
+                <Search className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                <span className="hidden lg:inline">Search...</span>
+                <kbd className="text-[10px] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] text-[var(--text-muted)]">
+                  ⌘K
+                </kbd>
+              </button>
+
               {/* Student Gamification Stats (Only visible to Students) */}
               {isStudent && (
                 <>
-                  <div
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
                     title="Current Daily Challenge Streak"
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--color-warning)] text-xs font-mono font-semibold"
+                    className="relative flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-mono font-semibold shadow-sm overflow-hidden"
                   >
-                    <Flame className="w-3.5 h-3.5 text-[var(--color-warning)] shrink-0" />
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.25, 1],
+                        rotate: [-4, 4, -4],
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    >
+                      <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
+                    </motion.div>
                     <span>{user.currentStreak}d streak</span>
-                  </div>
+                  </motion.div>
 
                   <div
                     title="Total LogicQ Score"
@@ -565,6 +608,11 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Global Apple/Raycast-style Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
     </header>
   );
 };
