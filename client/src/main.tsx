@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext.js';
 import { SocketProvider } from './context/SocketContext.js';
 import { ThemeProvider, useTheme } from './context/ThemeContext.js';
 import { App } from './App.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import './index.css';
 import { RealtimeSyncService } from './services/realtimeSync.service.js';
 
@@ -95,7 +96,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ThemeProvider>
           <AuthProvider>
             <SocketProvider>
-              <App />
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
               <ThemedToaster />
             </SocketProvider>
           </AuthProvider>

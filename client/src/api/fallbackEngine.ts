@@ -3195,6 +3195,26 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         totalQuestionsAttempted: subs.length,
         integrityScore: 100,
         integrityRisk: 'NORMAL',
+        difficultyStats: {
+          EASY: { solved: solvedCount, total: 25, avgTimeSec: 45 },
+          MEDIUM: { solved: 0, total: 25, avgTimeSec: 0 },
+          HARD: { solved: 0, total: 25, avgTimeSec: 0 },
+        },
+        telemetry: {
+          totalTabSwitches: 0,
+          totalClipboardAttempts: 0,
+          totalFocusLossDurationSec: 0,
+          totalFullScreenExits: 0,
+          totalKeystrokes: solvedCount * 120,
+          vivaCompletedRatio: 'None triggered',
+        },
+        netTimeDeviationSec: 0,
+        hiddenTestPassRatio: `${solvedCount}/${subs.length || 1} Passed`,
+        assignments: [],
+        recommendations: [
+          'Continue solving section problem sets within the prescribed time windows.',
+          'Practice basic control structures before attempting hard recursive challenges.',
+        ],
         recentReports: [],
       },
     };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { api } from '../../api/client.js';
 import { auth } from '../../config/firebase.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -29,6 +29,11 @@ import {
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
   const { user } = useAuth();
+
+  if (user?.role === 'FACULTY' || user?.role === 'ADMIN') {
+    return <Navigate to="/faculty/analytics" replace />;
+  }
+
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
@@ -96,32 +101,46 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     );
   }
 
-  const anl = hasBackendData
-    ? rawAnl
-    : {
-        academicScore: 0,
-        totalQuestionsSolved: 0,
-        totalQuestionsAttempted: 0,
-        integrityScore: 100,
-        integrityRisk: 'NORMAL',
-        learnerInsightMessage:
-          'Continue solving problems in the Practice Hub to boost your algorithmic problem-solving accuracy.',
-        telemetry: {
-          totalTabSwitches: 0,
-          totalClipboardAttempts: 0,
-          totalFocusLossDurationSec: 0,
-          totalKeystrokes: 0,
-        },
-        difficultyStats: {
-          EASY: { solved: 0, total: 20, avgTimeSec: 0 },
-          MEDIUM: { solved: 0, total: 20, avgTimeSec: 0 },
-          HARD: { solved: 0, total: 10, avgTimeSec: 0 },
-        },
-        netTimeDeviationSec: 0,
-        hiddenTestPassRatio: '0/0 Passed',
-        assignments: [],
-        recommendations: [],
-      };
+  const defaultAnalytics = {
+    academicScore: 0,
+    totalQuestionsSolved: 0,
+    totalQuestionsAttempted: 0,
+    integrityScore: 100,
+    integrityRisk: 'NORMAL' as const,
+    learnerInsightMessage:
+      'Continue solving problems in the Practice Hub to boost your algorithmic problem-solving accuracy.',
+    telemetry: {
+      totalTabSwitches: 0,
+      totalClipboardAttempts: 0,
+      totalFocusLossDurationSec: 0,
+      totalKeystrokes: 0,
+      vivaCompletedRatio: 'None triggered',
+    },
+    difficultyStats: {
+      EASY: { solved: 0, total: 25, avgTimeSec: 0 },
+      MEDIUM: { solved: 0, total: 25, avgTimeSec: 0 },
+      HARD: { solved: 0, total: 25, avgTimeSec: 0 },
+    },
+    netTimeDeviationSec: 0,
+    hiddenTestPassRatio: '0/0 Passed',
+    assignments: [] as any[],
+    recommendations: [] as string[],
+  };
+
+  const anl = {
+    ...defaultAnalytics,
+    ...(rawAnl || {}),
+    telemetry: {
+      ...defaultAnalytics.telemetry,
+      ...(rawAnl?.telemetry || {}),
+    },
+    difficultyStats: {
+      ...defaultAnalytics.difficultyStats,
+      ...(rawAnl?.difficultyStats || {}),
+    },
+    assignments: Array.isArray(rawAnl?.assignments) ? rawAnl.assignments : defaultAnalytics.assignments,
+    recommendations: Array.isArray(rawAnl?.recommendations) ? rawAnl.recommendations : defaultAnalytics.recommendations,
+  };
 
   const academicScore = typeof anl.academicScore === 'number' ? anl.academicScore : 0;
   const totalQuestionsSolved = anl.totalQuestionsSolved || 0;
@@ -526,7 +545,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                       Auto-Submitted &amp; Penalized
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                      {new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {(() => {
+                        try {
+                          const d = new Date(inc.timestamp);
+                          return isNaN(d.getTime()) ? 'Recently' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        } catch {
+                          return 'Recently';
+                        }
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -589,8 +615,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
 
           <div className="space-y-3 pt-1">
-            {Object.entries(anl.difficultyStats).map(([diff, stats]: any) => {
-              const pct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+            {Object.entries(anl.difficultyStats || defaultAnalytics.difficultyStats).map(([diff, stats]: any) => {
+              const safeStats = stats || { solved: 0, total: 25, avgTimeSec: 0 };
+              const pct = safeStats.total > 0 ? Math.round((safeStats.solved / safeStats.total) * 100) : 0;
               const color =
                 diff === 'EASY'
                   ? 'bg-emerald-400 text-emerald-400'
@@ -603,7 +630,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-white">{diff}</span>
                     <span className="font-mono text-slate-300">
-                      {stats.solved} / {stats.total} Solved ({pct}%)
+                      {safeStats.solved} / {safeStats.total} Solved ({pct}%)
                     </span>
                   </div>
                   <div className="h-2 bg-[#0C0F1F] rounded-full overflow-hidden border border-[#252C4F]">
@@ -619,7 +646,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                     />
                   </div>
                   <div className="text-[10px] text-slate-400 text-right">
-                    Avg solve time: {stats.avgTimeSec}s
+                    Avg solve time: {safeStats.avgTimeSec || 0}s
                   </div>
                 </div>
               );
@@ -672,7 +699,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </span>
               </div>
               <span className="text-slate-200 text-xs font-bold font-mono">
-                {anl.telemetry.totalKeystrokes.toLocaleString()} keys
+                {(anl.telemetry?.totalKeystrokes || 0).toLocaleString()} keys
               </span>
             </div>
           </div>
@@ -719,13 +746,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <div className="flex items-start justify-between border-b border-[#252C4F] pb-4">
               <div>
                 <div className="text-xs font-mono font-bold text-[#8B9BFF] uppercase tracking-wider">
-                  {reportData.report.institution || 'Sanjivani University'} • Examination Verification
+                  {reportData?.report?.institution || 'Sanjivani University'} • Examination Verification
                 </div>
                 <h2 className="text-xl font-black text-white mt-1">
                   OFFICIAL PROGRAMMING ASSESSMENT REPORT
                 </h2>
                 <div className="text-xs text-slate-400 font-mono mt-1">
-                  Student: {reportData.report.student.fullName} | PRN: {reportData.report.student.prn} | Dept: {reportData.report.student.department}
+                  Student: {reportData?.report?.student?.fullName || 'Student'} | PRN: {reportData?.report?.student?.prn || 'N/A'} | Dept: {reportData?.report?.student?.department || 'N/A'}
                 </div>
               </div>
 
@@ -751,19 +778,19 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               <div>
                 <div className="text-xs text-slate-400">Academic Score</div>
                 <div className="text-2xl font-bold text-emerald-400 mt-1">
-                  {reportData.report.summary.academicScore} Marks
+                  {reportData?.report?.summary?.academicScore ?? 0} Marks
                 </div>
               </div>
               <div>
                 <div className="text-xs text-slate-400">Integrity Health</div>
                 <div className="text-2xl font-bold text-[#8B9BFF] mt-1">
-                  {reportData.report.summary.integrityScore} / 100
+                  {reportData?.report?.summary?.integrityScore ?? 100} / 100
                 </div>
               </div>
               <div>
                 <div className="text-xs text-slate-400">Status</div>
                 <div className="text-2xl font-bold text-white mt-1">
-                  {reportData.report.summary.integrityRisk || 'NORMAL'}
+                  {reportData?.report?.summary?.integrityRisk || 'NORMAL'}
                 </div>
               </div>
             </div>
@@ -773,7 +800,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               <h3 className="font-bold text-sm uppercase tracking-wider border-b border-[#252C4F] pb-1 text-slate-200">
                 Submitted Solutions &amp; Verified Marks
               </h3>
-              {reportData.report.partA_Solutions.map((sol: any, idx: number) => (
+              {(reportData?.report?.partA_Solutions || []).map((sol: any, idx: number) => (
                 <div key={idx} className="bg-[#0C0F1F] p-4 rounded-xl border border-[#252C4F] space-y-2 font-mono text-xs">
                   <div className="flex justify-between font-bold">
                     <span className="text-white">Q{idx + 1}: {sol.title} ({sol.difficulty})</span>
