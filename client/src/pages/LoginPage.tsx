@@ -33,6 +33,7 @@ export const LoginPage: React.FC = () => {
   const [prn, setPrn] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [hasPasswordInteracted, setHasPasswordInteracted] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,8 +85,8 @@ export const LoginPage: React.FC = () => {
   }, [prn, hasPasswordInteracted]);
 
   // Student Direct PRN Login Handler
-  const handlePrnLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePrnLogin = async (e?: React.FormEvent | React.KeyboardEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
     const rawPrn = prn.trim();
     const cleanPrn = rawPrn.toLowerCase() === 'dummy' ? 'dummy' : rawPrn.toUpperCase();
     const cleanPwd = password.trim();
@@ -400,7 +401,7 @@ export const LoginPage: React.FC = () => {
 
               {/* TAB 1: Student PRN Sign In */}
               {authMode === 'prn' && (
-                <form onSubmit={handlePrnLogin} className="space-y-4" autoComplete="off">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
                       Institutional PRN
@@ -408,8 +409,8 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         type="text"
-                        name="institutional_prn_id"
-                        id="institutional_prn_id"
+                        name="institutional_prn_query"
+                        id="institutional_prn_query"
                         autoComplete="off"
                         data-lpignore="true"
                         data-form-type="other"
@@ -417,9 +418,13 @@ export const LoginPage: React.FC = () => {
                         required
                         autoFocus
                         value={prn}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handlePrnLogin(e);
+                        }}
                         onChange={(e) => {
                           setPrn(e.target.value);
                           setHasPasswordInteracted(false);
+                          setIsPasswordFocused(false);
                           setPassword('');
                           if (passwordInputRef.current) {
                             passwordInputRef.current.value = '';
@@ -439,20 +444,36 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         ref={passwordInputRef}
-                        type={showPassword ? 'text' : 'password'}
-                        name="student_login_secret"
-                        id="student_login_secret"
-                        autoComplete="new-password"
+                        type={showPassword ? 'text' : isPasswordFocused ? 'password' : 'text'}
+                        name="student_custom_key"
+                        id="student_custom_key"
+                        autoComplete="off"
                         data-lpignore="true"
                         data-form-type="other"
                         spellCheck={false}
                         required
                         value={password}
-                        onFocus={() => setHasPasswordInteracted(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handlePrnLogin(e);
+                        }}
+                        onFocus={() => {
+                          setIsPasswordFocused(true);
+                          setHasPasswordInteracted(true);
+                        }}
+                        onBlur={() => {
+                          if (!password) setIsPasswordFocused(false);
+                        }}
                         onChange={(e) => {
                           setHasPasswordInteracted(true);
                           setPassword(e.target.value);
                         }}
+                        style={
+                          !showPassword
+                            ? ({
+                                WebkitTextSecurity: 'disc',
+                              } as React.CSSProperties)
+                            : undefined
+                        }
                         placeholder="Enter your password"
                         className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
@@ -477,14 +498,15 @@ export const LoginPage: React.FC = () => {
                   </div>
 
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => handlePrnLogin()}
                     disabled={loading || !prn.trim()}
                     className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     <span>{loading ? 'Authenticating...' : 'Sign In as Student'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
-                </form>
+                </div>
               )}
 
               {/* TAB 2: Email OTP Form */}
