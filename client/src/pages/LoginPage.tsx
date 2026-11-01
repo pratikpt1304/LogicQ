@@ -67,10 +67,15 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     const rawPrn = prn.trim();
     const cleanPrn = rawPrn.toLowerCase() === 'dummy' ? 'dummy' : rawPrn.toUpperCase();
-    const cleanPwd = (password || cleanPrn).trim();
+    const cleanPwd = password.trim();
 
     if (!cleanPrn) {
       setError('Please enter your Institutional PRN.');
+      return;
+    }
+
+    if (!cleanPwd) {
+      setError('Please enter your password.');
       return;
     }
 
@@ -96,7 +101,7 @@ export const LoginPage: React.FC = () => {
     } catch (err: any) {
       setError(
         err?.message ||
-          'Failed to sign in. Please verify your PRN and password (default password is your PRN).'
+          'Failed to sign in. Please verify your PRN and password.'
       );
     } finally {
       setLoading(false);
@@ -394,20 +399,16 @@ export const LoginPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-[var(--text-main)]">
-                        Password
-                      </label>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                        Default: Same as PRN
-                      </span>
-                    </div>
+                    <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
+                      Password
+                    </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder={prn ? prn : 'Enter your PRN as password'}
+                        placeholder="Enter your password"
                         className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
                       <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
