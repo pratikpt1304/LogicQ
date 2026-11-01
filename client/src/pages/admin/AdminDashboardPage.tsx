@@ -947,8 +947,8 @@ export const AdminDashboardPage: React.FC = () => {
 
     if (isBook) {
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 whitespace-nowrap">
-          📚 Kanetkar Book
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-500 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap">
+          📚 Question Bank
         </span>
       );
     }
@@ -3144,9 +3144,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <span>•</span>
                 <span>Daily: <strong className="text-emerald-400">{rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length}</strong></span>
                 <span>•</span>
-                <span>Practice: <strong className="text-purple-400">{rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length}</strong></span>
-                <span>•</span>
-                <span>Kanetkar: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
+                <span>Question Bank: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
                 <span>•</span>
                 <span>Archive: <strong className="text-rose-400">{archivedProblemsCount}</strong></span>
               </div>
@@ -3312,17 +3310,6 @@ export const AdminDashboardPage: React.FC = () => {
                     <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
                   </button>
                   <button
-                    onClick={() => setProblemCategoryFilter('PRACTICE')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
-                      problemCategoryFilter === 'PRACTICE'
-                        ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/40 font-bold'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
-                    }`}
-                  >
-                    <Layers className="w-3.5 h-3.5 text-purple-500" />
-                    <span>Practice ({rawProblems.filter((p: any) => p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-')).length})</span>
-                  </button>
-                  <button
                     onClick={() => setProblemCategoryFilter('BOOK')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
                       problemCategoryFilter === 'BOOK'
@@ -3331,7 +3318,7 @@ export const AdminDashboardPage: React.FC = () => {
                     }`}
                   >
                     <BookOpen className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Kanetkar Book ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
+                    <span>Question Bank ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
                   </button>
                   <button
                     onClick={() => setProblemCategoryFilter('ARCHIVE')}
