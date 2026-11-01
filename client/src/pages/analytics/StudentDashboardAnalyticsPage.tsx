@@ -29,11 +29,6 @@ import {
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
   const { user } = useAuth();
-
-  if (user?.role === 'FACULTY' || user?.role === 'ADMIN') {
-    return <Navigate to="/faculty/analytics" replace />;
-  }
-
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
@@ -54,6 +49,84 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     queryFn: () => api.get(`/analytics/student/report/${selectedReportTestId}`),
     enabled: Boolean(selectedReportTestId),
   });
+
+  // Collect local quarantined problem slugs across all module sessions
+  const quarantinedSlugs = React.useMemo(() => {
+    const set = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
+          }
+        }
+      }
+    } catch {}
+    return set;
+  }, []);
+
+  const incidents = fsTelemetry?.incidents || [];
+
+  // Aggregated list of all questions with cheating penalties
+  const cheatedQuestionsList = React.useMemo(() => {
+    const list: Array<{
+      title: string;
+      slug: string;
+      reason: string;
+      type: string;
+      timestamp: string;
+    }> = [];
+
+    const seenSlugs = new Set<string>();
+
+    if (incidents?.length) {
+      for (const inc of incidents) {
+        const itemAny = inc as any;
+        if (
+          inc.type === 'EXCEEDED_TAB_SWITCHES' ||
+          inc.type === 'EXCEEDED_COPY_PASTE' ||
+          inc.type === 'SECOND_CHANCE_SUBMISSION' ||
+          itemAny.isCheatAttempt ||
+          (typeof inc.reason === 'string' && inc.reason.includes('tab switch'))
+        ) {
+          const slug = (inc.problemSlug || inc.problemTitle || '').toLowerCase().trim();
+          if (!seenSlugs.has(slug)) {
+            seenSlugs.add(slug);
+            list.push({
+              title: inc.problemTitle || inc.problemSlug || 'Practice Question',
+              slug: inc.problemSlug || '',
+              reason: inc.reason || 'Exceeded 3 tab switches on question',
+              type: inc.type,
+              timestamp: inc.timestamp || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    quarantinedSlugs.forEach((qSlug) => {
+      if (!seenSlugs.has(qSlug)) {
+        seenSlugs.add(qSlug);
+        const title = qSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        list.push({
+          title,
+          slug: qSlug,
+          reason: 'Exceeded 3 tab switches (Quarantined Attempt)',
+          type: 'EXCEEDED_TAB_SWITCHES',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    return list;
+  }, [incidents, quarantinedSlugs]);
+
+  // All Hooks have run unconditionally; early returns are now 100% safe
+  if (user?.role === 'FACULTY' || user?.role === 'ADMIN') {
+    return <Navigate to="/faculty/analytics" replace />;
+  }
 
   if (isLoading) {
     return (
@@ -156,79 +229,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const totalClipboardAttempts = (anl.telemetry?.totalClipboardAttempts || 0) + (fsTelemetry?.copyPasteAttempts || 0);
   const totalFullscreenExits = fsTelemetry?.fullscreenExits || 0;
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
-  const incidents = fsTelemetry?.incidents || [];
-
-  // Collect local quarantined problem slugs across all module sessions
-  const quarantinedSlugs = React.useMemo(() => {
-    const set = new Set<string>();
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
-          const val = JSON.parse(localStorage.getItem(key) || '[]');
-          if (Array.isArray(val)) {
-            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
-          }
-        }
-      }
-    } catch {}
-    return set;
-  }, []);
-
-  // Aggregated list of all questions with cheating penalties
-  const cheatedQuestionsList = React.useMemo(() => {
-    const list: Array<{
-      title: string;
-      slug: string;
-      reason: string;
-      type: string;
-      timestamp: string;
-    }> = [];
-
-    const seenSlugs = new Set<string>();
-
-    if (incidents?.length) {
-      for (const inc of incidents) {
-        const itemAny = inc as any;
-        if (
-          inc.type === 'EXCEEDED_TAB_SWITCHES' ||
-          inc.type === 'EXCEEDED_COPY_PASTE' ||
-          inc.type === 'SECOND_CHANCE_SUBMISSION' ||
-          itemAny.isCheatAttempt ||
-          (typeof inc.reason === 'string' && inc.reason.includes('tab switch'))
-        ) {
-          const slug = (inc.problemSlug || inc.problemTitle || '').toLowerCase().trim();
-          if (!seenSlugs.has(slug)) {
-            seenSlugs.add(slug);
-            list.push({
-              title: inc.problemTitle || inc.problemSlug || 'Practice Question',
-              slug: inc.problemSlug || '',
-              reason: inc.reason || 'Exceeded 3 tab switches on question',
-              type: inc.type,
-              timestamp: inc.timestamp || new Date().toISOString(),
-            });
-          }
-        }
-      }
-    }
-
-    quarantinedSlugs.forEach((qSlug) => {
-      if (!seenSlugs.has(qSlug)) {
-        seenSlugs.add(qSlug);
-        const title = qSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        list.push({
-          title,
-          slug: qSlug,
-          reason: 'Exceeded 3 tab switches (Quarantined Attempt)',
-          type: 'EXCEEDED_TAB_SWITCHES',
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    return list;
-  }, [incidents, quarantinedSlugs]);
-
   // Backend integrityScore is RISK POINTS (0 is CLEAN, 100 is MAX CHEAT)
   const backendRiskPoints = typeof anl.integrityScore === 'number' ? anl.integrityScore : 0;
   const backendCleanScore = Math.max(0, 100 - backendRiskPoints);
