@@ -153,28 +153,41 @@ export const PracticeModulesPage: React.FC = () => {
     const totalQuestions = fromApi?.totalQuestions || cfg.totalQuestions || 20;
     const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
 
-    // Progressive Lock Evaluation:
-    // Module 1 is always unlocked.
-    // Module N unlocks if Module N-1 has all 20 solved.
-    // Module 5 requires explicit Admin unlock.
+    // 1. Check practice topics for THIS module (Every module requires its own practice completed first)
+    const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
+      (t) => t.moduleIndex === cfg.order || t.moduleSlug === cfg.slug
+    );
+    const modPracticeTotal = currentModuleTopics.length;
+    const modPracticeSolved = currentModuleTopics.filter((t) => solvedTopics.includes(t.id)).length;
+    const isPracticeComplete = modPracticeTotal === 0 || modPracticeSolved >= modPracticeTotal;
+
+    // 2. Progressive Lock Evaluation:
     let isUnlocked = false;
     let requirementText = '';
 
-    if (idx === 0) {
-      const module1Topics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1);
-      const m1Total = module1Topics.length || 25;
-      const m1Solved = module1Topics.filter((t) => solvedTopics.includes(t.id)).length;
-      isUnlocked = Boolean(m1Solved >= m1Total || isAdmin);
-      if (!isUnlocked) {
-        requirementText = `Solve all ${m1Total} practice questions in Module 1 (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${m1Solved}/${m1Total} solved)`;
-      }
-    } else if (cfg.order === 5 || cfg.requiresAdminUnlock) {
+    if (cfg.order === 5 || cfg.requiresAdminUnlock) {
       const isM5Unlocked = module5Unlocked || isModule5UnlockedByAdmin();
-      isUnlocked = Boolean(isM5Unlocked || isAdmin);
-      requirementText = isUnlocked
-        ? 'Activated by Instructor'
-        : 'Locked by Instructor / Admin for all students';
+      if (!isPracticeComplete) {
+        isUnlocked = Boolean(isAdmin);
+        requirementText = `Solve all ${modPracticeTotal} practice questions in Module ${cfg.order} (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
+      } else if (!isM5Unlocked) {
+        isUnlocked = Boolean(isAdmin);
+        requirementText = isUnlocked
+          ? 'Activated by Instructor'
+          : 'Locked by Instructor / Admin for all students';
+      } else {
+        isUnlocked = true;
+      }
+    } else if (idx === 0) {
+      // Module 1: Requires all Module 1 practice topics solved
+      isUnlocked = Boolean(isPracticeComplete || isAdmin);
+      if (!isUnlocked) {
+        requirementText = `Solve all ${modPracticeTotal} practice questions in Module 1 (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
+      }
     } else {
+      // Module 2, 3, 4: Requires:
+      // A) All practice questions of THIS module must be solved first
+      // B) Previous module's test problems must be solved (20/20)
       const prevModFromApi = modules.find((m) => m.order === cfg.order - 1);
       const prevConfig = allConfigModules[idx - 1];
       const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
@@ -185,9 +198,14 @@ export const PracticeModulesPage: React.FC = () => {
       const prevSolved = Math.max(prevModFromApi?.solvedCount ?? 0, prevTopicsSolved, prevProblemsSolved);
       const prevRequired = cfg.requiredSolvedToUnlock || 20;
 
-      isUnlocked = prevSolved >= prevRequired;
-      if (!isUnlocked) {
+      if (!isPracticeComplete) {
+        isUnlocked = Boolean(isAdmin);
+        requirementText = `Solve all ${modPracticeTotal} practice questions in Module ${cfg.order} (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
+      } else if (prevSolved < prevRequired) {
+        isUnlocked = Boolean(isAdmin);
         requirementText = `Solve all 20 problems in Module ${prevConfig.order} (${prevConfig.title}) to unlock (${prevSolved}/20 solved)`;
+      } else {
+        isUnlocked = true;
       }
     }
 

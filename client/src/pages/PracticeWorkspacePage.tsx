@@ -60,6 +60,7 @@ import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { Flag } from 'lucide-react';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 
 interface ExecutionErrorState {
   message: string;
@@ -594,6 +595,28 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const moduleProblems: any[] = moduleProblemsResponse?.data?.problems || [];
   const currentProblemIndex = moduleProblems.findIndex((p: any) => p.slug === problemSlug);
+
+  // Practice completion guard: Student must complete practice questions for this module before attempting the Lab Internal Test
+  useEffect(() => {
+    if (user?.role === 'ADMIN' || !moduleSlug) return;
+    const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
+      (t) => t.moduleSlug === moduleSlug || t.moduleIndex === moduleConfig.order
+    );
+    const modPracticeTotal = currentModuleTopics.length;
+    if (modPracticeTotal === 0) return;
+
+    const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
+    const solved = getSolvedPracticeTopicIds(effectiveUid);
+    const modPracticeSolved = currentModuleTopics.filter((t) => solved.includes(t.id)).length;
+
+    if (modPracticeSolved < modPracticeTotal) {
+      toast.error(
+        `🔒 Lab Internal Locked: Complete all ${modPracticeTotal} practice questions in Module ${moduleConfig.order} (${moduleConfig.title}) first (${modPracticeSolved}/${modPracticeTotal} solved).`,
+        { duration: 6000 }
+      );
+      navigate('/lab-internal', { replace: true });
+    }
+  }, [moduleSlug, user, moduleConfig.order, moduleConfig.title, navigate]);
 
   // Sanitize visited problems so locked questions can never be falsely marked visited/unsolved
   const sanitizedVisitedProblems = React.useMemo(() => {
