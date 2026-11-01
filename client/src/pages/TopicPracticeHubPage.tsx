@@ -1157,7 +1157,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                   onChange={handleCodeChange}
                   onReset={handleResetCode}
                   readOnly={false}
-                  disableCopyPaste={false}
+                  disableCopyPaste={true}
                 />
               </div>
 

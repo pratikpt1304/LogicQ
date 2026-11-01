@@ -214,8 +214,76 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     editor.setSelection(new monaco.Selection(1, 1, 1, 1));
     editor.setPosition({ lineNumber: 1, column: 1 });
 
-    const sub = editor.onDidChangeModelContent(() => {
+    // Native Mobile & Desktop Clipboard Capture Listeners on Monaco Internal DOM
+    const domNode = editor.getDomNode();
+    const cleanups: (() => void)[] = [];
+
+    if (domNode) {
+      const blockClipboardAction = (e: Event, action: 'paste' | 'copy' | 'cut') => {
+        if (!disableCopyPasteRef.current) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation?.();
+        const actionLabels = {
+          paste: '🚫 Paste is disabled! Type code manually.',
+          copy: '🚫 Copying code is disabled.',
+          cut: '🚫 Cut action is disabled.',
+        };
+        toast.error(actionLabels[action]);
+        onBlockedActionRef.current?.(action);
+      };
+
+      const onPasteCapture = (e: ClipboardEvent) => blockClipboardAction(e, 'paste');
+      const onCopyCapture = (e: ClipboardEvent) => blockClipboardAction(e, 'copy');
+      const onCutCapture = (e: ClipboardEvent) => blockClipboardAction(e, 'cut');
+
+      const onBeforeInputCapture = (e: any) => {
+        if (!disableCopyPasteRef.current) return;
+        if (
+          e.inputType === 'insertFromPaste' ||
+          e.inputType === 'insertFromPasteAsQuotation' ||
+          e.inputType === 'insertFromDrop' ||
+          e.inputType === 'insertReplacementText'
+        ) {
+          blockClipboardAction(e, 'paste');
+        }
+      };
+
+      domNode.addEventListener('paste', onPasteCapture as any, true);
+      domNode.addEventListener('copy', onCopyCapture as any, true);
+      domNode.addEventListener('cut', onCutCapture as any, true);
+      domNode.addEventListener('beforeinput', onBeforeInputCapture as any, true);
+
+      cleanups.push(() => {
+        domNode.removeEventListener('paste', onPasteCapture as any, true);
+        domNode.removeEventListener('copy', onCopyCapture as any, true);
+        domNode.removeEventListener('cut', onCutCapture as any, true);
+        domNode.removeEventListener('beforeinput', onBeforeInputCapture as any, true);
+      });
+    }
+
+    let isInternalEdit = false;
+
+    const sub = editor.onDidChangeModelContent((e: any) => {
       if (readOnlyRef.current) return;
+      if (isInternalEdit) return;
+
+      // Burst Paste Protection for Mobile (Catches clipboard injections that bypass synthetic events)
+      if (disableCopyPasteRef.current && e.changes) {
+        for (const change of e.changes) {
+          if (change.text && change.text.length > 8 && !change.text.startsWith('\n    ')) {
+            isInternalEdit = true;
+            try {
+              editor.trigger('anti-paste', 'undo', null);
+            } catch {}
+            isInternalEdit = false;
+            toast.error('🚫 Paste detected! Pasting code is strictly disabled.');
+            onBlockedActionRef.current?.('paste');
+            return;
+          }
+        }
+      }
+
       const val = editor.getValue();
       onChangeRef.current(val);
     });
@@ -233,6 +301,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
 
     return () => {
+      cleanups.forEach((fn) => fn());
       sub.dispose();
       editor.dispose();
       editorRef.current = null;
