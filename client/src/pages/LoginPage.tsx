@@ -33,6 +33,8 @@ export const LoginPage: React.FC = () => {
   const [prn, setPrn] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [hasPasswordInteracted, setHasPasswordInteracted] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   // Email OTP Credentials
   const [step, setStep] = useState<'identifier' | 'otp'>('identifier');
@@ -61,6 +63,25 @@ export const LoginPage: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+
+  // Prevent browser autofill or automatic typing in password when PRN changes
+  useEffect(() => {
+    if (!hasPasswordInteracted) {
+      setPassword('');
+      if (passwordInputRef.current) {
+        passwordInputRef.current.value = '';
+      }
+      const timer = setTimeout(() => {
+        if (!hasPasswordInteracted) {
+          setPassword('');
+          if (passwordInputRef.current) {
+            passwordInputRef.current.value = '';
+          }
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [prn, hasPasswordInteracted]);
 
   // Student Direct PRN Login Handler
   const handlePrnLogin = async (e: React.FormEvent) => {
@@ -396,7 +417,14 @@ export const LoginPage: React.FC = () => {
                         required
                         autoFocus
                         value={prn}
-                        onChange={(e) => setPrn(e.target.value)}
+                        onChange={(e) => {
+                          setPrn(e.target.value);
+                          setHasPasswordInteracted(false);
+                          setPassword('');
+                          if (passwordInputRef.current) {
+                            passwordInputRef.current.value = '';
+                          }
+                        }}
                         placeholder="e.g. 2126PMIF1057"
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
@@ -410,6 +438,7 @@ export const LoginPage: React.FC = () => {
                     </label>
                     <div className="relative">
                       <input
+                        ref={passwordInputRef}
                         type={showPassword ? 'text' : 'password'}
                         name="student_login_secret"
                         id="student_login_secret"
@@ -419,7 +448,11 @@ export const LoginPage: React.FC = () => {
                         spellCheck={false}
                         required
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onFocus={() => setHasPasswordInteracted(true)}
+                        onChange={(e) => {
+                          setHasPasswordInteracted(true);
+                          setPassword(e.target.value);
+                        }}
                         placeholder="Enter your password"
                         className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
