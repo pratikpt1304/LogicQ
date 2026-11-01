@@ -650,11 +650,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
     }, 4 * 60 * 1000); // Ping every 4 minutes (well within Render's 15-minute idle window)
 
+    // Real-time student presence heartbeat for 120+ concurrent students (Throttled to 60s)
+    let lastPresenceEpoch = 0;
+    const sendPresence = () => {
+      const cached = getCachedUser();
+      const primaryUid = firebaseAuth.currentUser?.uid || cached?.id;
+      if (primaryUid && Date.now() - lastPresenceEpoch > 55000) {
+        lastPresenceEpoch = Date.now();
+        FirestoreDataService.updateStudentPresence(primaryUid, window.location.pathname).catch(() => {});
+      }
+    };
+    sendPresence();
+    const presenceInterval = setInterval(sendPresence, 60000);
+
     return () => {
       events.forEach((ev) => window.removeEventListener(ev, handleUserInteraction));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(interval);
       clearInterval(warmPing);
+      clearInterval(presenceInterval);
     };
   }, [idleWarningSeconds, logout]);
 

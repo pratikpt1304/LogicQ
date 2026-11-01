@@ -3087,4 +3087,32 @@ export class FirestoreDataService {
       incidents,
     };
   }
+
+  /**
+   * High-scale non-blocking student presence heartbeat.
+   * Updates publicProfiles/{uid} with live timestamp, online flag, and current route.
+   * Concurrency safe for 120+ students on campus networks.
+   */
+  public static async updateStudentPresence(uid: string, pagePath?: string): Promise<void> {
+    const effectiveUid = auth.currentUser?.uid || uid;
+    if (!effectiveUid || !auth.currentUser) return;
+    try {
+      const publicRef = doc(db, 'publicProfiles', effectiveUid);
+      const currentPath = pagePath || (typeof window !== 'undefined' ? window.location.pathname : '/');
+      await setDoc(
+        publicRef,
+        {
+          userId: effectiveUid,
+          isOnline: true,
+          lastActiveAt: serverTimestamp(),
+          lastActiveEpochMs: Date.now(),
+          currentPage: currentPath,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch {
+      // Non-blocking silent catch: presence ping should never impact user experience
+    }
+  }
 }

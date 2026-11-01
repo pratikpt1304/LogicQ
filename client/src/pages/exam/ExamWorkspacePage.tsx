@@ -8,6 +8,8 @@ import { CodeEditor } from '../../components/editor/CodeEditor.js';
 import { StatementMarkdown } from '../../components/common/StatementMarkdown.js';
 import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
 import { RaiseIssueModal } from '../../components/common/RaiseIssueModal.js';
+import { useAuth } from '../../context/AuthContext.js';
+import { DraftSyncService, getDeviceLabel } from '../../services/draftSync.service.js';
 import { Flag } from 'lucide-react';
 import {
   Play,
@@ -31,6 +33,7 @@ import {
 export const ExamWorkspacePage: React.FC = () => {
   const { assignmentId, problemId } = useParams<{ assignmentId: string; problemId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Attempt & Problem Data
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -88,7 +91,13 @@ export const ExamWorkspacePage: React.FC = () => {
     setVariantId(res.questionVariantId);
     setProblemData(res.problem);
     setIsLocked(res.isLocked || false);
-    if (res.problem?.starterCode && !code) {
+    // Draft resilience: restore in-progress exam code if student refreshed or browser crashed
+    const draftKey = `logicq_exam_draft_${res.attemptId || (assignmentId + '_' + problemId)}`;
+    const savedDraft = typeof window !== 'undefined' ? localStorage.getItem(draftKey) : null;
+    if (savedDraft && !code) {
+      setCode(savedDraft);
+      previousCodeLenRef.current = savedDraft.length;
+    } else if (res.problem?.starterCode && !code) {
       setCode(res.problem.starterCode);
       previousCodeLenRef.current = res.problem.starterCode.length;
     }
@@ -268,6 +277,20 @@ export const ExamWorkspacePage: React.FC = () => {
     }
     previousCodeLenRef.current = currentLen;
     setCode(newCode);
+
+    // Save exam draft immediately to localStorage & IndexedDB/Firestore
+    const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
+    try {
+      localStorage.setItem(draftKey, newCode);
+    } catch {}
+    if (user?.id && attemptId) {
+      DraftSyncService.saveRemoteDraft(user.id, {
+        problemSlug: `exam_${attemptId}`,
+        code: newCode,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      }, true).catch(() => {});
+    }
   };
 
   // 6. Interactive Run Visible Tests (Section 6)
@@ -320,6 +343,8 @@ export const ExamWorkspacePage: React.FC = () => {
       setActiveBottomTab('tests');
       if (res.verdict === 'ACCEPTED') {
         setIsLocked(true);
+        const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
+        try { localStorage.removeItem(draftKey); } catch {}
         setAcademicScore(res.academicScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
         toast.success(`ACCEPTED! Score: ${res.academicScore} Mark. Question is now permanently locked.`);

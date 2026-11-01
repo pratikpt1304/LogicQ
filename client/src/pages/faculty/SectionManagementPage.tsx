@@ -1216,10 +1216,17 @@ export const SectionManagementPage: React.FC = () => {
                               {studentPrn}
                             </td>
                             <td className="py-3 px-4">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <CheckCircle2 className="w-3 h-3" />
-                                ENROLLED
-                              </span>
+                              {item.student?.isOnline || (item.lastActiveEpochMs && Date.now() - item.lastActiveEpochMs < 180000) ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  ONLINE
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  ENROLLED
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
