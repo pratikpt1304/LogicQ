@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,12 +37,16 @@ import {
   Copy,
   ExternalLink,
   Zap,
+  User,
+  LayoutGrid,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../data/topic-practice.data.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
+import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
 import { useAuth } from '../context/AuthContext.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
@@ -194,6 +198,10 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
   const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
 
+  // JEE Palette state
+  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState<boolean>(true);
+  const [isMobilePaletteOpen, setIsMobilePaletteOpen] = useState<boolean>(false);
+
   const handleCopyTip = (text: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -204,7 +212,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(document.fullscreenElement));
-  const remoteDraftTimeoutRef = React.useRef<any>(null);
+  const remoteDraftTimeoutRef = useRef<any>(null);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -243,7 +251,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     };
   }, [activeTopic]);
 
-  // Proctored Anti-Cheat: Tab Switch & Clipboard Guard while topic workspace is active
+  // Anti-Cheat: Tab Switch & Clipboard Guard while topic workspace is active
   useEffect(() => {
     if (!activeTopic || !user?.id) return;
 
@@ -293,15 +301,19 @@ export const TopicPracticeHubPage: React.FC = () => {
     }
   };
 
-  // Computed navigation between topics
+  // Module-aware topic navigation (Each module has 25 topics)
+  const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
+    (t) => t.moduleIndex === (activeTopic ? activeTopic.moduleIndex : selectedModuleFilter)
+  );
   const currentTopicIndex = activeTopic
-    ? TOPIC_PRACTICE_DATA.findIndex((t) => t.id === activeTopic.id)
+    ? currentModuleTopics.findIndex((t) => t.id === activeTopic.id)
     : -1;
-  const prevTopic = currentTopicIndex > 0 ? TOPIC_PRACTICE_DATA[currentTopicIndex - 1] : null;
+  const prevTopic = currentTopicIndex > 0 ? currentModuleTopics[currentTopicIndex - 1] : null;
   const nextTopic =
-    currentTopicIndex >= 0 && currentTopicIndex < TOPIC_PRACTICE_DATA.length - 1
-      ? TOPIC_PRACTICE_DATA[currentTopicIndex + 1]
+    currentTopicIndex >= 0 && currentTopicIndex < currentModuleTopics.length - 1
+      ? currentModuleTopics[currentTopicIndex + 1]
       : null;
+  const moduleSolvedCount = currentModuleTopics.filter((t) => solvedTopics.includes(t.id)).length;
 
   const handleOpenTopic = async (topic: TopicPracticeItem) => {
     setActiveTopic(topic);
@@ -384,6 +396,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const handleCloseTopic = async () => {
     setShowCelebrationModal(false);
     setIsTipDrawerOpen(false);
+    setIsMobilePaletteOpen(false);
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen();
@@ -392,7 +405,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setActiveTopic(null);
   };
 
-  // Run test case
+  // Run test case (Compile & Run)
   const handleRunOpenTest = async () => {
     if (!activeTopic) return;
     setIsRunning(true);
@@ -488,7 +501,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
         }
 
-        // 1. Persist to Firestore immediately (survives tab closure, refresh, and device switch)
+        // 1. Persist to Firestore immediately
         if (user?.id) {
           FirestoreDataService.saveStatsBackup(user.id, {
             totalSolved: updated.length,
@@ -530,7 +543,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     }
   };
 
-  // Filter topics
+  // Filter topics for the hub view
   const filteredTopics = TOPIC_PRACTICE_DATA.filter((topic) => {
     if (selectedModuleFilter !== 0 && topic.moduleIndex !== selectedModuleFilter) {
       return false;
@@ -557,18 +570,145 @@ export const TopicPracticeHubPage: React.FC = () => {
   const solvedCount = solvedTopics.length;
   const progressPct = Math.round((solvedCount / totalTopics) * 100);
 
-  // Module Counts
-  const moduleCounts = [
-    { idx: 0, label: 'All Topics', count: totalTopics },
-    { idx: 1, label: 'Control Flow', count: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length },
-    { idx: 2, label: 'Pointers & Functions', count: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length },
-    { idx: 3, label: 'Arrays & Strings', count: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length },
-    { idx: 4, label: 'Structs & Memory', count: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length },
-  ];
+  // Render the JEE Question Palette Content (Used for both Desktop & Mobile)
+  const renderPaletteContent = (isMobile?: boolean) => {
+    const activeModuleNum = activeTopic ? activeTopic.moduleIndex : selectedModuleFilter;
+    const topicsForModule = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === activeModuleNum);
+    const solvedInMod = topicsForModule.filter((t) => solvedTopics.includes(t.id)).length;
+    const modPct = topicsForModule.length > 0 ? Math.round((solvedInMod / topicsForModule.length) * 100) : 0;
+    const studentName = user?.fullName || user?.displayName || user?.username || 'Student';
+    const studentInitial = studentName.charAt(0).toUpperCase();
+
+    return (
+      <div className="flex flex-col h-full bg-[var(--bg-panel)] font-mono text-xs select-none">
+        {/* Student Profile Card */}
+        <div className="p-3.5 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/80 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-sm shadow-xs">
+              {studentInitial}
+            </div>
+            <div className="min-w-0">
+              <div className="font-bold text-[var(--text-main)] truncate max-w-[150px] font-sans text-xs">
+                {studentName}
+              </div>
+              <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">
+                {user?.prn || user?.username || 'LOGICQ-STUDENT'}
+              </div>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+            {solvedInMod}/25 Solved
+          </span>
+        </div>
+
+        {/* Legend */}
+        <div className="p-3 border-b border-[var(--border-line)]/70 bg-[var(--bg-main)]/50 space-y-2 shrink-0">
+          <div className="flex items-center justify-between text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+            <span>Palette Legend</span>
+            <span className="text-emerald-400">{solvedInMod}/25</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="text-[var(--text-muted)] truncate">Solved ({solvedInMod})</span>
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-cyan-500/40">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+              <span className="text-cyan-400 font-semibold truncate">Current</span>
+            </div>
+            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[var(--text-muted)] opacity-50 shrink-0" />
+              <span className="text-[var(--text-muted)] truncate">Unsolved</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Question Numbers Grid (5 columns, 25 items) */}
+        <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider">
+              Questions (Module {activeModuleNum})
+            </span>
+            <span className="text-[10px] text-[var(--text-muted)]">Click number to switch</span>
+          </div>
+
+          <div className="grid grid-cols-5 gap-2">
+            {topicsForModule.map((t, idx) => {
+              const qNum = idx + 1;
+              const isCurrent = activeTopic?.id === t.id;
+              const isSolved = solvedTopics.includes(t.id);
+
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    handleOpenTopic(t);
+                    if (isMobile) setIsMobilePaletteOpen(false);
+                  }}
+                  className={`h-10 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center relative cursor-pointer ${
+                    isCurrent
+                      ? 'border-2 border-cyan-400 bg-cyan-500/25 text-cyan-300 shadow-md shadow-cyan-500/25 scale-105 z-10'
+                      : isSolved
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 shadow-xs'
+                      : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-line)]'
+                  }`}
+                  title={`Q${qNum}: ${t.topicTitle} (${isSolved ? 'Solved' : 'Unsolved'})`}
+                >
+                  <span>{qNum}</span>
+                  {isSolved && !isCurrent && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-[var(--bg-panel)]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Palette Footer Progress & Lab Unlock Banner */}
+        <div className="p-3.5 border-t border-[var(--border-line)] bg-[var(--bg-surface)]/60 shrink-0 space-y-2.5">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="text-[var(--text-muted)]">Module {activeModuleNum} Progress</span>
+              <span className="text-emerald-400">{modPct}%</span>
+            </div>
+            <div className="w-full bg-[var(--bg-main)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
+              <div
+                className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+                style={{ width: `${modPct}%` }}
+              />
+            </div>
+          </div>
+
+          {solvedInMod === topicsForModule.length && topicsForModule.length > 0 ? (
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-center space-y-1.5 animate-in zoom-in-95">
+              <div className="text-xs font-bold text-emerald-400 font-sans">
+                🎉 All 25 Questions Solved!
+              </div>
+              <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                Lab Internal Test is unlocked for Module {activeModuleNum}.
+              </div>
+              <Link
+                to="/lab-internal"
+                className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs"
+              >
+                <span>Take Lab Internal Test</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <div className="text-[10px] text-[var(--text-muted)] text-center font-mono">
+              Complete all 25 practice questions to unlock the Module {activeModuleNum} Lab Internal Test.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
-      {/* 1. Header Banner (Clean, Focused, Not Scary) */}
+      {/* 1. Header Banner */}
       <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
@@ -610,7 +750,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. FOUR CORE MODULE BLOCKS (Strictly 4 Clean Blocks as per Curriculum) */}
+      {/* 2. FOUR CORE MODULE BLOCKS */}
       <div className="space-y-4">
         <div>
           <h2 className="text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)] mb-3">
@@ -657,7 +797,12 @@ export const TopicPracticeHubPage: React.FC = () => {
               return (
                 <div
                   key={block.id}
-                  onClick={() => setSelectedModuleFilter(block.id)}
+                  onClick={() => {
+                    setSelectedModuleFilter(block.id);
+                    setTimeout(() => {
+                      document.getElementById('practice-topic-list-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 50);
+                  }}
                   className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow-md ${
                     isSelected
                       ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-emerald-500/10'
@@ -712,7 +857,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
 
         {/* 3. TOPIC LIST FOR SELECTED MODULE (Numbered Item List) */}
-        <div className="space-y-3 pt-2">
+        <div id="practice-topic-list-section" className="space-y-3 pt-2">
           {/* Header of selected module + quick search */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)]">
             <div>
@@ -725,7 +870,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
-                Click any topic item in the list below to open the practice coding workspace.
+                Click any topic item in the list below to open the full JEE Practice Workspace.
               </p>
             </div>
 
@@ -763,7 +908,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setStatusFilter('UNSOLVED')}
-                  className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
                     statusFilter === 'UNSOLVED'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -773,7 +918,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setStatusFilter('SOLVED')}
-                  className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
                     statusFilter === 'SOLVED'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -882,33 +1027,33 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE (PORTAL TO <body> TO ELIMINATE ANY PARENT OFFSET OR BLEED) */}
+      {/* 4. FULL-SCREEN DEDICATED JEE PRACTICE WORKSPACE (PORTAL TO <body> TO ELIMINATE PARENT OFFSET OR BLEED) */}
       {activeTopic && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 w-screen h-[100dvh] max-h-[100dvh] z-[999999] bg-[var(--bg-main)] flex flex-col overflow-hidden select-none">
           
-          {/* Topbar: Minimalist & Clean */}
-          <div className="h-14 px-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 select-none">
+          {/* Topbar: Authentic Clean JEE CBT Header */}
+          <div className="h-14 px-3 sm:px-4 border-b border-[var(--border-line)] bg-[var(--bg-panel)] flex items-center justify-between shrink-0 select-none gap-2">
             
-            {/* Left: Back to Hub + Problem Identity */}
-            <div className="flex items-center gap-3">
+            {/* Left: Exit + Problem Identity */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 onClick={handleCloseTopic}
-                className="px-3 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-medium transition flex items-center gap-1.5"
+                className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)] text-xs font-mono font-medium transition flex items-center gap-1.5 shrink-0"
                 title="Return to Practice Arena"
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                <span className="hidden sm:inline font-bold">Practice Hub</span>
+                <span className="hidden sm:inline font-bold">Exit Practice</span>
               </button>
 
-              <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block" />
+              <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block shrink-0" />
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-bold text-[var(--text-main)] max-w-[200px] sm:max-w-md truncate">
-                  {activeTopic.topicTitle}
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+                  Q{currentTopicIndex + 1}. {activeTopic.topicTitle}
                 </span>
 
                 <span
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 hidden sm:inline-block ${
                     activeTopic.problem.difficulty === 'HARD'
                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                       : activeTopic.problem.difficulty === 'MEDIUM'
@@ -920,43 +1065,56 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </span>
 
                 {solvedTopics.includes(activeTopic.id) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 shrink-0">
                     <CheckCircle2 className="w-3 h-3" />
-                    Solved
+                    <span className="hidden sm:inline">Solved</span>
                   </span>
                 )}
               </div>
             </div>
 
             {/* Center: Prev / Next Problem Navigator */}
-            <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-xl border border-[var(--border-line)]">
+            <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-xl border border-[var(--border-line)] shrink-0">
               <button
                 onClick={() => prevTopic && handleOpenTopic(prevTopic)}
                 disabled={!prevTopic}
                 title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-xs font-mono px-2 text-[var(--text-main)] font-semibold whitespace-nowrap">
-                {currentTopicIndex + 1} / {TOPIC_PRACTICE_DATA.length}
+                {currentTopicIndex + 1} / {currentModuleTopics.length}
               </span>
               <button
                 onClick={() => nextTopic && handleOpenTopic(nextTopic)}
                 disabled={!nextTopic}
                 title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition"
+                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
+            {/* Right: Palette Toggle + Fullscreen + Actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobilePaletteOpen(true);
+                  setIsDesktopPaletteOpen(!isDesktopPaletteOpen);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 cursor-pointer shadow-xs"
+                title="Toggle JEE 25-Question Palette"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Palette ({moduleSolvedCount}/{currentModuleTopics.length})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={toggleFullscreen}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition border ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition border cursor-pointer ${
                   isFullscreen
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
                     : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20'
@@ -964,20 +1122,20 @@ export const TopicPracticeHubPage: React.FC = () => {
                 title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F11)'}
               >
                 {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Go Fullscreen'}</span>
+                <span className="hidden md:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
               </button>
 
               <button
                 onClick={() => setIsIssueModalOpen(true)}
-                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition"
-                title="Report issue with problem or test cases"
+                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+                title="Report issue"
               >
                 <Flag className="w-4 h-4" />
               </button>
 
               <button
                 onClick={handleCloseTopic}
-                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition"
+                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition cursor-pointer"
                 title="Exit workspace"
               >
                 <X className="w-4 h-4" />
@@ -986,8 +1144,8 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
-          {/* Mobile Segmented Switcher (Statement | Editor | Verdict) for small screens */}
-          <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+          {/* Mobile Segmented Switcher (Statement | Editor | Verdict) */}
+          <div className="xl:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => setActiveMobileTab('statement')}
@@ -1030,34 +1188,29 @@ export const TopicPracticeHubPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Main Two-Pane Split View (Exact Lab Internal Structure) */}
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 select-text">
+          {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
+          <div className="flex-1 flex flex-col xl:flex-row overflow-hidden min-h-0 select-text relative">
             
-            {/* Left Pane: Problem Description Statement (50% width) */}
+            {/* PANE 1: Problem Description Statement (Left) */}
             <div
-              className={`lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 bg-[var(--bg-panel)] min-h-0 h-full ${
-                activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
+              className={`w-full xl:w-[36%] 2xl:w-[34%] flex flex-col border-b xl:border-b-0 xl:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-5 space-y-5 bg-[var(--bg-panel)] min-h-0 h-full ${
+                activeMobileTab === 'statement' ? 'flex-1' : 'hidden xl:flex'
               }`}
             >
-              
               {/* Problem Title & Category Meta */}
-              <div className="space-y-2">
-                <h2 className="text-lg sm:text-xl font-bold text-[var(--text-main)]">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+                  <span className="font-bold text-emerald-400">Topic {currentTopicIndex + 1} of {currentModuleTopics.length}</span>
+                  <span>•</span>
+                  <span>{activeTopic.moduleTitle}</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-[var(--text-main)]">
                   {activeTopic.problem.title}
                 </h2>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                  <span>{activeTopic.moduleTitle}</span>
-                  <span>•</span>
-                  <span>Standard GCC C11</span>
-                  <span>•</span>
-                  <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25">
-                    {activeTopic.problem.difficulty}
-                  </span>
-                </div>
               </div>
 
-              {/* Topic Syntax Reference (Interactive Watermelon Glass Card) */}
-              <div className="glass-card rounded-2xl p-4 border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent space-y-3 text-xs font-mono shadow-sm">
+              {/* Where & When to Use (Application Hint) + Syntax Box */}
+              <div className="glass-card rounded-2xl p-4 border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-amber-950/10 to-transparent space-y-3 text-xs font-mono shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-amber-500 font-bold">
                     <Lightbulb className="w-4 h-4 shrink-0 text-amber-500 animate-pulse" />
@@ -1069,7 +1222,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleCopyTip(activeTipTab === 'syntax' ? activeTopic.tipBox.syntax : activeTipTab === 'example' ? activeTopic.tipBox.example : activeTopic.tipBox.application)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-amber-500/50 transition shadow-xs"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-amber-500/50 transition cursor-pointer"
                       title="Copy to clipboard"
                     >
                       {copiedTip ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -1080,8 +1233,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsTipDrawerOpen(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20 transition shadow-xs"
-                      title="Open full interactive slide-over drawer"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
+                      title="Open full reference drawer"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span className="hidden sm:inline">Drawer</span>
@@ -1092,7 +1245,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveTipTab('syntax')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           activeTipTab === 'syntax' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -1101,17 +1254,17 @@ export const TopicPracticeHubPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveTipTab('app')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           activeTipTab === 'app' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                         title="Where and when to use this concept (Application Hint)"
                       >
-                        Where & When to Use
+                        Where &amp; When to Use
                       </button>
                       <button
                         type="button"
                         onClick={() => setActiveTipTab('example')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           activeTipTab === 'example' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -1147,16 +1300,16 @@ export const TopicPracticeHubPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Safe Markdown Renderer with clean math */}
+              {/* Problem Statement Content */}
               <StatementMarkdown content={activeTopic.problem.description} />
 
-              {/* Sample Test Cases (Exact Lab Internal layout) */}
+              {/* Sample Test Cases */}
               <div className="space-y-4 pt-4 border-t border-[var(--border-line)]">
                 <h3 className="text-xs font-mono font-bold tracking-wider text-[var(--text-main)] uppercase">
                   Sample Test Cases
                 </h3>
                 <div className="glass-card rounded-xl p-3.5 border border-[var(--border-line)] space-y-2 text-xs font-mono">
-                  <div className="text-[11px] text-[var(--accent)] font-semibold">
+                  <div className="text-[11px] text-cyan-400 font-semibold">
                     Sample #1 (Visible Test)
                   </div>
                   <div>
@@ -1188,16 +1341,36 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <span>Hidden edge cases are evaluated automatically when you submit.</span>
                 </div>
               </div>
-
             </div>
 
-            {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer (50% width) */}
+            {/* PANE 2: Code Editor + Custom Stdin & Verdict Drawer (Center) */}
             <div
-              className={`lg:w-1/2 flex flex-col min-h-0 h-full bg-[var(--bg-main)] ${
-                activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
+              className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] ${
+                activeMobileTab === 'statement' ? 'hidden xl:flex' : 'flex-1 flex'
               }`}
             >
-              
+              {/* Editor Bar */}
+              <div className="h-10 px-4 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    solution.c [C11]
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetCode}
+                    className="px-2.5 py-1 rounded-lg border border-[var(--border-line)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs font-mono transition flex items-center gap-1 cursor-pointer"
+                    title="Reset to starter code"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Editor Container */}
               <div className="flex-1 min-h-0 relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
@@ -1209,8 +1382,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                 />
               </div>
 
-              {/* Bottom Tabs Drawer: Strictly Custom Stdin and Verdict & Output */}
-              <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)]/80 flex flex-col shrink-0">
+              {/* Bottom Drawer: Custom Stdin & Verdict Terminal */}
+              <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex flex-col shrink-0">
                 <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border-line)]/60">
                   <div className="flex items-center gap-1">
                     <button
@@ -1219,7 +1392,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                         setActiveBottomTab('custom');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
+                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors cursor-pointer ${
                         activeBottomTab === 'custom' && isDrawerOpen
                           ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
                           : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -1233,7 +1406,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                         setActiveBottomTab('output');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 ${
+                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
                         activeBottomTab === 'output' && isDrawerOpen
                           ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
                           : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -1252,7 +1425,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                     title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
                   >
                     {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
@@ -1264,7 +1437,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     {activeBottomTab === 'custom' ? (
                       <div className="h-full flex flex-col space-y-1.5">
                         <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
-                          Standard Input (passed to stdin for Run Code):
+                          Standard Input (passed to stdin for Compile &amp; Run):
                         </label>
                         <textarea
                           value={customInput}
@@ -1279,7 +1452,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                           <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                             className="space-y-2.5"
                           >
                             <div className="flex items-center justify-between">
@@ -1289,12 +1461,13 @@ export const TopicPracticeHubPage: React.FC = () => {
                                   : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                               }`}>
                                 {runResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                                <span>{runResult.success ? 'TEST 1: PASSED' : 'TEST 1: FAILED'}</span>
+                                <span>{runResult.success ? 'SAMPLE TEST: PASSED' : 'SAMPLE TEST: FAILED'}</span>
                               </span>
                               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-muted)]">
-                                ⚡ {runResult.executionTimeMs || '< 5'}ms
+                                ⚡ {runResult.executionTimeMs || '< 10'}ms
                               </span>
                             </div>
+
                             {runResult.actualOutput !== undefined && (
                               <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)]">
@@ -1311,10 +1484,14 @@ export const TopicPracticeHubPage: React.FC = () => {
                                 </div>
                               </div>
                             )}
+
                             {runResult.compileError && (
-                              <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                                {runResult.compileError}
-                              </pre>
+                              <div className="space-y-2">
+                                <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                                  {runResult.compileError}
+                                </pre>
+                                <GccFriendlyHintCard compileOutput={runResult.compileError} />
+                              </div>
                             )}
                           </motion.div>
                         )}
@@ -1323,7 +1500,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                           <motion.div
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
                             className="space-y-2.5"
                           >
                             <div className="flex items-center justify-between">
@@ -1352,16 +1528,20 @@ export const TopicPracticeHubPage: React.FC = () => {
                               </div>
                             </div>
                             {submitResult.compileError && (
-                              <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                                {submitResult.compileError}
-                              </pre>
+                              <div className="space-y-2">
+                                <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                                  {submitResult.compileError}
+                                </pre>
+                                <GccFriendlyHintCard compileOutput={submitResult.compileError} />
+                              </div>
                             )}
                           </motion.div>
                         )}
 
                         {!runResult && !submitResult && (
-                          <div className="text-[var(--text-muted)] text-xs py-8 text-center">
-                            Click <strong>Run Code</strong> or <strong>Submit</strong> to evaluate your solution.
+                          <div className="text-[var(--text-muted)] text-xs py-8 text-center space-y-1">
+                            <div>Click <strong>Compile &amp; Run</strong> to test against the sample testcase.</div>
+                            <div className="text-[11px] text-[var(--text-muted)]">Click <strong>Save &amp; Next</strong> to submit and verify against all hidden tests.</div>
                           </div>
                         )}
                       </div>
@@ -1369,54 +1549,119 @@ export const TopicPracticeHubPage: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Action Bar (Exact Lab Internal layout) */}
-              <div className="border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-4 py-2.5 flex items-center justify-between shrink-0">
-                <div>
-                  {submitResult?.allPassed && nextTopic ? (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenTopic(nextTopic)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-mono text-xs font-bold transition flex items-center gap-2 shadow-md shadow-emerald-500/20 animate-pulse"
-                    >
-                      <span>Next Question: Q{currentTopicIndex + 2}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <span className="text-xs font-mono text-[var(--text-muted)]">
-                      Unlimited attempts permitted
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handleRunOpenTest}
-                    disabled={isRunning || isSubmitting}
-                    className="px-4 py-2 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-bold text-[var(--text-main)] transition flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <Play className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{isRunning ? 'Running...' : 'Run Code'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleSubmitCode}
-                    disabled={isRunning || isSubmitting}
-                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmitting ? 'Submitting...' : 'Submit'}</span>
-                  </button>
-                </div>
-              </div>
-
             </div>
+
+            {/* PANE 3: Authentic JEE Question Palette (Right) */}
+            {isDesktopPaletteOpen && (
+              <div className="hidden xl:flex w-72 2xl:w-80 shrink-0 border-l border-[var(--border-line)] bg-[var(--bg-panel)] flex-col h-full overflow-hidden">
+                {renderPaletteContent(false)}
+              </div>
+            )}
+
+            {/* Floating edge tab to reopen Question Palette when collapsed on desktop */}
+            {!isDesktopPaletteOpen && (
+              <button
+                type="button"
+                onClick={() => setIsDesktopPaletteOpen(true)}
+                className="hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[var(--bg-panel)] border border-r-0 border-[var(--border-line)] py-3 px-1.5 rounded-l-xl text-xs font-mono font-bold text-cyan-400 hover:text-white hover:bg-[var(--bg-surface-hover)] shadow-xl transition-all cursor-pointer flex-col items-center gap-1.5"
+                title="Open 25-Question Palette"
+              >
+                <ChevronLeft className="w-4 h-4 text-cyan-400" />
+                <span className="[writing-mode:vertical-lr] text-[11px] tracking-wider uppercase">
+                  Palette ({moduleSolvedCount}/{currentModuleTopics.length})
+                </span>
+              </button>
+            )}
 
           </div>
 
-          {/* Raise Issue Modal (Inside portal so it displays cleanly above the workspace) */}
+          {/* Bottom JEE Action Bar */}
+          <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-2 select-none">
+            {/* Left Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetCode}
+                className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer flex items-center gap-1.5"
+                title="Clear code back to starter template"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Clear Response</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => prevTopic && handleOpenTopic(prevTopic)}
+                disabled={!prevTopic}
+                className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-main)] transition flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+            </div>
+
+            {/* Center: Compile & Run */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRunOpenTest}
+                disabled={isRunning || isSubmitting}
+                className="px-4 sm:px-5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+              >
+                <Play className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isRunning ? 'Compiling...' : 'Compile & Run'}</span>
+              </button>
+            </div>
+
+            {/* Right: Save & Next / Next */}
+            <div className="flex items-center gap-2">
+              {nextTopic && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenTopic(nextTopic)}
+                  className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer hidden md:flex items-center gap-1"
+                >
+                  <span>Skip</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSubmitCode}
+                disabled={isRunning || isSubmitting}
+                className="px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isSubmitting ? 'Evaluating...' : 'Save & Next >'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Question Palette Slide-Over Drawer */}
+          {isMobilePaletteOpen && (
+            <div className="fixed inset-0 z-[9999999] flex justify-end bg-black/70 backdrop-blur-xs xl:hidden animate-in fade-in duration-150">
+              <div className="w-80 max-w-[85vw] h-full shadow-2xl bg-[var(--bg-panel)] flex flex-col animate-in slide-in-from-right duration-200">
+                <div className="p-3 border-b border-[var(--border-line)] flex items-center justify-between bg-[var(--bg-surface)]">
+                  <span className="font-mono text-xs font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                    <LayoutGrid className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Module {activeTopic.moduleIndex} Palette</span>
+                  </span>
+                  <button
+                    onClick={() => setIsMobilePaletteOpen(false)}
+                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {renderPaletteContent(true)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Raise Issue Modal */}
           {isIssueModalOpen && (
             <RaiseIssueModal
               isOpen={isIssueModalOpen}
@@ -1427,11 +1672,10 @@ export const TopicPracticeHubPage: React.FC = () => {
             />
           )}
 
-          {/* Watermelon-Style Slide-Over Reference Drawer */}
+          {/* Watermelon Slide-Over Reference Drawer */}
           <AnimatePresence>
             {isTipDrawerOpen && activeTopic && (
               <div className="fixed inset-0 z-[99999999] flex justify-end">
-                {/* Backdrop */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -1440,7 +1684,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                   className="fixed inset-0 bg-black/60 backdrop-blur-xs"
                 />
 
-                {/* Drawer Body */}
                 <motion.div
                   initial={{ x: '100%' }}
                   animate={{ x: 0 }}
@@ -1448,7 +1691,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                   transition={{ type: 'spring', damping: 28, stiffness: 300 }}
                   className="relative w-full max-w-lg bg-[var(--bg-panel)] border-l border-[var(--border-line)] shadow-2xl h-full flex flex-col z-10 font-mono text-xs overflow-hidden"
                 >
-                  {/* Drawer Header */}
                   <div className="p-4 border-b border-[var(--border-line)] flex items-center justify-between bg-[var(--bg-surface)]/60">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/30">
@@ -1466,15 +1708,13 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsTipDrawerOpen(false)}
-                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition"
+                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Drawer Content */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                    {/* Syntax Block */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-amber-500 text-xs uppercase tracking-wider">
@@ -1483,7 +1723,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleCopyTip(activeTopic.tipBox.syntax)}
-                          className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+                          className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
                         >
                           <Copy className="w-3 h-3" />
                           <span>Copy</span>
@@ -1494,7 +1734,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                       </pre>
                     </div>
 
-                    {/* Real-world Application */}
                     <div className="space-y-2">
                       <span className="font-bold text-indigo-400 text-xs uppercase tracking-wider">
                         Industry &amp; Embedded Application
@@ -1504,7 +1743,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Complete Executable Example */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-emerald-400 text-xs uppercase tracking-wider">
@@ -1513,7 +1751,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleCopyTip(activeTopic.tipBox.example)}
-                          className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+                          className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
                         >
                           <Copy className="w-3 h-3" />
                           <span>Copy</span>
@@ -1525,7 +1763,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Drawer Footer */}
                   <div className="p-4 border-t border-[var(--border-line)] bg-[var(--bg-surface)]/60 flex items-center justify-between">
                     <span className="text-[10px] text-[var(--text-muted)]">
                       Standard C11 / GCC Reference
@@ -1533,7 +1770,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsTipDrawerOpen(false)}
-                      className="px-4 py-1.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition"
+                      className="px-4 py-1.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] text-xs font-semibold text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
                     >
                       Close Reference
                     </button>
@@ -1543,11 +1780,10 @@ export const TopicPracticeHubPage: React.FC = () => {
             )}
           </AnimatePresence>
 
-          {/* Watermelon-Style Success Celebration Modal */}
+          {/* Success Celebration Modal */}
           <AnimatePresence>
             {showCelebrationModal && activeTopic && (
               <div className="fixed inset-0 z-[99999999] flex items-center justify-center p-4">
-                {/* Backdrop */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -1556,7 +1792,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                   className="fixed inset-0 bg-black/60 backdrop-blur-sm"
                 />
 
-                {/* Modal Card */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1564,11 +1799,9 @@ export const TopicPracticeHubPage: React.FC = () => {
                   transition={{ type: 'spring', damping: 22, stiffness: 350 }}
                   className="relative w-full max-w-sm bg-[var(--bg-panel)] border-2 border-emerald-500/50 shadow-2xl rounded-3xl p-6 text-center space-y-5 z-10 overflow-hidden"
                 >
-                  {/* Decorative background glow */}
                   <div className="absolute -top-16 -right-16 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
                   <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-teal-500/20 rounded-full blur-2xl pointer-events-none" />
 
-                  {/* Trophy Icon with spring rotation */}
                   <motion.div
                     animate={{ rotate: [0, -10, 10, -5, 5, 0], scale: [1, 1.1, 1] }}
                     transition={{ duration: 1.2, ease: 'easeOut' }}
@@ -1589,7 +1822,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Test case pill checks */}
                   <div className="flex items-center justify-center gap-2 text-xs font-mono">
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1601,7 +1833,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Actions */}
                   <div className="space-y-2 pt-2">
                     {nextTopic ? (
                       <button
@@ -1610,9 +1841,9 @@ export const TopicPracticeHubPage: React.FC = () => {
                           setShowCelebrationModal(false);
                           handleOpenTopic(nextTopic);
                         }}
-                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 group"
+                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 group cursor-pointer"
                       >
-                        <span>Next Problem: Q{currentTopicIndex + 2}</span>
+                        <span>Next Question: Q{currentTopicIndex + 2}</span>
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </button>
                     ) : (
@@ -1622,7 +1853,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                           setShowCelebrationModal(false);
                           handleCloseTopic();
                         }}
-                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition"
+                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition cursor-pointer"
                       >
                         Return to Practice Hub
                       </button>
@@ -1631,7 +1862,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowCelebrationModal(false)}
-                      className="w-full py-2 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+                      className="w-full py-2 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
                     >
                       Stay on current code
                     </button>
