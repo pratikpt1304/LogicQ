@@ -13,6 +13,8 @@ import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn } from '../config/academic.config.js';
+import { DeviceSessionService } from '../services/deviceSession.service.js';
+import { findCohortStudent } from '../data/c-programming-cohort.data.js';
 
 function pickBestRealName(...candidates: (string | null | undefined)[]): string | null {
   for (const c of candidates) {
@@ -88,6 +90,7 @@ export type LogoutReason =
   | 'app-check-failed'
   | 'unusual-login-flag'
   | 'multi-tab-sync'
+  | 'parallel-login-blocked'
   | 'service-worker-update'
   | 'unknown';
 
@@ -102,6 +105,7 @@ export const REASON_MESSAGES: Record<LogoutReason, string> = {
   'app-check-failed': 'Security verification failed. Please sign in again.',
   'unusual-login-flag': 'Unusual login activity detected. Please sign in again.',
   'multi-tab-sync': 'You signed out from another tab.',
+  'parallel-login-blocked': 'Parallel login detected: Another device or tab logged into this account. Only 1 active instance is permitted.',
   'service-worker-update': 'Application updated. Please sign in again.',
   'unknown': 'You were signed out. Please sign in again.',
 };
@@ -896,15 +900,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [clearSessionStorage, syncWithServer]);
 
+  // Single-Instance & Concurrency Guard: Enforce maximum 1 active instance per account
+  useEffect(() => {
+    if (!user || user.role !== 'STUDENT' || !user.prn) return;
+
+    const unsubscribeConflict = DeviceSessionService.subscribeToSessionConflict(
+      user.prn,
+      (reason) => {
+        console.warn('Session conflict terminated active session:', reason);
+        logout('parallel-login-blocked');
+        alert(reason);
+      }
+    );
+
+    return () => {
+      unsubscribeConflict();
+    };
+  }, [user?.prn, user?.role, logout]);
+
   const login = async (identifier: string, password?: string): Promise<User> => {
-    const res = await api.post('/auth/login', { identifier, password });
+    const cleanId = String(identifier || '').trim();
+    const cleanPwd = String(password || cleanId).trim();
+
+    // Check device registration and single instance for cohort students
+    const cohortStudent = findCohortStudent(cleanId);
+    const prnToCheck = cohortStudent ? cohortStudent.prn : cleanId.toUpperCase();
+
+    if (prnToCheck && prnToCheck.startsWith('212')) {
+      const reg = await DeviceSessionService.registerDeviceSession(prnToCheck);
+      if (!reg.success) {
+        throw new Error(reg.message || 'Device registration limit reached (maximum 2 devices allowed).');
+      }
+    }
+
+    const res = await api.post('/auth/login', { identifier: cleanId, password: cleanPwd });
     if (!res?.success || !res?.data?.user) {
       throw new Error(res?.message || 'Login failed');
     }
+
+    const authUser = res.data.user;
+    if (authUser.role === 'STUDENT' && authUser.prn) {
+      await DeviceSessionService.registerDeviceSession(authUser.prn);
+    }
+
     recordUserActivity();
-    persistUser(res.data.user);
+    persistUser(authUser);
     setAuthState('signedIn');
-    return res.data.user;
+    return authUser;
   };
 
   const loginWithGoogle = async (): Promise<User> => {

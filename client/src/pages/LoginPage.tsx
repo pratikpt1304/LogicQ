@@ -13,14 +13,28 @@ import {
   RefreshCw,
   Check,
   Sparkles,
+  Lock,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { sendLoginOtp, loginWithOtp } = useAuth();
+  const { login, sendLoginOtp, loginWithOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Step 1: 'identifier' (Email) -> Step 2: 'otp' (6-digit Code)
+  // Mode: 'prn' (Direct Student PRN Login) | 'otp' (Institutional Email OTP)
+  const [authMode, setAuthMode] = useState<'prn' | 'otp'>('prn');
+
+  // Student PRN Credentials
+  const [prn, setPrn] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Email OTP Credentials
   const [step, setStep] = useState<'identifier' | 'otp'>('identifier');
   const [identifier, setIdentifier] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
@@ -47,6 +61,46 @@ export const LoginPage: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+
+  // Student Direct PRN Login Handler
+  const handlePrnLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPrn = prn.trim().toUpperCase();
+    const cleanPwd = (password || cleanPrn).trim();
+
+    if (!cleanPrn) {
+      setError('Please enter your Institutional PRN.');
+      return;
+    }
+
+    setError(null);
+    setInfoMessage(null);
+    setLoading(true);
+
+    try {
+      const user = await login(cleanPrn, cleanPwd);
+      setIsVerifiedSuccess(true);
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#10b981', '#06b6d4', '#6366f1'],
+        });
+      } catch {}
+      toast.success(`Welcome back, ${user.displayName || user.fullName || 'Student'}!`);
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 1000);
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          'Failed to sign in. Please verify your PRN and password (default password is your PRN).'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Step 1: Dispatch OTP
   const handleSendOtp = async (eOrEmail?: React.FormEvent | string) => {
@@ -218,11 +272,13 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
           <h2 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
-            Sign In
+            Sign In to LogicQ
           </h2>
           <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
-            {step === 'identifier'
-              ? 'Enter your email to receive a 6-digit OTP'
+            {authMode === 'prn'
+              ? 'Integrated M.Tech (FY) • Section LQ-C31A'
+              : step === 'identifier'
+              ? 'Enter your institutional email to receive a 6-digit OTP'
               : `Enter the 6-digit code sent to ${targetDisplay}`}
           </p>
         </div>
@@ -232,10 +288,9 @@ export const LoginPage: React.FC = () => {
           {/* Ambient Card Glow */}
           <div className="absolute -top-20 -right-20 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
-          {/* Success / Verified Screen State (Matches Code.xr V15 Reel) */}
+          {/* Success / Verified Screen State */}
           {isVerifiedSuccess ? (
             <div className="py-4 text-center space-y-5 animate-in zoom-in-95 fade-in duration-300">
-              {/* Green Verified Circle Badge */}
               <div className="relative inline-flex items-center justify-center">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 flex items-center justify-center border-2 border-emerald-500/40 shadow-lg shadow-emerald-500/25 animate-pulse">
                   <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md">
@@ -246,37 +301,60 @@ export const LoginPage: React.FC = () => {
 
               <div className="space-y-1">
                 <h3 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
-                  You're verified
+                  Welcome to LogicQ
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] font-medium">
-                  Your account has been successfully verified.
+                  Authentication successful. Preparing your workspace...
                 </p>
               </div>
 
-              {/* 6 Solid Green Digit Boxes */}
-              <div className="flex items-center justify-center gap-2 sm:gap-2.5 my-4">
-                {otpDigits.map((digit, idx) => (
-                  <div
-                    key={idx}
-                    className="w-10 h-12 sm:w-12 sm:h-14 rounded-2xl bg-emerald-500 text-white font-mono font-black text-xl flex items-center justify-center shadow-md shadow-emerald-500/25 transform hover:scale-105 transition-all"
-                  >
-                    {digit || '•'}
-                  </div>
-                ))}
-              </div>
-
-              {/* Continue CTA Button */}
               <button
                 type="button"
                 onClick={() => navigate(from, { replace: true })}
                 className="w-full py-3.5 px-6 rounded-2xl font-mono text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
               >
-                <span>Continue</span>
+                <span>Continue to Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           ) : (
             <>
+              {/* Login Mode Tab Switcher */}
+              <div className="flex p-1 mb-5 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('prn');
+                    setError(null);
+                    setInfoMessage(null);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    authMode === 'prn'
+                      ? 'bg-[var(--bg-panel)] text-emerald-600 dark:text-emerald-400 shadow-sm border border-[var(--border-line)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Student (PRN)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('otp');
+                    setError(null);
+                    setInfoMessage(null);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    authMode === 'otp'
+                      ? 'bg-[var(--bg-panel)] text-emerald-600 dark:text-emerald-400 shadow-sm border border-[var(--border-line)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Faculty / OTP</span>
+                </button>
+              </div>
+
               {/* Error Alert */}
               {error && (
                 <div className="mb-4 flex items-start gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 dark:text-red-300 font-medium animate-fadeIn">
@@ -293,127 +371,204 @@ export const LoginPage: React.FC = () => {
                 </div>
               )}
 
-              {/* STEP 1: Email OTP Form */}
-              {step === 'identifier' && (
-                <form onSubmit={handleSendOtp} className="space-y-4">
+              {/* TAB 1: Student PRN Sign In */}
+              {authMode === 'prn' && (
+                <form onSubmit={handlePrnLogin} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
-                      Email Address
+                      Institutional PRN
                     </label>
                     <div className="relative">
                       <input
-                        type="email"
+                        type="text"
                         required
                         autoFocus
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="e.g. rohitsharma@gmail.com"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                        value={prn}
+                        onChange={(e) => setPrn(e.target.value.toUpperCase())}
+                        placeholder="e.g. 2126PMIF1057"
+                        className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-sm uppercase text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
-                      <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                      <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-[var(--text-main)]">
+                        Password
+                      </label>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        Default: Same as PRN
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={prn ? prn : 'Enter your PRN as password'}
+                        className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                      />
+                      <Lock className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Security Policy Badge */}
+                  <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-300 flex items-start gap-2">
+                    <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
+                    <span className="leading-tight">
+                      <strong>Single-Instance Active Lock:</strong> Only 1 active login session permitted at any time. Limit max 2 authorized devices per student.
+                    </span>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={loading || !identifier.trim()}
+                    disabled={loading || !prn.trim()}
                     className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
-                    <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
+                    <span>{loading ? 'Authenticating...' : 'Sign In as Student'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
-                  {/* Demo Student Fast Login Pill */}
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIdentifier('student@logicq.io');
-                        handleSendOtp('student@logicq.io');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all cursor-pointer"
-                    >
-                      <span>🚀 Demo Student: student@logicq.io (OTP: 123456)</span>
-                    </button>
+                  {/* Quick Helper */}
+                  <div className="pt-2 text-center text-[11px] text-[var(--text-muted)]">
+                    All 115 students of FY Integrated M.Tech are enrolled into Section <strong className="font-mono text-emerald-600 dark:text-emerald-400">LQ-C31A</strong>.
                   </div>
                 </form>
               )}
 
-              {/* STEP 2: Smooth 6-Digit OTP Box Grid (V15 Animation) */}
-              {step === 'otp' && (
-                <form onSubmit={(e) => { e.preventDefault(); verifyCode(fullOtpCode); }} className="space-y-5 animate-in fade-in duration-200">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold text-[var(--text-main)]">
-                        Enter 6-Digit OTP Code
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStep('identifier');
-                          setOtpDigits(['', '', '', '', '', '']);
-                          setError(null);
-                          setInfoMessage(null);
-                        }}
-                        className="text-xs text-indigo-500 hover:underline font-medium cursor-pointer"
-                      >
-                        Change Email
-                      </button>
-                    </div>
-
-                    {/* 6 Individual Digit Inputs with Smooth Focus and Rounded Styling */}
-                    <div className="flex items-center justify-between gap-1.5 sm:gap-2.5" onPaste={handlePaste}>
-                      {otpDigits.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          ref={(el) => { inputRefs.current[idx] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleDigitChange(idx, e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(idx, e)}
-                          className={`w-11 h-13 sm:w-13 sm:h-15 text-center text-xl sm:text-2xl font-mono font-black rounded-2xl border transition-all outline-none ${
-                            digit
-                              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/30'
-                              : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-main)] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading || fullOtpCode.length !== 6}
-                    className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Continue'}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-
-                  {/* Resend Action */}
-                  <div className="flex items-center justify-between pt-3 border-t border-[var(--border-line)] text-xs text-[var(--text-muted)]">
-                    {cooldown > 0 ? (
-                      <div className="flex items-center gap-1.5 font-mono">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Resend code in {cooldown}s</span>
+              {/* TAB 2: Email OTP Form */}
+              {authMode === 'otp' && (
+                <>
+                  {step === 'identifier' && (
+                    <form onSubmit={handleSendOtp} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
+                          Institutional Email Address
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="email"
+                            required
+                            autoFocus
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder="e.g. hariprasathset@sanjivani.edu.in"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                          />
+                          <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
+                        </div>
                       </div>
-                    ) : (
+
                       <button
-                        type="button"
-                        onClick={() => handleSendOtp()}
-                        disabled={loading}
-                        className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
+                        type="submit"
+                        disabled={loading || !identifier.trim()}
+                        className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Resend OTP</span>
+                        <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
+                        <ArrowRight className="w-4 h-4" />
                       </button>
-                    )}
-                    <span>Expires in 10 mins</span>
-                  </div>
-                </form>
+
+                      {/* Demo Admin Fast Login Pill */}
+                      <div className="pt-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIdentifier('student@logicq.io');
+                            handleSendOtp('student@logicq.io');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all cursor-pointer"
+                        >
+                          <span>🚀 Demo Student: student@logicq.io (OTP: 123456)</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Step 2: 6-Digit OTP */}
+                  {step === 'otp' && (
+                    <form onSubmit={(e) => { e.preventDefault(); verifyCode(fullOtpCode); }} className="space-y-5 animate-in fade-in duration-200">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-semibold text-[var(--text-main)]">
+                            Enter 6-Digit OTP Code
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStep('identifier');
+                              setOtpDigits(['', '', '', '', '', '']);
+                              setError(null);
+                              setInfoMessage(null);
+                            }}
+                            className="text-xs text-indigo-500 hover:underline font-medium cursor-pointer"
+                          >
+                            Change Email
+                          </button>
+                        </div>
+
+                        {/* 6 Individual Digit Inputs */}
+                        <div className="flex items-center justify-between gap-1.5 sm:gap-2.5" onPaste={handlePaste}>
+                          {otpDigits.map((digit, idx) => (
+                            <input
+                              key={idx}
+                              ref={(el) => { inputRefs.current[idx] = el; }}
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={1}
+                              value={digit}
+                              onChange={(e) => handleDigitChange(idx, e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(idx, e)}
+                              className={`w-11 h-13 sm:w-13 sm:h-15 text-center text-xl sm:text-2xl font-mono font-black rounded-2xl border transition-all outline-none ${
+                                digit
+                                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/30'
+                                  : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-main)] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={loading || fullOtpCode.length !== 6}
+                        className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                      >
+                        <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Continue'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-[var(--border-line)] text-xs text-[var(--text-muted)]">
+                        {cooldown > 0 ? (
+                          <div className="flex items-center gap-1.5 font-mono">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Resend code in {cooldown}s</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSendOtp()}
+                            disabled={loading}
+                            className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Resend OTP</span>
+                          </button>
+                        )}
+                        <span>Expires in 10 mins</span>
+                      </div>
+                    </form>
+                  )}
+                </>
               )}
             </>
           )}

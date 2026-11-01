@@ -20,6 +20,7 @@ import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
+import { C_PROGRAMMING_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -1203,6 +1204,38 @@ export class FirestoreDataService {
       }
     }
 
+    // Merge authoritative C Programming Cohort (all 115 registered students)
+    C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+      const pKey = cs.prn.toUpperCase();
+      const eKey = cs.email.toLowerCase();
+      if (!seenPrns.has(pKey) && !seenEmails.has(eKey)) {
+        list.push({
+          id: cs.prn,
+          uid: cs.prn,
+          email: cs.email,
+          fullName: cs.fullName,
+          displayName: cs.fullName,
+          role: 'STUDENT',
+          department: cs.department,
+          year: cs.year,
+          college: cs.college,
+          prn: cs.prn,
+          profileComplete: true,
+          sectionId: 'LQ-C31A',
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          totalSolved: 0,
+          solvedProblems: [],
+          submissionsCount: 0,
+          createdAt: '2026-11-01T00:00:00.000Z',
+          updatedAt: '2026-11-01T00:00:00.000Z',
+        } as any);
+        seenPrns.add(pKey);
+        seenEmails.add(eKey);
+      }
+    });
+
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
 
@@ -2053,6 +2086,62 @@ export class FirestoreDataService {
         };
       });
 
+    // Authoritative Cohort Injection: Ensure LQ-C31A (C Programming) has full 115 students
+    let cProgSec = result.find(
+      (s: any) =>
+        s.joinCode === 'LQ-C31A' ||
+        s.id === 'LQ-C31A' ||
+        (s.sectionName && String(s.sectionName).toLowerCase().includes('c programming'))
+    );
+
+    if (!cProgSec) {
+      cProgSec = {
+        id: 'LQ-C31A',
+        joinCode: 'LQ-C31A',
+        sectionName: 'C Programming',
+        subject: 'C Programming',
+        department: 'Integrated M.Tech',
+        year: 'FY',
+        college: 'Sanjivani University',
+        students: [],
+        studentsCount: 115,
+        _count: { students: 115 },
+        createdAt: 1730000000000,
+      };
+      result.unshift(cProgSec);
+    }
+
+    if (cProgSec) {
+      const existingStudents = Array.isArray(cProgSec.students) ? [...cProgSec.students] : [];
+      const seenPrns = new Set(existingStudents.map((s: any) => (s.prn || '').toUpperCase()));
+
+      C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+        if (!seenPrns.has(cs.prn.toUpperCase())) {
+          existingStudents.push({
+            id: cs.prn,
+            uid: cs.prn,
+            ...cs,
+            name: cs.fullName,
+            sectionId: cProgSec.id || 'LQ-C31A',
+            enrolledAt: 1730000000000,
+            status: 'ACTIVE',
+          });
+          seenPrns.add(cs.prn.toUpperCase());
+        }
+      });
+
+      cProgSec.students = existingStudents;
+      cProgSec.studentsCount = Math.max(existingStudents.length, 115);
+      cProgSec._count = { students: cProgSec.studentsCount };
+
+      try {
+        localStorage.setItem(`logicq_section_students_${cProgSec.id}`, JSON.stringify(existingStudents));
+        if (cProgSec.joinCode) {
+          localStorage.setItem(`logicq_section_students_${cProgSec.joinCode}`, JSON.stringify(existingStudents));
+        }
+      } catch {}
+    }
+
     // Update persistent local backup so fallback always has current valid sections
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
@@ -2259,6 +2348,34 @@ export class FirestoreDataService {
         }
       });
     } catch {}
+
+    // 4. Merge authoritative C Programming Cohort (all 115 students) if this section matches LQ-C31A
+    const isCProgramming =
+      matchKeys.has('LQ-C31A') ||
+      Array.from(matchKeys).some((k) => k.includes('C PROGRAMMING') || k.includes('LQ-C31A'));
+
+    if (isCProgramming) {
+      C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+        const key = cs.prn.toUpperCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: cs.prn,
+            userId: cs.prn,
+            name: cs.fullName,
+            fullName: cs.fullName,
+            displayName: cs.fullName,
+            email: cs.email,
+            prn: cs.prn,
+            department: cs.department,
+            year: cs.year,
+            college: cs.college,
+            sectionId: 'LQ-C31A',
+            status: 'ENROLLED',
+          });
+        }
+      });
+    }
 
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
@@ -2578,6 +2695,30 @@ export class FirestoreDataService {
 
       if (FirestoreDataService.isPurgedStudent({ email: clean, prn: prnClean })) {
         return null;
+      }
+
+      // 0. Immediate Cohort Roster Lookup (Authoritative 115 students)
+      const cohortStudent = findCohortStudent(identifier);
+      if (cohortStudent && !FirestoreDataService.isPurgedStudent({ ...cohortStudent })) {
+        return {
+          id: cohortStudent.prn,
+          uid: cohortStudent.prn,
+          userId: cohortStudent.prn,
+          name: cohortStudent.fullName,
+          fullName: cohortStudent.fullName,
+          displayName: cohortStudent.fullName,
+          email: cohortStudent.email,
+          prn: cohortStudent.prn,
+          department: cohortStudent.department,
+          year: cohortStudent.year,
+          college: cohortStudent.college,
+          sectionId: cohortStudent.sectionId,
+          sectionName: cohortStudent.sectionName,
+          joinCode: cohortStudent.joinCode,
+          role: cohortStudent.role,
+          profileComplete: true,
+          status: 'ACTIVE',
+        };
       }
 
       // 1. Check local cache / all enrolled students backup
