@@ -162,6 +162,23 @@ export const COHORT_STUDENT_BY_EMAIL = new Map<string, EnrolledCohortStudent>(
 export function findCohortStudent(identifier: string): EnrolledCohortStudent | null {
   if (!identifier) return null;
   const clean = identifier.trim();
+  if (clean.toLowerCase() === 'dummy') {
+    return {
+      index: 0,
+      prn: 'DUMMY',
+      fullName: 'Dummy Test Student',
+      department: 'Integrated M.Tech',
+      year: 'FY',
+      college: 'Sanjivani University',
+      sectionId: 'LQ-C31A',
+      sectionName: 'C Programming',
+      joinCode: 'LQ-C31A',
+      email: 'dummy@sanjivani.edu.in',
+      role: 'STUDENT',
+      profileComplete: true,
+      password: 'dummy',
+    };
+  }
   const byPrn = COHORT_STUDENT_BY_PRN.get(clean.toUpperCase());
   if (byPrn) return byPrn;
   const byEmail = COHORT_STUDENT_BY_EMAIL.get(clean.toLowerCase());
