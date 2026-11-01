@@ -386,7 +386,7 @@ export const LoginPage: React.FC = () => {
                         autoFocus
                         value={prn}
                         onChange={(e) => setPrn(e.target.value)}
-                        placeholder="e.g. 2126PMIF1057 or dummy"
+                        placeholder="e.g. 2126PMIF1057"
                         className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] font-mono text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                       />
                       <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
@@ -438,25 +438,6 @@ export const LoginPage: React.FC = () => {
                     <span>{loading ? 'Authenticating...' : 'Sign In as Student'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
-
-                  {/* Fast Test Login Pill for Faculty / Sir */}
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPrn('dummy');
-                        setPassword('dummy');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all cursor-pointer"
-                    >
-                      <span>🧪 Test Student: dummy / dummy</span>
-                    </button>
-                  </div>
-
-                  {/* Quick Helper */}
-                  <div className="pt-2 text-center text-[11px] text-[var(--text-muted)]">
-                    All 115 students of FY Integrated M.Tech are enrolled into Section <strong className="font-mono text-emerald-600 dark:text-emerald-400">LQ-C31A</strong>.
-                  </div>
                 </form>
               )}
 
