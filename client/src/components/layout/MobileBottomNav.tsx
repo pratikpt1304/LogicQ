@@ -28,8 +28,11 @@ export const MobileBottomNav: React.FC = () => {
   }
 
   const isActive = (path: string) => {
-    if (path === '/daily' || path === '/practice') {
-      return location.pathname === '/daily' || location.pathname === '/practice' || location.pathname.startsWith('/practice/');
+    if (path === '/challenge' || path === '/daily') {
+      return location.pathname === '/challenge' || location.pathname.startsWith('/challenge/') || location.pathname === '/daily';
+    }
+    if (path === '/practice') {
+      return location.pathname === '/practice' || location.pathname.startsWith('/practice/');
     }
     if (path === '/lab-internal') {
       return location.pathname === '/lab-internal' || location.pathname.startsWith('/lab-internal/');
@@ -55,10 +58,10 @@ export const MobileBottomNav: React.FC = () => {
   const navItems = isStudent
     ? [
         { label: 'Home', path: '/dashboard', icon: Home },
-        { label: 'Daily', path: '/daily', icon: Calendar },
+        { label: 'Daily', path: '/challenge', icon: Calendar },
+        { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab', path: '/lab-internal', icon: BookOpen },
         { label: 'Ranks', path: '/leaderboard', icon: Trophy },
-        { label: 'Profile', path: '/profile', icon: UserIcon },
       ]
     : isAdmin
     ? [

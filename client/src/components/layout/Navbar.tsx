@@ -73,8 +73,11 @@ export const Navbar: React.FC = () => {
   }, [isStudent]);
 
   const isActive = (path: string) => {
-    if (path === '/daily' || path === '/practice') {
-      return location.pathname === '/daily' || location.pathname === '/practice';
+    if (path === '/challenge' || path === '/daily') {
+      return location.pathname === '/challenge' || location.pathname.startsWith('/challenge/') || location.pathname === '/daily';
+    }
+    if (path === '/practice') {
+      return location.pathname === '/practice' || location.pathname.startsWith('/practice/');
     }
     if (path === '/lab-internal') {
       return location.pathname === '/lab-internal' || location.pathname.startsWith('/lab-internal/');
@@ -92,7 +95,8 @@ export const Navbar: React.FC = () => {
   const appNavLinks = isStudent
     ? [
         { label: 'Home', path: '/dashboard', icon: Home },
-        { label: 'Daily', path: '/daily', icon: Calendar },
+        { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
+        { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
         { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
       ]
