@@ -2900,7 +2900,15 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
             }
           } catch {}
         }
-        const valid = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
+        const valid = studentsList
+          .filter((st: any) => !FirestoreDataService.isPurgedStudent(st))
+          .sort((a: any, b: any) => {
+            const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+            const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+            if (!prnA) return 1;
+            if (!prnB) return -1;
+            return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+          });
         const count = Math.max(valid.length, s._count?.students || 0);
         return {
           ...s,
@@ -3008,6 +3016,13 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           }
         }
       } catch {}
+      roster.sort((a: any, b: any) => {
+        const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+        const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+        if (!prnA) return 1;
+        if (!prnB) return -1;
+        return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+      });
       found.students = roster;
       found._count = { students: roster.length };
     }

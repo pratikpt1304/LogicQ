@@ -1236,6 +1236,14 @@ export class FirestoreDataService {
       }
     });
 
+    list.sort((a: any, b: any) => {
+      const prnA = (a.prn || '').trim().toUpperCase();
+      const prnB = (b.prn || '').trim().toUpperCase();
+      if (!prnA) return 1;
+      if (!prnB) return -1;
+      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }
 
@@ -2130,7 +2138,13 @@ export class FirestoreDataService {
         }
       });
 
-      cProgSec.students = existingStudents;
+      cProgSec.students = existingStudents.sort((a: any, b: any) => {
+        const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+        const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+        if (!prnA) return 1;
+        if (!prnB) return -1;
+        return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+      });
       cProgSec.studentsCount = Math.max(existingStudents.length, 115);
       cProgSec._count = { students: cProgSec.studentsCount };
 
@@ -2376,6 +2390,14 @@ export class FirestoreDataService {
         }
       });
     }
+
+    list.sort((a: any, b: any) => {
+      const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+      const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+      if (!prnA) return 1;
+      if (!prnB) return -1;
+      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
     return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
   }

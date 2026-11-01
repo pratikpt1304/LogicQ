@@ -614,6 +614,15 @@ export const SectionManagementPage: React.FC = () => {
       }
     });
 
+    // Sort enrolled students by PRN in ascending order
+    mergedStudents.sort((a: any, b: any) => {
+      const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+      const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+      if (!prnA) return 1;
+      if (!prnB) return -1;
+      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     const updatedCount = Math.max(mergedStudents.length, localSec?._count?.students || 0, localSec?.studentsCount || 0);
 
     const updated = {
@@ -687,7 +696,13 @@ export const SectionManagementPage: React.FC = () => {
 
   // Export Roster to CSV
   const exportRosterCsv = (sec: SectionItem) => {
-    const list = sec.students || [];
+    const list = [...(sec.students || [])].sort((a: any, b: any) => {
+      const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+      const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+      if (!prnA) return 1;
+      if (!prnB) return -1;
+      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
     if (list.length === 0) {
       toast.error('No enrolled students to export.');
       return;
@@ -949,7 +964,14 @@ export const SectionManagementPage: React.FC = () => {
         const displayTitle = rawName.toLowerCase().includes(rawSub.toLowerCase())
           ? rawName
           : `${rawName} — ${rawSub}`;
-        const enrolledStudents = selectedSection.students || [];
+        // Strictly sorted in ascending order by PRN / Roll No
+        const enrolledStudents = [...(selectedSection.students || [])].sort((a: any, b: any) => {
+          const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+          const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+          if (!prnA) return 1;
+          if (!prnB) return -1;
+          return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+        });
 
         return (
           <div className="border border-[var(--border)] rounded-2xl bg-[var(--card)] p-6 space-y-6 shadow-xl animate-in fade-in">
