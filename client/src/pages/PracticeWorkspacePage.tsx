@@ -328,8 +328,11 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   };
 
-  // Prompt fullscreen on question open via explicit user gesture modal
+  // Prompt fullscreen on question open via explicit user gesture modal (Desktop/Laptop only)
   useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+    if (isMobile) return;
+
     const timer = setTimeout(() => {
       if (!document.fullscreenElement) {
         setShowFullscreenModal(true);
@@ -341,12 +344,13 @@ export const PracticeWorkspacePage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [problemSlug]);
 
-  // Fullscreen Exit Detection
+  // Fullscreen Exit Detection (Desktop only)
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
-      if (!active) {
+      const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+      if (!active && !isMobile) {
         setFullscreenExits((prev) => {
           const next = prev + 1;
           syncTelemetryToCloud({ fullscreenExits: next });
@@ -446,12 +450,19 @@ export const PracticeWorkspacePage: React.FC = () => {
       }, 1600);
     };
 
+    const handlePageHide = () => {
+      blurStartTimeRef.current = Date.now();
+      recordTabViolation(true);
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, [syncTelemetryToCloud, triggerProctorWarning, problemSlug, secondChanceSlugs]);
 
@@ -1729,7 +1740,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Pane: Problem Description Statement */}
         <div
-          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-[320px] max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
+          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
             activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
         >
@@ -1821,7 +1832,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
         {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer */}
         <div
-          className={`flex-1 min-w-[360px] flex flex-col min-h-0 bg-[var(--bg-main)] ${
+          className={`flex-1 min-w-0 lg:min-w-[360px] flex flex-col min-h-0 bg-[var(--bg-main)] ${
             activeMobileTab !== 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
         >
@@ -2309,6 +2320,22 @@ export const PracticeWorkspacePage: React.FC = () => {
           >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Previous</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={runMutation.isPending || submitMutation.isPending}
+            onClick={() => {
+              setActiveBottomTab('output');
+              setIsDrawerOpen(true);
+              setActiveMobileTab('editor');
+              runMutation.mutate();
+            }}
+            className="px-2.5 sm:px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-mono text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+            title="Run Code (Alt + Enter)"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>{runMutation.isPending ? 'Running...' : 'Run'}</span>
           </button>
 
           <button
