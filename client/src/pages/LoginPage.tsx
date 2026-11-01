@@ -379,7 +379,7 @@ export const LoginPage: React.FC = () => {
 
               {/* TAB 1: Student PRN Sign In */}
               {authMode === 'prn' && (
-                <form onSubmit={handlePrnLogin} className="space-y-4">
+                <form onSubmit={handlePrnLogin} className="space-y-4" autoComplete="off">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
                       Institutional PRN
@@ -387,6 +387,12 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         type="text"
+                        name="institutional_prn_id"
+                        id="institutional_prn_id"
+                        autoComplete="off"
+                        data-lpignore="true"
+                        data-form-type="other"
+                        spellCheck={false}
                         required
                         autoFocus
                         value={prn}
@@ -405,6 +411,12 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        name="student_login_secret"
+                        id="student_login_secret"
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-form-type="other"
+                        spellCheck={false}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
