@@ -118,27 +118,38 @@ function deletePracticeProblem(slug: string) {
   }
 }
 
-const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => ({
-  id: bp.slug,
-  slug: bp.slug,
-  title: bp.title,
-  difficulty: bp.difficulty,
-  category: bp.category,
-  basePoints: bp.basePoints,
-  timeLimitMs: bp.timeLimitMs,
-  memoryLimitMb: bp.memoryLimitMb,
-  isDaily: idx === 0,
-  sourceType: 'BOOK',
-  sourceRef: bp.sourceRef,
-  tags: bp.tags,
-  description: bp.description,
-  starterCode: bp.starterCode,
-  solutionCode: bp.solutionCode,
-  testCases: [
-    ...bp.sampleTests.map((t, tidx) => ({ id: `${bp.slug}-s${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: tidx })),
-    ...bp.hiddenTests.map((t, tidx) => ({ id: `${bp.slug}-h${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: bp.sampleTests.length + tidx })),
-  ],
-}));
+const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
+const startIstStr = nowIst.toISOString().split('T')[0];
+const [kYear, kMonth, kDay] = startIstStr.split('-').map(Number);
+const kBaseDate = new Date(Date.UTC(kYear, kMonth - 1, kDay));
+
+const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => {
+  const targetDate = new Date(kBaseDate.getTime() + idx * 24 * 3600 * 1000);
+  const targetDateStr = targetDate.toISOString().split('T')[0];
+  return {
+    id: bp.slug,
+    slug: bp.slug,
+    title: bp.title,
+    difficulty: bp.difficulty,
+    category: bp.category,
+    basePoints: bp.basePoints,
+    timeLimitMs: bp.timeLimitMs,
+    memoryLimitMb: bp.memoryLimitMb,
+    isDaily: true,
+    scheduledDate: targetDateStr,
+    status: 'PUBLISHED',
+    sourceType: 'BOOK',
+    sourceRef: bp.sourceRef,
+    tags: bp.tags,
+    description: bp.description,
+    starterCode: bp.starterCode,
+    solutionCode: bp.solutionCode,
+    testCases: [
+      ...bp.sampleTests.map((t, tidx) => ({ id: `${bp.slug}-s${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: true, isHidden: false, orderIndex: tidx })),
+      ...bp.hiddenTests.map((t, tidx) => ({ id: `${bp.slug}-h${tidx + 1}`, input: t.input, expectedOutput: t.expectedOutput, isSample: false, isHidden: true, orderIndex: bp.sampleTests.length + tidx })),
+    ],
+  };
+});
 
 const FORMATTED_PRACTICE_PROBLEMS = STATIC_PRACTICE_PROBLEMS.map((p) => ({
   id: p.slug,
@@ -175,7 +186,22 @@ function getStoredProblems(): any[] {
     const raw = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // If stored problems don't have scheduled dates on Kanetkar problems, merge with updated FORMATTED_KANETKAR_PROBLEMS
+        const hasScheduledDaily = parsed.some((p: any) => p.isDaily && p.scheduledDate && p.sourceType === 'BOOK');
+        if (!hasScheduledDaily) {
+          const updated = parsed.map((p: any) => {
+            const canonical = FORMATTED_KANETKAR_PROBLEMS.find((kp) => kp.slug === p.slug || kp.id === p.id);
+            if (canonical) {
+              return { ...p, isDaily: true, scheduledDate: canonical.scheduledDate, status: 'PUBLISHED' };
+            }
+            return p;
+          });
+          saveStoredProblems(updated);
+          return updated;
+        }
+        return parsed;
+      }
     }
   } catch {
     // ignore
@@ -2159,12 +2185,43 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/admin/daily/schedule' && method === 'POST') {
-    const problems = getStoredProblems().map((p) => ({
-      ...p,
-      isDaily: p.id === body.problemId,
-    }));
+    const { problemId, scheduledDate, isDaily } = body || {};
+    const problems = getStoredProblems().map((p) => {
+      if (p.id === problemId || p.slug === problemId) {
+        return {
+          ...p,
+          isDaily: typeof isDaily === 'boolean' ? isDaily : true,
+          scheduledDate: scheduledDate || p.scheduledDate,
+        };
+      }
+      return p;
+    });
     saveStoredProblems(problems);
-    return { success: true };
+    return { success: true, message: 'Daily challenge scheduled successfully' };
+  }
+
+  if (path === '/admin/daily/auto-schedule-kanetkar' && method === 'POST') {
+    const problems = getStoredProblems().map((p) => {
+      const canonical = FORMATTED_KANETKAR_PROBLEMS.find((kp) => kp.slug === p.slug || kp.id === p.id);
+      if (canonical) {
+        return {
+          ...p,
+          isDaily: true,
+          scheduledDate: canonical.scheduledDate,
+          status: 'PUBLISHED',
+        };
+      }
+      return p;
+    });
+    saveStoredProblems(problems);
+    return {
+      success: true,
+      data: {
+        count: FORMATTED_KANETKAR_PROBLEMS.length,
+        startDate: FORMATTED_KANETKAR_PROBLEMS[0]?.scheduledDate,
+        endDate: FORMATTED_KANETKAR_PROBLEMS[FORMATTED_KANETKAR_PROBLEMS.length - 1]?.scheduledDate,
+      },
+    };
   }
 
   // ADMIN: Reveal student PRN (Audit-logged)

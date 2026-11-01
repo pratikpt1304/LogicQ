@@ -218,15 +218,51 @@ export async function autoSeedDatabase(): Promise<void> {
       where: { slug: 'daily-longest-unique-substring' },
     });
 
-    const activeDaily = await prisma.problem.findFirst({
-      where: { isDaily: true, status: 'PUBLISHED' },
+    // 4. Ensure all Kanetkar Book problems have sequential scheduled dates for Daily Challenges
+    const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
+    const todayIstStr = nowIst.toISOString().split('T')[0];
+    const [startYear, startMonth, startDay] = todayIstStr.split('-').map(Number);
+    const baseDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+
+    const kanetkarInDb = await prisma.problem.findMany({
+      where: {
+        OR: [
+          { sourceType: 'BOOK' },
+          { slug: { startsWith: 'kanetkar-' } },
+        ],
+      },
+      select: { id: true, slug: true, sourceRefJson: true },
     });
-    if (!activeDaily) {
-      const todayIST = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split('T')[0];
-      await prisma.problem.updateMany({
-        where: { slug: 'kanetkar-ch1-scope-shadow-eval' },
-        data: { isDaily: true, scheduledDate: todayIST },
+
+    if (kanetkarInDb.length > 0) {
+      kanetkarInDb.sort((a, b) => {
+        let orderA = 999999;
+        let orderB = 999999;
+        try {
+          const pA = JSON.parse(a.sourceRefJson || '{}');
+          orderA = (Number(pA.chapterOrder) || 999) * 100 + (Number(pA.exerciseOrder) || 0);
+        } catch {}
+        try {
+          const pB = JSON.parse(b.sourceRefJson || '{}');
+          orderB = (Number(pB.chapterOrder) || 999) * 100 + (Number(pB.exerciseOrder) || 0);
+        } catch {}
+        return orderA - orderB;
       });
+
+      for (let i = 0; i < kanetkarInDb.length; i++) {
+        const p = kanetkarInDb[i];
+        const targetDate = new Date(baseDate.getTime() + i * 24 * 3600 * 1000);
+        const targetDateStr = targetDate.toISOString().split('T')[0];
+        await prisma.problem.update({
+          where: { id: p.id },
+          data: {
+            isDaily: true,
+            scheduledDate: targetDateStr,
+            status: 'PUBLISHED',
+          },
+        });
+      }
+      console.log(`⚡ Sequentially scheduled ${kanetkarInDb.length} Kanetkar Daily Challenges starting from ${todayIstStr}.`);
     }
 
     // 5. Seed Integrated Capstone Mini-Project (Sections 35 - 39)

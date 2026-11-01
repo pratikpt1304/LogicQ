@@ -1,3 +1,5 @@
+import { KANETKAR_BOOK_EXTENDED_PROBLEMS } from './kanetkar-book-problems-extended.js';
+
 export interface BookProblemDef {
   slug: string;
   title: string;
@@ -1909,4 +1911,5 @@ int main() {
       { input: '0 0 6 2\n', expectedOutput: 'PIXEL: (0, 0)\nPIXEL: (1, 0)\nPIXEL: (2, 1)\nPIXEL: (3, 1)\nPIXEL: (4, 1)\nPIXEL: (5, 2)\nPIXEL: (6, 2)\n' },
     ],
   },
+  ...KANETKAR_BOOK_EXTENDED_PROBLEMS,
 ];

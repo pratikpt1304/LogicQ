@@ -3247,6 +3247,21 @@ export const AdminDashboardPage: React.FC = () => {
 
               <button
                 type="button"
+                onClick={() => {
+                  if (confirm('Auto-schedule all 31 Kanetkar Book challenges sequentially across dates starting from today?')) {
+                    autoScheduleKanetkarMutation.mutate();
+                  }
+                }}
+                disabled={autoScheduleKanetkarMutation.isPending}
+                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-mono text-xs font-bold text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 shadow-sm transition-all whitespace-nowrap active:scale-95 disabled:opacity-50"
+                title="Auto-schedule all 31 Kanetkar Book challenges sequentially starting from today"
+              >
+                <Calendar className="w-4 h-4 text-amber-400" />
+                <span>{autoScheduleKanetkarMutation.isPending ? 'Scheduling...' : '⚡ Auto-Schedule All 31 Days'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsAdminAiModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/25 transition-all whitespace-nowrap active:scale-95"
                 title="Generate algorithmic C questions using AI and verify in GCC sandbox (Section 16)"
@@ -3428,10 +3443,18 @@ export const AdminDashboardPage: React.FC = () => {
                               </td>
                               <td className="px-6 py-4">
                                 {p.isDaily ? (
-                                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-semibold inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSchedulingProblem(p);
+                                      setScheduleDate(p.scheduledDate || new Date().toISOString().split('T')[0]);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-semibold inline-flex items-center gap-1 transition"
+                                    title="Click to view or reschedule date"
+                                  >
                                     <Zap className="w-3 h-3 text-emerald-400" />
                                     <span>Scheduled: {p.scheduledDate || 'Today'}</span>
-                                  </span>
+                                  </button>
                                 ) : (
                                   <button
                                     type="button"
