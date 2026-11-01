@@ -472,20 +472,6 @@ export const LoginPage: React.FC = () => {
                         <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
-
-                      {/* Demo Admin Fast Login Pill */}
-                      <div className="pt-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIdentifier('student@logicq.io');
-                            handleSendOtp('student@logicq.io');
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 transition-all cursor-pointer"
-                        >
-                          <span>🚀 Demo Student: student@logicq.io (OTP: 123456)</span>
-                        </button>
-                      </div>
                     </form>
                   )}
 
