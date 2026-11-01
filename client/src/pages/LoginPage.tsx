@@ -36,6 +36,8 @@ export const LoginPage: React.FC = () => {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [hasPasswordInteracted, setHasPasswordInteracted] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  // Nonce changes on every load to defeat aggressive browser password managers (Firefox Lockwise & Chrome)
+  const [fieldNonce] = useState(() => Math.random().toString(36).substring(2, 9));
 
   // Email OTP Credentials
   const [step, setStep] = useState<'identifier' | 'otp'>('identifier');
@@ -409,8 +411,8 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         type="text"
-                        name="institutional_prn_query"
-                        id="institutional_prn_query"
+                        name={`st_prn_${fieldNonce}`}
+                        id={`st_prn_${fieldNonce}`}
                         autoComplete="off"
                         data-lpignore="true"
                         data-form-type="other"
@@ -445,8 +447,8 @@ export const LoginPage: React.FC = () => {
                       <input
                         ref={passwordInputRef}
                         type={showPassword ? 'text' : isPasswordFocused ? 'password' : 'text'}
-                        name="student_custom_key"
-                        id="student_custom_key"
+                        name={`st_pwd_${fieldNonce}`}
+                        id={`st_pwd_${fieldNonce}`}
                         autoComplete="off"
                         data-lpignore="true"
                         data-form-type="other"
