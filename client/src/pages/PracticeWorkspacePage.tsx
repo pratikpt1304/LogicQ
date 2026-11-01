@@ -1146,7 +1146,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         api.post('/practice/track-run', { problemId: problem.id }).catch(() => {});
       }
       return api.post('/submissions/run', {
-        problemId: problem?.id,
+        problemId: problem?.id || problem?.slug || problemSlug,
         code,
         stdin: customInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
@@ -1287,7 +1287,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
       const isCheatAttempt = Boolean(problemSlug && quarantinedSlugs.has(problemSlug));
       return api.post('/submissions/submit', {
-        problemId: problem.id,
+        problemId: problem?.id || problem?.slug || problemSlug,
         code,
         idempotencyKey: idempotencyKeyRef.current,
         isCheatAttempt,
@@ -1576,15 +1576,6 @@ export const PracticeWorkspacePage: React.FC = () => {
           <div className="hidden lg:flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => setIsQuestionPaperOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
-              title="View complete question paper"
-            >
-              <FileText className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Question Paper</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setIsIssueModalOpen(true)}
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-xs font-mono text-rose-400 transition"
               title="Report an issue to faculty"
@@ -1863,6 +1854,14 @@ export const PracticeWorkspacePage: React.FC = () => {
               code={code}
               onChange={handleCodeChange}
               onReset={handleResetStarterCode}
+              onRun={() => {
+                setActiveBottomTab('output');
+                setIsDrawerOpen(true);
+                setActiveMobileTab('results');
+                runMutation.mutate();
+              }}
+              isRunning={runMutation.isPending}
+              isSubmitting={submitMutation.isPending}
               readOnly={false}
               disableCopyPaste={true}
             />
@@ -2183,14 +2182,22 @@ export const PracticeWorkspacePage: React.FC = () => {
                         <div className="p-3 rounded-xl border flex items-center justify-between text-xs bg-[var(--bg-main)] border-[var(--border-line)]">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-[var(--text-muted)] font-sans">
-                              Run Result:
+                              Compiler & Execution Status:
                             </span>
                             <span
                               className={`font-bold ${
-                                runResult.verdict === 'ACCEPTED' ? 'text-emerald-400' : 'text-amber-400'
+                                runResult.verdict === 'ACCEPTED'
+                                  ? 'text-emerald-400'
+                                  : runResult.verdict === 'COMPILATION_ERROR'
+                                  ? 'text-rose-400'
+                                  : 'text-amber-400'
                               }`}
                             >
-                              {runResult.verdict === 'ACCEPTED' ? 'PASS ✅' : `${runResult.verdict} ⚠️`}
+                              {runResult.verdict === 'ACCEPTED'
+                                ? 'SUCCESS / PASS ✅'
+                                : runResult.verdict === 'COMPILATION_ERROR'
+                                ? 'COMPILATION ERROR ❌'
+                                : `${runResult.verdict} ⚠️`}
                             </span>
                           </div>
                           {runResult.runtimeMs != null && (
@@ -2199,12 +2206,22 @@ export const PracticeWorkspacePage: React.FC = () => {
                             </span>
                           )}
                         </div>
+
+                        {/* Plain-English Guided Diagnostic Card for Students */}
+                        {(runResult.compileOutput || runResult.stderr) && (
+                          <GccFriendlyHintCard
+                            compileOutput={runResult.compileOutput}
+                            stderr={runResult.stderr}
+                          />
+                        )}
+
                         {runResult.compileOutput && (
                           <div>
-                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
-                              Compiler Diagnostics & Line Guidance:
+                            <span className="text-[10px] text-rose-400 uppercase block font-sans font-semibold mb-1 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                              Compiler Error Output (GCC):
                             </span>
-                            <pre className="p-3 rounded-xl bg-rose-500/10 text-rose-200 border border-rose-500/30 whitespace-pre-wrap max-h-80 overflow-y-auto text-xs font-mono leading-relaxed">
+                            <pre className="p-3 rounded-xl bg-[#13090e] text-rose-300 border border-rose-500/30 whitespace-pre-wrap max-h-80 overflow-y-auto text-xs font-mono leading-relaxed shadow-inner">
                               {runResult.compileOutput}
                             </pre>
                           </div>

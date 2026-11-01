@@ -30,7 +30,7 @@ interface JeeQuestionPaletteProps {
   onSelectProblem: (slug: string) => void;
   onSubmitTest: () => void;
   user: any;
-  onOpenQuestionPaper: () => void;
+  onOpenQuestionPaper?: () => void;
   onOpenInstructions: () => void;
   isMobileDrawer?: boolean;
   onCloseMobileDrawer?: () => void;
@@ -272,24 +272,15 @@ export const JeeQuestionPalette: React.FC<JeeQuestionPaletteProps> = ({
         </div>
 
         {/* Quick Utility Actions */}
-        <div className="pt-2 grid grid-cols-2 gap-2 text-xs font-mono">
-          <button
-            type="button"
-            onClick={onOpenQuestionPaper}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
-            title="View complete question paper"
-          >
-            <FileText className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Paper</span>
-          </button>
+        <div className="pt-2 text-xs font-mono">
           <button
             type="button"
             onClick={onOpenInstructions}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition"
             title="View test rules and color guide"
           >
             <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span>Rules</span>
+            <span>Instructions & Rules</span>
           </button>
         </div>
       </div>

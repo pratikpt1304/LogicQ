@@ -1,6 +1,6 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
 
@@ -467,6 +467,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 <span>Upload .c</span>
               </button>
             </>
+          )}
+
+          {onRun && !readOnly && (
+            <button
+              type="button"
+              onClick={onRun}
+              disabled={isRunning || isSubmitting}
+              title="Compile and run code with custom input (Alt + Enter)"
+              className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Compiling...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Compile & Run</span>
+                </>
+              )}
+            </button>
           )}
 
           {onReset && !readOnly && (

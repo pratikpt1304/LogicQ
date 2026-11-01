@@ -66,8 +66,8 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
 
     if (problemId && req.user?.role !== 'ADMIN') {
       const activeDay = getChallengeDayIST(getServerNow());
-      const problem = await prisma.problem.findUnique({
-        where: { id: problemId },
+      const problem = await prisma.problem.findFirst({
+        where: { OR: [{ id: problemId }, { slug: problemId }] },
         select: { id: true, status: true, scheduledDate: true, isPractice: true, moduleSlug: true },
       });
       if (!problem || problem.status !== 'PUBLISHED') {
@@ -101,8 +101,8 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
 
     if (problemId && req.user?.userId) {
       try {
-        const prob = await prisma.problem.findUnique({
-          where: { id: problemId },
+        const prob = await prisma.problem.findFirst({
+          where: { OR: [{ id: problemId }, { slug: problemId }] },
           select: { id: true, isPractice: true, moduleSlug: true },
         });
         if (prob?.isPractice && prob.moduleSlug) {
@@ -178,8 +178,8 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
     await ensureCurrentWeekSchedule();
     const { problemId, code, contestId, isCheatAutoSubmit, violationReason } = req.body;
 
-    const problem = await prisma.problem.findUnique({
-      where: { id: problemId },
+    const problem = await prisma.problem.findFirst({
+      where: { OR: [{ id: problemId }, { slug: problemId }] },
     });
 
     if (!problem) {
