@@ -121,7 +121,7 @@ export const LeaderboardPage: React.FC = () => {
   };
 
   const getSubtitle = (u: any) => {
-    if (!u) return 'Sanjivani University';
+    if (!u) return 'LogicQ';
     const dept = u.department || (u.isCurrentUser ? currentUser?.department : null);
     const yr = u.year || (u.isCurrentUser ? currentUser?.year : null);
     const maskedPrn = u.maskedPrn || (u.isCurrentUser ? currentUser?.maskedPrn : null);
@@ -134,7 +134,7 @@ export const LeaderboardPage: React.FC = () => {
     if (parts.length > 0) {
       return parts.join(' • ');
     }
-    return u.college || 'Sanjivani University';
+    return u.college || 'LogicQ';
   };
 
   const resolveSolvedCount = (u: any) => {

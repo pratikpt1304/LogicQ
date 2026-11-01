@@ -906,7 +906,7 @@ Generated On   : ${new Date().toLocaleString()}`;
 
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                `📢 *Sanjivani University — C Lab Test Reminder* 📢\n\nDear Students,\nYour scheduled proctored lab internal test is active on LogicQ.\n\n⏱️ *Duration:* 60 Mins\n👉 *Access Test:* https://logicq-clanguage.web.app/student/tests\n\nPlease submit before the scheduled deadline!`
+                `📢 *LogicQ — C Lab Test Reminder* 📢\n\nDear Students,\nYour scheduled proctored lab internal test is active on LogicQ.\n\n⏱️ *Duration:* 60 Mins\n👉 *Access Test:* https://logicq-clanguage.web.app/student/tests\n\nPlease submit before the scheduled deadline!`
               )}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -1084,7 +1084,7 @@ Generated On   : ${new Date().toLocaleString()}`;
                       <div className="flex items-center justify-end gap-1.5">
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent(
-                            `Hello ${student.fullName}, your faculty mentor at Sanjivani University here. Please make sure to complete today's pending C Lab practice on LogicQ: https://logicq-clanguage.web.app/practice. Let me know if you need any guidance!`
+                            `Hello ${student.fullName}, your faculty mentor at LogicQ here. Please make sure to complete today's pending C Lab practice on LogicQ: https://logicq-clanguage.web.app/practice. Let me know if you need any guidance!`
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"

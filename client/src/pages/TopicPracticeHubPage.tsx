@@ -149,7 +149,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(0); // 0 = all
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(1); // Default to Module 1: Control Flow
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNSOLVED' | 'SOLVED'>('ALL');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
@@ -610,239 +610,277 @@ export const TopicPracticeHubPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Search & Filter Bar (Kam Ki Cheezein) */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search topics or problems (e.g. pointers, loops, arrays, recursion)..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-main)] placeholder-[var(--text-muted)] text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+      {/* 2. FOUR CORE MODULE BLOCKS (Strictly 4 Clean Blocks as per Curriculum) */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)] mb-3">
+            Select Practice Module:
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {[
+              {
+                id: 1,
+                name: '1. Control Flow',
+                title: 'Control Flow',
+                subtitle: 'Decisions, Branching & Loops',
+                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length,
+                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopics.includes(t.id)).length,
+              },
+              {
+                id: 2,
+                name: '2. Pointers & Functions',
+                title: 'Pointers & Functions',
+                subtitle: 'Memory Addresses & Modular Logic',
+                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length,
+                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopics.includes(t.id)).length,
+              },
+              {
+                id: 3,
+                name: '3. Arrays & Strings',
+                title: 'Arrays & Strings',
+                subtitle: 'Contiguous Buffers & 2D Arrays',
+                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length,
+                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopics.includes(t.id)).length,
+              },
+              {
+                id: 4,
+                name: '4. Structs & Memory',
+                title: 'Structs & Memory',
+                subtitle: 'User Schemas & Dynamic Heap',
+                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length,
+                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopics.includes(t.id)).length,
+              },
+            ].map((block) => {
+              const isSelected = selectedModuleFilter === block.id;
+              const pct = block.total > 0 ? Math.round((block.solved / block.total) * 100) : 0;
 
-          {/* Right Controls: Status & Difficulty Filters */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
-            {/* Status Segmented Filter */}
-            <div className="inline-flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
-              <button
-                onClick={() => setStatusFilter('ALL')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  statusFilter === 'ALL'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                All ({totalTopics})
-              </button>
-              <button
-                onClick={() => setStatusFilter('UNSOLVED')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  statusFilter === 'UNSOLVED'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                To Do ({totalTopics - solvedCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter('SOLVED')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  statusFilter === 'SOLVED'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                Solved ({solvedCount})
-              </button>
-            </div>
-
-            {/* Difficulty Filter */}
-            <div className="inline-flex items-center gap-1 bg-[var(--bg-panel)] p-1 rounded-xl border border-[var(--border-line)]">
-              <button
-                onClick={() => setDifficultyFilter('ALL')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  difficultyFilter === 'ALL'
-                    ? 'bg-slate-700 text-white shadow-sm'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                All Diff
-              </button>
-              <button
-                onClick={() => setDifficultyFilter('EASY')}
-                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  difficultyFilter === 'EASY'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-emerald-400 hover:text-emerald-300'
-                }`}
-              >
-                Easy
-              </button>
-              <button
-                onClick={() => setDifficultyFilter('MEDIUM')}
-                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition ${
-                  difficultyFilter === 'MEDIUM'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'text-amber-400 hover:text-amber-300'
-                }`}
-              >
-                Med
-              </button>
-              <button
-                onClick={() => setDifficultyFilter('HARD')}
-                className={`px-2 py-1.5 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1 ${
-                  difficultyFilter === 'HARD'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-rose-400 hover:text-rose-300'
-                }`}
-              >
-                <Flame className="w-3 h-3 text-rose-400" />
-                <span>Hard</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Module Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {moduleCounts.map((m) => {
-            const active = selectedModuleFilter === m.idx;
-            return (
-              <button
-                key={m.idx}
-                onClick={() => setSelectedModuleFilter(m.idx)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition whitespace-nowrap flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                    : 'border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)] font-medium'
-                }`}
-              >
-                <span>{m.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'}`}>
-                  {m.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Topics Grid (Clean, Card Hierarchy) */}
-      {filteredTopics.length === 0 ? (
-        <div className="text-center py-16 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-line)] space-y-3">
-          <Code2 className="w-10 h-10 text-[var(--text-muted)] mx-auto opacity-50" />
-          <h3 className="text-base font-bold text-[var(--text-main)]">No Practice Topics Found</h3>
-          <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
-            No topics matched your search or filter. Try clearing the search or changing the filter.
-          </p>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedModuleFilter(0);
-              setStatusFilter('ALL');
-              setDifficultyFilter('ALL');
-            }}
-            className="px-4 py-2 text-xs font-mono font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition"
-          >
-            Reset Filters
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTopics.map((topic) => {
-            const isSolved = solvedTopics.includes(topic.id);
-            const isHard = topic.problem.difficulty === 'HARD';
-            const isMedium = topic.problem.difficulty === 'MEDIUM';
-
-            return (
-              <div
-                key={topic.id}
-                onClick={() => handleOpenTopic(topic)}
-                className={`p-5 rounded-2xl border transition flex flex-col justify-between cursor-pointer group hover:shadow-lg ${
-                  isSolved
-                    ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60'
-                    : isHard
-                    ? 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/60'
-                    : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-indigo-500/50'
-                }`}
-              >
-                <div className="space-y-3">
-                  {/* Top Row: Module Badge + Difficulty / Time */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[var(--bg-surface)] text-indigo-400 border border-[var(--border-line)]">
-                      {topic.moduleTitle.split(':')[0]}
-                    </span>
-
-                    <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                        isHard
-                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                          : isMedium
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      }`}
-                    >
-                      {isHard ? <Flame className="w-3 h-3 text-rose-400" /> : <Clock className="w-3 h-3" />}
-                      {topic.problem.difficulty} • {isHard ? '~20m' : isMedium ? '~10m' : '~5m'}
-                    </span>
-                  </div>
-
-                  {/* Main Titles */}
-                  <div>
-                    <h3 className="font-bold text-sm text-[var(--text-main)] group-hover:text-indigo-400 transition leading-snug">
-                      {topic.topicTitle}
-                    </h3>
-
-                    {/* Direct Problem Name */}
-                    <div className="mt-2 flex items-center gap-1.5 text-xs font-mono font-medium text-emerald-400/90 truncate">
-                      <Code2 className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{topic.problem.title}</span>
+              return (
+                <div
+                  key={block.id}
+                  onClick={() => setSelectedModuleFilter(block.id)}
+                  className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow-md ${
+                    isSelected
+                      ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30 shadow-emerald-500/10'
+                      : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)]'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                          isSelected
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                            : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)]'
+                        }`}
+                      >
+                        Module {block.id}
+                      </span>
+                      <span className="text-xs font-mono font-semibold text-emerald-400">
+                        {block.solved}/{block.total} ({pct}%)
+                      </span>
                     </div>
 
-                    {/* Clean plain description */}
-                    <p className="text-xs text-[var(--text-muted)] line-clamp-2 mt-1.5 leading-relaxed">
-                      {topic.summary}
+                    <h3
+                      className={`font-extrabold text-base transition-colors ${
+                        isSelected ? 'text-emerald-400' : 'text-[var(--text-main)] group-hover:text-emerald-400'
+                      }`}
+                    >
+                      {block.name}
+                    </h3>
+
+                    <p className="text-xs text-[var(--text-muted)] line-clamp-1">
+                      {block.subtitle}
                     </p>
                   </div>
-                </div>
 
-                {/* Bottom Row: Tip Box indicator + Action Status */}
-                <div className="pt-4 mt-4 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
-                  <span className="text-amber-400/90 text-[11px] font-medium flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Syntax Tip</span>
-                  </span>
-
-                  {isSolved ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Solved
-                    </span>
-                  ) : (
-                    <span className="font-bold text-indigo-400 group-hover:text-indigo-300 group-hover:translate-x-1 transition flex items-center gap-1">
-                      <span>Practice</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
-                  )}
+                  <div className="mt-4 pt-3 border-t border-[var(--border-line)]/60 space-y-2">
+                    <div className="w-full bg-[var(--bg-surface)] h-1.5 rounded-full overflow-hidden border border-[var(--border-line)]/50">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
+                      <span>{isSelected ? 'Viewing Topics Listed Below ↓' : 'Click to View Topics'}</span>
+                      <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'rotate-90 text-emerald-400' : 'group-hover:translate-x-1'}`} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      )}
+
+        {/* 3. TOPIC LIST FOR SELECTED MODULE (Numbered Item List) */}
+        <div className="space-y-3 pt-2">
+          {/* Header of selected module + quick search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)]">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                  Module {selectedModuleFilter} Topic List
+                </span>
+                <span className="text-xs text-[var(--text-muted)] font-mono">
+                  ({filteredTopics.length} topics found)
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
+                Click any topic item in the list below to open the practice coding workspace.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter topics..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] placeholder-[var(--text-muted)] text-xs font-medium focus:outline-none focus:border-emerald-500 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center bg-[var(--bg-surface)] p-0.5 rounded-xl border border-[var(--border-line)]">
+                <button
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                    statusFilter === 'ALL'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setStatusFilter('UNSOLVED')}
+                  className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                    statusFilter === 'UNSOLVED'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  To Do
+                </button>
+                <button
+                  onClick={() => setStatusFilter('SOLVED')}
+                  className={`px-2 py-1 rounded-lg text-xs font-mono font-semibold transition ${
+                    statusFilter === 'SOLVED'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  Solved
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Clean Numbered Topic List */}
+          {filteredTopics.length === 0 ? (
+            <div className="text-center py-12 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-line)] space-y-2">
+              <Code2 className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-50" />
+              <h3 className="text-sm font-bold text-[var(--text-main)]">No Topics Found</h3>
+              <p className="text-xs text-[var(--text-muted)]">Try resetting the search filter.</p>
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('ALL'); }}
+                className="px-3.5 py-1.5 text-xs font-mono font-bold rounded-lg bg-emerald-600 text-white"
+              >
+                Reset Filter
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredTopics.map((topic, idx) => {
+                const isSolved = solvedTopics.includes(topic.id);
+                const isHard = topic.problem.difficulty === 'HARD';
+                const isMedium = topic.problem.difficulty === 'MEDIUM';
+
+                return (
+                  <div
+                    key={topic.id}
+                    onClick={() => handleOpenTopic(topic)}
+                    className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
+                      isSolved
+                        ? 'border-emerald-500/25 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                        : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)]'
+                    }`}
+                  >
+                    {/* Left: Number + Title + Problem Info */}
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <span className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 border ${
+                        isSolved
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)]'
+                      }`}>
+                        {idx + 1}
+                      </span>
+
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-sm text-[var(--text-main)] group-hover:text-emerald-400 transition-colors">
+                            {topic.topicTitle}
+                          </h4>
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.2 rounded-full border ${
+                            isHard
+                              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                              : isMedium
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          }`}>
+                            {topic.problem.difficulty}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
+                          <span className="text-emerald-400 font-semibold truncate flex items-center gap-1">
+                            <Code2 className="w-3.5 h-3.5 shrink-0" />
+                            {topic.problem.title}
+                          </span>
+                          <span>•</span>
+                          <span className="truncate">{topic.summary}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Solved / Practice Action */}
+                    <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                      <span className="text-[11px] font-mono text-amber-400/90 hidden md:flex items-center gap-1">
+                        <Lightbulb className="w-3 h-3 text-amber-400" />
+                        <span>Syntax Tip</span>
+                      </span>
+
+                      {isSolved ? (
+                        <span className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Solved</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm group-hover:scale-102"
+                        >
+                          <span>Practice</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* 4. FULL-SCREEN DEDICATED CODING WORKSPACE (PORTAL TO <body> TO ELIMINATE ANY PARENT OFFSET OR BLEED) */}
       {activeTopic && typeof document !== 'undefined' && createPortal(
@@ -1066,8 +1104,9 @@ export const TopicPracticeHubPage: React.FC = () => {
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
                           activeTipTab === 'app' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
+                        title="Where and when to use this concept (Application Hint)"
                       >
-                        Usage
+                        Where & When to Use
                       </button>
                       <button
                         type="button"
@@ -1088,8 +1127,17 @@ export const TopicPracticeHubPage: React.FC = () => {
                   </pre>
                 )}
                 {activeTipTab === 'app' && (
-                  <div className="p-3 rounded-xl bg-[var(--bg-main)] text-[var(--text-main)] text-xs font-sans leading-relaxed border border-[var(--border-line)] shadow-inner">
-                    {activeTopic.tipBox.application}
+                  <div className="p-3.5 rounded-xl bg-[var(--bg-main)] border border-amber-500/30 text-xs font-sans leading-relaxed space-y-2 shadow-inner">
+                    <div className="flex items-center gap-1.5 text-amber-500 font-bold font-mono text-[11px]">
+                      <Lightbulb className="w-3.5 h-3.5" />
+                      <span>Where & When to Use (Application Hint):</span>
+                    </div>
+                    <p className="text-[var(--text-main)] leading-relaxed">
+                      {activeTopic.tipBox.application}
+                    </p>
+                    <div className="pt-2 border-t border-[var(--border-line)]/50 text-[11px] text-[var(--text-muted)] font-mono">
+                      💡 <strong>Practical Context:</strong> Apply this pattern for {activeTopic.summary.toLowerCase()}
+                    </div>
                   </div>
                 )}
                 {activeTipTab === 'example' && (

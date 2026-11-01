@@ -266,7 +266,7 @@ export const SectionManagementPage: React.FC = () => {
         department: '',
         academicYear: `${currentYear}-${currentYear + 1}`,
         semester: payload.semester || 'Semester 1',
-        institution: 'Sanjivani University',
+        institution: 'LogicQ',
         description: payload.description || '',
         facultyId,
         facultyEmail,

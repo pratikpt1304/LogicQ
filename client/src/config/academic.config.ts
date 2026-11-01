@@ -1,4 +1,4 @@
-export const ALLOWED_COLLEGES = ['Sanjivani University'] as const;
+export const ALLOWED_COLLEGES = ['LogicQ'] as const;
 export type AllowedCollege = (typeof ALLOWED_COLLEGES)[number];
 
 export const ALLOWED_DEPARTMENTS = [

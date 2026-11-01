@@ -1283,7 +1283,7 @@ export const ProfilePage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]">
                   <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                  <span>{profile?.college || currentUser?.college || 'Sanjivani University'}</span>
+                  <span>{profile?.college || currentUser?.college || 'LogicQ'}</span>
                 </span>
                 {(profile?.department || currentUser?.department) && (
                   <span
@@ -2000,7 +2000,7 @@ export const ProfilePage: React.FC = () => {
                         <span>Institution:</span>
                       </span>
                       <span className="text-[#E8EAF6] font-semibold">
-                        {profile.college || 'Sanjivani University'}
+                        {profile.college || 'LogicQ'}
                       </span>
                     </div>
                   </div>
@@ -2022,7 +2022,7 @@ export const ProfilePage: React.FC = () => {
                         <span>Institution:</span>
                       </span>
                       <span className="text-[#E8EAF6] font-semibold">
-                        {profile.college || 'Sanjivani University'}
+                        {profile.college || 'LogicQ'}
                       </span>
                     </div>
                   </div>

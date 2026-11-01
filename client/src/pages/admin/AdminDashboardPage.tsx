@@ -260,7 +260,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [selectedActivityUser, setSelectedActivityUser] = useState<any | null>(null);
   const [academicEditForm, setAcademicEditForm] = useState({
     prn: '',
-    college: (ALLOWED_COLLEGES[0] || 'Sanjivani University') as string,
+    college: (ALLOWED_COLLEGES[0] || 'LogicQ') as string,
     department: (ALLOWED_DEPARTMENTS[0] || 'CSE') as string,
     year: (ALLOWED_YEARS[0] || 'FY') as string,
     division: '',
@@ -1232,7 +1232,7 @@ export const AdminDashboardPage: React.FC = () => {
           (role === 'FACULTY' ? 'Faculty' : '—'),
         year: fu?.year || bu.year || '—',
         division: fu?.division || bu.division || null,
-        college: fu?.college || bu.college || 'Sanjivani University',
+        college: fu?.college || bu.college || 'LogicQ',
         prn: fu?.prn || bu.prn,
       };
     });
@@ -1461,7 +1461,7 @@ export const AdminDashboardPage: React.FC = () => {
           department: normalizeDepartment(st.department) || st.department || '—',
           year: st.year || '—',
           division: st.division || sec.sectionName || null,
-          college: st.college || st.institution || 'Sanjivani University',
+          college: st.college || st.institution || 'LogicQ',
           sections: [{
             id: sec.id,
             sectionName: (sec.sectionName && sec.sectionName !== 'Academic Section') ? sec.sectionName : (sec.name || sec.subject || 'C Programming'),
@@ -1757,7 +1757,7 @@ export const AdminDashboardPage: React.FC = () => {
           displayName: cleanName,
           role: payload.role,
           department: payload.department,
-          college: 'Sanjivani University',
+          college: 'LogicQ',
           profileComplete: true,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -2005,7 +2005,7 @@ export const AdminDashboardPage: React.FC = () => {
         }
         const header = 'College,Department,Year,Division,PRN,FullName,DisplayName,Email,Role,TotalPoints,CurrentStreak,Status';
         const rows = list.map((u: any) => [
-          escapeCsv(u.college || 'Sanjivani University'),
+          escapeCsv(u.college || 'LogicQ'),
           escapeCsv(u.department || ''),
           escapeCsv(u.year || ''),
           escapeCsv(u.division || ''),
@@ -2051,7 +2051,7 @@ export const AdminDashboardPage: React.FC = () => {
         `"Student Name",${escapeCsv(student.fullName || student.displayName || '—')}`,
         `"PRN",${escapeCsv(student.prn || '—')}`,
         `"Email",${escapeCsv(student.email || '—')}`,
-        `"College",${escapeCsv(student.college || 'Sanjivani University')}`,
+        `"College",${escapeCsv(student.college || 'LogicQ')}`,
         `"Department",${escapeCsv(student.department || '—')}`,
         `"Academic Year",${escapeCsv(student.year || "—")}`,
         `"Role",${escapeCsv(student.role || 'STUDENT')}`,
@@ -4034,7 +4034,7 @@ export const AdminDashboardPage: React.FC = () => {
                               {sub.user?.department || '—'} • {sub.user?.year || '—'}
                             </span>
                             <span className="text-slate-400 text-xs">
-                              {sub.user?.college || 'Sanjivani University'}
+                              {sub.user?.college || 'LogicQ'}
                             </span>
                           </td>
                           <td className="px-4 py-4 text-slate-300">
@@ -5007,7 +5007,7 @@ export const AdminDashboardPage: React.FC = () => {
                                   setEditingAcademicUser(u);
                                   setAcademicEditForm({
                                     prn: u.prn || '',
-                                    college: u.college || 'Sanjivani University',
+                                    college: u.college || 'LogicQ',
                                     department: normalizeDepartment(u.department) || u.department || ALLOWED_DEPARTMENTS[0],
                                     year: u.year || 'FY',
                                     division: u.division || '',
@@ -6255,7 +6255,7 @@ int main() {
             setEditingAcademicUser(u);
             setAcademicEditForm({
               prn: u.prn || '',
-              college: u.college || 'Sanjivani University',
+              college: u.college || 'LogicQ',
               department: normalizeDepartment(u.department) || u.department || ALLOWED_DEPARTMENTS[0],
               year: u.year || 'FY',
               division: u.division || '',

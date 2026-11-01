@@ -161,7 +161,13 @@ export const PracticeModulesPage: React.FC = () => {
     let requirementText = '';
 
     if (idx === 0) {
-      isUnlocked = true;
+      const module1Topics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1);
+      const m1Total = module1Topics.length || 25;
+      const m1Solved = module1Topics.filter((t) => solvedTopics.includes(t.id)).length;
+      isUnlocked = Boolean(m1Solved >= m1Total || isAdmin);
+      if (!isUnlocked) {
+        requirementText = `Solve all ${m1Total} practice questions in Module 1 (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${m1Solved}/${m1Total} solved)`;
+      }
     } else if (cfg.order === 5 || cfg.requiresAdminUnlock) {
       const isM5Unlocked = module5Unlocked || isModule5UnlockedByAdmin();
       isUnlocked = Boolean(isM5Unlocked || isAdmin);

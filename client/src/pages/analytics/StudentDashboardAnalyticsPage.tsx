@@ -752,7 +752,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <div className="flex items-start justify-between border-b border-[#252C4F] pb-4">
               <div>
                 <div className="text-xs font-mono font-bold text-[#8B9BFF] uppercase tracking-wider">
-                  {reportData?.report?.institution || 'Sanjivani University'} • Examination Verification
+                  {reportData?.report?.institution || 'LogicQ'} • Examination Verification
                 </div>
                 <h2 className="text-xl font-black text-white mt-1">
                   OFFICIAL PROGRAMMING ASSESSMENT REPORT

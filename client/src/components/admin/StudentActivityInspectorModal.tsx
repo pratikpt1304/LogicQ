@@ -316,7 +316,7 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-[var(--text-muted)] pt-0.5">
                 <span className="inline-flex items-center gap-1">
                   <Building2 className="w-3 h-3 text-indigo-400" />
-                  <span>{user.college || 'Sanjivani University'}</span>
+                  <span>{user.college || 'LogicQ'}</span>
                 </span>
                 {user.department && user.department !== '—' && user.department !== 'General' && (
                   <>
