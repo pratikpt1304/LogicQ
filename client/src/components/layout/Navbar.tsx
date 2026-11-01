@@ -59,8 +59,9 @@ export const Navbar: React.FC = () => {
     };
   }, [profileDropdownOpen]);
 
-  // Global Cmd+K / Ctrl+K keyboard shortcut listener
+  // Global Cmd+K / Ctrl+K keyboard shortcut listener (Students only)
   useEffect(() => {
+    if (!isStudent) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -69,7 +70,7 @@ export const Navbar: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isStudent]);
 
   const isActive = (path: string) => {
     if (path === '/daily' || path === '/practice') {
@@ -163,19 +164,21 @@ export const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-2.5">
           {user ? (
             <>
-              {/* Global Command Palette Search Pill */}
-              <button
-                type="button"
-                onClick={() => setIsCommandPaletteOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-indigo-500/50 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono shadow-sm group"
-                title="Search topics & actions (Ctrl+K)"
-              >
-                <Search className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                <span className="hidden lg:inline">Search...</span>
-                <kbd className="text-[10px] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] text-[var(--text-muted)]">
-                  ⌘K
-                </kbd>
-              </button>
+              {/* Global Command Palette Search Pill (Students only) */}
+              {isStudent && (
+                <button
+                  type="button"
+                  onClick={() => setIsCommandPaletteOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-indigo-500/50 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono shadow-sm group"
+                  title="Search topics & actions (Ctrl+K)"
+                >
+                  <Search className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                  <span className="hidden lg:inline">Search...</span>
+                  <kbd className="text-[10px] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] text-[var(--text-muted)]">
+                    ⌘K
+                  </kbd>
+                </button>
+              )}
 
               {/* User Dropdown */}
               <div className="relative" ref={profileDropdownRef}>
