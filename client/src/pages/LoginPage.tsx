@@ -33,7 +33,8 @@ export const LoginPage: React.FC = () => {
   const [prn, setPrn] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [prnFocused, setPrnFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [hasPasswordInteracted, setHasPasswordInteracted] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   // Nonce changes on every load to defeat aggressive browser password managers (Firefox Lockwise & Chrome)
@@ -418,7 +419,11 @@ export const LoginPage: React.FC = () => {
                         data-form-type="other"
                         spellCheck={false}
                         required
-                        autoFocus
+                        readOnly={!prnFocused}
+                        onFocus={() => setPrnFocused(true)}
+                        onBlur={() => {
+                          if (!prn) setPrnFocused(false);
+                        }}
                         value={prn}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handlePrnLogin(e);
@@ -426,7 +431,7 @@ export const LoginPage: React.FC = () => {
                         onChange={(e) => {
                           setPrn(e.target.value);
                           setHasPasswordInteracted(false);
-                          setIsPasswordFocused(false);
+                          setPasswordFocused(false);
                           setPassword('');
                           if (passwordInputRef.current) {
                             passwordInputRef.current.value = '';
@@ -446,7 +451,7 @@ export const LoginPage: React.FC = () => {
                     <div className="relative">
                       <input
                         ref={passwordInputRef}
-                        type={showPassword ? 'text' : isPasswordFocused ? 'password' : 'text'}
+                        type={showPassword ? 'text' : passwordFocused ? 'password' : 'text'}
                         name={`st_pwd_${fieldNonce}`}
                         id={`st_pwd_${fieldNonce}`}
                         autoComplete="off"
@@ -454,16 +459,17 @@ export const LoginPage: React.FC = () => {
                         data-form-type="other"
                         spellCheck={false}
                         required
+                        readOnly={!passwordFocused}
                         value={password}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handlePrnLogin(e);
                         }}
                         onFocus={() => {
-                          setIsPasswordFocused(true);
+                          setPasswordFocused(true);
                           setHasPasswordInteracted(true);
                         }}
                         onBlur={() => {
-                          if (!password) setIsPasswordFocused(false);
+                          if (!password) setPasswordFocused(false);
                         }}
                         onChange={(e) => {
                           setHasPasswordInteracted(true);
