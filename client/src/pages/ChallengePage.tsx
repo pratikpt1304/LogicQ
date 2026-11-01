@@ -106,6 +106,9 @@ export const ChallengePage: React.FC = () => {
 
   const playProctorAlertSound = useCallback(() => {
     try {
+      if (typeof navigator !== 'undefined' && (navigator as any).userActivation && !(navigator as any).userActivation.hasBeenActive) {
+        return;
+      }
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
