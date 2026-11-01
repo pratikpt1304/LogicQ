@@ -724,6 +724,29 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
 
+    if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
+      user = {
+        id: 'student-walkthrough-1',
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2026STUD0001',
+        role: 'STUDENT',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'SY',
+        division: 'A',
+        profileComplete: true,
+        totalPoints: 120,
+        currentStreak: 2,
+        longestStreak: 4,
+        isBanned: false,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
     if (!user && isExplicitAdminEmail(cleanId)) {
       user = {
         id: 'admin-' + Date.now(),
@@ -810,6 +833,29 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       u.username.toLowerCase() === cleanId.toLowerCase() ||
       (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
+
+    if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
+      user = {
+        id: 'student-walkthrough-1',
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2026STUD0001',
+        role: 'STUDENT',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'SY',
+        division: 'A',
+        profileComplete: true,
+        totalPoints: 120,
+        currentStreak: 2,
+        longestStreak: 4,
+        isBanned: false,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
 
     if (!user && isExplicitAdminEmail(cleanId)) {
       user = {

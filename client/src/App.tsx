@@ -253,17 +253,15 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          {/* Daily C Practice Arena (Zero Restrictions, 100 Topics, Tip Boxes) */}
           <Route
             path="/daily"
             element={
               <ProtectedRoute>
-                <ChallengePage />
+                <TopicPracticeHubPage />
               </ProtectedRoute>
             }
           />
-
-          {/* Practice Modules Track (Protected for authenticated students) */}
-          {/* Topic Practice Hub (Zero Restrictions, 1 Open + 1 Hidden, Tip Box) */}
           <Route
             path="/practice"
             element={

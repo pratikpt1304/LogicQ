@@ -335,27 +335,39 @@ export async function autoSeedDatabase(): Promise<void> {
       },
     });
 
-    // Active purge: permanently delete demo student (student@logicq.io) from database
-    try {
-      await prisma.user.deleteMany({
-        where: {
-          OR: [
-            { email: 'student@logicq.io' },
-            { username: 'student_demo' },
-            { prn: '2026IMTM0001' },
-            { prn: '2024BCSE0001' },
-          ],
-        },
-      });
-      await prisma.prnIndex.deleteMany({
-        where: {
-          prn: { in: ['2026IMTM0001', '2024BCSE0001'] },
-        },
-      });
-      console.log('⚡ Walkthrough demo student (student@logicq.io) purged successfully.');
-    } catch (e) {
-      console.warn('Notice: demo student purge notice:', e);
-    }
+    const studentPassHash = await bcrypt.hash('StudentDemo123!', 10);
+    const demoStudent = await prisma.user.upsert({
+      where: { email: 'student@logicq.io' },
+      update: {
+        role: 'STUDENT',
+        prn: '2026STUD0001',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        isBanned: false,
+      },
+      create: {
+        username: 'student_demo',
+        email: 'student@logicq.io',
+        prn: '2026STUD0001',
+        fullName: 'Demo Student (Walkthrough)',
+        displayName: 'Demo Student',
+        role: 'STUDENT',
+        passwordHash: studentPassHash,
+        college: 'Sanjivani University',
+        department: 'CSE',
+        year: 'SY',
+        division: 'A',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        isBanned: false,
+      },
+    });
+    await prisma.prnIndex.upsert({
+      where: { prn: '2026STUD0001' },
+      create: { prn: '2026STUD0001', userId: demoStudent.id },
+      update: { userId: demoStudent.id },
+    }).catch(() => {});
+    console.log('⚡ Walkthrough demo student (student@logicq.io) seeded successfully.');
 
     // Active purge: permanently eliminate legacy demo section (LQ-DC85) so it never revives
     try {

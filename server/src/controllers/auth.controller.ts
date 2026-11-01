@@ -1234,6 +1234,18 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
     }
 
     const targetEmail = user.email;
+
+    // Fixed walkthrough bypass for demo student
+    if (targetEmail.toLowerCase() === 'student@logicq.io') {
+      res.json({
+        success: true,
+        message: '6-digit verification OTP dispatched (Demo student OTP is 123456)',
+        target: 's***t@logicq.io',
+        cooldownRemaining: 60,
+      });
+      return;
+    }
+
     const ip = req.ip || req.socket.remoteAddress;
     const otpResult = await OtpService.sendEmailOtp(targetEmail, user.prn || undefined, ip);
 

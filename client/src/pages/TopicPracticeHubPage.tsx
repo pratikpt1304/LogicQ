@@ -584,10 +584,10 @@ export const TopicPracticeHubPage: React.FC = () => {
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-bold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Self-Paced Practice Arena</span>
+              <span>Daily Practice Arena</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-              Topic Practice
+              Daily C Practice
             </h1>
             <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-2xl leading-relaxed">
               Targeted C programming exercises with instant compiler feedback and syntax tip boxes. No timers, unlimited attempts.

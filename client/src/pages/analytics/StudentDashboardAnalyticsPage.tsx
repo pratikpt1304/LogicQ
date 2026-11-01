@@ -58,8 +58,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-16 text-center font-mono space-y-4">
-        <div className="w-8 h-8 rounded-full border-2 border-[#8B9BFF] border-t-transparent animate-spin mx-auto" />
-        <span className="text-xs text-slate-400">Loading learning analytics...</span>
+        <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
+        <span className="text-xs text-[var(--text-muted)] font-medium">Loading learning analytics...</span>
       </div>
     );
   }
@@ -77,25 +77,31 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
 
   if (!hasBackendData && !hasFsData) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center font-mono text-slate-400 space-y-4">
-        <Brain className="w-10 h-10 text-slate-500 mx-auto opacity-40" />
-        <p className="text-sm text-slate-300">No test or practice analytics recorded yet.</p>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          Complete questions in the Practice Hub or take an assigned test to unlock your verified performance analytics.
-        </p>
-        <div className="flex items-center justify-center gap-3">
-          <Link
-            to="/practice"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
-          >
-            <span>Open Practice Hub</span>
-          </Link>
-          <Link
-            to="/tests"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FA0FF] transition-colors"
-          >
-            <span>View Assigned Tests</span>
-          </Link>
+      <div className="max-w-3xl mx-auto px-4 py-16">
+        <div className="p-8 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-sm text-center font-mono space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center mx-auto shadow-sm">
+            <Brain className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-[var(--text-main)] font-sans">
+            No Test or Practice Analytics Recorded Yet
+          </h2>
+          <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
+            Complete questions in the Daily Practice Arena or take an assigned test to unlock your verified dual-score performance analytics.
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Link
+              to="/daily"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md transition-colors"
+            >
+              <span>Open Daily Practice</span>
+            </Link>
+            <Link
+              to="/student/tests"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)]/80 border border-[var(--border-line)] transition-colors"
+            >
+              <span>View Assigned Tests</span>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -244,35 +250,35 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 font-mono text-xs">
       {/* Header */}
-      <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 sm:p-8 space-y-3">
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 sm:p-8 space-y-3 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 text-[#8B9BFF] text-xs font-mono font-bold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs font-mono font-bold">
               <Brain className="w-3.5 h-3.5" />
               <span>Learning Insights &amp; Performance</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-sans mt-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight font-sans mt-2">
               Performance Dashboard
             </h1>
-            <p className="text-slate-300 max-w-2xl font-sans text-sm mt-1 leading-relaxed">
+            <p className="text-[var(--text-muted)] max-w-2xl font-sans text-sm mt-1 leading-relaxed">
               Review your overall programming marks, question completion progress, and printable assessment reports.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <Link
-              to="/tests"
-              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-[#8B9BFF] bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 hover:bg-[#8B9BFF]/20 transition-colors flex items-center gap-1.5"
+              to="/student/tests"
+              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Assigned Tests</span>
             </Link>
             <Link
-              to="/practice"
-              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+              to="/daily"
+              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
             >
               <Code2 className="w-3.5 h-3.5" />
-              <span>Practice Hub</span>
+              <span>Daily Practice</span>
             </Link>
           </div>
         </div>
@@ -281,57 +287,57 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       {/* Top 2 Score & Assessment Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Score 1: Academic Performance */}
-        <div className="bg-[#141932] border border-emerald-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl">
+        <div className="bg-[var(--bg-panel)] border border-emerald-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[11px]">
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/20 text-[11px]">
               OVERALL ACADEMIC SCORE
             </span>
-            <Award className="w-6 h-6 text-emerald-400" />
+            <Award className="w-6 h-6 text-emerald-500" />
           </div>
 
           <div className="space-y-1">
-            <div className="text-4xl sm:text-5xl font-black text-white font-mono">
-              {academicScore.toFixed(1)} <span className="text-xl text-slate-400 font-normal">/ 100</span>
+            <div className="text-4xl sm:text-5xl font-black text-[var(--text-main)] font-mono">
+              {academicScore.toFixed(1)} <span className="text-xl text-[var(--text-muted)] font-normal">/ 100</span>
             </div>
-            <p className="text-slate-300 text-xs font-sans">
+            <p className="text-[var(--text-muted)] text-xs font-sans">
               Cumulative score across all evaluated section questions and test submissions.
             </p>
           </div>
 
-          <div className="pt-3 border-t border-[#252C4F] flex items-center justify-between text-[11px] text-slate-300">
-            <span>Questions Solved: <strong className="text-white">{totalQuestionsSolved}</strong> / {totalQuestionsAttempted}</span>
-            <span className="text-emerald-400 font-bold">
+          <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+            <span>Questions Solved: <strong className="text-[var(--text-main)]">{totalQuestionsSolved}</strong> / {totalQuestionsAttempted}</span>
+            <span className="text-emerald-500 font-bold">
               {academicScore >= 40 ? 'Passing Range ✅' : 'Attempt Tests to Boost'}
             </span>
           </div>
         </div>
 
         {/* Score 2: Session Integrity & Proctored Health */}
-        <div className="bg-[#141932] border border-[#8B9BFF]/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-xl">
+        <div className="bg-[var(--bg-panel)] border border-indigo-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] font-bold border border-[#8B9BFF]/20 text-[11px]">
+            <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 font-bold border border-indigo-500/20 text-[11px]">
               BEHAVIORAL INTEGRITY HEALTH
             </span>
             {isCleanSession ? (
-              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+              <ShieldCheck className="w-6 h-6 text-emerald-500" />
             ) : (
-              <ShieldAlert className="w-6 h-6 text-rose-400" />
+              <ShieldAlert className="w-6 h-6 text-rose-500" />
             )}
           </div>
 
           <div className="space-y-1">
             <div className="text-3xl sm:text-4xl font-black font-mono flex items-center gap-2">
-              <span className={finalIntegrityScore >= 80 ? 'text-emerald-400' : finalIntegrityScore >= 50 ? 'text-amber-400' : 'text-rose-400'}>
+              <span className={finalIntegrityScore >= 80 ? 'text-emerald-500' : finalIntegrityScore >= 50 ? 'text-amber-500' : 'text-rose-500'}>
                 {finalIntegrityScore}
               </span>
-              <span className="text-xl text-slate-400 font-normal">/ 100</span>
+              <span className="text-xl text-[var(--text-muted)] font-normal">/ 100</span>
               {autoLockCount > 0 && (
-                <span className="text-[11px] px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold ml-auto">
+                <span className="text-[11px] px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-500 border border-rose-500/30 font-bold ml-auto">
                   {autoLockCount} AUTO-LOCK PENALTY
                 </span>
               )}
             </div>
-            <p className="text-slate-300 text-xs font-sans">
+            <p className="text-[var(--text-muted)] text-xs font-sans">
               {isCleanSession
                 ? 'Your proctored test & practice sessions adhered cleanly to examination guidelines.'
                 : autoLockCount > 0
@@ -340,10 +346,10 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="pt-3 border-t border-[#252C4F] flex items-center justify-between text-[11px] text-slate-300">
-            <span>Tab Switches: <strong className={totalTabSwitches > 0 ? (totalTabSwitches >= 3 ? "text-rose-400 font-bold" : "text-amber-400") : "text-white"}>{totalTabSwitches}</strong></span>
-            <span>Clipboard Guard: <strong className={totalClipboardAttempts > 0 ? (totalClipboardAttempts >= 5 ? "text-rose-400 font-bold" : "text-amber-400") : "text-white"}>{totalClipboardAttempts} blocked</strong></span>
-            <span>Fullscreen Exits: <strong className={totalFullscreenExits > 0 ? "text-amber-400" : "text-white"}>{totalFullscreenExits}</strong></span>
+          <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+            <span>Tab Switches: <strong className={totalTabSwitches > 0 ? (totalTabSwitches >= 3 ? "text-rose-500 font-bold" : "text-amber-500") : "text-[var(--text-main)]"}>{totalTabSwitches}</strong></span>
+            <span>Clipboard Guard: <strong className={totalClipboardAttempts > 0 ? (totalClipboardAttempts >= 5 ? "text-rose-500 font-bold" : "text-amber-500") : "text-[var(--text-main)]"}>{totalClipboardAttempts} blocked</strong></span>
+            <span>Fullscreen Exits: <strong className={totalFullscreenExits > 0 ? "text-amber-500" : "text-[var(--text-main)]"}>{totalFullscreenExits}</strong></span>
           </div>
         </div>
       </div>
@@ -476,15 +482,15 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       )}
 
       {/* Anti-Cheat & Proctoring Audit Record */}
-      <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 sm:p-7 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#252C4F] pb-3">
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-line)] pb-3">
           <div className="flex items-center gap-2">
-            <ShieldAlert className={`w-5 h-5 ${isCleanSession ? 'text-emerald-400' : 'text-rose-400'}`} />
+            <ShieldAlert className={`w-5 h-5 ${isCleanSession ? 'text-emerald-500' : 'text-rose-500'}`} />
             <div>
-              <h3 className="font-bold text-sm text-white font-sans">
+              <h3 className="font-bold text-sm text-[var(--text-main)] font-sans">
                 Anti-Cheat Audit &amp; Proctoring Violations Log
               </h3>
-              <p className="text-xs text-slate-400 font-sans mt-0.5">
+              <p className="text-xs text-[var(--text-muted)] font-sans mt-0.5">
                 Review your monitored tab events, blocked clipboard attempts, and questions auto-locked for cheating.
               </p>
             </div>
@@ -492,10 +498,10 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${
               finalIntegrityScore >= 80
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                 : finalIntegrityScore >= 50
-                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
             }`}>
               Integrity: {finalIntegrityScore}/100 {finalIntegrityScore >= 80 ? '✅ Clean' : '⚠️ Flagged'}
             </span>
@@ -503,11 +509,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         </div>
 
         {/* Institutional Rule Explainer Banner */}
-        <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] text-xs text-slate-300 font-sans flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs text-[var(--text-muted)] font-sans flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <span className="font-bold text-white block">Institutional Anti-Cheat Thresholds:</span>
-            <p className="text-slate-400 leading-relaxed">
+            <span className="font-bold text-[var(--text-main)] block">Institutional Anti-Cheat Thresholds:</span>
+            <p className="text-[var(--text-muted)] leading-relaxed">
               • Switching tabs <strong>3 times</strong> on a question triggers an automatic submission with a cheat penalty and advances to the next question.<br/>
               • Attempting copy-paste <strong>5 times</strong> on a question auto-locks and submits with a cheat penalty.<br/>
               • Every infraction reduces your Behavioral Integrity Score (Starts at 100), monitored by faculty and admin.
@@ -518,33 +524,33 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         {/* Log of Recorded Incidents */}
         {incidents.length > 0 ? (
           <div className="space-y-2.5 pt-1">
-            <div className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+            <div className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
               Recorded Infractions Log ({incidents.length})
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {incidents.map((inc: any) => (
                 <div
                   key={inc.id}
-                  className="p-3.5 rounded-xl bg-[#0C0F1F] border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-500 border border-rose-500/30 uppercase">
                         {inc.type === 'EXCEEDED_TAB_SWITCHES' ? '3+ Tab Switches' : inc.type === 'EXCEEDED_COPY_PASTE' ? '5+ Paste Attempts' : inc.type}
                       </span>
-                      <span className="font-bold text-white font-mono truncate">
+                      <span className="font-bold text-[var(--text-main)] font-mono truncate">
                         {inc.problemTitle || inc.problemSlug || 'Question Problem'}
                       </span>
                     </div>
-                    <p className="text-rose-300 text-[11px] font-mono">
+                    <p className="text-rose-400 text-[11px] font-mono">
                       {inc.reason}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono block">
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-mono block">
                       Auto-Submitted &amp; Penalized
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono mt-1 block">
                       {(() => {
                         try {
                           const d = new Date(inc.timestamp);
@@ -560,34 +566,34 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-emerald-500/20 text-center text-xs text-emerald-400 font-mono flex items-center justify-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-emerald-500/20 text-center text-xs text-emerald-500 font-mono flex items-center justify-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>Clean Record: No cheating infractions or auto-lock penalties recorded. Excellent academic conduct!</span>
           </div>
         )}
       </div>
 
       {/* Learning Insights & Next Steps */}
-      <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 space-y-3">
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-3 shadow-sm">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#8B9BFF]" />
-          <h3 className="font-bold text-sm text-white font-sans">
+          <Sparkles className="w-4 h-4 text-indigo-500" />
+          <h3 className="font-bold text-sm text-[var(--text-main)] font-sans">
             Personalized Learning Insights
           </h3>
         </div>
 
-        <p className="text-xs text-slate-300 font-sans leading-relaxed">
+        <p className="text-xs text-[var(--text-muted)] font-sans leading-relaxed">
           {anl.totalQuestionsAttempted === 0
             ? 'Complete your first assigned test to unlock personalized learning tips and skill insights.'
             : anl.learnerInsightMessage}
         </p>
 
         {anl.recommendations && anl.recommendations.length > 0 && (
-          <div className="pt-2 border-t border-[#252C4F] space-y-1.5">
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="pt-2 border-t border-[var(--border-line)] space-y-1.5">
+            <div className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
               Recommended Next Steps:
             </div>
-            <ul className="space-y-1 text-xs text-slate-300 font-sans list-disc list-inside">
+            <ul className="space-y-1 text-xs text-[var(--text-muted)] font-sans list-disc list-inside">
               {anl.recommendations.map((rec: string, idx: number) => {
                 // Filter out any intimidating typing rhythm comments
                 if (rec.toLowerCase().includes('typing rhythm') || rec.toLowerCase().includes('integrity variance')) {
@@ -605,13 +611,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       {/* Difficulty Mastery & Speed Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Difficulty Mastery Progress */}
-        <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 space-y-4">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#8B9BFF]" />
+            <h4 className="font-bold text-[var(--text-main)] text-xs uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-500" />
               <span>Difficulty Mastery</span>
             </h4>
-            <span className="text-[10px] text-slate-400 font-mono">Test &amp; Practice Questions</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-mono">Test &amp; Practice Questions</span>
           </div>
 
           <div className="space-y-3 pt-1">
@@ -620,32 +626,32 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               const pct = safeStats.total > 0 ? Math.round((safeStats.solved / safeStats.total) * 100) : 0;
               const color =
                 diff === 'EASY'
-                  ? 'bg-emerald-400 text-emerald-400'
+                  ? 'bg-emerald-500 text-emerald-500'
                   : diff === 'MEDIUM'
-                  ? 'bg-amber-400 text-amber-400'
-                  : 'bg-rose-400 text-rose-400';
+                  ? 'bg-amber-500 text-amber-500'
+                  : 'bg-rose-500 text-rose-500';
 
               return (
                 <div key={diff} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-white">{diff}</span>
-                    <span className="font-mono text-slate-300">
+                    <span className="font-bold text-[var(--text-main)]">{diff}</span>
+                    <span className="font-mono text-[var(--text-muted)]">
                       {safeStats.solved} / {safeStats.total} Solved ({pct}%)
                     </span>
                   </div>
-                  <div className="h-2 bg-[#0C0F1F] rounded-full overflow-hidden border border-[#252C4F]">
+                  <div className="h-2 bg-[var(--bg-surface)] rounded-full overflow-hidden border border-[var(--border-line)]">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         diff === 'EASY'
-                          ? 'bg-emerald-400'
+                          ? 'bg-emerald-500'
                           : diff === 'MEDIUM'
-                          ? 'bg-amber-400'
-                          : 'bg-rose-400'
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <div className="text-[10px] text-slate-400 text-right">
+                  <div className="text-[10px] text-[var(--text-muted)] text-right">
                     Avg solve time: {safeStats.avgTimeSec || 0}s
                   </div>
                 </div>
@@ -655,50 +661,50 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         </div>
 
         {/* Speed & Test Efficiency */}
-        <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 space-y-4">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#8B9BFF]" />
+            <h4 className="font-bold text-[var(--text-main)] text-xs uppercase tracking-wider flex items-center gap-2">
+              <Clock className="w-4 h-4 text-indigo-500" />
               <span>Speed &amp; Accuracy Breakdown</span>
             </h4>
-            <span className="text-[10px] text-slate-400 font-mono">Telemetry</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-mono">Telemetry</span>
           </div>
 
           <div className="space-y-3 pt-1">
-            <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
               <div>
-                <span className="text-slate-400 text-[11px] block">Time Efficiency</span>
-                <span className="text-white text-xs font-bold block mt-0.5">
+                <span className="text-[var(--text-muted)] text-[11px] block">Time Efficiency</span>
+                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
                   {anl.netTimeDeviationSec <= 0 ? 'Optimal & Fast Paced' : 'Slightly Extended'}
                 </span>
               </div>
               <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                anl.netTimeDeviationSec <= 0 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                anl.netTimeDeviationSec <= 0 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
               }`}>
                 {anl.netTimeDeviationSec <= 0 ? 'Ahead of Benchmark' : `+${anl.netTimeDeviationSec}s`}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
               <div>
-                <span className="text-slate-400 text-[11px] block">Hidden Test Case Pass Rate</span>
-                <span className="text-white text-xs font-bold block mt-0.5">
+                <span className="text-[var(--text-muted)] text-[11px] block">Hidden Test Case Pass Rate</span>
+                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
                   Edge Case Verification
                 </span>
               </div>
-              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20 font-mono">
+              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 font-mono">
                 {anl.hiddenTestPassRatio || '0/0 Passed'}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
               <div>
-                <span className="text-slate-400 text-[11px] block">Keyboard Activity</span>
-                <span className="text-white text-xs font-bold block mt-0.5">
+                <span className="text-[var(--text-muted)] text-[11px] block">Keyboard Activity</span>
+                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
                   Active keystrokes logged
                 </span>
               </div>
-              <span className="text-slate-200 text-xs font-bold font-mono">
+              <span className="text-[var(--text-main)] text-xs font-bold font-mono">
                 {(anl.telemetry?.totalKeystrokes || 0).toLocaleString()} keys
               </span>
             </div>
@@ -707,13 +713,13 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       </div>
 
       {/* Official Assessment Reports (PDF / Printable) */}
-      <div className="bg-[#141932] border border-[#252C4F] rounded-2xl p-6 space-y-4">
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
         <div>
-          <h3 className="font-bold text-sm text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#8B9BFF]" />
+          <h3 className="font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-500" />
             <span>Official Assessment Reports (Printable PDF)</span>
           </h3>
-          <p className="text-xs text-slate-300 mt-1 font-sans">
+          <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
             Download or view verified reports of your submitted tests with code solutions, evaluated marks, and timestamps.
           </p>
         </div>
@@ -724,15 +730,15 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               <button
                 key={as.assignmentId}
                 onClick={() => setSelectedReportTestId(as.testTitle ? as.assignmentId : null)}
-                className="px-4 py-2 rounded-xl bg-[#0C0F1F] hover:bg-[#8B9BFF]/10 text-slate-200 hover:text-white font-mono text-xs transition-colors flex items-center gap-2 border border-[#252C4F] hover:border-[#8B9BFF]/40"
+                className="px-4 py-2 rounded-xl bg-[var(--bg-surface)] hover:bg-indigo-500/10 text-[var(--text-main)] hover:text-indigo-500 font-mono text-xs transition-colors flex items-center gap-2 border border-[var(--border-line)] hover:border-indigo-500/40"
               >
-                <Download className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                <Download className="w-3.5 h-3.5 text-indigo-500" />
                 <span>View Report: {as.testTitle}</span>
               </button>
             ))}
           </div>
         ) : (
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F] text-slate-400 text-xs text-center font-sans">
+          <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] text-xs text-center font-sans">
             No completed tests available for report export yet. Complete an assigned test to generate printable verification reports.
           </div>
         )}

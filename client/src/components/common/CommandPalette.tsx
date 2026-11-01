@@ -58,12 +58,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => { navigate('/dashboard'); onClose(); },
     },
     {
-      id: 'nav-practice',
+      id: 'nav-daily-practice',
       category: 'Navigation',
-      title: 'Topic Practice Arena',
-      subtitle: 'Browse 100 curated practice problems',
-      icon: Code2,
-      action: () => { navigate('/practice'); onClose(); },
+      title: 'Daily C Practice Arena',
+      subtitle: 'Browse 100 targeted programming exercises',
+      icon: Calendar,
+      action: () => { navigate('/daily'); onClose(); },
     },
     {
       id: 'nav-lab',
