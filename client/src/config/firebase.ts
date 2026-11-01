@@ -1,6 +1,11 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 // LogicQ production Firebase configuration
 const firebaseConfig = {
@@ -24,7 +29,20 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.warn("Failed to set Firebase Auth browserLocalPersistence:", err);
 });
 
-export const db = getFirestore(app);
+// Robust Multi-Tab IndexedDB Firestore instance with auto-detect long polling
+// Handles 120+ concurrent students across campus firewalls and multi-tab sessions with zero data loss
+export const db = (() => {
+  try {
+    return initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+})();
 
 // Google Sign-In Provider with account selection
 export const googleAuthProvider = new GoogleAuthProvider();

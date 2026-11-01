@@ -109,6 +109,10 @@ export const ChallengePage: React.FC = () => {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.close().catch(() => {});
+        return;
+      }
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -169,18 +173,11 @@ export const ChallengePage: React.FC = () => {
     }
   };
 
-  // Auto-request / prompt fullscreen on load
+  // Prompt fullscreen on load via explicit user gesture modal
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen()
-          .then(() => {
-            setIsFullscreen(true);
-            setShowFullscreenModal(false);
-          })
-          .catch(() => {
-            setShowFullscreenModal(true);
-          });
+        setShowFullscreenModal(true);
       } else {
         setIsFullscreen(true);
       }

@@ -175,7 +175,8 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     try {
       const fetchConfig: RequestInit = { ...config };
       if (!fetchConfig.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
-        fetchConfig.signal = (AbortSignal as any).timeout(18000);
+        // Generous 45s timeout to seamlessly absorb Render free tier spin-up
+        fetchConfig.signal = (AbortSignal as any).timeout(45000);
       }
       response = await fetch(url, fetchConfig);
       if (response && (response.status === 502 || response.status === 503 || response.status === 504) && attempt < maxAttempts) {
