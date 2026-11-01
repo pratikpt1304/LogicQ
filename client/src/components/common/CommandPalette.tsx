@@ -58,12 +58,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => { navigate('/dashboard'); onClose(); },
     },
     {
-      id: 'nav-daily',
+      id: 'nav-practice',
       category: 'Navigation',
-      title: 'Daily Practice Arena',
-      subtitle: 'Browse 100 curated C problems & daily challenges',
-      icon: Calendar,
-      action: () => { navigate('/daily'); onClose(); },
+      title: 'Topic Practice Arena',
+      subtitle: 'Browse 100 curated practice problems',
+      icon: Code2,
+      action: () => { navigate('/practice'); onClose(); },
     },
     {
       id: 'nav-lab',
@@ -72,6 +72,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       subtitle: 'Proctored academic C programming examinations',
       icon: BookOpen,
       action: () => { navigate('/lab-internal'); onClose(); },
+    },
+    {
+      id: 'nav-challenge',
+      category: 'Navigation',
+      title: 'Daily Challenge',
+      subtitle: 'Solve today\'s daily question and boost your streak',
+      icon: Calendar,
+      action: () => { navigate('/challenge'); onClose(); },
     },
     {
       id: 'nav-leaderboard',
