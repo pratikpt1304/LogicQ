@@ -3132,56 +3132,37 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab: Problems */}
       {activeTab === 'problems' && (
         <div className="space-y-4">
-          {/* Header Card */}
-          <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-cyan-400" />
-                <span>Problem Bank & Curriculum</span>
-              </h2>
-              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400 mt-1">
-                <span>Total: <strong className="text-white">{rawProblems.length}</strong></span>
-                <span>•</span>
-                <span>Daily: <strong className="text-emerald-400">{rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length}</strong></span>
-                <span>•</span>
-                <span>Question Bank: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
-                <span>•</span>
-                <span>Archive: <strong className="text-rose-400">{archivedProblemsCount}</strong></span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* View Switcher */}
-              <div className="p-1 rounded-xl bg-dark-900 border border-white/10 flex items-center gap-1 font-mono text-xs">
-                <button
-                  type="button"
-                  onClick={() => setProblemViewMode('TABLE')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                    problemViewMode === 'TABLE'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <List className="w-3.5 h-3.5" />
-                  <span>Problem List ({rawProblems.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProblemViewMode('MODULES')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-                    problemViewMode === 'MODULES'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Syllabus Modules (4)</span>
-                </button>
+          {/* Unified Problem Bank & Curriculum Control Panel */}
+          <div className="glass-card p-4 sm:p-5 rounded-2xl border border-white/[0.08] space-y-4">
+            {/* Top Row: Title, Problem Stats & Action Tools */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    <Code2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                      <span>Problem Bank & Curriculum</span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        {rawProblems.length} Total
+                      </span>
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400 mt-0.5">
+                      <span>Daily: <strong className="text-emerald-400">{rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length}</strong></span>
+                      <span>•</span>
+                      <span>Question Bank: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
+                      <span>•</span>
+                      <span>Archive: <strong className="text-rose-400">{archivedProblemsCount}</strong></span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Daily Challenge Timer ON/OFF Widget */}
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-dark-900 border border-white/10 text-xs font-mono">
-                <span className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold">
+              {/* Action Buttons Toolbar */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Daily Challenge Timer Pill */}
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-dark-900 border border-white/10 text-xs font-mono shadow-sm">
                   <span
                     className={`w-2 h-2 rounded-full ${
                       isDailyTimerPaused
@@ -3189,189 +3170,223 @@ export const AdminDashboardPage: React.FC = () => {
                         : 'bg-emerald-400 animate-ping'
                     }`}
                   />
-                  <span className={isDailyTimerPaused ? 'text-amber-400' : 'text-emerald-400'}>
+                  <span className={`font-bold ${isDailyTimerPaused ? 'text-amber-400' : 'text-emerald-400'}`}>
                     Timer: {isDailyTimerPaused ? 'OFF' : 'ON'}
                   </span>
-                </span>
+                  <div className="h-3 w-[1px] bg-white/10 mx-0.5" />
+                  {isDailyTimerPaused ? (
+                    <button
+                      type="button"
+                      disabled={resumeDailyMutation.isPending}
+                      onClick={() => resumeDailyMutation.mutate({ mode: 'START_NOW' } as any)}
+                      className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition flex items-center gap-1 shadow-sm active:scale-95"
+                      title="Turn Timer ON (Resume submissions & countdown immediately)"
+                    >
+                      <Play className="w-2.5 h-2.5 fill-current" />
+                      <span>Start</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={pauseDailyMutation.isPending}
+                      onClick={() => pauseDailyMutation.mutate({ reason: 'Admin paused timer' } as any)}
+                      className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-rose-500/90 hover:bg-rose-500 text-white transition flex items-center gap-1 shadow-sm active:scale-95"
+                      title="Turn Timer OFF (Pause submissions & freeze countdown)"
+                    >
+                      <Pause className="w-2.5 h-2.5 fill-current" />
+                      <span>Pause</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Cloud Sync Button */}
                 <button
                   type="button"
-                  disabled={!isDailyTimerPaused || resumeDailyMutation.isPending}
-                  onClick={() => resumeDailyMutation.mutate({ mode: 'START_NOW' } as any)}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 text-[11px] ${
-                    !isDailyTimerPaused
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 opacity-70 cursor-default'
-                      : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow hover:shadow-emerald-500/20 active:scale-95'
-                  }`}
-                  title="Turn Daily Timer ON (Resume submissions & countdown immediately)"
+                  disabled={isSyncingProblems}
+                  onClick={async () => {
+                    try {
+                      setIsSyncingProblems(true);
+                      await FirestoreDataService.syncProblems(rawProblems);
+                      toast.success(`Successfully synced ${rawProblems.length} challenges to Firestore Cloud!`);
+                      queryClient.invalidateQueries({ queryKey: ['firestore-problems'] });
+                    } catch (err: any) {
+                      toast.error(err.message || 'Failed to sync problems');
+                    } finally {
+                      setIsSyncingProblems(false);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-semibold text-slate-300 bg-dark-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  title="Sync challenges to cloud backup"
                 >
-                  <Play className="w-3 h-3 fill-current" />
-                  <span>Turn ON</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isSyncingProblems ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingProblems ? 'Syncing...' : 'Sync Cloud'}</span>
                 </button>
+
+                {/* Auto Schedule Kanetkar Book Problems */}
                 <button
                   type="button"
-                  disabled={isDailyTimerPaused || pauseDailyMutation.isPending}
-                  onClick={() => pauseDailyMutation.mutate({ reason: 'Admin paused timer' } as any)}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 text-[11px] ${
-                    isDailyTimerPaused
-                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 opacity-70 cursor-default'
-                      : 'bg-rose-500/90 hover:bg-rose-500 text-white shadow hover:shadow-rose-500/20 active:scale-95'
-                  }`}
-                  title="Turn Daily Timer OFF (Pause submissions & freeze countdown)"
+                  onClick={() => {
+                    if (confirm('Auto-schedule all 31 Kanetkar Book challenges sequentially across dates starting from today?')) {
+                      autoScheduleKanetkarMutation.mutate();
+                    }
+                  }}
+                  disabled={autoScheduleKanetkarMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                  title="Auto-schedule all 31 Kanetkar Book challenges sequentially starting from today"
                 >
-                  <Pause className="w-3 h-3 fill-current" />
-                  <span>Turn OFF</span>
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{autoScheduleKanetkarMutation.isPending ? 'Scheduling...' : 'Auto-Schedule (31d)'}</span>
+                </button>
+
+                {/* AI Generator Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsAdminAiModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-sm transition-all active:scale-95"
+                  title="Generate algorithmic C questions using AI and verify in GCC sandbox"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>AI Generate</span>
+                </button>
+
+                {/* Add New Question Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProblem(null);
+                    setProblemForm({
+                      title: '',
+                      slug: '',
+                      difficulty: 'MEDIUM',
+                      category: 'Algorithms',
+                      tags: ['Pointers', 'Basics'],
+                      description: `### Problem Description\n\nExplain the logic and constraints here.\n\n### Input Format\nStandard input specifications.\n\n### Output Format\nExpected output specifications.`,
+                      starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write your logic here\n    return 0;\n}`,
+                      timeLimitMs: 1000,
+                      memoryLimitMb: 64,
+                      basePoints: 20,
+                      status: 'PUBLISHED',
+                      testCases: [{ input: '', expectedOutput: '', isHidden: false }],
+                    });
+                    setIsCreateProblemOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-cyan-400 hover:bg-cyan-300 shadow-sm transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Add Question</span>
                 </button>
               </div>
+            </div>
 
-              <button
-                type="button"
-                disabled={isSyncingProblems}
-                onClick={async () => {
-                  try {
-                    setIsSyncingProblems(true);
-                    await FirestoreDataService.syncProblems(rawProblems);
-                    toast.success(`Successfully synced ${rawProblems.length} challenges to Firestore Cloud!`);
-                    queryClient.invalidateQueries({ queryKey: ['firestore-problems'] });
-                  } catch (err: any) {
-                    toast.error(err.message || 'Failed to sync problems');
-                  } finally {
-                    setIsSyncingProblems(false);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-mono text-xs font-medium text-amber-300/90 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all"
-                title="Sync challenges to cloud backup"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingProblems ? 'animate-spin' : ''}`} />
-                <span>{isSyncingProblems ? 'Syncing...' : 'Sync Cloud'}</span>
-              </button>
+            {/* Bottom Row: View Mode + Filters & Search Bar */}
+            <div className="pt-3 border-t border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* View Switcher: List vs Modules */}
+                <div className="p-0.5 rounded-xl bg-dark-900 border border-white/10 flex items-center gap-0.5 font-mono text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setProblemViewMode('TABLE')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                      problemViewMode === 'TABLE'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>List</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProblemViewMode('MODULES')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                      problemViewMode === 'MODULES'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Modules (4)</span>
+                  </button>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm('Auto-schedule all 31 Kanetkar Book challenges sequentially across dates starting from today?')) {
-                    autoScheduleKanetkarMutation.mutate();
-                  }
-                }}
-                disabled={autoScheduleKanetkarMutation.isPending}
-                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-mono text-xs font-bold text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 shadow-sm transition-all whitespace-nowrap active:scale-95 disabled:opacity-50"
-                title="Auto-schedule all 31 Kanetkar Book challenges sequentially starting from today"
-              >
-                <Calendar className="w-4 h-4 text-amber-400" />
-                <span>{autoScheduleKanetkarMutation.isPending ? 'Scheduling...' : '⚡ Auto-Schedule All 31 Days'}</span>
-              </button>
+                <div className="h-4 w-[1px] bg-white/10 mx-1 hidden sm:block" />
 
-              <button
-                type="button"
-                onClick={() => setIsAdminAiModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/25 transition-all whitespace-nowrap active:scale-95"
-                title="Generate algorithmic C questions using AI and verify in GCC sandbox (Section 16)"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>✨ Generate with AI</span>
-              </button>
+                {/* Category Filter Tabs */}
+                <button
+                  onClick={() => setProblemCategoryFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors ${
+                    problemCategoryFilter === 'ALL'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                      : 'text-slate-400 hover:text-white bg-dark-900/60 border border-white/[0.08]'
+                  }`}
+                >
+                  All ({rawProblems.length})
+                </button>
+                <button
+                  onClick={() => setProblemCategoryFilter('DAILY')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
+                    problemCategoryFilter === 'DAILY'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
+                      : 'text-slate-400 hover:text-white bg-dark-900/60 border border-white/[0.08]'
+                  }`}
+                >
+                  <Zap className="w-3 h-3 text-emerald-400" />
+                  <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
+                </button>
+                <button
+                  onClick={() => setProblemCategoryFilter('BOOK')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
+                    problemCategoryFilter === 'BOOK'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                      : 'text-slate-400 hover:text-white bg-dark-900/60 border border-white/[0.08]'
+                  }`}
+                >
+                  <BookOpen className="w-3 h-3 text-amber-400" />
+                  <span>Question Bank ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
+                </button>
+                <button
+                  onClick={() => setProblemCategoryFilter('ARCHIVE')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
+                    problemCategoryFilter === 'ARCHIVE'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
+                      : 'text-slate-400 hover:text-white bg-dark-900/60 border border-white/[0.08]'
+                  }`}
+                >
+                  <Archive className="w-3 h-3 text-rose-400" />
+                  <span>Archive ({archivedProblemsCount})</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingProblem(null);
-                  setProblemForm({
-                    title: '',
-                    slug: '',
-                    difficulty: 'MEDIUM',
-                    category: 'Algorithms',
-                    tags: ['Pointers', 'Basics'],
-                    description: `### Problem Description\n\nExplain the logic and constraints here.\n\n### Input Format\nStandard input specifications.\n\n### Output Format\nExpected output specifications.`,
-                    starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write your logic here\n    return 0;\n}`,
-                    timeLimitMs: 1000,
-                    memoryLimitMb: 64,
-                    basePoints: 20,
-                    status: 'PUBLISHED',
-                    testCases: [{ input: '', expectedOutput: '', isHidden: false }],
-                  });
-                  setIsCreateProblemOpen(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-dark-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-lg shadow-cyan-500/20 transition-all whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Add New Question</span>
-              </button>
+                <div className="h-4 w-[1px] bg-white/10 mx-1 hidden sm:block" />
+
+                {/* Difficulty Select */}
+                <select
+                  value={problemDifficultyFilter}
+                  onChange={(e) => setProblemDifficultyFilter(e.target.value as any)}
+                  className="px-2.5 py-1 rounded-lg bg-dark-900 border border-white/10 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition"
+                >
+                  <option value="ALL">All Difficulties</option>
+                  <option value="EASY">🟢 Easy</option>
+                  <option value="MEDIUM">🟡 Medium</option>
+                  <option value="HARD">🔴 Hard</option>
+                </select>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative min-w-[220px]">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={problemSearch}
+                  onChange={(e) => setProblemSearch(e.target.value)}
+                  placeholder="Search title, slug, or tag..."
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900/90 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
             </div>
           </div>
 
           {problemViewMode === 'TABLE' ? (
             <>
-              {/* Filters & Search Toolbar */}
-              <div className="glass-card p-4 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setProblemCategoryFilter('ALL')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                      problemCategoryFilter === 'ALL'
-                        ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/40 font-bold'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
-                    }`}
-                  >
-                    All ({rawProblems.length})
-                  </button>
-                  <button
-                    onClick={() => setProblemCategoryFilter('DAILY')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
-                      problemCategoryFilter === 'DAILY'
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 font-bold'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
-                    }`}
-                  >
-                    <Zap className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
-                  </button>
-                  <button
-                    onClick={() => setProblemCategoryFilter('BOOK')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
-                      problemCategoryFilter === 'BOOK'
-                        ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 font-bold'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
-                    }`}
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Question Bank ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
-                  </button>
-                  <button
-                    onClick={() => setProblemCategoryFilter('ARCHIVE')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
-                      problemCategoryFilter === 'ARCHIVE'
-                        ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/40 font-bold'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] bg-slate-100 dark:bg-dark-900/60 border border-slate-200 dark:border-white/[0.08]'
-                    }`}
-                  >
-                    <Archive className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Archive ({archivedProblemsCount})</span>
-                  </button>
-
-                  <div className="h-5 w-[1px] bg-white/10 mx-1 hidden sm:block" />
-
-                  <select
-                    value={problemDifficultyFilter}
-                    onChange={(e) => setProblemDifficultyFilter(e.target.value as any)}
-                    className="px-2.5 py-1.5 rounded-lg bg-dark-900 border border-white/10 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-400 transition"
-                  >
-                    <option value="ALL">All Difficulties</option>
-                    <option value="EASY">🟢 Easy</option>
-                    <option value="MEDIUM">🟡 Medium</option>
-                    <option value="HARD">🔴 Hard</option>
-                  </select>
-                </div>
-
-                <div className="relative min-w-[240px]">
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={problemSearch}
-                    onChange={(e) => setProblemSearch(e.target.value)}
-                    placeholder="Search title, slug, or tag..."
-                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-dark-900/90 border border-white/[0.08] text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-              </div>
 
               {/* Table Card */}
               <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">

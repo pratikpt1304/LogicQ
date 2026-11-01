@@ -119,6 +119,14 @@ const FacultyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return <>{children}</>;
 };
 
+const AnalyticsDispatcher: React.FC = () => {
+  const { isAdmin, isFaculty } = useAuth();
+  if (isAdmin || isFaculty) {
+    return <FacultyAnalyticsPage />;
+  }
+  return <StudentDashboardAnalyticsPage />;
+};
+
 const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAdmin, isChecker, authState } = useAuth();
   const location = useLocation();
@@ -440,12 +448,12 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Student Dual-Score Analytics Dashboard (Phase 5, Sections 40-47, 59-61) */}
+          {/* Unified Role-Aware Analytics Dashboard */}
           <Route
             path="/analytics"
             element={
               <ProtectedRoute>
-                <StudentDashboardAnalyticsPage />
+                <AnalyticsDispatcher />
               </ProtectedRoute>
             }
           />

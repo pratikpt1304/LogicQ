@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, isFaculty } = useAuth();
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
@@ -124,7 +124,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   }, [incidents, quarantinedSlugs]);
 
   // All Hooks have run unconditionally; early returns are now 100% safe
-  if (user?.role === 'FACULTY' || user?.role === 'ADMIN') {
+  if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
   }
 

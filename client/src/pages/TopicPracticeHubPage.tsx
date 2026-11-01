@@ -337,16 +337,6 @@ export const TopicPracticeHubPage: React.FC = () => {
         })
         .catch(() => {});
     }
-
-    // Automatically enter true HTML5 fullscreen on question click (user gesture context)
-    try {
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      }
-    } catch {
-      // Browser policy fallback - user can click fullscreen button
-    }
   };
 
   const handleCodeChange = (newCode: string) => {
