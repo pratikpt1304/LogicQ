@@ -271,8 +271,13 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     let canRetry = true;
 
     if (response.status === 401) {
-      errorMsg = 'Your session has expired. Please log in again to run or submit code.';
-      errorCode = 'SESSION_EXPIRED';
+      if (cleanEndpoint.includes('/auth/login') || cleanEndpoint.includes('/auth/prn-login') || cleanEndpoint.includes('/auth/verify-login-otp') || cleanEndpoint.includes('/auth/send-login-otp')) {
+        errorMsg = data?.message || 'Invalid PRN or password. Please verify your credentials.';
+        errorCode = 'INVALID_CREDENTIALS';
+      } else {
+        errorMsg = 'Your session has expired. Please log in again to run or submit code.';
+        errorCode = 'SESSION_EXPIRED';
+      }
       canRetry = false;
     } else if (response.status === 429) {
       errorMsg = 'Submission limit reached. Please wait a few seconds before trying again.';
