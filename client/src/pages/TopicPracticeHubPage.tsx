@@ -1325,16 +1325,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                 activeMobileTab === 'statement' ? 'hidden xl:flex' : 'flex-1 flex'
               }`}
             >
-              {/* Editor Bar */}
-              <div className="h-10 px-4 border-b border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    solution.c [C11]
-                  </span>
-                </div>
-              </div>
-
               {/* Editor Container */}
               <div className="flex-1 min-h-0 relative overflow-hidden bg-[var(--bg-panel)]">
                 <CodeEditor
