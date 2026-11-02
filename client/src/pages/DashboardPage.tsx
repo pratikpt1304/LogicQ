@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { StreakReminderBanner } from '../components/dashboard/StreakReminderBanner.js';
+import { DailyCTipPopup } from '../components/dashboard/DailyCTipPopup.js';
 import { OnlineCompilerCard } from '../components/dashboard/OnlineCompilerCard.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
@@ -691,6 +692,8 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-8">
+      {/* Daily C Tip Popup - shown once per day on load */}
+      {isStudent && <DailyCTipPopup />}
       {/* EXECUTIVE ADMIN & FACULTY HOME DASHBOARD */}
       {!isStudent ? (
         <div className="space-y-8 animate-in fade-in duration-200">

@@ -76,6 +76,7 @@ import {
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
 import { AdminTopicPracticeSubmissions } from '../../components/admin/AdminTopicPracticeSubmissions.js';
+import { AdminLabInternalSubmissions } from '../../components/admin/AdminLabInternalSubmissions.js';
 import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSecurity.js';
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 import { SectionManagementPage } from '../faculty/SectionManagementPage.js';
@@ -244,7 +245,7 @@ export const AdminDashboardPage: React.FC = () => {
   } | null>(null);
   const [copiedStudentCode, setCopiedStudentCode] = useState(false);
   const [submissionSearch, setSubmissionSearch] = useState('');
-  const [submissionsSubView, setSubmissionsSubView] = useState<'feed' | 'practice'>('practice');
+  const [submissionsSubView, setSubmissionsSubView] = useState<'feed' | 'practice' | 'lab-internal'>('practice');
   const [submissionVerdictFilter, setSubmissionVerdictFilter] = useState('ALL');
   const [submissionProblemFilter, setSubmissionProblemFilter] = useState('ALL');
   const [submissionPage, setSubmissionPage] = useState(1);
@@ -3906,6 +3907,21 @@ export const AdminDashboardPage: React.FC = () => {
                 <ShieldAlert className="w-4 h-4 text-rose-500" />
                 <span>Plagiarism Radar</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('submissions');
+                  setSubmissionsSubView('lab-internal');
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+                  activeTab === 'submissions' && submissionsSubView === 'lab-internal'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : 'bg-slate-100 dark:bg-dark-900/60 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-slate-200 dark:border-white/[0.08]'
+                }`}
+              >
+                <BookOpen className="w-4 h-4 text-purple-400" />
+                <span>Lab Internal Submissions</span>
+              </button>
             </div>
 
             {/* Quick Metrics Badges */}
@@ -3933,6 +3949,10 @@ export const AdminDashboardPage: React.FC = () => {
 
           {activeTab === 'submissions' && submissionsSubView === 'practice' && (
             <AdminTopicPracticeSubmissions />
+          )}
+
+          {activeTab === 'submissions' && submissionsSubView === 'lab-internal' && (
+            <AdminLabInternalSubmissions />
           )}
 
           {activeTab === 'submissions' && submissionsSubView === 'feed' && (

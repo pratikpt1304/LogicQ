@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  KeyRound,
   Download,
   BookOpen,
   Sparkles,
@@ -374,6 +375,55 @@ export const Navbar: React.FC = () => {
 
                         </div>
                       )}
+
+                      {/* Change Password Button */}
+                      <div className="py-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const key = `logicq_pw_change_${user?.id || 'u'}`;
+                            try {
+                              const raw = localStorage.getItem(key);
+                              const data = raw ? JSON.parse(raw) : { count: 0, weekStart: Date.now() };
+                              const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+                              const now = Date.now();
+                              if (now - data.weekStart > oneWeekMs) {
+                                data.count = 0;
+                                data.weekStart = now;
+                              }
+                              if (data.count >= 2) {
+                                alert('You can only change your password 2 times per week. Please try again next week.');
+                                return;
+                              }
+                              const np = prompt('Enter your new password (min 6 characters):');
+                              if (!np || np.length < 6) { alert('Password must be at least 6 characters.'); return; }
+                              const np2 = prompt('Confirm new password:');
+                              if (np !== np2) { alert('Passwords do not match.'); return; }
+                              fetch('/api/auth/change-password', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('logicq_token')}` },
+                                body: JSON.stringify({ newPassword: np }),
+                              })
+                                .then((r) => r.json())
+                                .then((res) => {
+                                  if (res.success || res.message) {
+                                    data.count++;
+                                    localStorage.setItem(key, JSON.stringify(data));
+                                    alert(`Password changed successfully! You have ${2 - data.count} change(s) left this week.`);
+                                  } else {
+                                    alert(res.error || 'Failed to change password. Please try again.');
+                                  }
+                                })
+                                .catch(() => alert('Network error. Please try again.'));
+                            } catch { alert('Something went wrong. Please try again.'); }
+                          }}
+                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group"
+                        >
+                          <KeyRound className="w-3.5 h-3.5 text-cyan-500 group-hover:rotate-12 transition-transform" />
+                          <span className="font-medium">Change Password</span>
+                          <span className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">2/week</span>
+                        </button>
+                      </div>
 
                       {/* Theme Toggle (Inside profile menu, directly above Sign Out) */}
                       <div className="py-1">

@@ -480,6 +480,18 @@ export const PracticeModulesPage: React.FC = () => {
                       {mod.requirementText || 'Complete previous module to unlock.'}
                     </span>
                   </div>
+
+                  {/* Go to Practice Button */}
+                  <div className="mt-3">
+                    <Link
+                      to="/practice"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 transition-all"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Go to Practice (Module {mod.order}) →</span>
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Footer Locked Status */}
