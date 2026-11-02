@@ -1118,28 +1118,7 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Center: Prev / Next Problem Navigator */}
-            <div className="flex items-center gap-1 bg-[var(--bg-surface)] p-1 rounded-xl border border-[var(--border-line)] shrink-0">
-              <button
-                onClick={() => prevTopic && handleOpenTopic(prevTopic)}
-                disabled={!prevTopic}
-                title={prevTopic ? `Previous: ${prevTopic.topicTitle}` : 'No previous topic'}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-mono px-2 text-[var(--text-main)] font-semibold whitespace-nowrap">
-                {currentTopicIndex + 1} / {currentModuleTopics.length}
-              </span>
-              <button
-                onClick={() => nextTopic && handleOpenTopic(nextTopic)}
-                disabled={!nextTopic}
-                title={nextTopic ? `Next: ${nextTopic.topicTitle}` : 'No next topic'}
-                className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-30 transition cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+
 
             {/* Right: Palette Toggle + Fullscreen + Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
