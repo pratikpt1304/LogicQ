@@ -51,6 +51,7 @@ import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
 import { api } from '../api/client.js';
+import { formatPracticeTime } from '../components/practice/PracticeTimer.js';
 
 const STORAGE_KEY = 'logicq_solved_practice_topics';
 
@@ -185,6 +186,16 @@ export const TopicPracticeHubPage: React.FC = () => {
 
   // Workspace state
   const [code, setCode] = useState<string>('');
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  // Active Practice Question Timer
+  useEffect(() => {
+    if (!activeTopic) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeTopic]);
   const [customInput, setCustomInput] = useState<string>('');
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
@@ -345,6 +356,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     }
 
     setActiveTopic(topic);
+    setElapsedSeconds(0);
     try {
       localStorage.setItem('logicq_last_topic_id', topic.id);
     } catch {}
@@ -559,7 +571,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
         }
 
-        // 2. Sync to backend practice API with full details & code
+        // 2. Sync to backend practice API with full details, code, and solve time
         api.post('/practice/topics/solve', {
           topicId: activeTopic.id,
           moduleSlug: activeTopic.moduleSlug,
@@ -567,6 +579,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           topicTitle: activeTopic.topicTitle,
           difficulty: activeTopic.problem.difficulty,
           code,
+          timeTakenSeconds: elapsedSeconds,
         }).catch(() => {});
 
         // 3. Invalidate query cache so /lab-internal and Dashboard reflect solved count instantly
@@ -1142,6 +1155,37 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
 
+
+            {/* Center: Live CBT Countdown Timer */}
+            {(() => {
+              const totalAllocatedSeconds = activeTopic.problem.difficulty === 'HARD' ? 1500 : activeTopic.problem.difficulty === 'MEDIUM' ? 1200 : 900;
+              const remainingSeconds = Math.max(0, totalAllocatedSeconds - elapsedSeconds);
+              const isUrgent = remainingSeconds < 180;
+
+              return (
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-mono shadow-xs shrink-0 transition-colors ${
+                    isUrgent
+                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                      : 'bg-dark-900/90 border-white/10 text-slate-300'
+                  }`}
+                  title={`Time elapsed: ${formatPracticeTime(elapsedSeconds)} | Total allocated: ${formatPracticeTime(totalAllocatedSeconds)}`}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${isUrgent ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-slate-400 text-[10px] uppercase tracking-wider hidden sm:inline">
+                      Time Left:
+                    </span>
+                    <span className={`font-bold tabular-nums ${isUrgent ? 'text-rose-400 font-extrabold' : 'text-white'}`}>
+                      {formatPracticeTime(remainingSeconds)}
+                    </span>
+                  </div>
+                  <span className="text-slate-500 text-[10px] hidden md:inline">
+                    ({formatPracticeTime(elapsedSeconds)})
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Right: Palette Toggle + Fullscreen + Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

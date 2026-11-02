@@ -653,6 +653,7 @@ model TopicPracticeSubmission {
   verdict           String    @default("PENDING") // "ACCEPTED" | "WRONG_ANSWER" | "PENDING"
   firstOpenedAt     DateTime  @default(now())
   lastOpenedAt      DateTime  @default(now())
+  timeTakenSeconds  Int?      // Time taken by student to solve (in seconds)
   solvedAt          DateTime?
   updatedAt         DateTime  @default(now()) @updatedAt
 

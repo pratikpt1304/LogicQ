@@ -21,6 +21,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatPracticeTime } from '../practice/PracticeTimer.js';
 
 interface TopicSubmissionItem {
   id: string;
@@ -31,6 +32,7 @@ interface TopicSubmissionItem {
   topicTitle: string;
   difficulty: string;
   status: 'SOLVED' | 'IN_PROGRESS';
+  timeTakenSeconds?: number | null;
   attemptsCount: number;
   tabSwitchCount: number;
   copyPasteAttempts: number;
@@ -260,6 +262,7 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                   <th className="px-4 py-3.5">Academic</th>
                   <th className="px-4 py-3.5">Practice Question</th>
                   <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Time Taken</th>
                   <th className="px-4 py-3.5">
                     <span title="Increments each time student opens question">Question Attempts</span>
                   </th>
@@ -323,6 +326,29 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
                           <Clock className="w-3 h-3 text-amber-400" />
                           IN PROGRESS
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Time Taken / Solve Duration */}
+                    <td className="px-4 py-3.5">
+                      {item.timeTakenSeconds != null && item.timeTakenSeconds > 0 ? (
+                        <div className="flex flex-col">
+                          <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 rounded w-fit">
+                            <Clock className="w-3 h-3 text-indigo-400" />
+                            {formatPracticeTime(item.timeTakenSeconds)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                            Solved in {item.timeTakenSeconds}s
+                          </span>
+                        </div>
+                      ) : item.status === 'SOLVED' ? (
+                        <span className="text-[11px] text-emerald-400/80 font-mono">
+                          &lt; 1 min
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          In Progress
                         </span>
                       )}
                     </td>
@@ -461,6 +487,9 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                   {' • '}PRN: <span className="text-cyan-300 font-bold">{inspectingItem.user?.prn || 'NO_PRN'}</span>
                   {' • '}Email: <span className="text-slate-300">{inspectingItem.user?.email}</span>
                   {' • '}Attempts: <span className="text-purple-300 font-bold">{inspectingItem.attemptsCount}</span>
+                  {inspectingItem.timeTakenSeconds != null && inspectingItem.timeTakenSeconds > 0 && (
+                    <span>{' • '}Solve Time: <strong className="text-indigo-300">{formatPracticeTime(inspectingItem.timeTakenSeconds)} ({inspectingItem.timeTakenSeconds}s)</strong></span>
+                  )}
                 </p>
               </div>
 

@@ -1735,12 +1735,16 @@ export async function recordTopicPracticeSolved(req: AuthRequest, res: Response)
       res.status(401).json({ success: false, message: 'Authentication required' });
       return;
     }
-    const { topicId, moduleSlug, moduleIndex, topicTitle, code, difficulty } = req.body;
+    const { topicId, moduleSlug, moduleIndex, topicTitle, code, difficulty, timeTakenSeconds } = req.body;
     const slug = moduleSlug || 'control-structures';
     const now = new Date();
 
     // 1. Update or create TopicPracticeSubmission
     if (topicId) {
+      const parsedTime = typeof timeTakenSeconds === 'number' && !isNaN(timeTakenSeconds) && timeTakenSeconds > 0
+        ? Math.floor(timeTakenSeconds)
+        : null;
+
       await prisma.topicPracticeSubmission.upsert({
         where: {
           userId_topicId: {
@@ -1752,6 +1756,7 @@ export async function recordTopicPracticeSolved(req: AuthRequest, res: Response)
           status: 'SOLVED',
           verdict: 'ACCEPTED',
           code: code || undefined,
+          ...(parsedTime ? { timeTakenSeconds: parsedTime } : {}),
           solvedAt: now,
           lastOpenedAt: now,
         },
@@ -1768,6 +1773,7 @@ export async function recordTopicPracticeSolved(req: AuthRequest, res: Response)
           tabSwitchCount: 0,
           copyPasteAttempts: 0,
           code: code || null,
+          timeTakenSeconds: parsedTime,
           firstOpenedAt: now,
           lastOpenedAt: now,
           solvedAt: now,
