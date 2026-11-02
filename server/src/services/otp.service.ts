@@ -94,7 +94,6 @@ export class OtpService {
     return {
       success: true,
       message: `Verification code sent to ${cleanEmail}`,
-      code: rawOtp,
     };
   }
 

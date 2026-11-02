@@ -1286,8 +1286,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       success: true,
       message: `Verification code dispatched to ${cleanEmail}`,
       cooldownRemaining: 60,
-      code: rawOtp,
-      devOtp: rawOtp,
     };
   }
 

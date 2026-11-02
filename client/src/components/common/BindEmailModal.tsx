@@ -26,7 +26,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -88,10 +87,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         setStep('otp');
         setOtpDigits(['', '', '', '', '', '']);
         setCooldown(res.cooldownRemaining || 60);
-        const resolvedCode = res.code || res.devOtp || res.data?.code;
-        if (resolvedCode) {
-          setDevOtp(String(resolvedCode));
-        }
         toast.success('Verification code dispatched!', {
           description: `Check your inbox at ${cleanEmail}`,
         });
@@ -187,10 +182,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         // Fallback
       }
 
-      // 3. Fallback verification against devOtp
-      if (devOtp && fullCode === devOtp) {
-        verified = true;
-      }
 
       if (verified) {
         setIsSuccess(true);
@@ -378,31 +369,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   />
                 ))}
               </div>
-
-              {devOtp && (
-                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-mono space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[var(--text-main)] font-semibold flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Verification Code: <strong className="text-indigo-400 tracking-wider font-mono text-sm">{devOtp}</strong></span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const digits = devOtp.slice(0, 6).split('');
-                        setOtpDigits(digits);
-                        handleVerifyOtp(devOtp);
-                      }}
-                      className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] transition cursor-pointer flex items-center gap-1 shadow-sm"
-                    >
-                      <span>Auto-Fill &rarr;</span>
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-                    Sent to your email. (If not in inbox, check <strong>Spam</strong>, or click Auto-Fill to verify instantly).
-                  </p>
-                </div>
-              )}
 
               {/* Resend Cooldown */}
               <div className="flex items-center justify-between text-xs font-mono pt-1">

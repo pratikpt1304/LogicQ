@@ -68,9 +68,9 @@ class NodemailerMailService implements IMailService {
 
   private initTransporter() {
     try {
-      const user = ENV.SMTP_USER || process.env.SMTP_USER || '';
-      const pass = (ENV.SMTP_PASS || process.env.SMTP_PASS || '').replace(/\s+/g, '');
-      const host = ENV.SMTP_HOST || process.env.SMTP_HOST || '';
+      const user = ENV.SMTP_USER || process.env.SMTP_USER || 'logicqarena@gmail.com';
+      const pass = (ENV.SMTP_PASS || process.env.SMTP_PASS || 'twzlhqrtshcafwvr').replace(/\s+/g, '');
+      const host = ENV.SMTP_HOST || process.env.SMTP_HOST || 'smtp.gmail.com';
       const port = ENV.SMTP_PORT || parseInt(process.env.SMTP_PORT || '465', 10);
 
       if (!user || !pass) {
@@ -198,12 +198,25 @@ class ChainedMailService implements IMailService {
 }
 
 export function getMailService(): IMailService {
-  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec';
-  if (gasUrl) {
-    return new GoogleAppsScriptMailService(gasUrl);
+  const providers: IMailService[] = [];
+
+  // 1. Primary: Direct Gmail SMTP using App Password
+  const smtpUser = process.env.SMTP_USER || ENV.SMTP_USER || 'logicqarena@gmail.com';
+  const smtpPass = (process.env.SMTP_PASS || ENV.SMTP_PASS || 'twzlhqrtshcafwvr').replace(/\s+/g, '');
+  if (smtpUser && smtpPass) {
+    providers.push(new NodemailerMailService());
   }
 
-  return new ConsoleMailService();
+  // 2. Secondary fallback: Google Apps Script Web App
+  const gasUrl = process.env.GAS_MAIL_URL || (ENV as any).GAS_MAIL_URL || 'https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec';
+  if (gasUrl) {
+    providers.push(new GoogleAppsScriptMailService(gasUrl));
+  }
+
+  // 3. Fallback: Console logger
+  providers.push(new ConsoleMailService());
+
+  return new ChainedMailService(providers);
 }
 
 export const mailService: IMailService = getMailService();
