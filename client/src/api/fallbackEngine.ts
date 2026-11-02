@@ -1248,19 +1248,72 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   if (path === '/auth/send-bind-email-otp' && method === 'POST') {
     const { email } = body;
     if (!email) throw new Error('Please enter a valid email address.');
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    // Generate 6-digit numeric OTP
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    try {
+      sessionStorage.setItem('logicq_bind_otp_' + cleanEmail, JSON.stringify({
+        code: rawOtp,
+        expires: Date.now() + 10 * 60 * 1000,
+      }));
+    } catch {}
+
+    // Dispatch real email via Google Apps Script Mail Relay so user receives actual verification email
+    try {
+      fetch('https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: cleanEmail,
+          subject: `[LogicQ] Your Email Verification Code: ${rawOtp}`,
+          html: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+            <h2 style="color: #4f46e5;">LogicQ Student Identity Validation</h2>
+            <p>Your one-time verification code to bind your email with LogicQ is:</p>
+            <div style="background: #f1f5f9; padding: 15px; font-size: 26px; font-weight: bold; letter-spacing: 5px; color: #0f172a; text-align: center; border-radius: 8px; margin: 20px 0;">
+              ${rawOtp}
+            </div>
+            <p style="font-size: 13px; color: #64748b;">This code is valid for 10 minutes. If you did not request this verification, please ignore this email.</p>
+          </div>`,
+          text: `Your LogicQ Email Verification Code is: ${rawOtp} (valid for 10 minutes).`,
+        }),
+      }).catch((err) => console.warn('[FallbackEngine] GAS mail dispatch warning:', err));
+    } catch (e) {
+      console.warn('[FallbackEngine] Mail dispatch error:', e);
+    }
+
     return {
       success: true,
-      message: `Verification code dispatched to ${email}`,
+      message: `Verification code dispatched to ${cleanEmail}`,
       cooldownRemaining: 60,
+      devOtp: rawOtp,
     };
   }
 
   if (path === '/auth/bind-email' && method === 'POST') {
     const { email, code, prn } = body;
     if (!email || !code) throw new Error('Email and verification code are required.');
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    // Verify OTP against stored code if available
+    try {
+      const stored = sessionStorage.getItem('logicq_bind_otp_' + cleanEmail);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Date.now() > parsed.expires) {
+          throw new Error('Verification code has expired. Please request a new one.');
+        }
+        if (parsed.code !== cleanCode) {
+          throw new Error('Invalid 6-digit verification code. Please check your inbox and try again.');
+        }
+      }
+    } catch (err: any) {
+      if (err.message.includes('Invalid') || err.message.includes('expired')) throw err;
+    }
+
     const users = getStoredUsers();
     const currUser = getCurrentUser();
-    const cleanEmail = email.trim().toLowerCase();
     
     let user = users.find(u => u.id === currUser?.id || (prn && u.prn?.toUpperCase() === prn.toUpperCase()));
     if (user) {
@@ -1279,12 +1332,49 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
   if (path === '/auth/send-change-password-otp' && method === 'POST') {
     const currUser = getCurrentUser();
-    const targetEmail = currUser?.email || body.email || 'your email';
+    const targetEmail = currUser?.email || body.email || '';
+    const cleanEmail = String(targetEmail).trim().toLowerCase();
+
+    // Generate 6-digit numeric OTP
+    const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    if (cleanEmail) {
+      try {
+        sessionStorage.setItem('logicq_pwd_otp_' + cleanEmail, JSON.stringify({
+          code: rawOtp,
+          expires: Date.now() + 10 * 60 * 1000,
+        }));
+      } catch {}
+
+      try {
+        fetch('https://script.google.com/macros/s/AKfycbyKujXwhftWWyvIYmmJolrtTQ2ubwWzsrs88nmdDZcMncXs7fbR1BxdXLDXTriYAkV2/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: cleanEmail,
+            subject: `[LogicQ] Password Reset Verification Code: ${rawOtp}`,
+            html: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+              <h2 style="color: #4f46e5;">LogicQ Password Security</h2>
+              <p>Your one-time authorization code to reset your LogicQ password is:</p>
+              <div style="background: #f1f5f9; padding: 15px; font-size: 26px; font-weight: bold; letter-spacing: 5px; color: #0f172a; text-align: center; border-radius: 8px; margin: 20px 0;">
+                ${rawOtp}
+              </div>
+              <p style="font-size: 13px; color: #64748b;">This code is valid for 10 minutes. If you did not request this, secure your account immediately.</p>
+            </div>`,
+            text: `Your LogicQ Password Reset Verification Code is: ${rawOtp} (valid for 10 minutes).`,
+          }),
+        }).catch((err) => console.warn('[FallbackEngine] GAS mail dispatch warning:', err));
+      } catch (e) {
+        console.warn('[FallbackEngine] Mail dispatch error:', e);
+      }
+    }
+
+    const maskedTarget = cleanEmail ? cleanEmail.replace(/(?<=.{2}).(?=[^@]*?@)/g, '*') : 'your registered email';
     return {
       success: true,
-      message: `Verification code sent to ${targetEmail}`,
-      target: targetEmail,
+      message: `Verification code sent to ${maskedTarget}`,
+      target: maskedTarget,
       cooldownRemaining: 60,
+      devOtp: rawOtp,
     };
   }
 

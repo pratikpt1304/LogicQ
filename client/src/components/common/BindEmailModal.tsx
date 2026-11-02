@@ -26,6 +26,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [devOtp, setDevOtp] = useState<string | null>(null);
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -50,6 +51,22 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
       return;
     }
 
+    const domain = cleanEmail.split('@')[1];
+    const typoDomains: Record<string, string> = {
+      'agmail.com': 'gmail.com',
+      'gamil.com': 'gmail.com',
+      'gmai.com': 'gmail.com',
+      'gmial.com': 'gmail.com',
+      'gmaill.com': 'gmail.com',
+      'yaho.com': 'yahoo.com',
+      'outlok.com': 'outlook.com',
+      'hotmial.com': 'hotmail.com',
+    };
+    if (domain && typoDomains[domain]) {
+      setError(`Did you mean @${typoDomains[domain]}? You typed "@${domain}". Please correct the spelling.`);
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
@@ -63,6 +80,9 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         setStep('otp');
         setOtpDigits(['', '', '', '', '', '']);
         setCooldown(res.cooldownRemaining || 60);
+        if (res.devOtp) {
+          setDevOtp(res.devOtp);
+        }
         toast.success('Verification code dispatched!', {
           description: `Check your inbox at ${cleanEmail}`,
         });
@@ -196,7 +216,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                  PRN: <span className="text-[var(--text-main)] font-bold">{user.prn || 'Registered Student'}</span>
+                  PRN: <span className="text-[var(--text-main)] font-bold">{user.prn && user.prn !== 'DUMMY' ? user.prn : (user.username && user.username !== 'DUMMY' ? user.username.toUpperCase() : 'Registered Student')}</span>
                 </p>
               </div>
             </div>
@@ -320,6 +340,23 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   />
                 ))}
               </div>
+
+              {devOtp && (
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono flex items-center justify-between">
+                  <span className="text-amber-500 text-[11px]">Testing Code: <strong>{devOtp}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const digits = devOtp.split('');
+                      setOtpDigits(digits);
+                      handleVerifyOtp(devOtp);
+                    }}
+                    className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px] transition cursor-pointer"
+                  >
+                    Auto-Fill &rarr;
+                  </button>
+                </div>
+              )}
 
               {/* Resend Cooldown */}
               <div className="flex items-center justify-between text-xs font-mono pt-1">
