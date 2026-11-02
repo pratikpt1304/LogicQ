@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Loader2,
   Keyboard,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -256,6 +257,16 @@ export const OnlineCompilerCard: React.FC = () => {
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
 
+          <button
+            type="button"
+            onClick={() => window.open('/compiler', '_blank')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 transition cursor-pointer shadow-xs"
+            title="Open C11 Compiler in a separate new window"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">New Window</span>
+          </button>
+
           {/* Primary Compile & Run Button */}
           <button
             type="button"
@@ -308,6 +319,8 @@ export const OnlineCompilerCard: React.FC = () => {
               onChange={setCode}
               onRun={handleRunCode}
               isRunning={isRunning}
+              hideHeader={true}
+              disableCopyPaste={false}
             />
           </div>
         </div>

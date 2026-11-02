@@ -15,6 +15,7 @@ interface CodeEditorProps {
   readOnly?: boolean;
   disableCopyPaste?: boolean;
   onBlockedAction?: (action: 'copy' | 'paste' | 'cut' | 'contextmenu') => void;
+  hideHeader?: boolean;
 }
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
@@ -104,6 +105,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   readOnly = false,
   disableCopyPaste = true,
   onBlockedAction,
+  hideHeader = false,
 }) => {
   const disableCopyPasteRef = React.useRef(disableCopyPaste);
   const onBlockedActionRef = React.useRef(onBlockedAction);
@@ -435,102 +437,104 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       className="flex flex-col h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-line)] overflow-hidden overscroll-contain"
     >
       {/* Editor Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-[var(--color-error)] inline-block"></span>
-          <span className="w-3 h-3 rounded-full bg-[var(--color-warning)] inline-block"></span>
-          <span className="w-3 h-3 rounded-full bg-[var(--color-success)] inline-block"></span>
-          <span className="ml-2 font-mono text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5">
-            solution.c
-            <span className="text-xs text-[var(--color-accent)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-bold">
-              C
-            </span>
-            {readOnly && (
-              <span
-                data-testid="editor-readonly-badge"
-                className="text-[11px] text-[var(--color-warning)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--color-warning)] font-semibold"
-              >
-                Read-only
+      {!hideHeader && (
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-[var(--color-error)] inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-[var(--color-warning)] inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-[var(--color-success)] inline-block"></span>
+            <span className="ml-2 font-mono text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+              solution.c
+              <span className="text-xs text-[var(--color-accent)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-bold">
+                C
               </span>
-            )}
-          </span>
-        </div>
+              {readOnly && (
+                <span
+                  data-testid="editor-readonly-badge"
+                  className="text-[11px] text-[var(--color-warning)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--color-warning)] font-semibold"
+                >
+                  Read-only
+                </span>
+              )}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-2">
-          {!readOnly && !disableCopyPaste && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".c,.h,.cpp,.txt,text/plain"
-                className="hidden"
-                onChange={handleFileUpload}
-                data-testid="code-file-input"
-              />
+          <div className="flex items-center gap-2">
+            {!readOnly && !disableCopyPaste && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".c,.h,.cpp,.txt,text/plain"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  data-testid="code-file-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload .c or source code file from your device (or drag & drop into editor)"
+                  data-testid="upload-code-file-btn"
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+                  <span>Upload .c</span>
+                </button>
+              </>
+            )}
+
+            {onRun && !readOnly && (
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Upload .c or source code file from your device (or drag & drop into editor)"
-                data-testid="upload-code-file-btn"
+                onClick={onRun}
+                disabled={isRunning || isSubmitting}
+                title="Compile and run code with custom input (Alt + Enter)"
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Compiling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Compile & Run</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {onReset && !readOnly && (
+              <button
+                type="button"
+                onClick={onReset}
+                title="Reset code to starter template"
                 className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
               >
-                <Upload className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                <span>Upload .c</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
               </button>
-            </>
-          )}
+            )}
 
-          {onRun && !readOnly && (
-            <button
-              type="button"
-              onClick={onRun}
-              disabled={isRunning || isSubmitting}
-              title="Compile and run code with custom input (Alt + Enter)"
-              className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-md shadow-sm transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Compiling...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Compile & Run</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {onReset && !readOnly && (
-            <button
-              type="button"
-              onClick={onReset}
-              title="Reset code to starter template"
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset</span>
-            </button>
-          )}
-
-          {!disableCopyPaste && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              title="Copy code to clipboard"
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
-            >
-              {copied ? (
-                <Check className="w-3.5 h-3.5 text-[var(--color-success)]" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" />
-              )}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-          )}
+            {!disableCopyPaste && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                title="Copy code to clipboard"
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-[var(--color-success)]" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Editor Main Canvas with Anti-Cheat Clipboard Blocking */}
       <div

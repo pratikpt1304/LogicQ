@@ -35,6 +35,7 @@ import { InstantJoinPage } from './pages/InstantJoinPage.js';
 import { StudentTestListPage } from './pages/exam/StudentTestListPage.js';
 import { ExamWorkspacePage } from './pages/exam/ExamWorkspacePage.js';
 import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.js';
+import { CompilerPage } from './pages/CompilerPage.js';
 import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
@@ -205,7 +206,8 @@ export const App: React.FC = () => {
     location.pathname.startsWith('/practice/') ||
     location.pathname.startsWith('/lab-internal/') ||
     location.pathname.startsWith('/exam/') ||
-    location.pathname.startsWith('/mini-project/');
+    location.pathname.startsWith('/mini-project/') ||
+    location.pathname.startsWith('/compiler');
 
   const isStaging =
     typeof window !== 'undefined' &&
@@ -319,6 +321,16 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <TopicPracticeHubPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Standalone GCC 14 (C11) Online Compiler Workspace */}
+          <Route
+            path="/compiler"
+            element={
+              <ProtectedRoute>
+                <CompilerPage />
               </ProtectedRoute>
             }
           />
