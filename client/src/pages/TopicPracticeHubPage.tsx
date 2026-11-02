@@ -193,7 +193,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('output');
-  const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'app' | 'example'>('syntax');
+  const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'example'>('syntax');
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState<boolean>(false);
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
   const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
@@ -1209,7 +1209,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </h2>
               </div>
 
-              {/* Where & When to Use (Application Hint) + Syntax Box */}
+              {/* Topic Reference (Syntax & Example Box) */}
               <div className="glass-card rounded-2xl p-4 border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-amber-950/10 to-transparent space-y-3 text-xs font-mono shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-amber-500 font-bold">
@@ -1221,7 +1221,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     {/* Copy Code Button */}
                     <button
                       type="button"
-                      onClick={() => handleCopyTip(activeTipTab === 'syntax' ? activeTopic.tipBox.syntax : activeTipTab === 'example' ? activeTopic.tipBox.example : activeTopic.tipBox.application)}
+                      onClick={() => handleCopyTip(activeTipTab === 'syntax' ? activeTopic.tipBox.syntax : activeTopic.tipBox.example)}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-amber-500/50 transition cursor-pointer"
                       title="Copy to clipboard"
                     >
@@ -1245,7 +1245,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setActiveTipTab('syntax')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           activeTipTab === 'syntax' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -1253,18 +1253,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setActiveTipTab('app')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                          activeTipTab === 'app' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                        }`}
-                        title="Where and when to use this concept (Application Hint)"
-                      >
-                        Where &amp; When to Use
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => setActiveTipTab('example')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           activeTipTab === 'example' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                         }`}
                       >
@@ -1278,20 +1268,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <pre className="p-3 rounded-xl bg-[var(--bg-main)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)] shadow-inner">
                     {activeTopic.tipBox.syntax}
                   </pre>
-                )}
-                {activeTipTab === 'app' && (
-                  <div className="p-3.5 rounded-xl bg-[var(--bg-main)] border border-amber-500/30 text-xs font-sans leading-relaxed space-y-2 shadow-inner">
-                    <div className="flex items-center gap-1.5 text-amber-500 font-bold font-mono text-[11px]">
-                      <Lightbulb className="w-3.5 h-3.5" />
-                      <span>Where & When to Use (Application Hint):</span>
-                    </div>
-                    <p className="text-[var(--text-main)] leading-relaxed">
-                      {activeTopic.tipBox.application}
-                    </p>
-                    <div className="pt-2 border-t border-[var(--border-line)]/50 text-[11px] text-[var(--text-muted)] font-mono">
-                      💡 <strong>Practical Context:</strong> Apply this pattern for {activeTopic.summary.toLowerCase()}
-                    </div>
-                  </div>
                 )}
                 {activeTipTab === 'example' && (
                   <pre className="p-3 rounded-xl bg-[var(--bg-main)] text-emerald-700 dark:text-emerald-400 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)] shadow-inner">
@@ -1732,15 +1708,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                       <pre className="p-3 rounded-xl bg-[var(--bg-main)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap border border-[var(--border-line)]">
                         {activeTopic.tipBox.syntax}
                       </pre>
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="font-bold text-indigo-400 text-xs uppercase tracking-wider">
-                        Industry &amp; Embedded Application
-                      </span>
-                      <div className="p-3 rounded-xl bg-[var(--bg-surface)] text-[var(--text-main)] font-sans text-xs leading-relaxed border border-[var(--border-line)]">
-                        {activeTopic.tipBox.application}
-                      </div>
                     </div>
 
                     <div className="space-y-2">

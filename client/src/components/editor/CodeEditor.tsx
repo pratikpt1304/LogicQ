@@ -113,6 +113,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const [copied, setCopied] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const editorRef = React.useRef<any>(null);
+  const isProgrammaticUpdateRef = React.useRef<boolean>(false);
   const onChangeRef = React.useRef(onChange);
   const onRunRef = React.useRef(onRun);
   const onSubmitRef = React.useRef(onSubmit);
@@ -266,6 +267,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     const sub = editor.onDidChangeModelContent((e: any) => {
       if (readOnlyRef.current) return;
+      if (isProgrammaticUpdateRef.current) return;
+      if (e?.isFlush) return;
       if (isInternalEdit) return;
 
       // Burst Paste Protection for Mobile (Catches clipboard injections that bypass synthetic events)
@@ -316,9 +319,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
   React.useEffect(() => {
     if (editorRef.current && editorRef.current.getValue() !== code) {
-      editorRef.current.setValue(code);
-      editorRef.current.setSelection(new monaco.Selection(1, 1, 1, 1));
-      editorRef.current.setPosition({ lineNumber: 1, column: 1 });
+      isProgrammaticUpdateRef.current = true;
+      try {
+        editorRef.current.setValue(code);
+        editorRef.current.setSelection(new monaco.Selection(1, 1, 1, 1));
+        editorRef.current.setPosition({ lineNumber: 1, column: 1 });
+      } finally {
+        // Small delay or synchronous reset so any microtasks / events settle cleanly
+        setTimeout(() => {
+          isProgrammaticUpdateRef.current = false;
+        }, 50);
+      }
     }
   }, [code]);
 
