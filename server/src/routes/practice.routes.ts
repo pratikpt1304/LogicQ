@@ -15,6 +15,7 @@ import {
   trackTopicOpen,
   recordTopicTelemetry,
   getAdminTopicPracticeSubmissions,
+  getAdminLabSubmissions,
 } from '../controllers/practice.controller.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -47,3 +48,4 @@ practiceRouter.post('/topics/solve', authenticate, recordTopicPracticeSolved);
 practiceRouter.post('/topics/track-open', authenticate, trackTopicOpen);
 practiceRouter.post('/topics/telemetry', authenticate, recordTopicTelemetry);
 practiceRouter.get('/admin/topic-submissions', authenticate, requireRole('ADMIN'), getAdminTopicPracticeSubmissions);
+practiceRouter.get('/admin/lab-submissions', authenticate, requireRole('ADMIN'), getAdminLabSubmissions);

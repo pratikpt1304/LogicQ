@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -158,7 +158,25 @@ export const TopicPracticeHubPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(1); // Default to Module 1: Control Flow
+  const [searchParams] = useSearchParams();
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(() => {
+    const p = new URLSearchParams(window.location.search).get('module');
+    if (p) {
+      const n = parseInt(p, 10);
+      if (!isNaN(n) && n >= 1 && n <= 5) return n;
+    }
+    return 1;
+  });
+
+  useEffect(() => {
+    const mod = searchParams.get('module');
+    if (mod) {
+      const parsed = parseInt(mod, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+        setSelectedModuleFilter(parsed);
+      }
+    }
+  }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNSOLVED' | 'SOLVED'>('ALL');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');

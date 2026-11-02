@@ -12,6 +12,46 @@ interface ChangePasswordModalProps {
   onOpenBindEmail?: () => void;
 }
 
+export function getWeeklyPasswordChangeStatus(userId: string) {
+  const key = `logicq_pw_change_${userId || 'u'}`;
+  try {
+    const raw = localStorage.getItem(key);
+    const data = raw ? JSON.parse(raw) : { count: 0, weekStart: Date.now() };
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    if (now - data.weekStart > oneWeekMs) {
+      data.count = 0;
+      data.weekStart = now;
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+    const daysRemaining = Math.max(1, Math.ceil((data.weekStart + oneWeekMs - now) / (24 * 60 * 60 * 1000)));
+    return {
+      count: data.count || 0,
+      remaining: Math.max(0, 2 - (data.count || 0)),
+      isLimitReached: (data.count || 0) >= 2,
+      daysRemaining,
+    };
+  } catch {
+    return { count: 0, remaining: 2, isLimitReached: false, daysRemaining: 7 };
+  }
+}
+
+export function recordPasswordChangeSuccess(userId: string) {
+  const key = `logicq_pw_change_${userId || 'u'}`;
+  try {
+    const raw = localStorage.getItem(key);
+    const data = raw ? JSON.parse(raw) : { count: 0, weekStart: Date.now() };
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    if (now - data.weekStart > oneWeekMs) {
+      data.count = 0;
+      data.weekStart = now;
+    }
+    data.count = (data.count || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {}
+}
+
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   isOpen,
   onClose,
@@ -19,11 +59,14 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 }) => {
   const { user } = useAuth();
 
-  const [step, setStep] = useState<'password' | 'otp'>('password');
+  const [authMethod, setAuthMethod] = useState<'current_pwd' | 'email_otp'>('current_pwd');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -43,6 +86,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   if (!isOpen || !user) return null;
 
+  const weeklyStatus = getWeeklyPasswordChangeStatus(user.id || 'u');
+
   // Mask email helper
   const maskEmail = (emailStr?: string | null) => {
     if (!emailStr || !emailStr.includes('@')) return emailStr || 'your email';
@@ -54,26 +99,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
   const isEmailBound = Boolean(
     user.isEmailBound ||
     user.emailVerified ||
-    (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
+    (user.email && !user.email.includes('placeholder'))
   );
 
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanPwd = newPassword.trim();
-    const cleanConfirm = confirmPassword.trim();
-
-    if (!cleanPwd || cleanPwd.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-
-    if (cleanPwd !== cleanConfirm) {
-      setError('Passwords do not match. Please re-enter.');
-      return;
-    }
-
+  const handleSendOtp = async () => {
     if (!isEmailBound) {
-      setError('You must bind a verified email address before changing your password.');
+      setError('No bound email address found. Please use Current Password or bind an email.');
       return;
     }
 
@@ -81,13 +112,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/send-change-password-otp', {
+      const res: any = await api.post('/auth/send-change-password-otp', {
         prn: user.prn || undefined,
         email: user.email,
       });
 
       if (res?.success) {
-        setStep('otp');
+        setOtpSent(true);
         setTargetEmailDisplay(res.target || maskEmail(user.email));
         setOtpDigits(['', '', '', '', '', '']);
         setCooldown(res.cooldownRemaining || 60);
@@ -119,9 +150,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       setOtpDigits(updated);
       const nextIdx = Math.min(pasted.length, 5);
       otpInputRefs.current[nextIdx]?.focus();
-      if (updated.every((d) => d !== '')) {
-        handleVerifyAndChangePassword(updated.join(''));
-      }
       return;
     }
 
@@ -131,10 +159,6 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     if (clean && index < 5) {
       otpInputRefs.current[index + 1]?.focus();
     }
-
-    if (updated.every((d) => d !== '')) {
-      handleVerifyAndChangePassword(updated.join(''));
-    }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -143,10 +167,24 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     }
   };
 
-  const handleVerifyAndChangePassword = async (codeToVerify?: string) => {
-    const fullCode = codeToVerify || otpDigits.join('');
-    if (fullCode.length < 6) {
-      setError('Please enter the 6-digit verification code sent to your email.');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (weeklyStatus.isLimitReached) {
+      setError(`Weekly limit reached: You can only change password 2 times per week. Try again in ${weeklyStatus.daysRemaining} day(s).`);
+      return;
+    }
+
+    const cleanNew = newPassword.trim();
+    const cleanConfirm = confirmPassword.trim();
+
+    if (!cleanNew || cleanNew.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (cleanNew !== cleanConfirm) {
+      setError('Passwords do not match. Please re-enter.');
       return;
     }
 
@@ -154,13 +192,32 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/change-password', {
-        newPassword: newPassword.trim(),
-        code: fullCode,
+      const payload: any = {
+        newPassword: cleanNew,
         prn: user.prn || undefined,
-      });
+      };
+
+      if (authMethod === 'current_pwd') {
+        if (!currentPassword) {
+          setError('Please enter your current password.');
+          setLoading(false);
+          return;
+        }
+        payload.currentPassword = currentPassword;
+      } else {
+        const fullCode = otpDigits.join('');
+        if (fullCode.length < 6) {
+          setError('Please enter the 6-digit verification code sent to your email.');
+          setLoading(false);
+          return;
+        }
+        payload.code = fullCode;
+      }
+
+      const res: any = await api.post('/auth/change-password', payload);
 
       if (res?.success) {
+        recordPasswordChangeSuccess(user.id || 'u');
         setIsSuccess(true);
         try {
           confetti({
@@ -173,21 +230,27 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
         if (user.id) {
           (FirestoreDataService as any).updateUserProfile?.(user.id, {
-            password: newPassword.trim(),
+            password: cleanNew,
             passwordChangedAt: new Date().toISOString(),
           }).catch(() => {});
         }
 
-        toast.success('🎉 Password updated successfully! Use your new password on next login.');
+        toast.success('🎉 Password updated successfully!');
 
         setTimeout(() => {
           onClose();
+          setIsSuccess(false);
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setOtpDigits(['', '', '', '', '', '']);
+          setOtpSent(false);
         }, 1500);
       } else {
         setError(res?.message || 'Password update failed.');
       }
     } catch (err: any) {
-      setError(err?.message || 'Invalid or expired verification code.');
+      setError(err?.message || 'Failed to update password. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -223,9 +286,20 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </button>
           </div>
 
-          <p className="text-xs text-[var(--text-muted)] font-sans mt-3 leading-relaxed">
-            Rule: Changing your password requires entering a <strong>6-digit OTP</strong> sent to your bound email address to prevent unauthorized changes.
-          </p>
+          {/* Weekly Limit Pill */}
+          <div className="mt-3 flex items-center justify-between text-xs font-mono p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+            <span className="text-[var(--text-muted)] flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Weekly Rate Limit:</span>
+            </span>
+            <span className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
+              weeklyStatus.isLimitReached
+                ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+            }`}>
+              {weeklyStatus.count}/2 used this week ({weeklyStatus.remaining} left)
+            </span>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -237,26 +311,21 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             </div>
           )}
 
-          {!isEmailBound ? (
-            /* Unbound Email Warning */
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
-              <div className="flex items-center gap-2 text-amber-500 font-bold text-xs font-mono">
+          {weeklyStatus.isLimitReached ? (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 text-center">
+              <div className="flex items-center justify-center gap-2 text-amber-500 font-bold text-xs font-mono">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Email Address Not Bound</span>
+                <span>Weekly Password Limit Reached</span>
               </div>
-              <p className="text-xs text-[var(--text-main)] font-sans leading-relaxed">
-                You must bind your active email address first so we can verify password changes via Email OTP.
+              <p className="text-xs text-[var(--text-muted)] font-mono leading-relaxed">
+                Security Policy: Students can change passwords at most <strong>2 times per week</strong>. Your next password change window opens in <strong>{weeklyStatus.daysRemaining} day(s)</strong>.
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenBindEmail) onOpenBindEmail();
-                }}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-dark-950 font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                onClick={onClose}
+                className="mt-3 w-full py-2.5 rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-main)] transition"
               >
-                <Mail className="w-4 h-4" />
-                <span>Bind Email Address Now &rarr;</span>
+                Close
               </button>
             </div>
           ) : isSuccess ? (
@@ -271,185 +340,182 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 </p>
               </div>
             </div>
-          ) : step === 'password' ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div className="space-y-3">
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Method Switcher */}
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('current_pwd');
+                    setError(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                    authMethod === 'current_pwd'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  Current Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMethod('email_otp');
+                    setError(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                    authMethod === 'email_otp'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  Email OTP
+                </button>
+              </div>
+
+              {/* Current Password Field */}
+              {authMethod === 'current_pwd' ? (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center justify-between">
-                    <span>New Password</span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-normal">Min 6 characters</span>
+                  <label className="text-xs font-mono font-bold text-[var(--text-main)]">
+                    Current Password
                   </label>
                   <div className="relative">
                     <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showCurrentPassword ? 'text' : 'password'}
                       required
-                      minLength={6}
-                      value={newPassword}
-                      onChange={(e) => {
-                        setNewPassword(e.target.value);
-                        setError(null);
-                      }}
-                      placeholder="Enter new password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
                       className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-xs font-mono focus:outline-none focus:border-indigo-500 transition"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono font-bold text-[var(--text-main)]">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        setError(null);
-                      }}
-                      placeholder="Re-enter new password"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-xs font-mono focus:outline-none focus:border-indigo-500 transition"
-                    />
+              ) : (
+                /* Email OTP Verification Section */
+                <div className="space-y-3 p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-mono text-[var(--text-main)]">
+                      <span>Target Email: </span>
+                      <strong className="text-indigo-400">{maskEmail(user.email)}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={loading || cooldown > 0}
+                      onClick={handleSendOtp}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 transition cursor-pointer"
+                    >
+                      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : cooldown > 0 ? `${cooldown}s` : otpSent ? 'Resend' : 'Send OTP'}
+                    </button>
                   </div>
-                </div>
-              </div>
 
-              <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[11px] font-mono text-[var(--text-muted)] space-y-1">
-                <div className="flex items-center gap-1.5 text-indigo-400 font-bold">
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>OTP Authorization:</span>
-                </div>
-                <p className="leading-relaxed">
-                  A verification code will be dispatched to your registered email <strong>{maskEmail(user.email)}</strong>.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-1/3 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-mono font-bold transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Sending OTP...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Send OTP to Email</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
+                  {otpSent && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-mono font-bold text-[var(--text-main)]">
+                        Enter 6-Digit Code
+                      </label>
+                      <div className="flex justify-between gap-1.5">
+                        {otpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { otpInputRefs.current[idx] = el; }}
+                            type="text"
+                            maxLength={1}
+                            inputMode="numeric"
+                            value={digit}
+                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            className="w-10 h-10 text-center rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-sm font-mono font-bold focus:outline-none focus:border-indigo-500"
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-[var(--text-main)]">
-                    Enter Email OTP
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep('password');
+                </div>
+              )}
+
+              {/* New Password */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center justify-between">
+                  <span>New Password</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Min 6 characters</span>
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
                       setError(null);
                     }}
-                    className="text-[11px] font-mono text-indigo-400 hover:underline cursor-pointer"
-                  >
-                    Edit Password
-                  </button>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
-                  Enter the 6-digit code sent to <strong className="text-[var(--text-main)]">{targetEmailDisplay || maskEmail(user.email)}</strong>
-                </p>
-              </div>
-
-              {/* 6-Digit OTP Input */}
-              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                {otpDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => (otpInputRefs.current[idx] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-11 h-12 text-center text-lg font-mono font-bold rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition shadow-inner"
+                    placeholder="Enter new password"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-xs font-mono focus:outline-none focus:border-indigo-500 transition"
                   />
-                ))}
-              </div>
-
-              {/* Resend Cooldown */}
-              <div className="flex items-center justify-between text-xs font-mono pt-1">
-                <span className="text-[var(--text-muted)]">Didn't receive code?</span>
-                {cooldown > 0 ? (
-                  <span className="text-[var(--text-muted)]">Resend in {cooldown}s</span>
-                ) : (
                   <button
                     type="button"
-                    onClick={() => handleSendOtp()}
-                    className="text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                   >
-                    <RefreshCw className="w-3 h-3" />
-                    <span>Resend Code</span>
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('password')}
-                  className="w-1/3 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleVerifyAndChangePassword()}
-                  disabled={loading || otpDigits.some((d) => !d)}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Updating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Verify &amp; Update Password</span>
-                    </>
-                  )}
-                </button>
+              {/* Confirm New Password */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-[var(--text-main)]">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Re-enter new password"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-xs font-mono focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
               </div>
-            </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Updating Password...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Update Password</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
           )}
         </div>
-
       </div>
     </div>
   );

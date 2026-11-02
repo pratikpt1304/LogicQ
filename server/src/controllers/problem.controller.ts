@@ -142,6 +142,7 @@ export async function resolveActiveDailyChallenge(now: Date = getServerNow()): P
   const scheduled = await prisma.problem.findFirst({
     where: {
       status: 'PUBLISHED',
+      isPractice: false,
       scheduledDate: challengeDayIST,
     },
     include: {
@@ -161,6 +162,7 @@ export async function resolveActiveDailyChallenge(now: Date = getServerNow()): P
   const candidates = await prisma.problem.findMany({
     where: {
       status: 'PUBLISHED',
+      isPractice: false,
       OR: [{ scheduledDate: null }, { scheduledDate: '' }],
     },
     orderBy: { createdAt: 'asc' },

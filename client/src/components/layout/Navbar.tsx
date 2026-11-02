@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
 import { Logo } from '../common/Logo.js';
 import { CommandPalette } from '../common/CommandPalette.js';
+import { ChangePasswordModal } from '../common/ChangePasswordModal.js';
 import {
   clearPwaUserCachesAndDrafts,
   triggerPwaInstallPrompt,
@@ -43,6 +44,7 @@ export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const profileDropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Close profile dropdown on click outside
@@ -381,43 +383,10 @@ export const Navbar: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            const key = `logicq_pw_change_${user?.id || 'u'}`;
-                            try {
-                              const raw = localStorage.getItem(key);
-                              const data = raw ? JSON.parse(raw) : { count: 0, weekStart: Date.now() };
-                              const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-                              const now = Date.now();
-                              if (now - data.weekStart > oneWeekMs) {
-                                data.count = 0;
-                                data.weekStart = now;
-                              }
-                              if (data.count >= 2) {
-                                alert('You can only change your password 2 times per week. Please try again next week.');
-                                return;
-                              }
-                              const np = prompt('Enter your new password (min 6 characters):');
-                              if (!np || np.length < 6) { alert('Password must be at least 6 characters.'); return; }
-                              const np2 = prompt('Confirm new password:');
-                              if (np !== np2) { alert('Passwords do not match.'); return; }
-                              fetch('/api/auth/change-password', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('logicq_token')}` },
-                                body: JSON.stringify({ newPassword: np }),
-                              })
-                                .then((r) => r.json())
-                                .then((res) => {
-                                  if (res.success || res.message) {
-                                    data.count++;
-                                    localStorage.setItem(key, JSON.stringify(data));
-                                    alert(`Password changed successfully! You have ${2 - data.count} change(s) left this week.`);
-                                  } else {
-                                    alert(res.error || 'Failed to change password. Please try again.');
-                                  }
-                                })
-                                .catch(() => alert('Network error. Please try again.'));
-                            } catch { alert('Something went wrong. Please try again.'); }
+                            setProfileDropdownOpen(false);
+                            setIsChangePasswordModalOpen(true);
                           }}
-                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group"
+                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group cursor-pointer"
                         >
                           <KeyRound className="w-3.5 h-3.5 text-cyan-500 group-hover:rotate-12 transition-transform" />
                           <span className="font-medium">Change Password</span>
@@ -689,6 +658,11 @@ export const Navbar: React.FC = () => {
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
+      />
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
       />
     </header>
   );

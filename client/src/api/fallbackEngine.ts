@@ -1406,17 +1406,34 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/auth/change-password' && method === 'POST') {
-    const { newPassword, code } = body;
+    const { newPassword, code, currentPassword, prn } = body;
     if (!newPassword || newPassword.length < 6) throw new Error('New password must be at least 6 characters.');
-    if (!code) throw new Error('Verification code is required.');
     const users = getStoredUsers();
     const currUser = getCurrentUser();
-    let user = users.find(u => u.id === currUser?.id);
-    if (user) {
-      (user as any).password = newPassword;
-      saveStoredUsers(users);
-      (FirestoreDataService as any).updateUserProfile?.(user.id, { password: newPassword }).catch(() => {});
+    let user = users.find(u => u.id === currUser?.id || (prn && u.prn === prn));
+    if (!user) throw new Error('User not found.');
+
+    if (currentPassword) {
+      if ((user as any).password && (user as any).password !== currentPassword) {
+        throw new Error('Current password does not match.');
+      }
+    } else if (code) {
+      const cleanEmail = (user.email || '').trim().toLowerCase();
+      const stored = cleanEmail ? sessionStorage.getItem('logicq_pwd_otp_' + cleanEmail) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.expires < Date.now() || parsed.code !== String(code).trim()) {
+          throw new Error('Invalid or expired verification code.');
+        }
+      }
     }
+
+    (user as any).password = newPassword;
+    saveStoredUsers(users);
+    (FirestoreDataService as any).updateUserProfile?.(user.id, {
+      password: newPassword,
+      passwordChangedAt: new Date().toISOString()
+    }).catch(() => {});
     return {
       success: true,
       message: 'Password updated successfully! You can now log in with your new password.',
@@ -2872,6 +2889,98 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   // PRACTICE SUBMISSION
+
+  if (path.startsWith('/practice/admin/lab-submissions') && method === 'GET') {
+    const users = getStoredUsers();
+    const studentUsers = users.filter((u) => u.role === 'STUDENT' || !u.role);
+
+    const urlObj = new URL('http://localhost' + path);
+    const moduleParam = urlObj.searchParams.get('module');
+    const statusParam = urlObj.searchParams.get('status');
+
+    let storedProgress: Record<string, any> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_PROGRESS);
+      if (raw) storedProgress = JSON.parse(raw);
+    } catch {}
+
+    const submissions: any[] = [];
+    const MODULE_LIST = [
+      { slug: 'control-structures', order: 1, title: 'Module 1 – Control Structures' },
+      { slug: 'pointers-and-functions', order: 2, title: 'Module 2 – Pointers & Functions' },
+      { slug: 'arrays-and-strings', order: 3, title: 'Module 3 – Arrays & Strings' },
+      { slug: 'recursion-and-bit-manipulation', order: 4, title: 'Module 4 – Structs & Memory' },
+      { slug: 'structures-unions-and-dma', order: 5, title: 'Module 5 – Structures & DMA' },
+    ];
+
+    for (const stu of studentUsers) {
+      for (const mod of MODULE_LIST) {
+        let solved = 0;
+        let timeTaken = 0;
+
+        Object.keys(storedProgress).forEach((k) => {
+          if (k.startsWith(`${stu.id}:`)) {
+            const item = storedProgress[k];
+            if (item?.isSolved) solved++;
+            timeTaken += (item?.bestRuntimeMs || 10);
+          }
+        });
+
+        try {
+          const statsRaw = localStorage.getItem(`logicq_stats_${stu.id}`);
+          if (statsRaw) {
+            const stats = JSON.parse(statsRaw);
+            if (Array.isArray(stats?.completedProblems)) {
+              solved = Math.max(solved, stats.completedProblems.length);
+            }
+          }
+        } catch {}
+
+        const status = solved >= 20 ? 'COMPLETED' : solved > 0 ? 'IN_PROGRESS' : 'NOT_STARTED';
+
+        submissions.push({
+          id: `lab_${stu.id}_${mod.slug}`,
+          userId: stu.id,
+          moduleSlug: mod.slug,
+          moduleOrder: mod.order,
+          totalProblems: 20,
+          solvedProblems: Math.min(solved, 20),
+          timeTakenSeconds: timeTaken || 120,
+          status,
+          submittedAt: new Date().toISOString(),
+          code: `#include <stdio.h>\n\n// Solution for ${mod.title}\nint main() {\n    printf("Module ${mod.order} Test Solved\\n");\n    return 0;\n}`,
+          user: {
+            id: stu.id,
+            prn: stu.prn || '2126PMIM1039',
+            email: stu.email || 'student@sanjivani.edu.in',
+            displayName: stu.displayName || stu.fullName || 'Student',
+            fullName: stu.fullName || stu.displayName || 'Student',
+            username: stu.username || 'student',
+            college: stu.college || 'Sanjivani University',
+            division: stu.division || 'FY-A',
+            year: stu.year || 'First Year',
+          },
+        });
+      }
+    }
+
+    let filtered = submissions;
+    if (moduleParam && moduleParam !== 'all') {
+      filtered = filtered.filter(s => s.moduleSlug === moduleParam);
+    }
+    if (statusParam && statusParam !== 'all') {
+      filtered = filtered.filter(s => s.status === statusParam);
+    }
+
+    return {
+      success: true,
+      data: {
+        submissions: filtered,
+        total: filtered.length,
+      },
+    };
+  }
+
   if (path === '/practice/submit' && method === 'POST') {
     const current = getCurrentUser();
     const { problemSlug, code } = body;

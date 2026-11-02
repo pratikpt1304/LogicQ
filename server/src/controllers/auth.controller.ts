@@ -1694,13 +1694,9 @@ export const sendChangePasswordOtp = async (req: AuthRequest, res: Response): Pr
  */
 export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { newPassword, code, prn } = req.body;
+    const { newPassword, code, currentPassword, prn } = req.body;
     if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
       res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
-      return;
-    }
-    if (!code) {
-      res.status(400).json({ success: false, message: '6-digit verification code is required.' });
       return;
     }
 
@@ -1722,20 +1718,38 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    if (!user.email) {
-      res.status(400).json({
-        success: false,
-        message: 'Please bind your email address first.',
-      });
-      return;
-    }
+    // Path A: Verification via Current Password (no email required)
+    if (currentPassword) {
+      if (user.passwordHash) {
+        const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isValid) {
+          res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+          return;
+        }
+      }
+    } else if (code) {
+      // Path B: Verification via 6-digit Email OTP
+      if (!user.email) {
+        res.status(400).json({
+          success: false,
+          message: 'Please bind your email address first to use email verification.',
+        });
+        return;
+      }
 
-    const cleanCode = String(code).trim();
-    const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
-    if (!verifyResult.verified) {
+      const cleanCode = String(code).trim();
+      const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+      if (!verifyResult.verified) {
+        res.status(400).json({
+          success: false,
+          message: verifyResult.message || 'Invalid or expired verification code.',
+        });
+        return;
+      }
+    } else {
       res.status(400).json({
         success: false,
-        message: verifyResult.message || 'Invalid or expired verification code.',
+        message: 'Please provide either your current password or email verification code.',
       });
       return;
     }

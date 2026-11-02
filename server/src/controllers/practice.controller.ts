@@ -2189,3 +2189,152 @@ export async function getAdminTopicPracticeSubmissions(req: AuthRequest, res: Re
     res.status(500).json({ success: false, message: 'Failed to fetch topic submissions' });
   }
 }
+
+
+/**
+ * GET /api/practice/admin/lab-submissions
+ * Returns student submissions for Lab Internal coursework modules (Module 1 - Module 5)
+ */
+export async function getAdminLabSubmissions(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { module: moduleFilter, status: statusFilter } = req.query;
+
+    const MODULE_ORDERS: Record<string, number> = {
+      'control-structures': 1,
+      'pointers-and-functions': 2,
+      'arrays-and-strings': 3,
+      'recursion-and-bit-manipulation': 4,
+      'structures-unions-and-dma': 5,
+    };
+
+    // Find all practice progress records for students
+    const progressRecords = await prisma.practiceProgress.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            prn: true,
+            email: true,
+            displayName: true,
+            fullName: true,
+            username: true,
+            college: true,
+            division: true,
+            year: true,
+            role: true,
+          },
+        },
+        problem: {
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            moduleSlug: true,
+            moduleOrder: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Group by user & moduleSlug
+    const userModuleMap = new Map<string, {
+      userId: string;
+      user: any;
+      moduleSlug: string;
+      moduleOrder: number;
+      solvedProblems: number;
+      totalProblems: number;
+      timeTakenSeconds: number;
+      lastUpdated: Date;
+    }>();
+
+    for (const record of progressRecords) {
+      if (record.user?.role !== 'STUDENT') continue;
+      const mSlug = record.moduleSlug || record.problem?.moduleSlug || 'control-structures';
+      const key = `${record.userId}_${mSlug}`;
+
+      if (!userModuleMap.has(key)) {
+        userModuleMap.set(key, {
+          userId: record.userId,
+          user: record.user,
+          moduleSlug: mSlug,
+          moduleOrder: MODULE_ORDERS[mSlug] || record.problem?.moduleOrder || 1,
+          solvedProblems: 0,
+          totalProblems: 20,
+          timeTakenSeconds: 0,
+          lastUpdated: record.updatedAt,
+        });
+      }
+
+      const item = userModuleMap.get(key)!;
+      if (record.isSolved) item.solvedProblems++;
+      item.timeTakenSeconds += (record.activeSeconds || record.timeToSolveSeconds || 0);
+      if (record.updatedAt > item.lastUpdated) item.lastUpdated = record.updatedAt;
+    }
+
+    // Also get recent practice submissions to fetch actual code samples if needed
+    const recentSubmissions = await prisma.submission.findMany({
+      where: { submissionType: 'PRACTICE' },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: {
+        userId: true,
+        code: true,
+        verdict: true,
+        createdAt: true,
+      },
+    });
+
+    const userCodeMap = new Map<string, string>();
+    for (const sub of recentSubmissions) {
+      if (!userCodeMap.has(sub.userId)) {
+        userCodeMap.set(sub.userId, sub.code);
+      }
+    }
+
+    let submissions = Array.from(userModuleMap.values()).map((entry) => {
+      const status: 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED' =
+        entry.solvedProblems >= entry.totalProblems
+          ? 'COMPLETED'
+          : entry.solvedProblems > 0
+          ? 'IN_PROGRESS'
+          : 'NOT_STARTED';
+
+      return {
+        id: `lab_${entry.userId}_${entry.moduleSlug}`,
+        userId: entry.userId,
+        moduleSlug: entry.moduleSlug,
+        moduleOrder: entry.moduleOrder,
+        totalProblems: entry.totalProblems,
+        solvedProblems: entry.solvedProblems,
+        timeTakenSeconds: entry.timeTakenSeconds,
+        status,
+        submittedAt: entry.lastUpdated.toISOString(),
+        code: userCodeMap.get(entry.userId) || null,
+        user: entry.user,
+      };
+    });
+
+    // Apply module filter if passed
+    if (moduleFilter && moduleFilter !== 'all') {
+      submissions = submissions.filter((s) => s.moduleSlug === moduleFilter);
+    }
+
+    // Apply status filter if passed
+    if (statusFilter && statusFilter !== 'all') {
+      submissions = submissions.filter((s) => s.status === statusFilter);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        submissions,
+        total: submissions.length,
+      },
+    });
+  } catch (err) {
+    console.error('Error in getAdminLabSubmissions:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch lab submissions' });
+  }
+}
