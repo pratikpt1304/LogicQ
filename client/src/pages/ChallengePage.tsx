@@ -1194,70 +1194,8 @@ export const ChallengePage: React.FC = () => {
             activeMobileTab === 'statement' ? 'hidden lg:flex' : ''
           }`}
         >
-          {/* Top Bar for Code Actions */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--bg-panel)] border-b border-[var(--border-line)] shrink-0 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    isOffline
-                      ? 'bg-[var(--color-error)]'
-                      : isWindowExpired
-                      ? 'bg-[var(--color-warning)]'
-                      : 'bg-[var(--color-success)]'
-                  }`}
-                ></span>
-                <span>
-                  {isOffline
-                    ? 'Offline — code saved on device'
-                    : isWindowExpired
-                    ? 'Challenge ended at 17:00 IST — Editor Read-Only'
-                    : 'C11 Compiler'}
-                </span>
-              </span>
-              {isOffline && <WifiOff className="w-3.5 h-3.5 text-[var(--color-error)]" />}
-              {isWindowExpired && !isOffline && (
-                <Lock className="w-3.5 h-3.5 text-[var(--color-warning)]" />
-              )}
-              {!isOffline && !isWindowExpired && user?.id && (
-                <span className="text-[11px] font-mono text-[var(--text-muted)] flex items-center gap-1 pl-2 border-l border-[var(--border-line)]">
-                  <Cloud className={`w-3.5 h-3.5 ${draftSyncStatus === 'saving' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`} />
-                  <span>{draftSyncStatus === 'saving' ? 'Saving to cloud...' : 'Draft synced'}</span>
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                data-testid="run-code-button"
-                onClick={() => runMutation.mutate()}
-                disabled={runMutation.isPending || isOffline || isWindowExpired}
-                title="Run code with active stdin (Ctrl + Enter)"
-                className="flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-xl text-xs font-mono font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-all duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.96] shadow-sm hover:shadow cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5 text-[var(--color-accent)] fill-current" />
-                <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
-                <kbd className="hidden sm:inline text-[10px] text-[var(--text-muted)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-sans">Ctrl+↵</kbd>
-              </button>
-
-              <button
-                type="button"
-                data-testid="submit-solution-button"
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || isOffline || isWindowExpired}
-                title="Submit solution to judge all test cases (Ctrl + Shift + Enter)"
-                className="flex items-center gap-2 min-h-[40px] px-5 py-2 rounded-xl text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:scale-[0.96] disabled:opacity-50 transition-all duration-200 ease-out cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
-                <kbd className="hidden sm:inline text-[10px] text-white/80 bg-black/20 px-1.5 py-0.5 rounded border border-white/10 font-sans">Ctrl+⇧+↵</kbd>
-              </button>
-            </div>
-          </div>
-
           {/* Editor Container */}
-          <div className="flex-1 min-h-0 overflow-hidden p-2">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
@@ -1355,15 +1293,41 @@ export const ChallengePage: React.FC = () => {
                 </button>
               </div>
 
-              <button
-                type="button"
-                aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
-                onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                className="px-2.5 py-1 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)] transition-all duration-200 active:scale-95 flex items-center gap-1.5 font-mono text-xs cursor-pointer"
-              >
-                <span className="hidden sm:inline font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="run-code-button"
+                  onClick={() => runMutation.mutate()}
+                  disabled={runMutation.isPending || isOffline || isWindowExpired}
+                  title="Run code with active stdin (Ctrl + Enter)"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-all cursor-pointer shadow-xs"
+                >
+                  <Play className="w-3 h-3 text-cyan-400 fill-current" />
+                  <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="submit-solution-button"
+                  onClick={() => submitMutation.mutate()}
+                  disabled={submitMutation.isPending || isOffline || isWindowExpired}
+                  title="Submit solution to judge all test cases (Ctrl + Shift + Enter)"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-sm disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
+                  onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                  className="px-2 py-1 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)] transition-all flex items-center gap-1 font-mono text-xs cursor-pointer ml-1"
+                >
+                  <span className="hidden sm:inline font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
+                </button>
+              </div>
             </div>
 
             {/* Drawer Body */}
