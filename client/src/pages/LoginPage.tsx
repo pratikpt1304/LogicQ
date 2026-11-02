@@ -382,7 +382,7 @@ export const LoginPage: React.FC = () => {
                   }`}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span>Faculty / OTP</span>
+                  <span>Email / OTP</span>
                 </button>
               </div>
 

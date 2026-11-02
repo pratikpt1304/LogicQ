@@ -153,7 +153,7 @@ export const App: React.FC = () => {
   const location = useLocation();
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
 
-  // Automatically prompt students who haven't bound their verified personal email address
+  // Strictly enforce compulsory email binding for students who haven't bound their verified email
   useEffect(() => {
     if (user && user.role === 'STUDENT') {
       const isBound = Boolean(
@@ -161,10 +161,11 @@ export const App: React.FC = () => {
         user.emailVerified ||
         (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
       );
-      const isDismissed = sessionStorage.getItem(`logicq_bind_email_dismissed_${user.id}`) === 'true';
-      if (!isBound && !isDismissed && location.pathname !== '/login') {
-        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 1200);
+      if (!isBound && location.pathname !== '/login') {
+        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 800);
         return () => clearTimeout(timer);
+      } else if (isBound) {
+        setIsAutoBindEmailOpen(false);
       }
     }
   }, [user, location.pathname]);
@@ -514,10 +515,8 @@ export const App: React.FC = () => {
         isOpen={isAutoBindEmailOpen}
         onClose={() => {
           setIsAutoBindEmailOpen(false);
-          if (user?.id) {
-            sessionStorage.setItem(`logicq_bind_email_dismissed_${user.id}`, 'true');
-          }
         }}
+        forcePrompt={true}
       />
     </div>
   );

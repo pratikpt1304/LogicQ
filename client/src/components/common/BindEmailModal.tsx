@@ -175,13 +175,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
     }
   };
 
-  const handleDismiss = () => {
-    if (user?.id) {
-      sessionStorage.setItem(`logicq_bind_email_dismissed_${user.id}`, 'true');
-    }
-    onClose();
-  };
-
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -207,15 +200,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 </p>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
-              title="Close for now"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
           <p className="text-xs text-[var(--text-muted)] font-sans mt-3 leading-relaxed">
@@ -277,20 +261,11 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                {!forcePrompt && (
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="w-1/3 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
-                  >
-                    Skip for Now
-                  </button>
-                )}
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-mono font-bold transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-mono font-bold transition flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
