@@ -1333,18 +1333,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                     solution.c [C11]
                   </span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleResetCode}
-                    className="px-2.5 py-1 rounded-lg border border-[var(--border-line)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs font-mono transition flex items-center gap-1 cursor-pointer"
-                    title="Reset to starter code"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reset</span>
-                  </button>
-                </div>
               </div>
 
               {/* Editor Container */}
@@ -1352,7 +1340,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <CodeEditor
                   code={code}
                   onChange={handleCodeChange}
-                  onReset={handleResetCode}
                   readOnly={false}
                   disableCopyPaste={true}
                 />
