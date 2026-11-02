@@ -561,6 +561,27 @@ export const DashboardPage: React.FC = () => {
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
 
+
+  // Topic Practice distinct metrics (111 Curated Topics)
+  const practiceTopicsTotal = TOPIC_PRACTICE_DATA.length || 111;
+  const practiceEasyTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY').length || 56;
+  const practiceMedTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM').length || 37;
+  const practiceHardTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD').length || 18;
+
+  const practiceEasySolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY' && solvedTopicIds.includes(t.id)).length;
+  const practiceMedSolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM' && solvedTopicIds.includes(t.id)).length;
+  const practiceHardSolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD' && solvedTopicIds.includes(t.id)).length;
+  const practiceTotalSolved = practiceEasySolved + practiceMedSolved + practiceHardSolved;
+  const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
+
+  // Lab Internal distinct metrics (100 Evaluation Problems across 5 Modules)
+  const labTotal = 100;
+  const labTotalSolved = studentModulesList.reduce((acc: number, m: any) => acc + (m.solvedCount || 0), 0);
+  const labOverallPercent = Math.min(100, Math.round((labTotalSolved / labTotal) * 100));
+  const labEasySolved = Math.min(40, Math.round(labTotalSolved * 0.4));
+  const labMedSolved = Math.min(40, Math.round(labTotalSolved * 0.4));
+  const labHardSolved = Math.max(0, labTotalSolved - labEasySolved - labMedSolved);
+
   const totalProblemsSolved = Math.max(
     stats?.problemsSolved ?? (user as any)?.problemsSolved ?? 0,
     solvedTopicIds.length
@@ -1216,29 +1237,29 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. TOP BENTO ROW: MASTERY RING + 7-DAY CONSISTENCY MATRIX */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* BENTO TILE 1: COURSE MASTERY & PROGRESS RING (5 Cols) */}
-            <div className="lg:col-span-5 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+          {/* 2. TOP BENTO ROW: 2 DISTINCT MASTERY GRAPHS (PRACTICE & LAB INTERNAL) + 7-DAY CONSISTENCY MATRIX */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5">
+            {/* GRAPH 1: TOPIC PRACTICE MASTERY (4 Cols) */}
+            <div className="lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-emerald-500/40 transition-all">
               <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20">
-                    <Target className="w-4 h-4" />
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20">
+                    <Code2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-[var(--text-main)]">Coursework Mastery</h3>
-                    <p className="text-[11px] font-mono text-[var(--text-muted)]">100 Sequential Lab Questions</p>
+                    <h3 className="font-bold text-sm text-[var(--text-main)]">Practice Mastery</h3>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">111 Topic Questions</p>
                   </div>
                 </div>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  {overallMasteryPercent}% Done
+                  {practiceOverallPercent}% Done
                 </span>
               </div>
 
               {/* Circular Radial SVG + Stats Breakdown */}
-              <div className="py-6 flex items-center justify-around gap-4">
+              <div className="py-5 flex items-center justify-around gap-3">
                 {/* SVG Progress Circle */}
-                <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
+                <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                     <circle
                       cx="50"
@@ -1252,62 +1273,144 @@ export const DashboardPage: React.FC = () => {
                       cx="50"
                       cy="50"
                       r="40"
-                      stroke="url(#masteryGrad)"
+                      stroke="url(#practiceGrad)"
                       strokeWidth="9"
                       strokeDasharray={251.32}
-                      strokeDashoffset={251.32 - (251.32 * overallMasteryPercent) / 100}
+                      strokeDashoffset={251.32 - (251.32 * practiceOverallPercent) / 100}
                       strokeLinecap="round"
                       fill="transparent"
                       className="transition-all duration-1000 ease-out"
                     />
                     <defs>
-                      <linearGradient id="masteryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#4f46e5" />
+                      <linearGradient id="practiceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="50%" stopColor="#14b8a6" />
+                        <stop offset="100%" stopColor="#06b6d4" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
+                    <span className="text-xl font-black text-[var(--text-main)]">{practiceTotalSolved}</span>
+                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 111</span>
+                  </div>
+                </div>
+
+                {/* Breakdown List */}
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[var(--text-muted)]">Easy:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{practiceEasySolved}/{practiceEasyTotal}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-[var(--text-muted)]">Medium:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{practiceMedSolved}/{practiceMedTotal}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <span className="text-[var(--text-muted)]">Hard:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{practiceHardSolved}/{practiceHardTotal}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Practice link */}
+              <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
+                <span className="text-[var(--text-muted)]">Topic Arena</span>
+                <Link to="/practice" className="text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  <span>Practice →</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* GRAPH 2: LAB INTERNAL MASTERY (4 Cols) */}
+            <div className="lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 border border-cyan-500/20">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[var(--text-main)]">Lab Internal</h3>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">100 Lab Questions</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                  {labOverallPercent}% Done
+                </span>
+              </div>
+
+              {/* Circular Radial SVG + Stats Breakdown */}
+              <div className="py-5 flex items-center justify-around gap-3">
+                {/* SVG Progress Circle */}
+                <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      className="stroke-[var(--border-line)] opacity-60"
+                      strokeWidth="9"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      stroke="url(#labGrad)"
+                      strokeWidth="9"
+                      strokeDasharray={251.32}
+                      strokeDashoffset={251.32 - (251.32 * labOverallPercent) / 100}
+                      strokeLinecap="round"
+                      fill="transparent"
+                      className="transition-all duration-1000 ease-out"
+                    />
+                    <defs>
+                      <linearGradient id="labGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="50%" stopColor="#06b6d4" />
                         <stop offset="100%" stopColor="#10b981" />
                       </linearGradient>
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
-                    <span className="text-2xl font-black text-[var(--text-main)]">{totalProblemsSolved}</span>
-                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 100</span>
+                    <span className="text-xl font-black text-[var(--text-main)]">{labTotalSolved}</span>
+                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 100</span>
                   </div>
                 </div>
 
                 {/* Breakdown List */}
-                <div className="space-y-2 font-mono text-xs">
+                <div className="space-y-1.5 font-mono text-[11px]">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-[var(--text-muted)]">Easy Core:</span>
-                    <span className="font-bold text-[var(--text-main)] ml-auto">40 Probs</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{labEasySolved}/40</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span className="text-[var(--text-muted)]">Medium Logic:</span>
-                    <span className="font-bold text-[var(--text-main)] ml-auto">40 Probs</span>
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-[var(--text-muted)]">Med Logic:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{labMedSolved}/40</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    <span className="text-[var(--text-muted)]">Hard Mastery:</span>
-                    <span className="font-bold text-[var(--text-main)] ml-auto">20 Probs</span>
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <span className="text-[var(--text-muted)]">Hard Test:</span>
+                    <span className="font-bold text-[var(--text-main)] ml-auto">{labHardSolved}/20</span>
                   </div>
                 </div>
               </div>
 
-              {/* Footer XP bar */}
-              <div className="pt-4 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
-                <span className="text-[var(--text-muted)] flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Academic XP</span>
-                </span>
-                <span className="font-extrabold text-amber-600 dark:text-amber-400">
-                  {user?.totalPoints || 0} PTS
-                </span>
+              {/* Footer Lab Internal link */}
+              <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-xs font-mono">
+                <span className="text-[var(--text-muted)]">Evaluation</span>
+                <Link to="/lab-internal" className="text-cyan-500 hover:text-cyan-400 font-bold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  <span>Open Labs →</span>
+                </Link>
               </div>
             </div>
 
-            {/* BENTO TILE 2: 7-DAY CONSISTENCY & ACTIVITY MATRIX (7 Cols) */}
-            <div className="lg:col-span-7 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all">
+            {/* BENTO TILE 3: 7-DAY CONSISTENCY & ACTIVITY MATRIX (4 Cols) */}
+            <div className="md:col-span-2 lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all">
               <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
