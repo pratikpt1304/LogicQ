@@ -211,6 +211,10 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(document.fullscreenElement));
   const remoteDraftTimeoutRef = useRef<any>(null);
+  const activeTopicRef = useRef<TopicPracticeItem | null>(null);
+  activeTopicRef.current = activeTopic;
+  const hasEnteredFullscreenRef = useRef<boolean>(false);
+  const isExitingRef = useRef<boolean>(false);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -226,14 +230,28 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSolvedTopics(getSolvedPracticeTopicIds(user?.id));
   }, [user?.id]);
 
-  // Fullscreen change tracking
+  // Fullscreen change tracking & strict auto-exit enforcement
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const elem = document as any;
+      const isNowFullscreen = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
+      setIsFullscreen(isNowFullscreen);
+
+      if (isNowFullscreen) {
+        hasEnteredFullscreenRef.current = true;
+      } else if (hasEnteredFullscreenRef.current && activeTopicRef.current && !isExitingRef.current) {
+        // Strict Fullscreen Rule: Exiting fullscreen automatically closes the question
+        hasEnteredFullscreenRef.current = false;
+        handleCloseTopic();
+        toast.warning('⚠️ Fullscreen exited! Practice question has been closed.');
+      }
     };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
   }, []);
 
@@ -281,24 +299,6 @@ export const TopicPracticeHubPage: React.FC = () => {
     };
   }, [activeTopic, user?.id]);
 
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-          setIsFullscreen(true);
-        }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-          setIsFullscreen(false);
-        }
-      }
-    } catch {
-      toast.error('Unable to toggle fullscreen on this device.');
-    }
-  };
-
   // Module-aware topic navigation (Each module has 25 topics)
   const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
     (t) => t.moduleIndex === (activeTopic ? activeTopic.moduleIndex : selectedModuleFilter)
@@ -314,6 +314,26 @@ export const TopicPracticeHubPage: React.FC = () => {
   const moduleSolvedCount = currentModuleTopics.filter((t) => solvedTopics.includes(t.id)).length;
 
   const handleOpenTopic = async (topic: TopicPracticeItem) => {
+    // 1. Automatically launch full screen on Practice click
+    const elem = document.documentElement as any;
+    if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
+      try {
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+          hasEnteredFullscreenRef.current = true;
+          setIsFullscreen(true);
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+          hasEnteredFullscreenRef.current = true;
+          setIsFullscreen(true);
+        }
+      } catch (fsErr) {
+        console.warn('Fullscreen automatic launch deferred:', fsErr);
+      }
+    } else {
+      hasEnteredFullscreenRef.current = true;
+    }
+
     setActiveTopic(topic);
     try {
       localStorage.setItem('logicq_last_topic_id', topic.id);
@@ -392,15 +412,27 @@ export const TopicPracticeHubPage: React.FC = () => {
   };
 
   const handleCloseTopic = async () => {
+    isExitingRef.current = true;
     setShowCelebrationModal(false);
     setIsTipDrawerOpen(false);
     setIsMobilePaletteOpen(false);
-    if (document.fullscreenElement) {
+    setActiveTopic(null);
+    hasEnteredFullscreenRef.current = false;
+
+    const elem = document as any;
+    if (document.fullscreenElement || elem.webkitFullscreenElement) {
       try {
-        await document.exitFullscreen();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (elem.webkitExitFullscreen) {
+          await elem.webkitExitFullscreen();
+        }
       } catch {}
     }
-    setActiveTopic(null);
+
+    setTimeout(() => {
+      isExitingRef.current = false;
+    }, 400);
   };
 
   // Run test case & verify solution (Compile & Run)
@@ -1124,19 +1156,13 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <span>Palette ({moduleSolvedCount}/{currentModuleTopics.length})</span>
               </button>
 
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition border cursor-pointer ${
-                  isFullscreen
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20'
-                }`}
-                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F11)'}
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 select-none shadow-xs"
+                title="Strict Fullscreen Mode: Exiting fullscreen automatically terminates the question session."
               >
-                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                <span className="hidden md:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-              </button>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden md:inline">Fullscreen Mode</span>
+              </div>
 
               <button
                 onClick={() => setIsIssueModalOpen(true)}
