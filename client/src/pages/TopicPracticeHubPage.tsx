@@ -1334,7 +1334,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             {/* Center: Live CBT Countdown Timer */}
             {(() => {
-              const totalAllocatedSeconds = activeTopic.problem.difficulty === 'HARD' ? 1500 : activeTopic.problem.difficulty === 'MEDIUM' ? 1200 : 900;
+              const totalAllocatedSeconds = activeTopic.problem.difficulty === 'HARD' ? 2400 : activeTopic.problem.difficulty === 'MEDIUM' ? 1800 : 1200;
               const remainingSeconds = Math.max(0, totalAllocatedSeconds - elapsedSeconds);
               const isUrgent = remainingSeconds < 180;
 
