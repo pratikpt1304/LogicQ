@@ -283,7 +283,21 @@ export const TopicPracticeHubPage: React.FC = () => {
     };
   }, [activeTopic]);
 
-  // Anti-Cheat: Tab Switch & Clipboard Guard while topic workspace is active
+  // Proctoring telemetry refs
+  const codeRef = useRef(code);
+  useEffect(() => { codeRef.current = code; }, [code]);
+  const elapsedSecondsRef = useRef(elapsedSeconds);
+  useEffect(() => { elapsedSecondsRef.current = elapsedSeconds; }, [elapsedSeconds]);
+  const charsTypedRef = useRef(0);
+  const keystrokesRef = useRef(0);
+  const fullscreenExitsRef = useRef(0);
+
+  const getTypingVelocityCPM = () => {
+    const minutes = Math.max(10, elapsedSecondsRef.current) / 60;
+    return Math.round(charsTypedRef.current / minutes);
+  };
+
+  // Anti-Cheat: Tab Switch, Clipboard Guard & Fullscreen Monitor while topic workspace is active
   useEffect(() => {
     if (!activeTopic || !user?.id) return;
 
@@ -296,7 +310,14 @@ export const TopicPracticeHubPage: React.FC = () => {
         api.post('/practice/topics/telemetry', {
           topicId: activeTopic.id,
           tabSwitchDelta: 1,
-          currentCode: code,
+          currentCode: codeRef.current,
+          elapsedSec: elapsedSecondsRef.current,
+          typingVelocityCPM: getTypingVelocityCPM(),
+          eventLog: {
+            event: 'TAB_SWITCH',
+            detail: 'Student switched tab or window unfocused',
+            elapsedSec: elapsedSecondsRef.current,
+          },
         }).catch(() => {});
         toast.warning('⚠️ Tab Switch Detected! Proctored telemetry records all window unfocus events.');
       }
@@ -311,17 +332,49 @@ export const TopicPracticeHubPage: React.FC = () => {
       api.post('/practice/topics/telemetry', {
         topicId: activeTopic.id,
         copyPasteDelta: 1,
-        currentCode: code,
+        currentCode: codeRef.current,
+        elapsedSec: elapsedSecondsRef.current,
+        typingVelocityCPM: getTypingVelocityCPM(),
+        eventLog: {
+          event: 'PASTE_BLOCKED',
+          detail: 'External copy-paste attempt blocked by proctoring guard',
+          elapsedSec: elapsedSecondsRef.current,
+        },
       }).catch(() => {});
       toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
     };
 
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && activeTopic) {
+        fullscreenExitsRef.current += 1;
+        FirestoreDataService.saveProctoringTelemetry(user.id, {
+          fullscreenExits: 1,
+          lastIncidentAt: new Date().toISOString(),
+        }).catch(() => {});
+        api.post('/practice/topics/telemetry', {
+          topicId: activeTopic.id,
+          fullscreenExitDelta: 1,
+          currentCode: codeRef.current,
+          elapsedSec: elapsedSecondsRef.current,
+          typingVelocityCPM: getTypingVelocityCPM(),
+          eventLog: {
+            event: 'FULLSCREEN_EXIT',
+            detail: 'Student exited full screen examination mode',
+            elapsedSec: elapsedSecondsRef.current,
+          },
+        }).catch(() => {});
+        toast.warning('⚠️ Fullscreen Exit Detected! Please remain in full screen examination mode.');
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('paste', handlePaste);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [activeTopic, user?.id]);
 
@@ -478,6 +531,11 @@ export const TopicPracticeHubPage: React.FC = () => {
     const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
     const initialCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : topic.problem.starterCode;
 
+    // Reset per-question proctoring counters
+    charsTypedRef.current = 0;
+    keystrokesRef.current = 0;
+    fullscreenExitsRef.current = 0;
+
     // Track topic open: increments attemptsCount every time question is opened
     api.post('/practice/topics/track-open', {
       topicId: topic.id,
@@ -514,6 +572,10 @@ export const TopicPracticeHubPage: React.FC = () => {
   };
 
   const handleCodeChange = (newCode: string) => {
+    const delta = Math.abs(newCode.length - (codeRef.current?.length || 0));
+    charsTypedRef.current += delta;
+    keystrokesRef.current += 1;
+    codeRef.current = newCode;
     setCode(newCode);
     if (!activeTopic) return;
     const draftKey = `topic_${activeTopic.id}`;
@@ -683,7 +745,8 @@ export const TopicPracticeHubPage: React.FC = () => {
           FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
         }
 
-        // 2. Sync to backend practice API with full details, code, and solve time
+        // 2. Sync to backend practice API with full details, code, solve time, and typing velocity
+        const velocity = getTypingVelocityCPM();
         api.post('/practice/topics/solve', {
           topicId: activeTopic.id,
           moduleSlug: activeTopic.moduleSlug,
@@ -692,6 +755,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           difficulty: activeTopic.problem.difficulty,
           code,
           timeTakenSeconds: elapsedSeconds,
+          typingVelocityCPM: velocity,
         }).catch(() => {});
 
         // 3. Invalidate query cache so /lab-internal and Dashboard reflect solved count instantly

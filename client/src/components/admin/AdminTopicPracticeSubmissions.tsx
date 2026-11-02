@@ -19,11 +19,26 @@ import {
   Terminal,
   User,
   ExternalLink,
+  Zap,
+  Activity,
+  Maximize2,
+  Minimize2,
+  ListOrdered,
+  FileCode,
+  ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPracticeTime } from '../practice/PracticeTimer.js';
 
-interface TopicSubmissionItem {
+export interface ActivityLogEntry {
+  time: string;
+  elapsedSec?: number;
+  event: string;
+  detail?: string;
+}
+
+export interface TopicSubmissionItem {
   id: string;
   userId: string;
   topicId: string;
@@ -36,6 +51,11 @@ interface TopicSubmissionItem {
   attemptsCount: number;
   tabSwitchCount: number;
   copyPasteAttempts: number;
+  fullscreenExitCount?: number;
+  typingVelocityCPM?: number;
+  cheatProbability?: 'CLEAN' | 'SUSPICIOUS' | 'LIKELY_CHEATED' | string;
+  cheatReason?: string | null;
+  activityLogs?: string | ActivityLogEntry[] | null;
   code?: string | null;
   verdict: string;
   firstOpenedAt: string;
@@ -61,18 +81,21 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [selectedModule, setSelectedModule] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
   const [inspectingItem, setInspectingItem] = useState<TopicSubmissionItem | null>(null);
+  const [activeModalTab, setActiveModalTab] = useState<'code' | 'logs'>('code');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
   // Fetch topic practice submissions
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['admin-topic-practice-submissions', page, selectedModule, selectedStatus, search],
+    queryKey: ['admin-topic-practice-submissions', page, selectedModule, selectedStatus, selectedRisk, search],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', '25');
       if (selectedModule !== 'ALL') params.append('moduleIndex', selectedModule);
       if (selectedStatus !== 'ALL') params.append('status', selectedStatus);
+      if (selectedRisk !== 'ALL') params.append('cheatProbability', selectedRisk);
       if (search.trim()) params.append('search', search.trim());
 
       const res = await api.get<any>(`/practice/admin/topic-submissions?${params.toString()}`);
@@ -89,6 +112,10 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
     totalAttempts: 0,
     totalTabSwitches: 0,
     totalCopyPasteAttempts: 0,
+    totalFullscreenExits: 0,
+    likelyCheatedCount: 0,
+    suspiciousCount: 0,
+    cleanCount: 0,
   };
   const totalPages = data?.totalPages || 1;
 
@@ -115,6 +142,43 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
     }
   };
 
+  const parseLogs = (logsRaw?: string | ActivityLogEntry[] | null): ActivityLogEntry[] => {
+    if (!logsRaw) return [];
+    if (Array.isArray(logsRaw)) return logsRaw;
+    try {
+      const parsed = JSON.parse(logsRaw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const renderCheatBadge = (item: TopicSubmissionItem) => {
+    const risk = item.cheatProbability || 'CLEAN';
+    if (risk === 'LIKELY_CHEATED') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-400 border border-rose-500/30">
+          <ShieldAlert className="w-3 h-3 text-rose-400" />
+          <span>Likely Cheated</span>
+        </span>
+      );
+    }
+    if (risk === 'SUSPICIOUS') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          <AlertTriangle className="w-3 h-3 text-amber-400" />
+          <span>Suspicious</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+        <span>Clean</span>
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Top Header Card */}
@@ -129,7 +193,7 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
             </h3>
           </div>
           <p className="text-xs font-mono text-slate-400 max-w-2xl">
-            Live telemetry tracking every module practice question opened or solved. Each time a student opens a question, their attempt count increments. Includes proctored tab switches and blocked copy-paste attempts.
+            Live telemetry tracking every module practice question opened or solved. Includes real-time typing velocity (CPM), paste attempts, tab switches, full-screen exits, and individual student event timeline logs.
           </p>
         </div>
 
@@ -145,35 +209,45 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
       </div>
 
       {/* Aggregate Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="glass-card p-3.5 rounded-xl border border-white/[0.06] bg-dark-900/60">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="glass-card p-3 rounded-xl border border-white/[0.06] bg-dark-900/60">
           <span className="text-[10px] font-mono text-slate-400 block uppercase">Total Questions</span>
           <span className="text-lg font-bold font-mono text-white">{stats.totalTracked}</span>
         </div>
 
-        <div className="glass-card p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+        <div className="glass-card p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
           <span className="text-[10px] font-mono text-emerald-400 block uppercase font-semibold">Solved</span>
           <span className="text-lg font-bold font-mono text-emerald-400">{stats.solvedCount}</span>
         </div>
 
-        <div className="glass-card p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
+        <div className="glass-card p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
           <span className="text-[10px] font-mono text-amber-400 block uppercase font-semibold">In Progress</span>
           <span className="text-lg font-bold font-mono text-amber-400">{stats.inProgressCount}</span>
         </div>
 
-        <div className="glass-card p-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5">
-          <span className="text-[10px] font-mono text-purple-400 block uppercase font-semibold">Total Opens / Attempts</span>
+        <div className="glass-card p-3 rounded-xl border border-purple-500/20 bg-purple-500/5">
+          <span className="text-[10px] font-mono text-purple-400 block uppercase font-semibold">Question Opens</span>
           <span className="text-lg font-bold font-mono text-purple-300">{stats.totalAttempts}</span>
         </div>
 
-        <div className="glass-card p-3.5 rounded-xl border border-orange-500/20 bg-orange-500/5">
+        <div className="glass-card p-3 rounded-xl border border-orange-500/20 bg-orange-500/5">
           <span className="text-[10px] font-mono text-orange-400 block uppercase font-semibold">Tab Switches</span>
           <span className="text-lg font-bold font-mono text-orange-400">{stats.totalTabSwitches}</span>
         </div>
 
-        <div className="glass-card p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5">
+        <div className="glass-card p-3 rounded-xl border border-rose-500/20 bg-rose-500/5">
           <span className="text-[10px] font-mono text-rose-400 block uppercase font-semibold">Pastes Blocked</span>
           <span className="text-lg font-bold font-mono text-rose-400">{stats.totalCopyPasteAttempts}</span>
+        </div>
+
+        <div className="glass-card p-3 rounded-xl border border-sky-500/20 bg-sky-500/5">
+          <span className="text-[10px] font-mono text-sky-400 block uppercase font-semibold">Fullscr Exits</span>
+          <span className="text-lg font-bold font-mono text-sky-400">{stats.totalFullscreenExits || 0}</span>
+        </div>
+
+        <div className="glass-card p-3 rounded-xl border border-red-500/30 bg-red-500/10">
+          <span className="text-[10px] font-mono text-red-400 block uppercase font-semibold">Likely Cheated</span>
+          <span className="text-lg font-bold font-mono text-red-300">{stats.likelyCheatedCount || 0}</span>
         </div>
       </div>
 
@@ -240,6 +314,24 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
             <option value="IN_PROGRESS">In Progress</option>
           </select>
         </div>
+
+        {/* Cheat Risk Filter */}
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
+          <select
+            value={selectedRisk}
+            onChange={(e) => {
+              setSelectedRisk(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl bg-dark-950 border border-white/10 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-400"
+          >
+            <option value="ALL">All Cheat Risks</option>
+            <option value="LIKELY_CHEATED">Likely Cheated Only 🔴</option>
+            <option value="SUSPICIOUS">Suspicious Only 🟡</option>
+            <option value="CLEAN">Clean Submissions Only 🟢</option>
+          </select>
+        </div>
       </div>
 
       {/* Main Submissions Table */}
@@ -264,11 +356,12 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                   <th className="px-4 py-3.5">Status</th>
                   <th className="px-4 py-3.5">Time Taken</th>
                   <th className="px-4 py-3.5">
-                    <span title="Increments each time student opens question">Question Attempts</span>
+                    <span title="Increments each time student opens question">Opens</span>
                   </th>
                   <th className="px-4 py-3.5">Proctoring Telemetry</th>
+                  <th className="px-4 py-3.5">Cheat Risk</th>
                   <th className="px-4 py-3.5">Last Activity</th>
-                  <th className="px-4 py-3.5 text-right">Submitted Code</th>
+                  <th className="px-4 py-3.5 text-right">Inspect</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
@@ -357,41 +450,40 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                     <td className="px-4 py-3.5">
                       <div className="inline-flex flex-col">
                         <span className="font-mono font-bold text-xs text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded w-fit">
-                          {item.attemptsCount} {item.attemptsCount === 1 ? 'attempt' : 'attempts'}
-                        </span>
-                        <span className="text-[10px] text-slate-500 mt-0.5 font-mono">
-                          opened {item.attemptsCount} {item.attemptsCount === 1 ? 'time' : 'times'}
+                          {item.attemptsCount} {item.attemptsCount === 1 ? 'open' : 'opens'}
                         </span>
                       </div>
                     </td>
 
                     {/* Proctoring Telemetry */}
                     <td className="px-4 py-3.5">
-                      <div className="flex flex-col gap-1">
-                        {/* Tab switches */}
-                        {item.tabSwitchCount > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-orange-500/15 text-orange-400 border border-orange-500/30 w-fit">
-                            <AlertTriangle className="w-3 h-3 text-orange-400" />
-                            {item.tabSwitchCount} tab {item.tabSwitchCount === 1 ? 'switch' : 'switches'}
+                      <div className="flex flex-col gap-1 text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className={item.tabSwitchCount > 0 ? 'text-orange-400 font-bold' : 'text-slate-500'}>
+                            {item.tabSwitchCount} tabs
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            0 tab switches
+                          <span className="text-slate-600">•</span>
+                          <span className={item.copyPasteAttempts > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}>
+                            {item.copyPasteAttempts} pastes
                           </span>
-                        )}
+                          <span className="text-slate-600">•</span>
+                          <span className={(item.fullscreenExitCount || 0) > 0 ? 'text-sky-400 font-bold' : 'text-slate-500'}>
+                            {item.fullscreenExitCount || 0} fullscr
+                          </span>
+                        </div>
 
-                        {/* Copy-paste attempts */}
-                        {item.copyPasteAttempts > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/15 text-rose-400 border border-rose-500/30 w-fit">
-                            <ShieldAlert className="w-3 h-3 text-rose-400" />
-                            {item.copyPasteAttempts} paste {item.copyPasteAttempts === 1 ? 'try' : 'tries'} blocked
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            0 paste attempts
-                          </span>
+                        {item.typingVelocityCPM != null && item.typingVelocityCPM > 0 && (
+                          <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-amber-400" />
+                            <span>Velocity: <strong className={item.typingVelocityCPM >= 750 ? 'text-rose-400 font-extrabold' : 'text-amber-300'}>{item.typingVelocityCPM} CPM</strong></span>
+                          </div>
                         )}
                       </div>
+                    </td>
+
+                    {/* Cheat Risk */}
+                    <td className="px-4 py-3.5">
+                      {renderCheatBadge(item)}
                     </td>
 
                     {/* Last Activity */}
@@ -404,20 +496,19 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
                       </span>
                     </td>
 
-                    {/* Action: Inspect Code */}
+                    {/* Action: Inspect */}
                     <td className="px-4 py-3.5 text-right">
-                      {item.code && item.code.trim() ? (
-                        <button
-                          type="button"
-                          onClick={() => setInspectingItem(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/20 transition cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Inspect Code</span>
-                        </button>
-                      ) : (
-                        <span className="text-slate-600 text-xs font-mono">—</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInspectingItem(item);
+                          setActiveModalTab('code');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/20 transition cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -454,87 +545,250 @@ export const AdminTopicPracticeSubmissions: React.FC = () => {
         )}
       </div>
 
-      {/* Code Inspector Modal */}
-      {inspectingItem && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in"
-        >
-          <div className="w-full max-w-3xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col bg-slate-900/95">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-white text-sm">
-                    {inspectingItem.topicTitle}
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-mono">
-                    Module {inspectingItem.moduleIndex}
-                  </span>
-                  {inspectingItem.status === 'SOLVED' ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono">
-                      ACCEPTED / SOLVED
+      {/* Code & Proctoring Inspector Modal */}
+      {inspectingItem && (() => {
+        const logs = parseLogs(inspectingItem.activityLogs);
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in"
+          >
+            <div className="w-full max-w-4xl glass-card rounded-2xl border border-white/[0.1] shadow-2xl p-5 space-y-4 max-h-[92vh] flex flex-col bg-slate-900/95">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-white/[0.08]">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-white text-base">
+                      {inspectingItem.topicTitle}
                     </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-mono">
+                      Module {inspectingItem.moduleIndex}
+                    </span>
+                    {inspectingItem.status === 'SOLVED' ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono">
+                        ACCEPTED / SOLVED
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono">
+                        IN PROGRESS
+                      </span>
+                    )}
+                    {renderCheatBadge(inspectingItem)}
+                  </div>
+                  <p className="text-xs font-mono text-slate-400 mt-1">
+                    Student: <strong className="text-white">{inspectingItem.user?.displayName || inspectingItem.user?.fullName || inspectingItem.user?.username}</strong>
+                    {' • '}PRN: <span className="text-cyan-300 font-bold">{inspectingItem.user?.prn || 'NO_PRN'}</span>
+                    {' • '}Email: <span className="text-slate-300">{inspectingItem.user?.email}</span>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setInspectingItem(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Cheat Risk Summary Box */}
+              <div className={`p-3.5 rounded-xl border font-mono text-xs flex items-start gap-2.5 ${
+                inspectingItem.cheatProbability === 'LIKELY_CHEATED'
+                  ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                  : inspectingItem.cheatProbability === 'SUSPICIOUS'
+                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              }`}>
+                {inspectingItem.cheatProbability === 'LIKELY_CHEATED' ? (
+                  <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                ) : inspectingItem.cheatProbability === 'SUSPICIOUS' ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="font-bold uppercase tracking-wider text-[11px]">
+                    Proctoring Risk Verdict: {inspectingItem.cheatProbability || 'CLEAN'}
+                  </div>
+                  <div className="mt-0.5 text-[11px] leading-relaxed opacity-90">
+                    {inspectingItem.cheatReason || 'Normal human typing flow and zero or minimal tab switches.'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Telemetry Metric Badges Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Time Taken</span>
+                  <span className="text-xs font-bold font-mono text-indigo-300">
+                    {inspectingItem.timeTakenSeconds != null && inspectingItem.timeTakenSeconds > 0
+                      ? formatPracticeTime(inspectingItem.timeTakenSeconds)
+                      : inspectingItem.status === 'SOLVED'
+                      ? '< 1 min'
+                      : 'In Progress'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Opens / Attempts</span>
+                  <span className="text-xs font-bold font-mono text-purple-300">
+                    {inspectingItem.attemptsCount}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Tab Switches</span>
+                  <span className={`text-xs font-bold font-mono ${inspectingItem.tabSwitchCount > 0 ? 'text-orange-400' : 'text-slate-300'}`}>
+                    {inspectingItem.tabSwitchCount}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Pastes Blocked</span>
+                  <span className={`text-xs font-bold font-mono ${inspectingItem.copyPasteAttempts > 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                    {inspectingItem.copyPasteAttempts}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Fullscr Exits</span>
+                  <span className={`text-xs font-bold font-mono ${(inspectingItem.fullscreenExitCount || 0) > 0 ? 'text-sky-400' : 'text-slate-300'}`}>
+                    {inspectingItem.fullscreenExitCount || 0}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-dark-950/70 border border-white/[0.06] text-center">
+                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Typing Velocity</span>
+                  <span className={`text-xs font-bold font-mono ${(inspectingItem.typingVelocityCPM || 0) >= 750 ? 'text-rose-400' : 'text-amber-300'}`}>
+                    {inspectingItem.typingVelocityCPM ? `${inspectingItem.typingVelocityCPM} CPM` : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Sub-view switcher: Submitted Code vs. Student Activity Audit Log */}
+              <div className="flex items-center gap-2 border-b border-white/[0.08] pb-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('code')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition ${
+                    activeModalTab === 'code'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-white bg-white/[0.04]'
+                  }`}
+                >
+                  <FileCode className="w-3.5 h-3.5" />
+                  <span>Submitted C Code ({(inspectingItem.code || '').length} chars)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('logs')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition ${
+                    activeModalTab === 'logs'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-white bg-white/[0.04]'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Student Activity Audit Log ({logs.length} events)</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Code Body */}
+              {activeModalTab === 'code' && (
+                <div className="relative flex-1 overflow-auto rounded-xl bg-dark-950 border border-white/[0.08] p-4 text-xs font-mono min-h-[280px]">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCode(inspectingItem.code)}
+                    className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition cursor-pointer z-10"
+                  >
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                  </button>
+
+                  <pre className="text-slate-200 leading-relaxed overflow-x-auto pt-4">
+                    <code>{inspectingItem.code || '// No code submitted yet by student.'}</code>
+                  </pre>
+                </div>
+              )}
+
+              {/* Tab 2: Activity Audit Log Timeline */}
+              {activeModalTab === 'logs' && (
+                <div className="flex-1 overflow-auto rounded-xl bg-dark-950 border border-white/[0.08] p-4 text-xs font-mono min-h-[280px] space-y-2.5">
+                  {logs.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-xs">
+                      No discrete telemetry event logs recorded for this attempt yet.
+                    </div>
                   ) : (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono">
-                      IN PROGRESS
-                    </span>
+                    <div className="space-y-2">
+                      {logs.map((log, index) => {
+                        const isTab = log.event === 'TAB_SWITCH';
+                        const isPaste = log.event === 'PASTE_BLOCKED';
+                        const isExit = log.event === 'FULLSCREEN_EXIT';
+                        const isSolve = log.event === 'SOLVED_SUCCESS';
+                        const isOpen = log.event === 'QUESTION_OPENED';
+
+                        return (
+                          <div
+                            key={index}
+                            className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 text-xs ${
+                              isSolve
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                : isPaste
+                                ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                                : isTab
+                                ? 'bg-orange-500/15 border-orange-500/30 text-orange-300'
+                                : isExit
+                                ? 'bg-sky-500/15 border-sky-500/30 text-sky-300'
+                                : isOpen
+                                ? 'bg-purple-500/10 border-purple-500/20 text-purple-300'
+                                : 'bg-white/[0.03] border-white/[0.06] text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold font-mono uppercase bg-black/40">
+                                {log.event}
+                              </span>
+                              <span className="text-white font-medium">
+                                {log.detail || log.event}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono shrink-0">
+                              {log.elapsedSec != null && (
+                                <span className="text-slate-300 font-bold">
+                                  +{formatPracticeTime(log.elapsedSec)}
+                                </span>
+                              )}
+                              <span>
+                                {log.time ? new Date(log.time).toLocaleTimeString('en-IN') : ''}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                <p className="text-xs font-mono text-slate-400 mt-1">
-                  Student: <strong className="text-white">{inspectingItem.user?.displayName || inspectingItem.user?.fullName || inspectingItem.user?.username}</strong>
-                  {' • '}PRN: <span className="text-cyan-300 font-bold">{inspectingItem.user?.prn || 'NO_PRN'}</span>
-                  {' • '}Email: <span className="text-slate-300">{inspectingItem.user?.email}</span>
-                  {' • '}Attempts: <span className="text-purple-300 font-bold">{inspectingItem.attemptsCount}</span>
-                  {inspectingItem.timeTakenSeconds != null && inspectingItem.timeTakenSeconds > 0 && (
-                    <span>{' • '}Solve Time: <strong className="text-indigo-300">{formatPracticeTime(inspectingItem.timeTakenSeconds)} ({inspectingItem.timeTakenSeconds}s)</strong></span>
-                  )}
-                </p>
+              )}
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] text-xs font-mono">
+                <span className="text-slate-400">
+                  Last activity updated: {formatDateTime(inspectingItem.updatedAt)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setInspectingItem(null)}
+                  className="px-4 py-2 rounded-xl font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1] transition cursor-pointer"
+                >
+                  Close Inspector
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setInspectingItem(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Code Body */}
-            <div className="relative flex-1 overflow-auto rounded-xl bg-dark-950 border border-white/[0.08] p-4 text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => handleCopyCode(inspectingItem.code)}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-xs flex items-center gap-1.5 transition cursor-pointer"
-              >
-                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
-              </button>
-
-              <pre className="text-slate-200 leading-relaxed overflow-x-auto pt-6">
-                <code>{inspectingItem.code || '// No code submitted yet.'}</code>
-              </pre>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] text-xs font-mono">
-              <div className="flex items-center gap-3 text-slate-400">
-                <span>Tab Switches: <strong className="text-orange-400">{inspectingItem.tabSwitchCount}</strong></span>
-                <span>Pastes Blocked: <strong className="text-rose-400">{inspectingItem.copyPasteAttempts}</strong></span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setInspectingItem(null)}
-                className="px-4 py-2 rounded-xl font-bold bg-white/[0.05] text-slate-300 hover:bg-white/[0.1] transition cursor-pointer"
-              >
-                Close Code Viewer
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

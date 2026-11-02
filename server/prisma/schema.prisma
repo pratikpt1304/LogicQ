@@ -637,29 +637,35 @@ model StudentMiniProjectAccess {
 }
 
 model TopicPracticeSubmission {
-  id                String    @id @default(uuid())
-  userId            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  topicId           String
-  moduleIndex       Int       @default(1)
-  moduleSlug        String    @default("control-structures")
-  topicTitle        String
-  difficulty        String    @default("EASY")
-  status            String    @default("IN_PROGRESS") // "IN_PROGRESS" | "SOLVED"
-  attemptsCount     Int       @default(1) // Increments every time question is opened
-  tabSwitchCount    Int       @default(0) // How many tab switches occurred
-  copyPasteAttempts Int       @default(0) // How many copy-paste attempts were blocked
-  code              String?   // Current or submitted C code
-  verdict           String    @default("PENDING") // "ACCEPTED" | "WRONG_ANSWER" | "PENDING"
-  firstOpenedAt     DateTime  @default(now())
-  lastOpenedAt      DateTime  @default(now())
-  timeTakenSeconds  Int?      // Time taken by student to solve (in seconds)
-  solvedAt          DateTime?
-  updatedAt         DateTime  @default(now()) @updatedAt
+  id                  String    @id @default(uuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId             String
+  moduleIndex         Int       @default(1)
+  moduleSlug          String    @default("control-structures")
+  topicTitle          String
+  difficulty          String    @default("EASY")
+  status              String    @default("IN_PROGRESS") // "IN_PROGRESS" | "SOLVED"
+  attemptsCount       Int       @default(1) // Increments every time question is opened
+  tabSwitchCount      Int       @default(0) // How many tab switches occurred
+  copyPasteAttempts   Int       @default(0) // How many copy-paste attempts were blocked
+  fullscreenExitCount Int       @default(0) // How many times full screen was exited
+  typingVelocityCPM   Int       @default(0) // Characters Per Minute (typing speed/velocity)
+  cheatProbability    String    @default("CLEAN") // "CLEAN" | "SUSPICIOUS" | "LIKELY_CHEATED"
+  cheatReason         String?   // Explanation of cheating risk / detection signals
+  activityLogs        String?   // JSON serialized string of telemetry audit events [{ time: string, elapsedSec: number, event: string, detail?: string }]
+  code                String?   // Current or submitted C code
+  verdict             String    @default("PENDING") // "ACCEPTED" | "WRONG_ANSWER" | "PENDING"
+  firstOpenedAt       DateTime  @default(now())
+  lastOpenedAt        DateTime  @default(now())
+  timeTakenSeconds    Int?      // Time taken by student to solve (in seconds)
+  solvedAt            DateTime?
+  updatedAt           DateTime  @default(now()) @updatedAt
 
   @@unique([userId, topicId])
   @@index([userId])
   @@index([topicId])
   @@index([moduleIndex])
   @@index([status])
+  @@index([cheatProbability])
 }
