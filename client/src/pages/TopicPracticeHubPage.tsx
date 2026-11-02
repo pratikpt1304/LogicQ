@@ -277,6 +277,11 @@ export const TopicPracticeHubPage: React.FC = () => {
           tabSwitchCount: 1,
           lastIncidentAt: new Date().toISOString(),
         }).catch(() => {});
+        api.post('/practice/topics/telemetry', {
+          topicId: activeTopic.id,
+          tabSwitchDelta: 1,
+          currentCode: code,
+        }).catch(() => {});
         toast.warning('⚠️ Tab Switch Detected! Proctored telemetry records all window unfocus events.');
       }
     };
@@ -286,6 +291,11 @@ export const TopicPracticeHubPage: React.FC = () => {
       FirestoreDataService.saveProctoringTelemetry(user.id, {
         copyPasteAttempts: 1,
         lastIncidentAt: new Date().toISOString(),
+      }).catch(() => {});
+      api.post('/practice/topics/telemetry', {
+        topicId: activeTopic.id,
+        copyPasteDelta: 1,
+        currentCode: code,
       }).catch(() => {});
       toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
     };
@@ -343,6 +353,16 @@ export const TopicPracticeHubPage: React.FC = () => {
     const draftKey = `topic_${topic.id}`;
     const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
     const initialCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : topic.problem.starterCode;
+
+    // Track topic open: increments attemptsCount every time question is opened
+    api.post('/practice/topics/track-open', {
+      topicId: topic.id,
+      moduleIndex: topic.moduleIndex,
+      moduleSlug: topic.moduleSlug,
+      topicTitle: topic.topicTitle,
+      difficulty: topic.problem.difficulty,
+      code: initialCode,
+    }).catch(() => {});
     setCode(initialCode);
     setCustomInput(localDraft?.customInput || '');
     setRunResult(null);
@@ -539,11 +559,14 @@ export const TopicPracticeHubPage: React.FC = () => {
           FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
         }
 
-        // 2. Sync to backend practice API
+        // 2. Sync to backend practice API with full details & code
         api.post('/practice/topics/solve', {
           topicId: activeTopic.id,
           moduleSlug: activeTopic.moduleSlug,
-          title: activeTopic.topicTitle,
+          moduleIndex: activeTopic.moduleIndex,
+          topicTitle: activeTopic.topicTitle,
+          difficulty: activeTopic.problem.difficulty,
+          code,
         }).catch(() => {});
 
         // 3. Invalidate query cache so /lab-internal and Dashboard reflect solved count instantly

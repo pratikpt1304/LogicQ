@@ -1596,16 +1596,186 @@ export async function verifyPracticeReport(req: Request, res: Response): Promise
  * Records a mastered topic practice problem from the Topic Practice Arena.
  * Automatically synchronizes with prisma.practiceProgress and rewards XP.
  */
+/**
+ * Tracks a student opening a topic practice question.
+ * Per requirement: Every time a student opens the question, attemptsCount increments by 1!
+ */
+export async function trackTopicOpen(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const {
+      topicId,
+      moduleIndex = 1,
+      moduleSlug = 'control-structures',
+      topicTitle = 'Practice Problem',
+      difficulty = 'EASY',
+      code,
+    } = req.body;
+
+    if (!topicId) {
+      res.status(400).json({ success: false, message: 'topicId is required' });
+      return;
+    }
+
+    const userId = req.user.userId;
+    const now = new Date();
+
+    const record = await prisma.topicPracticeSubmission.upsert({
+      where: {
+        userId_topicId: {
+          userId,
+          topicId,
+        },
+      },
+      update: {
+        attemptsCount: { increment: 1 },
+        lastOpenedAt: now,
+        ...(code ? { code } : {}),
+      },
+      create: {
+        userId,
+        topicId,
+        moduleIndex: Number(moduleIndex) || 1,
+        moduleSlug: String(moduleSlug),
+        topicTitle: String(topicTitle),
+        difficulty: String(difficulty),
+        status: 'IN_PROGRESS',
+        attemptsCount: 1,
+        tabSwitchCount: 0,
+        copyPasteAttempts: 0,
+        code: code || null,
+        firstOpenedAt: now,
+        lastOpenedAt: now,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      attemptsCount: record.attemptsCount,
+      data: record,
+    });
+  } catch (err) {
+    console.error('Error in trackTopicOpen:', err);
+    res.status(500).json({ success: false, message: 'Failed to track topic open' });
+  }
+}
+
+/**
+ * Tracks proctoring telemetry per practice topic: tab switches and blocked copy-pastes.
+ */
+export async function recordTopicTelemetry(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const { topicId, tabSwitchDelta = 0, copyPasteDelta = 0, currentCode } = req.body;
+    if (!topicId) {
+      res.status(400).json({ success: false, message: 'topicId is required' });
+      return;
+    }
+
+    const userId = req.user.userId;
+    const now = new Date();
+
+    const record = await prisma.topicPracticeSubmission.upsert({
+      where: {
+        userId_topicId: {
+          userId,
+          topicId,
+        },
+      },
+      update: {
+        tabSwitchCount: { increment: Number(tabSwitchDelta) || 0 },
+        copyPasteAttempts: { increment: Number(copyPasteDelta) || 0 },
+        lastOpenedAt: now,
+        ...(currentCode ? { code: currentCode } : {}),
+      },
+      create: {
+        userId,
+        topicId,
+        moduleIndex: 1,
+        moduleSlug: 'control-structures',
+        topicTitle: 'Practice Problem',
+        status: 'IN_PROGRESS',
+        attemptsCount: 1,
+        tabSwitchCount: Number(tabSwitchDelta) || 0,
+        copyPasteAttempts: Number(copyPasteDelta) || 0,
+        code: currentCode || null,
+        firstOpenedAt: now,
+        lastOpenedAt: now,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tabSwitchCount: record.tabSwitchCount,
+        copyPasteAttempts: record.copyPasteAttempts,
+      },
+    });
+  } catch (err) {
+    console.error('Error in recordTopicTelemetry:', err);
+    res.status(500).json({ success: false, message: 'Failed to record topic telemetry' });
+  }
+}
+
+/**
+ * Records a mastered topic practice problem from the Topic Practice Arena.
+ * Saves submitted code, updates status to SOLVED, and synchronizes with practiceProgress and XP.
+ */
 export async function recordTopicPracticeSolved(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!req.user) {
       res.status(401).json({ success: false, message: 'Authentication required' });
       return;
     }
-    const { topicId, moduleSlug } = req.body;
+    const { topicId, moduleSlug, moduleIndex, topicTitle, code, difficulty } = req.body;
     const slug = moduleSlug || 'control-structures';
     const now = new Date();
 
+    // 1. Update or create TopicPracticeSubmission
+    if (topicId) {
+      await prisma.topicPracticeSubmission.upsert({
+        where: {
+          userId_topicId: {
+            userId: req.user.userId,
+            topicId,
+          },
+        },
+        update: {
+          status: 'SOLVED',
+          verdict: 'ACCEPTED',
+          code: code || undefined,
+          solvedAt: now,
+          lastOpenedAt: now,
+        },
+        create: {
+          userId: req.user.userId,
+          topicId,
+          moduleIndex: Number(moduleIndex) || 1,
+          moduleSlug: slug,
+          topicTitle: topicTitle || 'Practice Problem',
+          difficulty: difficulty || 'EASY',
+          status: 'SOLVED',
+          verdict: 'ACCEPTED',
+          attemptsCount: 1,
+          tabSwitchCount: 0,
+          copyPasteAttempts: 0,
+          code: code || null,
+          firstOpenedAt: now,
+          lastOpenedAt: now,
+          solvedAt: now,
+        },
+      });
+    }
+
+    // 2. Existing practice progress sync
     let problem = await prisma.problem.findFirst({
       where: {
         moduleSlug: slug,
@@ -1659,5 +1829,110 @@ export async function recordTopicPracticeSolved(req: AuthRequest, res: Response)
   } catch (err) {
     console.error('Error in recordTopicPracticeSolved:', err);
     res.status(500).json({ success: false, message: 'Failed to record topic practice progress' });
+  }
+}
+
+/**
+ * Admin portal endpoint: returns all student practice topic submissions,
+ * including student identity (PRN, Name, Email, Division), question title,
+ * attempts count, tab switches, copy-paste counts, status, and full submitted code.
+ */
+export async function getAdminTopicPracticeSubmissions(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 30));
+    const status = (req.query.status as string)?.trim();
+    const moduleIndex = req.query.moduleIndex ? parseInt(req.query.moduleIndex as string) : undefined;
+    const search = (req.query.search as string)?.trim();
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+    if (moduleIndex && !isNaN(moduleIndex)) {
+      where.moduleIndex = moduleIndex;
+    }
+
+    if (search) {
+      where.OR = [
+        { topicTitle: { contains: search } },
+        { topicId: { contains: search } },
+        {
+          user: {
+            OR: [
+              { prn: { contains: search } },
+              { email: { contains: search } },
+              { displayName: { contains: search } },
+              { fullName: { contains: search } },
+              { username: { contains: search } },
+            ],
+          },
+        },
+      ];
+    }
+
+    const [items, total, aggregateStats] = await Promise.all([
+      prisma.topicPracticeSubmission.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              prn: true,
+              email: true,
+              displayName: true,
+              fullName: true,
+              username: true,
+              college: true,
+              department: true,
+              year: true,
+              division: true,
+            },
+          },
+        },
+      }),
+      prisma.topicPracticeSubmission.count({ where }),
+      prisma.topicPracticeSubmission.aggregate({
+        where,
+        _sum: {
+          attemptsCount: true,
+          tabSwitchCount: true,
+          copyPasteAttempts: true,
+        },
+      }),
+    ]);
+
+    const solvedCount = await prisma.topicPracticeSubmission.count({
+      where: { ...where, status: 'SOLVED' },
+    });
+    const inProgressCount = await prisma.topicPracticeSubmission.count({
+      where: { ...where, status: 'IN_PROGRESS' },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        items,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        stats: {
+          totalTracked: total,
+          solvedCount,
+          inProgressCount,
+          totalAttempts: aggregateStats._sum.attemptsCount || 0,
+          totalTabSwitches: aggregateStats._sum.tabSwitchCount || 0,
+          totalCopyPasteAttempts: aggregateStats._sum.copyPasteAttempts || 0,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('Error in getAdminTopicPracticeSubmissions:', err);
+    res.status(500).json({ success: false, message: 'Failed to retrieve practice topic submissions' });
   }
 }

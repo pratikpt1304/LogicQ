@@ -75,6 +75,7 @@ import {
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../../types/index.js';
 import { AdminPracticeAnalytics } from '../../components/admin/AdminPracticeAnalytics.js';
+import { AdminTopicPracticeSubmissions } from '../../components/admin/AdminTopicPracticeSubmissions.js';
 import { AdminAntiCheatSecurity } from '../../components/admin/AdminAntiCheatSecurity.js';
 import { formatPracticeTime } from '../../components/practice/PracticeTimer.js';
 import { SectionManagementPage } from '../faculty/SectionManagementPage.js';
@@ -243,6 +244,7 @@ export const AdminDashboardPage: React.FC = () => {
   } | null>(null);
   const [copiedStudentCode, setCopiedStudentCode] = useState(false);
   const [submissionSearch, setSubmissionSearch] = useState('');
+  const [submissionsSubView, setSubmissionsSubView] = useState<'feed' | 'practice'>('practice');
   const [submissionVerdictFilter, setSubmissionVerdictFilter] = useState('ALL');
   const [submissionProblemFilter, setSubmissionProblemFilter] = useState('ALL');
   const [submissionPage, setSubmissionPage] = useState(1);
@@ -3861,18 +3863,36 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="space-y-4">
           {/* Top Live Stats & View Switcher */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl glass-card border border-white/[0.08]">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => setActiveTab('submissions')}
+                onClick={() => {
+                  setActiveTab('submissions');
+                  setSubmissionsSubView('practice');
+                }}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
-                  activeTab === 'submissions'
+                  activeTab === 'submissions' && submissionsSubView === 'practice'
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
+                    : 'bg-slate-100 dark:bg-dark-900/60 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-slate-200 dark:border-white/[0.08]'
+                }`}
+              >
+                <Code2 className="w-4 h-4 text-cyan-400" />
+                <span>Practice Submissions &amp; Telemetry</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('submissions');
+                  setSubmissionsSubView('feed');
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
+                  activeTab === 'submissions' && submissionsSubView === 'feed'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'bg-slate-100 dark:bg-dark-900/60 text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-slate-200 dark:border-white/[0.08]'
                 }`}
               >
                 <Zap className="w-4 h-4 text-amber-500" />
-                <span>Live Feed ({filteredSubmissions.length})</span>
+                <span>Contest / Daily Feed ({filteredSubmissions.length})</span>
               </button>
               <button
                 type="button"
@@ -3911,7 +3931,11 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {activeTab === 'submissions' && (
+          {activeTab === 'submissions' && submissionsSubView === 'practice' && (
+            <AdminTopicPracticeSubmissions />
+          )}
+
+          {activeTab === 'submissions' && submissionsSubView === 'feed' && (
             <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
               {/* Search & Filter Toolbar */}
               <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -5315,6 +5339,9 @@ export const AdminDashboardPage: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Module Practice Submissions & Proctoring Telemetry */}
+          <AdminTopicPracticeSubmissions />
 
           {/* Practice Performance Analytics & Telemetry */}
           <AdminPracticeAnalytics />
