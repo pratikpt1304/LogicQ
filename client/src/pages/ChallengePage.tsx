@@ -1349,10 +1349,10 @@ export const ChallengePage: React.FC = () => {
                                 setSelectedCaseIndex(idx);
                                 setCustomInput(tc.input);
                               }}
-                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                                 selectedCaseIndex === idx
-                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                                  : 'text-slate-400 hover:text-white bg-slate-900 border border-white/5'
+                                  ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-white shadow-sm shadow-cyan-500/25 border border-cyan-400'
+                                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)]'
                               }`}
                             >
                               <span>Case {idx + 1}</span>
@@ -1369,7 +1369,7 @@ export const ChallengePage: React.FC = () => {
                             setCustomInput(sampleCases[selectedCaseIndex].input);
                             runMutation.mutate();
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold transition flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <Play className="w-3 h-3 fill-current" />
                           <span>Run Case {selectedCaseIndex + 1}</span>
@@ -1380,18 +1380,18 @@ export const ChallengePage: React.FC = () => {
                     {sampleCases[selectedCaseIndex] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
                         <div className="flex flex-col min-h-0">
-                          <span className="text-slate-400 text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                          <span className="text-[var(--text-muted)] text-[11px] font-semibold mb-1 uppercase tracking-wider">
                             INPUT:
                           </span>
-                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-cyan-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-cyan-700 dark:text-cyan-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
                             {sampleCases[selectedCaseIndex].input}
                           </pre>
                         </div>
                         <div className="flex flex-col min-h-0">
-                          <span className="text-slate-400 text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                          <span className="text-[var(--text-muted)] text-[11px] font-semibold mb-1 uppercase tracking-wider">
                             EXPECTED OUTPUT:
                           </span>
-                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-700 dark:text-emerald-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
                             {sampleCases[selectedCaseIndex].expectedOutput}
                           </pre>
                         </div>
