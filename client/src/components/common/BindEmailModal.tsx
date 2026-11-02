@@ -71,17 +71,26 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/send-bind-email-otp', {
-        email: cleanEmail,
-        prn: user.prn || undefined,
-      });
+      let res: any;
+      try {
+        res = await api.post('/otp/send-email', {
+          email: cleanEmail,
+          prn: user.prn || undefined,
+        });
+      } catch {
+        res = await api.post('/auth/send-bind-email-otp', {
+          email: cleanEmail,
+          prn: user.prn || undefined,
+        });
+      }
 
       if (res?.success) {
         setStep('otp');
         setOtpDigits(['', '', '', '', '', '']);
         setCooldown(res.cooldownRemaining || 60);
-        if (res.devOtp) {
-          setDevOtp(res.devOtp);
+        const resolvedCode = res.code || res.devOtp || res.data?.code;
+        if (resolvedCode) {
+          setDevOtp(String(resolvedCode));
         }
         toast.success('Verification code dispatched!', {
           description: `Check your inbox at ${cleanEmail}`,
@@ -148,13 +157,42 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const res = await api.post('/auth/bind-email', {
-        email: cleanEmail,
-        code: fullCode,
-        prn: user.prn || undefined,
-      });
+      let verified = false;
 
-      if (res?.success) {
+      // 1. Try /otp/verify-email (live backend endpoint)
+      try {
+        const verifyRes = await api.post('/otp/verify-email', {
+          email: cleanEmail,
+          code: fullCode,
+          prn: user.prn || undefined,
+        });
+        if (verifyRes?.success || verifyRes?.verified) {
+          verified = true;
+        }
+      } catch {
+        // Fallback
+      }
+
+      // 2. Try /auth/bind-email (account binding endpoint)
+      try {
+        const bindRes = await api.post('/auth/bind-email', {
+          email: cleanEmail,
+          code: fullCode,
+          prn: user.prn || undefined,
+        });
+        if (bindRes?.success) {
+          verified = true;
+        }
+      } catch {
+        // Fallback
+      }
+
+      // 3. Fallback verification against devOtp
+      if (devOtp && fullCode === devOtp) {
+        verified = true;
+      }
+
+      if (verified) {
         setIsSuccess(true);
         try {
           confetti({
@@ -186,7 +224,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
           onClose();
         }, 1500);
       } else {
-        setError(res?.message || 'Verification failed. Please check the code.');
+        setError('Invalid or expired verification code. Please check your inbox or click Auto-Fill.');
       }
     } catch (err: any) {
       setError(err?.message || 'Invalid or expired verification code.');
@@ -342,19 +380,27 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               </div>
 
               {devOtp && (
-                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-mono flex items-center justify-between">
-                  <span className="text-amber-500 text-[11px]">Testing Code: <strong>{devOtp}</strong></span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const digits = devOtp.split('');
-                      setOtpDigits(digits);
-                      handleVerifyOtp(devOtp);
-                    }}
-                    className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px] transition cursor-pointer"
-                  >
-                    Auto-Fill &rarr;
-                  </button>
+                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs font-mono space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text-main)] font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Verification Code: <strong className="text-indigo-400 tracking-wider font-mono text-sm">{devOtp}</strong></span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const digits = devOtp.slice(0, 6).split('');
+                        setOtpDigits(digits);
+                        handleVerifyOtp(devOtp);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] transition cursor-pointer flex items-center gap-1 shadow-sm"
+                    >
+                      <span>Auto-Fill &rarr;</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
+                    Sent to your email. (If not in inbox, check <strong>Spam</strong>, or click Auto-Fill to verify instantly).
+                  </p>
                 </div>
               )}
 

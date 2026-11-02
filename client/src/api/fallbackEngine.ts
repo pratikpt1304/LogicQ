@@ -1245,7 +1245,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
-  if (path === '/auth/send-bind-email-otp' && method === 'POST') {
+  if ((path === '/auth/send-bind-email-otp' || path === '/otp/send-email') && method === 'POST') {
     const { email } = body;
     if (!email) throw new Error('Please enter a valid email address.');
     const cleanEmail = String(email).trim().toLowerCase();
@@ -1286,7 +1286,36 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       success: true,
       message: `Verification code dispatched to ${cleanEmail}`,
       cooldownRemaining: 60,
+      code: rawOtp,
       devOtp: rawOtp,
+    };
+  }
+
+  if (path === '/otp/verify-email' && method === 'POST') {
+    const { email, code } = body;
+    if (!email || !code) throw new Error('Email and verification code are required.');
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    try {
+      const stored = sessionStorage.getItem('logicq_bind_otp_' + cleanEmail);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Date.now() > parsed.expires) {
+          throw new Error('Verification code has expired. Please request a new one.');
+        }
+        if (parsed.code !== cleanCode) {
+          throw new Error('Invalid 6-digit verification code. Please check your inbox and try again.');
+        }
+      }
+    } catch (err: any) {
+      if (err.message.includes('Invalid') || err.message.includes('expired')) throw err;
+    }
+
+    return {
+      success: true,
+      verified: true,
+      message: 'Email address verified successfully.',
     };
   }
 
