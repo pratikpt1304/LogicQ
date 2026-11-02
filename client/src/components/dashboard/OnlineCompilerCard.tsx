@@ -19,6 +19,7 @@ import {
   Loader2,
   Keyboard,
   ExternalLink,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -62,6 +63,18 @@ export const OnlineCompilerCard: React.FC = () => {
     verdict?: string;
   } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleOpenCompiler = () => {
+      setIsExpanded(true);
+      setTimeout(() => {
+        document.getElementById('dashboard-online-compiler-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    };
+    window.addEventListener('logicq:open-compiler', handleOpenCompiler);
+    return () => window.removeEventListener('logicq:open-compiler', handleOpenCompiler);
+  }, []);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [copiedOutput, setCopiedOutput] = useState<boolean>(false);
 
@@ -199,8 +212,56 @@ export const OnlineCompilerCard: React.FC = () => {
     setExecutionStats(null);
   };
 
+  if (!isExpanded) {
+    return (
+      <div id="dashboard-online-compiler-section" className="glass-card rounded-3xl border border-[var(--border-line)] bg-gradient-to-r from-emerald-500/10 via-[var(--bg-panel)] to-cyan-500/10 p-6 sm:p-7 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all hover:border-emerald-500/40">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
+            <Terminal className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] font-mono tracking-tight">
+                GCC 14 (C11) Online Compiler
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Cloud Sandbox
+              </span>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+              Compile, debug, and run any custom C11 code in an isolated GCC 14 sandbox with stdin/stdout.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => window.open('/compiler', '_blank')}
+            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition flex items-center justify-center gap-2 cursor-pointer"
+            title="Open in new window"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>New Window</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-mono text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            <span>Open Online Compiler →</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
+      id="dashboard-online-compiler-section"
       className={`rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl overflow-hidden transition-all duration-300 ${
         isFullscreen ? 'fixed inset-4 z-[9999] flex flex-col shadow-2xl bg-[var(--bg-panel)]' : 'w-full'
       }`}
@@ -228,6 +289,19 @@ export const OnlineCompilerCard: React.FC = () => {
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsExpanded(false);
+              setIsFullscreen(false);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-mono font-bold text-rose-500 dark:text-rose-400 transition cursor-pointer"
+            title="Close compiler and collapse"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Close Compiler</span>
+          </button>
+
           <button
             type="button"
             onClick={handleCopyCode}
