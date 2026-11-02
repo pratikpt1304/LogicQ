@@ -393,9 +393,17 @@ export const ChallengePage: React.FC = () => {
   });
 
   const problem = problemData?.data?.problem;
+  const isDaily = !slug || Boolean(problem?.isDaily);
   const seasonComplete = problemData?.data?.seasonComplete === true;
   const userStatus = problemData?.data?.userStatus;
   const serverSecondsUntilReset = problemData?.data?.secondsUntilNextReset;
+
+  // For Daily Challenge, prevent custom stdin tab
+  useEffect(() => {
+    if (isDaily && activeBottomTab === 'custom') {
+      setActiveBottomTab('cases');
+    }
+  }, [isDaily, activeBottomTab]);
 
   // Initialize & tick down the 17:00 IST challenge window timer while the page is open
   useEffect(() => {
@@ -1255,22 +1263,24 @@ export const ChallengePage: React.FC = () => {
                   <span>Test Cases ({sampleCases.length})</span>
                 </button>
 
-                <button
-                  type="button"
-                  data-testid="tab-custom-stdin"
-                  onClick={() => {
-                    setActiveBottomTab('custom');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`apple-segmented-item ${
-                    activeBottomTab === 'custom' && isDrawerOpen
-                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>Custom Stdin</span>
-                </button>
+                {!isDaily && (
+                  <button
+                    type="button"
+                    data-testid="tab-custom-stdin"
+                    onClick={() => {
+                      setActiveBottomTab('custom');
+                      setIsDrawerOpen(true);
+                    }}
+                    className={`apple-segmented-item ${
+                      activeBottomTab === 'custom' && isDrawerOpen
+                        ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    <span>Custom Stdin</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -1339,7 +1349,9 @@ export const ChallengePage: React.FC = () => {
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
                         {sampleCases.length === 0 ? (
-                          <span className="text-slate-400 text-xs">No sample cases. Use Custom Stdin.</span>
+                          <span className="text-slate-400 text-xs">
+                            {isDaily ? 'No sample cases provided.' : 'No sample cases. Use Custom Stdin.'}
+                          </span>
                         ) : (
                           sampleCases.map((tc: any, idx: number) => (
                             <button
@@ -1400,8 +1412,8 @@ export const ChallengePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab 2: Custom Stdin */}
-                {activeBottomTab === 'custom' && (
+                {/* Tab 2: Custom Stdin (Disabled for Daily Challenge) */}
+                {!isDaily && activeBottomTab === 'custom' && (
                   <div className="h-full flex flex-col">
                     <label
                       htmlFor="custom-stdin-input"
