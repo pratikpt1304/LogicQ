@@ -13,7 +13,6 @@ import {
   Lightbulb,
   Terminal,
   Play,
-  Send,
   Flag,
   RotateCcw,
   Layers,
@@ -188,7 +187,6 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [code, setCode] = useState<string>('');
   const [customInput, setCustomInput] = useState<string>('');
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -405,7 +403,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     setActiveTopic(null);
   };
 
-  // Run test case (Compile & Run)
+  // Run test case & verify solution (Compile & Run)
   const handleRunOpenTest = async () => {
     if (!activeTopic) return;
     setIsRunning(true);
@@ -416,71 +414,68 @@ export const TopicPracticeHubPage: React.FC = () => {
     setActiveMobileTab('results');
 
     try {
-      const inputToUse = customInput.trim() ? customInput : activeTopic.problem.openTestCase.input;
-      const res = await api.post('/problems/run', {
-        code,
-        input: inputToUse,
-      });
+      if (customInput.trim()) {
+        // User provided custom Stdin
+        const res = await api.post('/problems/run', {
+          code,
+          input: customInput,
+        });
 
-      const actualOut = (res.output || res.stdout || '').trim();
-      const expectedOut = activeTopic.problem.openTestCase.expectedOutput.trim();
-      const isPassed = customInput.trim() ? true : actualOut === expectedOut;
+        const actualOut = (res.output || res.stdout || '').trim();
+        const compileErr = res.compileError || res.error;
 
-      setRunResult({
-        success: isPassed,
-        actualOutput: actualOut,
-        expectedOutput: customInput.trim() ? '(Custom Stdin Ran)' : expectedOut,
-        compileError: res.compileError || res.error,
-        executionTimeMs: res.executionTimeMs || 14,
-      });
+        setRunResult({
+          success: !compileErr,
+          actualOutput: actualOut,
+          expectedOutput: '(Custom Stdin Ran)',
+          compileError: compileErr,
+          executionTimeMs: res.executionTimeMs || 14,
+        });
 
-      if (isPassed) {
-        toast.success('Run finished successfully.');
-      } else {
-        toast.error('Output mismatch. Check logic and retry.');
+        if (compileErr) {
+          toast.error('Compilation error in GCC sandbox.');
+        } else {
+          toast.success('Custom input execution finished.');
+        }
+        return;
       }
-    } catch (err: any) {
+
+      // Standard mode: Run BOTH open and hidden test cases
+      const [resOpen, resHidden] = await Promise.all([
+        api.post('/problems/run', {
+          code,
+          input: activeTopic.problem.openTestCase.input,
+        }),
+        api.post('/problems/run', {
+          code,
+          input: activeTopic.problem.hiddenTestCase.input,
+        }),
+      ]);
+
+      const actualOpenOut = (resOpen.output || resOpen.stdout || '').trim();
+      const expectedOpenOut = activeTopic.problem.openTestCase.expectedOutput.trim();
+      const openPassed = actualOpenOut === expectedOpenOut;
+
+      const actualHiddenOut = (resHidden.output || resHidden.stdout || '').trim();
+      const expectedHiddenOut = activeTopic.problem.hiddenTestCase.expectedOutput.trim();
+      const hiddenPassed = actualHiddenOut === expectedHiddenOut;
+
+      const compileErr = resOpen.compileError || resHidden.compileError || resOpen.error || resHidden.error;
+      const allPassed = !compileErr && openPassed && hiddenPassed;
+
       setRunResult({
-        success: false,
-        compileError: err?.message || 'Execution error in GCC sandbox',
+        success: openPassed,
+        actualOutput: actualOpenOut,
+        expectedOutput: expectedOpenOut,
+        compileError: compileErr,
+        executionTimeMs: resOpen.executionTimeMs || 14,
       });
-      toast.error('Compilation or execution error.');
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  // Submit code (Runs BOTH Open & Hidden Test Cases)
-  const handleSubmitCode = async () => {
-    if (!activeTopic) return;
-    setIsSubmitting(true);
-    setSubmitResult(null);
-    setIsDrawerOpen(true);
-    setActiveBottomTab('output');
-    setActiveMobileTab('results');
-
-    try {
-      // 1. Run open test
-      const resOpen = await api.post('/problems/run', {
-        code,
-        input: activeTopic.problem.openTestCase.input,
-      });
-      const openPassed = (resOpen.output || resOpen.stdout || '').trim() === activeTopic.problem.openTestCase.expectedOutput.trim();
-
-      // 2. Run hidden test
-      const resHidden = await api.post('/problems/run', {
-        code,
-        input: activeTopic.problem.hiddenTestCase.input,
-      });
-      const hiddenPassed = (resHidden.output || resHidden.stdout || '').trim() === activeTopic.problem.hiddenTestCase.expectedOutput.trim();
-
-      const allPassed = openPassed && hiddenPassed;
 
       setSubmitResult({
         openPassed,
         hiddenPassed,
         allPassed,
-        compileError: resOpen.compileError || resHidden.compileError || resOpen.error || resHidden.error,
+        compileError: compileErr,
       });
 
       if (allPassed) {
@@ -527,19 +522,37 @@ export const TopicPracticeHubPage: React.FC = () => {
         RealtimeSyncService.emit('DASHBOARD');
 
         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
-        setShowCelebrationModal(true);
-        toast.success(`🎉 Topic Mastered: "${activeTopic.topicTitle}"!`);
+
+        if (nextTopic) {
+          toast.success('🎉 All test cases passed! Advancing to next question...');
+          setTimeout(() => {
+            handleOpenTopic(nextTopic);
+          }, 1200);
+        } else {
+          setShowCelebrationModal(true);
+          toast.success(`🎉 Module Complete! Mastered "${activeTopic.topicTitle}"!`);
+        }
       } else {
-        toast.error('Failed hidden test case. Review edge cases and try again!');
+        if (compileErr) {
+          toast.error('Compilation error! Review GCC hints below.');
+        } else if (!openPassed) {
+          toast.error('Sample test case failed. Output mismatch.');
+        } else if (!hiddenPassed) {
+          toast.error('Sample passed, but hidden test case failed. Check edge cases!');
+        }
       }
     } catch (err: any) {
+      setRunResult({
+        success: false,
+        compileError: err?.message || 'Execution error in GCC sandbox',
+      });
       setSubmitResult({
         allPassed: false,
         compileError: err?.message || 'Submission execution failed.',
       });
-      toast.error('Submission failed.');
+      toast.error('Execution error in sandbox.');
     } finally {
-      setIsSubmitting(false);
+      setIsRunning(false);
     }
   };
 
@@ -1493,8 +1506,8 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                         {!runResult && !submitResult && (
                           <div className="text-[var(--text-muted)] text-xs py-8 text-center space-y-1">
-                            <div>Click <strong>Compile &amp; Run</strong> to test against the sample testcase.</div>
-                            <div className="text-[11px] text-[var(--text-muted)]">Click <strong>Save &amp; Next</strong> to submit and verify against all hidden tests.</div>
+                            <div>Click <strong>Compile &amp; Run</strong> to test and verify your solution.</div>
+                            <div className="text-[11px] text-[var(--text-muted)]">When all test cases pass, you will automatically advance to the next question!</div>
                           </div>
                         )}
                       </div>
@@ -1553,40 +1566,16 @@ export const TopicPracticeHubPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Center: Compile & Run */}
+            {/* Right: Compile & Run */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleRunOpenTest}
-                disabled={isRunning || isSubmitting}
-                className="px-4 sm:px-5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+                disabled={isRunning}
+                className="px-5 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
               >
-                <Play className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{isRunning ? 'Compiling...' : 'Compile & Run'}</span>
-              </button>
-            </div>
-
-            {/* Right: Save & Next / Next */}
-            <div className="flex items-center gap-2">
-              {nextTopic && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenTopic(nextTopic)}
-                  className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer hidden md:flex items-center gap-1"
-                >
-                  <span>Skip</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={handleSubmitCode}
-                disabled={isRunning || isSubmitting}
-                className="px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{isSubmitting ? 'Evaluating...' : 'Save & Next >'}</span>
+                <Play className="w-3.5 h-3.5 fill-white text-white" />
+                <span>{isRunning ? 'Compiling & Running...' : 'Compile & Run'}</span>
               </button>
             </div>
           </div>
