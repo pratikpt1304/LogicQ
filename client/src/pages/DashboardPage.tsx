@@ -458,6 +458,58 @@ export const DashboardPage: React.FC = () => {
       };
     }
   );
+
+  const practiceModulesList = [
+    {
+      id: 1,
+      order: 1,
+      title: 'Control Structures',
+      description: 'Branching decisions, loops, switch-case, and iteration flow in C.',
+      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length || 25,
+      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
+      progressPercent: 0,
+    },
+    {
+      id: 2,
+      order: 2,
+      title: 'Pointers and Functions',
+      description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
+      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length || 25,
+      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
+      progressPercent: 0,
+    },
+    {
+      id: 3,
+      order: 3,
+      title: 'Array and its Applications',
+      description: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
+      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length || 25,
+      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
+      progressPercent: 0,
+    },
+    {
+      id: 4,
+      order: 4,
+      title: 'Advanced Data Types, Dynamic Memory',
+      description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked nodes.',
+      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length || 25,
+      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
+      progressPercent: 0,
+    },
+    {
+      id: 5,
+      order: 5,
+      title: 'Competitive Mastery & Capstone Arena',
+      description: 'Bitwise algorithms, performance optimization, system-level C, and capstone problems.',
+      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5).length || 11,
+      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
+      progressPercent: 0,
+    },
+  ].map((m) => ({
+    ...m,
+    progressPercent: m.totalQuestions > 0 ? Math.round((m.solvedCount / m.totalQuestions) * 100) : 0,
+  }));
+
   const studentSubmissionsList: any[] = Array.isArray(studentSubmissions) ? studentSubmissions : [];
   const availableSectionsForStudent: any[] = isStudent
     ? (Array.isArray(studentFirestoreSections) && studentFirestoreSections.length > 0 ? studentFirestoreSections : sectionsList)
@@ -1528,6 +1580,82 @@ export const DashboardPage: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+
+          {/* 4.5. 5 TOPIC-BY-TOPIC PRACTICE MODULES (BENTO CARDS) */}
+          <div className="rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--border-line)] pb-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                  <span>Topic-by-Topic Practice Modules</span>
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
+                  111 curated C coding problems across 5 modules — solve all practice topics to unlock Lab Internals
+                </p>
+              </div>
+
+              <Link
+                to="/practice"
+                className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 transition"
+              >
+                <span>View All 111 Practice Topics</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {practiceModulesList.map((m: any) => {
+                const percent = m.progressPercent || 0;
+                const isComplete = m.solvedCount >= m.totalQuestions;
+                return (
+                  <Link
+                    key={m.id}
+                    to={`/practice?module=${m.id}`}
+                    className="p-5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:border-emerald-500/50 shadow-sm transition-all flex flex-col justify-between group hover:scale-[1.02] cursor-pointer"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-line)]">
+                          MOD 0{m.id}
+                        </span>
+                        {isComplete ? (
+                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Complete
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            {percent}%
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="font-bold text-sm text-[var(--text-main)] line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {m.title}
+                      </h3>
+                      <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                        {m.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 mt-4 border-t border-[var(--border-line)] space-y-2">
+                      <div className="w-full bg-[var(--bg-panel)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
+                        <div
+                          className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.max(percent, percent > 0 ? 4 : 0)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
+                        <span>{m.solvedCount}/{m.totalQuestions} Solved</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                          Practice →
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           {/* 5. 5 SEQUENTIAL LAB COURSEWORK MODULES (BENTO CARDS) */}
