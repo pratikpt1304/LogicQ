@@ -3,7 +3,7 @@ services:
     name: logicq-api
     runtime: docker
     dockerfilePath: server/Dockerfile
-    dockerContext: server
+    dockerContext: .
     plan: free
     healthCheckPath: /api/health
     envVars:

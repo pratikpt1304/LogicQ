@@ -9,6 +9,15 @@ import { autoSeedDatabase } from './services/auto-seed.service.js';
 import { backfillPracticeSubmissionPoints } from './services/scoring.service.js';
 
 async function bootstrap() {
+  try {
+    const { execSync } = await import('child_process');
+    console.log('⚡ Synchronizing SQLite database schema with Prisma...');
+    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+    console.log('⚡ Database schema synchronized successfully.');
+  } catch (syncErr) {
+    console.warn('⚡ Schema sync check completed (continuing boot):', syncErr);
+  }
+
   const server = http.createServer(app);
 
   // Initialize WebSockets

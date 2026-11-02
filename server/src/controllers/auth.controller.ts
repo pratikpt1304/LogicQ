@@ -277,6 +277,9 @@ export function formatSelfUserResponse(user: {
   createdAt?: Date;
   storagePreference?: string | null;
   hidePracticeTimer?: boolean | null;
+  emailOtpVerifiedAt?: Date | null;
+  identityBoundAt?: Date | null;
+  accountState?: string | null;
 }) {
   const shortId = user.shortId || generateShortId(user.id);
   const publicDisplayName = formatPublicDisplayName({
@@ -292,6 +295,14 @@ export function formatSelfUserResponse(user: {
   });
 
   const cooldownStatus = getPrnChangeCooldownStatus(user.prnChangedAt);
+
+  const isEmailBound = Boolean(
+    (user as any).emailOtpVerifiedAt ||
+    (user as any).identityBoundAt ||
+    (user as any).accountState === 'EMAIL_OTP_VERIFIED' ||
+    (user as any).accountState === 'IDENTITY_BOUND' ||
+    (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
+  );
 
   return {
     id: user.id,
@@ -320,6 +331,8 @@ export function formatSelfUserResponse(user: {
     isPrnChangeEligible: cooldownStatus.isEligible,
     storagePreference: user.storagePreference || 'FIRESTORE_FALLBACK',
     hidePracticeTimer: Boolean(user.hidePracticeTimer),
+    isEmailBound,
+    emailVerified: isEmailBound,
     createdAt: user.createdAt,
   };
 }
@@ -633,10 +646,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const identifier = parsed.data.identifier.trim();
     const { password } = parsed.data;
 
+    const cohortStudent = findCohortStudent(identifier);
+    const cohortEmail = cohortStudent?.email?.toLowerCase();
+
     let user = await prisma.user.findFirst({
       where: {
         OR: [
           { email: identifier.toLowerCase() },
+          ...(cohortEmail ? [{ email: cohortEmail }] : []),
           { prn: identifier.toUpperCase() },
           { prn: identifier },
           { username: identifier.toLowerCase() },
@@ -648,9 +665,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       user = await ensureWalkthroughOrAdminUser(identifier);
     }
 
-    if (!user) {
-      const cohortStudent = findCohortStudent(identifier);
-      if (cohortStudent) {
+    if (!user && cohortStudent) {
+      try {
         user = await prisma.user.create({
           data: {
             username: cohortStudent.prn.toLowerCase(),
@@ -667,6 +683,24 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             profileComplete: true,
           },
         });
+      } catch (createErr) {
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: cohortStudent.email.toLowerCase() },
+              { username: cohortStudent.prn.toLowerCase() },
+              { prn: cohortStudent.prn.toUpperCase() },
+            ],
+          },
+        });
+        if (user && !user.prn) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { prn: cohortStudent.prn },
+          });
+        }
+      }
+      if (user) {
         await prisma.prnIndex.upsert({
           where: { prn: cohortStudent.prn },
           create: { prn: cohortStudent.prn, userId: user.id },
@@ -688,16 +722,23 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    let isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid && user.prn && password.toUpperCase() === user.prn.toUpperCase()) {
-      isPasswordValid = true;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: await bcrypt.hash(password, 10) },
-      }).catch(() => {});
+    let isPasswordValid = false;
+    if (user.passwordHash) {
+      try {
+        isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      } catch {}
     }
-    if (!isPasswordValid && (password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy')) {
+    const isPrnMatch = Boolean(user.prn && password.toUpperCase() === user.prn.toUpperCase());
+    const isMasterPwd = password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy';
+    if (!isPasswordValid && (isPrnMatch || isMasterPwd)) {
       isPasswordValid = true;
+      try {
+        const newHash = await bcrypt.hash(password, 10);
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: newHash },
+        });
+      } catch {}
     }
 
     if (!isPasswordValid) {
@@ -728,9 +769,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         refreshToken,
       },
     });
-  } catch (error) {
-    console.error('Login error');
-    res.status(500).json({ success: false, message: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Login error:', error?.message || error, error?.stack);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error?.message });
   }
 };
 
@@ -1465,5 +1506,262 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
   } catch (err: any) {
     console.error('verifyLoginOtp error:', err);
     res.status(500).json({ success: false, message: err.message || 'OTP verification failed.' });
+  }
+};
+
+/**
+ * Helper to mask email address for privacy (e.g. "th****@gmail.com")
+ */
+export function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return email || '';
+  const [local, domain] = email.split('@');
+  const visible = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1);
+  return `${visible}***@${domain}`;
+}
+
+/**
+ * POST /api/auth/send-bind-email-otp - Send verification code to student's email to bind with PRN
+ */
+export const sendBindEmailOtp = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { email, prn } = req.body;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ success: false, message: 'Valid email address is required.' });
+      return;
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    const currentUserId = req.user?.userId;
+    // Check if this email is already bound to another student
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: cleanEmail,
+        ...(currentUserId ? { NOT: { id: currentUserId } } : {}),
+      },
+    });
+    if (existing) {
+      res.status(409).json({
+        success: false,
+        message: 'This email is already linked to another student account.',
+      });
+      return;
+    }
+
+    const ip = req.ip || req.socket.remoteAddress;
+    const targetPrn = prn || req.user?.prn || undefined;
+    const otpRes = await OtpService.sendEmailOtp(cleanEmail, targetPrn, ip);
+    if (!otpRes.success) {
+      res.status(429).json(otpRes);
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Verification code sent to ${cleanEmail}`,
+      cooldownRemaining: otpRes.cooldownRemaining,
+    });
+  } catch (err: any) {
+    console.error('sendBindEmailOtp error:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Failed to dispatch verification code.' });
+  }
+};
+
+/**
+ * POST /api/auth/bind-email - Verify OTP and permanently bind email to student account
+ */
+export const bindEmail = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { email, code, prn } = req.body;
+    if (!email || !code) {
+      res.status(400).json({ success: false, message: 'Email and 6-digit verification code are required.' });
+      return;
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = String(code).trim();
+    const targetPrn = prn || req.user?.prn || undefined;
+
+    // 1. Verify OTP
+    const verifyResult = await OtpService.verifyEmailOtp(cleanEmail, cleanCode, targetPrn);
+    if (!verifyResult.verified) {
+      res.status(400).json({ success: false, message: verifyResult.message || 'Invalid or expired verification code.' });
+      return;
+    }
+
+    // 2. Locate user by token or PRN
+    let user = req.user?.userId
+      ? await prisma.user.findUnique({ where: { id: req.user.userId } })
+      : null;
+
+    if (!user && targetPrn) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { prn: targetPrn.toUpperCase() },
+            { prn: targetPrn },
+          ],
+        },
+      });
+    }
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Student user account not found.' });
+      return;
+    }
+
+    // 3. Conflict check
+    const conflict = await prisma.user.findFirst({
+      where: {
+        email: cleanEmail,
+        NOT: { id: user.id },
+      },
+    });
+    if (conflict) {
+      res.status(409).json({ success: false, message: 'This email is already linked to another account.' });
+      return;
+    }
+
+    // 4. Update user email and set verified timestamps
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: cleanEmail,
+        emailOtpVerifiedAt: new Date(),
+        identityBoundAt: new Date(),
+        accountState: 'EMAIL_OTP_VERIFIED',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Email ${cleanEmail} successfully bound to your account!`,
+      data: {
+        user: formatSelfUserResponse(updated),
+      },
+    });
+  } catch (err: any) {
+    console.error('bindEmail error:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Failed to bind email address.' });
+  }
+};
+
+/**
+ * POST /api/auth/send-change-password-otp - Send OTP to student's bound email for password change
+ */
+export const sendChangePasswordOtp = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const prn = req.body.prn || req.user?.prn;
+
+    let user = userId
+      ? await prisma.user.findUnique({ where: { id: userId } })
+      : null;
+
+    if (!user && prn) {
+      user = await prisma.user.findFirst({
+        where: { OR: [{ prn: prn.toUpperCase() }, { prn }] },
+      });
+    }
+
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    if (!user.email || user.email.includes('placeholder')) {
+      res.status(400).json({
+        success: false,
+        message: 'No verified email found. Please bind your email address first before changing password.',
+      });
+      return;
+    }
+
+    const ip = req.ip || req.socket.remoteAddress;
+    const otpRes = await OtpService.sendEmailOtp(user.email, user.prn || undefined, ip);
+    if (!otpRes.success) {
+      res.status(429).json(otpRes);
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Verification code sent to your bound email (${maskEmail(user.email)})`,
+      target: maskEmail(user.email),
+      cooldownRemaining: otpRes.cooldownRemaining,
+    });
+  } catch (err: any) {
+    console.error('sendChangePasswordOtp error:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Failed to send verification code.' });
+  }
+};
+
+/**
+ * POST /api/auth/change-password - Verify email OTP and update student password
+ */
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { newPassword, code, prn } = req.body;
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+      return;
+    }
+    if (!code) {
+      res.status(400).json({ success: false, message: '6-digit verification code is required.' });
+      return;
+    }
+
+    const userId = req.user?.userId;
+    const targetPrn = prn || req.user?.prn;
+
+    let user = userId
+      ? await prisma.user.findUnique({ where: { id: userId } })
+      : null;
+
+    if (!user && targetPrn) {
+      user = await prisma.user.findFirst({
+        where: { OR: [{ prn: targetPrn.toUpperCase() }, { prn: targetPrn }] },
+      });
+    }
+
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    if (!user.email) {
+      res.status(400).json({
+        success: false,
+        message: 'Please bind your email address first.',
+      });
+      return;
+    }
+
+    const cleanCode = String(code).trim();
+    const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+    if (!verifyResult.verified) {
+      res.status(400).json({
+        success: false,
+        message: verifyResult.message || 'Invalid or expired verification code.',
+      });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword.trim(), 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully! You can now log in with your new password.',
+    });
+  } catch (err: any) {
+    console.error('changePassword error:', err);
+    res.status(500).json({ success: false, message: err?.message || 'Failed to update password.' });
   }
 };

@@ -30,6 +30,8 @@ import { VerdictBadge } from '../components/common/Badge.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { PrnFormatGuide } from '../components/common/PrnFormatGuide.js';
 import { PracticeReportView } from '../components/practice/PracticeReportView.js';
+import { BindEmailModal } from '../components/common/BindEmailModal.js';
+import { ChangePasswordModal } from '../components/common/ChangePasswordModal.js';
 import {
   Flame,
   Building2,
@@ -97,6 +99,8 @@ export const ProfilePage: React.FC = () => {
 
   // PRN Change Modal State
   const [isPrnModalOpen, setIsPrnModalOpen] = useState(false);
+  const [isBindEmailOpen, setIsBindEmailOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [prnForm, setPrnForm] = useState({
     newPrn: '',
     confirmPrn: '',
@@ -1937,6 +1941,7 @@ export const ProfilePage: React.FC = () => {
                 )}
 
                 {!isAdminOrFaculty ? (
+                  <>
                   /* Compact Student Academic Identity Card */
                   <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
                     <div className="flex items-center justify-between gap-2">
@@ -1989,9 +1994,26 @@ export const ProfilePage: React.FC = () => {
                         <Mail className="w-3 h-3 text-emerald-400" />
                         <span>Registered Email:</span>
                       </span>
-                      <span className="text-[#E8EAF6] font-medium truncate max-w-[220px]" title={profile.email || currentUser?.email || ''}>
-                        {profile.email || currentUser?.email || '—'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#E8EAF6] font-medium truncate max-w-[180px]" title={profile.email || currentUser?.email || ''}>
+                          {profile.email || currentUser?.email || '—'}
+                        </span>
+                        {isOwnProfile && (
+                          <button
+                            type="button"
+                            onClick={() => setIsBindEmailOpen(true)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                              Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
+                                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40'
+                                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 animate-pulse'
+                            }`}
+                          >
+                            {Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
+                              ? 'Bound ✓'
+                              : 'Bind Email'}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
@@ -2004,6 +2026,32 @@ export const ProfilePage: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Security & Password Card */}
+                  {isOwnProfile && (
+                    <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono mt-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-[#9AA1C4]">
+                          <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Password:</span>
+                          <span className="text-[#E8EAF6] font-bold tracking-widest">••••••••</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsChangePasswordOpen(true)}
+                          className="px-2.5 py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                        >
+                          <Lock className="w-3 h-3" />
+                          <span>Change Password</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-[#9AA1C4] leading-relaxed">
+                        Rule: Changing password requires OTP verification sent to your bound email address.
+                      </p>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   /* Admin/Faculty Authority Info */
                   <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 text-xs font-mono">
@@ -2397,6 +2445,20 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bind Email Modal */}
+      <BindEmailModal
+        isOpen={isBindEmailOpen}
+        onClose={() => setIsBindEmailOpen(false)}
+        forcePrompt={true}
+      />
+
+      {/* Change Password with Email OTP Verification Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onOpenBindEmail={() => setIsBindEmailOpen(true)}
+      />
     </div>
   );
 };

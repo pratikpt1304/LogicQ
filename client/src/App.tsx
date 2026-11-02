@@ -38,6 +38,7 @@ import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.
 import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
+import { BindEmailModal } from './components/common/BindEmailModal.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -150,6 +151,23 @@ const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 export const App: React.FC = () => {
   const { user, authState } = useAuth();
   const location = useLocation();
+  const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
+
+  // Automatically prompt students who haven't bound their verified personal email address
+  useEffect(() => {
+    if (user && user.role === 'STUDENT') {
+      const isBound = Boolean(
+        user.isEmailBound ||
+        user.emailVerified ||
+        (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
+      );
+      const isDismissed = sessionStorage.getItem(`logicq_bind_email_dismissed_${user.id}`) === 'true';
+      if (!isBound && !isDismissed && location.pathname !== '/login') {
+        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, location.pathname]);
 
   // Background Pre-Warm & Keep-Alive for Render Backend
   useEffect(() => {
@@ -491,6 +509,16 @@ export const App: React.FC = () => {
 
       {!isWorkspaceRoute && <Footer />}
       {!isWorkspaceRoute && <MobileBottomNav />}
+
+      <BindEmailModal
+        isOpen={isAutoBindEmailOpen}
+        onClose={() => {
+          setIsAutoBindEmailOpen(false);
+          if (user?.id) {
+            sessionStorage.setItem(`logicq_bind_email_dismissed_${user.id}`, 'true');
+          }
+        }}
+      />
     </div>
   );
 };

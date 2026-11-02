@@ -66,6 +66,7 @@ interface AuthContextType {
   logout: (reason?: string) => Promise<void>;
   logoutAllDevices: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 // Inactivity Limits (Master Spec & Logout Audit):
@@ -938,6 +939,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await api.post('/auth/login', { identifier: cleanId, password: cleanPwd });
       if (res?.success && res?.data?.user) {
         authUser = res.data.user;
+        if (res.data.accessToken) {
+          localStorage.setItem('logicq_access_token', res.data.accessToken);
+        }
+        if (res.data.refreshToken) {
+          localStorage.setItem('logicq_refresh_token', res.data.refreshToken);
+        }
       }
     } catch (apiErr: any) {
       if (cohortStudent) {
@@ -1255,6 +1262,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await syncWithServer(firebaseAuth.currentUser);
   };
 
+  const updateUser = (partial: Partial<User>) => {
+    if (!user) return;
+    const updated = { ...user, ...partial };
+    persistUser(updated);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -1275,6 +1288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         logoutAllDevices,
         refreshUser,
+        updateUser,
       }}
     >
       {idleWarningSeconds !== null && (

@@ -1290,6 +1290,67 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     };
   }
 
+  if (path === '/auth/send-bind-email-otp' && method === 'POST') {
+    const { email } = body;
+    if (!email) throw new Error('Please enter a valid email address.');
+    return {
+      success: true,
+      message: `Verification code dispatched to ${email}`,
+      cooldownRemaining: 60,
+    };
+  }
+
+  if (path === '/auth/bind-email' && method === 'POST') {
+    const { email, code, prn } = body;
+    if (!email || !code) throw new Error('Email and verification code are required.');
+    const users = getStoredUsers();
+    const currUser = getCurrentUser();
+    const cleanEmail = email.trim().toLowerCase();
+    
+    let user = users.find(u => u.id === currUser?.id || (prn && u.prn?.toUpperCase() === prn.toUpperCase()));
+    if (user) {
+      user.email = cleanEmail;
+      user.isEmailBound = true;
+      user.emailVerified = true;
+      saveStoredUsers(users);
+      (FirestoreDataService as any).updateUserProfile?.(user.id, { email: cleanEmail, isEmailBound: true, emailVerified: true }).catch(() => {});
+    }
+    return {
+      success: true,
+      message: `Email ${cleanEmail} successfully bound to your account!`,
+      data: { user: user ? { ...user, isEmailBound: true, emailVerified: true } : { ...currUser, email: cleanEmail, isEmailBound: true } },
+    };
+  }
+
+  if (path === '/auth/send-change-password-otp' && method === 'POST') {
+    const currUser = getCurrentUser();
+    const targetEmail = currUser?.email || body.email || 'your email';
+    return {
+      success: true,
+      message: `Verification code sent to ${targetEmail}`,
+      target: targetEmail,
+      cooldownRemaining: 60,
+    };
+  }
+
+  if (path === '/auth/change-password' && method === 'POST') {
+    const { newPassword, code } = body;
+    if (!newPassword || newPassword.length < 6) throw new Error('New password must be at least 6 characters.');
+    if (!code) throw new Error('Verification code is required.');
+    const users = getStoredUsers();
+    const currUser = getCurrentUser();
+    let user = users.find(u => u.id === currUser?.id);
+    if (user) {
+      (user as any).password = newPassword;
+      saveStoredUsers(users);
+      (FirestoreDataService as any).updateUserProfile?.(user.id, { password: newPassword }).catch(() => {});
+    }
+    return {
+      success: true,
+      message: 'Password updated successfully! You can now log in with your new password.',
+    };
+  }
+
   if (path === '/auth/logout' || path === '/auth/logout-all') {
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
     return { success: true };
