@@ -1156,13 +1156,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <span>Palette ({moduleSolvedCount}/{currentModuleTopics.length})</span>
               </button>
 
-              <div
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 select-none shadow-xs"
-                title="Strict Fullscreen Mode: Exiting fullscreen automatically terminates the question session."
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden md:inline">Fullscreen Mode</span>
-              </div>
 
               <button
                 onClick={() => setIsIssueModalOpen(true)}
@@ -1568,42 +1561,17 @@ export const TopicPracticeHubPage: React.FC = () => {
           </div>
 
           {/* Bottom JEE Action Bar */}
-          <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-2 select-none">
-            {/* Left Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleResetCode}
-                className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer flex items-center gap-1.5"
-                title="Clear code back to starter template"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Clear Response</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => prevTopic && handleOpenTopic(prevTopic)}
-                disabled={!prevTopic}
-                className="px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-main)] transition flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Previous</span>
-              </button>
-            </div>
-
-            {/* Right: Compile & Run */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRunOpenTest}
-                disabled={isRunning}
-                className="px-5 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5 fill-white text-white" />
-                <span>{isRunning ? 'Compiling & Running...' : 'Compile & Run'}</span>
-              </button>
-            </div>
+          <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-4 sm:px-6 flex items-center justify-end shrink-0 z-20 gap-2 select-none">
+            {/* Primary Action: Compile & Run */}
+            <button
+              type="button"
+              onClick={handleRunOpenTest}
+              disabled={isRunning}
+              className="px-6 sm:px-8 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-white text-white" />
+              <span>{isRunning ? 'Compiling & Running...' : 'Compile & Run'}</span>
+            </button>
           </div>
 
           {/* Mobile Question Palette Slide-Over Drawer */}
