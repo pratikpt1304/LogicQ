@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { StreakReminderBanner } from '../components/dashboard/StreakReminderBanner.js';
+import { OnlineCompilerCard } from '../components/dashboard/OnlineCompilerCard.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
@@ -1606,142 +1607,8 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 6. BOTTOM BENTO ROW: RECENT CODE SUBMISSIONS + GCC 14 COMPILER SANDBOX STATUS */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Recent Code Submissions Feed (8 Cols) */}
-            <div className="lg:col-span-8 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-4">
-              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-3">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[var(--text-main)] flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
-                    <span>My Recent Submissions</span>
-                  </h2>
-                  <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                    Real-time execution log from the automated C judge
-                  </p>
-                </div>
-
-                <Link
-                  to="/practice"
-                  className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 transition"
-                >
-                  <span>Practice Hub</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              {studentSubmissionsList.length === 0 ? (
-                <div className="py-8 text-center space-y-2">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-500 dark:text-emerald-400 mx-auto opacity-40" />
-                  <p className="text-xs text-[var(--text-muted)] font-mono">
-                    No submissions yet. Pick a practice problem to run your first C code!
-                  </p>
-                  <Link
-                    to="/practice"
-                    className="inline-block mt-2 px-4 py-2 rounded-xl text-xs font-mono font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm"
-                  >
-                    Start Coding &rarr;
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {studentSubmissionsList.slice(0, 5).map((sub: any) => {
-                    const verdict = sub?.verdict || 'PENDING';
-                    const isAccepted = verdict === 'ACCEPTED';
-                    const isWrong = verdict === 'WRONG_ANSWER';
-                    const isCheat = isStudentCheatSub(sub);
-                    return (
-                      <div
-                        key={sub?.id || Math.random()}
-                        className="flex items-center justify-between p-3.5 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-xs transition hover:border-indigo-500/30"
-                      >
-                        <div className="space-y-0.5 truncate max-w-[65%]">
-                          <div className="font-semibold text-[var(--text-main)] truncate font-mono flex items-center gap-2">
-                            <span className="truncate">{sub?.problem?.title || 'C Program Problem'}</span>
-                            {isCheat && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
-                                🚨 Cheated
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">
-                            GCC 14 (C11) • {sub?.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Recent'}
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          {isCheat ? (
-                            <span className="inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
-                              🚨 You Cheated
-                            </span>
-                          ) : (
-                            <span
-                              className={`inline-block font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg ${
-                                isAccepted
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                  : isWrong
-                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              }`}
-                            >
-                              {verdict}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* GCC 14 Environment Status Card (4 Cols) */}
-            <div className="lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <span className="flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                    ONLINE
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-base text-[var(--text-main)] font-mono">GCC 14 C11 Sandbox</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-mono mt-1 leading-relaxed">
-                    Strict isolated container runtime with memory limits and zero network socket leakage.
-                  </p>
-                </div>
-
-                <div className="space-y-2 pt-2 text-xs font-mono">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
-                    <span className="text-[var(--text-muted)]">Execution Limit:</span>
-                    <span className="text-[var(--text-main)] font-bold">1000 ms</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
-                    <span className="text-[var(--text-muted)]">Memory Quota:</span>
-                    <span className="text-[var(--text-main)] font-bold">64 MB RAM</span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)]">
-                    <span className="text-[var(--text-muted)]">Compiler Standard:</span>
-                    <span className="text-cyan-600 dark:text-cyan-400 font-bold">-std=c11 -O2</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-[var(--border-line)]">
-                <Link
-                  to="/practice"
-                  className="w-full py-2.5 rounded-xl font-mono text-xs font-bold bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 flex items-center justify-center gap-2 transition"
-                >
-                  <Code2 className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
-                  <span>Open Coding Workspace</span>
-                </Link>
-              </div>
-            </div>
-          </div>
+          {/* 6. BOTTOM BENTO ROW: INTERACTIVE ONLINE C COMPILER & PLAYGROUND */}
+          <OnlineCompilerCard />
         </div>
       )}
     </div>
