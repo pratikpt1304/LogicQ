@@ -194,6 +194,17 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
           });
         } catch {}
 
+        // Permanently persist bound status in storage so refresh never re-prompts
+        if (user.prn) {
+          localStorage.setItem(`logicq_bound_email_${user.prn.toUpperCase()}`, cleanEmail);
+          localStorage.setItem(`logicq_bound_status_${user.prn.toUpperCase()}`, 'true');
+        }
+        if (user.id) {
+          localStorage.setItem(`logicq_bound_email_${user.id}`, cleanEmail);
+          localStorage.setItem(`logicq_bound_status_${user.id}`, 'true');
+        }
+        localStorage.setItem('logicq_last_bound_email', cleanEmail);
+
         // Update local state and Firestore
         updateUser({
           email: cleanEmail,

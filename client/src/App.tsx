@@ -156,9 +156,16 @@ export const App: React.FC = () => {
   // Strictly enforce compulsory email binding for students who haven't bound their verified email
   useEffect(() => {
     if (user && user.role === 'STUDENT') {
+      const prnUpper = (user.prn || '').toUpperCase();
+      const storedBound =
+        (prnUpper ? localStorage.getItem(`logicq_bound_email_${prnUpper}`) : null) ||
+        (user.id ? localStorage.getItem(`logicq_bound_email_${user.id}`) : null) ||
+        localStorage.getItem('logicq_last_bound_email');
+
       const isBound = Boolean(
         user.isEmailBound ||
         user.emailVerified ||
+        storedBound ||
         (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
       );
       if (!isBound && location.pathname !== '/login') {

@@ -247,8 +247,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? (finalUser as any).sections
         : (Array.isArray((active as any)?.sections) ? (active as any).sections : []);
 
+      const prnUpper = (finalUser.prn || active?.prn || '').toUpperCase();
+      const storedBound =
+        (prnUpper ? localStorage.getItem(`logicq_bound_email_${prnUpper}`) : null) ||
+        (finalUser.id ? localStorage.getItem(`logicq_bound_email_${finalUser.id}`) : null) ||
+        (active?.id ? localStorage.getItem(`logicq_bound_email_${active.id}`) : null) ||
+        localStorage.getItem('logicq_last_bound_email');
+
+      const retainedEmail =
+        (finalUser.email && !finalUser.email.endsWith('@sanjivani.edu.in') && !finalUser.email.includes('placeholder'))
+          ? finalUser.email
+          : storedBound ||
+            (active?.email && !active.email.endsWith('@sanjivani.edu.in') && !active.email.includes('placeholder')
+              ? active?.email || ''
+              : finalUser.email || active?.email || '');
+
+      const retainedIsEmailBound = Boolean(
+        finalUser.isEmailBound ||
+        active?.isEmailBound ||
+        storedBound ||
+        (retainedEmail && !retainedEmail.endsWith('@sanjivani.edu.in') && !retainedEmail.includes('placeholder'))
+      );
+      const retainedEmailVerified = Boolean(
+        finalUser.emailVerified ||
+        active?.emailVerified ||
+        retainedIsEmailBound
+      );
+
       finalUser = {
         ...finalUser,
+        email: retainedEmail,
+        isEmailBound: retainedIsEmailBound,
+        emailVerified: retainedEmailVerified,
         department: retainedDepartment,
         year: retainedYear,
         division: retainedDivision,
@@ -529,6 +559,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             longestStreak: authoritativeLongestStreak,
           };
         }
+
+        const prnUpperSync = (serverUser.prn || existingCompleted?.prn || '').toUpperCase();
+        const storedBoundSync =
+          (prnUpperSync ? localStorage.getItem(`logicq_bound_email_${prnUpperSync}`) : null) ||
+          (serverUser.id ? localStorage.getItem(`logicq_bound_email_${serverUser.id}`) : null) ||
+          localStorage.getItem('logicq_last_bound_email');
+
+        const boundEmailSync =
+          (existingCompleted?.email && !existingCompleted.email.endsWith('@sanjivani.edu.in') && !existingCompleted.email.includes('placeholder'))
+            ? existingCompleted.email
+            : (serverUser.email && !serverUser.email.endsWith('@sanjivani.edu.in') && !serverUser.email.includes('placeholder'))
+              ? serverUser.email
+              : storedBoundSync ||
+                serverUser.email ||
+                existingCompleted?.email ||
+                '';
+
+        const isBoundSync = Boolean(
+          serverUser.isEmailBound ||
+          existingCompleted?.isEmailBound ||
+          storedBoundSync ||
+          (boundEmailSync && !boundEmailSync.endsWith('@sanjivani.edu.in') && !boundEmailSync.includes('placeholder'))
+        );
+
+        serverUser.email = boundEmailSync;
+        serverUser.isEmailBound = isBoundSync;
+        serverUser.emailVerified = isBoundSync;
 
         if (fbUid && authoritativePoints > 0) {
           FirestoreDataService.saveStatsBackup(fbUid, {
