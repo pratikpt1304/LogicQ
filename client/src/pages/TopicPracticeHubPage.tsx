@@ -1179,7 +1179,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           </div>
 
           {/* Mobile Segmented Switcher (Statement | Editor | Verdict) */}
-          <div className="xl:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+          <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => setActiveMobileTab('statement')}
@@ -1223,12 +1223,12 @@ export const TopicPracticeHubPage: React.FC = () => {
           </div>
 
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
-          <div className="flex-1 flex flex-col xl:flex-row overflow-hidden min-h-0 select-text relative">
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 select-text relative">
             
-            {/* PANE 1: Problem Description Statement (Left) */}
+            {/* PANE 1: Problem Description Statement (Left - Compact width to maximize compiler area) */}
             <div
-              className={`w-full xl:w-[36%] 2xl:w-[34%] flex flex-col border-b xl:border-b-0 xl:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-5 space-y-5 bg-[var(--bg-panel)] min-h-0 h-full ${
-                activeMobileTab === 'statement' ? 'flex-1' : 'hidden xl:flex'
+              className={`w-full lg:w-[30%] xl:w-[26%] 2xl:w-[24%] flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 ${
+                activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
             >
               {/* Problem Title & Category Meta */}
@@ -1353,10 +1353,10 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
             </div>
 
-            {/* PANE 2: Code Editor + Custom Stdin & Verdict Drawer (Center) */}
+            {/* PANE 2: Code Editor + Custom Stdin & Verdict Drawer (Center - Expanded) */}
             <div
               className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] ${
-                activeMobileTab === 'statement' ? 'hidden xl:flex' : 'flex-1 flex'
+                activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
               }`}
             >
               {/* Editor Container */}
