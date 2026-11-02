@@ -1166,32 +1166,6 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
     }).catch(() => {});
     return studentUser;
   }
-  if (lower === 'thoratpratik2323@gmail.com' || cleanId.toUpperCase() === '2126PMIM1039') {
-    const studentUser = await prisma.user.upsert({
-      where: { email: 'thoratpratik2323@gmail.com' },
-      update: { role: 'STUDENT', prn: '2126PMIM1039', profileComplete: true },
-      create: {
-        username: 'pratik_thorat',
-        email: 'thoratpratik2323@gmail.com',
-        prn: '2126PMIM1039',
-        role: 'STUDENT',
-        fullName: 'Pratik Thorat',
-        displayName: 'Pratik Thorat',
-        passwordHash: await bcrypt.hash('StudentPassword123!', 10),
-        college: 'Sanjivani University',
-        department: 'Integrated M.Tech',
-        year: 'TY',
-        division: 'A',
-        profileComplete: true,
-      },
-    });
-    await prisma.prnIndex.upsert({
-      where: { prn: '2126PMIM1039' },
-      create: { prn: '2126PMIM1039', userId: studentUser.id },
-      update: { userId: studentUser.id },
-    }).catch(() => {});
-    return studentUser;
-  }
   if (isExplicitAdminEmail(lower)) {
     return await prisma.user.upsert({
       where: { email: lower },

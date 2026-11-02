@@ -395,30 +395,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'thoratpratik2323@gmail.com')) {
-        sanitized.push({
-          id: 'student-pratik-1',
-          username: 'pratik_thorat',
-          email: 'thoratpratik2323@gmail.com',
-          prn: '2126PMIM1039',
-          fullName: 'Pratik Thorat',
-          displayName: 'Pratik Thorat',
-          role: 'STUDENT',
-          college: 'Sanjivani University',
-          department: 'Integrated M.Tech',
-          year: 'TY',
-          division: 'A',
-          profileComplete: true,
-          totalPoints: 240,
-          currentStreak: 3,
-          longestStreak: 5,
-          password: 'password123',
-          isBanned: false,
-          shortId: '1039',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
       if (!sanitized.some((u) => u.email.toLowerCase() === 'logicqarena@gmail.com')) {
         sanitized.push({
           id: 'admin-super-1',
@@ -579,27 +555,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: 'FAC1',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'student-pratik-1',
-      username: 'pratik_thorat',
-      email: 'thoratpratik2323@gmail.com',
-      prn: '2126PMIM1039',
-      fullName: 'Pratik Thorat',
-      displayName: 'Pratik Thorat',
-      role: 'STUDENT',
-      college: 'Sanjivani University',
-      department: 'Integrated M.Tech',
-      year: 'TY',
-      division: 'A',
-      profileComplete: true,
-      totalPoints: 240,
-      currentStreak: 3,
-      longestStreak: 5,
-      password: 'password123',
-      isBanned: false,
-      shortId: '1039',
       createdAt: new Date().toISOString(),
     },
   ];

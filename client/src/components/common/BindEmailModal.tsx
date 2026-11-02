@@ -29,13 +29,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Pre-fill email if student already has a placeholder email
-  useEffect(() => {
-    if (user?.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder')) {
-      setEmail(user.email);
-    }
-  }, [user?.email]);
-
   // Cooldown countdown timer
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -268,7 +261,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                       setEmail(e.target.value);
                       setError(null);
                     }}
-                    placeholder="student@gmail.com"
+                    placeholder="e.g. yourname@gmail.com"
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] text-xs font-mono placeholder-[var(--text-muted)] focus:outline-none focus:border-indigo-500 transition"
                   />
                 </div>
