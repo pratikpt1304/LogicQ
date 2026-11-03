@@ -2430,102 +2430,197 @@ export const AdminDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Clean Overview KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+      {/* 4 Clean Interactive Apple Overview KPI Widgets */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <button
+          type="button"
+          onClick={() => setActiveTab('users')}
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
+            activeTab === 'users'
+              ? 'border-indigo-500/60 bg-indigo-50/50 dark:bg-indigo-950/25 shadow-sm shadow-indigo-500/10'
+              : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1017]/80 hover:border-indigo-500/40 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Total Enrolled</span>
-            <Users className="w-4 h-4 text-indigo-500" />
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase font-bold tracking-wider">Total Enrolled</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
           <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
             {roleCounts.ALL}
           </span>
-          <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">Active in PRN Registry</span>
-        </div>
+          <div className="flex items-center justify-between text-[11px] font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+            <span>PRN Registry</span>
+            <span className="text-indigo-500 font-bold group-hover:translate-x-0.5 transition-transform">Directory →</span>
+          </div>
+        </button>
 
-        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('problems')}
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
+            activeTab === 'problems' || activeTab === 'practice'
+              ? 'border-cyan-500/60 bg-cyan-50/50 dark:bg-cyan-950/25 shadow-sm shadow-cyan-500/10'
+              : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1017]/80 hover:border-cyan-500/40 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Problem Bank</span>
-            <Code2 className="w-4 h-4 text-cyan-500" />
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase font-bold tracking-wider">Problem Bank</span>
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-500 flex items-center justify-center shrink-0">
+              <Code2 className="w-4 h-4" />
+            </div>
           </div>
           <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
             {overview?.totalProblems || rawProblems.length}
           </span>
-          <span className="text-[11px] font-mono text-[var(--muted-foreground)] mt-1 block">C Challenges & Modules</span>
-        </div>
+          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--muted-foreground)] mt-1">
+            <span>C Challenges & Modules</span>
+            <span className="text-cyan-500 font-bold group-hover:translate-x-0.5 transition-transform">Bank →</span>
+          </div>
+        </button>
 
-        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('submissions')}
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
+            activeTab === 'submissions' || activeTab === 'anticheat'
+              ? 'border-purple-500/60 bg-purple-50/50 dark:bg-purple-950/25 shadow-sm shadow-purple-500/10'
+              : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1017]/80 hover:border-purple-500/40 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Global Submissions</span>
-            <Activity className="w-4 h-4 text-purple-500" />
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase font-bold tracking-wider">Submissions</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+              <Activity className="w-4 h-4" />
+            </div>
           </div>
           <span className="text-2xl sm:text-3xl font-extrabold text-[var(--foreground)] font-mono block mt-2">
             {overview?.totalSubmissions || submissions.length || 0}
           </span>
-          <span className="text-[11px] font-mono text-purple-600 dark:text-purple-400 mt-1 block">Evaluated Code Runs</span>
-        </div>
+          <div className="flex items-center justify-between text-[11px] font-mono text-purple-600 dark:text-purple-400 mt-1">
+            <span>Evaluated Runs</span>
+            <span className="text-purple-500 font-bold group-hover:translate-x-0.5 transition-transform">Audit →</span>
+          </div>
+        </button>
 
-        <div className="bg-[var(--card)] p-5 rounded-2xl border border-[var(--border)] shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('system')}
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
+            activeTab === 'system'
+              ? 'border-emerald-500/60 bg-emerald-50/50 dark:bg-emerald-950/25 shadow-sm shadow-emerald-500/10'
+              : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1017]/80 hover:border-emerald-500/40 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase">Compiler & Judge</span>
-            <Zap className="w-4 h-4 text-emerald-500" />
+            <span className="text-[11px] font-mono text-[var(--muted-foreground)] uppercase font-bold tracking-wider">Compiler Judge</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4" />
+            </div>
           </div>
           <span className="text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono block mt-2 flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             {healthData?.judge?.ready !== false ? 'Online (GCC 14)' : 'Ready'}
           </span>
-          <span className="text-[11px] font-mono text-[var(--muted-foreground)] mt-1 block">C11 Isolated Sandbox</span>
-        </div>
+          <div className="flex items-center justify-between text-[11px] font-mono text-[var(--muted-foreground)] mt-1">
+            <span>Isolated Sandbox</span>
+            <span className="text-emerald-500 font-bold group-hover:translate-x-0.5 transition-transform">Health →</span>
+          </div>
+        </button>
       </div>
 
-      {/* 4 Clean Primary Admin Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] pb-3 text-xs font-mono">
+      {/* Apple-Style Segmented Navigation Bar (1-Click Direct Access to all areas) */}
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-[#080c14] border border-slate-200/80 dark:border-slate-800/80 overflow-x-auto select-none font-mono text-xs">
         <button
+          type="button"
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
             activeTab === 'users'
-              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Student & Faculty Directory ({roleCounts.ALL})</span>
+          <Users className="w-3.5 h-3.5 text-indigo-500" />
+          <span>Directory ({roleCounts.ALL})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('problems')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'problems' || activeTab === 'practice'
-              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+          type="button"
+          onClick={() => setActiveTab('sections')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'sections'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Code2 className="w-4 h-4" />
+          <GraduationCap className="w-3.5 h-3.5 text-purple-500" />
+          <span>Class Sections & Codes</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('problems')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'problems' || activeTab === 'practice'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Code2 className="w-3.5 h-3.5 text-cyan-500" />
           <span>Problem Bank ({problems.length})</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('submissions')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
             activeTab === 'submissions' || activeTab === 'anticheat'
-              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <ShieldAlert className="w-4 h-4 text-rose-400" />
-          <span>Submissions & Anti-Cheat ({submissions.length})</span>
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+          <span>Submissions & Anti-Cheat</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('system')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
-            activeTab === 'system'
-              ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/20'
-              : 'bg-[var(--card)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-[var(--border)]'
+          type="button"
+          onClick={() => setActiveTab('daily')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'daily'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span>System & Compiler Health</span>
+          <Calendar className="w-3.5 h-3.5 text-amber-500" />
+          <span>Daily Operations</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'analytics'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+          <span>Pilot Analytics</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('system')}
+          className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'system'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5 text-emerald-500" />
+          <span>System & Judge</span>
         </button>
       </div>
 
