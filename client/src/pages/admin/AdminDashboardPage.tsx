@@ -4104,25 +4104,23 @@ export const AdminDashboardPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-4 py-4">
-                            {sub.timeToSolveSeconds != null && sub.timeToSolveSeconds > 0 ? (
-                              <div>
-                                <div className="flex items-center gap-1 text-emerald-400 font-bold font-mono">
-                                  <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span>{formatPracticeTime(sub.timeToSolveSeconds)}</span>
-                                </div>
-                                <span className="text-[10px] text-emerald-400/80 block font-mono">Solved in</span>
-                              </div>
-                            ) : sub.activeSeconds != null && sub.activeSeconds > 0 ? (
-                              <div>
-                                <div className="flex items-center gap-1 text-cyan-400 font-mono">
-                                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span>{formatPracticeTime(sub.activeSeconds)}</span>
-                                </div>
-                                <span className="text-[10px] text-slate-400 block font-mono">Active focus</span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-500 font-mono text-xs">—</span>
-                            )}
+                            {(() => {
+                              const solveSec = sub.timeToSolveSeconds ?? sub.timeTakenSeconds ?? sub.activeSeconds;
+                              if (solveSec != null && solveSec > 0) {
+                                return (
+                                  <div>
+                                    <div className="flex items-center gap-1 text-emerald-400 font-bold font-mono">
+                                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>{formatPracticeTime(solveSec)}</span>
+                                    </div>
+                                    <span className="text-[10px] text-emerald-400/80 block font-mono">
+                                      {sub.verdict === 'ACCEPTED' ? 'Solved in' : 'Time spent'}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              return <span className="text-slate-500 font-mono text-xs">—</span>;
+                            })()}
                           </td>
                           <td className="px-4 py-4 text-slate-400">
                             {sub.runtimeMs !== null ? `${sub.runtimeMs}ms` : '—'}

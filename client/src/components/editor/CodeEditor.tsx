@@ -10,6 +10,7 @@ interface CodeEditorProps {
   onRun?: () => void;
   onSubmit?: () => void;
   onReset?: () => void;
+  headerExtra?: React.ReactNode;
   isSubmitting?: boolean;
   isRunning?: boolean;
   readOnly?: boolean;
@@ -100,6 +101,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onRun,
   onSubmit,
   onReset,
+  headerExtra,
   isSubmitting,
   isRunning,
   readOnly = false,
@@ -504,6 +506,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 )}
               </button>
             )}
+
+            {headerExtra}
 
             {onReset && !readOnly && (
               <button

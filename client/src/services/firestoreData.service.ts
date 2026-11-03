@@ -613,6 +613,54 @@ export class FirestoreDataService {
   }
 
   /**
+   * Records a completed daily challenge submission in Firestore with solve duration & telemetry
+   */
+  public static async recordDailySubmission(
+    userId: string,
+    data: {
+      problemId: string;
+      problemTitle: string;
+      problemSlug: string;
+      difficulty: string;
+      code: string;
+      verdict: string;
+      timeTakenSeconds: number;
+      tabSwitchCount?: number;
+      copyPasteAttempts?: number;
+      fullscreenExits?: number;
+    }
+  ): Promise<void> {
+    try {
+      const primaryUid = auth.currentUser?.uid || userId;
+      if (!primaryUid) return;
+      await addDoc(collection(db, 'submissions'), {
+        userId: primaryUid,
+        problemId: data.problemId,
+        code: data.code,
+        language: 'c',
+        verdict: data.verdict,
+        pointsAwarded: data.verdict === 'ACCEPTED' ? 20 : 0,
+        submissionType: 'DAILY',
+        timeTakenSeconds: data.timeTakenSeconds,
+        timeToSolveSeconds: data.timeTakenSeconds,
+        activeSeconds: data.timeTakenSeconds,
+        tabSwitchCount: data.tabSwitchCount || 0,
+        copyPasteAttempts: data.copyPasteAttempts || 0,
+        fullscreenExits: data.fullscreenExits || 0,
+        createdAt: serverTimestamp(),
+        problem: {
+          id: data.problemId,
+          title: data.problemTitle,
+          slug: data.problemSlug,
+          difficulty: data.difficulty || 'EASY',
+        },
+      });
+    } catch (err) {
+      console.warn('FirestoreDataService.recordDailySubmission warning:', err);
+    }
+  }
+
+  /**
    * Fetches all submissions from Firestore for administrative oversight
    */
   public static async getAllFirestoreSubmissions(): Promise<any[]> {
@@ -3121,6 +3169,7 @@ export class FirestoreDataService {
       copyPasteAttempts?: number;
       fullscreenExits?: number;
       autoLockCount?: number;
+      timeTakenSeconds?: number;
       lastIncidentAt?: string;
     }
   ): Promise<void> {

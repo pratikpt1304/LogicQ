@@ -31,6 +31,8 @@ export const submitSolutionSchema = z.object({
     contestId: z.string().uuid().optional().nullable(),
     isCheatAutoSubmit: z.boolean().optional(),
     violationReason: z.string().optional(),
+    timeSpentSeconds: z.number().optional(),
+    timeTakenSeconds: z.number().optional(),
   }),
 });
 
@@ -176,7 +178,15 @@ export async function submitSolution(req: AuthRequest, res: Response): Promise<v
     }
 
     await ensureCurrentWeekSchedule();
-    const { problemId, code, contestId, isCheatAutoSubmit, violationReason } = req.body;
+    const { problemId, code, contestId, isCheatAutoSubmit, violationReason, timeSpentSeconds, timeTakenSeconds } = req.body;
+    const durationSec = typeof timeTakenSeconds === 'number' ? timeTakenSeconds : typeof timeSpentSeconds === 'number' ? timeSpentSeconds : null;
+    if (durationSec && durationSec > 0 && req.user?.userId) {
+      prisma.practiceProgress.upsert({
+        where: { userId_problemId: { userId: req.user.userId, problemId } },
+        update: { activeSeconds: durationSec, timeToSolveSeconds: durationSec },
+        create: { userId: req.user.userId, problemId, moduleSlug: 'daily', activeSeconds: durationSec, timeToSolveSeconds: durationSec, attemptsCount: 1 }
+      }).catch(() => {});
+    }
 
     const problem = await prisma.problem.findFirst({
       where: { OR: [{ id: problemId }, { slug: problemId }] },

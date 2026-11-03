@@ -70,6 +70,8 @@ export const ChallengePage: React.FC = () => {
   const initializedProblemIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  // Individual Student Challenge Solve Timer (Stopwatch)
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [isWindowExpired, setIsWindowExpired] = useState<boolean>(false);
   const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
@@ -428,6 +430,50 @@ export const ChallengePage: React.FC = () => {
     return () => clearInterval(interval);
   }, [remainingSeconds !== null && remainingSeconds > 0]);
 
+  // Target time limit based on difficulty (Easy: 20m, Medium: 30m, Hard: 40m)
+  const difficultyUpper = problem?.difficulty?.toUpperCase() || 'EASY';
+  const targetLimitMinutes = difficultyUpper === 'HARD' ? 40 : difficultyUpper === 'MEDIUM' ? 30 : 20;
+  const targetLimitSeconds = targetLimitMinutes * 60;
+
+  // Initialize solve timer from localStorage
+  useEffect(() => {
+    if (!problem?.id) return;
+    try {
+      const saved = localStorage.getItem(`logicq_solve_timer_${problem.id}`);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          setElapsedSeconds(parsed);
+        }
+      }
+    } catch {}
+  }, [problem?.id]);
+
+  // Tick up solve timer while solving and not yet solved or locked
+  useEffect(() => {
+    if (isWindowExpired || isWorkspaceLocked || userStatus?.isSolved || submissionResult?.verdict === 'ACCEPTED') {
+      return;
+    }
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => {
+        const next = prev + 1;
+        if (problem?.id && next % 5 === 0) {
+          try {
+            localStorage.setItem(`logicq_solve_timer_${problem.id}`, String(next));
+          } catch {}
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [problem?.id, isWindowExpired, isWorkspaceLocked, userStatus?.isSolved, submissionResult?.verdict]);
+
+  const formatSolveTimer = (sec: number): string => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   // Initialize starter or draft code ONLY once per problem ID
   useEffect(() => {
     if (problem && initializedProblemIdRef.current !== problem.id) {
@@ -579,6 +625,8 @@ export const ChallengePage: React.FC = () => {
       api.post('/submissions/submit', {
         problemId: problem.id,
         code,
+        timeTakenSeconds: elapsedSeconds,
+        timeSpentSeconds: elapsedSeconds,
       }),
     onSuccess: (res) => {
       setRunResult(null);
@@ -593,6 +641,21 @@ export const ChallengePage: React.FC = () => {
         immediateSub.verdict !== 'PENDING' &&
         immediateSub.verdict !== 'JUDGING'
       ) {
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        if (problem?.id && immediateSub) {
+          FirestoreDataService.recordDailySubmission(uid, {
+            problemId: problem.id,
+            problemTitle: problem.title,
+            problemSlug: problem.slug,
+            difficulty: problem.difficulty || 'EASY',
+            code,
+            verdict: immediateSub.verdict,
+            timeTakenSeconds: elapsedSeconds,
+            tabSwitchCount,
+            copyPasteAttempts,
+            fullscreenExits,
+          }).catch(() => {});
+        }
         setSubmissionResult({
           submissionId: immediateSub.id,
           verdict: immediateSub.verdict,
@@ -642,6 +705,21 @@ export const ChallengePage: React.FC = () => {
               if (pollTimerRef.current) {
                 clearInterval(pollTimerRef.current);
                 pollTimerRef.current = null;
+              }
+              const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+              if (problem?.id) {
+                FirestoreDataService.recordDailySubmission(uid, {
+                  problemId: problem.id,
+                  problemTitle: problem.title,
+                  problemSlug: problem.slug,
+                  difficulty: problem.difficulty || 'EASY',
+                  code,
+                  verdict: sub.verdict,
+                  timeTakenSeconds: elapsedSeconds,
+                  tabSwitchCount,
+                  copyPasteAttempts,
+                  fullscreenExits,
+                }).catch(() => {});
               }
               setSubmissionResult((prev: any) =>
                 prev?.submissionId === subId
@@ -1209,7 +1287,21 @@ export const ChallengePage: React.FC = () => {
               onChange={handleCodeChange}
               onRun={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && runMutation.mutate()}
               onSubmit={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && submitMutation.mutate()}
-              onReset={handleResetCode}
+              onReset={isDaily ? undefined : handleResetCode}
+              headerExtra={
+                <div
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-all ${
+                    elapsedSeconds > targetLimitSeconds
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                      : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25'
+                  }`}
+                  title={`Solve timer (Easy: 20m, Medium: 30m, Hard: 40m). Time spent: ${formatSolveTimer(elapsedSeconds)}`}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${elapsedSeconds > targetLimitSeconds ? 'text-amber-400' : 'text-cyan-400'} animate-pulse`} />
+                  <span className="font-bold">{formatSolveTimer(elapsedSeconds)}</span>
+                  <span className="text-[10px] opacity-70">/ {targetLimitMinutes}m</span>
+                </div>
+              }
               isSubmitting={submitMutation.isPending}
               isRunning={runMutation.isPending}
               readOnly={isWindowExpired || isWorkspaceLocked}
