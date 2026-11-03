@@ -172,8 +172,8 @@ export const MiniProjectWorkspacePage: React.FC = () => {
 
       {/* Main Two-Pane Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left: Project Scenario & 4-Competency Rubric (Section 35) */}
-        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6">
+        {/* Right on desktop: Project Scenario & 4-Competency Rubric (Section 35) */}
+        <div className="w-full lg:w-1/2 p-6 overflow-y-auto border-l border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6 lg:order-2">
           <div className="space-y-2">
             <div className="text-[var(--text-muted)]">Module: {project.moduleId}</div>
             <h1 className="text-xl font-bold text-[var(--text-main)] tracking-tight">{project.title}</h1>
@@ -229,8 +229,8 @@ export const MiniProjectWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Code Editor */}
-        <div className="w-full lg:w-1/2 flex flex-col bg-[var(--bg-base)]">
+        {/* Left on desktop: Code Editor */}
+        <div className="w-full lg:w-1/2 flex flex-col bg-[var(--bg-base)] lg:border-r border-[var(--border-line)] lg:order-1">
           <div className="bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-4 py-2 flex items-center justify-between text-[var(--text-muted)] font-semibold">
             <span>Modular C Architecture Editor</span>
             <span>C11 Standard</span>

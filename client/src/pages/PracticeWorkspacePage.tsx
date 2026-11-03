@@ -1752,9 +1752,9 @@ export const PracticeWorkspacePage: React.FC = () => {
 
       {/* Main Two-Pane Split View */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Left Pane: Problem Description Statement */}
+        {/* Right Pane on desktop: Problem Description Statement */}
         <div
-          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 select-none ${
+          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 border-l border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 select-none lg:order-2 ${
             activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
           onCopy={(e) => {
@@ -1851,9 +1851,9 @@ export const PracticeWorkspacePage: React.FC = () => {
           )}
         </div>
 
-        {/* Right Pane: Code Editor + Custom Stdin & Verdict Drawer */}
+        {/* Left Pane on desktop: Code Editor + Custom Stdin & Verdict Drawer */}
         <div
-          className={`flex-1 min-w-0 lg:min-w-[360px] flex flex-col min-h-0 bg-[var(--bg-main)] ${
+          className={`flex-1 min-w-0 lg:min-w-[360px] flex flex-col min-h-0 bg-[var(--bg-main)] lg:border-r border-[var(--border-line)] lg:order-1 ${
             activeMobileTab !== 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
         >

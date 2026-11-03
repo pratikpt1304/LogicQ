@@ -486,8 +486,8 @@ export const ExamWorkspacePage: React.FC = () => {
 
       {/* Main Two-Pane Split Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Left Pane: Question Statement & Visible Test Cases (Section 6) */}
-        <div className={`w-full lg:w-1/2 p-4 sm:p-6 overflow-y-auto border-r border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6 ${
+        {/* Right Pane on desktop: Question Statement & Visible Test Cases (Section 6) */}
+        <div className={`w-full lg:w-1/2 p-4 sm:p-6 overflow-y-auto border-l border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6 lg:order-2 ${
           activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:block'
         }`}>
           <div>
@@ -553,8 +553,8 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Pane: Code Editor & Execution Panel */}
-        <div className={`w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 border-[var(--border-line)] bg-[var(--bg-base)] ${
+        {/* Left Pane on desktop: Code Editor & Execution Panel */}
+        <div className={`w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-base)] lg:order-1 ${
           activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
         }`}>
           {/* Editor Header Bar */}

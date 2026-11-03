@@ -1585,9 +1585,9 @@ export const TopicPracticeHubPage: React.FC = () => {
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
             
-            {/* PANE 1: Problem Description Statement (Left - Compact width to maximize compiler area) */}
+            {/* PANE: Problem Description Statement (Right side on desktop) */}
             <div
-              className={`w-full lg:w-[30%] xl:w-[26%] 2xl:w-[24%] flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none ${
+              className={`w-full lg:w-[32%] xl:w-[28%] 2xl:w-[26%] flex flex-col border-b lg:border-b-0 lg:border-l border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-2 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
               onCopy={(e) => {
@@ -1720,9 +1720,9 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
             </div>
 
-            {/* PANE 2: Code Editor + Custom Stdin & Verdict Drawer (Center - Expanded) */}
+            {/* PANE: Code Editor + Custom Stdin & Verdict Drawer (Left side on desktop - Expanded) */}
             <div
-              className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] ${
+              className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] lg:border-r border-[var(--border-line)] lg:order-1 ${
                 activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
               }`}
             >
@@ -1908,7 +1908,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             {/* PANE 3: Authentic JEE Question Palette (Right) */}
             {isDesktopPaletteOpen && (
-              <div className="hidden xl:flex w-72 2xl:w-80 shrink-0 border-l border-[var(--border-line)] bg-[var(--bg-panel)] flex-col h-full overflow-hidden">
+              <div className="hidden xl:flex w-72 2xl:w-80 shrink-0 border-l border-[var(--border-line)] bg-[var(--bg-panel)] flex-col h-full overflow-hidden lg:order-3">
                 {renderPaletteContent(false)}
               </div>
             )}
