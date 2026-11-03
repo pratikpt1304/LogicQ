@@ -3650,14 +3650,39 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       if (!Array.isArray(tests)) tests = [];
     } catch {}
 
+    const customQuestions = Array.isArray(payload.questions) && payload.questions.length > 0 ? payload.questions : [];
+
+    // If custom questions uploaded via Excel, store them in problems pool
+    if (customQuestions.length > 0) {
+      try {
+        const stored = getStoredProblems();
+        const existingIds = new Set(stored.map((p: any) => p.id || p.slug));
+        const newOnes = customQuestions.filter((q: any) => !existingIds.has(q.id || q.slug));
+        if (newOnes.length > 0) {
+          saveStoredProblems([...newOnes, ...stored]);
+        }
+      } catch {}
+    }
+
+    const assignedQuestions = customQuestions.length > 0
+      ? customQuestions.map((q: any, idx: number) => ({
+          id: `tq_${Date.now()}_${idx}`,
+          testId: `test_${Date.now()}`,
+          problemId: q.id || q.slug,
+          orderIndex: idx,
+          points: q.points || 10,
+          problem: q,
+        }))
+      : [];
+
     const newTest = {
       id: `test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       title: payload.title || 'Continuous Assessment Test',
       sectionId: payload.sectionId,
-      moduleId: payload.moduleId,
+      moduleId: payload.moduleId || (customQuestions.length > 0 ? 'Custom Excel Upload' : 'All Modules - Comprehensive Full Syllabus'),
       instructions: payload.instructions || 'Standard academic examination guidelines apply.',
       durationMinutes: payload.durationMinutes || 60,
-      questionCount: payload.questionCount || 20,
+      questionCount: customQuestions.length > 0 ? customQuestions.length : (payload.questionCount || 20),
       easyRatio: payload.easyRatio || 40,
       mediumRatio: payload.mediumRatio || 40,
       hardRatio: payload.hardRatio || 20,
@@ -3667,7 +3692,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       attemptPolicy: payload.attemptPolicy || 'STRICT_NO_REATTEMPT',
       status: 'PUBLISHED',
       createdAt: new Date().toISOString(),
-      questions: [],
+      creationMode: payload.creationMode || (customQuestions.length > 0 ? 'EXCEL_UPLOAD' : 'AUTO_SYLLABUS'),
+      questions: assignedQuestions,
+      _count: { questions: assignedQuestions.length > 0 ? assignedQuestions.length : (payload.questionCount || 20) },
     };
 
     tests.unshift(newTest);
@@ -3677,7 +3704,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
     return {
       success: true,
-      message: 'Assessment test published and assigned to section roster!',
+      message: customQuestions.length > 0
+        ? `Assessment test published with ${newTest.questionCount} custom Excel questions!`
+        : 'Assessment test published and assigned to section roster!',
       data: newTest,
       test: newTest,
     };

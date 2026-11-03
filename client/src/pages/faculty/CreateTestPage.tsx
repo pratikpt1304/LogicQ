@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 import {
   FileCode2,
   Users,
@@ -20,12 +21,24 @@ import {
   Eye,
   MessageSquare,
   Mail,
+  FileSpreadsheet,
+  Upload,
+  Download,
+  Trash2,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 
 export const CreateTestPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<any>(null);
+
+  // Creation Mode: Auto from Syllabus OR Upload Excel
+  const [creationMode, setCreationMode] = useState<'AUTO' | 'EXCEL'>('AUTO');
+  const [excelQuestions, setExcelQuestions] = useState<any[]>([]);
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form State (Sections 14 & 15)
   const [form, setForm] = useState({
@@ -122,14 +135,203 @@ export const CreateTestPage: React.FC = () => {
     }
   };
 
+  // Download Sample Excel Template
+  const downloadSampleExcelTemplate = () => {
+    try {
+      const sampleData = [
+        {
+          Title: 'Find Maximum in Array',
+          Topic: 'Arrays & Loops',
+          Difficulty: 'EASY',
+          Description: 'Write a C program that reads an integer N, followed by N integers, and prints the maximum value.',
+          SampleInput: '5\n10 25 4 99 32',
+          SampleOutput: '99',
+          HiddenInput: '3\n-5 -20 -1',
+          HiddenOutput: '-1',
+          Points: 10,
+        },
+        {
+          Title: 'Reverse String without string.h',
+          Topic: 'Pointers & Strings',
+          Difficulty: 'MEDIUM',
+          Description: 'Write a C program to reverse a given string without using the strrev() function or string.h.',
+          SampleInput: 'logicq',
+          SampleOutput: 'qcigol',
+          HiddenInput: 'sanjivani',
+          HiddenOutput: 'inavijnas',
+          Points: 20,
+        },
+        {
+          Title: 'Matrix Diagonal Sum',
+          Topic: '2D Arrays',
+          Difficulty: 'EASY',
+          Description: 'Given an N x N matrix, calculate and print the sum of its main diagonal elements.',
+          SampleInput: '3\n1 2 3\n4 5 6\n7 8 9',
+          SampleOutput: '15',
+          HiddenInput: '2\n10 5\n3 20',
+          HiddenOutput: '30',
+          Points: 10,
+        },
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Test Questions');
+
+      worksheet['!cols'] = [
+        { wch: 30 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 45 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 10 },
+      ];
+
+      XLSX.writeFile(workbook, 'LogicQ_Test_Questions_Template.xlsx');
+      toast.success('Sample Excel template downloaded! Fill and upload your questions.');
+    } catch (err: any) {
+      toast.error('Failed to generate template: ' + (err.message || err));
+    }
+  };
+
+  // Parse Uploaded Excel File
+  const handleExcelQuestionsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsParsingExcel(true);
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          toast.error('The uploaded Excel sheet contains no rows.');
+          setIsParsingExcel(false);
+          return;
+        }
+
+        const parsed: any[] = [];
+        rawRows.forEach((row, idx) => {
+          const keys = Object.keys(row);
+          const getVal = (pattern: RegExp) => {
+            const k = keys.find((key) => pattern.test(key.trim()));
+            return k ? String(row[k] ?? '').trim() : '';
+          };
+
+          const title = getVal(/^title|^question\s*title|^problem\s*title/i) || `Custom Question #${idx + 1}`;
+          const topic = getVal(/^topic|^category|^subject/i) || 'C Programming';
+          const rawDiff = getVal(/^diff/i).toUpperCase();
+          const difficulty = rawDiff === 'HARD' ? 'HARD' : rawDiff === 'EASY' ? 'EASY' : 'MEDIUM';
+          const description = getVal(/^desc|^problem|^statement|^question/i) || 'Write a C program to solve the given problem statement with correct standard input/output.';
+
+          const sampleInput = getVal(/^sample\s*in|^input\s*1|^sample_in|^input$/i);
+          const sampleOutput = getVal(/^sample\s*out|^output\s*1|^sample_out|^output$/i);
+          const hiddenInput = getVal(/^hidden\s*in|^input\s*2|^hidden_in/i);
+          const hiddenOutput = getVal(/^hidden\s*out|^output\s*2|^hidden_out/i);
+          const points = Number(getVal(/^point|^mark|^score/i)) || (difficulty === 'EASY' ? 10 : difficulty === 'MEDIUM' ? 20 : 30);
+
+          const qId = `custom-q-${Date.now()}-${idx + 1}`;
+          const testCases: any[] = [];
+
+          if (sampleInput || sampleOutput) {
+            testCases.push({
+              id: `${qId}-tc1`,
+              input: sampleInput ? (sampleInput.endsWith('\n') ? sampleInput : `${sampleInput}\n`) : '\n',
+              expectedOutput: sampleOutput ? (sampleOutput.endsWith('\n') ? sampleOutput : `${sampleOutput}\n`) : '\n',
+              isHidden: false,
+              isSample: true,
+              orderIndex: 0,
+            });
+          }
+
+          if (hiddenInput || hiddenOutput) {
+            testCases.push({
+              id: `${qId}-tc2`,
+              input: hiddenInput ? (hiddenInput.endsWith('\n') ? hiddenInput : `${hiddenInput}\n`) : '\n',
+              expectedOutput: hiddenOutput ? (hiddenOutput.endsWith('\n') ? hiddenOutput : `${hiddenOutput}\n`) : '\n',
+              isHidden: true,
+              isSample: false,
+              orderIndex: 1,
+            });
+          }
+
+          if (testCases.length === 0) {
+            testCases.push({
+              id: `${qId}-tc1`,
+              input: '1\n',
+              expectedOutput: '1\n',
+              isHidden: false,
+              isSample: true,
+              orderIndex: 0,
+            });
+          }
+
+          parsed.push({
+            id: qId,
+            problemId: qId,
+            slug: qId,
+            title,
+            topic,
+            difficulty,
+            description,
+            problemStatement: description,
+            points,
+            testCases,
+            starterCode: `#include <stdio.h>\n\nint main() {\n    // TODO: Write solution for ${title}\n    return 0;\n}`,
+            solutionCode: `#include <stdio.h>\n\nint main() {\n    return 0;\n}`,
+            validationStatus: 'FACULTY_APPROVED',
+            status: 'PUBLISHED',
+            createdAt: new Date().toISOString(),
+          });
+        });
+
+        setExcelQuestions(parsed);
+        setForm((prev) => ({
+          ...prev,
+          questionCount: parsed.length,
+        }));
+        toast.success(`Excel analyzed: ${parsed.length} questions loaded successfully!`);
+      } catch (err: any) {
+        toast.error('Failed to parse Excel: ' + (err.message || err));
+      } finally {
+        setIsParsingExcel(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  const removeExcelQuestion = (qId: string) => {
+    setExcelQuestions((prev) => {
+      const updated = prev.filter((q) => q.id !== qId);
+      setForm((f) => ({ ...f, questionCount: updated.length }));
+      return updated;
+    });
+    toast.info('Question removed.');
+  };
+
   // Create Test Mutation
   const createMutation = useMutation({
-    mutationFn: async (payload: typeof form) => {
+    mutationFn: async (payload: any) => {
       return await api.post('/assessment-tests', payload);
     },
     onSuccess: async (res) => {
       toast.success(res.message || 'Assessment test published and assigned to section roster!');
       setIsCreateOpen(false);
+      setExcelQuestions([]);
+      setCreationMode('AUTO');
       queryClient.invalidateQueries({ queryKey: ['faculty-tests'] });
       RealtimeSyncService.emit('TESTS');
 
@@ -325,7 +527,7 @@ export const CreateTestPage: React.FC = () => {
       {/* CREATE TEST MODAL (Sections 14 & 15) */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-2">
                 <FileCode2 className="w-5 h-5 text-indigo-400" />
@@ -333,9 +535,42 @@ export const CreateTestPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm"
+                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm cursor-pointer"
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Test Creation Mode Switcher */}
+            <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => setCreationMode('AUTO')}
+                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                  creationMode === 'AUTO'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Auto-Select from Syllabus</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreationMode('EXCEL')}
+                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
+                  creationMode === 'EXCEL'
+                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/80 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Upload Excel Sheet</span>
+                {excelQuestions.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/15 text-emerald-500 font-mono font-bold">
+                    {excelQuestions.length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -346,109 +581,253 @@ export const CreateTestPage: React.FC = () => {
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="e.g. Mid-Term Lab Practical: C Programming"
                   className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-semibold"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Target Section</label>
-                  <select
-                    value={form.sectionId}
-                    onChange={(e) => setForm({ ...form, sectionId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  >
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.sectionName} ({s.subject})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">
-                    Question Syllabus / Topic Pool
-                  </label>
-                  <select
-                    value={form.moduleId}
-                    onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-mono"
-                  >
-                    <option value="All Modules - Comprehensive Full Syllabus">All Modules (Full Syllabus Mid-Term / Final)</option>
-                    <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals (Variables, Loops, Conditions)</option>
-                    <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions (Pointers, Memory, Recursion)</option>
-                    <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory (Structs, Dynamic Allocation)</option>
-                    <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity (Arrays, Searching, Sorting)</option>
-                  </select>
-                  <span className="text-[10px] text-[var(--muted-foreground)] mt-1 block">
-                    Questions will be selected from this syllabus. The test will appear live on enrolled students' <b>Tests (Exam)</b> portal.
-                  </span>
-                </div>
-              </div>
+              {creationMode === 'AUTO' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Target Section</label>
+                      <select
+                        value={form.sectionId}
+                        onChange={(e) => setForm({ ...form, sectionId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      >
+                        {sections.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.sectionName} ({s.subject})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">
+                        Question Syllabus / Topic Pool
+                      </label>
+                      <select
+                        value={form.moduleId}
+                        onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-mono"
+                      >
+                        <option value="All Modules - Comprehensive Full Syllabus">All Modules (Full Syllabus Mid-Term / Final)</option>
+                        <option value="Module 1 - C Fundamentals">Module 1 - C Fundamentals (Variables, Loops, Conditions)</option>
+                        <option value="Module 2 - Pointers & Functions">Module 2 - Pointers & Functions (Pointers, Memory, Recursion)</option>
+                        <option value="Module 3 - Structures & Memory">Module 3 - Structures & Memory (Structs, Dynamic Allocation)</option>
+                        <option value="Module 4 - Algorithms & Complexity">Module 4 - Algorithms & Complexity (Arrays, Searching, Sorting)</option>
+                      </select>
+                      <span className="text-[10px] text-[var(--muted-foreground)] mt-1 block">
+                        Questions will be selected from this syllabus pool automatically.
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Duration (Minutes)</label>
-                  <input
-                    type="number"
-                    value={form.durationMinutes}
-                    onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[var(--muted-foreground)] font-medium mb-1">Question Count</label>
-                  <input
-                    type="number"
-                    value={form.questionCount}
-                    onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Duration (Minutes)</label>
+                      <input
+                        type="number"
+                        value={form.durationMinutes}
+                        onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Question Count</label>
+                      <input
+                        type="number"
+                        value={form.questionCount}
+                        onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      />
+                    </div>
+                  </div>
 
-              {/* Difficulty Ratio Configuration (Section 4) */}
-              <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-[var(--foreground)]">Difficulty Ratio (Must sum to 100%)</span>
-                  <span
-                    className={`font-mono text-xs font-bold ${
-                      ratioSum === 100 ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    Total: {ratioSum}% {ratioSum === 100 ? '✓' : '(Must be 100%)'}
-                  </span>
+                  {/* Difficulty Ratio Configuration (Section 4) */}
+                  <div className="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[var(--foreground)]">Difficulty Ratio (Must sum to 100%)</span>
+                      <span
+                        className={`font-mono text-xs font-bold ${
+                          ratioSum === 100 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        Total: {ratioSum}% {ratioSum === 100 ? '✓' : '(Must be 100%)'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Easy % (2-8m)</label>
+                        <input
+                          type="number"
+                          value={form.easyRatio}
+                          onChange={(e) => setForm({ ...form, easyRatio: Number(e.target.value) })}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Medium % (8-15m)</label>
+                        <input
+                          type="number"
+                          value={form.mediumRatio}
+                          onChange={(e) => setForm({ ...form, mediumRatio: Number(e.target.value) })}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Hard % (15-25m)</label>
+                        <input
+                          type="number"
+                          value={form.hardRatio}
+                          onChange={(e) => setForm({ ...form, hardRatio: Number(e.target.value) })}
+                          className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* EXCEL UPLOAD MODE */
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Target Section</label>
+                      <select
+                        value={form.sectionId}
+                        onChange={(e) => setForm({ ...form, sectionId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      >
+                        {sections.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.sectionName} ({s.subject})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Duration (Minutes)</label>
+                      <input
+                        type="number"
+                        value={form.durationMinutes}
+                        onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Excel Upload Box */}
+                  <div className="p-4 rounded-xl border border-dashed border-indigo-500/40 bg-indigo-500/5 space-y-3 text-center">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-indigo-500/10 pb-3">
+                      <div className="text-left">
+                        <span className="font-bold text-[var(--foreground)] text-sm flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                          Upload Questions Spreadsheet (.xlsx, .xls, .csv)
+                        </span>
+                        <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+                          Required columns: <b>Title</b>, <b>SampleInput</b>, <b>SampleOutput</b>.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={downloadSampleExcelTemplate}
+                        className="px-3 py-1.5 rounded-lg border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 font-semibold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Template</span>
+                      </button>
+                    </div>
+
+                    <div className="py-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        id="test-excel-input"
+                        onChange={handleExcelQuestionsUpload}
+                      />
+                      <label
+                        htmlFor="test-excel-input"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs cursor-pointer shadow-md transition active:scale-95"
+                      >
+                        <Upload className="w-4 h-4" />
+                        <span>{excelQuestions.length > 0 ? 'Upload Different Excel File' : 'Choose Excel / CSV File'}</span>
+                      </label>
+                      {isParsingExcel && (
+                        <p className="text-xs font-mono text-indigo-400 animate-pulse mt-2">
+                          Analyzing questions & test cases...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Questions Preview Table */}
+                  {excelQuestions.length > 0 && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] overflow-hidden space-y-2 p-3">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="font-bold text-[var(--foreground)] text-xs flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{excelQuestions.length} Questions Ready for Test</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setExcelQuestions([])}
+                          className="text-[11px] text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+
+                      <div className="max-h-52 overflow-y-auto divide-y divide-[var(--border)] border border-[var(--border)] rounded-lg">
+                        {excelQuestions.map((q, idx) => (
+                          <div key={q.id || idx} className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-[var(--card)] transition">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-mono text-[10px] text-[var(--muted-foreground)] w-5 text-right font-bold">
+                                #{idx + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-[var(--foreground)] truncate max-w-xs">{q.title}</div>
+                                <div className="text-[10px] text-[var(--muted-foreground)] font-mono flex items-center gap-2">
+                                  <span>{q.topic || 'General'}</span>
+                                  <span>•</span>
+                                  <span className="text-indigo-400">{q.testCases?.length || 1} Test Cases</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  q.difficulty === 'EASY'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : q.difficulty === 'MEDIUM'
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}
+                              >
+                                {q.difficulty}
+                              </span>
+                              <span className="font-mono text-[11px] font-bold text-slate-400">
+                                {q.points || 10} pts
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeExcelQuestion(q.id)}
+                                className="p-1 text-slate-400 hover:text-rose-400 rounded transition cursor-pointer"
+                                title="Remove question"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Easy % (2-8m)</label>
-                    <input
-                      type="number"
-                      value={form.easyRatio}
-                      onChange={(e) => setForm({ ...form, easyRatio: Number(e.target.value) })}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Medium % (8-15m)</label>
-                    <input
-                      type="number"
-                      value={form.mediumRatio}
-                      onChange={(e) => setForm({ ...form, mediumRatio: Number(e.target.value) })}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[var(--muted-foreground)] text-[11px] mb-1">Hard % (15-25m)</label>
-                    <input
-                      type="number"
-                      value={form.hardRatio}
-                      onChange={(e) => setForm({ ...form, hardRatio: Number(e.target.value) })}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-center font-mono font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
+              )}
 
               <div>
                 <label className="block text-[var(--muted-foreground)] font-medium mb-1">Attempt Policy</label>
@@ -479,17 +858,37 @@ export const CreateTestPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)]"
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={createMutation.isPending || ratioSum !== 100 || !form.sectionId}
-                onClick={() => createMutation.mutate(form)}
-                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
+                disabled={
+                  createMutation.isPending ||
+                  !form.sectionId ||
+                  (creationMode === 'AUTO' && ratioSum !== 100) ||
+                  (creationMode === 'EXCEL' && excelQuestions.length === 0)
+                }
+                onClick={() => {
+                  if (creationMode === 'EXCEL') {
+                    createMutation.mutate({
+                      ...form,
+                      creationMode: 'EXCEL',
+                      questions: excelQuestions,
+                      questionCount: excelQuestions.length,
+                    });
+                  } else {
+                    createMutation.mutate(form);
+                  }
+                }}
+                className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 cursor-pointer shadow-sm transition active:scale-95"
               >
-                {createMutation.isPending ? 'Publishing & Assigning...' : 'Publish & Assign to Roster'}
+                {createMutation.isPending
+                  ? 'Publishing & Assigning...'
+                  : creationMode === 'EXCEL'
+                  ? `Publish & Assign ${excelQuestions.length} Questions`
+                  : 'Publish & Assign to Roster'}
               </button>
             </div>
           </div>
