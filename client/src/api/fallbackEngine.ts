@@ -2937,8 +2937,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const MODULE_LIST = [
       { slug: 'control-structures', order: 1, title: 'Module 1 – Control Structures' },
       { slug: 'pointers-and-functions', order: 2, title: 'Module 2 – Pointers & Functions' },
-      { slug: 'arrays-and-strings', order: 3, title: 'Module 3 – Arrays & Strings' },
-      { slug: 'recursion-and-bit-manipulation', order: 4, title: 'Module 4 – Structs & Memory' },
+      { slug: 'array-and-its-applications', order: 3, title: 'Module 3 – Array and its Applications' },
+      { slug: 'advanced-data-types-dynamic-memory', order: 4, title: 'Module 4 – Advanced Data Types, Dynamic Memory' },
       { slug: 'structures-unions-and-dma', order: 5, title: 'Module 5 – Structures & DMA' },
     ];
 

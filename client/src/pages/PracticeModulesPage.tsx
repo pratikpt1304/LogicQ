@@ -23,7 +23,9 @@ const MODULE_PROBLEM_SLUGS: Record<string, string[]> = {
   'control-structures': PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
   'pointers-and-functions': PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug),
   'arrays-and-strings': PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug),
+  'array-and-its-applications': PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug),
   'recursion-and-bit-manipulation': PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug),
+  'advanced-data-types-dynamic-memory': PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug),
   'structures-unions-and-dma': PRACTICE_MODULE_5_PROBLEMS.map((p) => p.slug),
 };
 import {

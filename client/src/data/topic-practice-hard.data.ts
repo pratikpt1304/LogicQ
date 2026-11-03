@@ -461,7 +461,7 @@ int main() {
     id: 'm3-t11-longest-unique-substring',
     moduleIndex: 3,
     moduleSlug: 'arrays-strings',
-    moduleTitle: 'Module 3: Arrays & Strings',
+    moduleTitle: 'Module 3: Array and its Applications',
     topicTitle: 'Longest Substring Without Repeating Chars',
     summary: 'Find the maximum length non-repeating substring in O(N) time with sliding window and ASCII hash map.',
     tipBox: {
@@ -565,7 +565,7 @@ int main() {
     id: 'm3-t12-inplace-matrix-rotation',
     moduleIndex: 3,
     moduleSlug: 'arrays-strings',
-    moduleTitle: 'Module 3: Arrays & Strings',
+    moduleTitle: 'Module 3: Array and its Applications',
     topicTitle: 'In-Place 90° Clockwise Matrix Rotation',
     summary: 'Rotate an N x N matrix clockwise with strictly O(1) auxiliary space using transpose + row reversal.',
     tipBox: {
@@ -699,7 +699,7 @@ int main() {
     id: 'm4-t11-reverse-linked-list',
     moduleIndex: 4,
     moduleSlug: 'structures-advanced',
-    moduleTitle: 'Module 4: Structures & Memory',
+    moduleTitle: 'Module 4: Advanced Data Types, Dynamic Memory',
     topicTitle: 'In-Place Singly Linked List Reversal',
     summary: 'Reverse pointer directions of a dynamic singly linked list using the classical 3-pointer technique.',
     tipBox: {
@@ -852,7 +852,7 @@ int main() {
     id: 'm4-t12-cycle-detection-floyd',
     moduleIndex: 4,
     moduleSlug: 'structures-advanced',
-    moduleTitle: 'Module 4: Structures & Memory',
+    moduleTitle: 'Module 4: Advanced Data Types, Dynamic Memory',
     topicTitle: 'Cycle Detection & Entry Point (Floyd Algorithm)',
     summary: 'Detect cyclical reference loops in linked nodes using fast/slow pointer collision analysis.',
     tipBox: {
