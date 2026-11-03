@@ -28,6 +28,11 @@ import {
   Terminal,
   Activity,
   Award,
+  Layers,
+  Cpu,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from 'lucide-react';
 
 export const ExamWorkspacePage: React.FC = () => {
@@ -48,7 +53,9 @@ export const ExamWorkspacePage: React.FC = () => {
 
   // Test Results
   const [testResults, setTestResults] = useState<any[]>([]);
-  const [activeBottomTab, setActiveBottomTab] = useState<'tests' | 'telemetry'>('tests');
+  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output' | 'telemetry'>('cases');
+  const [selectedCaseIdx, setSelectedCaseIdx] = useState<number>(0);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor'>('statement');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
 
@@ -304,7 +311,8 @@ export const ExamWorkspacePage: React.FC = () => {
     },
     onSuccess: (res) => {
       setTestResults(res.testResults || []);
-      setActiveBottomTab('tests');
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
       const allPassed = res.testResults?.every((t: any) => t.passed);
       if (allPassed) {
         toast.success('Both visible test cases passed! Proceed to Final Submit when ready.');
@@ -340,7 +348,8 @@ export const ExamWorkspacePage: React.FC = () => {
     },
     onSuccess: (res) => {
       setTestResults(res.testOutcomes || []);
-      setActiveBottomTab('tests');
+      setActiveBottomTab('output');
+      setIsDrawerOpen(true);
       if (res.verdict === 'ACCEPTED') {
         setIsLocked(true);
         const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
@@ -557,35 +566,25 @@ export const ExamWorkspacePage: React.FC = () => {
         <div className={`w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-base)] lg:order-1 ${
           activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
         }`}>
-          {/* Editor Header Bar */}
-          <div className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono">
-            <span className="hidden sm:inline text-[var(--text-muted)] font-semibold">C11 Editor (GCC Sandbox)</span>
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button
-                disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                onClick={() => {
-                  setActiveMobileTab('editor');
-                  runMutation.mutate();
-                }}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 text-[var(--text-main)] font-medium transition-colors text-xs cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 fill-cyan-600 dark:fill-cyan-400" />
-                <span className="hidden sm:inline">{runMutation.isPending ? 'Running...' : 'Run Visible Tests'}</span>
-                <span className="sm:hidden">{runMutation.isPending ? 'Running...' : 'Run Tests'}</span>
-              </button>
+          {/* Editor Header Bar (Mac Dots + solution.c tab + Proctored badge) */}
+          <div className="bg-[#0c1017] border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#161b26] border border-slate-700/60 text-slate-200 font-mono text-[11px] font-semibold">
+                <span>solution.c</span>
+                <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-400 font-bold">C</span>
+              </div>
+            </div>
 
-              <button
-                disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                onClick={() => {
-                  setActiveMobileTab('editor');
-                  submitMutation.mutate();
-                }}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors shadow-md shadow-emerald-900/20 text-xs cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{submitMutation.isPending ? 'Evaluating...' : 'Submit Solution'}</span>
-                <span className="sm:hidden">{submitMutation.isPending ? 'Evaluating...' : 'Submit'}</span>
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
+                <ShieldCheck className="w-3 h-3" />
+                <span>Proctored</span>
+              </span>
             </div>
           </div>
 
@@ -606,123 +605,269 @@ export const ExamWorkspacePage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Execution & Telemetry Results Drawer */}
-          <div className="h-56 border-t border-[var(--border-line)] bg-[var(--bg-panel)] flex flex-col font-mono text-xs">
-            {/* Tabs */}
-            <div className="flex items-center justify-between border-b border-[var(--border-line)] px-3 bg-[var(--bg-surface)]">
-              <div className="flex items-center gap-2">
+          {/* Bottom Execution Dock (Apple-style Segmented Dock identical to Daily Challenge) */}
+          <div
+            className={`border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1017] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
+              isDrawerOpen ? 'h-64 sm:h-72 max-h-[48%]' : 'h-12'
+            }`}
+          >
+            {/* Dock Header Bar */}
+            <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs">
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800">
                 <button
-                  onClick={() => setActiveBottomTab('tests')}
-                  className={`px-3 py-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
-                    activeBottomTab === 'tests'
-                      ? 'border-cyan-500 text-[var(--text-main)]'
-                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  type="button"
+                  onClick={() => {
+                    setActiveBottomTab('cases');
+                    setIsDrawerOpen(true);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeBottomTab === 'cases' && isDrawerOpen
+                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>Execution Results</span>
+                  <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Test Cases ({problemData?.visibleTestCases?.length || 2})</span>
                 </button>
+
                 <button
-                  onClick={() => setActiveBottomTab('telemetry')}
-                  className={`px-3 py-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
-                    activeBottomTab === 'telemetry'
-                      ? 'border-cyan-500 text-[var(--text-main)]'
-                      : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                  type="button"
+                  onClick={() => {
+                    setActiveBottomTab('output');
+                    setIsDrawerOpen(true);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeBottomTab === 'output' && isDrawerOpen
+                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Proctoring Telemetry</span>
+                  <Cpu className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Verdict &amp; Output</span>
+                  {testResults.length > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      {testResults.filter((t: any) => t.passed).length}/{testResults.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveBottomTab('telemetry');
+                    setIsDrawerOpen(true);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    activeBottomTab === 'telemetry' && isDrawerOpen
+                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span className="hidden sm:inline">Telemetry</span>
                 </button>
               </div>
 
-              {testResults.length > 0 && (
-                <div className="text-[11px] text-[var(--text-muted)]">
-                  Passed: {testResults.filter((t) => t.passed).length} / {testResults.length}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isLocked || runMutation.isPending || submitMutation.isPending}
+                  onClick={() => {
+                    setActiveMobileTab('editor');
+                    runMutation.mutate();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                  title="Run Visible Tests (Ctrl + Enter)"
+                >
+                  {runMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Running...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Run Visible Tests</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isLocked || runMutation.isPending || submitMutation.isPending}
+                  onClick={() => {
+                    setActiveMobileTab('editor');
+                    submitMutation.mutate();
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                  title="Final Submit Solution"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Evaluating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Submit</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
+                  onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                  className="px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                >
+                  <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
+                </button>
+              </div>
             </div>
 
-            {/* Results Content */}
-            <div className="flex-1 p-3 overflow-y-auto">
-              {activeBottomTab === 'tests' ? (
-                testResults.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-[var(--text-muted)] text-xs">
-                    Press "Run Visible Tests" to evaluate against sample test cases 1 & 2.
-                  </div>
-                ) : (
+            {/* Dock Body */}
+            {isDrawerOpen && (
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
+                {activeBottomTab === 'cases' && (
                   <div className="space-y-3">
-                    {testResults.map((tr: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-lg border text-xs space-y-1.5 ${
-                          tr.passed
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-200'
-                            : 'bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-bold">
-                          <span className="flex items-center gap-1.5">
-                            {tr.passed ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            ) : (
-                              <XCircle className="w-3.5 h-3.5 text-red-500" />
-                            )}
-                            Test Case #{tr.testIndex} {tr.isHidden ? '(Hidden Server-Side Test)' : '(Visible)'}
+                    <div className="flex items-center justify-between pb-1">
+                      <div className="flex items-center gap-1.5">
+                        {problemData?.visibleTestCases?.map((_: any, idx: number) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedCaseIdx(idx)}
+                            className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              selectedCaseIdx === idx
+                                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs'
+                                : 'bg-[#111622] text-slate-400 hover:text-white border border-slate-800'
+                            }`}
+                          >
+                            Case {idx + 1}
+                          </button>
+                        )) || (
+                          <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs">
+                            Case 1
                           </span>
-                          <span className="text-[11px]">{tr.verdict} ({tr.runtimeMs ?? 0}ms)</span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                        Sample test cases for verification
+                      </span>
+                    </div>
+
+                    {problemData?.visibleTestCases?.[selectedCaseIdx] ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-1">
+                            INPUT:
+                          </div>
+                          <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
+                            {problemData.visibleTestCases[selectedCaseIdx].input}
+                          </pre>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                          <div>
-                            <span className="text-[var(--text-muted)]">Expected:</span>
-                            <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] text-[var(--text-main)] p-1 rounded mt-0.5">{tr.expectedOutput}</pre>
+                        <div>
+                          <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider mb-1">
+                            EXPECTED OUTPUT:
                           </div>
-                          <div>
-                            <span className="text-[var(--text-muted)]">Actual:</span>
-                            <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] text-[var(--text-main)] p-1 rounded mt-0.5">{tr.actualOutput}</pre>
-                          </div>
+                          <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-emerald-400 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">
+                            {problemData.visibleTestCases[selectedCaseIdx].expectedOutput}
+                          </pre>
                         </div>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="text-center py-6 text-slate-400">Loading sample test cases...</div>
+                    )}
                   </div>
-                )
-              ) : (
-                /* Telemetry Panel (Sections 20 - 28) */
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Tab Switches</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{tabSwitchCount}</div>
+                )}
+
+                {activeBottomTab === 'output' && (
+                  testResults.length === 0 ? (
+                    <div className="h-full py-8 flex flex-col items-center justify-center text-[var(--text-muted)] text-xs space-y-1">
+                      <Terminal className="w-6 h-6 text-slate-500 mb-1" />
+                      <div>Click <strong>Run Visible Tests</strong> above to evaluate against sample test cases.</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {testResults.map((tr: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-xl border text-xs space-y-2 bg-[#050811] ${
+                            tr.passed
+                              ? 'border-emerald-500/30'
+                              : 'border-rose-500/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-bold">
+                            <span className="flex items-center gap-1.5">
+                              {tr.passed ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                              )}
+                              <span className={tr.passed ? 'text-emerald-400' : 'text-rose-400'}>
+                                Test Case #{tr.testIndex} {tr.isHidden ? '(Hidden Server-Side Test)' : '(Visible)'}
+                              </span>
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400">{tr.verdict} ({tr.runtimeMs ?? 0}ms)</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                            <div>
+                              <span className="text-[var(--text-muted)] uppercase text-[10px] font-bold">Expected:</span>
+                              <pre className="bg-[#0c1017] border border-slate-800 text-emerald-400 p-2 rounded-lg mt-0.5 overflow-x-auto font-mono font-bold">{tr.expectedOutput}</pre>
+                            </div>
+                            <div>
+                              <span className="text-[var(--text-muted)] uppercase text-[10px] font-bold">Actual:</span>
+                              <pre className={`bg-[#0c1017] border border-slate-800 p-2 rounded-lg mt-0.5 overflow-x-auto font-mono ${tr.passed ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>{tr.actualOutput || '(No output)'}</pre>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
+
+                {activeBottomTab === 'telemetry' && (
+                  /* Telemetry Panel (Sections 20 - 28) */
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Tab Switches</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{tabSwitchCount}</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Fullscreen Exits</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{fullScreenExitCount}</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Clipboard Blocked</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{copyPasteAttempts + cutAttempts}</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Largest Burst</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{largestBurstChars} chars</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Total Keystrokes</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{totalKeystrokes}</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Active Work Time</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{activeSec}s</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-slate-800">
+                      <div className="text-[var(--text-muted)] text-[10px]">Focus Loss Duration</div>
+                      <div className="text-sm font-bold text-[var(--text-main)] mt-1">{(totalFocusLossMsRef.current / 1000).toFixed(1)}s</div>
+                    </div>
+                    <div className="bg-[#050811] p-2.5 rounded-xl border border-emerald-500/40">
+                      <div className="text-slate-400 text-[10px]">Proctoring Mode</div>
+                      <div className="text-sm font-bold text-emerald-400 mt-1">Active</div>
+                    </div>
                   </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Fullscreen Exits</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{fullScreenExitCount}</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Clipboard Blocked</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{copyPasteAttempts + cutAttempts}</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Largest Burst</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{largestBurstChars} chars</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Total Keystrokes</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{totalKeystrokes}</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Active Work Time</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{activeSec}s</div>
-                  </div>
-                  <div className="bg-[var(--bg-surface)] p-2.5 rounded border border-[var(--border-line)]">
-                    <div className="text-[var(--text-muted)] text-[10px]">Focus Loss Duration</div>
-                    <div className="text-sm font-bold text-[var(--text-main)] mt-1">{(totalFocusLossMsRef.current / 1000).toFixed(1)}s</div>
-                  </div>
-                  <div className="bg-gray-950 p-2.5 rounded border border-gray-800">
-                    <div className="text-gray-500 text-[10px]">Proctoring Mode</div>
-                    <div className="text-sm font-bold text-emerald-400 mt-1">Active</div>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

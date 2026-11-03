@@ -16,6 +16,8 @@ import {
   Flag,
   RotateCcw,
   Layers,
+  Cpu,
+  Loader2,
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
@@ -248,8 +250,8 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-  const [activeBottomTab, setActiveBottomTab] = useState<'custom' | 'output'>('output');
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
+  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output' | 'custom'>('cases');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'example'>('syntax');
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState<boolean>(false);
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
@@ -602,8 +604,8 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSubmitResult(null);
     setShowCelebrationModal(false);
     setIsTipDrawerOpen(false);
-    setIsDrawerOpen(false);
-    setActiveBottomTab('output');
+    setIsDrawerOpen(true);
+    setActiveBottomTab('cases');
     setActiveMobileTab('statement');
 
     // 2. Authoritative cloud draft sync (restores saved solution across devices/cleared browser)
@@ -1741,60 +1743,156 @@ export const TopicPracticeHubPage: React.FC = () => {
                 />
               </div>
 
-              {/* Bottom Drawer: Custom Stdin & Verdict Terminal */}
-              <div className="border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex flex-col shrink-0">
-                <div className="h-10 px-4 flex items-center justify-between border-b border-[var(--border-line)]/60">
-                  <div className="flex items-center gap-1">
+              {/* Bottom Execution Dock (Apple-style Segmented Dock identical to Daily Challenge) */}
+              <div
+                className={`border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1017] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
+                  isDrawerOpen ? 'h-60 sm:h-72 max-h-[45%]' : 'h-12'
+                }`}
+              >
+                {/* Dock Header Bar */}
+                <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs">
+                  <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveBottomTab('custom');
+                        setActiveBottomTab('cases');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors cursor-pointer ${
-                        activeBottomTab === 'custom' && isDrawerOpen
-                          ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        activeBottomTab === 'cases' && isDrawerOpen
+                          ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      Custom Stdin
+                      <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>Test Cases (1)</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
                         setActiveBottomTab('output');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1 text-xs font-mono rounded-md transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                         activeBottomTab === 'output' && isDrawerOpen
-                          ? 'bg-[var(--bg-surface)] text-[var(--accent)] font-semibold border border-[var(--border-line)]'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                       }`}
                     >
+                      <Cpu className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                       <span>Verdict &amp; Output</span>
-                      {runResult && (
-                        <span className={`w-2 h-2 rounded-full ${runResult.success ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                      {(runResult || submitResult) && (
+                        <span className={`ml-1 inline-block w-2 h-2 rounded-full ${submitResult?.allPassed || runResult?.success ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-ping'}`} />
                       )}
-                      {submitResult && (
-                        <span className={`w-2 h-2 rounded-full ${submitResult.allPassed ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBottomTab('custom');
+                        setIsDrawerOpen(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        activeBottomTab === 'custom' && isDrawerOpen
+                          ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span className="hidden sm:inline">Custom Stdin</span>
+                      <span className="sm:hidden">Stdin</span>
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] transition cursor-pointer"
-                    title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
-                  >
-                    <span>{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
-                    {isDrawerOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRunOpenTest}
+                      disabled={isRunning}
+                      className="flex items-center gap-1.5 px-3.5 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                      title="Compile & Run solution (Ctrl + Enter)"
+                    >
+                      {isRunning ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Running...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Compile &amp; Run</span>
+                          <span className="text-[10px] opacity-75 font-normal hidden sm:inline ml-0.5">(Ctrl+↵)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
+                      onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                      className="px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                    >
+                      <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
+                    </button>
+                  </div>
                 </div>
 
+                {/* Dock Body */}
                 {isDrawerOpen && (
-                  <div className="max-h-48 sm:max-h-52 p-3 overflow-y-auto font-mono text-xs">
-                    {activeBottomTab === 'custom' ? (
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
+                    {activeBottomTab === 'cases' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between pb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs">
+                              Case 1
+                            </span>
+                            <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                              (Visible Test Case)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRunOpenTest}
+                            disabled={isRunning}
+                            className="px-3 py-1 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] hover:border-cyan-500/50 text-cyan-400 text-xs font-mono font-semibold transition cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            <span>Run Case 1</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-1">
+                              INPUT:
+                            </div>
+                            <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
+                              {activeTopic.problem.openTestCase.input}
+                            </pre>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider mb-1">
+                              EXPECTED OUTPUT:
+                            </div>
+                            <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-emerald-400 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">
+                              {activeTopic.problem.openTestCase.expectedOutput}
+                            </pre>
+                          </div>
+                        </div>
+
+                        {activeTopic.problem.openTestCase.explanation && (
+                          <div className="p-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs text-[var(--text-muted)]">
+                            <strong className="text-[var(--text-main)]">Explanation: </strong>
+                            {activeTopic.problem.openTestCase.explanation}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeBottomTab === 'custom' && (
                       <div className="h-full flex flex-col space-y-1.5">
                         <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
                           Standard Input (passed to stdin for Compile &amp; Run):
@@ -1803,10 +1901,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                           value={customInput}
                           onChange={(e) => setCustomInput(e.target.value)}
                           placeholder="Enter test input data (e.g. 10 20 30)..."
-                          className="w-full flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-[var(--text-main)] border border-[var(--border-line)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                          className="w-full flex-1 p-2.5 rounded-lg bg-[#050811] text-[var(--text-main)] border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none font-mono"
                         />
                       </div>
-                    ) : (
+                    )}
+
+                    {activeBottomTab === 'output' && (
                       <div className="space-y-3">
                         {runResult && (
                           <motion.div
@@ -1830,15 +1930,15 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                             {runResult.actualOutput !== undefined && (
                               <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)]">
+                                <div className="p-2.5 rounded-xl bg-[#050811] border border-slate-800">
                                   <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase mb-0.5">Your Output:</div>
-                                  <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
+                                  <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>
                                     {runResult.actualOutput || '(No output)'}
                                   </pre>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)]">
-                                  <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
-                                  <pre className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-pre-wrap font-bold font-mono">
+                                <div className="p-2.5 rounded-xl bg-[#050811] border border-slate-800">
+                                  <div className="text-[10px] text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
+                                  <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-bold font-mono">
                                     {runResult.expectedOutput}
                                   </pre>
                                 </div>
@@ -1847,7 +1947,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                             {runResult.compileError && (
                               <div className="space-y-2">
-                                <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
+                                <pre className="text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap font-mono">
                                   {runResult.compileError}
                                 </pre>
                                 <GccFriendlyHintCard compileOutput={runResult.compileError} />
@@ -1865,36 +1965,28 @@ export const TopicPracticeHubPage: React.FC = () => {
                             <div className="flex items-center justify-between">
                               <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 shadow-xs ${
                                 submitResult.allPassed
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                               }`}>
-                                {submitResult.allPassed ? <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> : <X className="w-3.5 h-3.5 text-rose-500" />}
+                                {submitResult.allPassed ? <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> : <X className="w-3.5 h-3.5 text-rose-400" />}
                                 <span>{submitResult.allPassed ? 'ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : 'SUBMISSION FAILED'}</span>
                               </span>
                               {submitResult.allPassed && (
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                                   +50 XP
                                 </span>
                               )}
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
+                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
                                 <span>Open Test #1</span>
                                 <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                               </div>
-                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
+                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
                                 <span>Hidden Test #2</span>
                                 <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                               </div>
                             </div>
-                            {submitResult.compileError && (
-                              <div className="space-y-2">
-                                <pre className="text-rose-600 dark:text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap">
-                                  {submitResult.compileError}
-                                </pre>
-                                <GccFriendlyHintCard compileOutput={submitResult.compileError} />
-                              </div>
-                            )}
                           </motion.div>
                         )}
 
@@ -1935,19 +2027,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           </div>
 
-          {/* Bottom JEE Action Bar */}
-          <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-4 sm:px-6 flex items-center justify-end shrink-0 z-20 gap-2 select-none">
-            {/* Primary Action: Compile & Run */}
-            <button
-              type="button"
-              onClick={handleRunOpenTest}
-              disabled={isRunning}
-              className="px-6 sm:px-8 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-mono font-bold transition flex items-center gap-2 disabled:opacity-50 shadow-md shadow-emerald-600/20 cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-white text-white" />
-              <span>{isRunning ? 'Compiling & Running...' : 'Compile & Run'}</span>
-            </button>
-          </div>
+
 
           {/* Mobile Question Palette Slide-Over Drawer */}
           {isMobilePaletteOpen && (
