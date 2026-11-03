@@ -39,6 +39,7 @@ import {
   User,
   LayoutGrid,
   AlertTriangle,
+  Infinity,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOPIC_PRACTICE_DATA, TopicPracticeItem } from '../data/topic-practice.data.js';
@@ -1475,40 +1476,21 @@ export const TopicPracticeHubPage: React.FC = () => {
 
 
 
-            {/* Center: Live CBT Countdown Timer */}
-            {(() => {
-              const totalAllocatedSeconds = activeTopic.problem.difficulty === 'HARD' ? 2400 : activeTopic.problem.difficulty === 'MEDIUM' ? 1800 : 1200;
-              const remainingSeconds = Math.max(0, totalAllocatedSeconds - elapsedSeconds);
-              const isUrgent = remainingSeconds < 180;
-
-              return (
-                <div
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border-2 font-mono shadow-md shrink-0 transition-all ${
-                    isUrgent
-                      ? 'bg-rose-500/20 border-rose-500/60 text-rose-600 dark:text-rose-300'
-                      : 'bg-emerald-500/10 dark:bg-[#0c1017] border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                  }`}
-                  title={`Time elapsed: ${formatPracticeTime(elapsedSeconds)} | Total allocated: ${formatPracticeTime(totalAllocatedSeconds)}`}
-                >
-                  <Clock className={`w-4 h-4 shrink-0 ${isUrgent ? 'text-rose-500 animate-pulse' : 'text-emerald-600 dark:text-emerald-400'}`} />
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-300 hidden sm:inline">
-                      TIME LEFT:
-                    </span>
-                    <span className={`font-mono text-sm font-black tabular-nums tracking-tight px-1.5 py-0.5 rounded ${
-                      isUrgent
-                        ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
-                        : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30'
-                    }`}>
-                      {formatPracticeTime(remainingSeconds)}
-                    </span>
-                  </div>
-                  <span className="text-slate-600 dark:text-slate-400 font-bold text-[11px] hidden md:inline">
-                    ({formatPracticeTime(elapsedSeconds)})
-                  </span>
-                </div>
-              );
-            })()}
+            {/* Center: Practice Mode - Unlimited Time */}
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
+              title="Practice Mode has unlimited time. Code and learn at your own pace."
+            >
+              <Infinity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300 hidden sm:inline">
+                  Unlimited Time
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 font-mono text-xs font-semibold">
+                  ({formatPracticeTime(elapsedSeconds)})
+                </span>
+              </div>
+            </div>
 
             {/* Right: Palette Toggle + Fullscreen + Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
