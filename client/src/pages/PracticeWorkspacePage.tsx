@@ -1754,7 +1754,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Right Pane on desktop: Problem Description Statement */}
         <div
-          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 border-l border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 select-none lg:order-2 ${
+          className={`w-full lg:w-1/2 min-w-0 lg:min-w-[340px] shrink-0 flex flex-col border-b lg:border-b-0 border-l border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 select-none lg:order-2 ${
             activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
           onCopy={(e) => {

@@ -1587,7 +1587,11 @@ export const TopicPracticeHubPage: React.FC = () => {
             
             {/* PANE: Problem Description Statement (Right side on desktop) */}
             <div
-              className={`w-full lg:w-[32%] xl:w-[28%] 2xl:w-[26%] flex flex-col border-b lg:border-b-0 lg:border-l border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-2 ${
+              className={`w-full ${
+                isDesktopPaletteOpen
+                  ? 'lg:w-[38%] xl:w-[34%] 2xl:w-[32%]'
+                  : 'lg:w-1/2'
+              } flex flex-col border-b lg:border-b-0 lg:border-l border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-2 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
               onCopy={(e) => {
@@ -1780,15 +1784,16 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                    className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] transition cursor-pointer"
                     title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
                   >
-                    {isDrawerOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                    <span>{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                    {isDrawerOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
                 {isDrawerOpen && (
-                  <div className="h-48 sm:h-56 p-3 overflow-y-auto font-mono text-xs">
+                  <div className="max-h-48 sm:max-h-52 p-3 overflow-y-auto font-mono text-xs">
                     {activeBottomTab === 'custom' ? (
                       <div className="h-full flex flex-col space-y-1.5">
                         <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
