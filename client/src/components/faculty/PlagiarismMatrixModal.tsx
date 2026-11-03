@@ -115,10 +115,15 @@ export const PlagiarismMatrixModal: React.FC<PlagiarismMatrixModalProps> = ({
       for (let j = i + 1; j < list.length; j++) {
         const subA = list[i];
         const subB = list[j];
+        // Never compare a student to themselves
+        if (subA.studentId === subB.studentId || (subA.prn && subB.prn && subA.prn === subB.prn)) continue;
+        // Only compare submissions solving the same problem
+        if (subA.problemTitle && subB.problemTitle && subA.problemTitle !== subB.problemTitle) continue;
+
         const score = computeTokenSimilarity(subA.code, subB.code);
 
         result.push({
-          id: `${subA.studentId}_${subB.studentId}`,
+          id: `${subA.studentId}_${subB.studentId}_${subA.problemTitle || 'q'}`,
           studentA: subA,
           studentB: subB,
           similarityScore: score,
@@ -268,19 +273,29 @@ export const PlagiarismMatrixModal: React.FC<PlagiarismMatrixModalProps> = ({
                 </div>
               </div>
             </div>
+          ) : submissions.length === 0 ? (
+            /* Zero submissions empty state */
+            <div className="py-16 text-center space-y-3">
+              <FileCode className="w-12 h-12 text-slate-400 mx-auto opacity-60" />
+              <h3 className="font-bold text-base text-[var(--foreground)]">
+                No Real Student Submissions Available Yet
+              </h3>
+              <p className="text-xs text-[var(--muted-foreground)] font-mono max-w-md mx-auto leading-relaxed">
+                As students solve and submit code in Lab Internal or Practice exercises, the AST & token similarity engine will automatically compare their authentic code submissions here.
+              </p>
+            </div>
+          ) : filteredPairs.length === 0 ? (
+            /* Clean pass state */
+            <div className="py-16 text-center space-y-3">
+              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
+              <h3 className="font-bold text-base text-[var(--foreground)]">
+                No Code Plagiarism Detected (0 Flags)
+              </h3>
+              <p className="text-xs text-[var(--muted-foreground)] font-mono max-w-md mx-auto leading-relaxed">
+                All analyzed student code submissions in this section demonstrate independent, authentic logic structure with less than {thresholdFilter}% overlap.
+              </p>
+            </div>
           ) : (
-            /* Similarity Pairs List */
-            filteredPairs.length === 0 ? (
-              <div className="py-12 text-center space-y-3">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
-                <h3 className="font-bold text-sm text-[var(--foreground)]">
-                  No High-Similarity Code Pairs Found
-                </h3>
-                <p className="text-xs text-[var(--muted-foreground)] font-mono max-w-md mx-auto">
-                  All analyzed student submissions in this section demonstrate independent coding structure above the selected {thresholdFilter}% threshold.
-                </p>
-              </div>
-            ) : (
               <div className="space-y-3">
                 {filteredPairs.map((pair) => {
                   const isCritical = pair.similarityScore >= 80;
@@ -328,7 +343,7 @@ export const PlagiarismMatrixModal: React.FC<PlagiarismMatrixModalProps> = ({
                 })}
               </div>
             )
-          )}
+          }
         </div>
 
         {/* Footer */}

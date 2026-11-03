@@ -479,6 +479,85 @@ export const FacultyAnalyticsPage: React.FC = () => {
     });
   }, [analyticsData?.students, analyticsData?.sections, selectedSectionId, activeFilterTab, searchQuery]);
 
+
+  // Real Submissions Fetch for Plagiarism Matrix Analysis
+  const { data: realPlagiarismSubmissions = [] } = useQuery({
+    queryKey: ['faculty-real-submissions-for-similarity'],
+    queryFn: async () => {
+      let apiList: any[] = [];
+      try {
+        const res: any = await api.get('/admin/submissions?limit=1000');
+        apiList = res?.data?.submissions || res?.submissions || [];
+      } catch (err) {
+        console.warn('API submissions fetch notice:', err);
+      }
+
+      let fsList: any[] = [];
+      try {
+        fsList = await FirestoreDataService.getAllFirestoreSubmissions();
+      } catch (err) {
+        console.warn('Firestore submissions fetch notice:', err);
+      }
+
+      return [...apiList, ...fsList];
+    },
+    enabled: isPlagiarismModalOpen,
+  });
+
+  const similarityCandidates = useMemo(() => {
+    if (!realPlagiarismSubmissions || realPlagiarismSubmissions.length === 0) return [];
+
+    const validPrns = new Set(filteredStudents.map((s: any) => (s.prn || '').toUpperCase().trim()).filter(Boolean));
+    const validEmails = new Set(filteredStudents.map((s: any) => (s.email || '').toLowerCase().trim()).filter(Boolean));
+    const validIds = new Set(filteredStudents.map((s: any) => s.id).filter(Boolean));
+
+    const candidates: any[] = [];
+    const seenKeys = new Set<string>();
+
+    realPlagiarismSubmissions.forEach((sub: any) => {
+      const code = String(sub.code || sub.sourceCode || '').trim();
+      if (!code || code.length < 20) return;
+
+      const subPrn = (sub.user?.prn || sub.prn || '').toUpperCase().trim();
+      const subEmail = (sub.user?.email || sub.email || '').toLowerCase().trim();
+      const subUid = sub.userId || sub.user?.id || sub.studentId;
+
+      const isMatch =
+        (subPrn && validPrns.has(subPrn)) ||
+        (subEmail && validEmails.has(subEmail)) ||
+        (subUid && validIds.has(subUid));
+
+      if (!isMatch) return;
+
+      const st = filteredStudents.find(
+        (s: any) =>
+          (subPrn && (s.prn || '').toUpperCase().trim() === subPrn) ||
+          (subEmail && (s.email || '').toLowerCase().trim() === subEmail) ||
+          (s.id && (s.id === subUid || s.id === sub.userId))
+      );
+
+      const studentName = st?.fullName || sub.user?.fullName || sub.studentName || sub.user?.displayName || 'Student';
+      const prn = st?.prn || subPrn || '—';
+      const studentId = st?.id || subUid || sub.id;
+      const problemTitle = sub.problem?.title || sub.problemTitle || 'C Problem';
+
+      const key = `${studentId}_${problemTitle}_${code.slice(0, 40)}`;
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+
+      candidates.push({
+        studentId,
+        studentName,
+        prn,
+        problemTitle,
+        code,
+        submittedAt: sub.createdAt || sub.submittedAt,
+      });
+    });
+
+    return candidates;
+  }, [realPlagiarismSubmissions, filteredStudents]);
+
   // Aggregate Metrics
   const metrics = useMemo(() => {
     const list = analyticsData?.students || [];
@@ -1116,13 +1195,7 @@ Generated On   : ${new Date().toLocaleString()}`;
         isOpen={isPlagiarismModalOpen}
         onClose={() => setIsPlagiarismModalOpen(false)}
         sectionName={analyticsData?.sections?.find((s: any) => s.id === selectedSectionId)?.name || 'Class Section'}
-        submissions={filteredStudents.map((st) => ({
-          studentId: st.id,
-          studentName: st.fullName,
-          prn: st.prn,
-          problemTitle: 'Lab Coursework Submission',
-          code: `#include <stdio.h>\nint main() {\n  // Student: ${st.fullName} (${st.prn})\n  int a, b;\n  if (scanf("%d %d", &a, &b) != 2) return 1;\n  printf("%d\\n", a + b);\n  return 0;\n}`,
-        }))}
+        submissions={similarityCandidates}
       />
 
       {/* 5. Student Code & Proctoring Anti-Cheat Audit Modal */}
