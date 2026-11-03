@@ -203,18 +203,22 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay
   // into browser localStorage fallback in production.
   if (useFallback || !response) {
-    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp'))) {
+    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password'))) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
-      let errorMsg = 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.';
+      let errorMsg = cleanEndpoint.startsWith('/submissions')
+        ? 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.'
+        : 'Server is temporarily unavailable. Please try again in a moment.';
       let errorCode = 'SERVER_UNAVAILABLE';
 
       if (isOffline) {
         errorMsg = 'You are currently offline. Please reconnect to the internet and click Retry.';
         errorCode = 'OFFLINE';
       } else if (response && !isJsonResponse(response)) {
-        errorMsg = 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.';
-        errorCode = 'JUDGE_UNREACHABLE';
+        errorMsg = cleanEndpoint.startsWith('/submissions')
+          ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
+          : 'Server returned an unexpected response. Please try again.';
+        errorCode = cleanEndpoint.startsWith('/submissions') ? 'JUDGE_UNREACHABLE' : 'SERVER_ERROR';
       }
 
       const err = new Error(errorMsg) as LogicQApiError;
@@ -265,7 +269,9 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       }
     }
     let errorMsg = data?.message || (!data 
-      ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
+      ? (cleanEndpoint.startsWith('/submissions')
+          ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
+          : 'Server returned an unexpected response. Please try again in a moment.')
       : `Request failed with status ${response.status}`);
     let errorCode = data?.code || (!data ? 'INVALID_RESPONSE' : undefined);
     let canRetry = true;

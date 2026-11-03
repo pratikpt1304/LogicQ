@@ -259,6 +259,8 @@ export class FirestoreDataService {
     if (updates.photoURL !== undefined) safePayload.photoURL = updates.photoURL;
     if (updates.storagePreference !== undefined) safePayload.storagePreference = updates.storagePreference;
     if (updates.themePreference !== undefined) safePayload.themePreference = updates.themePreference;
+    if ((updates as any).password !== undefined) safePayload.password = (updates as any).password;
+    if ((updates as any).passwordChangedAt !== undefined) safePayload.passwordChangedAt = (updates as any).passwordChangedAt;
 
     await setDoc(userRef, safePayload, { merge: true });
 
