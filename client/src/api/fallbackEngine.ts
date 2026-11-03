@@ -119,8 +119,9 @@ function deletePracticeProblem(slug: string) {
   }
 }
 
-const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
-const startIstStr = nowIst.toISOString().split('T')[0];
+const challengeOffsetMs = -690 * 60 * 1000;
+const challengeDayDate = new Date(Date.now() + challengeOffsetMs);
+const startIstStr = challengeDayDate.toISOString().split('T')[0];
 const [kYear, kMonth, kDay] = startIstStr.split('-').map(Number);
 const kBaseDate = new Date(Date.UTC(kYear, kMonth - 1, kDay));
 
@@ -1578,14 +1579,27 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path === '/problems/daily' && method === 'GET') {
+    const problems = getStoredProblems();
+    const challengeDate = new Date(Date.now() - 690 * 60 * 1000);
+    const activeDay = challengeDate.toISOString().split('T')[0];
+    const dailyProblem =
+      problems.find((p) => p.isDaily && p.scheduledDate === activeDay) ||
+      problems.find((p) => p.slug === 'kanetkar-ch1-scope-shadow-eval') ||
+      problems.find((p) => p.isDaily) ||
+      problems[0];
+    const secondsUntilNextReset = getSecondsUntilNext1700IST();
+    const user = getCurrentUser();
+    const subs = getStoredSubmissions();
+    const isSolved = user && dailyProblem
+      ? subs.some((s) => s.userId === user.id && s.problemId === dailyProblem.id && s.verdict === 'ACCEPTED')
+      : false;
     return {
       success: true,
       data: {
-        paused: true,
-        message: 'Daily challenges are not live yet. We will announce the start.',
-        problem: null,
-        secondsUntilNextReset: null,
-        endsAt: null,
+        problem: dailyProblem,
+        userStatus: { isSolved, attempts: subs.filter((s) => s.problemId === dailyProblem?.id).length },
+        secondsUntilNextReset,
+        endsAt: new Date(Date.now() + secondsUntilNextReset * 1000).toISOString(),
       },
     };
   }
