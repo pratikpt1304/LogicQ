@@ -17,6 +17,8 @@ interface CodeEditorProps {
   disableCopyPaste?: boolean;
   onBlockedAction?: (action: 'copy' | 'paste' | 'cut' | 'contextmenu') => void;
   hideHeader?: boolean;
+  hideRunButton?: boolean;
+  forceTheme?: 'dark' | 'light';
 }
 
 const MOBILE_C_SYMBOLS: Array<{ label: string; insertText: string }> = [
@@ -108,12 +110,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   disableCopyPaste = true,
   onBlockedAction,
   hideHeader = false,
+  hideRunButton = false,
+  forceTheme,
 }) => {
   const disableCopyPasteRef = React.useRef(disableCopyPaste);
   const onBlockedActionRef = React.useRef(onBlockedAction);
   disableCopyPasteRef.current = disableCopyPaste;
   onBlockedActionRef.current = onBlockedAction;
   const { theme } = useTheme();
+  const effectiveTheme = forceTheme || theme;
   const [copied, setCopied] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const editorRef = React.useRef<any>(null);
@@ -132,7 +137,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   isRunningRef.current = isRunning;
   readOnlyRef.current = readOnly;
 
-  const monacoThemeName = theme === 'dark' ? 'logicq-dark' : 'logicq-light';
+  const monacoThemeName = effectiveTheme === 'dark' ? 'logicq-dark' : 'logicq-light';
 
   const [fontSize, setFontSize] = React.useState<number>(() => {
     try {
@@ -436,18 +441,28 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   return (
     <div
       data-readonly={readOnly ? 'true' : 'false'}
-      className="flex flex-col h-full min-h-0 bg-[var(--bg-panel)] rounded-xl border border-[var(--border-line)] overflow-hidden overscroll-contain"
+      className={`flex flex-col h-full min-h-0 rounded-xl border overflow-hidden overscroll-contain ${
+        effectiveTheme === 'dark'
+          ? 'bg-[#0c1017] border-slate-800 text-slate-100 terminal-window'
+          : 'bg-[var(--bg-panel)] border-[var(--border-line)]'
+      }`}
     >
       {/* Editor Header */}
       {!hideHeader && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0">
+        <div
+          className={`flex items-center justify-between px-4 py-2 border-b shrink-0 ${
+            effectiveTheme === 'dark'
+              ? 'bg-[#090d16] border-slate-800 text-white'
+              : 'bg-[var(--bg-surface)] border-[var(--border-line)]'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[var(--color-error)] inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-[var(--color-warning)] inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-[var(--color-success)] inline-block"></span>
-            <span className="ml-2 font-mono text-xs font-semibold text-[var(--text-main)] flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block"></span>
+            <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block"></span>
+            <span className="ml-2 font-mono text-xs font-semibold flex items-center gap-1.5" style={effectiveTheme === 'dark' ? { color: '#ffffff' } : undefined}>
               solution.c
-              <span className="text-xs text-[var(--color-accent)] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] font-bold">
+              <span className={`text-xs px-1.5 py-0.5 rounded border font-bold ${effectiveTheme === 'dark' ? 'bg-slate-800 border-slate-700 text-cyan-300' : 'text-[var(--color-accent)] bg-[var(--bg-panel)] border-[var(--border-line)]'}`}>
                 C
               </span>
               {readOnly && (
@@ -485,7 +500,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               </>
             )}
 
-            {onRun && !readOnly && (
+            {onRun && !readOnly && !hideRunButton && (
               <button
                 type="button"
                 onClick={onRun}
@@ -589,14 +604,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           }
         }}
         data-testid="monaco-editor-canvas"
-        className="flex-1 min-h-[160px] relative overflow-hidden overscroll-contain"
+        className={`flex-1 min-h-[160px] relative overflow-hidden overscroll-contain ${
+          effectiveTheme === 'dark' ? 'bg-[#0c1017]' : ''
+        }`}
       />
 
       {/* Mobile C Symbol Helper Bar (Tab, {, }, ;, *, &, #, <, >) */}
       <div
         data-testid="mobile-c-symbol-bar"
         aria-label="C Symbol Helper Bar"
-        className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-surface)] border-t border-[var(--border-line)] overflow-x-auto shrink-0"
+        className={`lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 border-t overflow-x-auto shrink-0 ${
+          effectiveTheme === 'dark'
+            ? 'bg-[#090d16] border-slate-800'
+            : 'bg-[var(--bg-surface)] border-[var(--border-line)]'
+        }`}
       >
         {MOBILE_C_SYMBOLS.map((sym) => (
           <button
@@ -604,7 +625,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             type="button"
             disabled={readOnly}
             onClick={() => handleInsertSymbol(sym.insertText)}
-            className="min-w-[38px] min-h-[36px] px-2.5 py-1 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-main)] active:border-[var(--color-accent)] disabled:opacity-50 shrink-0"
+            className={`min-w-[38px] min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-mono font-bold active:border-[var(--color-accent)] disabled:opacity-50 shrink-0 ${
+              effectiveTheme === 'dark'
+                ? 'bg-slate-900 border-slate-700 text-slate-200'
+                : 'bg-[var(--bg-panel)] border-[var(--border-line)] text-[var(--text-main)]'
+            }`}
           >
             {sym.label}
           </button>

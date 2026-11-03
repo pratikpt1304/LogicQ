@@ -663,11 +663,11 @@ export const DashboardPage: React.FC = () => {
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
 
 
-  // Topic Practice distinct metrics (111 Curated Topics)
-  const practiceTopicsTotal = TOPIC_PRACTICE_DATA.length || 111;
-  const practiceEasyTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY').length || 56;
-  const practiceMedTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM').length || 37;
-  const practiceHardTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD').length || 18;
+  // Topic Practice distinct metrics (Curated Topics across 4 modules)
+  const practiceTopicsTotal = TOPIC_PRACTICE_DATA.length || 100;
+  const practiceEasyTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY').length || 40;
+  const practiceMedTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM').length || 40;
+  const practiceHardTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD').length || 20;
 
   const practiceEasySolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY' && solvedTopicIds.includes(t.id)).length;
   const practiceMedSolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM' && solvedTopicIds.includes(t.id)).length;
@@ -675,8 +675,8 @@ export const DashboardPage: React.FC = () => {
   const practiceTotalSolved = practiceEasySolved + practiceMedSolved + practiceHardSolved;
   const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
 
-  // Lab Internal distinct metrics (100 Evaluation Problems across 5 Modules)
-  const labTotal = 100;
+  // Lab Internal distinct metrics (Evaluation Problems across 4 Modules)
+  const labTotal = studentModulesList.reduce((acc: number, m: any) => acc + (m.totalQuestions || 20), 0) || 80;
   const labTotalSolved = studentModulesList.reduce((acc: number, m: any) => acc + (m.solvedCount || 0), 0);
   const labOverallPercent = Math.min(100, Math.round((labTotalSolved / labTotal) * 100));
   const labEasySolved = Math.min(40, Math.round(labTotalSolved * 0.4));
@@ -826,36 +826,48 @@ export const DashboardPage: React.FC = () => {
       });
     }
 
+    // Check locally recorded activity dates from any challenge or practice submission
+    try {
+      const rawLocalDates = localStorage.getItem('logicq_user_activity_dates');
+      if (rawLocalDates) {
+        const arr = JSON.parse(rawLocalDates);
+        if (Array.isArray(arr)) {
+          arr.forEach((d: string) => d && dates.add(d));
+        }
+      }
+    } catch {}
+
+    // Check stats.lastSolvedDate
+    if (stats?.lastSolvedDate) {
+      try {
+        const d = stats.lastSolvedDate.split('T')[0];
+        if (d) dates.add(d);
+      } catch {}
+    }
+
     if (isDailySolved) {
       const todayStr = new Date().toISOString().split('T')[0];
       dates.add(todayStr);
     }
 
     return dates;
-  }, [studentSubmissionsList, isDailySolved]);
+  }, [studentSubmissionsList, isDailySolved, stats?.lastSolvedDate]);
 
-  // Calculate real consecutive daily streak strictly based on actual submissions
+  // Calculate real consecutive daily streak strictly based on actual submissions:
+  // Streak only counts if student submitted on that day
   const computedStreak = React.useMemo(() => {
     if (studentSubmissionDates.size === 0) return 0;
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
     const hasSubmittedToday = studentSubmissionDates.has(todayStr);
-    const hasSubmittedYesterday = studentSubmissionDates.has(yesterdayStr);
 
-    // If student submitted neither today nor yesterday, streak is 0
-    if (!hasSubmittedToday && !hasSubmittedYesterday) {
+    // When student hasn't submitted anything today, streak does not count today
+    if (!hasSubmittedToday) {
       return 0;
     }
 
     let streak = 0;
     let checkDate = new Date();
-    if (!hasSubmittedToday) {
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
 
     while (true) {
       const dStr = checkDate.toISOString().split('T')[0];
@@ -1418,7 +1430,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[var(--text-main)]">Practice Mastery</h3>
-                    <p className="text-[11px] font-mono text-[var(--text-muted)]">111 Topic Questions</p>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">{practiceTopicsTotal} Topic Questions</p>
                   </div>
                 </div>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -1461,7 +1473,7 @@ export const DashboardPage: React.FC = () => {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
                     <span className="text-xl font-black text-[var(--text-main)]">{practiceTotalSolved}</span>
-                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 111</span>
+                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ {practiceTopicsTotal}</span>
                   </div>
                 </div>
 
@@ -1503,7 +1515,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[var(--text-main)]">Lab Internal</h3>
-                    <p className="text-[11px] font-mono text-[var(--text-muted)]">100 Lab Questions</p>
+                    <p className="text-[11px] font-mono text-[var(--text-muted)]">{labTotal} Lab Questions</p>
                   </div>
                 </div>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
@@ -1546,7 +1558,7 @@ export const DashboardPage: React.FC = () => {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center font-mono">
                     <span className="text-xl font-black text-[var(--text-main)]">{labTotalSolved}</span>
-                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ 100</span>
+                    <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">/ {labTotal}</span>
                   </div>
                 </div>
 

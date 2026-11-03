@@ -747,6 +747,15 @@ export const ChallengePage: React.FC = () => {
                     : 'Accepted! All test cases passed.',
                   { icon: <Sparkles className="w-5 h-5 text-emerald-400" /> }
                 );
+                try {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const rawDates = localStorage.getItem('logicq_user_activity_dates');
+                  const dates = rawDates ? JSON.parse(rawDates) : [];
+                  if (!dates.includes(todayStr)) {
+                    dates.push(todayStr);
+                    localStorage.setItem('logicq_user_activity_dates', JSON.stringify(dates));
+                  }
+                } catch {}
                 refreshUser();
               } else {
                 toast.error(`Verdict: ${sub.verdict.replace(/_/g, ' ')}`);
@@ -1279,18 +1288,20 @@ export const ChallengePage: React.FC = () => {
 
         {/* Right Pane: Code Editor & Execution Drawer (Columns 6-12 on desktop) */}
         <div
-          className={`lg:col-span-7 flex flex-col h-full min-h-0 bg-[var(--bg-main)] overflow-hidden ${
+          className={`lg:col-span-7 flex flex-col h-full min-h-0 bg-[#0c1017] overflow-hidden terminal-window ${
             activeMobileTab === 'statement' ? 'hidden lg:flex' : ''
           }`}
         >
           {/* Editor Container */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden bg-[#0c1017]">
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
               onRun={handleCompileAndRun}
               onSubmit={handleCompileAndRun}
               onReset={isDaily ? undefined : handleResetCode}
+              forceTheme="dark"
+              hideRunButton={true}
               headerExtra={
                 <div
                   className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-all ${
@@ -1401,9 +1412,30 @@ export const ChallengePage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleCompileAndRun}
+                  disabled={submitMutation.isPending || isWindowExpired || isWorkspaceLocked}
+                  className="flex items-center gap-1.5 px-3.5 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                  title="Compile & Run all test cases (Ctrl + Enter)"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Running...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Compile &amp; Run</span>
+                      <span className="text-[10px] opacity-75 font-normal hidden sm:inline ml-0.5">(Ctrl+↵)</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-[var(--border-line)] transition-all flex items-center gap-1.5 font-mono text-xs cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-[var(--border-line)] transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
                 >
                   <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />

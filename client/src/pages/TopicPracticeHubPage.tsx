@@ -148,6 +148,17 @@ export function markPracticeTopicSolved(topicId: string, userId?: string): strin
       localStorage.setItem('logicq_fallback_practice_progress_v1', JSON.stringify(progMap));
     } catch {}
 
+    // Also record today's date in activity dates for streak tracking
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const rawDates = localStorage.getItem('logicq_user_activity_dates');
+      const dates = rawDates ? JSON.parse(rawDates) : [];
+      if (!dates.includes(todayStr)) {
+        dates.push(todayStr);
+        localStorage.setItem('logicq_user_activity_dates', JSON.stringify(dates));
+      }
+    } catch {}
+
     return list;
   } catch {
     return [topicId];
@@ -1712,12 +1723,13 @@ export const TopicPracticeHubPage: React.FC = () => {
               }`}
             >
               {/* Editor Container */}
-              <div className="flex-1 min-h-0 relative overflow-hidden bg-[var(--bg-panel)]">
+              <div className="flex-1 min-h-0 relative overflow-hidden bg-[#0c1017] terminal-window">
                 <CodeEditor
                   code={code}
                   onChange={handleCodeChange}
                   readOnly={false}
                   disableCopyPaste={true}
+                  forceTheme="dark"
                 />
               </div>
 

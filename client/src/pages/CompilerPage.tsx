@@ -288,6 +288,7 @@ export const CompilerPage: React.FC = () => {
               isRunning={isRunning}
               hideHeader={true}
               disableCopyPaste={false}
+              forceTheme="dark"
             />
           </div>
         </div>

@@ -214,7 +214,7 @@ export const OnlineCompilerCard: React.FC = () => {
     return (
       <div
         id="dashboard-online-compiler-section"
-        className="rounded-2xl border border-slate-800 bg-[#0c1017] text-slate-200 p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all hover:border-slate-700 font-mono"
+        className="terminal-window rounded-2xl border border-slate-800 bg-[#0c1017] text-slate-200 p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition-all hover:border-slate-700 font-mono"
       >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700/80 text-emerald-400 flex items-center justify-center shadow-md shadow-emerald-500/10 shrink-0">
@@ -264,7 +264,7 @@ export const OnlineCompilerCard: React.FC = () => {
   return (
     <div
       id="dashboard-online-compiler-section"
-      className={`rounded-2xl border border-slate-800 bg-[#0c1017] text-slate-100 shadow-2xl overflow-hidden transition-all duration-300 font-mono ${
+      className={`terminal-window rounded-2xl border border-slate-800 bg-[#0c1017] text-slate-100 shadow-2xl overflow-hidden transition-all duration-300 font-mono ${
         isFullscreen ? 'fixed inset-4 z-[9999] flex flex-col bg-[#0c1017] shadow-2xl' : 'w-full'
       }`}
     >
@@ -370,12 +370,12 @@ export const OnlineCompilerCard: React.FC = () => {
                 <FileCode className="w-3.5 h-3.5" />
                 <span>main.c</span>
               </span>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
+              <span className="text-[11px] hidden sm:inline" style={{ color: '#cbd5e1' }}>
                 -std=c11 -O2 -Wall
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <div className="flex items-center gap-2 text-[11px]" style={{ color: '#cbd5e1' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               <span className="hidden sm:inline">Auto-saved locally</span>
             </div>
@@ -390,6 +390,7 @@ export const OnlineCompilerCard: React.FC = () => {
               isRunning={isRunning}
               hideHeader={true}
               disableCopyPaste={false}
+              forceTheme="dark"
             />
           </div>
         </div>
@@ -481,25 +482,25 @@ export const OnlineCompilerCard: React.FC = () => {
                 <div className="space-y-3 flex-1 flex flex-col">
                   {/* Terminal Command Prompt Line */}
                   <div className="p-2.5 rounded-lg bg-[#090d16] border border-slate-800 space-y-1 shrink-0">
-                    <div className="flex items-center gap-1.5 text-slate-300 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-emerald-400 font-bold">student@logicq-c11</span>
-                      <span className="text-slate-500">:</span>
-                      <span className="text-cyan-400">~/workspace</span>
-                      <span className="text-slate-500">$</span>
-                      <span className="text-slate-100 font-mono">gcc -std=c11 -O2 main.c -o solution &amp;&amp; ./solution</span>
+                      <span style={{ color: '#94a3b8' }}>:</span>
+                      <span className="text-cyan-400 font-bold">~/workspace</span>
+                      <span style={{ color: '#94a3b8' }}>$</span>
+                      <span className="font-mono font-medium text-white" style={{ color: '#ffffff' }}>gcc -std=c11 -O2 main.c -o solution &amp;&amp; ./solution</span>
                     </div>
 
                     {executionStats && (
-                      <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-slate-800 text-[10px] text-slate-400">
+                      <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-slate-800 text-[10px]" style={{ color: '#cbd5e1' }}>
                         <span className={`font-bold ${executionStats.exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           Status: {executionStats.verdict || (executionStats.exitCode === 0 ? 'COMPLETED' : 'FAILED')}
                         </span>
-                        <span>•</span>
-                        <span>Exit Code: {executionStats.exitCode}</span>
+                        <span style={{ color: '#64748b' }}>•</span>
+                        <span style={{ color: '#f1f5f9' }}>Exit Code: {executionStats.exitCode}</span>
                         {executionStats.runtimeMs !== undefined && (
                           <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
+                            <span style={{ color: '#64748b' }}>•</span>
+                            <span className="flex items-center gap-1 text-cyan-300">
                               <Clock className="w-3 h-3 text-cyan-400" />
                               <span>{executionStats.runtimeMs}ms</span>
                             </span>
@@ -507,8 +508,8 @@ export const OnlineCompilerCard: React.FC = () => {
                         )}
                         {executionStats.memoryKb !== undefined && executionStats.memoryKb > 0 && (
                           <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
+                            <span style={{ color: '#64748b' }}>•</span>
+                            <span className="flex items-center gap-1 text-indigo-300">
                               <Cpu className="w-3 h-3 text-indigo-400" />
                               <span>{(executionStats.memoryKb / 1024).toFixed(1)} MB</span>
                             </span>
@@ -548,7 +549,7 @@ export const OnlineCompilerCard: React.FC = () => {
                   )}
 
                   {/* Process Exit Footer */}
-                  <div className="text-[11px] text-slate-500 font-mono pt-1">
+                  <div className="text-[11px] font-mono pt-1" style={{ color: '#94a3b8' }}>
                     [Process completed with exit code {executionStats?.exitCode ?? 0} ({executionStats?.runtimeMs ?? 0}ms)]
                   </div>
                 </div>
@@ -609,24 +610,24 @@ export const OnlineCompilerCard: React.FC = () => {
 
       {/* Bottom Action Bar: Compile & Run moved to bottom! */}
       <div className="px-5 py-3.5 bg-[#090d16] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 font-mono">
-        <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-3 text-xs" style={{ color: '#cbd5e1' }}>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-200 font-bold">GCC 14.2.0 (C11)</span>
+            <span className="font-bold text-white" style={{ color: '#ffffff' }}>GCC 14.2.0 (C11)</span>
           </div>
           <span className="text-slate-600 hidden sm:inline">•</span>
-          <span className="hidden sm:inline text-slate-400">Linux Sandbox</span>
+          <span className="hidden sm:inline" style={{ color: '#cbd5e1' }}>Linux Sandbox</span>
           <span className="text-slate-600 hidden md:inline">•</span>
-          <span className="hidden md:inline text-slate-500">64MB Limit</span>
+          <span className="hidden md:inline" style={{ color: '#94a3b8' }}>64MB Limit</span>
           <span className="text-slate-600 hidden md:inline">•</span>
-          <span className="hidden md:inline text-slate-500">Timeout 2.0s</span>
+          <span className="hidden md:inline" style={{ color: '#94a3b8' }}>Timeout 2.0s</span>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-slate-400 hidden sm:inline-flex items-center gap-1.5">
+          <span className="text-[11px] hidden sm:inline-flex items-center gap-1.5" style={{ color: '#cbd5e1' }}>
             <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
             <span>Shortcut:</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-mono">Ctrl + Enter</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-white text-[10px] font-mono" style={{ color: '#ffffff' }}>Ctrl + Enter</kbd>
           </span>
 
           <button

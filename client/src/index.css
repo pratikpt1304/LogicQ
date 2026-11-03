@@ -563,6 +563,79 @@ html[data-theme='light'] [class*='bg-gradient-'] .text-white {
   color: #FFFFFF !important;
 }
 
+/* Terminal Scope Protection: Prevent light theme from inverting dark terminal text */
+.terminal-window,
+.terminal-window *,
+#dashboard-online-compiler-section,
+#dashboard-online-compiler-section * {
+  --text-main: #f1f5f9 !important;
+  --text-muted: #94a3b8 !important;
+}
+
+html.light .terminal-window,
+html[data-theme='light'] .terminal-window,
+html.light #dashboard-online-compiler-section,
+html[data-theme='light'] #dashboard-online-compiler-section {
+  background-color: #0c1017 !important;
+  border-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+html.light .terminal-window p,
+html.light .terminal-window span,
+html.light .terminal-window h1,
+html.light .terminal-window h2,
+html.light .terminal-window h3,
+html.light .terminal-window code,
+html.light .terminal-window kbd,
+html[data-theme='light'] .terminal-window p,
+html[data-theme='light'] .terminal-window span,
+html[data-theme='light'] .terminal-window h1,
+html[data-theme='light'] .terminal-window h2,
+html[data-theme='light'] .terminal-window h3,
+html[data-theme='light'] .terminal-window code,
+html[data-theme='light'] .terminal-window kbd {
+  color: #f1f5f9 !important;
+}
+
+html.light .terminal-window .text-slate-400,
+html.light .terminal-window .text-slate-500,
+html.light .terminal-window .text-slate-600,
+html[data-theme='light'] .terminal-window .text-slate-400,
+html[data-theme='light'] .terminal-window .text-slate-500,
+html[data-theme='light'] .terminal-window .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+html.light .terminal-window .text-emerald-400,
+html.light .terminal-window .text-emerald-300,
+html[data-theme='light'] .terminal-window .text-emerald-400,
+html[data-theme='light'] .terminal-window .text-emerald-300 {
+  color: #4ade80 !important;
+}
+
+html.light .terminal-window .text-cyan-400,
+html.light .terminal-window .text-cyan-300,
+html[data-theme='light'] .terminal-window .text-cyan-400,
+html[data-theme='light'] .terminal-window .text-cyan-300 {
+  color: #38bdf8 !important;
+}
+
+html.light .terminal-window .text-rose-400,
+html.light .terminal-window .text-rose-300,
+html[data-theme='light'] .terminal-window .text-rose-400,
+html[data-theme='light'] .terminal-window .text-rose-300 {
+  color: #f87171 !important;
+}
+
+html.light .terminal-window pre,
+html.light #dashboard-online-compiler-section pre,
+html[data-theme='light'] .terminal-window pre,
+html[data-theme='light'] #dashboard-online-compiler-section pre {
+  background-color: #020408 !important;
+  color: #4ade80 !important;
+}
+
 html.light table th,
 html[data-theme='light'] table th {
   color: var(--text-muted) !important;

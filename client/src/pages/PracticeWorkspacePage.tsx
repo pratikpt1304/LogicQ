@@ -1887,6 +1887,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               isSubmitting={submitMutation.isPending}
               readOnly={false}
               disableCopyPaste={true}
+              forceTheme="dark"
             />
           </div>
 
