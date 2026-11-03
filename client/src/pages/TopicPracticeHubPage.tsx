@@ -504,22 +504,6 @@ export const TopicPracticeHubPage: React.FC = () => {
       return { isUnlocked: true, lockReason: '' };
     }
 
-    if (moduleIndex === 5) {
-      if (!getModuleUnlockInfo(4).isUnlocked || !isM4PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 4 (${m4PracticeSolved}/25 solved) and Lab Internal 4 first.`,
-        };
-      }
-      if (!isLab4Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete Lab Internal 4 Continuous Evaluation to unlock Module 5 Practice.`,
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
     return { isUnlocked: true, lockReason: '' };
   };
 
@@ -1062,11 +1046,11 @@ export const TopicPracticeHubPage: React.FC = () => {
               Select Practice Track:
             </h2>
             <span className="text-xs font-mono text-emerald-400 font-semibold">
-              5 Sequential Topic Modules • {totalTopics} Questions
+              4 Sequential Topic Modules • {totalTopics} Questions
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
             {[
               {
                 id: 1,
@@ -1099,14 +1083,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                 subtitle: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures',
                 total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length,
                 solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopics.includes(t.id)).length,
-              },
-              {
-                id: 5,
-                name: '5. Capstone Arena',
-                title: 'Capstone Arena',
-                subtitle: 'Competitive Mastery & Capstone Arena',
-                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5).length,
-                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopics.includes(t.id)).length,
               },
             ].map((block) => {
               const pct = block.total > 0 ? Math.round((block.solved / block.total) * 100) : 0;
@@ -1204,7 +1180,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             {/* Quick Switch Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-mono">
-              {[1, 2, 3, 4, 5].map((mId) => {
+              {[1, 2, 3, 4].map((mId) => {
                 const isCur = selectedModuleFilter === mId;
                 const uInfo = getModuleUnlockInfo(mId);
                 return (

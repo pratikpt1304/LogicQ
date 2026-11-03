@@ -560,22 +560,6 @@ export const DashboardPage: React.FC = () => {
       return { isUnlocked: true, lockReason: '' };
     }
 
-    if (moduleIndex === 5) {
-      if (!getModuleUnlockInfo(4).isUnlocked || !isM4PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 4 (${m4PracticeSolved}/25 solved) and Lab Internal 4 first.`,
-        };
-      }
-      if (!isLab4Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: 'Complete Lab Internal 4 Continuous Evaluation to unlock Module 5 Practice.',
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
     return { isUnlocked: true, lockReason: '' };
   };
 
@@ -619,16 +603,6 @@ export const DashboardPage: React.FC = () => {
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
       ...getModuleUnlockInfo(4),
-    },
-    {
-      id: 5,
-      order: 5,
-      title: 'Competitive Mastery & Capstone Arena',
-      description: 'Bitwise algorithms, performance optimization, system-level C, and capstone problems.',
-      totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5).length || 11,
-      solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
-      progressPercent: 0,
-      ...getModuleUnlockInfo(5),
     },
   ].map((m) => ({
     ...m,

@@ -3506,7 +3506,7 @@ export const AdminDashboardPage: React.FC = () => {
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
-                    <span>Modules (5)</span>
+                    <span>Modules (4)</span>
                   </button>
                 </div>
 
@@ -3837,13 +3837,6 @@ export const AdminDashboardPage: React.FC = () => {
                   },
                   {
                     order: 5,
-                    title: 'Competitive Mastery & Capstone Arena',
-                    slug: 'advanced-competitive-c',
-                    requirementText: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
-                    totalQuestions: 20,
-                  },
-                  {
-                    order: 6,
                     title: 'Yashavant Kanetkar Practice Question Bank',
                     slug: 'kanetkar-book-bank',
                     requirementText: 'Curated conceptual, tricky, and interview-grade C programming problems from Let Us C.',

@@ -142,8 +142,8 @@ export const PracticeModulesPage: React.FC = () => {
     }
   };
 
-  // Build the 5 sequential modules with strict mastery unlocking
-  const allConfigModules = PRACTICE_CONFIG.MODULES;
+  // Build the 4 sequential modules with strict mastery unlocking
+  const allConfigModules = PRACTICE_CONFIG.MODULES.filter((m) => m.order !== 5);
   const displayModules = allConfigModules.map((cfg, idx) => {
     const fromApi = modules.find((m) => m.slug === cfg.slug);
     const topicsSolvedInModule = TOPIC_PRACTICE_DATA.filter(
