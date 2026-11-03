@@ -39,8 +39,8 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 12, prn: "2126PMIM1012", fullName: "Om Ramesh Labhade", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1012@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 13, prn: "2126PMIF1013", fullName: "Shweta Amol Sadafal", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1013@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 14, prn: "2126PMIF1014", fullName: "Ketki Dattatray Gadakh", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1014@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 15, prn: "2126PMIM1015", fullName: "Parth Machhindra Pachpute", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1015@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 16, prn: "2126PMIM1016", fullName: "Satyam Atul Velgude", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1016@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
+  { index: 15, prn: "2126PMIM1015", fullName: "Parth Machhindra Pachpute", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "parthpachpute67@gmail.com", role: 'STUDENT', profileComplete: true },
+  { index: 16, prn: "2126PMIM1016", fullName: "Satyam Atul Velgude", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "velgudesatyam@gmail.com", role: 'STUDENT', profileComplete: true },
   { index: 17, prn: "2126PMIM1017", fullName: "Pranav Suse", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1017@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 18, prn: "2126PMIF1018", fullName: "Shreya Kishor Sadaphal", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1018@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 19, prn: "2126PMIF1019", fullName: "Namrata Shejul", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1019@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
@@ -99,7 +99,7 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 72, prn: "2126PMIM1074", fullName: "Pathan Sarfaraj Aslam", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1074@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 73, prn: "2126PMIM1075", fullName: "Aditya Bhagnath Darunte", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1075@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 74, prn: "2126PMIM1076", fullName: "Shwet Sanjay Kadam", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1076@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 75, prn: "2126PMIM1077", fullName: "Om Ravindra Salunke", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1077@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
+  { index: 75, prn: "2126PMIM1077", fullName: "Om Ravindra Salunke", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "omsalunkepatil@gmail.com", role: 'STUDENT', profileComplete: true },
   { index: 76, prn: "2126PMIF1078", fullName: "Shraddha Prakash Hon", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1078@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 77, prn: "2126PMIM1079", fullName: "Prem Satish Jadhav", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1079@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 78, prn: "2126PMIM1080", fullName: "Pawan Kshirsagar", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1080@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
@@ -135,7 +135,7 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 108, prn: "2126PMIF1113", fullName: "Shweta Rajesh Pachore", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1113@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 109, prn: "2126PMIM1114", fullName: "Gagandeepsingh Pothiwal", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1114@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 110, prn: "2126PMIM1117", fullName: "Pradumna Uddhav Pawar", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1117@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 111, prn: "2126PMIM1118", fullName: "Swaraj Rajendra Halnor", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1118@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
+  { index: 111, prn: "2126PMIM1118", fullName: "Swaraj Rajendra Halnor", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "swarajhalnor19@gmail.com", role: 'STUDENT', profileComplete: true },
   { index: 112, prn: "2126PMIM1119", fullName: "Priyanshu Anil Wabale", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1119@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 113, prn: "2126PMIF1120", fullName: "Vaishnavi Balasaheb Bongane", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1120@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
   { index: 114, prn: "2126PMIF1121", fullName: "Durva Sachin Jadhav", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmif1121@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
@@ -150,14 +150,23 @@ export const COHORT_STUDENT_BY_PRN = new Map<string, EnrolledCohortStudent>(
   C_PROGRAMMING_COHORT_STUDENTS.map((s) => [s.prn.toUpperCase(), s])
 );
 
+const INSTITUTIONAL_FALLBACK_EMAILS: Record<string, string> = {
+  '2126PMIM1015': '2126pmim1015@sanjivani.edu.in',
+  '2126PMIM1016': '2126pmim1016@sanjivani.edu.in',
+  '2126PMIM1077': '2126pmim1077@sanjivani.edu.in',
+  '2126PMIM1089': '2126pmim1089@sanjivani.edu.in',
+  '2126PMIM1118': '2126pmim1118@sanjivani.edu.in',
+};
+
 /**
  * Fast lookup map by Email (case-insensitive)
  */
 export const COHORT_STUDENT_BY_EMAIL = new Map<string, EnrolledCohortStudent>(
   C_PROGRAMMING_COHORT_STUDENTS.flatMap((s) => {
     const list: [string, EnrolledCohortStudent][] = [[s.email.toLowerCase(), s]];
-    if (s.prn.toUpperCase() === '2126PMIM1089') {
-      list.push(['2126pmim1089@sanjivani.edu.in', s]);
+    const fallback = INSTITUTIONAL_FALLBACK_EMAILS[s.prn.toUpperCase()];
+    if (fallback) {
+      list.push([fallback.toLowerCase(), s]);
     }
     return list;
   })
