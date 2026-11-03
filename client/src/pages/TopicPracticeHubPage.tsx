@@ -1604,23 +1604,67 @@ export const TopicPracticeHubPage: React.FC = () => {
               onContextMenu={(e) => e.preventDefault()}
               style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             >
-              {/* Problem Title & Category Meta */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                  <span className="font-bold text-emerald-400">Topic {currentTopicIndex + 1} of {currentModuleTopics.length}</span>
-                  <span>•</span>
-                  <span>{activeTopic.moduleTitle}</span>
+              {/* Header Info Banner (Daily Challenge style) */}
+              <div className="space-y-3 pb-3 border-b border-[var(--border-line)]">
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-indigo-500/10 to-transparent border border-cyan-500/25 flex items-center justify-between gap-3 font-mono shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
+                        Module {activeTopic.moduleIndex}: {activeTopic.moduleTitle}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Topic {currentTopicIndex + 1} of {currentModuleTopics.length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {solvedTopics.includes(activeTopic.id) ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 font-mono">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Mastered (+50 XP)
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 font-mono">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      +50 XP
+                    </span>
+                  )}
                 </div>
-                <h2 className="text-lg sm:text-xl font-extrabold text-[var(--text-main)]">
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    EASY
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                    Topic Practice
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    GCC C11
+                  </span>
+                </div>
+
+                <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-main)]">
                   {activeTopic.problem.title}
-                </h2>
+                </h1>
+
+                <div className="flex items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+                  <span>Points: <strong className="text-[var(--text-main)]">50 XP</strong></span>
+                  <span>•</span>
+                  <span>Time: <strong className="text-[var(--text-main)]">1000ms</strong></span>
+                  <span>•</span>
+                  <span>Memory: <strong className="text-[var(--text-main)]">64MB</strong></span>
+                </div>
               </div>
 
               {/* Topic Reference (Syntax & Example Box) */}
-              <div className="glass-card rounded-2xl p-4 border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-amber-950/10 to-transparent space-y-3 text-xs font-mono shadow-sm">
+              <div className="rounded-2xl p-4 border border-amber-500/30 bg-[#080c14] space-y-3 text-xs font-mono shadow-sm">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-amber-500 font-bold">
-                    <Lightbulb className="w-4 h-4 shrink-0 text-amber-500 animate-pulse" />
+                  <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                    <Lightbulb className="w-4 h-4 shrink-0 text-amber-400" />
                     <span>Topic Reference</span>
                   </div>
                   
@@ -1629,7 +1673,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleCopyTip(activeTipTab === 'syntax' ? activeTopic.tipBox.syntax : activeTopic.tipBox.example)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-amber-500/50 transition cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-amber-500/50 transition cursor-pointer"
                       title="Copy to clipboard"
                     >
                       {copiedTip ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -1640,7 +1684,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsTipDrawerOpen(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-500 dark:text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
                       title="Open full reference drawer"
                     >
                       <ExternalLink className="w-3 h-3" />
@@ -1648,12 +1692,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                     </button>
 
                     {/* Segmented Switcher */}
-                    <div className="flex items-center bg-[var(--bg-main)] p-0.5 rounded-lg border border-[var(--border-line)]">
+                    <div className="flex items-center bg-[#050811] p-0.5 rounded-lg border border-slate-800">
                       <button
                         type="button"
                         onClick={() => setActiveTipTab('syntax')}
                         className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                          activeTipTab === 'syntax' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          activeTipTab === 'syntax' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
                         }`}
                       >
                         Syntax
@@ -1662,7 +1706,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                         type="button"
                         onClick={() => setActiveTipTab('example')}
                         className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                          activeTipTab === 'example' ? 'bg-amber-500 text-black shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                          activeTipTab === 'example' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
                         }`}
                       >
                         Example
@@ -1672,12 +1716,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </div>
 
                 {activeTipTab === 'syntax' && (
-                  <pre className="p-3 rounded-xl bg-[var(--bg-main)] text-amber-700 dark:text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)] shadow-inner">
+                  <pre className="p-3 rounded-xl bg-[#050811] text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-slate-800 shadow-inner">
                     {activeTopic.tipBox.syntax}
                   </pre>
                 )}
                 {activeTipTab === 'example' && (
-                  <pre className="p-3 rounded-xl bg-[var(--bg-main)] text-emerald-700 dark:text-emerald-400 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-[var(--border-line)] shadow-inner">
+                  <pre className="p-3 rounded-xl bg-[#050811] text-emerald-400 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-slate-800 shadow-inner">
                     {activeTopic.tipBox.example}
                   </pre>
                 )}
@@ -1750,22 +1794,23 @@ export const TopicPracticeHubPage: React.FC = () => {
                 }`}
               >
                 {/* Dock Header Bar */}
-                <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs">
-                  <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800">
+                <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs gap-1.5 select-none overflow-x-auto">
+                  <div className="inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800 shrink-0">
                     <button
                       type="button"
                       onClick={() => {
                         setActiveBottomTab('cases');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                         activeBottomTab === 'cases' && isDrawerOpen
                           ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span>Test Cases (1)</span>
+                      <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                      <span>Test Cases</span>
+                      <span className="hidden sm:inline">(1)</span>
                     </button>
 
                     <button
@@ -1774,14 +1819,15 @@ export const TopicPracticeHubPage: React.FC = () => {
                         setActiveBottomTab('output');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                         activeBottomTab === 'output' && isDrawerOpen
                           ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <Cpu className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span>Verdict &amp; Output</span>
+                      <Cpu className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                      <span>Verdict</span>
+                      <span className="hidden sm:inline">&amp; Output</span>
                       {(runResult || submitResult) && (
                         <span className={`ml-1 inline-block w-2 h-2 rounded-full ${submitResult?.allPassed || runResult?.success ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-ping'}`} />
                       )}
@@ -1793,36 +1839,36 @@ export const TopicPracticeHubPage: React.FC = () => {
                         setActiveBottomTab('custom');
                         setIsDrawerOpen(true);
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                         activeBottomTab === 'custom' && isDrawerOpen
                           ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span className="hidden sm:inline">Custom Stdin</span>
-                      <span className="sm:hidden">Stdin</span>
+                      <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                      <span className="hidden md:inline">Custom </span>
+                      <span>Stdin</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={handleRunOpenTest}
                       disabled={isRunning}
-                      className="flex items-center gap-1.5 px-3.5 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap shrink-0"
                       title="Compile & Run solution (Ctrl + Enter)"
                     >
                       {isRunning ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                           <span>Running...</span>
                         </>
                       ) : (
                         <>
-                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                           <span>Compile &amp; Run</span>
-                          <span className="text-[10px] opacity-75 font-normal hidden sm:inline ml-0.5">(Ctrl+↵)</span>
+                          <span className="text-[10px] opacity-75 font-normal hidden lg:inline ml-0.5">(Ctrl+↵)</span>
                         </>
                       )}
                     </button>
@@ -1831,7 +1877,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       type="button"
                       aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                       onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                      className="px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer whitespace-nowrap shrink-0"
                     >
                       <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
