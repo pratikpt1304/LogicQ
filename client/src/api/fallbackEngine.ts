@@ -3355,6 +3355,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
             const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
             if (!prnA) return 1;
             if (!prnB) return -1;
+            const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+            const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+            if (numA !== numB) return numA - numB;
             return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
           });
         const count = Math.max(valid.length, s._count?.students || 0);
@@ -3482,6 +3485,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
         if (!prnA) return 1;
         if (!prnB) return -1;
+        const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+        const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+        if (numA !== numB) return numA - numB;
         return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
       });
       found.students = roster;

@@ -752,7 +752,17 @@ export const DashboardPage: React.FC = () => {
       }
     });
 
-    return Array.from(map.values()).sort((a, b) => (a.prn || '').localeCompare(b.prn || ''));
+    // Sort strictly in ascending order by student PRN / Roll Number (last 4 digits sequence: 1001, 1002, 1003...)
+    return Array.from(map.values()).sort((a, b) => {
+      const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+      const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+      if (!prnA) return 1;
+      if (!prnB) return -1;
+      const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+      const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+      if (numA !== numB) return numA - numB;
+      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+    });
   }, [sectionsList]);
 
   // Filtered Students for Zero-Click Search
