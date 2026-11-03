@@ -11,7 +11,7 @@
  * 4. Listens for `{ type: 'CLEAR_USER_CACHE' }` on logout to purge runtime caches on shared devices.
  */
 
-const CACHE_VERSION = 'logicq-shell-v1';
+const CACHE_VERSION = 'logicq-shell-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -28,7 +28,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {})
   );
-  // Note: Do NOT call self.skipWaiting() unconditionally here — wait for user prompt ('SKIP_WAITING')
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
