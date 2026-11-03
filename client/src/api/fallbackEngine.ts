@@ -170,9 +170,7 @@ export const FORMATTED_DAILY_CHALLENGES = DAILY_CHALLENGES.map((dc, idx) => {
   };
 });
 
-const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => {
-  const targetDate = new Date(kBaseDate.getTime() + idx * 24 * 3600 * 1000);
-  const targetDateStr = targetDate.toISOString().split('T')[0];
+const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp) => {
   return {
     id: bp.slug,
     slug: bp.slug,
@@ -182,8 +180,9 @@ const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => {
     basePoints: bp.basePoints,
     timeLimitMs: bp.timeLimitMs,
     memoryLimitMb: bp.memoryLimitMb,
-    isDaily: true,
-    scheduledDate: targetDateStr,
+    isDaily: false,
+    isPractice: true,
+    scheduledDate: undefined,
     status: 'PUBLISHED',
     sourceType: 'BOOK',
     sourceRef: bp.sourceRef,
@@ -235,10 +234,17 @@ function getStoredProblems(): any[] {
     if (raw) {
       let parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Enforce practice problems are NEVER daily
+        // Enforce practice problems & Kanetkar problems are strictly NEVER daily
         parsed = parsed.map((p: any) => {
-          if (p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-') || p.slug?.startsWith('kanetkar-')) {
-            return { ...p, isDaily: false };
+          if (
+            p.isPractice ||
+            p.sourceType === 'PRACTICE' ||
+            p.sourceType === 'BOOK' ||
+            p.slug?.startsWith('practice-') ||
+            p.slug?.startsWith('kanetkar-') ||
+            p.moduleSlug
+          ) {
+            return { ...p, isDaily: false, isPractice: true, scheduledDate: undefined };
           }
           return p;
         });
@@ -251,34 +257,15 @@ function getStoredProblems(): any[] {
           saveStoredProblems(parsed);
           return parsed;
         }
-        const bookCountInParsed = parsed.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length;
-        if (bookCountInParsed < FORMATTED_KANETKAR_PROBLEMS.length) {
-          const existingSlugs = new Set(parsed.map((p: any) => p.slug || p.id));
-          const missing = FORMATTED_KANETKAR_PROBLEMS.filter((kp) => !existingSlugs.has(kp.slug));
-          const updated = [...parsed, ...missing].map((p: any) => {
-            const canonical = FORMATTED_KANETKAR_PROBLEMS.find((kp) => kp.slug === p.slug || kp.id === p.id);
-            if (canonical) {
-              return { ...p, isDaily: true, scheduledDate: canonical.scheduledDate, status: 'PUBLISHED' };
-            }
-            return p;
-          });
-          saveStoredProblems(updated);
-          return updated;
+
+        const missingKanetkar = FORMATTED_KANETKAR_PROBLEMS.filter((kp) => !existingSlugs.has(kp.slug));
+        if (missingKanetkar.length > 0) {
+          parsed = [...parsed, ...missingKanetkar];
+          saveStoredProblems(parsed);
+          return parsed;
         }
 
-        // If stored problems don't have scheduled dates on Kanetkar problems, merge with updated FORMATTED_KANETKAR_PROBLEMS
-        const hasScheduledDaily = parsed.some((p: any) => p.isDaily && p.scheduledDate && p.sourceType === 'BOOK');
-        if (!hasScheduledDaily) {
-          const updated = parsed.map((p: any) => {
-            const canonical = FORMATTED_KANETKAR_PROBLEMS.find((kp) => kp.slug === p.slug || kp.id === p.id);
-            if (canonical) {
-              return { ...p, isDaily: true, scheduledDate: canonical.scheduledDate, status: 'PUBLISHED' };
-            }
-            return p;
-          });
-          saveStoredProblems(updated);
-          return updated;
-        }
+        saveStoredProblems(parsed);
         return parsed;
       }
     }
@@ -1645,7 +1632,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const challengeDate = new Date(Date.now() - 690 * 60 * 1000);
     const activeDay = challengeDate.toISOString().split('T')[0];
     const dailyProblem =
-      problems.find((p) => p.isDaily && p.scheduledDate === activeDay && !p.isPractice && !p.slug?.startsWith('practice-')) ||
+      problems.find((p) => p.isDaily && p.scheduledDate === activeDay && !p.isPractice && !p.slug?.startsWith('practice-') && !p.slug?.startsWith('kanetkar-') && (p.sourceType === 'DAILY' || p.slug?.startsWith('daily-'))) ||
       FORMATTED_DAILY_CHALLENGES.find((p) => p.scheduledDate === activeDay) ||
       FORMATTED_DAILY_CHALLENGES[0];
     const secondsUntilNextReset = getSecondsUntilNext1700IST();

@@ -183,7 +183,8 @@ export const AdminDashboardPage: React.FC = () => {
   });
   const [inspectingProblem, setInspectingProblem] = useState<any | null>(null);
   const [problemSearch, setProblemSearch] = useState('');
-  const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY' | 'ARCHIVE'>('ALL');
+  const [problemCategoryFilter, setProblemCategoryFilter] = useState<'ALL' | 'BOOK' | 'PRACTICE' | 'DAILY' | 'ARCHIVE'>('DAILY');
+  const [selectedPracticeModuleFilter, setSelectedPracticeModuleFilter] = useState<string>('ALL');
   const [problemDifficultyFilter, setProblemDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [problemPage, setProblemPage] = useState(1);
   const [problemViewMode, setProblemViewMode] = useState<'TABLE' | 'MODULES'>('TABLE');
@@ -835,17 +836,58 @@ export const AdminDashboardPage: React.FC = () => {
   const yearBreakdown = analyticsData?.data?.yearBreakdown || [];
   // Resilient problem pool combining backend, Firestore, and Yashavant Kanetkar Book Bank
   const rawProblems = React.useMemo(() => {
+    let list: any[] = [];
     const backendProblems = problemsData?.data?.problems || [];
-    if (backendProblems.length > 0) return backendProblems;
-
-    if (firestoreProblemsData && firestoreProblemsData.length > 0) {
-      return firestoreProblemsData;
+    if (backendProblems.length > 0) {
+      list = backendProblems;
+    } else if (firestoreProblemsData && firestoreProblemsData.length > 0) {
+      list = firestoreProblemsData;
+    } else {
+      list = DEFAULT_PROBLEMS;
     }
 
-    return DEFAULT_PROBLEMS;
+    // Strict sanitation: Ensure Kanetkar & Practice questions are NEVER flagged as Daily!
+    return list.map((p: any) => {
+      const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+      const isPractice = Boolean(p.isPractice) || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-') || Boolean(p.moduleSlug);
+      if (isBook || isPractice) {
+        return { ...p, isDaily: false, isPractice: true, scheduledDate: isBook ? undefined : p.scheduledDate };
+      }
+      return p;
+    });
   }, [problemsData, firestoreProblemsData]);
 
   const problems = rawProblems;
+
+  const isPureDailyChallenge = React.useCallback((p: any) => {
+    if (!p) return false;
+    if (p.isPractice) return false;
+    if (p.sourceType === 'BOOK' || p.sourceType === 'PRACTICE') return false;
+    if (p.slug?.startsWith('kanetkar-') || p.slug?.startsWith('practice-')) return false;
+    if (p.moduleSlug) return false;
+    return p.sourceType === 'DAILY' || p.slug?.startsWith('daily-');
+  }, []);
+
+  const isPracticeProblem = React.useCallback((p: any) => {
+    if (!p) return false;
+    if (isPureDailyChallenge(p)) return false;
+    return (
+      Boolean(p.isPractice) ||
+      p.sourceType === 'PRACTICE' ||
+      p.sourceType === 'BOOK' ||
+      p.slug?.startsWith('practice-') ||
+      p.slug?.startsWith('kanetkar-') ||
+      Boolean(p.moduleSlug)
+    );
+  }, [isPureDailyChallenge]);
+
+  const dailyProblemsCount = React.useMemo(() => {
+    return rawProblems.filter(isPureDailyChallenge).length;
+  }, [rawProblems, isPureDailyChallenge]);
+
+  const practiceProblemsCount = React.useMemo(() => {
+    return rawProblems.filter(isPracticeProblem).length;
+  }, [rawProblems, isPracticeProblem]);
 
   // Auto-seed Firestore with default problems if cloud collection is empty
   React.useEffect(() => {
@@ -897,14 +939,27 @@ export const AdminDashboardPage: React.FC = () => {
   const filteredProblems = React.useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return rawProblems.filter((p: any) => {
-      if (problemCategoryFilter === 'BOOK') {
-        const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
-        if (!isBook) return false;
-      } else if (problemCategoryFilter === 'PRACTICE') {
-        const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
-        if (!isPractice) return false;
+      if (problemCategoryFilter === 'BOOK' || problemCategoryFilter === 'PRACTICE') {
+        if (!isPracticeProblem(p)) return false;
+        if (selectedPracticeModuleFilter !== 'ALL') {
+          if (selectedPracticeModuleFilter === 'KANETKAR') {
+            if (!p.slug?.startsWith('kanetkar-') && p.sourceType !== 'BOOK') return false;
+          } else {
+            const mOrder = Number(selectedPracticeModuleFilter);
+            const matches =
+              p.moduleOrder === mOrder ||
+              p.slug?.startsWith(`practice-c${mOrder}-`) ||
+              p.slug?.startsWith(`practice-m${mOrder}-`) ||
+              (mOrder === 1 && (p.moduleSlug?.includes('control') || p.category?.toLowerCase().includes('control'))) ||
+              (mOrder === 2 && (p.moduleSlug?.includes('pointer') || p.moduleSlug?.includes('function') || p.category?.toLowerCase().includes('pointer'))) ||
+              (mOrder === 3 && (p.moduleSlug?.includes('array') || p.category?.toLowerCase().includes('array'))) ||
+              (mOrder === 4 && (p.moduleSlug?.includes('dynamic') || p.moduleSlug?.includes('advanced') || p.category?.toLowerCase().includes('dynamic') || p.category?.toLowerCase().includes('struct'))) ||
+              (mOrder === 5 && (p.moduleSlug?.includes('competitive') || p.category?.toLowerCase().includes('capstone') || p.category?.toLowerCase().includes('mastery')));
+            if (!matches) return false;
+          }
+        }
       } else if (problemCategoryFilter === 'DAILY') {
-        if (!p.isDaily && !p.slug?.includes('daily')) return false;
+        if (!isPureDailyChallenge(p)) return false;
       } else if (problemCategoryFilter === 'ARCHIVE') {
         const isArchived =
           archivedProblemIds.has(p.id) ||
@@ -932,11 +987,11 @@ export const AdminDashboardPage: React.FC = () => {
 
       return true;
     });
-  }, [rawProblems, problemCategoryFilter, problemDifficultyFilter, problemSearch, archivedProblemIds, submissions]);
+  }, [rawProblems, problemCategoryFilter, selectedPracticeModuleFilter, problemDifficultyFilter, problemSearch, archivedProblemIds, submissions, isPracticeProblem, isPureDailyChallenge]);
 
   React.useEffect(() => {
     setProblemPage(1);
-  }, [problemCategoryFilter, problemDifficultyFilter, problemSearch]);
+  }, [problemCategoryFilter, selectedPracticeModuleFilter, problemDifficultyFilter, problemSearch]);
 
   const totalProblemPages = Math.ceil(filteredProblems.length / PROBLEMS_PER_PAGE) || 1;
   const paginatedProblems = React.useMemo(() => {
@@ -945,35 +1000,7 @@ export const AdminDashboardPage: React.FC = () => {
   }, [filteredProblems, problemPage]);
 
   const getModuleBadge = (p: any) => {
-    const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
-    const isPractice = p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-');
-    const isDaily = p.isDaily || p.slug?.includes('daily');
-
-    if (isBook) {
-      return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-500 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap">
-          📚 Question Bank
-        </span>
-      );
-    }
-
-    if (isPractice) {
-      const slug = (p.moduleSlug || '').toLowerCase();
-      let modLabel = 'Practice Module';
-      if (slug.includes('control')) modLabel = 'Module 1: Control';
-      else if (slug.includes('pointer') || slug.includes('function')) modLabel = 'Module 2: Pointers';
-      else if (slug.includes('array')) modLabel = 'Module 3: Arrays';
-      else if (slug.includes('dynamic') || slug.includes('advanced')) modLabel = 'Module 4: Dynamic Mem';
-      else if (p.moduleSlug) modLabel = `Module ${p.moduleSlug.replace(/[^0-9]/g, '') || ''}`;
-
-      return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/30 whitespace-nowrap">
-          🧩 {modLabel}
-        </span>
-      );
-    }
-
-    if (isDaily) {
+    if (isPureDailyChallenge(p)) {
       return (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
           ⚡ Daily Challenge
@@ -981,7 +1008,30 @@ export const AdminDashboardPage: React.FC = () => {
       );
     }
 
-    return null;
+    const isBook = p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+    if (isBook) {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-500 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap">
+          🧩 Practice Question
+        </span>
+      );
+    }
+
+    const slug = (p.moduleSlug || '').toLowerCase();
+    const pSlug = (p.slug || '').toLowerCase();
+    let modLabel = 'Practice Module';
+    if (slug.includes('control') || pSlug.startsWith('practice-c1-')) modLabel = 'Module 1: Control';
+    else if (slug.includes('pointer') || slug.includes('function') || pSlug.startsWith('practice-c2-')) modLabel = 'Module 2: Pointers';
+    else if (slug.includes('array') || pSlug.startsWith('practice-c3-')) modLabel = 'Module 3: Arrays';
+    else if (slug.includes('dynamic') || slug.includes('advanced') || pSlug.startsWith('practice-c4-')) modLabel = 'Module 4: Dynamic Mem';
+    else if (slug.includes('competitive') || pSlug.startsWith('practice-c5-')) modLabel = 'Module 5: Capstone';
+    else if (p.moduleOrder) modLabel = `Module ${p.moduleOrder}`;
+
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/30 whitespace-nowrap">
+        🧩 ${modLabel}
+      </span>
+    );
   };
 
   // Submissions Filtering & Pagination
@@ -3300,9 +3350,9 @@ export const AdminDashboardPage: React.FC = () => {
                       </span>
                     </h2>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400 mt-0.5">
-                      <span>Daily: <strong className="text-emerald-400">{rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length}</strong></span>
+                      <span>Daily Challenges: <strong className="text-emerald-400">{dailyProblemsCount}</strong></span>
                       <span>•</span>
-                      <span>Question Bank: <strong className="text-amber-400">{rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length}</strong></span>
+                      <span>Practice Questions: <strong className="text-purple-400">{practiceProblemsCount}</strong></span>
                       <span>•</span>
                       <span>Archive: <strong className="text-rose-400">{archivedProblemsCount}</strong></span>
                     </div>
@@ -3456,7 +3506,7 @@ export const AdminDashboardPage: React.FC = () => {
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
-                    <span>Modules (4)</span>
+                    <span>Modules (5)</span>
                   </button>
                 </div>
 
@@ -3464,7 +3514,10 @@ export const AdminDashboardPage: React.FC = () => {
 
                 {/* Category Filter Tabs */}
                 <button
-                  onClick={() => setProblemCategoryFilter('ALL')}
+                  onClick={() => {
+                    setProblemCategoryFilter('ALL');
+                    setSelectedPracticeModuleFilter('ALL');
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors ${
                     problemCategoryFilter === 'ALL'
                       ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
@@ -3474,7 +3527,10 @@ export const AdminDashboardPage: React.FC = () => {
                   All ({rawProblems.length})
                 </button>
                 <button
-                  onClick={() => setProblemCategoryFilter('DAILY')}
+                  onClick={() => {
+                    setProblemCategoryFilter('DAILY');
+                    setSelectedPracticeModuleFilter('ALL');
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
                     problemCategoryFilter === 'DAILY'
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold'
@@ -3482,21 +3538,27 @@ export const AdminDashboardPage: React.FC = () => {
                   }`}
                 >
                   <Zap className="w-3 h-3 text-emerald-400" />
-                  <span>Daily ({rawProblems.filter((p: any) => p.isDaily || p.slug?.includes('daily')).length})</span>
+                  <span>Daily ({dailyProblemsCount})</span>
                 </button>
                 <button
-                  onClick={() => setProblemCategoryFilter('BOOK')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
-                    problemCategoryFilter === 'BOOK'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                  onClick={() => {
+                    setProblemCategoryFilter('PRACTICE');
+                    setSelectedPracticeModuleFilter('ALL');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5 ${
+                    problemCategoryFilter === 'PRACTICE' || problemCategoryFilter === 'BOOK'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold'
                       : 'text-slate-400 hover:text-white bg-dark-900/60 border border-white/[0.08]'
                   }`}
                 >
-                  <BookOpen className="w-3 h-3 text-amber-400" />
-                  <span>Question Bank ({rawProblems.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length})</span>
+                  <BookOpen className="w-3 h-3 text-purple-400" />
+                  <span>Practice Questions ({practiceProblemsCount})</span>
                 </button>
                 <button
-                  onClick={() => setProblemCategoryFilter('ARCHIVE')}
+                  onClick={() => {
+                    setProblemCategoryFilter('ARCHIVE');
+                    setSelectedPracticeModuleFilter('ALL');
+                  }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 ${
                     problemCategoryFilter === 'ARCHIVE'
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold'
@@ -3508,6 +3570,24 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
 
                 <div className="h-4 w-[1px] bg-white/10 mx-1 hidden sm:block" />
+
+                {/* Module-Wise Filter for Practice Questions */}
+                {(problemCategoryFilter === 'PRACTICE' || problemCategoryFilter === 'BOOK') && (
+                  <select
+                    value={selectedPracticeModuleFilter}
+                    onChange={(e) => setSelectedPracticeModuleFilter(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-dark-900 border border-purple-500/40 text-xs font-mono text-purple-300 focus:outline-none focus:border-purple-400 transition"
+                    title="Filter Practice Questions by Module"
+                  >
+                    <option value="ALL">📁 All Modules & Practice Bank</option>
+                    <option value="1">📦 MOD 1: Control Structures</option>
+                    <option value="2">📦 MOD 2: Pointers and Functions</option>
+                    <option value="3">📦 MOD 3: Array and its Applications</option>
+                    <option value="4">📦 MOD 4: Advanced Data Types, Dynamic Memory</option>
+                    <option value="5">📦 MOD 5: Competitive Mastery & Capstone</option>
+                    <option value="KANETKAR">📚 Additional Practice Bank (Kanetkar)</option>
+                  </select>
+                )}
 
                 {/* Difficulty Select */}
                 <select
@@ -3726,24 +3806,71 @@ export const AdminDashboardPage: React.FC = () => {
             /* Syllabus Modules Grid View */
             <div className="space-y-4">
               {(() => {
-                const modulesList = practiceModulesData?.data?.modules || [
-                  { order: 1, title: 'Control Structures', slug: 'control-structures', requirementText: 'Unlocked for all', totalQuestions: 10 },
-                  { order: 2, title: 'Pointers and Functions', slug: 'pointers-and-functions', requirementText: 'Solve all 10 in Module 1', totalQuestions: 10 },
-                  { order: 3, title: 'Array and its Applications', slug: 'array-and-its-applications', requirementText: 'Solve all 10 in Module 2', totalQuestions: 10 },
-                  { order: 4, title: 'Advanced Data Types, Dynamic Memory', slug: 'advanced-data-types-dynamic-memory', requirementText: 'Solve all 10 in Module 3', totalQuestions: 10 },
+                const modulesList = [
+                  {
+                    order: 1,
+                    title: 'Control Structures',
+                    slug: 'control-structures',
+                    requirementText: 'Branching decisions, loops, switch-case, and iteration flow in C.',
+                    totalQuestions: 20,
+                  },
+                  {
+                    order: 2,
+                    title: 'Pointers and Functions',
+                    slug: 'pointers-and-functions',
+                    requirementText: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
+                    totalQuestions: 20,
+                  },
+                  {
+                    order: 3,
+                    title: 'Array and its Applications',
+                    slug: 'array-and-its-applications',
+                    requirementText: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
+                    totalQuestions: 20,
+                  },
+                  {
+                    order: 4,
+                    title: 'Advanced Data Types, Dynamic Memory',
+                    slug: 'advanced-data-types-dynamic-memory',
+                    requirementText: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
+                    totalQuestions: 20,
+                  },
+                  {
+                    order: 5,
+                    title: 'Competitive Mastery & Capstone Arena',
+                    slug: 'advanced-competitive-c',
+                    requirementText: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
+                    totalQuestions: 20,
+                  },
+                  {
+                    order: 6,
+                    title: 'Yashavant Kanetkar Practice Question Bank',
+                    slug: 'kanetkar-book-bank',
+                    requirementText: 'Curated conceptual, tricky, and interview-grade C programming problems from Let Us C.',
+                    totalQuestions: 31,
+                    isKanetkar: true,
+                  },
                 ];
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {modulesList.map((m: any) => {
-                      const moduleProblems = rawProblems.filter((p: any) =>
-                        p.moduleSlug === m.slug ||
-                        p.slug?.startsWith(`practice-m${m.order}-`) ||
-                        (m.order === 1 && p.moduleSlug?.includes('control')) ||
-                        (m.order === 2 && (p.moduleSlug?.includes('pointer') || p.moduleSlug?.includes('function'))) ||
-                        (m.order === 3 && p.moduleSlug?.includes('array')) ||
-                        (m.order === 4 && (p.moduleSlug?.includes('dynamic') || p.moduleSlug?.includes('advanced')))
-                      );
+                      const moduleProblems = rawProblems.filter((p: any) => {
+                        if (m.isKanetkar) {
+                          return p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-');
+                        }
+                        return (
+                          p.moduleOrder === m.order ||
+                          p.slug?.startsWith(`practice-c${m.order}-`) ||
+                          p.slug?.startsWith(`practice-m${m.order}-`) ||
+                          p.moduleSlug === m.slug ||
+                          (m.order === 1 && (p.moduleSlug?.includes('control') || p.category?.toLowerCase().includes('control'))) ||
+                          (m.order === 2 && (p.moduleSlug?.includes('pointer') || p.moduleSlug?.includes('function') || p.category?.toLowerCase().includes('pointer'))) ||
+                          (m.order === 3 && (p.moduleSlug?.includes('array') || p.category?.toLowerCase().includes('array'))) ||
+                          (m.order === 4 && (p.moduleSlug?.includes('dynamic') || p.moduleSlug?.includes('advanced') || p.category?.toLowerCase().includes('dynamic') || p.category?.toLowerCase().includes('struct'))) ||
+                          (m.order === 5 && (p.moduleSlug?.includes('competitive') || p.category?.toLowerCase().includes('capstone') || p.category?.toLowerCase().includes('mastery')))
+                        );
+                      });
 
                       const isExpanded = selectedPracticeModuleSlug === m.slug;
 
@@ -3757,28 +3884,34 @@ export const AdminDashboardPage: React.FC = () => {
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
-                              MODULE {m.order}
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                              m.isKanetkar
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                            }`}>
+                              {m.isKanetkar ? 'BOOK BANK' : `MODULE ${m.order}`}
                             </span>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-mono text-slate-400">
-                                {moduleProblems.length || m.totalQuestions || 0} Problems
+                                {moduleProblems.length || m.totalQuestions || 0} Questions
                               </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setNewPracticeProblemForm((prev) => ({
-                                    ...prev,
-                                    moduleSlug: m.slug,
-                                  }));
-                                  setIsCreatePracticeProblemOpen(true);
-                                }}
-                                className="px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20"
-                                title={`Add question to ${m.title}`}
-                              >
-                                + Add Question
-                              </button>
+                              {!m.isKanetkar && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setNewPracticeProblemForm((prev) => ({
+                                      ...prev,
+                                      moduleSlug: m.slug,
+                                    }));
+                                    setIsCreatePracticeProblemOpen(true);
+                                  }}
+                                  className="px-2 py-0.5 rounded text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20"
+                                  title={`Add question to ${m.title}`}
+                                >
+                                  + Add Question
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -3793,32 +3926,60 @@ export const AdminDashboardPage: React.FC = () => {
                             >
                               <span>{isExpanded ? 'Hide Questions ▲' : `View Questions (${moduleProblems.length}) ▼`}</span>
                             </button>
+                            <span className="text-[11px] font-mono text-slate-500">
+                              {moduleProblems.length} curated exercises
+                            </span>
                           </div>
 
                           {isExpanded && (
-                            <div className="pt-2 space-y-1.5 max-h-60 overflow-y-auto">
-                              {moduleProblems.map((prob: any, pIdx: number) => (
-                                <div
-                                  key={prob.id || prob.slug || pIdx}
-                                  className="flex items-center justify-between p-2 rounded-lg bg-dark-900/60 border border-white/[0.04] text-xs font-mono"
-                                >
-                                  <div className="flex items-center gap-2 truncate">
-                                    <span className="text-slate-500">#{pIdx + 1}</span>
-                                    <span className="text-white truncate font-medium">{prob.title}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditProblem(prob)}
-                                      className="p-1 rounded text-slate-400 hover:text-cyan-300"
-                                      title="Edit Problem"
+                            <div className="pt-2 space-y-2 max-h-80 overflow-y-auto pr-1">
+                              {moduleProblems.length === 0 ? (
+                                <p className="text-xs font-mono text-slate-500 text-center py-4">
+                                  No questions found in this module.
+                                </p>
+                              ) : (
+                                moduleProblems.map((prob: any, pIdx: number) => {
+                                  const testCount = Array.isArray(prob.testCases) ? prob.testCases.length : 0;
+                                  return (
+                                    <div
+                                      key={prob.id || prob.slug || pIdx}
+                                      className="flex items-center justify-between p-2.5 rounded-xl bg-dark-900/80 border border-white/[0.06] hover:border-white/20 transition-all text-xs font-mono gap-2"
                                     >
-                                      <Edit3 className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
+                                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                        <span className="text-slate-500 flex-shrink-0">#{pIdx + 1}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setInspectingSubmissionsProblem(prob)}
+                                          className="text-white hover:text-cyan-400 truncate font-medium text-left transition-colors"
+                                          title="Click to view student answers & submissions"
+                                        >
+                                          {prob.title}
+                                        </button>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
+                                        <button
+                                          type="button"
+                                          onClick={() => setInspectingProblem(prob)}
+                                          className="px-2 py-0.5 rounded-md bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[11px] border border-cyan-500/20 transition"
+                                          title="Inspect Test Cases"
+                                        >
+                                          <Eye className="w-3 h-3 inline mr-1" />
+                                          <span>{testCount} cases</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenEditProblem(prob)}
+                                          className="p-1 rounded text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition"
+                                          title="Edit Problem"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
                             </div>
                           )}
                         </div>
