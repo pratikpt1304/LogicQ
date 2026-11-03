@@ -342,14 +342,14 @@ export const QuestionBankPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider">
-                <th className="py-3 px-4">Title & Topic</th>
-                <th className="py-3 px-4">Module & Section</th>
-                <th className="py-3 px-4">Difficulty & Expected Time</th>
-                <th className="py-3 px-4">Sandbox Correctness</th>
-                <th className="py-3 px-4">Lifecycle Status</th>
-                <th className="py-3 px-4">Created Time</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr className="border-b border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider text-[11px]">
+                <th className="py-2.5 px-3">Title & Topic</th>
+                <th className="py-2.5 px-3">Module & Section</th>
+                <th className="py-2.5 px-3">Difficulty & Time</th>
+                <th className="py-2.5 px-3">Sandbox Correctness</th>
+                <th className="py-2.5 px-3">Lifecycle Status</th>
+                <th className="py-2.5 px-3">Created Time</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 font-sans">
@@ -380,7 +380,7 @@ export const QuestionBankPage: React.FC = () => {
 
                   return (
                     <tr key={q.id} className="hover:bg-[var(--accent)]/5 transition">
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-[var(--foreground)] text-sm">{q.title}</span>
                           {isRecentlyCreated(q.createdAt) && (
@@ -394,12 +394,12 @@ export const QuestionBankPage: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono">
+                      <td className="py-2.5 px-3 font-mono">
                         <div className="text-[var(--foreground)] font-medium">{q.module || 'Module 1'}</div>
                         <div className="text-[11px] text-indigo-400">{q.section || 'Section 1'}</div>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-3">
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                             q.difficulty === 'EASY'
@@ -419,7 +419,7 @@ export const QuestionBankPage: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-3">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
                             isPassed
@@ -432,7 +432,7 @@ export const QuestionBankPage: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-3">
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
                             isApproved
@@ -444,7 +444,7 @@ export const QuestionBankPage: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono whitespace-nowrap">
                         <div className="flex items-center gap-1.5 text-xs text-[var(--foreground)] font-medium">
                           <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                           <span>{formatCreatedDateTime(q.createdAt)}</span>
@@ -456,41 +456,44 @@ export const QuestionBankPage: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => setInspectQuestion(q)}
-                          className="px-2.5 py-1 rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)]"
-                          title="View Question Details"
-                        >
-                          <Eye className="w-3.5 h-3.5 inline mr-1" />
-                          Inspect
-                        </button>
-
-                        <button
-                          onClick={() => validateMutation.mutate(q.id)}
-                          disabled={validateMutation.isPending}
-                          className="px-2.5 py-1 rounded-lg border border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                          title="Re-run C Sandbox Check"
-                        >
-                          <Play className="w-3.5 h-3.5 inline mr-1" />
-                          Re-check
-                        </button>
-
-                        {isApproved ? (
-                          <span className="px-2.5 py-1 text-xs text-emerald-400 font-medium inline-flex items-center gap-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                            <Check className="w-3.5 h-3.5" /> Approved
-                          </span>
-                        ) : (
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="inline-flex flex-col items-stretch gap-1 w-24">
                           <button
-                            onClick={() => approveMutation.mutate(q.id)}
-                            disabled={approveMutation.isPending || !isPassed}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-40"
-                            title="Approve for Test Assignment"
+                            onClick={() => setInspectQuestion(q)}
+                            className="w-full justify-center px-2 py-0.5 text-xs rounded-md border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] inline-flex items-center gap-1 transition"
+                            title="View Question Details"
                           >
-                            <Check className="w-3.5 h-3.5 inline mr-1" />
-                            Approve
+                            <Eye className="w-3 h-3 text-sky-400" />
+                            <span>Inspect</span>
                           </button>
-                        )}
+
+                          <button
+                            onClick={() => validateMutation.mutate(q.id)}
+                            disabled={validateMutation.isPending}
+                            className="w-full justify-center px-2 py-0.5 text-xs rounded-md border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 inline-flex items-center gap-1 transition disabled:opacity-40"
+                            title="Re-run C Sandbox Check"
+                          >
+                            <Play className="w-3 h-3" />
+                            <span>Re-check</span>
+                          </button>
+
+                          {isApproved ? (
+                            <span className="w-full justify-center px-2 py-0.5 text-xs text-emerald-400 font-medium inline-flex items-center gap-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
+                              <Check className="w-3 h-3" />
+                              <span>Approved</span>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => approveMutation.mutate(q.id)}
+                              disabled={approveMutation.isPending || !isPassed}
+                              className="w-full justify-center px-2 py-0.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold inline-flex items-center gap-1 transition disabled:opacity-40"
+                              title="Approve for Test Assignment"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Approve</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
