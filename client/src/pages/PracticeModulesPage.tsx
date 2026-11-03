@@ -228,7 +228,7 @@ export const PracticeModulesPage: React.FC = () => {
     };
   });
 
-  const totalProblems = displayModules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 100;
+  const totalProblems = displayModules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 80;
   const totalSolved = displayModules.reduce((acc, m) => acc + (m.solvedCount || 0), 0);
   const overallPercent = Math.round((totalSolved / totalProblems) * 100);
 
@@ -299,7 +299,7 @@ export const PracticeModulesPage: React.FC = () => {
           </div>
 
           {/* Module Step Indicators */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
             {displayModules.map((m) => (
               <span
                 key={m.id}
@@ -322,7 +322,7 @@ export const PracticeModulesPage: React.FC = () => {
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-6">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
               className="glass-card rounded-2xl p-6 border border-[var(--border-line)] animate-pulse space-y-4"
@@ -483,7 +483,17 @@ export const PracticeModulesPage: React.FC = () => {
                     </span>
                   </div>
 
-
+                  {/* Direct Link to Practice Questions for this module */}
+                  <div className="mt-3">
+                    <Link
+                      to={`/practice?module=${mod.order}`}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-600/20 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Practice Module {mod.order} Questions ({mod.title}) →</span>
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Footer Locked Status */}
