@@ -1791,7 +1791,7 @@ export const DashboardPage: React.FC = () => {
                   return (
                     <Link
                       key={m.id || idx}
-                      to={isLocked ? '/practice' : `/lab-internal/${m.slug}`}
+                      to={`/lab-internal/${m.slug}`}
                       className={`p-5 rounded-2xl border transition-all flex flex-col justify-between group hover:scale-[1.02] ${
                         isLocked
                           ? 'border-[var(--border-line)] bg-[var(--bg-surface)]/60 opacity-60'
