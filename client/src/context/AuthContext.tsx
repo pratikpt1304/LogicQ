@@ -1034,6 +1034,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const profile = await FirestoreDataService.getUserProfile(authUser.id);
             if (profile) Object.assign(authUser, profile);
           } catch {}
+          try {
+            const stats = await FirestoreDataService.getStatsBackup(cohortStudent.prn);
+            if (stats) {
+              authUser.totalPoints = Math.max(authUser.totalPoints || 0, stats.totalPoints || 0);
+              authUser.currentStreak = Math.max(authUser.currentStreak || 0, stats.currentStreak || 0);
+              authUser.longestStreak = Math.max(authUser.longestStreak || 0, stats.longestStreak || 0);
+            }
+          } catch {}
         } else {
           throw new Error('Invalid password. Default password is your PRN.');
         }
@@ -1177,6 +1185,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           currentStreak: 0,
           longestStreak: 0,
         };
+        if (enrolledRecord.prn) {
+          try {
+            const stats = await FirestoreDataService.getStatsBackup(enrolledRecord.prn);
+            if (stats) {
+              authenticatedUser.totalPoints = Math.max(authenticatedUser.totalPoints || 0, stats.totalPoints || 0);
+              authenticatedUser.currentStreak = Math.max(authenticatedUser.currentStreak || 0, stats.currentStreak || 0);
+              authenticatedUser.longestStreak = Math.max(authenticatedUser.longestStreak || 0, stats.longestStreak || 0);
+            }
+          } catch {}
+        }
       }
 
       if (!authenticatedUser && isAdmin) {
@@ -1194,6 +1212,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           currentStreak: 0,
           longestStreak: 0,
         };
+        if (enrolledRecord.prn) {
+          try {
+            const stats = await FirestoreDataService.getStatsBackup(enrolledRecord.prn);
+            if (stats) {
+              authenticatedUser.totalPoints = Math.max(authenticatedUser.totalPoints || 0, stats.totalPoints || 0);
+              authenticatedUser.currentStreak = Math.max(authenticatedUser.currentStreak || 0, stats.currentStreak || 0);
+              authenticatedUser.longestStreak = Math.max(authenticatedUser.longestStreak || 0, stats.longestStreak || 0);
+            }
+          } catch {}
+        }
       }
 
       // STRICT GATE: If user is neither registered in backend, nor in Firestore profile, nor in enrolled roster, nor admin -> REJECT!

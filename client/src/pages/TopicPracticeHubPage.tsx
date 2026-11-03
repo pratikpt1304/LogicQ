@@ -195,31 +195,42 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNSOLVED' | 'SOLVED'>('ALL');
   const [difficultyFilter, setDifficultyFilter] = useState<'ALL' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [activeTopic, setActiveTopic] = useState<TopicPracticeItem | null>(null);
-  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+  const [solvedTopics, setSolvedTopics] = useState<string[]>(() => {
+    const list = getSolvedPracticeTopicIds(user?.id);
+    if (user?.prn) {
+      getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+    }
+    return list;
+  });
 
   // Sync and restore solved practice topics from Firestore on user load
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id && !user?.prn) return;
     (async () => {
       try {
-        const stats = await FirestoreDataService.getStatsBackup(user.id);
-        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const identifier = user?.prn || user?.id || '';
+        const stats = await FirestoreDataService.getStatsBackup(identifier);
+        const prog = await FirestoreDataService.getPracticeProgress(identifier);
         const cloudSolved = Array.from(
           new Set([
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
-            ...getSolvedPracticeTopicIds(user.id),
+            ...getSolvedPracticeTopicIds(user?.id),
+            ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
           ])
         );
         if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
-          setSolvedTopics(getSolvedPracticeTopicIds(user.id));
+          cloudSolved.forEach((id) => {
+            markPracticeTopicSolved(id, user?.id);
+            if (user?.prn) markPracticeTopicSolved(id, user.prn);
+          });
+          setSolvedTopics(cloudSolved);
         }
       } catch (err) {
         console.warn('Practice progress restore failed:', err);
       }
     })();
-  }, [user?.id]);
+  }, [user?.id, user?.prn]);
 
   // Workspace state
   const [code, setCode] = useState<string>('');

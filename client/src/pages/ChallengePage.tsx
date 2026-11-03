@@ -1362,13 +1362,13 @@ export const ChallengePage: React.FC = () => {
 
                     {/* Bottom Execution Panel Drawer (Apple-style Segmented Dock & Spring Inspector) */}
           <div
-            className={`border-t border-[var(--border-line)] bg-[var(--bg-panel)] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
+            className={`border-t border-slate-800 bg-[#0c1017] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
               isDrawerOpen ? 'h-72 sm:h-84 max-h-[52%]' : 'h-12'
             }`}
           >
-            {/* Drawer Header with Apple Segmented Control */}
-            <div className="flex items-center justify-between px-4 py-1.5 bg-[var(--bg-surface)] border-b border-[var(--border-line)] shrink-0 font-mono text-xs">
-              <div className="apple-segmented-group">
+            {/* Drawer Header with Dark Terminal Segmented Control */}
+            <div className="flex items-center justify-between px-4 py-1.5 bg-[#111622] border-b border-slate-800 shrink-0 font-mono text-xs">
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#080c14] border border-slate-800">
                 <button
                   type="button"
                   data-testid="tab-sample-cases"
@@ -1376,13 +1376,13 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('cases');
                     setIsDrawerOpen(true);
                   }}
-                  className={`apple-segmented-item ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeBottomTab === 'cases' && isDrawerOpen
-                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <Layers className="w-3.5 h-3.5" />
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Test Cases ({sampleCases.length})</span>
                 </button>
 
@@ -1394,13 +1394,13 @@ export const ChallengePage: React.FC = () => {
                       setActiveBottomTab('custom');
                       setIsDrawerOpen(true);
                     }}
-                    className={`apple-segmented-item ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeBottomTab === 'custom' && isDrawerOpen
-                        ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
-                        : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                        ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40 shadow-xs'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                     }`}
                   >
-                    <Terminal className="w-3.5 h-3.5" />
+                    <Terminal className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Custom Stdin</span>
                   </button>
                 )}
@@ -1412,16 +1412,16 @@ export const ChallengePage: React.FC = () => {
                     setActiveBottomTab('output');
                     setIsDrawerOpen(true);
                   }}
-                  className={`apple-segmented-item ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeBottomTab === 'output' && isDrawerOpen
-                      ? 'bg-[var(--bg-panel)] text-[var(--color-accent)] shadow-sm'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                      ? 'bg-slate-800 text-cyan-400 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <Cpu className="w-3.5 h-3.5" />
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Verdict &amp; Output</span>
                   {submissionResult && (
-                    <span className="ml-1 inline-block w-2 h-2 rounded-full bg-[var(--color-accent)] animate-ping" />
+                    <span className="ml-1 inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
                   )}
                 </button>
               </div>
@@ -1452,7 +1452,7 @@ export const ChallengePage: React.FC = () => {
                   type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2.5 py-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-[var(--border-line)] transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
                 >
                   <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
@@ -1462,7 +1462,7 @@ export const ChallengePage: React.FC = () => {
 
             {/* Drawer Body */}
             {isDrawerOpen && (
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs bg-[#0c1017]">
                 {/* Tab 1: Interactive Test Cases */}
                 {activeBottomTab === 'cases' && (
                   <div className="h-full flex flex-col space-y-3 font-mono">
@@ -1484,7 +1484,7 @@ export const ChallengePage: React.FC = () => {
                               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                                 selectedCaseIndex === idx
                                   ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-white shadow-sm shadow-cyan-500/25 border border-cyan-400'
-                                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)]'
+                                  : 'bg-[#131b2c] text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/70'
                               }`}
                             >
                               <span>Case {idx + 1}</span>
@@ -1501,7 +1501,7 @@ export const ChallengePage: React.FC = () => {
                             setCustomInput(sampleCases[selectedCaseIndex].input);
                             runMutation.mutate();
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <Play className="w-3 h-3 fill-current" />
                           <span>Run Case {selectedCaseIndex + 1}</span>
@@ -1512,18 +1512,18 @@ export const ChallengePage: React.FC = () => {
                     {sampleCases[selectedCaseIndex] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
                         <div className="flex flex-col min-h-0">
-                          <span className="text-[var(--text-muted)] text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                          <span className="text-cyan-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
                             INPUT:
                           </span>
-                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-cyan-700 dark:text-cyan-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[#050811] text-cyan-300 border border-slate-800/80 overflow-auto whitespace-pre font-mono">
                             {sampleCases[selectedCaseIndex].input}
                           </pre>
                         </div>
                         <div className="flex flex-col min-h-0">
-                          <span className="text-[var(--text-muted)] text-[11px] font-semibold mb-1 uppercase tracking-wider">
+                          <span className="text-emerald-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
                             EXPECTED OUTPUT:
                           </span>
-                          <pre className="flex-1 p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-700 dark:text-emerald-300 border border-[var(--border-line)] overflow-auto whitespace-pre font-mono">
+                          <pre className="flex-1 p-2.5 rounded-lg bg-[#050811] text-emerald-300 border border-slate-800/80 overflow-auto whitespace-pre font-mono">
                             {sampleCases[selectedCaseIndex].expectedOutput}
                           </pre>
                         </div>
@@ -1558,18 +1558,18 @@ export const ChallengePage: React.FC = () => {
                   <div className="space-y-4 font-mono">
                     {/* Submission Verdict Banner */}
                     {submissionResult && (
-                      <div className="p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between flex-wrap gap-2">
+                      <div className="p-3.5 rounded-xl border border-slate-800 bg-[#111622] flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-3">
                           <VerdictBadge verdict={submissionResult.verdict} size="md" />
-                          <span className="text-[var(--text-muted)]">
+                          <span className="text-slate-400">
                             Runtime:{' '}
-                            <strong className="text-[var(--text-main)]">
+                            <strong className="text-slate-200">
                               {submissionResult.runtimeMs}ms
                             </strong>
                           </span>
                         </div>
                         {submissionResult.pointsAwarded > 0 && (
-                          <span className="text-[var(--color-success)] font-bold text-xs">
+                          <span className="text-emerald-400 font-bold text-xs">
                             +{submissionResult.pointsAwarded} PTS Awarded!
                           </span>
                         )}
@@ -1579,16 +1579,16 @@ export const ChallengePage: React.FC = () => {
                     {/* Per-Test Case Results list */}
                     {submissionResult?.testCaseResults && (
                       <div className="space-y-2">
-                        <span className="text-xs text-[var(--text-muted)] font-semibold block uppercase">
+                        <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">
                           Evaluation Results:
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {submissionResult.testCaseResults.map((tc: any, idx: number) => (
                             <div
                               key={tc.id || idx}
-                              className="p-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-line)] flex items-center justify-between"
+                              className="p-2.5 rounded-lg bg-[#080c14] border border-slate-800 flex items-center justify-between"
                             >
-                              <span className="text-[var(--text-muted)]">Test {idx + 1}</span>
+                              <span className="text-slate-300 font-semibold">Test {idx + 1}</span>
                               <VerdictBadge verdict={tc.verdict} size="sm" />
                             </div>
                           ))}
@@ -1612,31 +1612,31 @@ export const ChallengePage: React.FC = () => {
                     {runResult && !submissionResult && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[var(--text-muted)] text-xs">Run Output:</span>
-                          <span className="text-[var(--color-accent)] font-semibold">
+                          <span className="text-slate-400 text-xs font-semibold">Run Output:</span>
+                          <span className="text-cyan-400 font-semibold">
                             {runResult.runtimeMs ?? runResult.executionTimeMs ?? 0}ms
                           </span>
                         </div>
                         {runResult.compileOutput ? (
                           <div>
-                            <span className="text-[var(--color-error)] font-semibold block mb-1">
+                            <span className="text-rose-400 font-semibold block mb-1">
                               Compiler Diagnostics:
                             </span>
-                            <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
+                            <pre className="p-3 rounded-xl bg-[#050811] border border-rose-500/50 text-rose-300 overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
                               {runResult.compileOutput}
                             </pre>
                           </div>
                         ) : (
-                          <pre className="p-3 rounded-lg bg-[var(--bg-main)] text-[var(--color-accent)] border border-[var(--border-line)] overflow-x-auto whitespace-pre-wrap">
+                          <pre className="p-3 rounded-lg bg-[#050811] text-cyan-300 border border-slate-800 overflow-x-auto whitespace-pre-wrap font-mono">
                             {runResult.stdout || '(No output produced)'}
                           </pre>
                         )}
                         {runResult.stderr && (
                           <div>
-                            <span className="text-[var(--color-error)] text-xs font-semibold">
+                            <span className="text-rose-400 text-xs font-semibold">
                               Stderr:
                             </span>
-                            <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-[var(--color-error)] border border-[var(--border-line)]">
+                            <pre className="p-2.5 rounded-lg bg-[#050811] text-rose-300 border border-slate-800">
                               {runResult.stderr}
                             </pre>
                           </div>

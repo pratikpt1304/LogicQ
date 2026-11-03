@@ -431,31 +431,42 @@ export const DashboardPage: React.FC = () => {
   const submissionsList: any[] = Array.isArray(recentSubmissions) ? recentSubmissions : [];
 
   const studentAssignedList: any[] = Array.isArray(studentTests) ? studentTests : [];
-  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => getSolvedPracticeTopicIds(user?.id));
+  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => {
+    const list = getSolvedPracticeTopicIds(user?.id);
+    if (user?.prn) {
+      getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+    }
+    return list;
+  });
 
-  // Sync and restore solved practice topics from Firestore
+  // Sync and restore solved practice topics from Firestore across mobile & laptop
   React.useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id && !user?.prn) return;
     (async () => {
       try {
-        const stats = await FirestoreDataService.getStatsBackup(user.id);
-        const prog = await FirestoreDataService.getPracticeProgress(user.id);
+        const identifier = user?.prn || user?.id || '';
+        const stats = await FirestoreDataService.getStatsBackup(identifier);
+        const prog = await FirestoreDataService.getPracticeProgress(identifier);
         const cloudSolved = Array.from(
           new Set([
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
-            ...getSolvedPracticeTopicIds(user.id),
+            ...getSolvedPracticeTopicIds(user?.id),
+            ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
           ])
         );
         if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, user.id));
-          setSolvedTopicIds(getSolvedPracticeTopicIds(user.id));
+          cloudSolved.forEach((id) => {
+            markPracticeTopicSolved(id, user?.id);
+            if (user?.prn) markPracticeTopicSolved(id, user.prn);
+          });
+          setSolvedTopicIds(cloudSolved);
         }
       } catch (err) {
         console.warn('Dashboard restore error:', err);
       }
     })();
-  }, [user?.id]);
+  }, [user?.id, user?.prn]);
 
   const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])
     .map((m: any) => {

@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
+import { FirestoreDataService } from './firestoreData.service.js';
 
 export interface DraftData {
   problemId?: string;
@@ -159,10 +160,34 @@ export class DraftSyncService {
     isPractice = false
   ): Promise<DraftData | null> {
     try {
+      const draftId = DraftSyncService.sanitizeDraftId(slug, isPractice);
+
+      // 1. Cross-Device Cohort PRN draft lookup
+      const prn = FirestoreDataService.resolvePrn(userId);
+      if (prn) {
+        try {
+          const cohortDraftRef = doc(db, 'cohort_progress', prn, 'drafts', draftId);
+          const snap = await getDoc(cohortDraftRef).catch(() => null);
+          if (snap && snap.exists()) {
+            const data = snap.data();
+            if (data?.code) {
+              return {
+                problemId: data.problemId,
+                problemSlug: data.problemSlug || slug,
+                code: data.code || '',
+                customInput: data.customInput || '',
+                updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now(),
+                deviceLabel: data.deviceLabel || 'Remote Device',
+                expiresAt: data.expiresAt || null,
+              };
+            }
+          }
+        } catch {}
+      }
+
       const effectiveUid = auth.currentUser?.uid || userId;
       if (!effectiveUid || !auth.currentUser) return null;
 
-      const draftId = DraftSyncService.sanitizeDraftId(slug, isPractice);
       const draftRef = doc(db, 'users', effectiveUid, 'drafts', draftId);
       const snap = await getDoc(draftRef);
 
@@ -202,16 +227,31 @@ export class DraftSyncService {
     isPractice = false
   ): Promise<boolean> {
     try {
-      const effectiveUid = auth.currentUser?.uid || userId;
-      if (!effectiveUid || !auth.currentUser) return false;
-
       if (!draft.code || draft.code.length > MAX_DRAFT_SIZE_BYTES) {
         return false;
       }
 
       const draftId = DraftSyncService.sanitizeDraftId(draft.problemSlug, isPractice);
-      const draftRef = doc(db, 'users', effectiveUid, 'drafts', draftId);
 
+      // 1. Cross-Device Cohort PRN draft persistence
+      const prn = FirestoreDataService.resolvePrn(userId);
+      if (prn) {
+        try {
+          const cohortDraftRef = doc(db, 'cohort_progress', prn, 'drafts', draftId);
+          await setDoc(cohortDraftRef, {
+            problemSlug: draft.problemSlug,
+            code: draft.code,
+            customInput: draft.customInput || '',
+            deviceLabel: draft.deviceLabel || getDeviceLabel(),
+            updatedAt: Date.now(),
+          }, { merge: true });
+        } catch {}
+      }
+
+      const effectiveUid = auth.currentUser?.uid || userId;
+      if (!effectiveUid || !auth.currentUser) return true;
+
+      const draftRef = doc(db, 'users', effectiveUid, 'drafts', draftId);
       const expiresAt = isPractice ? null : (draft.expiresAt || getDailyCutoffTimestamp());
 
       await setDoc(draftRef, {

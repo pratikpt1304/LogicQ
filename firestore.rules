@@ -181,6 +181,29 @@ rules_version = '2';
 //   - joinedVia: string (optional, <= 50 chars)
 //   - enrolledAt: timestamp (optional)
 //
+// Collection: cohort_progress/{prn} (Cross-Device Cohort Progress Synchronization)
+// Document ID: Canonical Student PRN (<= 30 chars)
+// Fields:
+//   - prn: string (required, <= 30 chars)
+//   - completedProblems: list (optional, <= 250 items)
+//   - totalSolved: int (optional)
+//   - totalPoints: int (optional)
+//   - currentStreak: int (optional)
+//   - longestStreak: int (optional)
+//   - lastSolvedDate: string | null (optional, <= 100 chars)
+//   - draftCodes: map (optional)
+//   - moduleProgress: map (optional)
+//   - updatedAt: timestamp | int | string (optional)
+//
+// Subcollection: cohort_progress/{prn}/drafts/{draftId}
+// Document ID: Draft ID (e.g. problemSlug)
+// Fields:
+//   - code: string (required, <= 65536 chars)
+//   - customInput: any (optional)
+//   - updatedAt: any (optional)
+//   - problemSlug: any (optional)
+//   - deviceLabel: any (optional)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -749,6 +772,55 @@ service cloud.firestore {
       allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
       // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication
       allow delete: if true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. COHORT CROSS-DEVICE PROGRESS SYNCHRONIZATION
+    // -------------------------------------------------------------------------
+    function isValidCohortProgress(data) {
+      let allowedKeys = [
+        'prn', 'completedProblems', 'totalSolved', 'totalPoints',
+        'currentStreak', 'longestStreak', 'lastSolvedDate',
+        'draftCodes', 'moduleProgress', 'updatedAt'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && data.prn is string && data.prn.size() <= 30
+        && (!('completedProblems' in data) || (data.completedProblems is list && data.completedProblems.size() <= 250))
+        && (!('totalSolved' in data) || data.totalSolved is int)
+        && (!('totalPoints' in data) || data.totalPoints is int)
+        && (!('currentStreak' in data) || data.currentStreak is int)
+        && (!('longestStreak' in data) || data.longestStreak is int)
+        && (!('lastSolvedDate' in data) || data.lastSolvedDate == null || (data.lastSolvedDate is string && data.lastSolvedDate.size() <= 100))
+        && (!('draftCodes' in data) || data.draftCodes is map)
+        && (!('moduleProgress' in data) || data.moduleProgress is map)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    match /cohort_progress/{prn} {
+      // Global read allowed so that students switching between mobile and laptop can immediately restore their progress
+      allow read: if true;
+
+      // Validation function isValidCohortProgress(data) ensuring:
+      // - prn is string, size <= 30
+      // - completedProblems (if present) is list of strings, size <= 250
+      // - totalSolved (if present) is int
+      // - totalPoints (if present) is int
+      // - currentStreak (if present) is int
+      // - longestStreak (if present) is int
+      // - lastSolvedDate (if present) is string or null
+      // - draftCodes (if present) is map
+      // - moduleProgress (if present) is map
+      // - updatedAt is timestamp or int or string
+      // Only allowedKeys permitted.
+      allow create, update: if isValidCohortProgress(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /drafts/{draftId} {
+        allow read: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
+          && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
+        allow delete: if isAdmin();
+      }
     }
   }
 }

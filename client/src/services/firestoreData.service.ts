@@ -742,35 +742,91 @@ export class FirestoreDataService {
   }
 
   /**
-   * Persists student practice progress in users/{uid}/drafts/practice_progress
+   * Resolves canonical PRN from identifier, email, or active local session.
+   */
+  public static resolvePrn(identifier?: string): string | null {
+    if (identifier) {
+      const clean = String(identifier).trim().toUpperCase();
+      if (clean.startsWith('COHORT-')) {
+        return clean.replace(/^COHORT-/, '');
+      }
+      if (/^[0-9]{4}[A-Z]{3,4}[MF]?[0-9]{3,4}$/.test(clean)) {
+        return clean;
+      }
+      const student = findCohortStudent(clean);
+      if (student) return student.prn.toUpperCase();
+    }
+    try {
+      const raw = localStorage.getItem('logicq_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u?.prn) return String(u.prn).trim().toUpperCase();
+        if (u?.email) {
+          const student = findCohortStudent(u.email);
+          if (student) return student.prn.toUpperCase();
+        }
+      }
+    } catch {}
+    if (auth.currentUser?.email) {
+      const student = findCohortStudent(auth.currentUser.email);
+      if (student) return student.prn.toUpperCase();
+    }
+    return null;
+  }
+
+  /**
+   * Persists student practice progress in users/{uid}/drafts/practice_progress and cohort_progress/{prn}
    */
   public static async savePracticeProgress(uid: string, completedProblems: string[]): Promise<void> {
     const effectiveUid = auth.currentUser?.uid || uid;
     const localKey = effectiveUid ? `logicq_practice_progress_${effectiveUid}` : 'logicq_practice_progress';
+    const uniqueProblems = Array.from(new Set(completedProblems));
     try {
-      localStorage.setItem(localKey, JSON.stringify(Array.from(new Set(completedProblems))));
+      localStorage.setItem(localKey, JSON.stringify(uniqueProblems));
     } catch {}
 
-    if (!auth.currentUser?.uid) return;
-    const targetUid = auth.currentUser.uid;
-    try {
-      const draftRef = doc(db, 'users', targetUid, 'drafts', 'practice_progress');
-      await setDoc(
-        draftRef,
-        {
-          userId: targetUid,
-          completedProblems: Array.from(new Set(completedProblems)),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    } catch {
-      // ignore
+    // 1. Cross-Device Cloud Sync for Cohort Students via cohort_progress/{prn}
+    const prn = FirestoreDataService.resolvePrn(uid);
+    if (prn) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prn);
+        await setDoc(
+          cohortRef,
+          {
+            prn,
+            completedProblems: uniqueProblems,
+            totalSolved: uniqueProblems.length,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.warn('savePracticeProgress to cohort_progress notice:', err);
+      }
+    }
+
+    // 2. Also persist to users/{uid}/drafts/practice_progress if signed in with Firebase Auth
+    if (auth.currentUser?.uid) {
+      const targetUid = auth.currentUser.uid;
+      try {
+        const draftRef = doc(db, 'users', targetUid, 'drafts', 'practice_progress');
+        await setDoc(
+          draftRef,
+          {
+            userId: targetUid,
+            completedProblems: uniqueProblems,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch {
+        // ignore
+      }
     }
   }
 
   /**
-   * Reads student practice progress from users/{uid}/drafts/practice_progress or practice_progress/{uid}
+   * Reads student practice progress from cohort_progress/{prn} or users/{uid}/drafts/practice_progress
    */
   public static async getPracticeProgress(uid: string): Promise<StudentPracticeProgress | null> {
     const effectiveUid = auth.currentUser?.uid || uid;
@@ -781,38 +837,71 @@ export class FirestoreDataService {
       if (raw) localCompleted = JSON.parse(raw);
     } catch {}
 
-    if (!auth.currentUser?.uid) {
-      return localCompleted.length > 0 ? { userId: uid, completedProblems: localCompleted } : null;
+    let cloudCompleted: string[] = [];
+    let cloudModuleProgress: any = {};
+    let cloudUpdatedAt: any = null;
+
+    // 1. Immediate Cross-Device Cloud Sync from cohort_progress/{prn}
+    const prn = FirestoreDataService.resolvePrn(uid);
+    if (prn) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prn);
+        const cohortSnap = await getDoc(cohortRef).catch(() => null);
+        if (cohortSnap && cohortSnap.exists()) {
+          const data = cohortSnap.data();
+          if (Array.isArray(data.completedProblems)) {
+            cloudCompleted.push(...data.completedProblems);
+          }
+          if (data.moduleProgress) {
+            cloudModuleProgress = { ...cloudModuleProgress, ...data.moduleProgress };
+          }
+          cloudUpdatedAt = data.updatedAt;
+        }
+      } catch (err) {
+        console.warn('getPracticeProgress from cohort_progress notice:', err);
+      }
     }
 
-    const primaryUid = auth.currentUser.uid;
-    try {
-      const draftRef = doc(db, 'users', primaryUid, 'drafts', 'practice_progress');
-      const draftSnap = await getDoc(draftRef).catch(() => null);
-      if (draftSnap && draftSnap.exists()) {
-        const data = draftSnap.data();
-        const mergedCompleted = Array.from(
-          new Set([...localCompleted, ...(Array.isArray(data.completedProblems) ? data.completedProblems : [])])
-        );
-        try {
-          localStorage.setItem(localKey, JSON.stringify(mergedCompleted));
-        } catch {}
-        return {
-          userId: primaryUid,
-          completedProblems: mergedCompleted,
-          moduleProgress: data.moduleProgress || {},
-          updatedAt: data.updatedAt,
-        };
-      }
-      return localCompleted.length > 0 ? { userId: primaryUid, completedProblems: localCompleted } : null;
-    } catch {
-      return localCompleted.length > 0 ? { userId: primaryUid, completedProblems: localCompleted } : null;
+    // 2. Check users/{uid}/drafts/practice_progress if signed in with Firebase Auth
+    if (auth.currentUser?.uid) {
+      const primaryUid = auth.currentUser.uid;
+      try {
+        const draftRef = doc(db, 'users', primaryUid, 'drafts', 'practice_progress');
+        const draftSnap = await getDoc(draftRef).catch(() => null);
+        if (draftSnap && draftSnap.exists()) {
+          const data = draftSnap.data();
+          if (Array.isArray(data.completedProblems)) {
+            cloudCompleted.push(...data.completedProblems);
+          }
+          if (data.moduleProgress) {
+            cloudModuleProgress = { ...cloudModuleProgress, ...data.moduleProgress };
+          }
+          if (!cloudUpdatedAt) cloudUpdatedAt = data.updatedAt;
+        }
+      } catch {}
     }
+
+    const mergedCompleted = Array.from(new Set([...localCompleted, ...cloudCompleted]));
+    if (mergedCompleted.length > 0 && localKey) {
+      try {
+        localStorage.setItem(localKey, JSON.stringify(mergedCompleted));
+      } catch {}
+    }
+
+    if (mergedCompleted.length > 0) {
+      return {
+        userId: prn || uid,
+        completedProblems: mergedCompleted,
+        moduleProgress: cloudModuleProgress,
+        updatedAt: cloudUpdatedAt,
+      };
+    }
+
+    return null;
   }
 
   /**
-   * Persists an immutable backup of student stats in users/{uid}/drafts/stats_backup
-   * Permitted by firestore.rules under drafts subcollection.
+   * Persists an immutable backup of student stats in cohort_progress/{prn} and users/{uid}/drafts/stats_backup
    */
   public static async saveStatsBackup(uid: string, stats: Partial<StudentStatsBackup>): Promise<void> {
     const effectiveUid = auth.currentUser?.uid || (uid && uid.length < 32 ? uid : null);
@@ -841,6 +930,48 @@ export class FirestoreDataService {
       } catch {}
     }
 
+    // 1. Cross-Device Cloud Sync for Cohort Students via cohort_progress/{prn}
+    const prn = FirestoreDataService.resolvePrn(uid);
+    if (prn) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prn);
+        const cohortSnap = await getDoc(cohortRef).catch(() => null);
+        const existingData = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+        const mergedPoints = Math.max(Number(existingData.totalPoints || 0), Number(stats.totalPoints || 0));
+        const mergedStreak = Math.max(Number(existingData.currentStreak || 0), Number(stats.currentStreak || 0));
+        const mergedLongest = Math.max(Number(existingData.longestStreak || 0), Number(stats.longestStreak || 0));
+        const mergedSolved = Math.max(
+          Number(existingData.totalSolved || 0),
+          Number(stats.totalSolved || 0),
+          Array.isArray(stats.completedProblems) ? stats.completedProblems.length : 0
+        );
+        const mergedProblems = Array.from(
+          new Set([
+            ...(Array.isArray(existingData.completedProblems) ? existingData.completedProblems : []),
+            ...(Array.isArray(stats.completedProblems) ? stats.completedProblems : []),
+          ])
+        );
+
+        await setDoc(
+          cohortRef,
+          {
+            prn,
+            totalPoints: mergedPoints,
+            currentStreak: mergedStreak,
+            longestStreak: mergedLongest,
+            totalSolved: mergedSolved,
+            completedProblems: mergedProblems,
+            lastSolvedDate: stats.lastSolvedDate || existingData.lastSolvedDate || new Date().toISOString(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.warn('saveStatsBackup to cohort_progress notice:', err);
+      }
+    }
+
+    // 2. Also persist to users/{uid}/drafts/stats_backup if signed in with Firebase Auth
     if (!auth.currentUser?.uid) return;
     const targetUid = auth.currentUser.uid;
     try {
@@ -900,7 +1031,7 @@ export class FirestoreDataService {
   }
 
   /**
-   * Retrieves student stats backup from users/{uid}/drafts/stats_backup
+   * Retrieves student stats backup from cohort_progress/{prn} or users/{uid}/drafts/stats_backup
    */
   public static async getStatsBackup(uid: string): Promise<StudentStatsBackup | null> {
     const effectiveUid = auth.currentUser?.uid;
@@ -911,6 +1042,45 @@ export class FirestoreDataService {
         const raw = localStorage.getItem(localKey);
         if (raw) localData = JSON.parse(raw);
       } catch {}
+    }
+
+    // 1. Immediate Cross-Device Cloud Sync from cohort_progress/{prn}
+    const prn = FirestoreDataService.resolvePrn(uid);
+    if (prn) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prn);
+        const snap = await getDoc(cohortRef).catch(() => null);
+        if (snap && snap.exists()) {
+          const d = snap.data();
+          const remoteData: StudentStatsBackup = {
+            userId: prn,
+            totalPoints: Math.max(Number(localData?.totalPoints || 0), Number(d.totalPoints || 0)),
+            currentStreak: Math.max(Number(localData?.currentStreak || 0), Number(d.currentStreak || 0)),
+            longestStreak: Math.max(Number(localData?.longestStreak || 0), Number(d.longestStreak || 0)),
+            totalSolved: Math.max(
+              Number(localData?.totalSolved || 0),
+              Number(d.totalSolved || 0),
+              Array.isArray(d.completedProblems) ? d.completedProblems.length : 0
+            ),
+            completedProblems: Array.from(
+              new Set([
+                ...(localData?.completedProblems || []),
+                ...(Array.isArray(d.completedProblems) ? d.completedProblems : []),
+              ])
+            ),
+            lastSolvedDate: d.lastSolvedDate || localData?.lastSolvedDate || null,
+            updatedAt: d.updatedAt,
+          };
+          if (localKey) {
+            try {
+              localStorage.setItem(localKey, JSON.stringify(remoteData));
+            } catch {}
+          }
+          return remoteData;
+        }
+      } catch (err) {
+        console.warn('getStatsBackup from cohort_progress notice:', err);
+      }
     }
 
     if (!effectiveUid) return localData;
