@@ -29,12 +29,13 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.warn("Failed to set Firebase Auth browserLocalPersistence:", err);
 });
 
-// Robust Multi-Tab IndexedDB Firestore instance with forced long polling
-// Overcomes Firefox CORS blocking, campus network firewalls, and WebChannel duplex connection drops
+// Robust Multi-Tab IndexedDB Firestore instance with auto-detect long polling fallback
+// Uses WebSockets by default for zero-latency streaming and automatically falls back to long-polling
+// only when WebSockets are blocked by restrictive campus proxies or firewalls.
 export const db = (() => {
   try {
     return initializeFirestore(app, {
-      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: true,
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),

@@ -203,6 +203,9 @@ export class FirestoreDataService {
     onData: (user: User | null) => void,
     onError?: (error: Error) => void
   ): Unsubscribe {
+    if (!auth.currentUser || !uid) {
+      return () => {};
+    }
     const userRef = doc(db, 'users', uid);
     return onSnapshot(
       userRef,
@@ -215,7 +218,9 @@ export class FirestoreDataService {
         onData(user);
       },
       (error) => {
-        console.error('FirestoreDataService.subscribeUserProfile error:', error);
+        if (error?.code !== 'permission-denied') {
+          console.warn('FirestoreDataService.subscribeUserProfile notice:', error);
+        }
         if (onError) onError(error);
       }
     );
@@ -691,6 +696,9 @@ export class FirestoreDataService {
     onData: (submissions: Submission[]) => void,
     onError?: (error: Error) => void
   ): Unsubscribe {
+    if (!auth.currentUser || !uid) {
+      return () => {};
+    }
     const q = query(collection(db, 'submissions'), where('userId', '==', uid));
     return onSnapshot(
       q,
@@ -723,7 +731,9 @@ export class FirestoreDataService {
         onData(list);
       },
       (error) => {
-        console.warn('FirestoreDataService.subscribeUserSubmissions error:', error);
+        if ((error as any)?.code !== 'permission-denied') {
+          console.warn('FirestoreDataService.subscribeUserSubmissions notice:', error);
+        }
         if (onError) onError(error);
       }
     );
@@ -939,6 +949,9 @@ export class FirestoreDataService {
     onData: (prog: StudentPracticeProgress | null) => void,
     onError?: (error: Error) => void
   ): Unsubscribe {
+    if (!auth.currentUser || !uid) {
+      return () => {};
+    }
     const docRef = doc(db, 'practice_progress', uid);
     return onSnapshot(
       docRef,
@@ -956,7 +969,9 @@ export class FirestoreDataService {
         });
       },
       (error) => {
-        console.warn('FirestoreDataService.subscribePracticeProgress error:', error);
+        if ((error as any)?.code !== 'permission-denied') {
+          console.warn('FirestoreDataService.subscribePracticeProgress notice:', error);
+        }
         if (onError) onError(error);
       }
     );
