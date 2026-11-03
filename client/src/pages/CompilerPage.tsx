@@ -13,13 +13,11 @@ import {
   Cpu,
   Trash2,
   FileCode,
-  Sparkles,
   ArrowLeft,
   Loader2,
   Keyboard,
-  ExternalLink,
-  ShieldCheck,
-  X,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -197,110 +195,89 @@ export const CompilerPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#0c1017] text-slate-100 overflow-hidden select-none font-mono">
       {/* Top Standalone Header Bar */}
-      <header className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-3">
+      <header className="h-14 border-b border-slate-800 bg-[#090d16] px-4 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-3">
         {/* Left: Exit/Back + Title */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleCloseWindow}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-mono text-slate-300 hover:text-slate-100 transition cursor-pointer"
             title="Return to Dashboard or close tab"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Dashboard</span>
           </button>
 
-          <div className="h-4 w-px bg-[var(--border-line)] hidden sm:block" />
+          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+
+          {/* Linux Terminal Dots */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+          </div>
 
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-              <Terminal className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold font-mono tracking-tight text-[var(--text-main)]">
-                  GCC 14 (C11) Compiler
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 text-[10px] font-mono font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Online Sandbox
-                </span>
-              </div>
-            </div>
+            <Terminal className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-bold text-slate-100 font-mono tracking-tight">
+              student@logicq-sandbox: ~/workspace/main.c
+            </span>
+            <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+              GCC 14.2.0 (C11)
+            </span>
           </div>
         </div>
 
-        {/* Right Action Buttons */}
+        {/* Right Header Actions */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleCopyCode}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-mono text-slate-300 hover:text-slate-100 transition cursor-pointer"
             title="Copy code to clipboard"
           >
-            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span className="hidden md:inline">{copiedCode ? 'Copied' : 'Copy'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleResetCode}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-amber-500 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-mono text-slate-300 hover:text-amber-400 transition cursor-pointer"
             title="Reset code to starter template"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Reset</span>
           </button>
-
-          {/* Primary Compile & Run Button */}
-          <button
-            type="button"
-            onClick={handleRunCode}
-            disabled={isRunning}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-md shadow-emerald-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer shrink-0"
-          >
-            {isRunning ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Compiling...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Compile &amp; Run</span>
-                <span className="hidden lg:inline text-[10px] opacity-75 font-normal ml-0.5">(Ctrl+↵)</span>
-              </>
-            )}
-          </button>
         </div>
       </header>
 
-      {/* Main Dual Pane Layout: Editor (Left) & Console (Right) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[var(--border-line)] overflow-hidden">
+      {/* Main Dual Pane Layout: Editor (Left) & Stiff Terminal Console (Right) */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-800 overflow-hidden">
         {/* LEFT: Monaco Code Editor (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col bg-[var(--bg-surface)] h-full overflow-hidden">
+        <div className="lg:col-span-7 flex flex-col bg-[#0c1017] h-full overflow-hidden">
           {/* Subheader */}
-          <div className="px-4 py-2 bg-[var(--bg-panel)] border-b border-[var(--border-line)] flex items-center justify-between text-xs font-mono shrink-0">
+          <div className="px-4 py-2 bg-[#090d16] border-b border-slate-800 flex items-center justify-between text-xs font-mono shrink-0">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] text-cyan-400 font-bold border border-cyan-500/20 flex items-center gap-1.5 shadow-xs">
+              <span className="px-2.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold border border-slate-700 flex items-center gap-1.5 text-[11px]">
                 <FileCode className="w-3.5 h-3.5" />
                 <span>main.c</span>
               </span>
-              <span className="text-[11px] text-[var(--text-muted)] hidden sm:inline">
-                Standard C11 • GCC 14.2.0 (-std=c11 -O2)
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
+                -std=c11 -O2 -Wall
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               <span>Auto-saved</span>
             </div>
           </div>
 
           {/* Monaco Editor Container */}
-          <div className="flex-1 w-full min-h-0 relative">
+          <div className="flex-1 w-full min-h-0 relative bg-[#0c1017]">
             <CodeEditor
               code={code}
               onChange={setCode}
@@ -312,18 +289,18 @@ export const CompilerPage: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT: Input / Output Console Pane (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col bg-[var(--bg-panel)] h-full overflow-hidden">
+        {/* RIGHT: Input / Output Stiff Black Terminal Console Pane (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col bg-[#05080f] h-full overflow-hidden">
           {/* Console Header Tabs */}
-          <div className="px-4 py-2 border-b border-[var(--border-line)] flex items-center justify-between gap-2 bg-[var(--bg-surface)]/60 shrink-0">
+          <div className="px-4 py-2 border-b border-slate-800 flex items-center justify-between gap-2 bg-[#090d16] shrink-0">
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('output')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
                   activeTab === 'output'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Terminal className="w-3.5 h-3.5" />
@@ -342,10 +319,10 @@ export const CompilerPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveTab('stdin')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition cursor-pointer ${
                   activeTab === 'stdin'
-                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-xs'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                    ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Keyboard className="w-3.5 h-3.5" />
@@ -362,15 +339,15 @@ export const CompilerPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCopyOutput}
-                  className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
+                  className="p-1.5 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition cursor-pointer"
                   title="Copy terminal output"
                 >
-                  {copiedOutput ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedOutput ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   type="button"
                   onClick={handleClearOutput}
-                  className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--bg-surface)] transition cursor-pointer"
+                  className="p-1.5 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
                   title="Clear terminal output"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -382,7 +359,7 @@ export const CompilerPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStdin('')}
-                className="text-[11px] font-mono text-[var(--text-muted)] hover:text-rose-400 transition cursor-pointer px-2 py-1 rounded"
+                className="text-[11px] font-mono text-slate-400 hover:text-rose-400 transition cursor-pointer px-2 py-1 rounded"
               >
                 Clear
               </button>
@@ -390,51 +367,58 @@ export const CompilerPage: React.FC = () => {
           </div>
 
           {/* Console Tab Content */}
-          <div className="flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+          <div className="flex-1 p-4 overflow-y-auto font-mono text-xs select-text bg-[#05080f]">
             {activeTab === 'output' ? (
               <div className="space-y-3">
-                {/* Status Bar */}
-                {executionStats && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)]">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                          executionStats.verdict === 'SUCCESS'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}
-                      >
-                        {executionStats.verdict === 'SUCCESS' ? 'Execution Passed' : executionStats.verdict}
-                      </span>
-                      <span className="text-[11px] text-[var(--text-muted)]">
-                        Exit code: {executionStats.exitCode}
-                      </span>
+                {/* Terminal Command Prompt Line */}
+                {(output || errorOutput) && (
+                  <div className="p-2.5 rounded-lg bg-[#090d16] border border-slate-800 space-y-1 shrink-0">
+                    <div className="flex items-center gap-1.5 text-slate-300 flex-wrap">
+                      <span className="text-emerald-400 font-bold">student@logicq-c11</span>
+                      <span className="text-slate-500">:</span>
+                      <span className="text-cyan-400">~/workspace</span>
+                      <span className="text-slate-500">$</span>
+                      <span className="text-slate-100 font-mono">gcc -std=c11 -O2 main.c -o solution &amp;&amp; ./solution</span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
-                      {executionStats.runtimeMs !== undefined && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-cyan-400" />
-                          <span>{executionStats.runtimeMs} ms</span>
+                    {executionStats && (
+                      <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-slate-800 text-[10px] text-slate-400">
+                        <span className={`font-bold ${executionStats.exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          Status: {executionStats.verdict === 'SUCCESS' ? 'PASSED' : executionStats.verdict}
                         </span>
-                      )}
-                      {executionStats.memoryKb !== undefined && (
-                        <span className="flex items-center gap-1">
-                          <Cpu className="w-3 h-3 text-emerald-400" />
-                          <span>{executionStats.memoryKb} KB</span>
-                        </span>
-                      )}
-                    </div>
+                        <span>•</span>
+                        <span>Exit Code: {executionStats.exitCode}</span>
+                        {executionStats.runtimeMs !== undefined && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-cyan-400" />
+                              <span>{executionStats.runtimeMs}ms</span>
+                            </span>
+                          </>
+                        )}
+                        {executionStats.memoryKb !== undefined && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Cpu className="w-3 h-3 text-emerald-400" />
+                              <span>{executionStats.memoryKb} KB</span>
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Compilation Error Diagnostics */}
                 {errorOutput && (
                   <div className="space-y-2">
-                    <div className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">
-                      Compiler Output / Errors:
+                    <div className="text-[11px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>Compiler Diagnostics / Errors:</span>
                     </div>
-                    <pre className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto">
+                    <pre className="p-3 rounded-lg bg-rose-950/25 border border-rose-500/30 text-rose-300 whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto">
                       {errorOutput}
                     </pre>
                     <GccFriendlyHintCard compileOutput={errorOutput} />
@@ -444,27 +428,38 @@ export const CompilerPage: React.FC = () => {
                 {/* Standard Output */}
                 {output && (
                   <div className="space-y-1.5">
-                    <div className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
-                      <span>Standard Output (stdout):</span>
-                      <span className="text-[10px] text-emerald-500 font-normal">Terminal buffer active</span>
+                    <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Standard Output (stdout):</span>
+                      </span>
+                      <span className="text-slate-500 text-[10px]">tty buffer</span>
                     </div>
-                    <pre className="p-3.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] text-emerald-400 whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto shadow-inner">
+                    <pre className="p-3.5 rounded-lg bg-[#020408] border border-slate-800 text-emerald-400 whitespace-pre-wrap font-mono text-xs leading-relaxed overflow-x-auto shadow-inner">
                       {output}
                     </pre>
+                    <div className="text-[11px] text-slate-500 font-mono pt-1">
+                      [Process completed with exit code {executionStats?.exitCode ?? 0} in {executionStats?.runtimeMs ?? 0}ms]
+                    </div>
                   </div>
                 )}
 
                 {/* Idle / Blank Terminal Placeholder */}
                 {!output && !errorOutput && (
-                  <div className="h-64 flex flex-col items-center justify-center text-center p-6 text-[var(--text-muted)]">
-                    <Terminal className="w-10 h-10 mb-3 stroke-[1.5] text-[var(--text-muted)]/40" />
-                    <p className="font-bold text-sm text-[var(--text-main)]">Terminal Ready</p>
-                    <p className="text-xs mt-1 max-w-xs text-[var(--text-muted)]">
-                      Write or edit code in the editor, optionally supply custom stdin, and click <strong>Compile &amp; Run</strong>.
-                    </p>
-                    <div className="mt-4 flex items-center gap-2 text-[11px] px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)]">
-                      <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Press <strong>Ctrl + Enter</strong> to run anytime</span>
+                  <div className="h-64 flex flex-col justify-start p-4 text-slate-400 space-y-3 select-text">
+                    <div className="text-slate-400 text-[11px] leading-relaxed border-b border-slate-800 pb-3">
+                      <p className="text-slate-200 font-bold">Linux x86_64 Sandbox — GNU C11 Compiler (GCC 14.2.0)</p>
+                      <p className="text-slate-400">Target: x86_64-linux-gnu | Standard: -std=c11 | Optimization: -O2</p>
+                      <p className="text-slate-500 mt-1">Ready for input. Write code on the left and click "Compile &amp; Run" below.</p>
+                    </div>
+                    <div className="space-y-1 pt-1">
+                      <div className="flex items-center gap-1.5 text-slate-300">
+                        <span className="text-emerald-400 font-bold">student@logicq-c11</span>
+                        <span className="text-slate-500">:</span>
+                        <span className="text-cyan-400">~/workspace</span>
+                        <span className="text-slate-500">$</span>
+                        <span className="inline-block w-2.5 h-4 bg-emerald-400 animate-pulse ml-1 align-middle" />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -472,7 +467,7 @@ export const CompilerPage: React.FC = () => {
             ) : (
               /* Custom Stdin Tab */
               <div className="h-full flex flex-col space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
                   <span>Enter standard input (passed directly to <code>scanf</code> / <code>getchar</code>):</span>
                   <span>{stdin.length} chars</span>
                 </div>
@@ -480,17 +475,63 @@ export const CompilerPage: React.FC = () => {
                   value={stdin}
                   onChange={(e) => setStdin(e.target.value)}
                   placeholder="e.g.&#10;10 20&#10;Hello C"
-                  className="flex-1 w-full p-3.5 rounded-xl bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-main)] font-mono text-xs focus:outline-hidden focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition resize-none placeholder:text-[var(--text-muted)]/50"
+                  className="flex-1 w-full p-3.5 rounded-lg bg-[#020408] border border-slate-800 text-slate-100 font-mono text-xs focus:outline-none focus:border-cyan-500 transition resize-none placeholder:text-slate-600"
                   spellCheck={false}
                 />
-                <p className="text-[11px] text-[var(--text-muted)] italic">
-                  💡 Tip: If your program uses <code>scanf("%d", &amp;x)</code>, provide the inputs here separated by spaces or newlines before clicking Compile &amp; Run.
+                <p className="text-[11px] text-slate-500 italic">
+                  💡 Tip: If your program uses <code>scanf("%d", &amp;x)</code>, supply inputs here before clicking Compile &amp; Run.
                 </p>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Bottom Action Bar: Compile & Run moved to bottom! */}
+      <footer className="px-5 py-3.5 bg-[#090d16] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 font-mono">
+        <div className="flex items-center gap-3 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-200 font-bold">GCC 14.2.0 (C11)</span>
+          </div>
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="hidden sm:inline text-slate-400">Linux x86_64 Sandbox</span>
+          <span className="text-slate-600 hidden md:inline">•</span>
+          <span className="hidden md:inline text-slate-500">64MB Mem Limit</span>
+          <span className="text-slate-600 hidden md:inline">•</span>
+          <span className="hidden md:inline text-slate-500">2.0s Timeout</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-slate-400 hidden sm:inline-flex items-center gap-1.5">
+            <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Shortcut:</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-mono">Ctrl + Enter</kbd>
+          </span>
+
+          <button
+            type="button"
+            onClick={handleRunCode}
+            disabled={isRunning}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-lg shadow-emerald-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Compiling &amp; Executing...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Compile &amp; Run</span>
+                <span className="text-[10px] opacity-75 font-normal ml-0.5">(Ctrl+↵)</span>
+              </>
+            )}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
+
+export default CompilerPage;
