@@ -155,11 +155,17 @@ export const LoginPage: React.FC = () => {
       const res = await sendLoginOtp(cleanId);
       if (res?.success) {
         setTargetDisplay(res.target || cleanId);
-        setOtpDigits(['', '', '', '', '', '']);
+        const fastCode = res.devOtp || res.code;
+        if (fastCode && String(fastCode).length === 6) {
+          setOtpDigits(String(fastCode).split(''));
+          setInfoMessage(`Verification code: ${fastCode} (also dispatched to ${res.target || cleanId})`);
+        } else {
+          setOtpDigits(['', '', '', '', '', '']);
+          setInfoMessage(res.message || `A 6-digit OTP has been sent to ${res.target || cleanId}.`);
+        }
         setStep('otp');
         setIsVerifiedSuccess(false);
         setCooldown(res.cooldownRemaining || 60);
-        setInfoMessage(res.message || `A 6-digit OTP has been sent to ${res.target || cleanId}.`);
 
         toast.success('OTP sent successfully', {
           description: `Check your inbox at ${res.target || cleanId}`,
@@ -538,6 +544,13 @@ export const LoginPage: React.FC = () => {
                           />
                           <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
                         </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-300 flex items-start gap-2">
+                        <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                        <span className="leading-tight">
+                          <strong>No OTP needed:</strong> Students can sign in directly using the <strong>Student (PRN)</strong> tab with PRN &amp; password, or <strong>Sign in with Google</strong>.
+                        </span>
                       </div>
 
                       <button

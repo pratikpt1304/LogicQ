@@ -61,8 +61,12 @@ class ResendMailService implements IMailService {
 
 class NodemailerMailService implements IMailService {
   private transporter: any = null;
+  private port: number;
+  private secure: boolean;
 
-  constructor() {
+  constructor(port: number = 587, secure: boolean = false) {
+    this.port = port;
+    this.secure = secure;
     this.initTransporter();
   }
 
@@ -71,42 +75,28 @@ class NodemailerMailService implements IMailService {
       const user = ENV.SMTP_USER || process.env.SMTP_USER || 'logicqarena@gmail.com';
       const pass = (ENV.SMTP_PASS || process.env.SMTP_PASS || 'twzlhqrtshcafwvr').replace(/\s+/g, '');
       const host = ENV.SMTP_HOST || process.env.SMTP_HOST || 'smtp.gmail.com';
-      const port = ENV.SMTP_PORT || parseInt(process.env.SMTP_PORT || '465', 10);
 
       if (!user || !pass) {
         console.warn('[NodemailerMailService] SMTP_USER or SMTP_PASS is missing in environment.');
         return;
       }
 
-      const isGmail = host.includes('gmail') || user.endsWith('@gmail.com');
-
-      if (isGmail) {
-        this.transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user,
-            pass,
-          },
-          connectionTimeout: 4000,
-          greetingTimeout: 4000,
-          socketTimeout: 4000,
-        });
-        console.log(`[NodemailerMailService] Initialized Gmail SMTP for ${user}`);
-      } else {
-        this.transporter = nodemailer.createTransport({
-          host,
-          port,
-          secure: port === 465,
-          auth: {
-            user,
-            pass,
-          },
-          connectionTimeout: 4000,
-          greetingTimeout: 4000,
-          socketTimeout: 4000,
-        });
-        console.log(`[NodemailerMailService] Initialized Custom SMTP at ${host}:${port} for ${user}`);
-      }
+      this.transporter = nodemailer.createTransport({
+        host,
+        port: this.port,
+        secure: this.secure,
+        auth: {
+          user,
+          pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        connectionTimeout: 12000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      });
+      console.log(`[NodemailerMailService] Initialized SMTP at ${host}:${this.port} (secure=${this.secure}) for ${user}`);
     } catch (err: any) {
       console.error('[NodemailerMailService] Failed to initialize transporter:', err?.message || err);
     }
@@ -122,7 +112,7 @@ class NodemailerMailService implements IMailService {
         return false;
       }
 
-      const fromAddress = ENV.MAIL_FROM || `LogicQ Arena <${ENV.SMTP_USER}>`;
+      const fromAddress = ENV.MAIL_FROM || `LogicQ Arena <${ENV.SMTP_USER || 'logicqarena@gmail.com'}>`;
 
       const info = await this.transporter.sendMail({
         from: fromAddress,
@@ -132,10 +122,10 @@ class NodemailerMailService implements IMailService {
         html: options.html,
       });
 
-      console.log(`[Nodemailer] Successfully delivered email to ${options.to} (MessageId: ${info.messageId})`);
+      console.log(`[Nodemailer] Successfully delivered email to ${options.to} via port ${this.port} (MessageId: ${info.messageId})`);
       return true;
     } catch (err: any) {
-      console.error(`[Nodemailer] Error sending email to ${options.to}:`, err?.message || err);
+      console.error(`[Nodemailer] Error sending email via port ${this.port} to ${options.to}:`, err?.message || err);
       return false;
     }
   }
@@ -200,11 +190,12 @@ class ChainedMailService implements IMailService {
 export function getMailService(): IMailService {
   const providers: IMailService[] = [];
 
-  // 1. Primary: Direct Gmail SMTP using App Password
+  // 1. Primary SMTP: Direct Gmail SMTP using App Password on Port 587 (STARTTLS)
   const smtpUser = process.env.SMTP_USER || ENV.SMTP_USER || 'logicqarena@gmail.com';
   const smtpPass = (process.env.SMTP_PASS || ENV.SMTP_PASS || 'twzlhqrtshcafwvr').replace(/\s+/g, '');
   if (smtpUser && smtpPass) {
-    providers.push(new NodemailerMailService());
+    providers.push(new NodemailerMailService(587, false));
+    providers.push(new NodemailerMailService(465, true));
   }
 
   // 2. Secondary fallback: Google Apps Script Web App

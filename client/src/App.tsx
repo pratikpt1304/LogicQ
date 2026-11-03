@@ -154,7 +154,7 @@ export const App: React.FC = () => {
   const location = useLocation();
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
 
-  // Strictly enforce compulsory email binding for students who haven't bound their verified email
+  // Optional email binding for students who haven't bound their verified personal email yet
   useEffect(() => {
     if (user && user.role === 'STUDENT') {
       const prnUpper = (user.prn || '').toUpperCase();
@@ -163,16 +163,18 @@ export const App: React.FC = () => {
         (user.id ? localStorage.getItem(`logicq_bound_email_${user.id}`) : null) ||
         localStorage.getItem('logicq_last_bound_email');
 
+      const isDismissed = sessionStorage.getItem('logicq_dismiss_bind_modal');
+
       const isBound = Boolean(
         user.isEmailBound ||
         user.emailVerified ||
         storedBound ||
         (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
       );
-      if (!isBound && location.pathname !== '/login') {
-        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 800);
+      if (!isBound && !isDismissed && location.pathname !== '/login') {
+        const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 1200);
         return () => clearTimeout(timer);
-      } else if (isBound) {
+      } else if (isBound || isDismissed) {
         setIsAutoBindEmailOpen(false);
       }
     }
@@ -533,9 +535,10 @@ export const App: React.FC = () => {
       <BindEmailModal
         isOpen={isAutoBindEmailOpen}
         onClose={() => {
+          sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
           setIsAutoBindEmailOpen(false);
         }}
-        forcePrompt={true}
+        forcePrompt={false}
       />
     </div>
   );

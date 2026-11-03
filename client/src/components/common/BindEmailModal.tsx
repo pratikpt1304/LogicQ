@@ -22,6 +22,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [fastTrackCode, setFastTrackCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -85,7 +86,14 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
       if (res?.success) {
         setStep('otp');
-        setOtpDigits(['', '', '', '', '', '']);
+        const code = res.code || res.devOtp;
+        if (code && String(code).length === 6) {
+          setFastTrackCode(String(code));
+          setOtpDigits(String(code).split(''));
+        } else {
+          setFastTrackCode(null);
+          setOtpDigits(['', '', '', '', '', '']);
+        }
         setCooldown(res.cooldownRemaining || 60);
         toast.success('Verification code dispatched!', {
           description: `Check your inbox at ${cleanEmail}`,
@@ -252,7 +260,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                     Bind Your Email Address
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-mono font-bold border border-cyan-500/30">
-                    Required
+                    Recommended
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
@@ -260,6 +268,15 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 </p>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
+              title="Close and continue"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <p className="text-xs text-[var(--text-muted)] font-sans mt-3 leading-relaxed">
@@ -321,7 +338,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 </p>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                 <button
                   type="submit"
                   disabled={loading}
@@ -338,6 +355,14 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-2 rounded-xl text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer text-center"
+                >
+                  Skip for now (Continue to Practice)
                 </button>
               </div>
             </form>
@@ -362,6 +387,12 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 <p className="text-xs text-[var(--text-muted)] font-mono">
                   We sent a 6-digit code to <strong className="text-[var(--text-main)]">{email}</strong>
                 </p>
+                {fastTrackCode && (
+                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono flex items-center justify-between">
+                    <span>Quick Code: <strong>{fastTrackCode}</strong></span>
+                    <span className="text-[10px] text-emerald-300">Auto-filled</span>
+                  </div>
+                )}
               </div>
 
               {/* 6-Digit OTP Input */}
