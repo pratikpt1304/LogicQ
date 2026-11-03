@@ -1239,6 +1239,10 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    const cohortStudent = findCohortStudent(cleanId);
+    const cohortEmail = cohortStudent?.email?.toLowerCase();
+    const cohortPrn = cohortStudent?.prn?.toUpperCase();
+
     // Check if user exists in database by email, prn, mobile, or username
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
     const isPhone = digitsOnly.length >= 10;
@@ -1247,7 +1251,9 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       where: {
         OR: [
           { email: cleanId.toLowerCase() },
+          ...(cohortEmail ? [{ email: cohortEmail }] : []),
           { prn: cleanId.toUpperCase() },
+          ...(cohortPrn ? [{ prn: cohortPrn }] : []),
           { username: cleanId },
           ...(isPhone ? [{ mobile: digitsOnly.slice(-10) }] : []),
         ],
@@ -1256,6 +1262,45 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
 
     if (!user) {
       user = await ensureWalkthroughOrAdminUser(cleanId);
+    }
+
+    // Auto-create user from verified cohort roster if not in database yet
+    if (!user && cohortStudent) {
+      try {
+        user = await prisma.user.create({
+          data: {
+            username: cohortStudent.prn.toLowerCase(),
+            email: cohortStudent.email,
+            prn: cohortStudent.prn,
+            role: 'STUDENT',
+            fullName: cohortStudent.fullName,
+            displayName: cohortStudent.fullName,
+            passwordHash: await bcrypt.hash(cohortStudent.prn, 10),
+            college: cohortStudent.college,
+            department: cohortStudent.department,
+            year: cohortStudent.year,
+            division: 'A',
+            profileComplete: true,
+          },
+        });
+      } catch {
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: cohortStudent.email.toLowerCase() },
+              { prn: cohortStudent.prn.toUpperCase() },
+            ],
+          },
+        });
+      }
+    }
+
+    // Keep database email in sync with active bound cohort email
+    if (user && cohortEmail && user.email.toLowerCase() !== cohortEmail) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { email: cohortEmail, emailOtpVerifiedAt: new Date() },
+      }).catch(() => {});
     }
 
     // Auto-restore enrolled student if verified record from cloud store was passed
@@ -1327,7 +1372,7 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const targetEmail = user.email;
+    const targetEmail = cohortEmail || user.email;
 
     // Fixed walkthrough bypass for demo student
     if (targetEmail.toLowerCase() === 'student@logicq.io') {
@@ -1385,6 +1430,10 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const cohortStudent = findCohortStudent(cleanId);
+    const cohortEmail = cohortStudent?.email?.toLowerCase();
+    const cohortPrn = cohortStudent?.prn?.toUpperCase();
+
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
     const isPhone = digitsOnly.length >= 10;
 
@@ -1392,7 +1441,9 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       where: {
         OR: [
           { email: cleanId.toLowerCase() },
+          ...(cohortEmail ? [{ email: cohortEmail }] : []),
           { prn: cleanId.toUpperCase() },
+          ...(cohortPrn ? [{ prn: cohortPrn }] : []),
           { username: cleanId },
           ...(isPhone ? [{ mobile: digitsOnly.slice(-10) }] : []),
         ],
@@ -1483,7 +1534,8 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
     );
 
     if (!isWalkthroughOtp) {
-      const verifyResult = await OtpService.verifyEmailOtp(user.email, cleanCode, user.prn || undefined);
+      const emailToVerify = cohortEmail || user.email;
+      const verifyResult = await OtpService.verifyEmailOtp(emailToVerify, cleanCode, user.prn || cohortPrn || undefined);
       if (!verifyResult.verified) {
         res.status(400).json({ success: false, message: verifyResult.message });
         return;

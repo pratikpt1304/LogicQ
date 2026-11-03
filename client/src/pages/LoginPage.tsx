@@ -155,14 +155,8 @@ export const LoginPage: React.FC = () => {
       const res = await sendLoginOtp(cleanId);
       if (res?.success) {
         setTargetDisplay(res.target || cleanId);
-        const fastCode = res.devOtp || res.code;
-        if (fastCode && String(fastCode).length === 6) {
-          setOtpDigits(String(fastCode).split(''));
-          setInfoMessage(`Verification code: ${fastCode} (also dispatched to ${res.target || cleanId})`);
-        } else {
-          setOtpDigits(['', '', '', '', '', '']);
-          setInfoMessage(res.message || `A 6-digit OTP has been sent to ${res.target || cleanId}.`);
-        }
+        setOtpDigits(['', '', '', '', '', '']);
+        setInfoMessage(res.message || `A 6-digit OTP has been sent to ${res.target || cleanId}. Please check your email inbox.`);
         setStep('otp');
         setIsVerifiedSuccess(false);
         setCooldown(res.cooldownRemaining || 60);
@@ -530,27 +524,20 @@ export const LoginPage: React.FC = () => {
                     <form onSubmit={handleSendOtp} className="space-y-4">
                       <div>
                         <label className="block text-xs font-semibold text-[var(--text-main)] mb-1.5">
-                          Email Address
+                          Email Address or PRN
                         </label>
                         <div className="relative">
                           <input
-                            type="email"
+                            type="text"
                             required
                             autoFocus
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
-                            placeholder="e.g. rohitsharma@gmail.com"
+                            placeholder="e.g. yourname@gmail.com or 2126PMIM1015"
                             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                           />
                           <Mail className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-3" />
                         </div>
-                      </div>
-
-                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-300 flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                        <span className="leading-tight">
-                          <strong>No OTP needed:</strong> Students can sign in directly using the <strong>Student (PRN)</strong> tab with PRN &amp; password, or <strong>Sign in with Google</strong>.
-                        </span>
                       </div>
 
                       <button
