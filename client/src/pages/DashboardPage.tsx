@@ -1605,61 +1605,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. TODAY'S DAILY CHALLENGE SPOTLIGHT (Glowing Hero Card) */}
-          <div className="rounded-3xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-[var(--bg-panel)] to-cyan-500/10 p-6 sm:p-7 shadow-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-300" />
-                    <span>DAILY C CHALLENGE</span>
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30">
-                    +25 ACADEMIC XP
-                  </span>
-                  {secondsLeft != null && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono text-[var(--text-muted)] bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[var(--text-muted)]" />
-                      <span>Resets in {formatCountdown(secondsLeft)}</span>
-                    </span>
-                  )}
-                </div>
-
-                <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
-                  {dailyProblem?.title || "Today's C Algorithm Challenge"}
-                </h2>
-
-                <p className="text-xs text-[var(--text-muted)] max-w-2xl font-mono leading-relaxed">
-                  Solve today's curated C problem to claim your attendance points, maintain your streak, and climb the university leaderboard!
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    `⚡ *Today's Daily C Challenge is Live on LogicQ!* 🚀\n\n📌 *Problem:* ${dailyProblem?.title || "Today's C Challenge"}\n💎 *Reward:* +25 Points\n👉 *Solve Now:* https://logicq-clanguage.web.app/daily`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition"
-                  title="Share challenge to class WhatsApp group"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Share Challenge</span>
-                </a>
-
-                <Link
-                  to="/daily"
-                  className="px-6 py-2.5 rounded-xl font-mono text-xs font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <span>{isDailySolved ? 'Review Solution' : 'Solve Challenge'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-          </div>
 
           {/* 4. ASSIGNED LAB ASSESSMENTS & TESTS (High Institutional Priority) */}
           <div className="rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-5">
