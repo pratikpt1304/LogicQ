@@ -447,7 +447,9 @@ export const DashboardPage: React.FC = () => {
     })();
   }, [user?.id]);
 
-  const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : []).map(
+  const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])
+    .filter((m: any) => m.order !== 5 && m.slug !== 'advanced-competitive-c')
+    .map(
     (m: any) => {
       const topicsInMod = TOPIC_PRACTICE_DATA.filter(
         (t) => t.moduleSlug === m.slug && solvedTopicIds.includes(t.id)
@@ -1937,12 +1939,12 @@ export const DashboardPage: React.FC = () => {
                 to="/lab-internal"
                 className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 transition"
               >
-                <span>View All 5 Modules</span>
+                <span>View All 4 Modules</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
               {studentModulesList.length > 0 ? (
                 studentModulesList.map((m: any, idx: number) => {
                   const isLocked = !m.isUnlocked;

@@ -227,15 +227,21 @@ export const OnlineCompilerCard: React.FC = () => {
                 <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
                 <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-100 font-mono tracking-tight">
+              <h2
+                className="text-base sm:text-lg font-bold font-mono tracking-tight !text-white"
+                style={{ color: '#ffffff' }}
+              >
                 GCC 14 (C11) Online Terminal
               </h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Live Linux Sandbox
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-1">
+            <p
+              className="text-xs font-mono mt-1 !text-slate-300"
+              style={{ color: '#cbd5e1' }}
+            >
               gcc -std=c11 -O2 • Compile, debug, and execute C11 programs in isolated sandbox terminal.
             </p>
           </div>
@@ -294,7 +300,10 @@ export const OnlineCompilerCard: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs sm:text-sm font-bold text-slate-100 font-mono tracking-tight">
+            <span
+              className="text-xs sm:text-sm font-bold font-mono tracking-tight !text-white"
+              style={{ color: '#ffffff' }}
+            >
               student@logicq-sandbox: ~/workspace/main.c
             </span>
             <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-mono border border-slate-700">

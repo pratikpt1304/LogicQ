@@ -221,7 +221,10 @@ export const CompilerPage: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm font-bold text-slate-100 font-mono tracking-tight">
+            <span
+              className="text-sm font-bold font-mono tracking-tight !text-white"
+              style={{ color: '#ffffff' }}
+            >
               student@logicq-sandbox: ~/workspace/main.c
             </span>
             <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
