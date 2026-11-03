@@ -170,7 +170,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   let useFallback = false;
 
   // Resilient retry loop to smoothly absorb Render free tier cold-starts (502/503/504)
-  const maxAttempts = (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice')) ? 3 : 1;
+  const maxAttempts = (cleanEndpoint.startsWith('/auth') || cleanEndpoint.startsWith('/sections') || cleanEndpoint.startsWith('/admin') || cleanEndpoint.startsWith('/practice') || cleanEndpoint.startsWith('/submissions')) ? 3 : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const fetchConfig: RequestInit = { ...config };
