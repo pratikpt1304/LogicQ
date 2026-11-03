@@ -373,19 +373,37 @@ export const SectionManagementPage: React.FC = () => {
     mutationFn: async (sec: SectionItem) => {
       await FirestoreDataService.deleteSectionFromFirestore(sec.id, sec.joinCode);
       try {
-        await api.delete(`/sections/${sec.id}`);
+        await api.delete(`/sections/${sec.id}`).catch(() => {});
+        if (sec.joinCode && sec.joinCode !== sec.id) {
+          await api.delete(`/sections/${sec.joinCode}`).catch(() => {});
+        }
       } catch (err: any) {
         console.warn('Backend delete /sections failed (may only exist in Firestore):', err);
       }
-      return { success: true };
+      return { success: true, target: sec };
     },
-    onSuccess: () => {
+    onSuccess: (_, sec) => {
       toast.success('Section deleted successfully.');
+      // Immediately purge from queryClient cache so card disappears instantly
+      queryClient.setQueryData(['faculty-sections'], (old: any) => {
+        const list = Array.isArray(old) ? old : [];
+        return list.filter((s: any) => {
+          const sId = String(s.id || '').toUpperCase().trim();
+          const sCode = String(s.joinCode || '').toUpperCase().trim();
+          const targetId = String(sec.id || '').toUpperCase().trim();
+          const targetCode = String(sec.joinCode || '').toUpperCase().trim();
+          if (targetId && (sId === targetId || sCode === targetId)) return false;
+          if (targetCode && (sCode === targetCode || sId === targetCode)) return false;
+          return true;
+        });
+      });
       queryClient.invalidateQueries({ queryKey: ['faculty-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-sections-list'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-sections'] });
       queryClient.invalidateQueries({ queryKey: ['faculty-analytics-hub-data'] });
       RealtimeSyncService.emit('SECTIONS');
       RealtimeSyncService.emit('USERS');
-      if (selectedSection?.id) {
+      if (selectedSection?.id === sec.id || selectedSection?.joinCode === sec.joinCode) {
         setSelectedSection(null);
       }
     },

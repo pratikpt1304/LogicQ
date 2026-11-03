@@ -1675,11 +1675,23 @@ export class FirestoreDataService {
   public static readonly DELETED_SECTIONS_KEY = 'logicq_deleted_section_ids_v1';
 
   /**
-   * Clears any stale or poisoned section tombstone keys in localStorage so active sections are never hidden.
+   * Clears any stale or poisoned section tombstone keys in localStorage while preserving user-deleted sections.
+   * Ensures the active primary classroom section (LQ-C31A) is never accidentally hidden.
    */
   public static clearStaleSectionTombstones(): void {
     try {
-      localStorage.removeItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      if (raw) {
+        const list: string[] = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          // Keep user-deleted sections but ensure LQ-C31A is never blocked
+          const sanitized = list.filter((id) => {
+            const clean = String(id).toUpperCase().trim();
+            return clean !== 'LQ-C31A';
+          });
+          localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(sanitized));
+        }
+      }
       localStorage.removeItem('logicq_deleted_sections_tombstones');
       localStorage.removeItem('logicq_purge_all_sections_flag_v4');
     } catch {}
@@ -1737,6 +1749,7 @@ export class FirestoreDataService {
         'LQ-4904', 'lq-4904',
         'LQ-CE68', 'lq-ce68',
         'LQ-56BB', 'lq-56bb',
+        'LQ-73E6', 'lq-73e6',
         '1633f9ee-2c41-4ccf-b0c2-a293feed2b50',
         'ce205e2f-c4b1-4562-9e95-162ded89a42d',
         '20e4db09-fe9a-47ab-a034-57b11e49a02f',
@@ -1749,7 +1762,12 @@ export class FirestoreDataService {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const existing = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(existing)) {
-        const filtered = existing.filter((s: any) => !FirestoreDataService.isLegacyDemoSection(s));
+        const filtered = existing.filter((s: any) => {
+          if (FirestoreDataService.isLegacyDemoSection(s)) return false;
+          const sCode = String(s.joinCode || '').toUpperCase().trim();
+          if (sCode === 'LQ-73E6' || sCode === 'LQ-DC85' || sCode === 'LQ-56BB') return false;
+          return true;
+        });
         localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
       }
 
@@ -1757,6 +1775,7 @@ export class FirestoreDataService {
       localStorage.removeItem('logicq_section_students_LQ-DC85');
       localStorage.removeItem('logicq_section_students_LQ-4904');
       localStorage.removeItem('logicq_section_students_LQ-CE68');
+      localStorage.removeItem('logicq_section_students_LQ-73E6');
       localStorage.removeItem('logicq_section_students_1633f9ee-2c41-4ccf-b0c2-a293feed2b50');
       localStorage.removeItem('logicq_section_students_ce205e2f-c4b1-4562-9e95-162ded89a42d');
       localStorage.removeItem('logicq_section_students_20e4db09-fe9a-47ab-a034-57b11e49a02f');
@@ -1768,6 +1787,8 @@ export class FirestoreDataService {
         await deleteDoc(d.ref).catch(() => {});
       }
       await deleteDoc(doc(db, 'sections', '20e4db09-fe9a-47ab-a034-57b11e49a02f')).catch(() => {});
+      await deleteDoc(doc(db, 'sections', 'LQ-73E6')).catch(() => {});
+      await deleteDoc(doc(db, 'sections', 'lq-73e6')).catch(() => {});
     } catch (e) {
       console.warn('purgeLegacyDemoSection notice:', e);
     }
@@ -1775,12 +1796,35 @@ export class FirestoreDataService {
 
   /**
    * Checks if a section has been deleted locally or marked as tombstoned.
-   * Only matches verified legacy demo sections (e.g. LQ-DC85) so real teacher sections are never hidden.
+   * Accurately checks permanent deleted tombstone registry while guaranteeing
+   * the active classroom cohort (LQ-C31A) is never hidden.
    */
   public static isSectionDeleted(sectionId?: string, joinCode?: string): boolean {
+    if (!sectionId && !joinCode) return false;
+    const cleanId = sectionId ? String(sectionId).trim().toUpperCase() : '';
+    const cleanCode = joinCode ? String(joinCode).trim().toUpperCase() : '';
+
+    // Safety: The active primary cohort must always remain visible
+    if (cleanCode === 'LQ-C31A' || cleanId === 'LQ-C31A') {
+      return false;
+    }
+
     if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
       return true;
     }
+
+    try {
+      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
+      if (!raw) return false;
+      const list: string[] = JSON.parse(raw);
+      if (Array.isArray(list) && list.length > 0) {
+        return list.some((item) => {
+          const cleanItem = String(item).trim().toUpperCase();
+          return (cleanId && cleanItem === cleanId) || (cleanCode && cleanItem === cleanCode);
+        });
+      }
+    } catch {}
+
     return false;
   }
 
@@ -1871,13 +1915,24 @@ export class FirestoreDataService {
    */
   public static async deleteSectionFromFirestore(sectionId: string, joinCode?: string): Promise<void> {
     if (!sectionId && !joinCode) return;
+    const cleanId = sectionId ? String(sectionId).trim() : '';
+    const cleanCode = joinCode ? String(joinCode).trim() : '';
 
-    // 1. Mark in deleted tombstones immediately
+    // 1. Mark in permanent deleted tombstones immediately (both upper, lower, and exact)
     try {
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       const list: string[] = raw ? JSON.parse(raw) : [];
-      if (sectionId && !list.includes(sectionId)) list.push(sectionId);
-      if (joinCode && !list.includes(joinCode)) list.push(joinCode);
+      const toAdd = [
+        cleanId,
+        cleanId.toUpperCase(),
+        cleanId.toLowerCase(),
+        cleanCode,
+        cleanCode.toUpperCase(),
+        cleanCode.toLowerCase(),
+      ].filter(Boolean);
+      toAdd.forEach((k) => {
+        if (!list.includes(k)) list.push(k);
+      });
       localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(list));
     } catch {}
 
@@ -1885,35 +1940,87 @@ export class FirestoreDataService {
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const existing: any[] = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
-      const filtered = existing.filter((s: any) => {
-        if (sectionId && (s.id === sectionId || s.sectionId === sectionId)) return false;
-        if (joinCode && s.joinCode === joinCode) return false;
-        return true;
-      });
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+      if (Array.isArray(existing)) {
+        const filtered = existing.filter((s: any) => {
+          const sId = String(s.id || s.sectionId || '').toUpperCase().trim();
+          const sCode = String(s.joinCode || '').toUpperCase().trim();
+          const targetId = cleanId ? cleanId.toUpperCase() : '';
+          const targetCode = cleanCode ? cleanCode.toUpperCase() : '';
+          if (targetId && (sId === targetId || sCode === targetId)) return false;
+          if (targetCode && (sCode === targetCode || sId === targetCode)) return false;
+          return true;
+        });
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
+      }
     } catch {}
 
     // 3. Remove local roster cache for this section
     try {
-      if (sectionId) localStorage.removeItem(`logicq_section_students_${sectionId}`);
-      if (joinCode) localStorage.removeItem(`logicq_section_students_${joinCode}`);
+      if (cleanId) {
+        localStorage.removeItem(`logicq_section_students_${cleanId}`);
+        localStorage.removeItem(`logicq_section_students_${cleanId.toUpperCase()}`);
+        localStorage.removeItem(`logicq_section_students_${cleanId.toLowerCase()}`);
+      }
+      if (cleanCode) {
+        localStorage.removeItem(`logicq_section_students_${cleanCode}`);
+        localStorage.removeItem(`logicq_section_students_${cleanCode.toUpperCase()}`);
+        localStorage.removeItem(`logicq_section_students_${cleanCode.toLowerCase()}`);
+      }
     } catch {}
 
-    // 4. Delete document from Firestore `sections` collection
+    // 4. Delete document(s) from Firestore `sections` collection
     try {
-      if (sectionId) {
-        await deleteDoc(doc(db, 'sections', sectionId));
+      // 4a. Direct deleteDoc attempts
+      if (cleanId) {
+        await deleteDoc(doc(db, 'sections', cleanId)).catch(() => {});
+        await deleteDoc(doc(db, 'sections', cleanId.toUpperCase())).catch(() => {});
+        await deleteDoc(doc(db, 'sections', cleanId.toLowerCase())).catch(() => {});
       }
-      if (joinCode) {
-        const q = query(collection(db, 'sections'), where('joinCode', '==', joinCode));
-        const snap = await getDocs(q);
-        for (const d of snap.docs) {
-          await deleteDoc(d.ref);
+      if (cleanCode) {
+        await deleteDoc(doc(db, 'sections', cleanCode)).catch(() => {});
+        await deleteDoc(doc(db, 'sections', cleanCode.toUpperCase())).catch(() => {});
+        await deleteDoc(doc(db, 'sections', cleanCode.toLowerCase())).catch(() => {});
+      }
+
+      // 4b. Scan all documents in sections collection to purge any doc with matching ID or joinCode
+      const snap = await getDocs(collection(db, 'sections'));
+      for (const d of snap.docs) {
+        const data = d.data() || {};
+        const dId = String(d.id).toUpperCase().trim();
+        const dataId = String(data.id || '').toUpperCase().trim();
+        const dataCode = String(data.joinCode || '').toUpperCase().trim();
+        const targetId = cleanId ? cleanId.toUpperCase() : '';
+        const targetCode = cleanCode ? cleanCode.toUpperCase() : '';
+
+        const isMatch =
+          (targetId && (dId === targetId || dataId === targetId || dataCode === targetId)) ||
+          (targetCode && (dId === targetCode || dataId === targetCode || dataCode === targetCode));
+
+        if (isMatch) {
+          await deleteDoc(d.ref).catch(() => {});
         }
       }
     } catch (err) {
       console.warn('Firestore deleteDoc for section error:', err);
     }
+
+    // 5. Clean up associated enrolled_students in Firestore
+    try {
+      const snapEnrolled = await getDocs(collection(db, 'enrolled_students'));
+      for (const d of snapEnrolled.docs) {
+        const data = d.data() || {};
+        const secId = String(data.sectionId || '').toUpperCase().trim();
+        const jCode = String(data.joinCode || '').toUpperCase().trim();
+        const targetId = cleanId ? cleanId.toUpperCase() : '';
+        const targetCode = cleanCode ? cleanCode.toUpperCase() : '';
+        if (
+          (targetId && (secId === targetId || jCode === targetId)) ||
+          (targetCode && (secId === targetCode || jCode === targetCode))
+        ) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
+    } catch {}
   }
 
   /**
@@ -2289,9 +2396,16 @@ export class FirestoreDataService {
         }
       }
 
-      // Auto-replicate any locally-saved section to Firestore if missing remotely
+      // Auto-replicate any locally-saved section to Firestore if missing remotely (skips deleted/legacy sections)
       for (const [, sec] of sectionMap.entries()) {
-        if (sec && sec.id && !remoteKeys.has(sec.id) && (!sec.joinCode || !remoteKeys.has(sec.joinCode))) {
+        if (
+          sec &&
+          sec.id &&
+          !remoteKeys.has(sec.id) &&
+          (!sec.joinCode || !remoteKeys.has(sec.joinCode)) &&
+          !FirestoreDataService.isSectionDeleted(sec.id, sec.joinCode) &&
+          !FirestoreDataService.isLegacyDemoSection(sec)
+        ) {
           FirestoreDataService.saveSectionToFirestore(sec).catch(() => {});
         }
       }

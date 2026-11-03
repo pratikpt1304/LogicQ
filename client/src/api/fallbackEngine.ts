@@ -3417,12 +3417,25 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   }
 
   if (path.startsWith('/sections/') && method === 'DELETE') {
-    const secId = path.replace('/sections/', '');
+    const secId = path.replace('/sections/', '').trim();
     const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
     try {
+      const TOMBSTONE_KEY = 'logicq_deleted_section_ids_v1';
+      const raw = localStorage.getItem(TOMBSTONE_KEY);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      if (secId && !list.includes(secId)) list.push(secId);
+      if (secId && !list.includes(secId.toUpperCase())) list.push(secId.toUpperCase());
+      if (secId && !list.includes(secId.toLowerCase())) list.push(secId.toLowerCase());
+      localStorage.setItem(TOMBSTONE_KEY, JSON.stringify(list));
+
       const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
       if (Array.isArray(stored)) {
-        const filtered = stored.filter((s: any) => s.id !== secId && s.joinCode !== secId);
+        const filtered = stored.filter((s: any) => {
+          const sId = String(s.id || '').toUpperCase().trim();
+          const sCode = String(s.joinCode || '').toUpperCase().trim();
+          const target = secId.toUpperCase();
+          return sId !== target && sCode !== target;
+        });
         localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
       }
     } catch {}
