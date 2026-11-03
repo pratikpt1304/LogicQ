@@ -492,47 +492,26 @@ export const CompilerPage: React.FC = () => {
       </div>
 
       {/* Bottom Action Bar: Compile & Run moved to bottom! */}
-      <footer className="px-5 py-3.5 bg-[#090d16] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0 font-mono">
-        <div className="flex items-center gap-3 text-xs text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-200 font-bold">GCC 14.2.0 (C11)</span>
-          </div>
-          <span className="text-slate-600 hidden sm:inline">•</span>
-          <span className="hidden sm:inline text-slate-400">Linux x86_64 Sandbox</span>
-          <span className="text-slate-600 hidden md:inline">•</span>
-          <span className="hidden md:inline text-slate-500">64MB Mem Limit</span>
-          <span className="text-slate-600 hidden md:inline">•</span>
-          <span className="hidden md:inline text-slate-500">2.0s Timeout</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-slate-400 hidden sm:inline-flex items-center gap-1.5">
-            <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Shortcut:</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-mono">Ctrl + Enter</kbd>
-          </span>
-
-          <button
-            type="button"
-            onClick={handleRunCode}
-            disabled={isRunning}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-lg shadow-emerald-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-          >
-            {isRunning ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Compiling &amp; Executing...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Compile &amp; Run</span>
-                <span className="text-[10px] opacity-75 font-normal ml-0.5">(Ctrl+↵)</span>
-              </>
-            )}
-          </button>
-        </div>
+      <footer className="px-5 py-3 bg-[#090d16] border-t border-slate-800 flex items-center justify-end shrink-0 font-mono">
+        <button
+          type="button"
+          onClick={handleRunCode}
+          disabled={isRunning}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 shadow-lg shadow-emerald-500/25 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Compiling &amp; Executing...</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Compile &amp; Run</span>
+              <span className="text-[10px] opacity-75 font-normal ml-0.5">(Ctrl+↵)</span>
+            </>
+          )}
+        </button>
       </footer>
     </div>
   );
