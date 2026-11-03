@@ -41,6 +41,7 @@ import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { KANETKAR_BOOK_PROBLEMS } from '../data/kanetkar-book-bank.js';
+import { DAILY_CHALLENGES } from '../data/daily-challenges.data.js';
 
 const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
   ...PRACTICE_MODULE_1_PROBLEMS,
@@ -125,6 +126,50 @@ const startIstStr = challengeDayDate.toISOString().split('T')[0];
 const [kYear, kMonth, kDay] = startIstStr.split('-').map(Number);
 const kBaseDate = new Date(Date.UTC(kYear, kMonth - 1, kDay));
 
+export const FORMATTED_DAILY_CHALLENGES = DAILY_CHALLENGES.map((dc, idx) => {
+  const targetDate = new Date(kBaseDate.getTime() + idx * 24 * 3600 * 1000);
+  const targetDateStr = targetDate.toISOString().split('T')[0];
+  return {
+    id: dc.slug,
+    slug: dc.slug,
+    title: dc.title,
+    difficulty: dc.difficulty,
+    category: dc.category,
+    moduleIndex: dc.moduleIndex,
+    moduleName: dc.moduleName,
+    basePoints: dc.basePoints,
+    timeLimitMs: dc.timeLimitMs,
+    memoryLimitMb: dc.memoryLimitMb,
+    isDaily: true,
+    isPractice: false,
+    scheduledDate: targetDateStr,
+    status: 'PUBLISHED',
+    sourceType: 'DAILY',
+    tags: dc.tags,
+    description: dc.description,
+    starterCode: dc.starterCode,
+    solutionCode: dc.solutionCode,
+    testCases: [
+      ...dc.sampleTests.map((t, tidx) => ({
+        id: `${dc.slug}-s${tidx + 1}`,
+        input: t.input,
+        expectedOutput: t.expectedOutput,
+        isSample: true,
+        isHidden: false,
+        orderIndex: tidx,
+      })),
+      ...dc.hiddenTests.map((t, tidx) => ({
+        id: `${dc.slug}-h${tidx + 1}`,
+        input: t.input,
+        expectedOutput: t.expectedOutput,
+        isSample: false,
+        isHidden: true,
+        orderIndex: dc.sampleTests.length + tidx,
+      })),
+    ],
+  };
+});
+
 const FORMATTED_KANETKAR_PROBLEMS = KANETKAR_BOOK_PROBLEMS.map((bp, idx) => {
   const targetDate = new Date(kBaseDate.getTime() + idx * 24 * 3600 * 1000);
   const targetDateStr = targetDate.toISOString().split('T')[0];
@@ -177,8 +222,9 @@ const FORMATTED_PRACTICE_PROBLEMS = STATIC_PRACTICE_PROBLEMS.map((p) => ({
 }));
 
 export const DEFAULT_PROBLEMS = [
-  ...FORMATTED_KANETKAR_PROBLEMS,
-  ...FORMATTED_PRACTICE_PROBLEMS,
+  ...FORMATTED_DAILY_CHALLENGES,
+  ...FORMATTED_KANETKAR_PROBLEMS.map((p) => ({ ...p, isDaily: false })),
+  ...FORMATTED_PRACTICE_PROBLEMS.map((p) => ({ ...p, isDaily: false, isPractice: true })),
 ];
 
 let memoryProblems: any[] = DEFAULT_PROBLEMS.map((p) => ({ ...p }));
@@ -187,8 +233,24 @@ function getStoredProblems(): any[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
     if (raw) {
-      const parsed = JSON.parse(raw);
+      let parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Enforce practice problems are NEVER daily
+        parsed = parsed.map((p: any) => {
+          if (p.isPractice || p.sourceType === 'PRACTICE' || p.slug?.startsWith('practice-') || p.slug?.startsWith('kanetkar-')) {
+            return { ...p, isDaily: false };
+          }
+          return p;
+        });
+
+        // Ensure all dedicated daily challenges are seeded in stored problems
+        const existingSlugs = new Set(parsed.map((p: any) => p.slug || p.id));
+        const missingDaily = FORMATTED_DAILY_CHALLENGES.filter((dp) => !existingSlugs.has(dp.slug));
+        if (missingDaily.length > 0) {
+          parsed = [...missingDaily, ...parsed];
+          saveStoredProblems(parsed);
+          return parsed;
+        }
         const bookCountInParsed = parsed.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length;
         if (bookCountInParsed < FORMATTED_KANETKAR_PROBLEMS.length) {
           const existingSlugs = new Set(parsed.map((p: any) => p.slug || p.id));
@@ -1583,10 +1645,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const challengeDate = new Date(Date.now() - 690 * 60 * 1000);
     const activeDay = challengeDate.toISOString().split('T')[0];
     const dailyProblem =
-      problems.find((p) => p.isDaily && p.scheduledDate === activeDay) ||
-      problems.find((p) => p.slug === 'kanetkar-ch1-scope-shadow-eval') ||
-      problems.find((p) => p.isDaily) ||
-      problems[0];
+      problems.find((p) => p.isDaily && p.scheduledDate === activeDay && !p.isPractice && !p.slug?.startsWith('practice-')) ||
+      FORMATTED_DAILY_CHALLENGES.find((p) => p.scheduledDate === activeDay) ||
+      FORMATTED_DAILY_CHALLENGES[0];
     const secondsUntilNextReset = getSecondsUntilNext1700IST();
     const user = getCurrentUser();
     const subs = getStoredSubmissions();
