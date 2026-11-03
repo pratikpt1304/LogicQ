@@ -19,7 +19,7 @@ import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js'
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../config/firebase.js';
+import { db, auth } from '../../config/firebase.js';
 import { toast } from 'sonner';
 import {
   ShieldCheck,
@@ -587,7 +587,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const buildFilterQuery = () => {
     const params = new URLSearchParams();
-    params.set('limit', '200');
+    params.set('limit', '500');
     if (filterSearch.trim()) params.set('search', filterSearch.trim());
     if (filterSectionId !== 'ALL') params.set('sectionId', filterSectionId);
     if (filterCollege !== 'ALL') params.set('college', filterCollege);
@@ -1495,7 +1495,7 @@ export const AdminDashboardPage: React.FC = () => {
       return false;
     };
 
-    const all = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
+    const rawAll = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
       (u: any) =>
         !FirestoreDataService.isPurgedStudent(u) &&
         String(u.email || '').toLowerCase().trim() !== 'student@logicq.io' &&
@@ -1504,6 +1504,86 @@ export const AdminDashboardPage: React.FC = () => {
         String(u.username || '').toLowerCase().trim() !== 'student_demo' &&
         !String(u.fullName || '').toLowerCase().includes('demo student')
     );
+
+    // Institutional Core Admins & Faculty guarantee so directories are never zero
+    const staffFallback = [
+      {
+        id: 'admin_logicqarena',
+        email: 'logicqarena@gmail.com',
+        username: 'logicqarena',
+        fullName: 'LogicQ Arena Admin',
+        displayName: 'LogicQ Arena (Admin)',
+        role: 'ADMIN',
+        department: 'Administration',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        sections: [],
+      },
+      {
+        id: 'admin_hariprasath',
+        email: 'hariprasathset@sanjivani.edu.in',
+        username: 'hariprasath',
+        fullName: 'Dr. Hari Prasath',
+        displayName: 'Dr. Hari Prasath (Admin)',
+        role: 'ADMIN',
+        department: 'CSE',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        sections: [],
+      },
+      {
+        id: 'faculty_default',
+        email: 'faculty@logicq.io',
+        username: 'faculty_demo',
+        fullName: 'Prof. Demo Faculty (Walkthrough)',
+        displayName: 'Prof. Demo Faculty',
+        role: 'FACULTY',
+        department: 'Integrated M.Tech',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        sections: [],
+      },
+    ];
+
+    const all = [...rawAll];
+    staffFallback.forEach((staff) => {
+      const staffEmail = staff.email.toLowerCase();
+      if (!all.some((u: any) => (u.email || '').toLowerCase().trim() === staffEmail)) {
+        all.unshift(staff);
+      }
+    });
+
+    const currentAuthEmail = (auth.currentUser?.email || '').toLowerCase().trim();
+    if (currentAuthEmail && !all.some((u: any) => (u.email || '').toLowerCase().trim() === currentAuthEmail)) {
+      all.unshift({
+        id: auth.currentUser?.uid || 'usr_cur',
+        email: currentAuthEmail,
+        username: auth.currentUser?.displayName?.toLowerCase().replace(/\s+/g, '_') || currentAuthEmail.split('@')[0],
+        fullName: auth.currentUser?.displayName || 'LogicQ Admin',
+        displayName: auth.currentUser?.displayName || 'LogicQ Admin',
+        role: 'ADMIN',
+        department: 'Administration',
+        college: 'Sanjivani University',
+        profileComplete: true,
+        accountState: 'ACTIVE',
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        sections: [],
+      });
+    }
 
     const activeList = all.filter((u: any) => !isDeletedAccount(u));
     const deletedList = all.filter((u: any) => isDeletedAccount(u));

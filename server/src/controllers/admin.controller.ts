@@ -979,7 +979,7 @@ export async function autoScheduleKanetkarDaily(req: AuthRequest, res: Response)
 export async function getAdminSubmissions(req: AuthRequest, res: Response): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 500));
     const verdict = req.query.verdict as string | undefined;
     const department = (req.query.department as string | undefined)?.trim();
     const year = (req.query.year as string | undefined)?.trim();
@@ -1173,7 +1173,7 @@ export async function rejudgeSubmission(req: AuthRequest, res: Response): Promis
 export async function getAdminUsers(req: AuthRequest, res: Response): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 500));
     const search = (req.query.search as string | undefined)?.trim();
     const department = (req.query.department as string | undefined)?.trim();
     const year = (req.query.year as string | undefined)?.trim();
@@ -1237,7 +1237,7 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ role: 'asc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
         select: {
