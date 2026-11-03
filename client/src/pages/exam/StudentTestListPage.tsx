@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { auth } from '../../config/firebase.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { getStudentPersonalizedQuestions } from '../../utils/testQuestionDistributor.js';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -309,7 +310,13 @@ export const StudentTestListPage: React.FC = () => {
       <div className="space-y-4">
         {filteredAssignments.map((assignment: any) => {
           const test = assignment.test;
-          const questions = test?.questions || [];
+          const rawQuestions = test?.questions || [];
+          const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
+          const questions = getStudentPersonalizedQuestions(
+            rawQuestions,
+            test?.questionCount || 2,
+            studentIdentifier
+          );
           const attempts = assignment.attempts || [];
           const isSubmitted = assignment.status === 'SUBMITTED';
           const isInProgress = assignment.status === 'IN_PROGRESS';

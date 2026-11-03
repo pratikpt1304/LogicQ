@@ -47,7 +47,7 @@ export const CreateTestPage: React.FC = () => {
     moduleId: 'All Modules - Comprehensive Full Syllabus',
     instructions: 'Strict time-based evaluation. 1 mark per question. No reattempts permitted once submitted.',
     durationMinutes: 60,
-    questionCount: 20,
+    questionCount: 2,
     easyRatio: 40,
     mediumRatio: 40,
     hardRatio: 20,
@@ -297,9 +297,9 @@ export const CreateTestPage: React.FC = () => {
         setExcelQuestions(parsed);
         setForm((prev) => ({
           ...prev,
-          questionCount: parsed.length,
+          questionCount: Math.min(prev.questionCount || 2, Math.max(1, parsed.length)),
         }));
-        toast.success(`Excel analyzed: ${parsed.length} questions loaded successfully!`);
+        toast.success(`Excel analyzed: ${parsed.length} questions loaded into test pool!`);
       } catch (err: any) {
         toast.error('Failed to parse Excel: ' + (err.message || err));
       } finally {
@@ -316,7 +316,7 @@ export const CreateTestPage: React.FC = () => {
   const removeExcelQuestion = (qId: string) => {
     setExcelQuestions((prev) => {
       const updated = prev.filter((q) => q.id !== qId);
-      setForm((f) => ({ ...f, questionCount: updated.length }));
+      setForm((f) => ({ ...f, questionCount: Math.min(f.questionCount, Math.max(1, updated.length)) }));
       return updated;
     });
     toast.info('Question removed.');
@@ -574,6 +574,14 @@ export const CreateTestPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Anti-Cheating Lab Distribution Callout */}
+            <div className="p-3 rounded-xl border border-indigo-500/25 bg-indigo-500/10 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+              <div className="text-[11px] text-[var(--foreground)] leading-relaxed">
+                <span className="font-bold text-indigo-400">Anti-Cheating Unique Subsetting Active:</span> When you set <b>Questions Per Student</b> (e.g. 2), LogicQ deterministically rotates questions from the pool based on student PRN / Roll Number. Adjacent students sitting in the same lab room will not receive the same questions.
+              </div>
+            </div>
+
             <div className="space-y-4 text-xs">
               <div>
                 <label className="block text-[var(--muted-foreground)] font-medium mb-1">Test Title</label>
@@ -635,13 +643,21 @@ export const CreateTestPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-[var(--muted-foreground)] font-medium mb-1">Question Count</label>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1 flex items-center justify-between">
+                        <span>Questions Per Student</span>
+                        <span className="text-[10px] text-indigo-400 font-mono font-bold">Anti-Cheating</span>
+                      </label>
                       <input
                         type="number"
+                        min={1}
+                        max={30}
                         value={form.questionCount}
-                        onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                        onChange={(e) => setForm({ ...form, questionCount: Math.max(1, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono font-bold"
                       />
+                      <span className="text-[10px] text-[var(--muted-foreground)] mt-1 block">
+                        Each student receives {form.questionCount || 2} unique rotated questions.
+                      </span>
                     </div>
                   </div>
 
@@ -691,7 +707,7 @@ export const CreateTestPage: React.FC = () => {
               ) : (
                 /* EXCEL UPLOAD MODE */
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[var(--muted-foreground)] font-medium mb-1">Target Section</label>
                       <select
@@ -713,6 +729,20 @@ export const CreateTestPage: React.FC = () => {
                         value={form.durationMinutes}
                         onChange={(e) => setForm({ ...form, durationMinutes: Number(e.target.value) })}
                         className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[var(--muted-foreground)] font-medium mb-1 flex items-center justify-between">
+                        <span>Questions Per Student</span>
+                        <span className="text-[10px] text-indigo-400 font-mono font-bold">Anti-Cheating</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={excelQuestions.length > 0 ? excelQuestions.length : 30}
+                        value={form.questionCount}
+                        onChange={(e) => setForm({ ...form, questionCount: Math.max(1, Number(e.target.value)) })}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono font-bold"
                       />
                     </div>
                   </div>
@@ -871,15 +901,19 @@ export const CreateTestPage: React.FC = () => {
                   (creationMode === 'EXCEL' && excelQuestions.length === 0)
                 }
                 onClick={() => {
+                  const perStudent = Math.max(1, form.questionCount || 2);
                   if (creationMode === 'EXCEL') {
                     createMutation.mutate({
                       ...form,
                       creationMode: 'EXCEL',
                       questions: excelQuestions,
-                      questionCount: excelQuestions.length,
+                      questionCount: Math.min(perStudent, excelQuestions.length),
                     });
                   } else {
-                    createMutation.mutate(form);
+                    createMutation.mutate({
+                      ...form,
+                      questionCount: perStudent,
+                    });
                   }
                 }}
                 className="px-5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 cursor-pointer shadow-sm transition active:scale-95"
@@ -887,8 +921,8 @@ export const CreateTestPage: React.FC = () => {
                 {createMutation.isPending
                   ? 'Publishing & Assigning...'
                   : creationMode === 'EXCEL'
-                  ? `Publish & Assign ${excelQuestions.length} Questions`
-                  : 'Publish & Assign to Roster'}
+                  ? `Publish Test (${form.questionCount || 2} Per Student · ${excelQuestions.length} in Pool)`
+                  : `Publish Test (${form.questionCount || 2} Questions Per Student)`}
               </button>
             </div>
           </div>

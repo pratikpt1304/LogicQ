@@ -1,6 +1,7 @@
 import { User, Role } from '../types/index.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { C_PROGRAMMING_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
+import { getStudentPersonalizedQuestions } from '../utils/testQuestionDistributor.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -3664,16 +3665,32 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       } catch {}
     }
 
-    const assignedQuestions = customQuestions.length > 0
-      ? customQuestions.map((q: any, idx: number) => ({
+    let assignedQuestions: any[] = [];
+    if (customQuestions.length > 0) {
+      assignedQuestions = customQuestions.map((q: any, idx: number) => ({
+        id: `tq_${Date.now()}_${idx}`,
+        testId: `test_${Date.now()}`,
+        problemId: q.id || q.slug,
+        orderIndex: idx,
+        points: q.points || 10,
+        problem: q,
+      }));
+    } else {
+      // Auto Syllabus: Populate comprehensive pool from stored problems so anti-cheating rotation has ample questions
+      try {
+        const stored = getStoredProblems();
+        assignedQuestions = stored.slice(0, 30).map((p: any, idx: number) => ({
           id: `tq_${Date.now()}_${idx}`,
           testId: `test_${Date.now()}`,
-          problemId: q.id || q.slug,
+          problemId: p.id || p.slug,
           orderIndex: idx,
-          points: q.points || 10,
-          problem: q,
-        }))
-      : [];
+          points: 10,
+          problem: p,
+        }));
+      } catch {}
+    }
+
+    const perStudentCount = Math.max(1, Number(payload.questionCount) || 2);
 
     const newTest = {
       id: `test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -3682,7 +3699,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       moduleId: payload.moduleId || (customQuestions.length > 0 ? 'Custom Excel Upload' : 'All Modules - Comprehensive Full Syllabus'),
       instructions: payload.instructions || 'Standard academic examination guidelines apply.',
       durationMinutes: payload.durationMinutes || 60,
-      questionCount: customQuestions.length > 0 ? customQuestions.length : (payload.questionCount || 20),
+      questionCount: perStudentCount,
       easyRatio: payload.easyRatio || 40,
       mediumRatio: payload.mediumRatio || 40,
       hardRatio: payload.hardRatio || 20,
@@ -3694,7 +3711,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       createdAt: new Date().toISOString(),
       creationMode: payload.creationMode || (customQuestions.length > 0 ? 'EXCEL_UPLOAD' : 'AUTO_SYLLABUS'),
       questions: assignedQuestions,
-      _count: { questions: assignedQuestions.length > 0 ? assignedQuestions.length : (payload.questionCount || 20) },
+      _count: { questions: assignedQuestions.length > 0 ? assignedQuestions.length : perStudentCount },
     };
 
     tests.unshift(newTest);
@@ -3705,8 +3722,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     return {
       success: true,
       message: customQuestions.length > 0
-        ? `Assessment test published with ${newTest.questionCount} custom Excel questions!`
-        : 'Assessment test published and assigned to section roster!',
+        ? `Assessment test published with ${assignedQuestions.length} questions in pool (${perStudentCount} per student)!`
+        : `Assessment test published with ${assignedQuestions.length} syllabus questions (${perStudentCount} per student)!`,
       data: newTest,
       test: newTest,
     };
@@ -3731,14 +3748,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     try {
       tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
     } catch {}
+
+    const currentUser = getCurrentUser();
+    const studentIdentifier = currentUser?.prn || (currentUser as any)?.rollNo || currentUser?.id || currentUser?.email || '1001';
+
+    // Anti-Cheating: Return rotated personalized questions for current student
+    const personalizedTests = tests.map((t: any) => {
+      const rawPool = t.questions || [];
+      const perStudent = t.questionCount || 2;
+      const studentQuestions = getStudentPersonalizedQuestions(rawPool, perStudent, studentIdentifier);
+      return {
+        ...t,
+        questions: studentQuestions,
+        _count: { questions: studentQuestions.length },
+      };
+    });
+
     return {
       success: true,
       data: {
-        active: tests.filter((t: any) => t.status === 'PUBLISHED'),
+        active: personalizedTests.filter((t: any) => t.status === 'PUBLISHED'),
         upcoming: [],
         completed: [],
       },
-      tests,
+      tests: personalizedTests,
     };
   }
 
@@ -3992,6 +4025,36 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
   // ==========================================
   // EXAM RUN-CODE & SUBMIT FALLBACK
   // ==========================================
+  if (path === '/exam/start-question' && method === 'POST') {
+    const { assignmentId, problemId } = body || {};
+    const problems = getStoredProblems();
+    const foundProb = problems.find((p: any) => p.id === problemId || p.slug === problemId) || problems[0] || {
+      id: problemId,
+      title: 'Logic Challenge Problem',
+      description: 'Write a C program to solve this problem based on the specifications.',
+      starterCode: '#include <stdio.h>\n\nint main() {\n    // Write your logic here\n    return 0;\n}\n',
+      visibleTestCases: [
+        { input: '5\n', output: '25\n' },
+        { input: '10\n', output: '100\n' }
+      ]
+    };
+    return {
+      success: true,
+      data: {
+        attemptId: `att_${Date.now()}`,
+        questionVariantId: `var_${problemId}`,
+        isLocked: false,
+        startedAt: new Date().toISOString(),
+        problem: foundProb,
+      },
+      attemptId: `att_${Date.now()}`,
+      questionVariantId: `var_${problemId}`,
+      isLocked: false,
+      startedAt: new Date().toISOString(),
+      problem: foundProb,
+    };
+  }
+
   if (path === '/exam/run-code' && method === 'POST') {
     const { code, stdin } = body || {};
     return {
