@@ -7,7 +7,12 @@ function updateCohortFile(filePath) {
   
   // Safely evaluate array
   const arr = Function('return ' + match[1])();
-  arr.sort((a, b) => a.prn.toUpperCase().localeCompare(b.prn.toUpperCase(), undefined, { numeric: true }));
+  arr.sort((a, b) => {
+    const numA = parseInt((a.prn || '').replace(/\D/g, '').slice(-4), 10) || 0;
+    const numB = parseInt((b.prn || '').replace(/\D/g, '').slice(-4), 10) || 0;
+    if (numA !== numB) return numA - numB;
+    return a.prn.localeCompare(b.prn);
+  });
   arr.forEach((item, idx) => { item.index = idx + 1; });
   
   const formattedRows = arr.map(s => 

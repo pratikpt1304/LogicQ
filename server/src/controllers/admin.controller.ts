@@ -1321,6 +1321,25 @@ export async function getAdminUsers(req: AuthRequest, res: Response): Promise<vo
             submissionCount: u._count.submissions,
             sections: [...taught, ...enrolled],
           };
+        }).sort((a: any, b: any) => {
+          const roleRank = (r?: string) => {
+            const ro = (r || '').toUpperCase();
+            if (ro === 'ADMIN') return 1;
+            if (ro === 'FACULTY' || ro === 'TEACHER' || ro === 'INSTRUCTOR') return 2;
+            return 3;
+          };
+          const rA = roleRank(a.role);
+          const rB = roleRank(b.role);
+          if (rA !== rB) return rA - rB;
+          const prnA = (a.prn || '').trim().toUpperCase();
+          const prnB = (b.prn || '').trim().toUpperCase();
+          if (!prnA && !prnB) return 0;
+          if (!prnA) return 1;
+          if (!prnB) return -1;
+          const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+          const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+          if (numA !== numB) return numA - numB;
+          return prnA.localeCompare(prnB, undefined, { numeric: true });
         }),
         pagination: {
           page,

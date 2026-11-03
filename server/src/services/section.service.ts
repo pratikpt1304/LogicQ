@@ -116,6 +116,21 @@ export class SectionService {
       orderBy: { createdAt: 'desc' },
     });
 
+    for (const sec of list) {
+      if (sec.students && Array.isArray(sec.students)) {
+        sec.students.sort((a: any, b: any) => {
+          const prnA = (a.student?.prn || a.prn || '').trim().toUpperCase();
+          const prnB = (b.student?.prn || b.prn || '').trim().toUpperCase();
+          if (!prnA && !prnB) return 0;
+          if (!prnA) return 1;
+          if (!prnB) return -1;
+          const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+          const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+          if (numA !== numB) return numA - numB;
+          return prnA.localeCompare(prnB, undefined, { numeric: true });
+        });
+      }
+    }
     return list;
   }
 
@@ -154,6 +169,19 @@ export class SectionService {
       },
     });
 
+    if (section && section.students && Array.isArray(section.students)) {
+      section.students.sort((a: any, b: any) => {
+        const prnA = (a.student?.prn || a.prn || '').trim().toUpperCase();
+        const prnB = (b.student?.prn || b.prn || '').trim().toUpperCase();
+        if (!prnA && !prnB) return 0;
+        if (!prnA) return 1;
+        if (!prnB) return -1;
+        const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+        const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+        if (numA !== numB) return numA - numB;
+        return prnA.localeCompare(prnB, undefined, { numeric: true });
+      });
+    }
     return section;
   }
 

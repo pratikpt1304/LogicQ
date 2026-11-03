@@ -1657,7 +1657,30 @@ export const AdminDashboardPage: React.FC = () => {
       filtered = merged.filter((u: any) => (u.role || 'STUDENT').toUpperCase() === filterRole);
     }
 
-    return { allMergedUsers: all, users: filtered, roleCounts: counts };
+    const sortUsersByRoleAndPrn = (arr: any[]) => {
+      return [...arr].sort((a: any, b: any) => {
+        const roleRank = (r?: string) => {
+          const ro = (r || '').toUpperCase();
+          if (ro === 'ADMIN') return 1;
+          if (ro === 'FACULTY' || ro === 'TEACHER' || ro === 'INSTRUCTOR') return 2;
+          return 3;
+        };
+        const rA = roleRank(a.role);
+        const rB = roleRank(b.role);
+        if (rA !== rB) return rA - rB;
+
+        const prnA = (a.prn || '').trim().toUpperCase();
+        const prnB = (b.prn || '').trim().toUpperCase();
+        if (!prnA && !prnB) return 0;
+        if (!prnA) return 1;
+        if (!prnB) return -1;
+        const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+        const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+        if (numA !== numB) return numA - numB;
+        return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+    };
+    return { allMergedUsers: sortUsersByRoleAndPrn(all), users: sortUsersByRoleAndPrn(filtered), roleCounts: counts };
   }, [usersData, firestoreUsersData, sectionsList, filterSearch, filterSectionId, filterDepartment, filterYear, filterDivision, filterRole]);
 
   const getProblemSubmissions = React.useCallback(

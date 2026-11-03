@@ -616,12 +616,15 @@ export const SectionManagementPage: React.FC = () => {
       }
     });
 
-    // Sort enrolled students by PRN in ascending order
+    // Sort enrolled students by PRN last 4 digits in ascending order
     mergedStudents.sort((a: any, b: any) => {
       const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
       const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
       if (!prnA) return 1;
       if (!prnB) return -1;
+      const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+      const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+      if (numA !== numB) return numA - numB;
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
@@ -703,6 +706,9 @@ export const SectionManagementPage: React.FC = () => {
       const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
       if (!prnA) return 1;
       if (!prnB) return -1;
+      const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+      const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+      if (numA !== numB) return numA - numB;
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
     if (list.length === 0) {
@@ -966,12 +972,15 @@ export const SectionManagementPage: React.FC = () => {
         const displayTitle = rawName.toLowerCase().includes(rawSub.toLowerCase())
           ? rawName
           : `${rawName} — ${rawSub}`;
-        // Strictly sorted in ascending order by PRN / Roll No
+        // Strictly sorted in ascending order by PRN last 4 digits
         const enrolledStudents = [...(selectedSection.students || [])].sort((a: any, b: any) => {
           const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
           const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
           if (!prnA) return 1;
           if (!prnB) return -1;
+          const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+          const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+          if (numA !== numB) return numA - numB;
           return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
         });
 
