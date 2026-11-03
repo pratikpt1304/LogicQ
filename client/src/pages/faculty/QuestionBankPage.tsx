@@ -19,7 +19,6 @@ import {
   RotateCcw,
   Eye,
   Sliders,
-  MessageSquare,
 } from 'lucide-react';
 
 interface TestCase {
@@ -383,19 +382,6 @@ export const QuestionBankPage: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                        <a
-                          href={`https://wa.me/?text=${encodeURIComponent(
-                            `📢 *New C Practice Problem on LogicQ!* 💡\n\n📌 *Title:* ${q.title}\n📊 *Difficulty:* ${q.difficulty}\n🏷️ *Module:* ${q.module || 'Lab Coursework'}\n👉 *Practice Now:* https://logicq-clanguage.web.app/lab-internal\n\nSolve this question to level up your C programming mastery! 🚀`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 inline-flex items-center"
-                          title="Share to Class WhatsApp Group"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 inline mr-1" />
-                          Share
-                        </a>
-
                         <button
                           onClick={() => setInspectQuestion(q)}
                           className="px-2.5 py-1 rounded-lg border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)]"
