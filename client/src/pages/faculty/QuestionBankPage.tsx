@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Eye,
   Sliders,
+  Calendar,
 } from 'lucide-react';
 
 interface TestCase {
@@ -78,6 +79,51 @@ export const MODULE_TOPIC_SUGGESTIONS: Record<string, string[]> = {
   ],
 };
 
+const formatCreatedDateTime = (dateStr?: string) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '—';
+  }
+};
+
+const getRelativeCreated = (dateStr?: string) => {
+  if (!dateStr) return null;
+  try {
+    const past = new Date(dateStr).getTime();
+    if (isNaN(past)) return null;
+    const diffSec = Math.floor((Date.now() - past) / 1000);
+    if (diffSec < 0 || diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)} min ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} hr ago`;
+    if (diffSec < 172800) return 'Yesterday';
+    if (diffSec < 604800) return `${Math.floor(diffSec / 86400)} days ago`;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const isRecentlyCreated = (dateStr?: string) => {
+  if (!dateStr) return false;
+  try {
+    const past = new Date(dateStr).getTime();
+    return !isNaN(past) && Date.now() - past < 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+};
+
 export const QuestionBankPage: React.FC = () => {
   const queryClient = useQueryClient();
 
@@ -116,7 +162,16 @@ export const QuestionBankPage: React.FC = () => {
     },
   });
 
-  const questions: QuestionItem[] = Array.isArray(data) ? data : [];
+  // Sort questions: Newest created ALWAYS at the top (descending)
+  const questions: QuestionItem[] = React.useMemo(() => {
+    const list = Array.isArray(data) ? [...data] : [];
+    return list.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a as any).timestamp ? new Date((a as any).timestamp).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b as any).timestamp ? new Date((b as any).timestamp).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
+    });
+  }, [data]);
 
   // AI Generation Mutation with Auto-Derived Pedagogical Parameters
   const generateAiMutation = useMutation({
@@ -293,19 +348,20 @@ export const QuestionBankPage: React.FC = () => {
                 <th className="py-3 px-4">Difficulty & Expected Time</th>
                 <th className="py-3 px-4">Sandbox Correctness</th>
                 <th className="py-3 px-4">Lifecycle Status</th>
+                <th className="py-3 px-4">Created Time</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 font-sans">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[var(--muted-foreground)] font-mono animate-pulse">
+                  <td colSpan={7} className="py-12 text-center text-[var(--muted-foreground)] font-mono animate-pulse">
                     Loading question bank...
                   </td>
                 </tr>
               ) : questions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[var(--muted-foreground)] space-y-2">
+                  <td colSpan={7} className="py-12 text-center text-[var(--muted-foreground)] space-y-2">
                     <p className="font-semibold text-[var(--foreground)]">No questions found matching criteria.</p>
                     <p className="text-xs">Click "Generate with AI" to generate validated C programming challenges.</p>
                   </td>
@@ -325,7 +381,14 @@ export const QuestionBankPage: React.FC = () => {
                   return (
                     <tr key={q.id} className="hover:bg-[var(--accent)]/5 transition">
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-[var(--foreground)] text-sm">{q.title}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[var(--foreground)] text-sm">{q.title}</span>
+                          {isRecentlyCreated(q.createdAt) && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                              NEW
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-[var(--muted-foreground)] font-mono">
                           {q.topic || 'General Algorithms'}
                         </div>
@@ -379,6 +442,18 @@ export const QuestionBankPage: React.FC = () => {
                         >
                           {q.status}
                         </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-xs text-[var(--foreground)] font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                          <span>{formatCreatedDateTime(q.createdAt)}</span>
+                        </div>
+                        {getRelativeCreated(q.createdAt) && (
+                          <div className="text-[10px] text-emerald-400 font-semibold mt-0.5 pl-5">
+                            {getRelativeCreated(q.createdAt)}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
@@ -622,7 +697,14 @@ export const QuestionBankPage: React.FC = () => {
                   {inspectQuestion.module} • {inspectQuestion.section}
                 </span>
                 <h3 className="text-xl font-bold text-[var(--text-main)] mt-2">{inspectQuestion.title}</h3>
-                <p className="text-xs text-[var(--text-muted)] font-mono">{inspectQuestion.topic}</p>
+                <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] font-mono mt-1">
+                  <span>{inspectQuestion.topic}</span>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 text-indigo-400">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Created: {formatCreatedDateTime(inspectQuestion.createdAt)}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setInspectQuestion(null)}
