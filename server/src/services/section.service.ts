@@ -86,7 +86,7 @@ export class SectionService {
    */
   static async getFacultySections(facultyId?: string, isAdmin = false) {
     const baseWhere: any = {
-      joinCode: { notIn: ['LQ-DC85', 'LQ-4904', 'LQ-CE68'] },
+      joinCode: { notIn: ['LQ-DC85', 'LQ-4904', 'LQ-CE68', 'LQ-56BB'] },
       sectionName: { not: 'Div A - Computer Science' },
     };
 

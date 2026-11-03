@@ -115,6 +115,8 @@ export const SectionManagementPage: React.FC = () => {
     FirestoreDataService.clearStaleSectionTombstones();
     FirestoreDataService.purgeLegacyDemoSection().catch(() => {});
     api.delete('/sections/LQ-DC85').catch(() => {});
+    api.delete('/sections/LQ-56BB').catch(() => {});
+    FirestoreDataService.deleteSectionFromFirestore('LQ-56BB', 'LQ-56BB').catch(() => {});
   }, []);
 
   // Fetch sections (combines backend with persistent Firestore)

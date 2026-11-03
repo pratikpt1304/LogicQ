@@ -1524,6 +1524,7 @@ export class FirestoreDataService {
       upperCode === 'LQ-DC85' ||
       upperCode === 'LQ-4904' ||
       upperCode === 'LQ-CE68' ||
+      upperCode === 'LQ-56BB' ||
       upperId === '1633F9EE-2C41-4CCF-B0C2-A293FEED2B50' ||
       upperId === 'CE205E2F-C4B1-4562-9E95-162DED89A42D' ||
       upperId === '20E4DB09-FE9A-47AB-A034-57B11E49A02F' ||
@@ -1545,6 +1546,7 @@ export class FirestoreDataService {
         'LQ-DC85', 'lq-dc85',
         'LQ-4904', 'lq-4904',
         'LQ-CE68', 'lq-ce68',
+        'LQ-56BB', 'lq-56bb',
         '1633f9ee-2c41-4ccf-b0c2-a293feed2b50',
         'ce205e2f-c4b1-4562-9e95-162ded89a42d',
         '20e4db09-fe9a-47ab-a034-57b11e49a02f',

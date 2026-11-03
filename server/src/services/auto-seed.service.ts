@@ -411,6 +411,7 @@ export async function autoSeedDatabase(): Promise<void> {
         where: {
           OR: [
             { joinCode: 'LQ-DC85' },
+            { joinCode: 'LQ-56BB' },
             { sectionName: 'Div A - Computer Science' },
             { joinToken: '20e4db09-fe9a-47ab-a034-57b11e49a02f' },
             { description: 'Official academic section for B.Tech CSE' },
