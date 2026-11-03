@@ -1144,9 +1144,16 @@ export const ChallengePage: React.FC = () => {
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
         {/* Left Pane: Problem Statement (Columns 1-5 on desktop) */}
         <div
-          className={`lg:col-span-5 h-full min-h-0 overflow-y-auto overscroll-contain scroll-pt-6 border-r border-[var(--border-line)] bg-[var(--bg-main)] p-6 space-y-6 ${
+          className={`lg:col-span-5 h-full min-h-0 overflow-y-auto overscroll-contain scroll-pt-6 border-r border-[var(--border-line)] bg-[var(--bg-main)] p-6 space-y-6 select-none ${
             activeMobileTab !== 'statement' ? 'hidden lg:block' : ''
           }`}
+          onCopy={(e) => {
+            e.preventDefault();
+            toast.warning('⚠️ Copying question text is restricted for academic integrity.');
+          }}
+          onCut={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         >
           {/* Header */}
           <div className="space-y-3 pb-4 border-b border-[var(--border-line)]">

@@ -1483,23 +1483,27 @@ export const TopicPracticeHubPage: React.FC = () => {
 
               return (
                 <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-mono shadow-xs shrink-0 transition-colors ${
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border-2 font-mono shadow-md shrink-0 transition-all ${
                     isUrgent
-                      ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
-                      : 'bg-dark-900/90 border-white/10 text-slate-300'
+                      ? 'bg-rose-500/20 border-rose-500/60 text-rose-600 dark:text-rose-300'
+                      : 'bg-emerald-500/10 dark:bg-[#0c1017] border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
                   }`}
                   title={`Time elapsed: ${formatPracticeTime(elapsedSeconds)} | Total allocated: ${formatPracticeTime(totalAllocatedSeconds)}`}
                 >
-                  <Clock className={`w-3.5 h-3.5 ${isUrgent ? 'text-rose-400 animate-pulse' : 'text-cyan-400'}`} />
-                  <div className="flex items-center gap-1 text-xs">
-                    <span className="text-slate-400 text-[10px] uppercase tracking-wider hidden sm:inline">
-                      Time Left:
+                  <Clock className={`w-4 h-4 shrink-0 ${isUrgent ? 'text-rose-500 animate-pulse' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-300 hidden sm:inline">
+                      TIME LEFT:
                     </span>
-                    <span className={`font-bold tabular-nums ${isUrgent ? 'text-rose-400 font-extrabold' : 'text-white'}`}>
+                    <span className={`font-mono text-sm font-black tabular-nums tracking-tight px-1.5 py-0.5 rounded ${
+                      isUrgent
+                        ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                        : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 border border-emerald-500/30'
+                    }`}>
                       {formatPracticeTime(remainingSeconds)}
                     </span>
                   </div>
-                  <span className="text-slate-500 text-[10px] hidden md:inline">
+                  <span className="text-slate-600 dark:text-slate-400 font-bold text-[11px] hidden md:inline">
                     ({formatPracticeTime(elapsedSeconds)})
                   </span>
                 </div>
@@ -1586,13 +1590,20 @@ export const TopicPracticeHubPage: React.FC = () => {
           </div>
 
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 select-text relative">
+          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
             
             {/* PANE 1: Problem Description Statement (Left - Compact width to maximize compiler area) */}
             <div
-              className={`w-full lg:w-[30%] xl:w-[26%] 2xl:w-[24%] flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 ${
+              className={`w-full lg:w-[30%] xl:w-[26%] 2xl:w-[24%] flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
+              onCopy={(e) => {
+                e.preventDefault();
+                toast.warning('⚠️ Copying question text is restricted for academic integrity.');
+              }}
+              onCut={(e) => e.preventDefault()}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
             >
               {/* Problem Title & Category Meta */}
               <div className="space-y-1.5">

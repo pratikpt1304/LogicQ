@@ -1754,9 +1754,16 @@ export const PracticeWorkspacePage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Pane: Problem Description Statement */}
         <div
-          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 ${
+          className={`w-full lg:w-[38%] xl:w-[34%] 2xl:w-[30%] min-w-0 lg:min-w-[320px] max-w-full lg:max-w-[480px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-4 sm:p-6 space-y-6 select-none ${
             activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
           }`}
+          onCopy={(e) => {
+            e.preventDefault();
+            toast.warning('⚠️ Copying question text is restricted for academic integrity.');
+          }}
+          onCut={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         >
           <div className="space-y-2">
             <h2 className="text-lg sm:text-xl font-bold text-[var(--text-main)]">{problem.title}</h2>

@@ -1,18 +1,43 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { toast } from 'sonner';
 import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
 
 interface StatementMarkdownProps {
   content: string;
   className?: string;
+  allowCopy?: boolean;
 }
 
-export const StatementMarkdown: React.FC<StatementMarkdownProps> = ({ content, className = '' }) => {
+export const StatementMarkdown: React.FC<StatementMarkdownProps> = ({
+  content,
+  className = '',
+  allowCopy = false,
+}) => {
   const sanitized = React.useMemo(() => sanitizeMathInStatement(content), [content]);
 
+  const handleCopy = (e: React.ClipboardEvent) => {
+    if (!allowCopy) {
+      e.preventDefault();
+      toast.warning('⚠️ Copying question text is restricted for academic integrity.');
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!allowCopy) {
+      e.preventDefault();
+    }
+  };
+
   return (
-    <div className={`prose prose-invert max-w-none text-sm text-[var(--text-muted)] leading-relaxed ${className}`}>
+    <div
+      onCopy={handleCopy}
+      onCut={handleCopy}
+      onContextMenu={handleContextMenu}
+      style={allowCopy ? undefined : { userSelect: 'none', WebkitUserSelect: 'none' }}
+      className={`select-none prose prose-invert max-w-none text-sm text-[var(--text-muted)] leading-relaxed ${className}`}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
