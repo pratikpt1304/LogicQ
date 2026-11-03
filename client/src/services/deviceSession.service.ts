@@ -8,7 +8,7 @@
  */
 
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase.js';
+import { db, auth } from '../config/firebase.js';
 
 export interface DeviceSessionRecord {
   prn: string;
@@ -91,17 +91,20 @@ export class DeviceSessionService {
     } catch {}
 
     // 2. Try Firestore lookup for authoritative cross-device registration check
-    try {
-      const sessionDocRef = doc(db, 'publicProfiles', cleanPrn);
-      const snap = await getDoc(sessionDocRef).catch(() => null);
-      if (snap && snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.registeredDevices) && data.registeredDevices.length > 0) {
-          registeredDevices = Array.from(new Set([...registeredDevices, ...data.registeredDevices]));
+    const currentUid = auth.currentUser?.uid;
+    if (currentUid) {
+      try {
+        const sessionDocRef = doc(db, 'users', currentUid, 'drafts', 'device_session');
+        const snap = await getDoc(sessionDocRef).catch(() => null);
+        if (snap && snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.registeredDevices) && data.registeredDevices.length > 0) {
+            registeredDevices = Array.from(new Set([...registeredDevices, ...data.registeredDevices]));
+          }
         }
+      } catch {
+        // Offline / fallback to local storage
       }
-    } catch {
-      // Offline / fallback to local storage
     }
 
     // 3. Enforce maximum 2 devices limit per account
@@ -120,23 +123,25 @@ export class DeviceSessionService {
     }
 
     // 4. Update Firestore with new active session (overwrites any previous session)
-    try {
-      const sessionDocRef = doc(db, 'publicProfiles', cleanPrn);
-      await setDoc(
-        sessionDocRef,
-        {
-          prn: cleanPrn,
-          currentSessionId: sessionId,
-          activeDeviceId: deviceId,
-          registeredDevices,
-          lastActiveAt: serverTimestamp(),
-          lastActiveEpochMs: Date.now(),
-          isOnline: true,
-        },
-        { merge: true }
-      );
-    } catch {
-      // Non-blocking for offline demo
+    if (currentUid) {
+      try {
+        const sessionDocRef = doc(db, 'users', currentUid, 'drafts', 'device_session');
+        await setDoc(
+          sessionDocRef,
+          {
+            prn: cleanPrn,
+            currentSessionId: sessionId,
+            activeDeviceId: deviceId,
+            registeredDevices,
+            lastActiveAt: serverTimestamp(),
+            lastActiveEpochMs: Date.now(),
+            isOnline: true,
+          },
+          { merge: true }
+        ).catch(() => {});
+      } catch {
+        // Non-blocking for offline demo
+      }
     }
 
     // 5. Broadcast to any other open tabs/windows to immediately terminate older sessions
@@ -187,19 +192,32 @@ export class DeviceSessionService {
       this.broadcastChannel.addEventListener('message', handleBroadcast);
     }
 
-    // B. Cross-Device Real-time Listener via Firestore publicProfiles
+    // B. Cross-Device Real-time Listener via Firestore user drafts
     let unsubscribeFirestore: (() => void) | null = null;
-    try {
-      const sessionDocRef = doc(db, 'publicProfiles', cleanPrn);
-      unsubscribeFirestore = onSnapshot(sessionDocRef, (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        const remoteSessionId = data?.currentSessionId;
-        if (remoteSessionId && remoteSessionId !== localSessionId) {
-          onTerminate('Parallel Login Detected: Another device logged into this account. Parallel logins are prohibited.');
-        }
-      });
-    } catch {}
+    const currentUid = auth.currentUser?.uid;
+    if (currentUid) {
+      try {
+        const sessionDocRef = doc(db, 'users', currentUid, 'drafts', 'device_session');
+        unsubscribeFirestore = onSnapshot(
+          sessionDocRef,
+          (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data();
+            const remoteSessionId = data?.currentSessionId;
+            if (remoteSessionId && remoteSessionId !== localSessionId) {
+              onTerminate('Parallel Login Detected: Another device logged into this account. Parallel logins are prohibited.');
+            }
+          },
+          (err) => {
+            // Gracefully catch permission or network errors; avoid throwing unhandled exception
+            if (err?.code === 'permission-denied') {
+              unsubscribeFirestore?.();
+              unsubscribeFirestore = null;
+            }
+          }
+        );
+      } catch {}
+    }
 
     return () => {
       if (this.broadcastChannel) {

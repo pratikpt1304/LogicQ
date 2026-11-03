@@ -282,29 +282,11 @@ class RealtimeSyncManager {
   }
 
   private setupAdminListeners(): void {
-    if (this.unsubscribeFirestoreTests && this.unsubscribeFirestoreProblems && this.unsubscribeFirestoreUsers) {
+    if (this.unsubscribeFirestoreProblems && this.unsubscribeFirestoreUsers) {
       return;
     }
 
-    // 3. Tests & Assessments sync (Admin only)
-    if (!this.unsubscribeFirestoreTests) {
-      try {
-        this.unsubscribeFirestoreTests = onSnapshot(
-          collection(db, 'tests'),
-          () => {
-            this.handleIncomingSync('TESTS');
-          },
-          (err) => {
-            if (err.code === 'permission-denied') {
-              this.unsubscribeFirestoreTests?.();
-              this.unsubscribeFirestoreTests = null;
-            }
-          }
-        );
-      } catch {}
-    }
-
-    // 4. Problem bank sync (Admin only)
+    // Problem bank sync (Admin only)
     if (!this.unsubscribeFirestoreProblems) {
       try {
         this.unsubscribeFirestoreProblems = onSnapshot(
@@ -313,7 +295,7 @@ class RealtimeSyncManager {
             this.handleIncomingSync('PROBLEMS');
           },
           (err) => {
-            if (err.code === 'permission-denied') {
+            if (err?.code === 'permission-denied') {
               this.unsubscribeFirestoreProblems?.();
               this.unsubscribeFirestoreProblems = null;
             }
@@ -322,7 +304,7 @@ class RealtimeSyncManager {
       } catch {}
     }
 
-    // 5. Users sync (Admin only)
+    // Users sync (Admin only)
     if (!this.unsubscribeFirestoreUsers) {
       try {
         this.unsubscribeFirestoreUsers = onSnapshot(
@@ -331,7 +313,7 @@ class RealtimeSyncManager {
             this.handleIncomingSync('USERS');
           },
           (err) => {
-            if (err.code === 'permission-denied') {
+            if (err?.code === 'permission-denied') {
               this.unsubscribeFirestoreUsers?.();
               this.unsubscribeFirestoreUsers = null;
             }
