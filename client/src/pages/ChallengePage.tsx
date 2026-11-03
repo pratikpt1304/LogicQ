@@ -38,6 +38,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ArrowLeft,
+  Loader2,
   X,
 } from 'lucide-react';
 import {
@@ -774,24 +775,26 @@ export const ChallengePage: React.FC = () => {
     },
   });
 
-  // Global Keyboard Shortcuts (Ctrl+Enter for Run, Ctrl+Shift+Enter for Submit)
+  // Compile & Run handler (Evaluates all test cases; if all pass, auto-submits)
+  const handleCompileAndRun = () => {
+    if (isOffline || isWindowExpired || isWorkspaceLocked || submitMutation.isPending) return;
+    setIsDrawerOpen(true);
+    setActiveBottomTab('output');
+    setActiveMobileTab('results');
+    submitMutation.mutate();
+  };
+
+  // Global Keyboard Shortcuts (Ctrl+Enter for Compile & Run + Auto-Submit)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (!isOffline && !isWindowExpired && !submitMutation.isPending) {
-          submitMutation.mutate();
-        }
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        if (!isOffline && !isWindowExpired && !runMutation.isPending) {
-          runMutation.mutate();
-        }
+        handleCompileAndRun();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOffline, isWindowExpired, runMutation, submitMutation]);
+  }, [isOffline, isWindowExpired, isWorkspaceLocked, submitMutation]);
 
   const handleResetCode = () => {
     if (problem && !isWindowExpired) {
@@ -1285,8 +1288,8 @@ export const ChallengePage: React.FC = () => {
             <CodeEditor
               code={code}
               onChange={handleCodeChange}
-              onRun={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && runMutation.mutate()}
-              onSubmit={() => !isOffline && !isWindowExpired && !isWorkspaceLocked && submitMutation.mutate()}
+              onRun={handleCompileAndRun}
+              onSubmit={handleCompileAndRun}
               onReset={isDaily ? undefined : handleResetCode}
               headerExtra={
                 <div
@@ -1303,7 +1306,7 @@ export const ChallengePage: React.FC = () => {
                 </div>
               }
               isSubmitting={submitMutation.isPending}
-              isRunning={runMutation.isPending}
+              isRunning={submitMutation.isPending}
               readOnly={isWindowExpired || isWorkspaceLocked}
               disableCopyPaste={true}
               onBlockedAction={(action) => {
@@ -1398,35 +1401,11 @@ export const ChallengePage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  data-testid="run-code-button"
-                  onClick={() => runMutation.mutate()}
-                  disabled={runMutation.isPending || isOffline || isWindowExpired}
-                  title="Run code with active stdin (Ctrl + Enter)"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] disabled:opacity-50 transition-all cursor-pointer shadow-xs"
-                >
-                  <Play className="w-3 h-3 text-cyan-400 fill-current" />
-                  <span>{runMutation.isPending ? 'Running...' : 'Run Code'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  data-testid="submit-solution-button"
-                  onClick={() => submitMutation.mutate()}
-                  disabled={submitMutation.isPending || isOffline || isWindowExpired}
-                  title="Submit solution to judge all test cases (Ctrl + Shift + Enter)"
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-sm disabled:opacity-50 transition-all cursor-pointer"
-                >
-                  <Send className="w-3 h-3" />
-                  <span>{submitMutation.isPending ? 'Evaluating...' : 'Submit'}</span>
-                </button>
-
-                <button
-                  type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2 py-1 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-transparent hover:border-[var(--border-line)] transition-all flex items-center gap-1 font-mono text-xs cursor-pointer ml-1"
+                  className="px-2.5 py-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-panel)] border border-[var(--border-line)] transition-all flex items-center gap-1.5 font-mono text-xs cursor-pointer"
                 >
-                  <span className="hidden sm:inline font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
+                  <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
                 </button>
               </div>
@@ -1618,7 +1597,14 @@ export const ChallengePage: React.FC = () => {
 
                     {!runResult && !submissionResult && (
                       <div className="py-6 text-center text-[var(--text-muted)]">
-                        Click &apos;Run Code&apos; (Ctrl+↵) or &apos;Submit Solution&apos; (Ctrl+⇧+↵) to view diagnostics.
+                        {submitMutation.isPending ? (
+                          <div className="flex items-center justify-center gap-2 text-cyan-400">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Compiling and running against test cases...</span>
+                          </div>
+                        ) : (
+                          <span>Click &apos;Compile &amp; Run&apos; (Ctrl+↵) above to execute — passes all test cases to auto-submit!</span>
+                        )}
                       </div>
                     )}
                   </div>
