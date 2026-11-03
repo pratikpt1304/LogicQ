@@ -762,18 +762,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       try {
         isPasswordValid = await bcrypt.compare(password, user.passwordHash);
       } catch {}
-    }
-    const isPrnMatch = Boolean(user.prn && password.toUpperCase() === user.prn.toUpperCase());
-    const isMasterPwd = password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy';
-    if (!isPasswordValid && (isPrnMatch || isMasterPwd)) {
-      isPasswordValid = true;
-      try {
-        const newHash = await bcrypt.hash(password, 10);
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { passwordHash: newHash },
-        });
-      } catch {}
+    } else {
+      // Only for uninitialized legacy user records without a passwordHash yet
+      const isPrnMatch = Boolean(user.prn && password.toUpperCase() === user.prn.toUpperCase());
+      const isMasterPwd = password === 'StudentPassword123!' || password === 'password123' || password.toLowerCase() === 'dummy';
+      if (isPrnMatch || isMasterPwd) {
+        isPasswordValid = true;
+        try {
+          const newHash = await bcrypt.hash(password, 10);
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash: newHash },
+          });
+        } catch {}
+      }
     }
 
     if (!isPasswordValid) {
@@ -1886,6 +1888,16 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
         const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
         if (!isValid) {
           res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+          return;
+        }
+      } else {
+        const isDefaultMatch = Boolean(
+          (user.prn && currentPassword.toUpperCase() === user.prn.toUpperCase()) ||
+          currentPassword === 'StudentPassword123!' ||
+          currentPassword === 'password123'
+        );
+        if (!isDefaultMatch) {
+          res.status(400).json({ success: false, message: 'Current default password (PRN) is incorrect.' });
           return;
         }
       }

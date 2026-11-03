@@ -1286,10 +1286,11 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error(`Account not found for "${cleanId}". Please check your PRN or institutional email.`);
     }
 
+    const hasCustomPassword = Boolean(found.password && found.password.toUpperCase() !== (found.prn || '').toUpperCase());
     const isValidPassword =
       (found.password && found.password === cleanPwd) ||
       (found.password && found.password.toLowerCase() === cleanPwd.toLowerCase()) ||
-      (found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
+      (!hasCustomPassword && found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
       (cleanId.toLowerCase() === 'dummy' && cleanPwd.toLowerCase() === 'dummy') ||
       cleanPwd === 'password123';
 
