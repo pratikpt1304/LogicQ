@@ -1,4 +1,6 @@
 import { KANETKAR_BOOK_EXTENDED_PROBLEMS } from './kanetkar-book-problems-extended.js';
+import { KANETKAR_BOOK_PART2_PROBLEMS } from './kanetkar-book-bank-part2.js';
+import { KANETKAR_BOOK_PART3_PROBLEMS } from './kanetkar-book-bank-part3.js';
 
 export interface BookProblemDef {
   slug: string;
@@ -1912,4 +1914,6 @@ int main() {
     ],
   },
   ...KANETKAR_BOOK_EXTENDED_PROBLEMS,
+  ...KANETKAR_BOOK_PART2_PROBLEMS,
+  ...KANETKAR_BOOK_PART3_PROBLEMS,
 ];

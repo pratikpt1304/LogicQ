@@ -188,6 +188,21 @@ function getStoredProblems(): any[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        const bookCountInParsed = parsed.filter((p: any) => p.sourceType === 'BOOK' || p.slug?.startsWith('kanetkar-')).length;
+        if (bookCountInParsed < FORMATTED_KANETKAR_PROBLEMS.length) {
+          const existingSlugs = new Set(parsed.map((p: any) => p.slug || p.id));
+          const missing = FORMATTED_KANETKAR_PROBLEMS.filter((kp) => !existingSlugs.has(kp.slug));
+          const updated = [...parsed, ...missing].map((p: any) => {
+            const canonical = FORMATTED_KANETKAR_PROBLEMS.find((kp) => kp.slug === p.slug || kp.id === p.id);
+            if (canonical) {
+              return { ...p, isDaily: true, scheduledDate: canonical.scheduledDate, status: 'PUBLISHED' };
+            }
+            return p;
+          });
+          saveStoredProblems(updated);
+          return updated;
+        }
+
         // If stored problems don't have scheduled dates on Kanetkar problems, merge with updated FORMATTED_KANETKAR_PROBLEMS
         const hasScheduledDaily = parsed.some((p: any) => p.isDaily && p.scheduledDate && p.sourceType === 'BOOK');
         if (!hasScheduledDaily) {

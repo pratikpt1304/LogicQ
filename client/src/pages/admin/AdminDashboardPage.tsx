@@ -3309,16 +3309,16 @@ export const AdminDashboardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm('Auto-schedule all 31 Kanetkar Book challenges sequentially across dates starting from today?')) {
+                    if (confirm('Auto-schedule all 100 Kanetkar Book challenges sequentially across dates starting from today?')) {
                       autoScheduleKanetkarMutation.mutate();
                     }
                   }}
                   disabled={autoScheduleKanetkarMutation.isPending}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-                  title="Auto-schedule all 31 Kanetkar Book challenges sequentially starting from today"
+                  title="Auto-schedule all 100 Kanetkar Book challenges sequentially starting from today"
                 >
                   <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{autoScheduleKanetkarMutation.isPending ? 'Scheduling...' : 'Auto-Schedule (31d)'}</span>
+                  <span>{autoScheduleKanetkarMutation.isPending ? 'Scheduling...' : 'Auto-Schedule (100d)'}</span>
                 </button>
 
                 {/* AI Generator Button */}
