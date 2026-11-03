@@ -2364,7 +2364,20 @@ export class FirestoreDataService {
       const seenPrns = new Set(existingStudents.map((s: any) => (s.prn || '').toUpperCase()));
 
       C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
-        if (!seenPrns.has(cs.prn.toUpperCase())) {
+        const prnUpper = cs.prn.toUpperCase();
+        const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
+        if (existing) {
+          existing.email = cs.email;
+          if (existing.student) existing.student.email = cs.email;
+          if (cs.fullName) {
+            existing.name = cs.fullName;
+            existing.fullName = cs.fullName;
+            if (existing.student) {
+              existing.student.fullName = cs.fullName;
+              existing.student.displayName = cs.fullName;
+            }
+          }
+        } else {
           existingStudents.push({
             id: cs.prn,
             uid: cs.prn,
@@ -2374,7 +2387,7 @@ export class FirestoreDataService {
             enrolledAt: 1730000000000,
             status: 'ACTIVE',
           });
-          seenPrns.add(cs.prn.toUpperCase());
+          seenPrns.add(prnUpper);
         }
       });
 

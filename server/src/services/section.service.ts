@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { prisma } from '../utils/prisma.js';
 import { OtpService } from './otp.service.js';
 import { normalizeDepartment, deriveDepartmentFromPrn } from '../config/academic.config.js';
+import { findCohortStudent } from '../data/c-programming-cohort.data.js';
 
 export interface CreateSectionInput {
   institution: string;
@@ -118,6 +119,16 @@ export class SectionService {
 
     for (const sec of list) {
       if (sec.students && Array.isArray(sec.students)) {
+        for (const st of sec.students) {
+          const prn = (st.student?.prn || st.prn || '').trim().toUpperCase();
+          if (prn) {
+            const cohort = findCohortStudent(prn);
+            if (cohort && cohort.email) {
+              if (st.student) st.student.email = cohort.email;
+              (st as any).email = cohort.email;
+            }
+          }
+        }
         sec.students.sort((a: any, b: any) => {
           const prnA = (a.student?.prn || a.prn || '').trim().toUpperCase();
           const prnB = (b.student?.prn || b.prn || '').trim().toUpperCase();
@@ -170,6 +181,16 @@ export class SectionService {
     });
 
     if (section && section.students && Array.isArray(section.students)) {
+      for (const st of section.students) {
+        const prn = (st.student?.prn || st.prn || '').trim().toUpperCase();
+        if (prn) {
+          const cohort = findCohortStudent(prn);
+          if (cohort && cohort.email) {
+            if (st.student) st.student.email = cohort.email;
+            (st as any).email = cohort.email;
+          }
+        }
+      }
       section.students.sort((a: any, b: any) => {
         const prnA = (a.student?.prn || a.prn || '').trim().toUpperCase();
         const prnB = (b.student?.prn || b.prn || '').trim().toUpperCase();

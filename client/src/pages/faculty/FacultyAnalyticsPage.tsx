@@ -6,6 +6,7 @@ import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { normalizeDepartment } from '../../config/academic.config.js';
+import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
 import { LiveLabRadar } from '../../components/faculty/LiveLabRadar.js';
 import { PlagiarismMatrixModal } from '../../components/faculty/PlagiarismMatrixModal.js';
 import { toast } from 'sonner';
@@ -213,15 +214,17 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
         (sec.students || []).forEach((st: any) => {
           if (!st || FirestoreDataService.isPurgedStudent(st)) return;
-          const email = String(st.email || st.student?.email || '').toLowerCase().trim();
           const prn = String(st.prn || st.student?.prn || '').toUpperCase().trim();
+          const cohort = prn ? findCohortStudent(prn) : null;
+          const boundStorage = prn ? localStorage.getItem(`logicq_bound_email_${prn}`) : null;
+          const email = String(boundStorage || cohort?.email || st.email || st.student?.email || '').toLowerCase().trim();
           const id = st.id || st.uid || st.student?.id || email || prn;
           const key = (prn || email || id).toUpperCase();
           if (!key) return;
 
           const points = Number(st.totalPoints ?? st.student?.totalPoints ?? 0);
           const streak = Number(st.currentStreak ?? st.student?.currentStreak ?? 0);
-          const fullName = st.name || st.fullName || st.student?.fullName || st.student?.displayName || (prn ? `Student ${prn.slice(-4)}` : 'Enrolled Student');
+          const fullName = cohort?.fullName || st.name || st.fullName || st.student?.fullName || st.student?.displayName || (prn ? `Student ${prn.slice(-4)}` : 'Enrolled Student');
 
           studentMap.set(key, {
             id,

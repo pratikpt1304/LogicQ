@@ -33,6 +33,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../../config/academic.config.js';
+import { findCohortStudent } from '../../data/c-programming-cohort.data.js';
 
 interface StudentRosterItem {
   id?: string;
@@ -172,13 +173,32 @@ export const SectionManagementPage: React.FC = () => {
           const existingStudents = Array.isArray(existing.students) ? [...existing.students] : [];
           const incomingStudents = Array.isArray(s.students) ? s.students : [];
           incomingStudents.forEach((st: any) => {
-            const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
             const stPrn = (st.prn || st.student?.prn || '').toUpperCase().trim();
-            if (!existingStudents.some((ex: any) =>
-              (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail) ||
-              (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn)
-            )) {
+            const stEmail = (st.email || st.student?.email || '').toLowerCase().trim();
+            const existingIdx = existingStudents.findIndex((ex: any) =>
+              (stPrn && (ex.prn || ex.student?.prn || '').toUpperCase().trim() === stPrn) ||
+              (stEmail && (ex.email || ex.student?.email || '').toLowerCase().trim() === stEmail)
+            );
+            if (existingIdx !== -1) {
+              const matched = existingStudents[existingIdx];
+              const resolvedEmail = (st.email && !st.email.includes('@sanjivani.edu.in')) ? st.email : (matched.email || st.email);
+              matched.email = resolvedEmail;
+              if (matched.student) matched.student.email = resolvedEmail;
+            } else {
               existingStudents.push(st);
+            }
+          });
+          // Ensure all students with cohort data have their latest bound email
+          existingStudents.forEach((st: any) => {
+            const prn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+            if (prn) {
+              const cohort = findCohortStudent(prn);
+              const boundStorage = localStorage.getItem(`logicq_bound_email_${prn}`);
+              const target = boundStorage || cohort?.email;
+              if (target) {
+                st.email = target;
+                if (st.student) st.student.email = target;
+              }
             }
           });
           const countVal = Math.max(existingStudents.length, existing.studentsCount || 0, s.studentsCount || 0, s._count?.students || 0);
@@ -718,9 +738,11 @@ export const SectionManagementPage: React.FC = () => {
 
     const headers = ['Student Name', 'PRN / Roll No', 'Email', 'Mobile', 'Status', 'Enrolled At'];
     const rows = list.map((item: any) => {
-      const name = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
-      const prn = item.prn || item.student?.prn || '';
-      const email = item.student?.email || item.email || '';
+      const prn = (item.prn || item.student?.prn || '').trim();
+      const cohort = prn ? findCohortStudent(prn) : null;
+      const boundStorage = prn ? localStorage.getItem(`logicq_bound_email_${prn.toUpperCase()}`) : null;
+      const name = item.student?.fullName || item.student?.displayName || item.name || item.fullName || cohort?.fullName || 'Student';
+      const email = boundStorage || cohort?.email || item.student?.email || item.email || '';
       const mobile = item.student?.mobile || item.mobile || '';
       const status = item.student?.accountState || item.status || 'ACTIVE';
       const enrolledAt = item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString() : 'Active';
@@ -1219,15 +1241,19 @@ export const SectionManagementPage: React.FC = () => {
                     {enrolledStudents
                       .filter((s: any) => {
                         const prn = (s.prn || s.student?.prn || '').toLowerCase();
-                        const name = (s.student?.fullName || s.student?.displayName || s.name || s.fullName || '').toLowerCase();
-                        const email = (s.student?.email || s.email || '').toLowerCase();
+                        const cohort = prn ? findCohortStudent(prn) : null;
+                        const name = (s.student?.fullName || s.student?.displayName || s.name || s.fullName || cohort?.fullName || '').toLowerCase();
+                        const boundStorage = prn ? localStorage.getItem(`logicq_bound_email_${prn.toUpperCase()}`) : null;
+                        const email = (boundStorage || cohort?.email || s.student?.email || s.email || '').toLowerCase();
                         const query = searchTerm.toLowerCase().trim();
                         return !query || prn.includes(query) || name.includes(query) || email.includes(query);
                       })
                       .map((item: any, idx: number) => {
-                        const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || 'Student';
-                        const studentPrn = item.prn || item.student?.prn || '—';
-                        const studentEmail = item.student?.email || item.email || '—';
+                        const studentPrn = (item.prn || item.student?.prn || '—').trim();
+                        const cohort = studentPrn !== '—' ? findCohortStudent(studentPrn) : null;
+                        const boundStorage = studentPrn !== '—' ? localStorage.getItem(`logicq_bound_email_${studentPrn.toUpperCase()}`) : null;
+                        const studentName = item.student?.fullName || item.student?.displayName || item.name || item.fullName || cohort?.fullName || 'Student';
+                        const studentEmail = boundStorage || cohort?.email || item.student?.email || item.email || '—';
                         const points = Number(item.student?.totalPoints || item.totalPoints || 0);
                         const streak = Number(item.student?.currentStreak || item.currentStreak || 0);
 
