@@ -30,15 +30,84 @@ export class AiQuestionService {
   /**
    * Generates an AI question adhering to Sections 3, 4, 6, and 16.
    * Auto-validates using QuestionValidationService (Section 17).
+   * Features an autonomous GCC Self-Correction Loop: if compilation or test execution
+   * fails, the diagnostic feedback is sent back to the AI model to self-heal.
    */
   static async generateAndSaveQuestion(params: AiQuestionGenParams, facultyId?: string) {
-    const rawQuestion = await this.produceQuestionPayload(params);
+    const apiKey = process.env.GEMINI_API_KEY;
+    let rawQuestion: GeneratedQuestionPayload;
+    let validationOutcome: any;
 
-    // Auto-check correctness immediately with GCC sandbox (Section 17)
-    const validationOutcome = await QuestionValidationService.validateCandidateQuestion(
-      rawQuestion.referenceSolution,
-      rawQuestion.testCases
-    );
+    if (apiKey) {
+      // 1. Initial generation with Gemini
+      try {
+        const geminiRes = await this.callGeminiApi(params, apiKey);
+        if (geminiRes) {
+          rawQuestion = geminiRes;
+          validationOutcome = await QuestionValidationService.validateCandidateQuestion(
+            rawQuestion.referenceSolution,
+            rawQuestion.testCases
+          );
+
+          // 2. Self-Healing GCC Feedback Loop (up to 2 iterations)
+          let healAttempts = 0;
+          while (!validationOutcome.isValid && healAttempts < 2) {
+            healAttempts++;
+            console.log(`🔄 [AI Self-Heal Loop] Attempt ${healAttempts} for "${rawQuestion.title}". Reason: ${validationOutcome.failureReason}`);
+            try {
+              const healedRes = await this.callGeminiSelfHeal(rawQuestion, validationOutcome.failureReason || 'Output mismatch or compile error', apiKey);
+              if (healedRes) {
+                const healedOutcome = await QuestionValidationService.validateCandidateQuestion(
+                  healedRes.referenceSolution,
+                  healedRes.testCases
+                );
+                if (healedOutcome.isValid) {
+                  console.log(`✅ [AI Self-Heal Loop] Successfully healed "${healedRes.title}" on attempt ${healAttempts}!`);
+                  rawQuestion = healedRes;
+                  validationOutcome = healedOutcome;
+                  break;
+                } else {
+                  validationOutcome = healedOutcome;
+                  rawQuestion = healedRes;
+                }
+              }
+            } catch (healErr: any) {
+              console.warn(`⚠️ [AI Self-Heal Loop] Attempt ${healAttempts} failed:`, healErr.message);
+              break;
+            }
+          }
+        } else {
+          rawQuestion = this.generateFromCurriculumCatalog(params);
+          validationOutcome = await QuestionValidationService.validateCandidateQuestion(
+            rawQuestion.referenceSolution,
+            rawQuestion.testCases
+          );
+        }
+      } catch (err: any) {
+        console.warn('⚠️ Gemini generation error, falling back to curriculum catalog:', err.message);
+        rawQuestion = this.generateFromCurriculumCatalog(params);
+        validationOutcome = await QuestionValidationService.validateCandidateQuestion(
+          rawQuestion.referenceSolution,
+          rawQuestion.testCases
+        );
+      }
+    } else {
+      rawQuestion = this.generateFromCurriculumCatalog(params);
+      validationOutcome = await QuestionValidationService.validateCandidateQuestion(
+        rawQuestion.referenceSolution,
+        rawQuestion.testCases
+      );
+    }
+
+    // If still invalid after retries, fallback to guaranteed catalog item
+    if (!validationOutcome.isValid) {
+      console.warn('⚠️ Candidate question remained invalid; falling back to verified catalog question.');
+      rawQuestion = this.generateFromCurriculumCatalog(params);
+      validationOutcome = await QuestionValidationService.validateCandidateQuestion(
+        rawQuestion.referenceSolution,
+        rawQuestion.testCases
+      );
+    }
 
     const slug = `${params.topic.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString().slice(-6)}`;
 
@@ -126,15 +195,16 @@ Parameters:
 - Bloom's Taxonomy Level: ${params.bloomsLevel || 'APPLY'}
 - Real-World Scenario: ${params.scenarioContext || 'Autonomous systems, robotics, or sensor processing'}
 
-Requirements:
-1. Provide a scenario-grounded problem statement in clear Markdown.
-2. Provide explicit input/output specifications and constraints.
-3. Provide starter code in standard C11 with comments.
-4. Provide a 100% correct, robust C11 reference solution compiling with GCC.
+Strict Technical Standards for C11:
+1. Reference solution must be 100% compliant ISO C11 (#include <stdio.h>, #include <stdlib.h>, #include <string.h>, #include <stdbool.h>).
+2. It must compile under GCC 14 with -Wall -Wextra without any warnings or undefined behavior.
+3. Every printf statement producing final program output MUST end with a newline '\\n'.
+4. Input parsing via scanf/fgets must handle bounds safely. Do NOT print interactive prompts like "Enter number: ".
 5. Provide EXACTLY 3 test cases:
    - Test Case 1: Visible (typical input)
    - Test Case 2: Visible (boundary/edge case)
-   - Test Case 3: Hidden (complex edge case, NOT duplicate of 1 or 2)
+   - Test Case 3: Hidden (complex edge case, distinctly different input from 1 and 2)
+6. Expected outputs must strictly match what your referenceSolution outputs to stdout.
 
 Respond ONLY with a valid JSON object matching this schema:
 {
@@ -178,6 +248,69 @@ Respond ONLY with a valid JSON object matching this schema:
 
     const parsed: GeneratedQuestionPayload = JSON.parse(text);
     return parsed;
+  }
+
+  /**
+   * Autonomous Self-Healing: Calls Gemini with previous code, test cases, and sandbox failure diagnostics.
+   * Feeds the GCC compiler error or output diff back to the model to correct the code and test cases.
+   */
+  private static async callGeminiSelfHeal(
+    previous: GeneratedQuestionPayload,
+    diagnosticError: string,
+    apiKey: string
+  ): Promise<GeneratedQuestionPayload | null> {
+    const healPrompt = `You are a Principal CS Systems Professor fixing a C programming question that FAILED GCC sandbox execution.
+
+Previous Question Title: ${previous.title}
+Problem Statement:
+${previous.problemStatement}
+
+Current Reference Solution Code:
+\`\`\`c
+${previous.referenceSolution}
+\`\`\`
+
+Current Test Cases:
+${JSON.stringify(previous.testCases, null, 2)}
+
+SANDBOX DIAGNOSTIC FAILURE REASON:
+"""
+${diagnosticError}
+"""
+
+Instructions to Self-Heal:
+1. Analyze the exact compilation error or output mismatch above.
+2. If the C code had a compilation error or logical bug, fix the referenceSolution in standard C11 (#include <stdio.h>, #include <stdlib.h>, etc.).
+3. Ensure all final output printfs end with '\\n'.
+4. Ensure the expectedOutput in testCases strictly matches the exact output of your corrected referenceSolution.
+5. Ensure Test Case 3 remains unique and distinct from Test Cases 1 and 2.
+6. Return the COMPLETE repaired JSON object matching the exact original schema.
+
+Respond ONLY with the repaired valid JSON.`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: healPrompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1, // Lower temperature for surgical code correction
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini Self-Heal HTTP error ${response.status}: ${await response.text()}`);
+    }
+
+    const data: any = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return null;
+
+    const repaired: GeneratedQuestionPayload = JSON.parse(text);
+    return repaired;
   }
 
   /**
