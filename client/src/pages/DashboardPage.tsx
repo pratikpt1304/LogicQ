@@ -62,6 +62,7 @@ import {
   RefreshCw,
   Filter,
   User,
+  BarChart2,
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -120,10 +121,33 @@ export const DashboardPage: React.FC = () => {
   const [selectedDashboardStudent, setSelectedDashboardStudent] = useState<any | null>(null);
   const [isRefreshingDashboard, setIsRefreshingDashboard] = useState(false);
 
-  const handleCopyCode = (text: string, key: string) => {
+  // Fetch real-time submissions & coding progress for student selected in dashboard
+  const { data: selectedStudentSubmissions = [], isLoading: isLoadingSelectedStudentSubs } = useQuery({
+    queryKey: ['dashboard-selected-student-subs', selectedDashboardStudent?.prn, selectedDashboardStudent?.email],
+    enabled: Boolean(selectedDashboardStudent?.prn),
+    queryFn: async () => {
+      const prn = selectedDashboardStudent?.prn?.trim();
+      const email = selectedDashboardStudent?.email?.trim();
+      try {
+        const res: any = await api.get(`/admin/submissions?search=${encodeURIComponent(prn)}&limit=25`);
+        const list = res?.submissions || res?.data || [];
+        if (Array.isArray(list) && list.length > 0) return list;
+      } catch (err) {
+        console.warn('Failed to fetch student submissions by PRN:', err);
+      }
+      return (recentSubmissions || []).filter((s: any) => {
+        const sp = (s.prn || s.user?.prn || '').trim().toUpperCase();
+        const se = (s.email || s.user?.email || '').trim().toLowerCase();
+        return (prn && sp === prn.toUpperCase()) || (email && se === email.toLowerCase());
+      });
+    },
+    refetchInterval: 6000,
+  });
+
+  const handleCopyCode = (text: string, key: string, label: string = 'Code') => {
     navigator.clipboard.writeText(text);
     setCopiedCodeKey(key);
-    toast.success('Join Code copied!');
+    toast.success(`${label} copied!`);
     setTimeout(() => setCopiedCodeKey(null), 2000);
   };
 
@@ -1703,8 +1727,22 @@ export const DashboardPage: React.FC = () => {
                                 {st.email}
                               </div>
                             </td>
-                            <td className="py-3 px-3 font-bold text-indigo-600 dark:text-indigo-400">
-                              {st.prn}
+                            <td className="py-3 px-3 font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCode(st.prn, `prn-${st.prn}`, 'PRN')}
+                                className="inline-flex items-center gap-1.5 hover:underline cursor-pointer group text-left"
+                                title="Click to copy PRN"
+                              >
+                                <span>{st.prn}</span>
+                                {isCopied ? (
+                                  <span className="text-[10px] text-emerald-500 font-semibold inline-flex items-center gap-0.5">
+                                    <Check className="w-3 h-3" /> Copied
+                                  </span>
+                                ) : (
+                                  <Copy className="w-3 h-3 text-slate-400 group-hover:text-indigo-500 opacity-60 group-hover:opacity-100 transition" />
+                                )}
+                              </button>
                             </td>
                             <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px]">
@@ -1716,24 +1754,15 @@ export const DashboardPage: React.FC = () => {
                                 ENROLLED
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-right whitespace-nowrap space-x-1.5">
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => setSelectedDashboardStudent(st)}
-                                className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                                title="View Student Profile"
+                                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:shadow-indigo-500/25 active:scale-95"
+                                title="View Student Coding Progress & Activity"
                               >
-                                <User className="w-3 h-3" />
-                                <span>Profile</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyCode(st.prn, `prn-${st.prn}`)}
-                                className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-300 transition cursor-pointer inline-flex items-center gap-1"
-                                title="Copy PRN"
-                              >
-                                {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                                <span>{isCopied ? 'Copied' : 'PRN'}</span>
+                                <BarChart2 className="w-3.5 h-3.5 text-indigo-200" />
+                                <span>View Progress</span>
                               </button>
                             </td>
                           </tr>
@@ -2638,93 +2667,239 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* STUDENT PROFILE QUICK-VIEW MODAL */}
-      {selectedDashboardStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#0c1017] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-[#0e131d]/70">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-base">
-                  {selectedDashboardStudent.name?.charAt(0)?.toUpperCase() || 'S'}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                    {selectedDashboardStudent.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                      {selectedDashboardStudent.prn}
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      ENROLLED
-                    </span>
+      {/* OPTION 1: STUDENT CODING PROGRESS & PROFILE MODAL */}
+      {selectedDashboardStudent && (() => {
+        const prnClean = selectedDashboardStudent.prn?.trim() || '';
+        const subs = (selectedStudentSubmissions || []).filter((s: any) => {
+          const sp = (s.prn || s.user?.prn || '').trim().toUpperCase();
+          const se = (s.email || s.user?.email || '').trim().toLowerCase();
+          return (prnClean && sp === prnClean.toUpperCase()) || (selectedDashboardStudent.email && se === selectedDashboardStudent.email.toLowerCase());
+        });
+
+        const acceptedSubs = subs.filter((s: any) => {
+          const v = String(s.verdict || s.status || '').toUpperCase();
+          return v === 'ACCEPTED' || v === 'AC' || v === 'PASSED';
+        });
+
+        const distinctSolved = new Set(acceptedSubs.map((s: any) => s.problemId || s.problemSlug || s.problem?.title || s.id)).size;
+        const totalPoints = acceptedSubs.reduce((acc: number, s: any) => acc + (Number(s.score || s.points) || 10), 0);
+        const accuracy = subs.length > 0 ? Math.round((acceptedSubs.length / subs.length) * 100) : 100;
+        const grade = distinctSolved >= 20 ? 'A+' : distinctSolved >= 15 ? 'A' : distinctSolved >= 10 ? 'B+' : distinctSolved >= 5 ? 'B' : distinctSolved > 0 ? 'C' : 'Ready';
+
+        const isModalPrnCopied = copiedCodeKey === `modal-prn-${prnClean}`;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-[#0c1017] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[92vh]">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-[#0e131d]/70 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-indigo-500/25">
+                    {selectedDashboardStudent.name?.charAt(0)?.toUpperCase() || 'S'}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                      {selectedDashboardStudent.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCode(prnClean, `modal-prn-${prnClean}`, 'PRN')}
+                        className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                        title="Click to copy PRN"
+                      >
+                        <span>{prnClean}</span>
+                        {isModalPrnCopied ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5 opacity-60" />
+                        )}
+                      </button>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        ENROLLED
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDashboardStudent(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedDashboardStudent(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4 text-xs font-sans">
-              {/* Institution & Department */}
-              <div className="grid grid-cols-2 gap-3 font-mono">
-                <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Institution</div>
-                  <div className="font-bold text-slate-900 dark:text-white mt-1 text-xs truncate">
-                    Sanjivani University
+              {/* Scrollable Modal Content */}
+              <div className="p-6 overflow-y-auto space-y-4 text-xs font-sans flex-1">
+                {/* 3-Pillar Progress Bento Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-500/5">
+                    <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                      <span className="text-[10px] font-mono uppercase font-bold">Solved</span>
+                      <Target className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                      {distinctSolved} <span className="text-xs text-slate-400 font-normal">/ 25</span>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, (distinctSolved / 25) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                      C Practical Modules
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Integrated M.Tech (FY)</div>
+
+                  <div className="p-3.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5">
+                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                      <span className="text-[10px] font-mono uppercase font-bold">Score</span>
+                      <Trophy className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                      {totalPoints} <span className="text-xs text-slate-400 font-normal">pts</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                        Grade {grade}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                      Evaluation Honor
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl border border-purple-200/80 dark:border-purple-500/20 bg-purple-50/40 dark:bg-purple-500/5">
+                    <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
+                      <span className="text-[10px] font-mono uppercase font-bold">Accuracy</span>
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                      {accuracy}%
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-mono truncate">
+                      {acceptedSubs.length} AC / {subs.length} Total
+                    </div>
+                    <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 font-mono">
+                      GCC 14.2 Sandbox
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Class Section</div>
-                  <div className="font-bold text-indigo-600 dark:text-indigo-400 mt-1 text-xs truncate">
-                    {selectedDashboardStudent.sectionName || 'C Programming'}
+                {/* Institution & Classroom Details */}
+                <div className="grid grid-cols-2 gap-3 font-mono">
+                  <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">
+                    <div className="text-[10px] text-slate-400 uppercase font-bold">Institution</div>
+                    <div className="font-bold text-slate-900 dark:text-white mt-1 text-xs truncate">
+                      Sanjivani University
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Integrated M.Tech / FY</div>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Code: {selectedDashboardStudent.sectionJoinCode || 'LQ-C31A'}</div>
-                </div>
-              </div>
 
-              {/* Verified Contact Details */}
-              <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50 space-y-2">
-                <div className="text-[10px] text-slate-400 uppercase font-bold font-mono">Verified Email Accounts</div>
-                <div className="space-y-1 font-mono text-xs">
+                  <div className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50">
+                    <div className="text-[10px] text-slate-400 uppercase font-bold">Class Section</div>
+                    <div className="font-bold text-indigo-600 dark:text-indigo-400 mt-1 text-xs truncate">
+                      {selectedDashboardStudent.sectionName || 'C Programming'}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Code: {selectedDashboardStudent.sectionJoinCode || 'LQ-C31A'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Verified Email & Status */}
+                <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50 space-y-1.5 font-mono">
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Verified Account Details</div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                    <span className="text-[11px] text-slate-400">Institutional:</span>
-                    <span className="font-semibold truncate max-w-[240px]">{selectedDashboardStudent.email}</span>
+                    <span className="text-[11px] text-slate-400">Official College Email:</span>
+                    <span className="font-semibold truncate max-w-[250px]">{selectedDashboardStudent.email}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                    <span className="text-[11px] text-slate-400">Status:</span>
+                    <span className="text-[11px] text-slate-400">Account Security:</span>
                     <span className="text-emerald-500 font-semibold inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> 100% Verified Roster
+                      <ShieldCheck className="w-3.5 h-3.5" /> 100% Verified Student Profile
                     </span>
                   </div>
                 </div>
+
+                {/* Recent Code Submissions Stream */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-900 dark:text-white font-bold text-xs">
+                      <Code2 className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Recent Coding Submissions ({subs.length})</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">Auto-audited via GCC</span>
+                  </div>
+
+                  {isLoadingSelectedStudentSubs ? (
+                    <div className="p-6 text-center text-slate-400 font-mono text-xs animate-pulse border border-slate-200/80 dark:border-slate-800/80 rounded-2xl">
+                      Loading student telemetry...
+                    </div>
+                  ) : subs.length === 0 ? (
+                    <div className="p-5 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-1">
+                      <p className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                        No submissions recorded today
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Student is enrolled and ready. Submissions will appear live as they solve problems.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {subs.slice(0, 8).map((sub: any, sIdx: number) => {
+                        const isAc = String(sub.verdict || sub.status || '').toUpperCase() === 'ACCEPTED';
+                        return (
+                          <div
+                            key={sub.id || sIdx}
+                            className="p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/40 dark:bg-slate-900/40 flex items-center justify-between text-xs font-mono"
+                          >
+                            <div className="space-y-0.5 truncate max-w-[240px]">
+                              <div className="font-semibold text-slate-900 dark:text-slate-200 truncate">
+                                {sub.problem?.title || sub.problemTitle || sub.problemSlug || 'C Programming Challenge'}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {sub.createdAt ? new Date(sub.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Live session'} • C11
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isAc
+                                    ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20'
+                                    : 'bg-rose-500/15 text-rose-500 border border-rose-500/20'
+                                }`}
+                              >
+                                {sub.verdict || 'SUBMITTED'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="pt-2 flex items-center justify-between gap-3">
+              {/* Modal Footer Quick Actions */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0e131d]/50 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
-                    handleCopyCode(selectedDashboardStudent.prn, `prn-${selectedDashboardStudent.prn}`);
+                    handleCopyCode(prnClean, `modal-prn-${prnClean}`, 'PRN');
                   }}
-                  className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer flex items-center justify-center gap-1.5 text-xs"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy PRN</span>
+                  {isModalPrnCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{isModalPrnCopied ? 'PRN Copied!' : 'Copy PRN'}</span>
                 </button>
                 <Link
                   to="/faculty/sections"
                   onClick={() => setSelectedDashboardStudent(null)}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm text-xs"
                 >
                   <GraduationCap className="w-3.5 h-3.5" />
                   <span>Section Console →</span>
@@ -2732,8 +2907,8 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
