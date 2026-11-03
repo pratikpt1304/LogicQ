@@ -1247,16 +1247,32 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
     const isPhone = digitsOnly.length >= 10;
 
+    const orConditions: any[] = [
+      { email: cleanId.toLowerCase() },
+      { prn: cleanId.toUpperCase() },
+      { prn: cleanId.toLowerCase() },
+      { username: cleanId.toLowerCase() },
+      { username: cleanId },
+    ];
+    if (cohortEmail) {
+      orConditions.push({ email: cohortEmail });
+    }
+    if (cohortPrn) {
+      orConditions.push(
+        { prn: cohortPrn },
+        { prn: cohortPrn.toLowerCase() },
+        { username: cohortPrn.toLowerCase() },
+        { username: cohortPrn },
+        { email: `${cohortPrn.toLowerCase()}@sanjivani.edu.in` }
+      );
+    }
+    if (isPhone) {
+      orConditions.push({ mobile: digitsOnly.slice(-10) });
+    }
+
     let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: cleanId.toLowerCase() },
-          ...(cohortEmail ? [{ email: cohortEmail }] : []),
-          { prn: cleanId.toUpperCase() },
-          ...(cohortPrn ? [{ prn: cohortPrn }] : []),
-          { username: cleanId },
-          ...(isPhone ? [{ mobile: digitsOnly.slice(-10) }] : []),
-        ],
+        OR: orConditions,
       },
     });
 
@@ -1270,8 +1286,8 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
         user = await prisma.user.create({
           data: {
             username: cohortStudent.prn.toLowerCase(),
-            email: cohortStudent.email,
-            prn: cohortStudent.prn,
+            email: cohortStudent.email.toLowerCase(),
+            prn: cohortStudent.prn.toUpperCase(),
             role: 'STUDENT',
             fullName: cohortStudent.fullName,
             displayName: cohortStudent.fullName,
@@ -1287,8 +1303,11 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
         user = await prisma.user.findFirst({
           where: {
             OR: [
+              { username: cohortStudent.prn.toLowerCase() },
               { email: cohortStudent.email.toLowerCase() },
+              { email: `${cohortStudent.prn.toLowerCase()}@sanjivani.edu.in` },
               { prn: cohortStudent.prn.toUpperCase() },
+              { prn: cohortStudent.prn.toLowerCase() },
             ],
           },
         });
@@ -1297,10 +1316,20 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
 
     // Keep database email in sync with active bound cohort email
     if (user && cohortEmail && user.email.toLowerCase() !== cohortEmail) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { email: cohortEmail, emailOtpVerifiedAt: new Date() },
-      }).catch(() => {});
+      try {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            email: cohortEmail,
+            prn: cohortPrn || user.prn,
+            fullName: user.fullName || cohortStudent?.fullName,
+            displayName: user.displayName || cohortStudent?.fullName,
+            emailOtpVerifiedAt: new Date(),
+          },
+        });
+      } catch {
+        // fallback
+      }
     }
 
     // Auto-restore enrolled student if verified record from cloud store was passed
@@ -1437,21 +1466,66 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
     const isPhone = digitsOnly.length >= 10;
 
+    const verifyOrConditions: any[] = [
+      { email: cleanId.toLowerCase() },
+      { prn: cleanId.toUpperCase() },
+      { prn: cleanId.toLowerCase() },
+      { username: cleanId.toLowerCase() },
+      { username: cleanId },
+    ];
+    if (cohortEmail) {
+      verifyOrConditions.push({ email: cohortEmail });
+    }
+    if (cohortPrn) {
+      verifyOrConditions.push(
+        { prn: cohortPrn },
+        { prn: cohortPrn.toLowerCase() },
+        { username: cohortPrn.toLowerCase() },
+        { username: cohortPrn },
+        { email: `${cohortPrn.toLowerCase()}@sanjivani.edu.in` }
+      );
+    }
+    if (isPhone) {
+      verifyOrConditions.push({ mobile: digitsOnly.slice(-10) });
+    }
+
     let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email: cleanId.toLowerCase() },
-          ...(cohortEmail ? [{ email: cohortEmail }] : []),
-          { prn: cleanId.toUpperCase() },
-          ...(cohortPrn ? [{ prn: cohortPrn }] : []),
-          { username: cleanId },
-          ...(isPhone ? [{ mobile: digitsOnly.slice(-10) }] : []),
-        ],
+        OR: verifyOrConditions,
       },
     });
 
     if (!user) {
       user = await ensureWalkthroughOrAdminUser(cleanId);
+    }
+
+    if (!user && cohortStudent) {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: cohortStudent.prn.toLowerCase() },
+            { email: cohortStudent.email.toLowerCase() },
+            { email: `${cohortStudent.prn.toLowerCase()}@sanjivani.edu.in` },
+            { prn: cohortStudent.prn.toUpperCase() },
+            { prn: cohortStudent.prn.toLowerCase() },
+          ],
+        },
+      });
+    }
+
+    if (user && cohortEmail && user.email.toLowerCase() !== cohortEmail) {
+      try {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            email: cohortEmail,
+            prn: cohortPrn || user.prn,
+            emailOtpVerifiedAt: new Date(),
+          },
+        });
+      } catch {
+        // fallback
+      }
     }
 
     // Auto-restore enrolled student if verified record from cloud store was passed

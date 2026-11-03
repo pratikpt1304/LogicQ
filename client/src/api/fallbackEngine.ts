@@ -896,6 +896,45 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
 
+    if (!user) {
+      const cohortSt = findCohortStudent(cleanId);
+      if (cohortSt) {
+        user = users.find(u =>
+          (u.prn && u.prn.toUpperCase() === cohortSt.prn.toUpperCase()) ||
+          u.email.toLowerCase() === cohortSt.email.toLowerCase() ||
+          u.email.toLowerCase() === `${cohortSt.prn.toLowerCase()}@sanjivani.edu.in` ||
+          u.username.toLowerCase() === cohortSt.prn.toLowerCase()
+        );
+        if (user) {
+          if (user.email.toLowerCase() !== cohortSt.email.toLowerCase()) {
+            user.email = cohortSt.email;
+            saveStoredUsers(users);
+          }
+        } else {
+          user = {
+            id: 'cohort-' + cohortSt.prn.toLowerCase(),
+            username: cohortSt.prn.toLowerCase(),
+            email: cohortSt.email,
+            prn: cohortSt.prn.toUpperCase(),
+            role: 'STUDENT',
+            fullName: cohortSt.fullName,
+            displayName: cohortSt.fullName,
+            college: cohortSt.college,
+            department: cohortSt.department,
+            year: cohortSt.year,
+            division: 'A',
+            profileComplete: true,
+            totalPoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            isBanned: false,
+          } as any;
+          users.push(user as any);
+          saveStoredUsers(users);
+        }
+      }
+    }
+
     if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
       user = {
         id: 'student-walkthrough-1',
@@ -1005,6 +1044,45 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       u.username.toLowerCase() === cleanId.toLowerCase() ||
       (isMobileQuery && (u as any).mobile && (u as any).mobile.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)))
     );
+
+    if (!user) {
+      const cohortSt = findCohortStudent(cleanId);
+      if (cohortSt) {
+        user = users.find(u =>
+          (u.prn && u.prn.toUpperCase() === cohortSt.prn.toUpperCase()) ||
+          u.email.toLowerCase() === cohortSt.email.toLowerCase() ||
+          u.email.toLowerCase() === `${cohortSt.prn.toLowerCase()}@sanjivani.edu.in` ||
+          u.username.toLowerCase() === cohortSt.prn.toLowerCase()
+        );
+        if (user) {
+          if (user.email.toLowerCase() !== cohortSt.email.toLowerCase()) {
+            user.email = cohortSt.email;
+            saveStoredUsers(users);
+          }
+        } else {
+          user = {
+            id: 'cohort-' + cohortSt.prn.toLowerCase(),
+            username: cohortSt.prn.toLowerCase(),
+            email: cohortSt.email,
+            prn: cohortSt.prn.toUpperCase(),
+            role: 'STUDENT',
+            fullName: cohortSt.fullName,
+            displayName: cohortSt.fullName,
+            college: cohortSt.college,
+            department: cohortSt.department,
+            year: cohortSt.year,
+            division: 'A',
+            profileComplete: true,
+            totalPoints: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            isBanned: false,
+          } as any;
+          users.push(user as any);
+          saveStoredUsers(users);
+        }
+      }
+    }
 
     if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
       user = {

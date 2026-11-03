@@ -1489,16 +1489,16 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             {/* Center: Practice Mode - Unlimited Time */}
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
-              title="Practice Mode has unlimited time. Code and learn at your own pace."
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
+              title="Practice Mode has unlimited time. Code and learn at your own pace without pressure."
             >
               <Infinity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="font-bold text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300 hidden sm:inline">
+                <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                   Unlimited Time
                 </span>
-                <span className="text-slate-500 dark:text-slate-400 font-mono text-xs font-semibold">
-                  ({formatPracticeTime(elapsedSeconds)})
+                <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] sm:text-xs font-semibold hidden md:inline">
+                  (Elapsed: {formatPracticeTime(elapsedSeconds)})
                 </span>
               </div>
             </div>
