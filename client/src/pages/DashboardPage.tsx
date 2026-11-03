@@ -15,6 +15,10 @@ import { auth } from '../config/firebase.js';
 import { PRACTICE_CONFIG } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { toast } from 'sonner';
 import {
@@ -459,6 +463,122 @@ export const DashboardPage: React.FC = () => {
     }
   );
 
+  // Sequential Practice & Lab Lock Calculations
+  const m1PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length;
+  const isM1PracticeComplete = m1PracticeSolved >= 25;
+
+  const m2PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length;
+  const isM2PracticeComplete = m2PracticeSolved >= 25;
+
+  const m3PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length;
+  const isM3PracticeComplete = m3PracticeSolved >= 25;
+
+  const m4PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length;
+  const isM4PracticeComplete = m4PracticeSolved >= 25;
+
+  const m1LabSlugs = PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug);
+  const m1LabSolved = m1LabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+  const isLab1Complete = Boolean(
+    m1LabSolved >= 20 ||
+    m1LabSolved >= m1LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_control-structures'))
+  );
+
+  const m2LabSlugs = PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug);
+  const m2LabSolved = m2LabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+  const isLab2Complete = Boolean(
+    m2LabSolved >= 20 ||
+    m2LabSolved >= m2LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_pointers-and-functions'))
+  );
+
+  const m3LabSlugs = PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug);
+  const m3LabSolved = m3LabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+  const isLab3Complete = Boolean(
+    m3LabSolved >= 20 ||
+    m3LabSolved >= m3LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_arrays-and-strings'))
+  );
+
+  const m4LabSlugs = PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug);
+  const m4LabSolved = m4LabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+  const isLab4Complete = Boolean(
+    m4LabSolved >= 20 ||
+    m4LabSolved >= m4LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
+  );
+
+  const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
+    if (isAdmin || isFaculty) return { isUnlocked: true, lockReason: '' };
+    if (moduleIndex === 1) return { isUnlocked: true, lockReason: '' };
+
+    if (moduleIndex === 2) {
+      if (!isM1PracticeComplete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete all 25 practice questions in Module 1 (${m1PracticeSolved}/25 solved) to unlock Lab Internal 1 first.`,
+        };
+      }
+      if (!isLab1Complete) {
+        return {
+          isUnlocked: false,
+          lockReason: 'Complete Lab Internal 1 Continuous Evaluation to unlock Module 2 Practice.',
+        };
+      }
+      return { isUnlocked: true, lockReason: '' };
+    }
+
+    if (moduleIndex === 3) {
+      if (!getModuleUnlockInfo(2).isUnlocked || !isM2PracticeComplete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete all 25 practice questions in Module 2 (${m2PracticeSolved}/25 solved) and Lab Internal 2 first.`,
+        };
+      }
+      if (!isLab2Complete) {
+        return {
+          isUnlocked: false,
+          lockReason: 'Complete Lab Internal 2 Continuous Evaluation to unlock Module 3 Practice.',
+        };
+      }
+      return { isUnlocked: true, lockReason: '' };
+    }
+
+    if (moduleIndex === 4) {
+      if (!getModuleUnlockInfo(3).isUnlocked || !isM3PracticeComplete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete all 25 practice questions in Module 3 (${m3PracticeSolved}/25 solved) and Lab Internal 3 first.`,
+        };
+      }
+      if (!isLab3Complete) {
+        return {
+          isUnlocked: false,
+          lockReason: 'Complete Lab Internal 3 Continuous Evaluation to unlock Module 4 Practice.',
+        };
+      }
+      return { isUnlocked: true, lockReason: '' };
+    }
+
+    if (moduleIndex === 5) {
+      if (!getModuleUnlockInfo(4).isUnlocked || !isM4PracticeComplete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete all 25 practice questions in Module 4 (${m4PracticeSolved}/25 solved) and Lab Internal 4 first.`,
+        };
+      }
+      if (!isLab4Complete) {
+        return {
+          isUnlocked: false,
+          lockReason: 'Complete Lab Internal 4 Continuous Evaluation to unlock Module 5 Practice.',
+        };
+      }
+      return { isUnlocked: true, lockReason: '' };
+    }
+
+    return { isUnlocked: true, lockReason: '' };
+  };
+
   const practiceModulesList = [
     {
       id: 1,
@@ -468,6 +588,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
+      ...getModuleUnlockInfo(1),
     },
     {
       id: 2,
@@ -477,6 +598,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
+      ...getModuleUnlockInfo(2),
     },
     {
       id: 3,
@@ -486,6 +608,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
+      ...getModuleUnlockInfo(3),
     },
     {
       id: 4,
@@ -495,6 +618,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
+      ...getModuleUnlockInfo(4),
     },
     {
       id: 5,
@@ -504,6 +628,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5).length || 11,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
+      ...getModuleUnlockInfo(5),
     },
   ].map((m) => ({
     ...m,
@@ -1711,6 +1836,52 @@ export const DashboardPage: React.FC = () => {
               {practiceModulesList.map((m: any) => {
                 const percent = m.progressPercent || 0;
                 const isComplete = m.solvedCount >= m.totalQuestions;
+                const isLocked = !m.isUnlocked;
+
+                if (isLocked) {
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => toast.warning(`🔒 ${m.lockReason || 'Complete previous practice module and Lab Internal first.'}`)}
+                      className="p-5 rounded-2xl border border-dashed border-amber-500/30 bg-[var(--bg-surface)]/60 opacity-75 hover:opacity-95 shadow-sm transition-all flex flex-col justify-between cursor-not-allowed group relative overflow-hidden select-none"
+                      title={m.lockReason}
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--bg-panel)] text-[var(--text-muted)] border border-[var(--border-line)]">
+                            MOD 0{m.id}
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-500 dark:text-amber-400 flex items-center gap-1 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            <Lock className="w-3 h-3 text-amber-500" /> Locked
+                          </span>
+                        </div>
+
+                        <h3 className="font-bold text-sm text-[var(--text-muted)] line-clamp-1">
+                          {m.title}
+                        </h3>
+                        <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                          {m.lockReason || m.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-3 mt-4 border-t border-[var(--border-line)] space-y-2">
+                        <div className="w-full bg-[var(--bg-panel)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
+                          <div
+                            className="bg-amber-500/40 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.max(percent, percent > 0 ? 4 : 0)}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)]">
+                          <span>{m.solvedCount}/{m.totalQuestions} Solved</span>
+                          <span className="text-amber-500 dark:text-amber-400 font-semibold flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> Req Lab {m.id - 1}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <Link
                     key={m.id}

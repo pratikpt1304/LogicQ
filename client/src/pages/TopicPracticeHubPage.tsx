@@ -444,8 +444,16 @@ export const TopicPracticeHubPage: React.FC = () => {
     (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_arrays-and-strings'))
   );
 
+  const m4LabSlugs = PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug);
+  const m4LabSolved = m4LabSlugs.filter((s) => solvedTopics.includes(s)).length;
+  const isLab4Complete = Boolean(
+    m4LabSolved >= 20 ||
+    m4LabSolved >= m4LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
+  );
+
   const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
-    if (user?.role === 'ADMIN') return { isUnlocked: true, lockReason: '' };
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return { isUnlocked: true, lockReason: '' };
     if (moduleIndex === 1) return { isUnlocked: true, lockReason: '' };
 
     if (moduleIndex === 2) {
@@ -491,6 +499,22 @@ export const TopicPracticeHubPage: React.FC = () => {
         return {
           isUnlocked: false,
           lockReason: `Complete Lab Internal 3 Continuous Evaluation to unlock Module 4 Practice.`,
+        };
+      }
+      return { isUnlocked: true, lockReason: '' };
+    }
+
+    if (moduleIndex === 5) {
+      if (!getModuleUnlockInfo(4).isUnlocked || !isM4PracticeComplete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete all 25 practice questions in Module 4 (${m4PracticeSolved}/25 solved) and Lab Internal 4 first.`,
+        };
+      }
+      if (!isLab4Complete) {
+        return {
+          isUnlocked: false,
+          lockReason: `Complete Lab Internal 4 Continuous Evaluation to unlock Module 5 Practice.`,
         };
       }
       return { isUnlocked: true, lockReason: '' };
