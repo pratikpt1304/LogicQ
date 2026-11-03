@@ -251,7 +251,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
-  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output' | 'custom'>('cases');
+  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output'>('cases');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'example'>('syntax');
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState<boolean>(false);
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
@@ -1832,23 +1832,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                         <span className={`ml-1 inline-block w-2 h-2 rounded-full ${submitResult?.allPassed || runResult?.success ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-ping'}`} />
                       )}
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBottomTab('custom');
-                        setIsDrawerOpen(true);
-                      }}
-                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-                        activeBottomTab === 'custom' && isDrawerOpen
-                          ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
-                      }`}
-                    >
-                      <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                      <span className="hidden md:inline">Custom </span>
-                      <span>Stdin</span>
-                    </button>
                   </div>
 
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -1935,20 +1918,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                             {activeTopic.problem.openTestCase.explanation}
                           </div>
                         )}
-                      </div>
-                    )}
-
-                    {activeBottomTab === 'custom' && (
-                      <div className="h-full flex flex-col space-y-1.5">
-                        <label className="text-[10px] uppercase text-[var(--text-muted)] font-bold">
-                          Standard Input (passed to stdin for Compile &amp; Run):
-                        </label>
-                        <textarea
-                          value={customInput}
-                          onChange={(e) => setCustomInput(e.target.value)}
-                          placeholder="Enter test input data (e.g. 10 20 30)..."
-                          className="w-full flex-1 p-2.5 rounded-lg bg-[#050811] text-[var(--text-main)] border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none font-mono"
-                        />
                       </div>
                     )}
 
