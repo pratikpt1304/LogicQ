@@ -376,6 +376,9 @@ export class FirestoreDataService {
           const updateData: Record<string, any> = {
             updatedAt: serverTimestamp(),
           };
+          if (cleanEmail) {
+            updateData.email = cleanEmail;
+          }
           if (effectiveName) {
             updateData.name = effectiveName;
             updateData.fullName = effectiveName;
@@ -424,6 +427,7 @@ export class FirestoreDataService {
             modified = true;
             return {
               ...st,
+              email: cleanEmail || st.email,
               name: effectiveName || st.name || st.fullName,
               fullName: effectiveName || st.fullName || st.name,
               displayName: effectiveName || st.displayName || st.name,
@@ -434,6 +438,7 @@ export class FirestoreDataService {
               student: st.student
                 ? {
                     ...st.student,
+                    email: cleanEmail || st.student.email,
                     fullName: effectiveName || st.student.fullName,
                     displayName: effectiveName || st.student.displayName,
                     prn: params.newPrn || st.student.prn,
@@ -2691,12 +2696,27 @@ export class FirestoreDataService {
       console.warn('getEnrolledStudentsForSection query error:', e);
     }
 
-    // 3. Query 'users' collection where student is assigned to this section
+    // 3. Query 'users' collection to obtain actual registered user profiles & bound emails
+    const registeredUsersByPrn = new Map<string, any>();
+    const registeredUsersByEmail = new Map<string, any>();
+
     try {
       const uSnap = await getDocs(collection(db, 'users'));
       uSnap.forEach((d) => {
         const u = d.data();
         if (u && !FirestoreDataService.isPurgedStudent(u)) {
+          const uPrn = (u.prn || '').toUpperCase().trim();
+          const uEmail = (u.email || '').toLowerCase().trim();
+          const userRec = {
+            id: d.id,
+            userId: d.id,
+            ...u,
+            email: uEmail,
+            prn: uPrn || null,
+          };
+          if (uPrn) registeredUsersByPrn.set(uPrn, userRec);
+          if (uEmail) registeredUsersByEmail.set(uEmail, userRec);
+
           const uSec = String(u.sectionId || '').trim().toUpperCase();
           const uCode = String(u.joinCode || '').trim().toUpperCase();
           const uName = String(u.sectionName || '').trim().toUpperCase();
@@ -2707,24 +2727,27 @@ export class FirestoreDataService {
             (uName && matchKeys.has(uName)) ||
             enrolledList.some((el: string) => matchKeys.has(el));
           if (matches) {
-            const key = (u.prn || u.email || d.id).toUpperCase();
+            const key = (uPrn || uEmail || d.id).toUpperCase();
             if (!seen.has(key)) {
               seen.add(key);
-              const shortId = u.prn ? String(u.prn).slice(-4) : '0000';
+              const shortId = uPrn ? String(uPrn).slice(-4) : '0000';
               const candidateNames = [u.fullName, u.displayName, u.name];
               const resolvedName = candidateNames.find((cand) => cand && typeof cand === 'string' && isRealPersonName(cand)) ||
-                (u.email ? formatNameFromEmail(u.email) : null) || `Student ${shortId}`;
+                (uEmail ? formatNameFromEmail(uEmail) : null) || `Student ${shortId}`;
               list.push({
                 id: d.id,
                 userId: d.id,
                 name: resolvedName,
                 fullName: resolvedName,
                 displayName: resolvedName,
-                email: (u.email || '').toLowerCase().trim(),
-                prn: u.prn ? String(u.prn).toUpperCase().trim() : null,
-                department: (u.department && u.department !== 'CSE' ? u.department : null) || deriveDepartmentFromPrn(u.prn) || u.department || 'General',
+                email: uEmail,
+                prn: uPrn || null,
+                department: (u.department && u.department !== 'CSE' ? u.department : null) || deriveDepartmentFromPrn(uPrn) || u.department || 'General',
                 year: u.year || 'FY',
                 division: u.division || null,
+                totalPoints: u.totalPoints || 0,
+                solvedCount: u.solvedCount || 0,
+                isRegistered: true,
                 status: 'ENROLLED',
               });
             }
@@ -2743,18 +2766,27 @@ export class FirestoreDataService {
         const key = cs.prn.toUpperCase();
         if (!seen.has(key)) {
           seen.add(key);
+          // Check if student has actual registered profile in users collection
+          const realUser = registeredUsersByPrn.get(key) || (cs.email && registeredUsersByEmail.get(cs.email.toLowerCase().trim()));
+          const boundLocal = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
+          const actualEmail = realUser?.email || boundLocal || cs.email;
+          const actualName = realUser?.displayName || realUser?.fullName || realUser?.name || cs.fullName;
+
           list.push({
-            id: cs.prn,
-            userId: cs.prn,
-            name: cs.fullName,
-            fullName: cs.fullName,
-            displayName: cs.fullName,
-            email: cs.email,
+            id: realUser?.id || cs.prn,
+            userId: realUser?.userId || realUser?.id || cs.prn,
+            name: actualName,
+            fullName: actualName,
+            displayName: actualName,
+            email: actualEmail,
+            isRegistered: Boolean(realUser || boundLocal),
             prn: cs.prn,
-            department: cs.department,
-            year: cs.year,
+            department: realUser?.department || cs.department,
+            year: realUser?.year || cs.year,
             college: cs.college,
             sectionId: 'LQ-C31A',
+            totalPoints: realUser?.totalPoints || 0,
+            solvedCount: realUser?.solvedCount || 0,
             status: 'ENROLLED',
           });
         }

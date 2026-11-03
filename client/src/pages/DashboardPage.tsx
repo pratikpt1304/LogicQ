@@ -738,17 +738,23 @@ export const DashboardPage: React.FC = () => {
     // 2. Fallback / merge with official cohort students so all 116 are instantly searchable
     C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
       const key = st.prn.toUpperCase().trim();
+      const boundEmail = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
       if (!map.has(key)) {
         map.set(key, {
           id: `cohort-${st.prn}`,
           prn: st.prn,
           name: st.fullName,
-          email: st.email,
+          email: boundEmail || st.email,
           sectionName: st.sectionName || 'C Programming',
           sectionJoinCode: st.joinCode || 'LQ-C31A',
           status: 'ENROLLED',
           codingProgress: 0,
         });
+      } else {
+        const existing = map.get(key);
+        if (boundEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
+          map.set(key, { ...existing, email: boundEmail });
+        }
       }
     });
 
