@@ -257,8 +257,8 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [copiedTip, setCopiedTip] = useState<boolean>(false);
   const [showCelebrationModal, setShowCelebrationModal] = useState<boolean>(false);
 
-  // JEE Palette state
-  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState<boolean>(true);
+  // JEE Palette state (default collapsed so student gets spacious 50-50 editor & problem layout)
+  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState<boolean>(false);
   const [isMobilePaletteOpen, setIsMobilePaletteOpen] = useState<boolean>(false);
 
   const handleCopyTip = (text: string) => {

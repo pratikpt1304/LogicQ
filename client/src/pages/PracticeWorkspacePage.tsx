@@ -213,7 +213,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
   const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
-  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(true);
+  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(false);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
 
