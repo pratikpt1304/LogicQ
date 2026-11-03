@@ -18,6 +18,7 @@ import { StatementMarkdown } from '../../components/common/StatementMarkdown.js'
 import { sanitizeMathInStatement } from '../../utils/sanitizeMathInStatement.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
 import { doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase.js';
 import { toast } from 'sonner';
@@ -1495,7 +1496,49 @@ export const AdminDashboardPage: React.FC = () => {
       return false;
     };
 
-    const rawAll = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents].filter(
+    // 3. Fallback to Authoritative C Programming Cohort Students (115 registered students)
+    const cohortEnrolledStudents: any[] = [];
+    C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+      const pKey = cs.prn.toUpperCase().trim();
+      const eKey = cs.email.toLowerCase().trim();
+      if (!existingEmails.has(eKey) && !existingPrns.has(pKey)) {
+        existingEmails.add(eKey);
+        existingPrns.add(pKey);
+        const shortId = cs.prn.slice(-4);
+        cohortEnrolledStudents.push({
+          id: `cohort-${cs.prn.toLowerCase()}`,
+          uid: `cohort-${cs.prn.toLowerCase()}`,
+          fullName: cs.fullName,
+          displayName: cs.fullName,
+          username: cs.email.split('@')[0],
+          cleanUsername: cs.email.split('@')[0],
+          email: cs.email,
+          prn: cs.prn,
+          maskedPrn: `••••••••${shortId}`,
+          role: 'STUDENT',
+          department: normalizeDepartment(cs.department) || cs.department,
+          year: cs.year,
+          division: 'A',
+          college: cs.college,
+          accountState: 'ACTIVE',
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          sectionId: cs.sectionId || 'LQ-C31A',
+          sectionName: cs.sectionName || 'C Programming',
+          sections: [{
+            id: cs.sectionId || 'LQ-C31A',
+            sectionName: cs.sectionName || 'C Programming',
+            joinCode: cs.joinCode || 'LQ-C31A',
+            subject: 'C Programming',
+            course: 'C Programming',
+          }],
+        });
+      }
+    });
+
+    const rawAll = [...enrichedBackend, ...missingFromBackend, ...sectionEnrolledStudents, ...cohortEnrolledStudents].filter(
       (u: any) =>
         !FirestoreDataService.isPurgedStudent(u) &&
         String(u.email || '').toLowerCase().trim() !== 'student@logicq.io' &&
@@ -2088,6 +2131,8 @@ export const AdminDashboardPage: React.FC = () => {
       });
       if (res.ok) {
         const text = await res.text();
+        const lineCount = text.trim().split('\n').filter(Boolean).length;
+        if (downloadType !== 'daily-results' && lineCount <= 5) throw new Error('Server CSV incomplete, using full local roster');
         const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2105,7 +2150,7 @@ export const AdminDashboardPage: React.FC = () => {
 
     try {
       if (type === 'users') {
-        let list = users || [];
+        let list = (deptOverride === 'ALL' || dept === 'ALL') ? (allMergedUsers || users || []) : (users || []);
         if (dept !== 'ALL') {
           list = list.filter((u: any) => u.department === dept);
         }
