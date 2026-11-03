@@ -235,6 +235,10 @@ function isEmailDomainAllowed(email: string): { allowed: boolean; allowedDomains
     return { allowed: true, allowedDomains: [] };
   }
 
+  if (findCohortStudent(email)) {
+    return { allowed: true, allowedDomains: [] };
+  }
+
   const authMode = (process.env.AUTH_MODE || 'OPEN').toUpperCase();
   const rawDomains = process.env.ALLOWED_EMAIL_DOMAINS || 'sanjivani.edu.in,sanjivani.org.in';
   const allowedDomains = rawDomains
@@ -371,15 +375,16 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     }
 
     const isExplicitAdmin = isExplicitAdminEmail(email);
+    const cohortStudent = findCohortStudent(email);
     const hasCompleteFirestoreProfile = Boolean(
-      firestoreProfile?.profileComplete && firestoreProfile?.prn
+      (firestoreProfile?.profileComplete && firestoreProfile?.prn) || cohortStudent
     );
     const enrolledRecord = (req.body as any)?.enrolledStudent;
 
     let user = await prisma.user.findUnique({ where: { email } });
 
     // Strict Institutional Gate: Only allow if user already exists, is an explicit admin, or is enrolled in a section roster
-    if (!user && !isExplicitAdmin && !hasCompleteFirestoreProfile && !enrolledRecord) {
+    if (!user && !isExplicitAdmin && !hasCompleteFirestoreProfile && !enrolledRecord && !cohortStudent) {
       const rosterCheck = await prisma.sectionStudent.findFirst({
         where: {
           OR: [
@@ -399,8 +404,19 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     if (!user) {
       const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
       const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
-      const generatedUsername = isExplicitAdmin ? `admin_${email.split('@')[0]}` : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
-      const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+      const generatedUsername = isExplicitAdmin
+        ? `admin_${email.split('@')[0]}`
+        : cohortStudent
+        ? cohortStudent.prn.toLowerCase()
+        : `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+      const randomPasswordHash = await bcrypt.hash(cohortStudent ? cohortStudent.prn : crypto.randomBytes(24).toString('hex'), 10);
+
+      const resolvedPrn = cohortStudent?.prn || firestoreProfile?.prn || null;
+      const resolvedCollege = cohortStudent?.college || firestoreProfile?.college || (hasCompleteFirestoreProfile ? 'Sanjivani University' : null);
+      const resolvedDept = cohortStudent?.department || firestoreProfile?.department || null;
+      const resolvedYear = cohortStudent?.year || firestoreProfile?.year || null;
+      const resolvedFullName = cohortStudent?.fullName || firestoreProfile?.fullName || (isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`);
+      const resolvedDisplayName = cohortStudent?.fullName || firestoreProfile?.displayName || null;
 
       user = await prisma.user.create({
         data: {
@@ -408,15 +424,15 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
           email,
           passwordHash: randomPasswordHash,
           shortId,
-          prn: firestoreProfile?.prn || null,
-          college: firestoreProfile?.college || (hasCompleteFirestoreProfile ? 'Sanjivani University' : null),
-          department: firestoreProfile?.department || null,
-          year: firestoreProfile?.year || null,
-          division: firestoreProfile?.division || null,
-          displayName: firestoreProfile?.displayName || null,
-          fullName: firestoreProfile?.fullName || (isExplicitAdmin ? 'LogicQ Admin' : `Student ${shortId}`),
+          prn: resolvedPrn,
+          college: resolvedCollege,
+          department: resolvedDept,
+          year: resolvedYear,
+          division: 'A',
+          displayName: resolvedDisplayName,
+          fullName: resolvedFullName,
           avatarUrl: avatarUrl || null,
-          profileComplete: isExplicitAdmin || hasCompleteFirestoreProfile,
+          profileComplete: isExplicitAdmin || hasCompleteFirestoreProfile || Boolean(cohortStudent),
           role: isExplicitAdmin ? 'ADMIN' : 'STUDENT',
           totalPoints: firestoreProfile?.totalPoints || 0,
           currentStreak: firestoreProfile?.currentStreak || 0,
@@ -424,14 +440,33 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
         },
       });
 
-      if (firestoreProfile?.prn) {
+      if (resolvedPrn) {
         await prisma.prnIndex.upsert({
-          where: { prn: firestoreProfile.prn },
-          create: { prn: firestoreProfile.prn, userId: user.id },
+          where: { prn: resolvedPrn },
+          create: { prn: resolvedPrn, userId: user.id },
           update: { userId: user.id },
         }).catch(() => {});
       }
     } else {
+      if (cohortStudent && (!user.prn || user.prn !== cohortStudent.prn)) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            prn: cohortStudent.prn,
+            fullName: user.fullName || cohortStudent.fullName,
+            displayName: user.displayName || cohortStudent.fullName,
+            college: user.college || cohortStudent.college,
+            department: user.department || cohortStudent.department,
+            year: user.year || cohortStudent.year,
+            profileComplete: true,
+          },
+        });
+        await prisma.prnIndex.upsert({
+          where: { prn: cohortStudent.prn },
+          create: { prn: cohortStudent.prn, userId: user.id },
+          update: { userId: user.id },
+        }).catch(() => {});
+      }
       if (isExplicitAdmin && user.role !== 'ADMIN') {
         user = await prisma.user.update({
           where: { id: user.id },
