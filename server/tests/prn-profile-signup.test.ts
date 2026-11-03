@@ -75,7 +75,7 @@ describe('PRN Signup, Academic Profile, Privacy & Admin Audited Identity Rules',
     const badDept = await request(app).post('/api/auth/register').send({
       prn: '2199TESM0001',
       college: 'Sanjivani University',
-      department: 'Civil',
+      department: 'Aeronautical',
       year: 'FY',
       email: 'prn1@sanjivani.org.in',
       password: 'Password123!',

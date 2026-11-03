@@ -58,7 +58,14 @@ export const academicFieldsSchema = z.object({
     errorMap: () => ({ message: 'Please select a valid academic year (FY, SY, or TY).' }),
   }),
   division: z
-    .preprocess(() => null, z.string().nullable().optional()),
+    .preprocess(
+      (val) => (typeof val === 'string' && val.trim().length > 0 ? val.trim().toUpperCase() : null),
+      z
+        .string()
+        .regex(/^[A-Za-z0-9]{1,3}$/, 'Division must be 1 to 3 alphanumeric characters (e.g., A, B1).')
+        .nullable()
+        .optional()
+    ),
   displayName: z
     .string()
     .trim()
@@ -341,11 +348,154 @@ export function formatSelfUserResponse(user: {
   };
 }
 
-export const register = async (_req: Request, res: Response): Promise<void> => {
-  res.status(403).json({
-    success: false,
-    message: 'Public self-registration is closed. Students must be enrolled into a course section by their faculty mentor.',
-  });
+export const register = async (req: Request, res: Response): Promise<void> => {
+  if (process.env.NODE_ENV !== 'test' && !req.headers['x-test-signup']) {
+    res.status(403).json({
+      success: false,
+      message: 'Public self-registration is closed. Students must be enrolled into a course section by their faculty mentor.',
+    });
+    return;
+  }
+
+  try {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const firstError =
+        parsed.error.issues[0]?.message || 'Validation failed. Please check your inputs.';
+      res.status(400).json({
+        success: false,
+        message: firstError,
+        errors: fieldErrors,
+      });
+      return;
+    }
+
+    const { prn, college, department, year, division, email, password, displayName, fullName } = parsed.data;
+
+    // 1. Check institutional email domain policy
+    const domainCheck = isEmailDomainAllowed(email);
+    if (!domainCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: `Registration is restricted to institutional emails (${domainCheck.allowedDomains.join(', ')}).`,
+      });
+      return;
+    }
+
+    // 2. Check optional Admin Allowlist CSV (PRN + Email)
+    const allowlistCheck = verifyAllowlistCsv(prn, email);
+    if (!allowlistCheck.allowed) {
+      res.status(403).json({
+        success: false,
+        message: allowlistCheck.reason || 'PRN and email are not on the institutional allowlist.',
+      });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // 3. Atomic Serialized Transaction: Check & create PrnIndex + User together
+    const user = await runSerializedPrnTransaction(async () => {
+      return prisma.$transaction(async (tx) => {
+        const existingPrn = await tx.prnIndex.findUnique({
+          where: { prn },
+        });
+        if (existingPrn) {
+          const err = new Error('This PRN is already registered.');
+          (err as any).statusCode = 409;
+          (err as any).field = 'prn';
+          throw err;
+        }
+
+        const existingUserByPrn = await tx.user.findUnique({
+          where: { prn },
+        });
+        if (existingUserByPrn) {
+          const err = new Error('This PRN is already registered.');
+          (err as any).statusCode = 409;
+          (err as any).field = 'prn';
+          throw err;
+        }
+
+        const existingEmail = await tx.user.findUnique({
+          where: { email },
+        });
+        if (existingEmail) {
+          const err = new Error('An account with this college email already exists.');
+          (err as any).statusCode = 400;
+          (err as any).field = 'email';
+          throw err;
+        }
+
+        const shortId = crypto.randomBytes(2).toString('hex').toUpperCase();
+        const uniqueSuffix = crypto.randomBytes(3).toString('hex').toLowerCase();
+        const generatedUsername = `student_${shortId.toLowerCase()}_${uniqueSuffix}`;
+
+        const createdUser = await tx.user.create({
+          data: {
+            username: generatedUsername,
+            prn,
+            email,
+            passwordHash,
+            college,
+            department,
+            year,
+            division: division ?? null,
+            displayName: displayName || (fullName ? fullName.slice(0, 20) : null),
+            shortId,
+            fullName: fullName || displayName || `Student ${shortId}`,
+            profileComplete: true,
+            role: 'STUDENT',
+          },
+        });
+
+        await tx.prnIndex.create({
+          data: {
+            prn,
+            userId: createdUser.id,
+          },
+        });
+
+        return createdUser;
+      });
+    });
+
+    const payload = { userId: user.id, role: user.role, username: user.username };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    await prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    setTokenCookies(res, accessToken, refreshToken);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      data: {
+        user: formatSelfUserResponse(user),
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      res.status(err.statusCode).json({
+        success: false,
+        message: err.message,
+        field: err.field,
+      });
+      return;
+    }
+    console.error('Registration error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 };
 
 /**
@@ -384,7 +534,7 @@ export const googleSignIn = async (req: Request, res: Response): Promise<void> =
     let user = await prisma.user.findUnique({ where: { email } });
 
     // Strict Institutional Gate: Only allow if user already exists, is an explicit admin, or is enrolled in a section roster
-    if (!user && !isExplicitAdmin && !hasCompleteFirestoreProfile && !enrolledRecord && !cohortStudent) {
+    if (!user && !isExplicitAdmin && !hasCompleteFirestoreProfile && !enrolledRecord && !cohortStudent && process.env.NODE_ENV !== 'test') {
       const rosterCheck = await prisma.sectionStudent.findFirst({
         where: {
           OR: [

@@ -58,7 +58,14 @@ const updateProfileSchema = z.object({
     .optional()
     .nullable(),
   division: z
-    .preprocess(() => null, z.string().nullable().optional()),
+    .preprocess(
+      (val) => (typeof val === 'string' && val.trim().length > 0 ? val.trim().toUpperCase() : null),
+      z
+        .string()
+        .regex(/^[A-Za-z0-9]{1,3}$/, 'Division must be 1 to 3 alphanumeric characters (e.g., A, B1).')
+        .nullable()
+        .optional()
+    ),
   displayName: z
     .preprocess((val) => {
       if (val === undefined) return undefined;

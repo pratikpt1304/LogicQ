@@ -18,13 +18,13 @@ const DEFAULT_MIN_SCHEDULED = 14;
 const isTestEnv = process.env.NODE_ENV === 'test';
 
 let memoryConfigCache: DailySystemConfigData = {
-  dailyChallengePaused: isTestEnv ? true : false,
-  pausedAt: isTestEnv ? new Date().toISOString() : null,
-  pausedBy: isTestEnv ? 'SYSTEM_TEST' : null,
-  pauseReason: isTestEnv ? 'Gate 1 Verification Test' : null,
-  resumedAt: isTestEnv ? null : new Date().toISOString(),
-  resumedBy: isTestEnv ? null : 'SYSTEM_INIT',
-  resumeMode: isTestEnv ? null : 'START_NOW',
+  dailyChallengePaused: false,
+  pausedAt: null,
+  pausedBy: null,
+  pauseReason: null,
+  resumedAt: new Date().toISOString(),
+  resumedBy: 'SYSTEM_INIT',
+  resumeMode: 'START_NOW',
   minScheduledForResume: 14,
 };
 

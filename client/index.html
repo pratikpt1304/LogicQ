@@ -13,7 +13,23 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="LogicQ" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <script src="/theme-init.js"></script>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('logicq_theme');
+          var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          var root = document.documentElement;
+          root.classList.remove('dark', 'light');
+          root.classList.add(theme);
+          root.setAttribute('data-theme', theme);
+          root.style.colorScheme = theme;
+          var meta = document.getElementById('meta-theme-color');
+          if (meta) {
+            meta.setAttribute('content', theme === 'dark' ? '#0C0F1F' : '#F4F6FB');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>LogicQ — Daily C Programming Challenges &amp; Daily Leaderboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
