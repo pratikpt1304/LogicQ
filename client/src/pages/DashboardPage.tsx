@@ -300,7 +300,7 @@ export const DashboardPage: React.FC = () => {
     queryFn: async () => {
       let serverSubs: any[] = [];
       try {
-        const res = await api.get('/submissions/my?limit=5');
+        const res = await api.get('/submissions/my?limit=50');
         const list = res?.submissions || res?.data?.submissions || res?.data;
         if (Array.isArray(list)) serverSubs = list;
       } catch {}
@@ -334,7 +334,7 @@ export const DashboardPage: React.FC = () => {
       const combined = Array.from(map.values()).sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-      return combined.slice(0, 5);
+      return combined;
     },
     refetchInterval: 6000,
   });
@@ -827,19 +827,88 @@ export const DashboardPage: React.FC = () => {
   const overallMasteryPercent = Math.min(100, Math.round((totalProblemsSolved / totalCurriculumProblems) * 100));
   const activeResumeModule = studentModulesList.find((m) => (m.progressPercent || 0) < 100) || studentModulesList[0];
 
+  // Set of dates (YYYY-MM-DD) where this student actually submitted code
+  const studentSubmissionDates = React.useMemo(() => {
+    const dates = new Set<string>();
+
+    if (Array.isArray(studentSubmissionsList)) {
+      studentSubmissionsList.forEach((s: any) => {
+        const rawDate = s.createdAt || s.submittedAt || s.timestamp;
+        if (rawDate) {
+          if (typeof rawDate === 'string') {
+            dates.add(rawDate.split('T')[0]);
+          } else if (rawDate.toDate && typeof rawDate.toDate === 'function') {
+            dates.add(rawDate.toDate().toISOString().split('T')[0]);
+          } else if (rawDate.seconds) {
+            dates.add(new Date(rawDate.seconds * 1000).toISOString().split('T')[0]);
+          } else {
+            try {
+              dates.add(new Date(rawDate).toISOString().split('T')[0]);
+            } catch {}
+          }
+        }
+      });
+    }
+
+    if (isDailySolved) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      dates.add(todayStr);
+    }
+
+    return dates;
+  }, [studentSubmissionsList, isDailySolved]);
+
+  // Calculate real consecutive daily streak strictly based on actual submissions
+  const computedStreak = React.useMemo(() => {
+    if (studentSubmissionDates.size === 0) return 0;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    const hasSubmittedToday = studentSubmissionDates.has(todayStr);
+    const hasSubmittedYesterday = studentSubmissionDates.has(yesterdayStr);
+
+    // If student submitted neither today nor yesterday, streak is 0
+    if (!hasSubmittedToday && !hasSubmittedYesterday) {
+      return 0;
+    }
+
+    let streak = 0;
+    let checkDate = new Date();
+    if (!hasSubmittedToday) {
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (true) {
+      const dStr = checkDate.toISOString().split('T')[0];
+      if (studentSubmissionDates.has(dStr)) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }, [studentSubmissionDates]);
+
   const getPast7Days = () => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date();
-    const currentStreak = Number(stats?.currentStreak || user?.currentStreak || 0);
     const result = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(today.getDate() - i);
       const dayName = days[d.getDay()];
       const dateNum = d.getDate();
+      const dateStr = d.toISOString().split('T')[0];
       const isToday = i === 0;
-      const isActive = (isToday && (isDailySolved || totalProblemsSolved > 0)) || (i < currentStreak);
-      result.push({ dayName, dateNum, isToday, isActive });
+
+      // Only active/counted if the student actually submitted on that specific day!
+      const isActive = studentSubmissionDates.has(dateStr);
+      result.push({ dayName, dateNum, dateStr, isToday, isActive });
     }
     return result;
   };
@@ -1548,10 +1617,10 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <div className="text-right font-mono">
                   <span className="text-xl font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 justify-end">
-                    <span>{stats?.currentStreak || user?.currentStreak || 0}</span>
+                    <span>{computedStreak}</span>
                     <span className="text-xs font-normal text-[var(--text-muted)]">Days 🔥</span>
                   </span>
-                  <span className="text-[10px] text-[var(--text-muted)] block">Personal Best: {stats?.longestStreak || user?.longestStreak || 0}d</span>
+                  <span className="text-[10px] text-[var(--text-muted)] block">Personal Best: {Math.max(Number(stats?.longestStreak || user?.longestStreak || 0), computedStreak)}d</span>
                 </div>
               </div>
 
@@ -1565,7 +1634,7 @@ export const DashboardPage: React.FC = () => {
                         d.isActive
                           ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-sm'
                           : d.isToday
-                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-300 ring-2 ring-amber-400/30'
+                          ? 'bg-[var(--bg-surface)] border-indigo-500/30 text-[var(--text-main)] shadow-sm'
                           : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-muted)]'
                       }`}
                     >
@@ -1575,7 +1644,7 @@ export const DashboardPage: React.FC = () => {
                           d.isActive
                             ? 'bg-emerald-500 text-white shadow-sm'
                             : d.isToday
-                            ? 'border-2 border-amber-500'
+                            ? 'border border-indigo-400/40 bg-[var(--bg-panel)]'
                             : 'bg-[var(--border-line)]'
                         }`}
                       >
