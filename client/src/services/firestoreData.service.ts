@@ -2182,8 +2182,8 @@ export class FirestoreDataService {
         year: 'FY',
         college: 'Sanjivani University',
         students: [],
-        studentsCount: 115,
-        _count: { students: 115 },
+        studentsCount: C_PROGRAMMING_COHORT_STUDENTS.length,
+        _count: { students: C_PROGRAMMING_COHORT_STUDENTS.length },
         createdAt: 1730000000000,
       };
       result.unshift(cProgSec);
@@ -2218,7 +2218,7 @@ export class FirestoreDataService {
         if (numA !== numB) return numA - numB;
         return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
       });
-      cProgSec.studentsCount = Math.max(existingStudents.length, 115);
+      cProgSec.studentsCount = Math.max(existingStudents.length, C_PROGRAMMING_COHORT_STUDENTS.length);
       cProgSec._count = { students: cProgSec.studentsCount };
 
       try {

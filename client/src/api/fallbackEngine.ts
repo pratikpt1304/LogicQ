@@ -482,7 +482,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         migrated = true;
       }
 
-      // Ensure all 115 cohort students are registered with password = prn
+      // Ensure all cohort students are registered with password = prn
       C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
         const existing = sanitized.find(
           (u) =>
