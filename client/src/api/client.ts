@@ -326,6 +326,47 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     }
   }
 
+  // Strict Daily Challenge Isolation: Never allow a practice or kanetkar problem as the daily challenge!
+  if (cleanEndpoint === '/problems/daily' || cleanEndpoint.endsWith('/problems/daily')) {
+    const prob = data?.data?.problem;
+    if (
+      prob &&
+      (prob.isPractice === true ||
+        prob.sourceType === 'PRACTICE' ||
+        prob.sourceType === 'BOOK' ||
+        prob.slug?.startsWith('practice-') ||
+        prob.slug?.startsWith('kanetkar-') ||
+        Boolean(prob.moduleSlug))
+    ) {
+      console.warn('Daily endpoint returned practice question; substituting pure daily challenge.');
+      return (await handleFallbackRequest('/problems/daily', options)) as T;
+    }
+  }
+
+  if (
+    cleanEndpoint.startsWith('/problems/') &&
+    !cleanEndpoint.includes('/history') &&
+    !cleanEndpoint.includes('/submissions') &&
+    !cleanEndpoint.includes('/batch')
+  ) {
+    const prob = data?.data?.problem || data?.data;
+    if (
+      prob &&
+      typeof window !== 'undefined' &&
+      window.location.pathname.startsWith('/challenge') &&
+      !window.location.pathname.includes('/practice') &&
+      (prob.isPractice === true ||
+        prob.sourceType === 'PRACTICE' ||
+        prob.sourceType === 'BOOK' ||
+        prob.slug?.startsWith('practice-') ||
+        prob.slug?.startsWith('kanetkar-') ||
+        Boolean(prob.moduleSlug))
+    ) {
+      console.warn('Challenge workspace received practice question; substituting pure daily challenge.');
+      return (await handleFallbackRequest('/problems/daily', options)) as T;
+    }
+  }
+
   return data;
 }
 

@@ -9,6 +9,7 @@ import { api } from '../api/client.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { useAuth } from '../context/AuthContext.js';
 import { CodeEditor } from '../components/editor/CodeEditor.js';
+import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import {
@@ -395,8 +396,17 @@ export const ChallengePage: React.FC = () => {
     retry: false,
   });
 
-  const problem = problemData?.data?.problem;
-  const isDaily = !slug || Boolean(problem?.isDaily);
+  const rawProblem = problemData?.data?.problem;
+  const isDaily = !slug || Boolean(rawProblem?.isDaily);
+  const isPracticeInDaily = isDaily && rawProblem && (
+    rawProblem.isPractice === true ||
+    rawProblem.sourceType === 'PRACTICE' ||
+    rawProblem.sourceType === 'BOOK' ||
+    rawProblem.slug?.startsWith('practice-') ||
+    rawProblem.slug?.startsWith('kanetkar-') ||
+    Boolean(rawProblem.moduleSlug)
+  );
+  const problem = isPracticeInDaily ? FORMATTED_DAILY_CHALLENGES[0] : (rawProblem || FORMATTED_DAILY_CHALLENGES[0]);
   const seasonComplete = problemData?.data?.seasonComplete === true;
   const userStatus = problemData?.data?.userStatus;
   const serverSecondsUntilReset = problemData?.data?.secondsUntilNextReset;

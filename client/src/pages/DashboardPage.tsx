@@ -19,6 +19,7 @@ import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { toast } from 'sonner';
 import {
@@ -93,7 +94,16 @@ export const DashboardPage: React.FC = () => {
     queryFn: () => api.get('/users/dashboard/stats'),
   });
 
-  const dailyProblem = dailyData?.data?.problem;
+  const rawDailyProblem = dailyData?.data?.problem;
+  const isPracticeInDaily = rawDailyProblem && (
+    rawDailyProblem.isPractice === true ||
+    rawDailyProblem.sourceType === 'PRACTICE' ||
+    rawDailyProblem.sourceType === 'BOOK' ||
+    rawDailyProblem.slug?.startsWith('practice-') ||
+    rawDailyProblem.slug?.startsWith('kanetkar-') ||
+    Boolean(rawDailyProblem.moduleSlug)
+  );
+  const dailyProblem = isPracticeInDaily ? FORMATTED_DAILY_CHALLENGES[0] : (rawDailyProblem || FORMATTED_DAILY_CHALLENGES[0]);
   const isDailySolved = dailyData?.data?.userStatus?.isSolved;
   const secondsLeft = dailyData?.data?.secondsUntilNextReset;
 
@@ -1821,7 +1831,7 @@ export const DashboardPage: React.FC = () => {
                   <span>Topic-by-Topic Practice Modules</span>
                 </h2>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
-                  111 curated C coding problems across 5 modules — solve all practice topics to unlock Lab Internals
+                  100 curated C coding problems across 4 modules — solve all practice topics to unlock Lab Internals
                 </p>
               </div>
 
@@ -1829,13 +1839,13 @@ export const DashboardPage: React.FC = () => {
                 to="/practice"
                 className="text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-1 transition"
               >
-                <span>View All 111 Practice Topics</span>
+                <span>View All 100 Practice Topics</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {practiceModulesList.map((m: any) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+              {practiceModulesList.filter((m: any) => m.order !== 5 && m.id !== 5).map((m: any) => {
                 const percent = m.progressPercent || 0;
                 const isComplete = m.solvedCount >= m.totalQuestions;
                 const isLocked = !m.isUnlocked;
