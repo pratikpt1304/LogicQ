@@ -12,7 +12,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth } from '../config/firebase.js';
-import { PRACTICE_CONFIG } from '../config/practice.config.js';
+import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
@@ -458,9 +458,8 @@ export const DashboardPage: React.FC = () => {
   }, [user?.id]);
 
   const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])
-    .filter((m: any) => m.order !== 5 && m.slug !== 'advanced-competitive-c')
-    .map(
-    (m: any) => {
+    .map((m: any) => {
+      const isM5 = m.order === 5 || m.slug === 'advanced-competitive-c';
       const topicsInMod = TOPIC_PRACTICE_DATA.filter(
         (t) => t.moduleSlug === m.slug && solvedTopicIds.includes(t.id)
       ).length;
@@ -469,11 +468,12 @@ export const DashboardPage: React.FC = () => {
       const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
       return {
         ...m,
+        isUnlocked: isM5 ? Boolean(isModule5UnlockedByAdmin() || isAdmin || isFaculty) : m.isUnlocked,
+        isFacultyLocked: isM5 && !isModule5UnlockedByAdmin() && !isAdmin && !isFaculty,
         solvedCount,
         progressPercent,
       };
-    }
-  );
+    });
 
   // Sequential Practice & Lab Lock Calculations
   const m1PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length;
@@ -685,8 +685,8 @@ export const DashboardPage: React.FC = () => {
   const practiceTotalSolved = practiceEasySolved + practiceMedSolved + practiceHardSolved;
   const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
 
-  // Lab Internal distinct metrics (Evaluation Problems across 4 Modules)
-  const labTotal = studentModulesList.reduce((acc: number, m: any) => acc + (m.totalQuestions || 20), 0) || 80;
+  // Lab Internal distinct metrics (Evaluation Problems across 5 Modules)
+  const labTotal = studentModulesList.reduce((acc: number, m: any) => acc + (m.totalQuestions || 20), 0) || 100;
   const labTotalSolved = studentModulesList.reduce((acc: number, m: any) => acc + (m.solvedCount || 0), 0);
   const labOverallPercent = Math.min(100, Math.round((labTotalSolved / labTotal) * 100));
   const labEasySolved = Math.min(40, Math.round(labTotalSolved * 0.4));
@@ -1961,12 +1961,12 @@ export const DashboardPage: React.FC = () => {
                 to="/lab-internal"
                 className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline font-semibold flex items-center gap-1 transition"
               >
-                <span>View All 4 Modules</span>
+                <span>View All 5 Modules</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {studentModulesList.length > 0 ? (
                 studentModulesList.map((m: any, idx: number) => {
                   const isLocked = !m.isUnlocked;

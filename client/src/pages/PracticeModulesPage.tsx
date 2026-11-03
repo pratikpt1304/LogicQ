@@ -66,8 +66,9 @@ interface PracticeModuleItem {
 }
 
 export const PracticeModulesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isFaculty } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isPrivileged = Boolean(isAdmin || isFaculty);
 
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
   const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
@@ -142,8 +143,8 @@ export const PracticeModulesPage: React.FC = () => {
     }
   };
 
-  // Build the 4 sequential modules with strict mastery unlocking
-  const allConfigModules = PRACTICE_CONFIG.MODULES.filter((m) => m.order !== 5);
+  // Build the 5 sequential coursework modules (Module 5 is faculty-locked)
+  const allConfigModules = PRACTICE_CONFIG.MODULES;
   const displayModules = allConfigModules.map((cfg, idx) => {
     const fromApi = modules.find((m) => m.slug === cfg.slug);
     const topicsSolvedInModule = TOPIC_PRACTICE_DATA.filter(
@@ -169,14 +170,11 @@ export const PracticeModulesPage: React.FC = () => {
 
     if (cfg.order === 5 || cfg.requiresAdminUnlock) {
       const isM5Unlocked = module5Unlocked || isModule5UnlockedByAdmin();
-      if (!isPracticeComplete) {
-        isUnlocked = Boolean(isAdmin);
-        requirementText = `Solve all ${modPracticeTotal} practice questions in Module ${cfg.order} (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
-      } else if (!isM5Unlocked) {
-        isUnlocked = Boolean(isAdmin);
+      if (!isM5Unlocked) {
+        isUnlocked = Boolean(isPrivileged);
         requirementText = isUnlocked
-          ? 'Activated by Instructor'
-          : 'Locked by Instructor / Admin for all students';
+          ? 'Activated for Instructors & Faculty'
+          : 'Locked by Faculty / Instructor. Will be unlocked during your faculty-supervised lab evaluation session.';
       } else {
         isUnlocked = true;
       }
@@ -228,7 +226,7 @@ export const PracticeModulesPage: React.FC = () => {
     };
   });
 
-  const totalProblems = displayModules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 80;
+  const totalProblems = displayModules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 100;
   const totalSolved = displayModules.reduce((acc, m) => acc + (m.solvedCount || 0), 0);
   const overallPercent = Math.round((totalSolved / totalProblems) * 100);
 
@@ -299,7 +297,7 @@ export const PracticeModulesPage: React.FC = () => {
           </div>
 
           {/* Module Step Indicators */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
             {displayModules.map((m) => (
               <span
                 key={m.id}
@@ -425,17 +423,17 @@ export const PracticeModulesPage: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Admin Toggle on Module 5 */}
-                    {mod.isModule5 && isAdmin && (
+                    {/* Faculty / Admin Toggle on Module 5 */}
+                    {mod.isModule5 && isPrivileged && (
                       <div className="pt-3 border-t border-[var(--border-line)]/60 flex items-center justify-between">
                         <span className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
                           <Eye className="w-3.5 h-3.5" />
-                          <span>Instructor Control:</span>
+                          <span>Faculty Control:</span>
                         </span>
                         <button
                           type="button"
                           onClick={handleToggleModule5}
-                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-colors ${
+                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
                             module5Unlocked
                               ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
                               : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
@@ -483,16 +481,23 @@ export const PracticeModulesPage: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Direct Link to Practice Questions for this module */}
+                  {/* Direct Link to Practice Questions for modules 1-4, or Faculty Notice for module 5 */}
                   <div className="mt-3">
-                    <Link
-                      to={`/practice?module=${mod.order}`}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-600/20 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Practice Module {mod.order} Questions ({mod.title}) →</span>
-                    </Link>
+                    {mod.order <= 4 ? (
+                      <Link
+                        to={`/practice?module=${mod.order}`}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-600/20 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Practice Module {mod.order} Questions ({mod.title}) →</span>
+                      </Link>
+                    ) : (
+                      <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-amber-500/10 border border-amber-500/25 text-amber-300">
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Supervised Evaluation • Faculty Controlled</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -518,23 +523,27 @@ export const PracticeModulesPage: React.FC = () => {
 
                     <span className="px-3 py-1 rounded-lg bg-[var(--bg-surface)] text-[var(--text-muted)] font-mono text-xs border border-[var(--border-line)] flex items-center gap-1.5 cursor-not-allowed">
                       <Lock className="w-3 h-3 text-amber-400" />
-                      <span>Locked</span>
+                      <span>{mod.isModule5 ? 'Faculty Locked' : 'Locked'}</span>
                     </span>
                   </div>
 
-                  {/* Admin Unlock Control if Admin */}
-                  {mod.isModule5 && isAdmin && (
+                  {/* Faculty Unlock Control if Admin or Faculty */}
+                  {mod.isModule5 && isPrivileged && (
                     <div className="pt-3 border-t border-[var(--border-line)]/60 flex items-center justify-between">
                       <span className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Instructor Control:</span>
+                        <span>Faculty Control:</span>
                       </span>
                       <button
                         type="button"
                         onClick={handleToggleModule5}
-                        className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-colors"
+                        className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
+                          module5Unlocked
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
+                        }`}
                       >
-                        🔓 Unlock for All Students
+                        {module5Unlocked ? '🔒 Lock for Students' : '🔓 Unlock for All Students'}
                       </button>
                     </div>
                   )}
