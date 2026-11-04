@@ -577,10 +577,22 @@ export const DashboardPage: React.FC = () => {
   const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])
     .map((m: any) => {
       const isM5 = m.order === 5 || m.slug === 'advanced-competitive-c';
-      const topicsInMod = TOPIC_PRACTICE_DATA.filter(
-        (t) => t.moduleSlug === m.slug && solvedTopicIds.includes(t.id)
-      ).length;
-      const solvedCount = Math.max(m.solvedCount || 0, topicsInMod);
+      
+      // Determine Lab problem slugs for this specific CIE Lab module
+      let moduleLabSlugs: string[] = [];
+      if (m.order === 1 || m.slug === 'control-structures') {
+        moduleLabSlugs = PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug);
+      } else if (m.order === 2 || m.slug === 'pointers-and-functions') {
+        moduleLabSlugs = PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug);
+      } else if (m.order === 3 || m.slug === 'arrays-and-strings') {
+        moduleLabSlugs = PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug);
+      } else if (m.order === 4 || m.slug === 'structures-and-memory') {
+        moduleLabSlugs = PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug);
+      }
+
+      // Count only actual Lab problems solved, completely decoupled from Topic Practice
+      const labSolvedInMod = moduleLabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+      const solvedCount = Math.max(m.solvedCount || 0, labSolvedInMod);
       const totalQuestions = m.totalQuestions || 20;
       const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
       return {
