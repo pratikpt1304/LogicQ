@@ -1781,12 +1781,12 @@ export const TopicPracticeHubPage: React.FC = () => {
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
             
-            {/* PANE: Problem Description Statement (Left side on desktop) */}
+            {/* PANE: Problem Description Statement (Left side on desktop - 38% width for spacious editor) */}
             <div
               className={`w-full ${
                 isDesktopPaletteOpen
-                  ? 'lg:w-[38%] xl:w-[34%] 2xl:w-[32%]'
-                  : 'lg:w-1/2'
+                  ? 'lg:w-[32%] xl:w-[30%] 2xl:w-[28%]'
+                  : 'lg:w-[40%] xl:w-[38%] 2xl:w-[36%]'
               } flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
@@ -1870,6 +1870,35 @@ export const TopicPracticeHubPage: React.FC = () => {
               {/* Problem Statement Content */}
               <div className="pt-2">
                 <StatementMarkdown content={activeTopic.problem.description} />
+              </div>
+
+              {/* Quick Concept Pro-Tip & Constraints Section */}
+              <div className="mt-4 pt-3.5 border-t border-[var(--border-line)] space-y-3 font-sans">
+                {/* Pro-Tip Box */}
+                {(activeTopic.tipBox?.application || activeTopic.summary) && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-xs text-[var(--text-main)] space-y-1.5 shadow-xs">
+                    <div className="flex items-center gap-2 font-bold text-amber-500 dark:text-amber-400 font-mono text-[11px] uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>💡 Important Logic Clue</span>
+                    </div>
+                    <p className="leading-relaxed text-slate-700 dark:text-slate-300">
+                      {activeTopic.tipBox?.application || activeTopic.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Constraints & Environment */}
+                <div className="p-3 rounded-xl bg-slate-500/5 border border-[var(--border-line)] text-xs font-mono space-y-1.5">
+                  <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">
+                    Execution Constraints
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
+                    <div>• Time Limit: <span className="text-[var(--text-main)] font-semibold">1.0s</span></div>
+                    <div>• Memory: <span className="text-[var(--text-main)] font-semibold">64 MB</span></div>
+                    <div>• Standard: <span className="text-[var(--text-main)] font-semibold">GCC C11</span></div>
+                    <div>• Strict I/O: <span className="text-[var(--text-main)] font-semibold">Auto-stdin</span></div>
+                  </div>
+                </div>
               </div>
             </div>
 
