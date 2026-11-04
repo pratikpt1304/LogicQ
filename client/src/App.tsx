@@ -311,7 +311,7 @@ export const App: React.FC = () => {
             path="/lab-internal/:moduleSlug"
             element={
               <ProtectedRoute>
-                <PracticeModuleProblemsPage />
+                <PracticeModulesPage />
               </ProtectedRoute>
             }
           />
@@ -329,7 +329,7 @@ export const App: React.FC = () => {
             path="/practice/:moduleSlug"
             element={
               <ProtectedRoute>
-                <PracticeModuleProblemsPage />
+                <PracticeModulesPage />
               </ProtectedRoute>
             }
           />

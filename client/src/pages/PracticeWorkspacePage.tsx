@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -83,6 +83,7 @@ function cleanDraftCode(raw: string): string {
 export const PracticeWorkspacePage: React.FC = () => {
   const { moduleSlug, problemSlug } = useParams<{ moduleSlug: string; problemSlug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -590,6 +591,15 @@ export const PracticeWorkspacePage: React.FC = () => {
     slug: moduleSlug || 'control-structures',
     totalQuestions: 20,
   };
+
+  const isLabRoute = location.pathname.startsWith('/lab-internal');
+  const returnToHub = useCallback(() => {
+    if (isLabRoute) {
+      navigate(`/lab-internal?module=${moduleConfig.order}`);
+    } else {
+      navigate(`/practice?module=${moduleConfig.order}`);
+    }
+  }, [isLabRoute, moduleConfig.order, navigate]);
 
   const problem = responseData?.data?.problem;
   const userProgress = responseData?.data?.userProgress;
@@ -1350,11 +1360,14 @@ export const PracticeWorkspacePage: React.FC = () => {
     const attemptStr = `Attempt #${(userProgress?.attemptsCount || 0) || 1}`;
 
     if (nextProb) {
+      const nextUrl = isLabRoute
+        ? `/lab-internal/${moduleSlug}/${nextProb.slug}`
+        : `/practice/${moduleSlug}/${nextProb.slug}`;
       toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🎉`, {
         description: `Next up: #${nextProb.moduleOrder} ${nextProb.title}`,
         action: {
           label: 'Next Question →',
-          onClick: () => navigate(`/practice/${moduleSlug}/${nextProb.slug}`),
+          onClick: () => navigate(nextUrl),
         },
         duration: 12000,
       });
@@ -1363,7 +1376,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         description: 'You have solved all 20 problems in this module!',
         action: {
           label: 'Back to Modules',
-          onClick: () => navigate('/practice'),
+          onClick: returnToHub,
         },
         duration: 12000,
       });
@@ -2609,12 +2622,12 @@ export const PracticeWorkspacePage: React.FC = () => {
         onGoToNextModule={() => {
           const nextMod = PRACTICE_CONFIG.MODULES.find((m) => m.order === moduleConfig.order + 1);
           if (nextMod) {
-            navigate(`/practice/${nextMod.slug}`);
+            navigate(isLabRoute ? `/lab-internal?module=${nextMod.order}` : `/practice?module=${nextMod.order}`);
           } else {
-            navigate('/practice');
+            returnToHub();
           }
         }}
-        onBackToModules={() => navigate('/practice')}
+        onBackToModules={returnToHub}
       />
 
       <MemoryVisualizerModal
@@ -2640,7 +2653,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         isOpen={showDeclarationModal || isInstructionsOpen}
         onClose={() => {
           if (!hasAgreedRules) {
-            navigate('/practice');
+            returnToHub();
           } else {
             setIsInstructionsOpen(false);
           }
@@ -2651,7 +2664,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         user={user}
         isDeclarationMode={showDeclarationModal}
         onAgreeAndStart={handleAgreeAndStart}
-        onBackToModules={() => navigate('/practice')}
+        onBackToModules={returnToHub}
       />
 
       {/* Exit Test Confirmation Modal */}
@@ -2681,7 +2694,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setIsExitConfirmOpen(false);
-                  navigate('/practice');
+                  returnToHub();
                 }}
                 className="px-4 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 text-xs font-mono font-bold transition cursor-pointer"
               >
@@ -2750,7 +2763,7 @@ export const PracticeWorkspacePage: React.FC = () => {
             <div className="p-4 border-t border-[var(--border-line)] bg-[var(--bg-surface)] flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => navigate('/practice')}
+                onClick={returnToHub}
                 className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel)]/80 border border-[var(--border-line)] transition flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />

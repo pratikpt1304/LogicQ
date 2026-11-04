@@ -1,34 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
+import { auth } from '../config/firebase.js';
+import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { toast } from 'sonner';
 import {
   PRACTICE_CONFIG,
   isModule5UnlockedByAdmin,
   setModule5UnlockedByAdmin,
 } from '../config/practice.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
-import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
-import { auth } from '../config/firebase.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
-import { FirestoreDataService } from '../services/firestoreData.service.js';
-import { toast } from 'sonner';
-import { getLabModuleUnlockInfo } from '../utils/progression.js';
-
-const MODULE_PROBLEM_SLUGS: Record<string, string[]> = {
-  'control-structures': PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
-  'pointers-and-functions': PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug),
-  'arrays-and-strings': PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug),
-  'array-and-its-applications': PRACTICE_MODULE_3_PROBLEMS.map((p) => p.slug),
-  'recursion-and-bit-manipulation': PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug),
-  'advanced-data-types-dynamic-memory': PRACTICE_MODULE_4_PROBLEMS.map((p) => p.slug),
-  'structures-unions-and-dma': PRACTICE_MODULE_5_PROBLEMS.map((p) => p.slug),
-};
+import {
+  getLabModuleUnlockInfo,
+  getPracticeModuleSolvedCount,
+  getLabModuleSolvedCount,
+  isPracticeModuleComplete,
+  isLabModuleComplete,
+} from '../utils/progression.js';
 import {
   Lock,
   Unlock,
@@ -42,31 +38,81 @@ import {
   ShieldCheck,
   Target,
   ArrowRight,
-  AlertTriangle,
+  Search,
+  Play,
+  Check,
+  Award,
+  Zap,
+  Info,
+  ExternalLink,
+  Flame,
 } from 'lucide-react';
 
-interface PracticeModuleItem {
+interface ModuleConfigItem {
+  order: number;
   id: string;
   slug: string;
   title: string;
-  order: number;
+  shortTitle: string;
   description: string;
-  isUnlocked: boolean;
-  isAdminUnlocked?: boolean;
-  requirementText: string;
-  totalQuestions: number;
-  solvedCount: number;
-  progressPercent: number;
-  isComingSoon?: boolean;
-  canComplete?: boolean;
-  distribution: {
-    EASY: number;
-    MEDIUM: number;
-    HARD: number;
-  };
+  problems: PracticeProblemDef[];
+  isModule5?: boolean;
 }
 
+const MODULE_DEFINITIONS: ModuleConfigItem[] = [
+  {
+    order: 1,
+    id: 'module-1',
+    slug: 'control-structures',
+    title: 'Control Structures',
+    shortTitle: 'Control Flow',
+    description: 'Branching decisions, loops, switch-case, and iteration flow in C.',
+    problems: PRACTICE_MODULE_1_PROBLEMS,
+  },
+  {
+    order: 2,
+    id: 'module-2',
+    slug: 'pointers-and-functions',
+    title: 'Pointers and Functions',
+    shortTitle: 'Pointers & Funcs',
+    description: 'Memory addresses, dereferencing, pass-by-reference, recursion, and function pointers.',
+    problems: PRACTICE_MODULE_2_PROBLEMS,
+  },
+  {
+    order: 3,
+    id: 'module-3',
+    slug: 'array-and-its-applications',
+    title: 'Array and its Applications',
+    shortTitle: 'Arrays & Strings',
+    description: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices.',
+    problems: PRACTICE_MODULE_3_PROBLEMS,
+  },
+  {
+    order: 4,
+    id: 'module-4',
+    slug: 'advanced-data-types-dynamic-memory',
+    title: 'Advanced Data Types & Dynamic Memory',
+    shortTitle: 'Dynamic Memory',
+    description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
+    problems: PRACTICE_MODULE_4_PROBLEMS,
+  },
+  {
+    order: 5,
+    id: 'module-5',
+    slug: 'advanced-competitive-c',
+    title: 'Competitive Mastery & Capstone Arena',
+    shortTitle: 'Capstone Arena',
+    description: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
+    problems: PRACTICE_MODULE_5_PROBLEMS,
+    isModule5: true,
+  },
+];
+
 export const PracticeModulesPage: React.FC = () => {
+  const { moduleSlug } = useParams<{ moduleSlug?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const { user, isFaculty } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const isPrivileged = Boolean(isAdmin || isFaculty);
@@ -74,6 +120,8 @@ export const PracticeModulesPage: React.FC = () => {
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
   const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
   const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
+  const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'TODO' | 'SOLVED' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Sync and restore solved practice topics from Firestore and local storage
   useEffect(() => {
@@ -113,6 +161,7 @@ export const PracticeModulesPage: React.FC = () => {
     })();
   }, [user, effectiveUid]);
 
+  // Read backend modules data if available
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['practice-modules'],
     queryFn: () => api.get('/practice/modules'),
@@ -120,7 +169,6 @@ export const PracticeModulesPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  const modules: PracticeModuleItem[] = data?.data?.modules || [];
   const { data: testsData } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: () => api.get('/exam/my-tests'),
@@ -129,6 +177,27 @@ export const PracticeModulesPage: React.FC = () => {
   });
 
   const assignedTests = testsData?.data || testsData?.assignments || [];
+
+  // Determine active selected module (1 to 5)
+  const selectedModuleOrder = useMemo(() => {
+    if (moduleSlug) {
+      const match = MODULE_DEFINITIONS.find(
+        (m) =>
+          m.slug === moduleSlug ||
+          (m.order === 3 && (moduleSlug === 'arrays-and-strings' || moduleSlug === 'array-and-its-applications')) ||
+          (m.order === 4 && (moduleSlug === 'structures-and-memory' || moduleSlug === 'recursion-and-bit-manipulation')) ||
+          (m.order === 5 && moduleSlug === 'structures-unions-and-dma')
+      );
+      if (match) return match.order;
+    }
+    const q = parseInt(searchParams.get('module') || '', 10);
+    if (q >= 1 && q <= 5) return q;
+    return 1;
+  }, [moduleSlug, searchParams]);
+
+  const handleSelectModule = (order: number) => {
+    setSearchParams({ module: String(order) });
+  };
 
   const handleToggleModule5 = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -144,376 +213,596 @@ export const PracticeModulesPage: React.FC = () => {
     }
   };
 
-  // Build the 5 sequential coursework modules (Module 5 is faculty-locked)
-  const allConfigModules = PRACTICE_CONFIG.MODULES;
-  const displayModules = allConfigModules.map((cfg, idx) => {
-    const fromApi = modules.find((m) => m.slug === cfg.slug);
-    const topicsSolvedInModule = TOPIC_PRACTICE_DATA.filter(
-      (t) => t.moduleSlug === cfg.slug && solvedTopics.includes(t.id)
-    ).length;
-    const slugsForModule = MODULE_PROBLEM_SLUGS[cfg.slug] || [];
-    const problemsSolvedInModule = slugsForModule.filter((slug) => solvedTopics.includes(slug)).length;
-    const solvedCount = Math.max(fromApi?.solvedCount ?? 0, topicsSolvedInModule, problemsSolvedInModule);
-    const totalQuestions = fromApi?.totalQuestions || cfg.totalQuestions || 20;
-    const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
+  // Build module progression cards
+  const moduleCards = useMemo(() => {
+    return MODULE_DEFINITIONS.map((def) => {
+      const slugs = def.problems.map((p) => p.slug);
+      const solvedInModule = slugs.filter((slug) => solvedTopics.includes(slug)).length;
+      const totalQuestions = def.problems.length || 20;
+      const progressPercent = Math.round((solvedInModule / totalQuestions) * 100);
 
-    // 1. Check practice topics for THIS module (Every module requires its own practice completed first)
-    const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
-      (t) => t.moduleIndex === cfg.order || t.moduleSlug === cfg.slug
-    );
-    const modPracticeTotal = currentModuleTopics.length;
-    const modPracticeSolved = currentModuleTopics.filter((t) => solvedTopics.includes(t.id)).length;
-    const isPracticeComplete = modPracticeTotal === 0 || modPracticeSolved >= modPracticeTotal;
+      const unlockInfo = getLabModuleUnlockInfo(def.order, solvedTopics, Boolean(isPrivileged || isAdmin));
+      const isUnlocked = Boolean(unlockInfo.isUnlocked || isPrivileged);
 
-    // 2. Progressive Lock Evaluation:
-    const unlockInfo = getLabModuleUnlockInfo(cfg.order, solvedTopics, Boolean(isPrivileged || isAdmin));
-    const isUnlocked = unlockInfo.isUnlocked;
-    const requirementText = unlockInfo.lockReason;
+      return {
+        ...def,
+        solvedCount: solvedInModule,
+        totalQuestions,
+        progressPercent,
+        isUnlocked,
+        requirementText: unlockInfo.lockReason,
+        isCompleted: solvedInModule >= totalQuestions,
+      };
+    });
+  }, [solvedTopics, isPrivileged, isAdmin]);
 
-    return {
-      id: cfg.id,
-      slug: cfg.slug,
-      title: cfg.title,
-      order: cfg.order,
-      description: cfg.description,
-      isUnlocked: Boolean(isUnlocked || isAdmin),
-      isAdminUnlocked: Boolean(isAdmin),
-      requirementText,
-      totalQuestions,
-      solvedCount,
-      progressPercent,
-      distribution: fromApi?.distribution || cfg.distribution,
-      isModule5: cfg.order === 5,
-    };
-  });
+  // Overall stats
+  const totalLabProblems = 100;
+  const totalLabSolved = useMemo(() => {
+    return moduleCards.reduce((acc, m) => acc + m.solvedCount, 0);
+  }, [moduleCards]);
+  const overallPercent = Math.round((totalLabSolved / totalLabProblems) * 100);
+  const cieMarks = (totalLabSolved * 0.2).toFixed(1);
 
-  const totalProblems = displayModules.reduce((acc, m) => acc + (m.totalQuestions || 20), 0) || 100;
-  const totalSolved = displayModules.reduce((acc, m) => acc + (m.solvedCount || 0), 0);
-  const overallPercent = Math.round((totalSolved / totalProblems) * 100);
+  // Active module details
+  const activeModule = useMemo(() => {
+    return moduleCards.find((m) => m.order === selectedModuleOrder) || moduleCards[0];
+  }, [moduleCards, selectedModuleOrder]);
+
+  // Filtered problems in active module
+  const activeProblems = useMemo(() => {
+    return activeModule.problems.map((prob, idx) => {
+      const isSolved = solvedTopics.includes(prob.slug);
+      return {
+        ...prob,
+        index: idx + 1,
+        isSolved,
+      };
+    });
+  }, [activeModule, solvedTopics]);
+
+  // Next up unsolved problem in active module
+  const nextProblem = useMemo(() => {
+    if (!activeModule.isUnlocked) return null;
+    return activeProblems.find((p) => !p.isSolved) || null;
+  }, [activeModule.isUnlocked, activeProblems]);
+
+  // Filter & search questions
+  const displayedProblems = useMemo(() => {
+    return activeProblems.filter((prob) => {
+      if (filterDifficulty === 'TODO' && prob.isSolved) return false;
+      if (filterDifficulty === 'SOLVED' && !prob.isSolved) return false;
+      if (filterDifficulty === 'EASY' && prob.difficulty !== 'EASY') return false;
+      if (filterDifficulty === 'MEDIUM' && prob.difficulty !== 'MEDIUM') return false;
+      if (filterDifficulty === 'HARD' && prob.difficulty !== 'HARD') return false;
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchesTitle = prob.title.toLowerCase().includes(query);
+        const matchesCat = (prob.category || '').toLowerCase().includes(query);
+        const matchesSlug = prob.slug.toLowerCase().includes(query);
+        if (!matchesTitle && !matchesCat && !matchesSlug) return false;
+      }
+      return true;
+    });
+  }, [activeProblems, filterDifficulty, searchQuery]);
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
-      {/* Clean Practice Header with Overall Progress */}
-      <div className="glass-card p-4 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm space-y-4 sm:space-y-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-[var(--accent)] mb-1 font-bold">
-              <BookOpen className="w-4 h-4" />
-              <span>LAB INTERNAL • CONTINUOUS EVALUATION</span>
+    <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-main)] py-6 sm:py-10 transition-colors">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+        
+        {/* ========================================================= */}
+        {/* Apple HIG Frosted Header with Live Progress & Quick Links */}
+        {/* ========================================================= */}
+        <div className="relative rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl shadow-xl shadow-slate-900/5 p-6 sm:p-8 overflow-hidden transition-all">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Lab Internal • CIE Continuous Evaluation</span>
+                </span>
+                {isAdmin && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <Eye className="w-3 h-3" />
+                    <span>Admin Mode</span>
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Lab Coursework Modules
+              </h1>
+
+              <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+                Official proctored coursework modules for continuous internal evaluation (20 Marks).
+                Solve questions sequentially with instant GCC 14 compiler feedback.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-              Lab Internal (Coursework Modules)
-            </h1>
-            <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-mono">
-              Official lab coursework modules. Practice prerequisites must be completed to unlock each module.
-            </p>
+
+            {/* Apple Stat Pills & Quick Navigation */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
+              <div className="px-4 py-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
+                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  CIE Score
+                </div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>{cieMarks}</span>
+                  <span className="text-xs text-slate-400 font-normal">/ 20 M</span>
+                </div>
+              </div>
+
+              <div className="px-4 py-3 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
+                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Solved
+                </div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{totalLabSolved}</span>
+                  <span className="text-xs text-slate-400 font-normal">/ 100</span>
+                </div>
+              </div>
+
+              <Link
+                to="/practice"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Code2 className="w-4 h-4" />
+                <span>Practice Arena →</span>
+              </Link>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {isAdmin && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-400">
-                <Eye className="w-4 h-4" />
-                <span>Instructor View</span>
+          {/* Minimalist Progress Track */}
+          <div className="mt-6 pt-5 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Overall Lab Coursework Progress</span>
+              </span>
+              <span className="font-bold text-slate-700 dark:text-slate-300">
+                {overallPercent}% Completed ({100 - totalLabSolved} remaining)
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
+                style={{ width: `${Math.max(overallPercent, 2)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================= */}
+        {/* Apple Segmented Module Switcher (0ms, 1-Click Instant Tab) */}
+        {/* ========================================================= */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 px-1">
+            <span className="font-bold tracking-wider uppercase">Select Lab Module</span>
+            <span>5 Sequential Modules • 20 Questions Each</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-3xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner">
+            {moduleCards.map((mod) => {
+              const isSelected = mod.order === selectedModuleOrder;
+              return (
+                <button
+                  key={mod.id}
+                  type="button"
+                  onClick={() => handleSelectModule(mod.order)}
+                  className={`relative flex flex-col items-start justify-between p-3.5 rounded-2xl transition-all duration-200 cursor-pointer text-left select-none ${
+                    isSelected
+                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md shadow-slate-900/5 ring-1 ring-slate-900/5 dark:ring-white/10'
+                      : 'hover:bg-white/60 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <div className="w-full flex items-center justify-between gap-1 mb-2">
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                        isSelected
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      MOD 0{mod.order}
+                    </span>
+
+                    {mod.isCompleted ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : !mod.isUnlocked ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    )}
+                  </div>
+
+                  <div className="w-full min-w-0">
+                    <div className="font-bold text-xs sm:text-sm truncate">
+                      {mod.shortTitle}
+                    </div>
+                    <div className="text-[11px] font-mono mt-0.5 text-slate-400 dark:text-slate-500">
+                      {mod.isUnlocked ? `${mod.solvedCount}/20 solved` : 'Locked'}
+                    </div>
+                  </div>
+
+                  {/* Micro progress bar under active button */}
+                  <div className="w-full h-1 rounded-full bg-slate-200/60 dark:bg-slate-700/60 mt-2.5 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 rounded-full ${
+                        mod.isCompleted ? 'bg-emerald-500' : mod.isUnlocked ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      style={{ width: `${mod.progressPercent}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ========================================================= */}
+        {/* Module Content View: Unlocked (Questions) vs Locked (Hero) */}
+        {/* ========================================================= */}
+        {activeModule.isUnlocked ? (
+          <div className="space-y-6">
+
+            {/* 1-Click "Next Up: Continue Solving" Hero Spotlight Card */}
+            {nextProblem ? (
+              <div className="relative rounded-3xl border border-emerald-500/25 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent dark:from-emerald-500/15 dark:via-teal-500/10 p-6 sm:p-7 shadow-lg shadow-emerald-500/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                      <Sparkles className="w-3 h-3" />
+                      Next Up • Question #{nextProblem.index} of 20
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                        nextProblem.difficulty === 'EASY'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          : nextProblem.difficulty === 'MEDIUM'
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      }`}
+                    >
+                      {nextProblem.difficulty}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    {nextProblem.title}
+                  </h2>
+
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                    {nextProblem.category} • GCC 14 C11 proctored test cases with instant automated evaluation.
+                  </p>
+                </div>
+
+                <Link
+                  to={`/lab-internal/${activeModule.slug}/${nextProblem.slug}`}
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer shrink-0"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Continue Solving Question {nextProblem.index} →</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 sm:p-7 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 mx-auto flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                  Module 0{activeModule.order} Completed!
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                  Outstanding job! You have solved all 20 questions in {activeModule.title}.
+                  {activeModule.order < 5 && ' Continue with the next module to maximize your CIE score.'}
+                </p>
               </div>
             )}
-            <Link
-              to="/practice"
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-emerald-600/20"
-            >
-              <Code2 className="w-4 h-4" />
-              <span>Practice Arena</span>
-            </Link>
-            <Link
-              to="/student/tests"
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold transition-all shadow-md shadow-indigo-600/20"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Assigned Tests</span>
-              {assignedTests.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white font-bold text-[10px]">
-                  {assignedTests.length}
-                </span>
-              )}
-            </Link>
-          </div>
-        </div>
 
-        {/* Overall Progress Bar */}
-        <div className="p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-2.5">
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="font-bold text-[var(--text-main)] flex items-center gap-2">
-              <Target className="w-4 h-4 text-emerald-400" />
-              <span>Total Solved: {totalSolved} / {totalProblems} Problems ({overallPercent}%)</span>
-            </span>
-            <span className="text-[var(--text-muted)] font-semibold">
-              {totalProblems - totalSolved} remaining
-            </span>
-          </div>
+            {/* Questions Header with Filter Pills & Search */}
+            <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>{activeModule.title}</span>
+                    <span className="text-xs font-mono font-normal text-slate-400">
+                      ({activeModule.solvedCount}/20 Solved)
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {activeModule.description}
+                  </p>
+                </div>
 
-          <div className="w-full bg-[var(--bg-panel)] h-2.5 rounded-full overflow-hidden border border-[var(--border-line)]/40">
-            <div
-              className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.max(overallPercent, 2)}%` }}
-            />
-          </div>
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-mono">
+                  {(['ALL', 'TODO', 'SOLVED'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setFilterDifficulty(mode)}
+                      className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer select-none font-semibold ${
+                        filterDifficulty === mode
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {mode === 'ALL'
+                        ? `All (${activeProblems.length})`
+                        : mode === 'TODO'
+                        ? `To Do (${activeProblems.filter((p) => !p.isSolved).length})`
+                        : `Solved (${activeProblems.filter((p) => p.isSolved).length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Module Step Indicators */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2 pt-1 text-[11px] font-mono">
-            {displayModules.map((m) => (
-              <span
-                key={m.id}
-                className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5 ${
-                  m.solvedCount >= 20
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : m.isUnlocked
-                    ? 'bg-[var(--bg-panel)] text-[var(--accent)] border-[var(--accent)]/30'
-                    : 'bg-[var(--bg-panel)] text-[var(--text-muted)] border-[var(--border-line)] opacity-60'
-                }`}
-              >
-                {!m.isUnlocked && <Lock className="w-3 h-3" />}
-                {m.solvedCount >= 20 && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                <span>Mod {m.order}: {m.solvedCount}/20</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+              {/* Search & Difficulty Breakdown */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/60">
+                <div className="relative sm:w-72">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search 20 module problems..."
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+                </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="glass-card rounded-2xl p-6 border border-[var(--border-line)] animate-pulse space-y-4"
-            >
-              <div className="h-6 w-3/4 bg-[var(--bg-surface)] rounded" />
-              <div className="h-4 w-full bg-[var(--bg-surface)] rounded" />
-              <div className="h-2 w-full bg-[var(--bg-surface)] rounded" />
+                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                  <span className="text-emerald-500 font-semibold">8 Easy</span>
+                  <span>•</span>
+                  <span className="text-amber-500 font-semibold">8 Medium</span>
+                  <span>•</span>
+                  <span className="text-rose-500 font-semibold">4 Hard</span>
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className="p-8 text-center glass-card rounded-2xl border border-red-500/20 text-red-400 space-y-3 font-mono">
-          <p>Failed to load practice modules. Please check your connection.</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 bg-gradient-to-r from-cyan-400 to-emerald-400 text-[#0C0F1F] font-bold text-xs rounded-lg hover:opacity-95"
-          >
-            Retry Connection
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {displayModules.map((mod) => {
-            const isCompleted = mod.totalQuestions > 0 && mod.solvedCount >= mod.totalQuestions;
-            const percent = mod.progressPercent || 0;
-            const canAccess = mod.isUnlocked || isAdmin;
 
-            // Render Unlocked Module as Clickable Link
-            if (canAccess) {
-              return (
-                <Link
-                  key={mod.id}
-                  to={`/practice/${mod.slug}`}
-                  className="glass-card border border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:shadow-lg hover:shadow-[var(--accent)]/5 rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between group cursor-pointer"
-                >
-                  {/* Header row */}
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--accent)]">
-                          MODULE {mod.order}
+            {/* Apple Minimalist Question List (20 Questions) */}
+            <div className="space-y-2.5">
+              {displayedProblems.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 text-slate-400 font-mono text-xs">
+                  No problems match your current search or filter.
+                </div>
+              ) : (
+                displayedProblems.map((prob) => {
+                  const sorted = activeProblems;
+                  const probIdx = prob.index - 1;
+                  // Sequential unlock: question 1 is unlocked, question N requires question N-1 solved unless admin
+                  const isProbLocked = probIdx > 0 && !sorted[probIdx - 1]?.isSolved && !prob.isSolved && !isAdmin;
+                  const isNextUp = nextProblem?.slug === prob.slug;
+
+                  if (isProbLocked) {
+                    return (
+                      <div
+                        key={prob.slug}
+                        onClick={() =>
+                          toast.error(
+                            `🔒 Question #${prob.index} is locked! Complete Question #${prob.index - 1} first.`
+                          )
+                        }
+                        className="rounded-2xl border border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/30 p-4 sm:p-5 flex items-center justify-between gap-4 opacity-50 cursor-not-allowed select-none transition-all"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span className="w-8 h-8 rounded-xl bg-slate-200/60 dark:bg-slate-800/60 flex items-center justify-center text-slate-400 shrink-0">
+                            <Lock className="w-3.5 h-3.5" />
+                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-semibold text-slate-500 dark:text-slate-400 truncate">
+                                {prob.title}
+                              </h4>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-500">
+                                Locked
+                              </span>
+                            </div>
+                            <div className="text-xs font-mono text-slate-400 mt-0.5 truncate">
+                              Solve Question #{prob.index - 1} first to unlock
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span
+                            className={`hidden sm:inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                              prob.difficulty === 'EASY'
+                                ? 'bg-emerald-500/10 text-emerald-600/70'
+                                : prob.difficulty === 'MEDIUM'
+                                ? 'bg-amber-500/10 text-amber-600/70'
+                                : 'bg-rose-500/10 text-rose-600/70'
+                            }`}
+                          >
+                            {prob.difficulty}
+                          </span>
+                          <span className="px-3 py-1.5 rounded-xl bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 text-xs font-mono">
+                            Locked
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={prob.slug}
+                      to={`/lab-internal/${activeModule.slug}/${prob.slug}`}
+                      className={`group rounded-2xl border transition-all duration-200 p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer select-none ${
+                        isNextUp
+                          ? 'border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm'
+                          : prob.isSolved
+                          ? 'border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 hover:border-emerald-500/40 hover:bg-white dark:hover:bg-slate-900'
+                          : 'border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <span
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors ${
+                            prob.isSolved
+                              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                              : isNextUp
+                              ? 'bg-emerald-500 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {prob.isSolved ? (
+                            <Check className="w-4 h-4 stroke-[3]" />
+                          ) : isNextUp ? (
+                            <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+                          ) : (
+                            prob.index
+                          )}
                         </span>
-                        {mod.isModule5 && (
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/30">
-                            CAPSTONE ARENA
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+                              {prob.title}
+                            </h4>
+                            <span
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                                prob.difficulty === 'EASY'
+                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                  : prob.difficulty === 'MEDIUM'
+                                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                              }`}
+                            >
+                              {prob.difficulty}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate">
+                            {prob.category || activeModule.shortTitle}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {prob.isSolved ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold border border-emerald-500/20">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Solved</span>
+                          </span>
+                        ) : isNextUp ? (
+                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold shadow-md shadow-emerald-600/20 transition-all">
+                            <span>Solve →</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-mono text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                            <span>Solve</span>
+                            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                           </span>
                         )}
                       </div>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
 
-                      {isCompleted ? (
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>COMPLETED</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
-                          <span>View Problems</span>
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 className="text-xl font-bold text-[var(--text-main)] group-hover:text-[var(--accent)] transition-colors">
-                      {mod.title}
-                    </h2>
-                    <p className="text-xs text-[var(--text-muted)] mt-1.5 line-clamp-2 leading-relaxed">
-                      {mod.description}
-                    </p>
-                  </div>
-
-                  {/* Footer progress & breakdown */}
-                  <div className="mt-6 pt-4 border-t border-[var(--border-line)]/60 space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                        <span className="text-[var(--text-muted)]">Progress</span>
-                        <span className="text-[var(--text-main)] font-semibold">
-                          {mod.solvedCount} / {mod.totalQuestions} solved ({percent}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[var(--bg-surface)] overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[var(--accent)] to-emerald-400 transition-all duration-300 rounded-full"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Difficulty composition pill badges */}
-                    <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-[var(--text-muted)]">
-                      <div className="flex items-center gap-2">
-                        <span className="text-emerald-400">{mod.distribution?.EASY ?? 0} Easy</span>
-                        <span>•</span>
-                        <span className="text-amber-400">{mod.distribution?.MEDIUM ?? 0} Med</span>
-                        <span>•</span>
-                        <span className="text-rose-400">{mod.distribution?.HARD ?? 0} Hard</span>
-                      </div>
-                      <span className="text-[var(--accent)] font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                        <span>Practice</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-
-                    {/* Faculty / Admin Toggle on Module 5 */}
-                    {mod.isModule5 && isPrivileged && (
-                      <div className="pt-3 border-t border-[var(--border-line)]/60 flex items-center justify-between">
-                        <span className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Faculty Control:</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleToggleModule5}
-                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
-                            module5Unlocked
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
-                          }`}
-                        >
-                          {module5Unlocked ? '🔒 Lock for Students' : '🔓 Unlock for All Students'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            }
-
-            // Render Locked Module as Disabled / Non-Clickable Card
-            return (
-              <div
-                key={mod.id}
-                className="glass-card border border-[var(--border-line)]/60 bg-[var(--bg-panel)]/40 rounded-2xl p-6 flex flex-col justify-between opacity-75 select-none relative overflow-hidden"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)]">
-                      MODULE {mod.order}
-                    </span>
-
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-md font-mono">
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>{mod.isModule5 ? 'FACULTY LOCKED' : 'LOCKED'}</span>
-                    </span>
-                  </div>
-
-                  <h2 className="text-xl font-bold text-[var(--text-muted)] flex items-center gap-2">
-                    <span>{mod.title}</span>
-                  </h2>
-                  <p className="text-xs text-[var(--text-muted)]/70 mt-1.5 line-clamp-2 leading-relaxed">
-                    {mod.description}
-                  </p>
-
-                  {/* Lock Requirement Box */}
-                  <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-mono flex items-start gap-2.5">
-                    <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <span className="leading-relaxed">
-                      {mod.requirementText || 'Complete previous module to unlock.'}
-                    </span>
-                  </div>
-
-                  {/* Direct Link to Practice Questions for modules 1-4, or Faculty Notice for module 5 */}
-                  <div className="mt-3">
-                    {mod.order <= 4 ? (
-                      <Link
-                        to={`/practice?module=${mod.order}`}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-600/20 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <BookOpen className="w-3.5 h-3.5" />
-                        <span>Practice Module {mod.order} Questions ({mod.title}) →</span>
-                      </Link>
-                    ) : (
-                      <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold bg-amber-500/10 border border-amber-500/25 text-amber-300">
-                        <Lock className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Supervised Evaluation • Faculty Controlled</span>
-                      </div>
-                    )}
-                  </div>
+            {/* Faculty / Admin Toggle on Module 5 */}
+            {activeModule.isModule5 && isPrivileged && (
+              <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-mono text-purple-600 dark:text-purple-400">
+                  <Eye className="w-4 h-4" />
+                  <span className="font-bold">Faculty Supervised Capstone Control:</span>
                 </div>
-
-                {/* Footer Locked Status */}
-                <div className="mt-6 pt-4 border-t border-[var(--border-line)]/40 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
-                    <span>Progress</span>
-                    <span>Locked (0 / {mod.totalQuestions} solved)</span>
-                  </div>
-
-                  <div className="w-full h-2 rounded-full bg-[var(--bg-surface)]/60 overflow-hidden">
-                    <div className="h-full bg-slate-600/40 w-0" />
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-[var(--text-muted)]">
-                    <div className="flex items-center gap-2 opacity-60">
-                      <span>{mod.distribution?.EASY ?? 0} Easy</span>
-                      <span>•</span>
-                      <span>{mod.distribution?.MEDIUM ?? 0} Med</span>
-                      <span>•</span>
-                      <span>{mod.distribution?.HARD ?? 0} Hard</span>
-                    </div>
-
-                    <span className="px-3 py-1 rounded-lg bg-[var(--bg-surface)] text-[var(--text-muted)] font-mono text-xs border border-[var(--border-line)] flex items-center gap-1.5 cursor-not-allowed">
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      <span>{mod.isModule5 ? 'Faculty Locked' : 'Locked'}</span>
-                    </span>
-                  </div>
-
-                  {/* Faculty Unlock Control if Admin or Faculty */}
-                  {mod.isModule5 && isPrivileged && (
-                    <div className="pt-3 border-t border-[var(--border-line)]/60 flex items-center justify-between">
-                      <span className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Faculty Control:</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleToggleModule5}
-                        className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
-                          module5Unlocked
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
-                        }`}
-                      >
-                        {module5Unlocked ? '🔒 Lock for Students' : '🔓 Unlock for All Students'}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleModule5}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                    module5Unlocked
+                      ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                  }`}
+                >
+                  {module5Unlocked ? '🔒 Lock for Students' : '🔓 Unlock for All Students'}
+                </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        ) : (
+          /* ========================================================= */
+          /* Locked State: Apple Sleek Frosted Card (No Ugly Alerts)  */
+          /* ========================================================= */
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-6 shadow-xl shadow-slate-900/5">
+              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto shadow-inner">
+                <Lock className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Prerequisite Locked
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  Module 0{activeModule.order}: {activeModule.title}
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {activeModule.requirementText ||
+                    'Complete the required practice and lab coursework to unlock this module.'}
+                </p>
+              </div>
+
+              {/* 1-Click Action to Jump to Required Practice */}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                {activeModule.order <= 4 ? (
+                  <Link
+                    to={`/practice?module=${activeModule.order}`}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Go to Practice Module {activeModule.order} (25 Topics) →</span>
+                  </Link>
+                ) : isPrivileged ? (
+                  <button
+                    type="button"
+                    onClick={handleToggleModule5}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all shadow-lg shadow-purple-600/25 active:scale-95 cursor-pointer"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    <span>Unlock Capstone Arena for All Students</span>
+                  </button>
+                ) : (
+                  <div className="px-5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-mono font-semibold">
+                    Supervised Evaluation • Awaiting Instructor Unlock
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Muted Preview of Questions in Locked Module */}
+            <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                <span className="font-bold uppercase tracking-wider">
+                  Upcoming Module Topics Preview ({activeProblems.length} Problems)
+                </span>
+                <span>Unlocks automatically upon completion</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 opacity-60 pointer-events-none">
+                {activeProblems.slice(0, 6).map((prob) => (
+                  <div
+                    key={prob.slug}
+                    className="p-3 rounded-xl border border-slate-200/50 dark:border-slate-800/50 bg-white/40 dark:bg-slate-800/40 flex items-center justify-between text-xs"
+                  >
+                    <span className="truncate font-medium text-slate-500 dark:text-slate-400">
+                      #{prob.index}. {prob.title}
+                    </span>
+                    <Lock className="w-3 h-3 text-slate-400 shrink-0 ml-2" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
