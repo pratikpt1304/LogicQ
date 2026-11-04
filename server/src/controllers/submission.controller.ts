@@ -72,29 +72,31 @@ export async function runCode(req: AuthRequest, res: Response): Promise<void> {
         where: { OR: [{ id: problemId }, { slug: problemId }] },
         select: { id: true, status: true, scheduledDate: true, isPractice: true, moduleSlug: true },
       });
-      if (!problem || problem.status !== 'PUBLISHED') {
-        res.status(403).json({
-          success: false,
-          code: 'CHALLENGE_NOT_AVAILABLE',
-          message: 'Challenge not available.',
-        });
-        return;
-      }
-      if (!problem.isPractice && (await isDailyChallengePaused())) {
-        res.status(403).json({
-          success: false,
-          code: 'CHALLENGE_NOT_AVAILABLE',
-          message: 'Challenge not available.',
-        });
-        return;
-      }
-      if (!problem.isPractice && problem.scheduledDate !== activeDay) {
-        res.status(403).json({
-          success: false,
-          code: 'CHALLENGE_NOT_AVAILABLE',
-          message: 'Challenge not available: this challenge has ended or is not active.',
-        });
-        return;
+      if (problem) {
+        if (problem.status !== 'PUBLISHED') {
+          res.status(403).json({
+            success: false,
+            code: 'CHALLENGE_NOT_AVAILABLE',
+            message: 'Challenge not available.',
+          });
+          return;
+        }
+        if (!problem.isPractice && (await isDailyChallengePaused())) {
+          res.status(403).json({
+            success: false,
+            code: 'CHALLENGE_NOT_AVAILABLE',
+            message: 'Challenge not available.',
+          });
+          return;
+        }
+        if (!problem.isPractice && problem.scheduledDate !== activeDay) {
+          res.status(403).json({
+            success: false,
+            code: 'CHALLENGE_NOT_AVAILABLE',
+            message: 'Challenge not available: this challenge has ended or is not active.',
+          });
+          return;
+        }
       }
     }
 

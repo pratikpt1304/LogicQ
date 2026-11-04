@@ -865,20 +865,20 @@ export const TopicPracticeHubPage: React.FC = () => {
         api.post('/submissions/run', {
           code,
           stdin: activeTopic.problem.openTestCase.input,
-          problemId: activeTopic.id,
+          timeLimitMs: 2000,
         }).catch((err) => ({
           error: err?.message || 'Execution failed',
-          compileError: err?.message,
+          compileOutput: err?.message || 'Execution failed',
           stdout: '',
           verdict: 'COMPILATION_ERROR',
         })),
         api.post('/submissions/run', {
           code,
           stdin: activeTopic.problem.hiddenTestCase.input,
-          problemId: activeTopic.id,
+          timeLimitMs: 2000,
         }).catch((err) => ({
           error: err?.message || 'Execution failed',
-          compileError: err?.message,
+          compileOutput: err?.message || 'Execution failed',
           stdout: '',
           verdict: 'COMPILATION_ERROR',
         })),
