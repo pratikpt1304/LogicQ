@@ -485,16 +485,17 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
 
       // Ensure all cohort students are registered with password = prn
       C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
+        const validEmail = (st.email && !st.email.endsWith('@sanjivani.edu.in')) ? st.email : '';
         const existing = sanitized.find(
           (u) =>
             (u.prn && u.prn.toUpperCase() === st.prn.toUpperCase()) ||
-            (u.email && u.email.toLowerCase() === st.email.toLowerCase())
+            (validEmail && u.email && u.email.toLowerCase() === validEmail.toLowerCase())
         );
         if (!existing) {
           sanitized.push({
             id: `cohort-${st.prn.toLowerCase()}`,
             username: st.prn.toLowerCase(),
-            email: st.email,
+            email: validEmail,
             prn: st.prn,
             fullName: st.fullName,
             displayName: st.fullName,
@@ -626,10 +627,11 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
   ];
 
   C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
+    const validEmail = (st.email && !st.email.endsWith('@sanjivani.edu.in')) ? st.email : '';
     seeded.push({
       id: `cohort-${st.prn.toLowerCase()}`,
       username: st.prn.toLowerCase(),
-      email: st.email,
+      email: validEmail,
       prn: st.prn,
       fullName: st.fullName,
       displayName: st.fullName,

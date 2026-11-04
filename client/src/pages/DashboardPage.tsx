@@ -222,6 +222,16 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 6000,
   });
 
+  // 1a. Real-time Directory Users from Firestore (Live 5s auto-refresh)
+  const { data: realDirectoryUsers = [] } = useQuery({
+    queryKey: ['dashboard-real-directory-users'],
+    enabled: Boolean(user && !isStudent),
+    queryFn: async () => {
+      return await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
+    },
+    refetchInterval: 5000,
+  });
+
   // 1b. Fetch Student Sections from Firestore (so student always sees their real enrolled section name)
   const { data: studentFirestoreSections = [] } = useQuery({
     queryKey: ['student-firestore-sections', user?.id, (user as any)?.sectionId, (user as any)?.joinCode],
@@ -745,27 +755,37 @@ export const DashboardPage: React.FC = () => {
     ? rawSecName
     : (matchedStudentSection?.subject || detectedSection?.subject || 'C Programming');
 
-  // Unified Roster: Merging Live Sections with Official Cohort Roster for Zero-Click Search
+  // Unified Roster: Merging Live Sections & Firestore Users with Official Cohort Roster for Zero-Click Search
   const allStudentsList = React.useMemo(() => {
     const map = new Map<string, any>();
 
-    // 1. First add from loaded sections
+    // 1. Map registered Firestore users first (authentic source of truth)
+    const directoryMapByPrn = new Map<string, any>();
+    (realDirectoryUsers || []).forEach((u: any) => {
+      const prn = (u.prn || '').toUpperCase().trim();
+      if (prn) directoryMapByPrn.set(prn, u);
+    });
+
+    // 2. Add from loaded sections
     sectionsList.forEach((sec: any) => {
       const sName = sec?.sectionName || sec?.subject || 'C Programming';
       const sCode = sec?.joinCode || 'LQ-C31A';
       const studs = Array.isArray(sec?.students) ? sec.students : [];
       studs.forEach((st: any) => {
-        const prn = st.prn || st.student?.prn || '';
-        const email = st.email || st.student?.email || '';
-        const name = st.fullName || st.name || st.student?.fullName || st.student?.displayName || 'Student';
-        const key = prn ? prn.toUpperCase().trim() : (email ? email.toLowerCase().trim() : st.id);
+        const prn = (st.prn || st.student?.prn || '').toUpperCase().trim();
+        const dirUser = prn ? directoryMapByPrn.get(prn) : null;
+        const candidateEmail = dirUser?.email || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : '') || (st.student?.email && !st.student.email.endsWith('@sanjivani.edu.in') ? st.student.email : '');
+        const email = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
+        const name = dirUser?.fullName || dirUser?.displayName || st.fullName || st.name || st.student?.fullName || st.student?.displayName || 'Student';
+        const key = prn || (email ? email.toLowerCase().trim() : st.id);
         if (key && !map.has(key)) {
           map.set(key, {
             ...st,
-            id: st.id || st.student?.id || key,
-            prn: prn ? prn.toUpperCase().trim() : 'N/A',
+            id: st.id || st.student?.id || dirUser?.id || key,
+            prn: prn || 'N/A',
             name,
             email,
+            isRegistered: Boolean(dirUser || email),
             sectionName: sName,
             sectionJoinCode: sCode,
             status: st.status || 'ENROLLED',
@@ -775,16 +795,22 @@ export const DashboardPage: React.FC = () => {
       });
     });
 
-    // 2. Fallback / merge with official cohort students so all 116 are instantly searchable
+    // 3. Fallback / merge with official cohort students so all 116 are instantly searchable
     C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
       const key = st.prn.toUpperCase().trim();
+      const dirUser = directoryMapByPrn.get(key);
       const boundEmail = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
+      const candidateEmail = dirUser?.email || boundEmail || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : '');
+      const validEmail = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
+      const validName = dirUser?.fullName || dirUser?.displayName || st.fullName;
+
       if (!map.has(key)) {
         map.set(key, {
-          id: `cohort-${st.prn}`,
+          id: dirUser?.id || `cohort-${st.prn}`,
           prn: st.prn,
-          name: st.fullName,
-          email: boundEmail || st.email,
+          name: validName,
+          email: validEmail,
+          isRegistered: Boolean(dirUser || (boundEmail && !boundEmail.endsWith('@sanjivani.edu.in')) || validEmail),
           sectionName: st.sectionName || 'C Programming',
           sectionJoinCode: st.joinCode || 'LQ-C31A',
           status: 'ENROLLED',
@@ -792,8 +818,8 @@ export const DashboardPage: React.FC = () => {
         });
       } else {
         const existing = map.get(key);
-        if (boundEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
-          map.set(key, { ...existing, email: boundEmail });
+        if (validEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
+          map.set(key, { ...existing, email: validEmail, name: validName, isRegistered: true });
         }
       }
     });
@@ -809,7 +835,7 @@ export const DashboardPage: React.FC = () => {
       if (numA !== numB) return numA - numB;
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
-  }, [sectionsList]);
+  }, [sectionsList, realDirectoryUsers]);
 
   // Filtered Students for Zero-Click Search
   const filteredStudentsList = React.useMemo(() => {
@@ -1709,9 +1735,17 @@ export const DashboardPage: React.FC = () => {
                               <div className="font-bold text-slate-900 dark:text-white font-sans text-xs">
                                 {st.name}
                               </div>
-                              <div className="text-[11px] text-slate-400 font-mono truncate max-w-xs">
-                                {st.email}
-                              </div>
+                              {st.email && !st.email.endsWith('@sanjivani.edu.in') ? (
+                                <div className="text-[11px] text-slate-400 font-mono truncate max-w-xs">
+                                  {st.email}
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-amber-500 font-mono font-medium flex items-center gap-1 mt-0.5">
+                                  <span>Awaiting Registration</span>
+                                  <span className="opacity-40">•</span>
+                                  <span className="text-slate-400">Login with PRN</span>
+                                </div>
+                              )}
                             </td>
                             <td className="py-3 px-3 font-bold text-indigo-600 dark:text-indigo-400 font-mono">
                               <button
@@ -2913,18 +2947,28 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Verified Email & Status */}
+                {/* Account & Profile Details */}
                 <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111622]/50 space-y-1.5 font-mono">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Verified Account Details</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Account &amp; Binding Details</div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                    <span className="text-[11px] text-slate-400">Official College Email:</span>
-                    <span className="font-semibold truncate max-w-[250px]">{selectedDashboardStudent.email}</span>
+                    <span className="text-[11px] text-slate-400">Registered Email:</span>
+                    {selectedDashboardStudent.email && !selectedDashboardStudent.email.endsWith('@sanjivani.edu.in') ? (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 truncate max-w-[250px]">{selectedDashboardStudent.email}</span>
+                    ) : (
+                      <span className="text-amber-500 text-[11px] font-semibold">Not Bound Yet (Login via PRN)</span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                    <span className="text-[11px] text-slate-400">Account Security:</span>
-                    <span className="text-emerald-500 font-semibold inline-flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> 100% Verified Student Profile
-                    </span>
+                    <span className="text-[11px] text-slate-400">Account Status:</span>
+                    {selectedDashboardStudent.isRegistered || (selectedDashboardStudent.email && !selectedDashboardStudent.email.endsWith('@sanjivani.edu.in')) ? (
+                      <span className="text-emerald-500 font-semibold inline-flex items-center gap-1 text-[11px]">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Verified Student Profile
+                      </span>
+                    ) : (
+                      <span className="text-amber-500 font-semibold inline-flex items-center gap-1 text-[11px]">
+                        <Clock className="w-3.5 h-3.5" /> Awaiting Student First Login
+                      </span>
+                    )}
                   </div>
                 </div>
 

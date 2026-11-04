@@ -376,7 +376,7 @@ export class FirestoreDataService {
           const updateData: Record<string, any> = {
             updatedAt: serverTimestamp(),
           };
-          if (cleanEmail) {
+          if (cleanEmail && !cleanEmail.endsWith('@sanjivani.edu.in')) {
             updateData.email = cleanEmail;
           }
           if (effectiveName) {
@@ -397,6 +397,35 @@ export class FirestoreDataService {
             updateData.division = params.division;
           }
           await setDoc(d.ref, updateData, { merge: true }).catch(() => {});
+        }
+      }
+
+      // Ensure a canonical enrolled_students document exists for this PRN
+      if (effectivePrn) {
+        try {
+          const canonicalRef = doc(db, 'enrolled_students', effectivePrn);
+          const canonicalPayload: Record<string, any> = {
+            prn: effectivePrn,
+            updatedAt: serverTimestamp(),
+          };
+          if (cleanEmail && !cleanEmail.endsWith('@sanjivani.edu.in')) {
+            canonicalPayload.email = cleanEmail;
+          }
+          if (effectiveName) {
+            canonicalPayload.name = effectiveName;
+            canonicalPayload.fullName = effectiveName;
+            canonicalPayload.displayName = effectiveName;
+          }
+          if (params.department) canonicalPayload.department = params.department;
+          if (params.year) canonicalPayload.year = params.year;
+          if (params.division !== undefined) canonicalPayload.division = params.division;
+          canonicalPayload.sectionId = 'LQ-C31A';
+          canonicalPayload.college = 'Sanjivani University';
+          canonicalPayload.status = 'ACTIVE';
+
+          await setDoc(canonicalRef, canonicalPayload, { merge: true });
+        } catch (e) {
+          console.warn('syncStudentProfileUpdate canonical enrolled_students notice:', e);
         }
       }
     } catch (err) {
@@ -1444,15 +1473,16 @@ export class FirestoreDataService {
       }
     }
 
-    // Merge authoritative C Programming Cohort (all 115 registered students)
+    // Merge authoritative C Programming Cohort (all 116 registered students)
     C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
       const pKey = cs.prn.toUpperCase();
-      const eKey = cs.email.toLowerCase();
-      if (!seenPrns.has(pKey) && !seenEmails.has(eKey)) {
+      const validEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email : '';
+      const eKey = validEmail.toLowerCase();
+      if (!seenPrns.has(pKey) && (!eKey || !seenEmails.has(eKey))) {
         list.push({
           id: cs.prn,
           uid: cs.prn,
-          email: cs.email,
+          email: validEmail,
           fullName: cs.fullName,
           displayName: cs.fullName,
           role: 'STUDENT',
@@ -1472,7 +1502,7 @@ export class FirestoreDataService {
           updatedAt: '2026-11-01T00:00:00.000Z',
         } as any);
         seenPrns.add(pKey);
-        seenEmails.add(eKey);
+        if (eKey) seenEmails.add(eKey);
       }
     });
 
@@ -2484,11 +2514,14 @@ export class FirestoreDataService {
 
       C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
         const prnUpper = cs.prn.toUpperCase();
+        const validCohortEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email : '';
         const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
         if (existing) {
-          existing.email = cs.email;
-          if (existing.student) existing.student.email = cs.email;
-          if (cs.fullName) {
+          if (validCohortEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
+            existing.email = validCohortEmail;
+            if (existing.student) existing.student.email = validCohortEmail;
+          }
+          if (cs.fullName && (!existing.name || existing.name === 'Student')) {
             existing.name = cs.fullName;
             existing.fullName = cs.fullName;
             if (existing.student) {
@@ -2501,6 +2534,7 @@ export class FirestoreDataService {
             id: cs.prn,
             uid: cs.prn,
             ...cs,
+            email: validCohortEmail,
             name: cs.fullName,
             sectionId: cProgSec.id || 'LQ-C31A',
             enrolledAt: 1730000000000,
@@ -2769,7 +2803,8 @@ export class FirestoreDataService {
           // Check if student has actual registered profile in users collection
           const realUser = registeredUsersByPrn.get(key) || (cs.email && registeredUsersByEmail.get(cs.email.toLowerCase().trim()));
           const boundLocal = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
-          const actualEmail = realUser?.email || boundLocal || cs.email;
+          const candidateEmail = realUser?.email || boundLocal || (cs.email && !cs.email.endsWith('@sanjivani.edu.in') ? cs.email : '');
+          const actualEmail = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
           const actualName = realUser?.displayName || realUser?.fullName || realUser?.name || cs.fullName;
 
           list.push({
@@ -2779,7 +2814,7 @@ export class FirestoreDataService {
             fullName: actualName,
             displayName: actualName,
             email: actualEmail,
-            isRegistered: Boolean(realUser || boundLocal),
+            isRegistered: Boolean(realUser || (actualEmail && !actualEmail.endsWith('@sanjivani.edu.in'))),
             prn: cs.prn,
             department: realUser?.department || cs.department,
             year: realUser?.year || cs.year,

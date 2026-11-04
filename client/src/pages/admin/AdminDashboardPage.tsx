@@ -1550,9 +1550,9 @@ export const AdminDashboardPage: React.FC = () => {
     const cohortEnrolledStudents: any[] = [];
     C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
       const pKey = cs.prn.toUpperCase().trim();
-      const eKey = cs.email.toLowerCase().trim();
-      if (!existingEmails.has(eKey) && !existingPrns.has(pKey)) {
-        existingEmails.add(eKey);
+      const validEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email.toLowerCase().trim() : '';
+      if (!existingPrns.has(pKey) && (!validEmail || !existingEmails.has(validEmail))) {
+        if (validEmail) existingEmails.add(validEmail);
         existingPrns.add(pKey);
         const shortId = cs.prn.slice(-4);
         cohortEnrolledStudents.push({
@@ -1560,9 +1560,9 @@ export const AdminDashboardPage: React.FC = () => {
           uid: `cohort-${cs.prn.toLowerCase()}`,
           fullName: cs.fullName,
           displayName: cs.fullName,
-          username: cs.email.split('@')[0],
-          cleanUsername: cs.email.split('@')[0],
-          email: cs.email,
+          username: validEmail ? validEmail.split('@')[0] : `stu_${shortId}`,
+          cleanUsername: validEmail ? validEmail.split('@')[0] : `stu_${shortId}`,
+          email: validEmail,
           prn: cs.prn,
           maskedPrn: `••••••••${shortId}`,
           role: 'STUDENT',

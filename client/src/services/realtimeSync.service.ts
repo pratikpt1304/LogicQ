@@ -224,52 +224,84 @@ class RealtimeSyncManager {
     if (this.isListeningFirestore) return;
     this.isListeningFirestore = true;
 
-    // Attach listeners dynamically when an authenticated session is active
+    // 1. Sections sync (publicly readable collection in firestore.rules)
+    if (!this.unsubscribeFirestoreSections) {
+      try {
+        this.unsubscribeFirestoreSections = onSnapshot(
+          collection(db, 'sections'),
+          () => {
+            this.handleIncomingSync('SECTIONS');
+            this.handleIncomingSync('DASHBOARD');
+          },
+          (err) => {
+            if (err?.code === 'permission-denied') {
+              this.unsubscribeFirestoreSections?.();
+              this.unsubscribeFirestoreSections = null;
+            }
+          }
+        );
+      } catch {
+        // safe fallback
+      }
+    }
+
+    // 2. Enrolled Students sync (publicly readable collection in firestore.rules)
+    if (!this.unsubscribeFirestoreEnrolled) {
+      try {
+        this.unsubscribeFirestoreEnrolled = onSnapshot(
+          collection(db, 'enrolled_students'),
+          () => {
+            this.handleIncomingSync('USERS');
+            this.handleIncomingSync('SECTIONS');
+            this.handleIncomingSync('DASHBOARD');
+          },
+          (err) => {
+            if (err?.code === 'permission-denied') {
+              this.unsubscribeFirestoreEnrolled?.();
+              this.unsubscribeFirestoreEnrolled = null;
+            }
+          }
+        );
+      } catch {
+        // safe fallback
+      }
+    }
+
+    // 3. Admin / Authenticated User Listeners
     this.unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (!user) {
-        this.teardownAllFirestoreListeners();
+        if (this.unsubscribeFirestoreUsers) {
+          this.unsubscribeFirestoreUsers();
+          this.unsubscribeFirestoreUsers = null;
+        }
         return;
       }
 
-      // 1. Sections sync (public institutional sections)
-      if (!this.unsubscribeFirestoreSections) {
-        try {
-          this.unsubscribeFirestoreSections = onSnapshot(
-            collection(db, 'sections'),
-            () => {
-              this.handleIncomingSync('SECTIONS');
-            },
-            (err) => {
-              if (err?.code === 'permission-denied') {
-                this.unsubscribeFirestoreSections?.();
-                this.unsubscribeFirestoreSections = null;
-              }
-            }
-          );
-        } catch {
-          // safe fallback
-        }
-      }
+      // Attach admin users collection listener if authorized
+      const currentEmail = (user.email || '').toLowerCase().trim();
+      const isAdmin = [
+        'admin@logicq.io',
+        'hariprasathset@sanjivani.edu.in',
+        'logicq1304@gmail.com',
+        'ipworker1908@gmail.com',
+        'ipverse1918@gmail.com',
+        'logicqarena@gmail.com',
+      ].includes(currentEmail);
 
-      // 2. Enrolled Students sync
-      if (!this.unsubscribeFirestoreEnrolled) {
+      if (isAdmin && !this.unsubscribeFirestoreUsers) {
         try {
-          this.unsubscribeFirestoreEnrolled = onSnapshot(
-            collection(db, 'enrolled_students'),
+          this.unsubscribeFirestoreUsers = onSnapshot(
+            collection(db, 'users'),
             () => {
               this.handleIncomingSync('USERS');
-              this.handleIncomingSync('SECTIONS');
+              this.handleIncomingSync('DASHBOARD');
             },
-            (err) => {
-              if (err?.code === 'permission-denied') {
-                this.unsubscribeFirestoreEnrolled?.();
-                this.unsubscribeFirestoreEnrolled = null;
-              }
+            () => {
+              this.unsubscribeFirestoreUsers?.();
+              this.unsubscribeFirestoreUsers = null;
             }
           );
-        } catch {
-          // safe fallback
-        }
+        } catch {}
       }
     });
   }

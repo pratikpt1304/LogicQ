@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 
 interface BindEmailModalProps {
   isOpen: boolean;
@@ -227,6 +228,26 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
             emailVerified: true,
           }).catch(() => {});
         }
+
+        const effectivePrn = (user.prn || '').toUpperCase().trim();
+        const effectiveName = user.displayName || user.fullName || '';
+        if (effectivePrn || user.id) {
+          FirestoreDataService.syncStudentProfileUpdate({
+            userId: user.id,
+            newPrn: effectivePrn || undefined,
+            email: cleanEmail,
+            displayName: effectiveName,
+            fullName: effectiveName,
+            department: user.department,
+            year: user.year,
+            division: user.division,
+          }).catch((err) => console.warn('BindEmailModal syncStudentProfileUpdate notice:', err));
+        }
+
+        // Real-time notify all open dashboards & faculty portals across devices
+        RealtimeSyncService.emit('USERS');
+        RealtimeSyncService.emit('SECTIONS');
+        RealtimeSyncService.emit('DASHBOARD');
 
         toast.success(`🎉 Email ${cleanEmail} successfully bound to PRN ${user.prn || ''}!`);
 

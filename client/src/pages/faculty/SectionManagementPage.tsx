@@ -209,10 +209,13 @@ export const SectionManagementPage: React.FC = () => {
             if (prn) {
               const cohort = findCohortStudent(prn);
               const boundStorage = localStorage.getItem(`logicq_bound_email_${prn}`);
-              const target = boundStorage || cohort?.email;
+              const target = (boundStorage && !boundStorage.endsWith('@sanjivani.edu.in') ? boundStorage : null) || (cohort?.email && !cohort.email.endsWith('@sanjivani.edu.in') ? cohort.email : null);
               if (target) {
                 st.email = target;
                 if (st.student) st.student.email = target;
+              } else if (st.email && st.email.endsWith('@sanjivani.edu.in')) {
+                st.email = '';
+                if (st.student) st.student.email = '';
               }
             }
           });
@@ -1158,8 +1161,9 @@ export const SectionManagementPage: React.FC = () => {
             ? localStorage.getItem(`logicq_bound_email_${prnClean}`)
             : null;
           // Prioritize actual email: boundStorage -> st.email (if not generic) -> st.student?.email -> cohort?.email
-          const actualEmail = boundEmail || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : null) || st.student?.email || st.email || cohort?.email || '—';
-          const isClaimed = Boolean(boundEmail || st.isRegistered || (actualEmail && !actualEmail.includes('@sanjivani.edu.in') && actualEmail !== '—'));
+          const rawActual = boundEmail || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : null) || (st.student?.email && !st.student.email.endsWith('@sanjivani.edu.in') ? st.student.email : null) || (cohort?.email && !cohort.email.endsWith('@sanjivani.edu.in') ? cohort.email : null);
+          const actualEmail = (rawActual && !rawActual.endsWith('@sanjivani.edu.in')) ? rawActual : '';
+          const isClaimed = Boolean(actualEmail && !actualEmail.endsWith('@sanjivani.edu.in'));
           const studentName = st.student?.fullName || st.student?.displayName || st.name || st.fullName || cohort?.fullName || 'Student';
 
           // Match actual submissions for this specific student
@@ -1644,9 +1648,15 @@ export const SectionManagementPage: React.FC = () => {
                                               </span>
                                             )}
                                           </div>
-                                          <div className="text-[11px] text-slate-400 font-mono">
-                                            {m.actualEmail}
-                                          </div>
+                                          {m.actualEmail ? (
+                                            <div className="text-[11px] text-slate-400 font-mono">
+                                              {m.actualEmail}
+                                            </div>
+                                          ) : (
+                                            <div className="text-[10px] text-amber-500/90 font-mono">
+                                              Awaiting Student First Login
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </td>
