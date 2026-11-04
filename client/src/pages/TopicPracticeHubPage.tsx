@@ -54,6 +54,7 @@ import { CodeEditor } from '../components/editor/CodeEditor.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
+import { TerminalConsole } from '../components/common/TerminalConsole.js';
 import { useAuth } from '../context/AuthContext.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
@@ -694,7 +695,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     }, 400);
   };
 
-  // Run test case & verify solution (Compile & Run)
+  // Run test case & verify solution (Compile & Run) directly with Use Cases
   const handleRunOpenTest = async () => {
     if (!activeTopic) return;
     setIsRunning(true);
@@ -705,53 +706,42 @@ export const TopicPracticeHubPage: React.FC = () => {
     setActiveMobileTab('results');
 
     try {
-      if (customInput.trim()) {
-        // User provided custom Stdin
-        const res = await api.post('/problems/run', {
-          code,
-          input: customInput,
-        });
-
-        const actualOut = (res.output || res.stdout || '').trim();
-        const compileErr = res.compileError || res.error;
-
-        setRunResult({
-          success: !compileErr,
-          actualOutput: actualOut,
-          expectedOutput: '(Custom Stdin Ran)',
-          compileError: compileErr,
-          executionTimeMs: res.executionTimeMs || 14,
-        });
-
-        if (compileErr) {
-          toast.error('Compilation error in GCC sandbox.');
-        } else {
-          toast.success('Custom input execution finished.');
-        }
-        return;
-      }
-
-      // Standard mode: Run BOTH open and hidden test cases
+      // Standard automated mode: evaluate BOTH open and hidden use cases automatically without manual typing
       const [resOpen, resHidden] = await Promise.all([
-        api.post('/problems/run', {
+        api.post('/submissions/run', {
           code,
-          input: activeTopic.problem.openTestCase.input,
-        }),
-        api.post('/problems/run', {
+          stdin: activeTopic.problem.openTestCase.input,
+          problemId: activeTopic.id,
+        }).catch((err) => ({
+          error: err?.message || 'Execution failed',
+          compileError: err?.message,
+          stdout: '',
+          verdict: 'COMPILATION_ERROR',
+        })),
+        api.post('/submissions/run', {
           code,
-          input: activeTopic.problem.hiddenTestCase.input,
-        }),
+          stdin: activeTopic.problem.hiddenTestCase.input,
+          problemId: activeTopic.id,
+        }).catch((err) => ({
+          error: err?.message || 'Execution failed',
+          compileError: err?.message,
+          stdout: '',
+          verdict: 'COMPILATION_ERROR',
+        })),
       ]);
 
-      const actualOpenOut = (resOpen.output || resOpen.stdout || '').trim();
-      const expectedOpenOut = activeTopic.problem.openTestCase.expectedOutput.trim();
-      const openPassed = actualOpenOut === expectedOpenOut;
+      const openData = (resOpen as any)?.data || resOpen;
+      const hiddenData = (resHidden as any)?.data || resHidden;
 
-      const actualHiddenOut = (resHidden.output || resHidden.stdout || '').trim();
-      const expectedHiddenOut = activeTopic.problem.hiddenTestCase.expectedOutput.trim();
-      const hiddenPassed = actualHiddenOut === expectedHiddenOut;
+      const actualOpenOut = (openData?.stdout || openData?.output || '').trim();
+      const expectedOpenOut = (activeTopic.problem.openTestCase.expectedOutput || '').trim();
+      const openPassed = actualOpenOut === expectedOpenOut && !openData?.compileOutput;
 
-      const compileErr = resOpen.compileError || resHidden.compileError || resOpen.error || resHidden.error;
+      const actualHiddenOut = (hiddenData?.stdout || hiddenData?.output || '').trim();
+      const expectedHiddenOut = (activeTopic.problem.hiddenTestCase.expectedOutput || '').trim();
+      const hiddenPassed = actualHiddenOut === expectedHiddenOut && !hiddenData?.compileOutput;
+
+      const compileErr = openData?.compileOutput || hiddenData?.compileOutput || openData?.stderr || '';
       const allPassed = !compileErr && openPassed && hiddenPassed;
 
       setRunResult({
@@ -759,7 +749,9 @@ export const TopicPracticeHubPage: React.FC = () => {
         actualOutput: actualOpenOut,
         expectedOutput: expectedOpenOut,
         compileError: compileErr,
-        executionTimeMs: resOpen.executionTimeMs || 14,
+        stderr: openData?.stderr || '',
+        exitCode: compileErr ? 1 : openPassed ? 0 : 0,
+        executionTimeMs: openData?.runtimeMs || 14,
       });
 
       setSubmitResult({
@@ -778,7 +770,6 @@ export const TopicPracticeHubPage: React.FC = () => {
         const draft: DraftData = {
           problemSlug: draftKey,
           code,
-          customInput,
           updatedAt: Date.now(),
           deviceLabel: getDeviceLabel(),
         };
@@ -821,7 +812,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
 
         if (nextTopic) {
-          toast.success('🎉 All test cases passed! Advancing to next question...');
+          toast.success('🎉 All use cases passed! Advancing to next question...');
           setTimeout(() => {
             handleOpenTopic(nextTopic);
           }, 1200);
@@ -831,20 +822,26 @@ export const TopicPracticeHubPage: React.FC = () => {
         }
       } else {
         if (compileErr) {
-          toast.error('Compilation error! Review GCC hints below.');
+          toast.error('Compilation error! Review GCC hints in the terminal.');
         } else if (!openPassed) {
-          toast.error('Sample test case failed. Output mismatch.');
+          toast.error('Sample use case failed. Output mismatch.');
         } else if (!hiddenPassed) {
-          toast.error('Sample passed, but hidden test case failed. Check edge cases!');
+          toast.error('Sample passed, but hidden use case failed. Check edge cases!');
         }
       }
     } catch (err: any) {
       setRunResult({
         success: false,
+        actualOutput: '',
+        expectedOutput: activeTopic.problem.openTestCase.expectedOutput,
         compileError: err?.message || 'Execution error in GCC sandbox',
+        stderr: err?.message || '',
+        exitCode: 1,
       });
       setSubmitResult({
         allPassed: false,
+        openPassed: false,
+        hiddenPassed: false,
         compileError: err?.message || 'Submission execution failed.',
       });
       toast.error('Execution error in sandbox.');
@@ -1873,38 +1870,48 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
                     {activeBottomTab === 'cases' && (
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-1">
+                        <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
                           <div className="flex items-center gap-2">
                             <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs">
-                              Case 1
+                              Use Case 1
                             </span>
                             <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                              (Visible Test Case)
+                              (Visible Test Case • Auto-fed Stdin)
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={handleRunOpenTest}
                             disabled={isRunning}
-                            className="px-3 py-1 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] hover:border-cyan-500/50 text-cyan-400 text-xs font-mono font-semibold transition cursor-pointer flex items-center gap-1.5"
+                            className="px-3 py-1.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] hover:border-cyan-500/50 text-cyan-400 text-xs font-mono font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                           >
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>Run Case 1</span>
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Run Use Case 1</span>
                           </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                           <div>
-                            <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-1">
-                              INPUT:
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
+                                USE CASE INPUT (AUTOMATIC STDIN):
+                              </span>
+                              <span className="text-[10px] text-cyan-400 font-mono">
+                                Injected Directly
+                              </span>
                             </div>
                             <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
-                              {activeTopic.problem.openTestCase.input}
+                              {activeTopic.problem.openTestCase.input || '(No input required)'}
                             </pre>
                           </div>
                           <div>
-                            <div className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider mb-1">
-                              EXPECTED OUTPUT:
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">
+                                EXPECTED OUTPUT:
+                              </span>
+                              <span className="text-[10px] text-emerald-500/70 font-mono">
+                                Ground Truth
+                              </span>
                             </div>
                             <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-emerald-400 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">
                               {activeTopic.problem.openTestCase.expectedOutput}
@@ -1922,60 +1929,44 @@ export const TopicPracticeHubPage: React.FC = () => {
                     )}
 
                     {activeBottomTab === 'output' && (
-                      <div className="space-y-3">
-                        {runResult && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="space-y-2.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-xs ${
-                                runResult.success
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                              }`}>
-                                {runResult.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                                <span>{runResult.success ? 'SAMPLE TEST: PASSED' : 'SAMPLE TEST: FAILED'}</span>
-                              </span>
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-main)] border border-[var(--border-line)] text-[var(--text-muted)]">
-                                ⚡ {runResult.executionTimeMs || '< 10'}ms
-                              </span>
-                            </div>
-
-                            {runResult.actualOutput !== undefined && (
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="p-2.5 rounded-xl bg-[#050811] border border-slate-800">
-                                  <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase mb-0.5">Your Output:</div>
-                                  <pre className={`text-xs whitespace-pre-wrap font-mono ${runResult.success ? 'text-emerald-400' : 'text-rose-400 font-bold'}`}>
-                                    {runResult.actualOutput || '(No output)'}
-                                  </pre>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-[#050811] border border-slate-800">
-                                  <div className="text-[10px] text-emerald-400 font-bold uppercase mb-0.5">Expected Output:</div>
-                                  <pre className="text-xs text-emerald-400 whitespace-pre-wrap font-bold font-mono">
-                                    {runResult.expectedOutput}
-                                  </pre>
-                                </div>
-                              </div>
-                            )}
-
-                            {runResult.compileError && (
-                              <div className="space-y-2">
-                                <pre className="text-rose-400 text-xs bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20 whitespace-pre-wrap font-mono">
-                                  {runResult.compileError}
-                                </pre>
-                                <GccFriendlyHintCard compileOutput={runResult.compileError} />
-                              </div>
-                            )}
-                          </motion.div>
-                        )}
+                      <div className="space-y-4 font-mono">
+                        {/* Prominent Real-time GCC Terminal */}
+                        <TerminalConsole
+                          status={
+                            isRunning
+                              ? 'COMPILING'
+                              : runResult?.compileError
+                              ? 'COMPILATION_ERROR'
+                              : submitResult?.allPassed
+                              ? 'ACCEPTED'
+                              : runResult && !runResult.success
+                              ? 'WRONG_ANSWER'
+                              : runResult
+                              ? 'ACCEPTED'
+                              : 'IDLE'
+                          }
+                          compileOutput={runResult?.compileError}
+                          stdout={runResult?.actualOutput}
+                          stderr={runResult?.stderr}
+                          exitCode={runResult?.exitCode}
+                          useCaseInput={activeTopic.problem.openTestCase.input}
+                          expectedOutput={activeTopic.problem.openTestCase.expectedOutput}
+                          useCaseIndex={0}
+                          totalUseCases={2}
+                          runtimeMs={runResult?.executionTimeMs || 14}
+                          isLoading={isRunning}
+                          onRetry={handleRunOpenTest}
+                          onClear={() => {
+                            setRunResult(null);
+                            setSubmitResult(null);
+                          }}
+                        />
 
                         {submitResult && (
                           <motion.div
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="space-y-2.5"
+                            className="space-y-2.5 pt-1"
                           >
                             <div className="flex items-center justify-between">
                               <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1.5 shadow-xs ${
@@ -1984,7 +1975,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                                   : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                               }`}>
                                 {submitResult.allPassed ? <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> : <X className="w-3.5 h-3.5 text-rose-400" />}
-                                <span>{submitResult.allPassed ? 'ALL 2/2 TESTS PASSED — TOPIC MASTERED!' : 'SUBMISSION FAILED'}</span>
+                                <span>{submitResult.allPassed ? 'ALL 2/2 USE CASES PASSED — TOPIC MASTERED!' : 'USE CASE VERIFICATION FAILED'}</span>
                               </span>
                               {submitResult.allPassed && (
                                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -1994,22 +1985,15 @@ export const TopicPracticeHubPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                               <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
-                                <span>Open Test #1</span>
+                                <span>Use Case #1 (Visible)</span>
                                 <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                               </div>
                               <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
-                                <span>Hidden Test #2</span>
+                                <span>Use Case #2 (Hidden)</span>
                                 <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
                               </div>
                             </div>
                           </motion.div>
-                        )}
-
-                        {!runResult && !submitResult && (
-                          <div className="text-[var(--text-muted)] text-xs py-8 text-center space-y-1">
-                            <div>Click <strong>Compile &amp; Run</strong> to test and verify your solution.</div>
-                            <div className="text-[11px] text-[var(--text-muted)]">When all test cases pass, you will automatically advance to the next question!</div>
-                          </div>
                         )}
                       </div>
                     )}

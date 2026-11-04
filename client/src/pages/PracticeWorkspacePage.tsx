@@ -56,6 +56,7 @@ import { JeeSubmitModal } from '../components/practice/JeeSubmitModal.js';
 import { JeeQuestionPaperModal } from '../components/practice/JeeQuestionPaperModal.js';
 import { JeeInstructionsModal } from '../components/practice/JeeInstructionsModal.js';
 import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
+import { TerminalConsole } from '../components/common/TerminalConsole.js';
 import { MemoryVisualizerModal } from '../components/practice/MemoryVisualizerModal.js';
 import { RaiseIssueModal } from '../components/common/RaiseIssueModal.js';
 import { Flag } from 'lucide-react';
@@ -1194,10 +1195,12 @@ export const PracticeWorkspacePage: React.FC = () => {
       if (problem?.id) {
         api.post('/practice/track-run', { problemId: problem.id }).catch(() => {});
       }
+      const currentCase = sampleCases[selectedCaseIndex] || sampleCases[0];
+      const stdinInput = currentCase?.input ?? customInput ?? '';
       return api.post('/submissions/run', {
         problemId: problem?.id || problem?.slug || problemSlug,
         code,
-        stdin: customInput,
+        stdin: stdinInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
       });
     },
@@ -2018,14 +2021,14 @@ export const PracticeWorkspacePage: React.FC = () => {
             {/* Drawer Body */}
             {isDrawerOpen && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs bg-white dark:bg-[#0c1017]">
-                {/* Tab 1: Interactive Test Cases */}
+                {/* Tab 1: Interactive Use Cases (Automated Input) */}
                 {activeBottomTab === 'cases' && (
                   <div className="h-full flex flex-col space-y-3 font-mono">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
                         {sampleCases.length === 0 ? (
                           <span className="text-slate-500 dark:text-slate-400 text-xs">
-                            No sample cases provided.
+                            No use cases provided for this problem.
                           </span>
                         ) : (
                           sampleCases.map((tc: any, idx: number) => (
@@ -2042,7 +2045,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                                   : 'bg-slate-100 dark:bg-[#131b2c] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/70'
                               }`}
                             >
-                              <span>Case {idx + 1}</span>
+                              <span>Use Case {idx + 1}{idx === 0 ? ' (Sample)' : ''}</span>
                             </button>
                           ))
                         )}
@@ -2057,10 +2060,10 @@ export const PracticeWorkspacePage: React.FC = () => {
                             setActiveBottomTab('output');
                             runMutation.mutate();
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/40 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                          className="px-3 py-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/40 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-xs"
                         >
-                          <Play className="w-3 h-3 fill-current" />
-                          <span>Run Case {selectedCaseIndex + 1}</span>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Run Use Case {selectedCaseIndex + 1}</span>
                         </button>
                       )}
                     </div>
@@ -2068,17 +2071,27 @@ export const PracticeWorkspacePage: React.FC = () => {
                     {sampleCases[selectedCaseIndex] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
                         <div className="flex flex-col min-h-0">
-                          <span className="text-cyan-700 dark:text-cyan-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
-                            INPUT:
-                          </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-cyan-700 dark:text-cyan-400 text-[11px] font-bold uppercase tracking-wider">
+                              USE CASE INPUT (AUTOMATIC STDIN):
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Direct Stream • No Typing Required
+                            </span>
+                          </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-slate-900 dark:text-cyan-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs">
-                            {sampleCases[selectedCaseIndex].input}
+                            {sampleCases[selectedCaseIndex].input || '(No input required for this case)'}
                           </pre>
                         </div>
                         <div className="flex flex-col min-h-0">
-                          <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
-                            EXPECTED OUTPUT:
-                          </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
+                              EXPECTED OUTPUT:
+                            </span>
+                            <span className="text-[10px] text-emerald-500/80 font-mono">
+                              Ground Truth
+                            </span>
+                          </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs font-bold">
                             {sampleCases[selectedCaseIndex].expectedOutput}
                           </pre>
@@ -2088,12 +2101,12 @@ export const PracticeWorkspacePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab 2: Verdict & Output */}
+                {/* Tab 2: Integrated Interactive GCC Terminal & Verdict Output */}
                 {activeBottomTab === 'output' && (
-                  <div className="space-y-3">
+                  <div className="space-y-4 font-mono">
                     {/* Execution Error Card with Non-destructive Retry Button */}
                     {executionError && (
-                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2 font-mono">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
                             {executionError.code === 'OFFLINE' ? (
@@ -2118,7 +2131,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setExecutionError(null)}
-                            className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs"
+                            className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs cursor-pointer"
                           >
                             Dismiss
                           </button>
@@ -2139,7 +2152,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                                 }
                               }}
                               disabled={runMutation.isPending || submitMutation.isPending}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs transition-opacity"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs transition-opacity cursor-pointer"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                               <span>
@@ -2154,262 +2167,182 @@ export const PracticeWorkspacePage: React.FC = () => {
                       </div>
                     )}
 
-                    {submitMutation.isPending || runMutation.isPending ? (
-                      <div className="flex items-center gap-2 text-cyan-400 py-6 justify-center">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        <span>Compiling and executing C11 code on isolated judge...</span>
-                      </div>
-                    ) : submissionResult ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[var(--text-muted)]">
-                            Submission Verdict:
+                    {/* Prominent Real-time GCC Terminal */}
+                    <TerminalConsole
+                      status={
+                        runMutation.isPending || submitMutation.isPending
+                          ? 'COMPILING'
+                          : submissionResult?.verdict || runResult?.verdict || (executionError ? 'ERROR' : 'IDLE')
+                      }
+                      compileOutput={runResult?.compileOutput || submissionResult?.compileOutput}
+                      stdout={runResult?.stdout}
+                      stderr={runResult?.stderr}
+                      exitCode={
+                        runResult?.exitCode ??
+                        (submissionResult?.verdict === 'COMPILE_ERROR'
+                          ? 1
+                          : submissionResult?.verdict === 'ACCEPTED'
+                          ? 0
+                          : null)
+                      }
+                      runtimeMs={runResult?.runtimeMs || submissionResult?.runtimeMs}
+                      useCaseInput={sampleCases[selectedCaseIndex]?.input}
+                      expectedOutput={sampleCases[selectedCaseIndex]?.expectedOutput}
+                      useCaseIndex={selectedCaseIndex}
+                      totalUseCases={sampleCases.length}
+                      testCases={submissionResult?.testCaseResults}
+                      isLoading={runMutation.isPending || submitMutation.isPending}
+                      onRetry={() => {
+                        if (submissionResult) submitMutation.mutate();
+                        else runMutation.mutate();
+                      }}
+                      onClear={() => {
+                        setRunResult(null);
+                        setSubmissionResult(null);
+                        setExecutionError(null);
+                      }}
+                    />
+
+                    {/* Detailed Test Case Results Breakdown for Submitted Solutions */}
+                    {submissionResult?.testCaseResults && submissionResult.testCaseResults.length > 0 && (() => {
+                      const testCases = submissionResult.testCaseResults;
+                      const sampleCount = problem?.testCases?.length || Math.min(2, testCases.length);
+                      const sampleResults = testCases.slice(0, sampleCount);
+                      const hiddenResults = testCases.slice(sampleCount);
+                      const hiddenTotal = hiddenResults.length;
+                      const hiddenPassed = hiddenResults.filter((tc: any) => tc.passed ?? (tc.verdict === 'ACCEPTED')).length;
+                      const isAllHiddenPassed = hiddenTotal > 0 && hiddenPassed === hiddenTotal;
+
+                      return (
+                        <div className="space-y-2 pt-1 font-mono">
+                          <span className="text-[10px] uppercase text-[var(--text-muted)] block font-semibold tracking-wider font-sans">
+                            Official Use Case Results:
                           </span>
-                          <VerdictBadge verdict={submissionResult.verdict} />
-                        </div>
-                        {submissionResult.runtimeMs > 0 && (
-                          <div className="text-[11px] text-[var(--text-muted)]">
-                            Execution time: {submissionResult.runtimeMs}ms
-                          </div>
-                        )}
-                        {submissionResult.compileOutput && (
-                          <div className="space-y-1">
-                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold">
-                              Compiler Diagnostics & Line Guidance:
-                            </span>
-                            <pre className="p-3 rounded-xl bg-rose-500/10 text-rose-200 border border-rose-500/30 whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
-                              {submissionResult.compileOutput}
-                            </pre>
-                          </div>
-                        )}
-                        {submissionResult.testCaseResults && submissionResult.testCaseResults.length > 0 && (() => {
-                          const testCases = submissionResult.testCaseResults;
-                          const sampleCount = problem?.testCases?.length || Math.min(2, testCases.length);
-                          const sampleResults = testCases.slice(0, sampleCount);
-                          const hiddenResults = testCases.slice(sampleCount);
-                          const hiddenTotal = hiddenResults.length;
-                          const hiddenPassed = hiddenResults.filter((tc: any) => tc.passed ?? (tc.verdict === 'ACCEPTED')).length;
-                          const isAllHiddenPassed = hiddenTotal > 0 && hiddenPassed === hiddenTotal;
 
-                          return (
-                            <div className="space-y-2 pt-1 font-mono">
-                              <span className="text-[10px] uppercase text-[var(--text-muted)] block font-semibold tracking-wider font-sans">
-                                Test Case Results:
-                              </span>
+                          {/* Sample Use Cases */}
+                          <div className="space-y-1.5">
+                            {sampleResults.map((tc: any, idx: number) => {
+                              const isPassed = tc.passed ?? (tc.verdict === 'ACCEPTED');
+                              const runtimeSec = tc.runtimeMs != null
+                                ? (tc.runtimeMs / 1000).toFixed(2)
+                                : '0.01';
 
-                              {/* Sample Test Cases */}
-                              <div className="space-y-1.5">
-                                {sampleResults.map((tc: any, idx: number) => {
-                                  const isPassed = tc.passed ?? (tc.verdict === 'ACCEPTED');
-                                  const runtimeSec = tc.runtimeMs != null
-                                    ? (tc.runtimeMs / 1000).toFixed(2)
-                                    : '0.01';
-
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                                        isPassed
-                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                                          : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-[var(--text-main)]">
-                                          Sample {idx + 1}:
-                                        </span>
-                                        <span className="font-bold">
-                                          {isPassed ? 'PASS ✅' : 'FAIL ❌'}
-                                        </span>
-                                        {!isPassed && tc.verdict && tc.verdict !== 'WRONG_ANSWER' && (
-                                          <span className="text-[11px] opacity-80">
-                                            ({tc.verdict})
-                                          </span>
-                                        )}
-                                      </div>
-                                      <span className="text-[11px] text-[var(--text-muted)]">
-                                        ({runtimeSec}s)
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Hidden Test Cases */}
-                              {hiddenTotal > 0 && (
+                              return (
                                 <div
+                                  key={idx}
                                   className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                                    isAllHiddenPassed
+                                    isPassed
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
                                       : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
                                   }`}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="font-semibold text-[var(--text-main)]">
-                                      Hidden Test Cases:
+                                      Use Case {idx + 1}:
                                     </span>
                                     <span className="font-bold">
-                                      Passed {hiddenPassed}/{hiddenTotal} {isAllHiddenPassed ? '✅' : '❌'}
+                                      {isPassed ? 'PASS ✅' : 'FAIL ❌'}
                                     </span>
-                                    {isAllHiddenPassed && (
-                                      <span className="text-emerald-400 font-bold ml-1">
-                                        (+{problem?.points || 20} PTS)
+                                    {!isPassed && tc.verdict && tc.verdict !== 'WRONG_ANSWER' && (
+                                      <span className="text-[11px] opacity-80">
+                                        ({tc.verdict})
                                       </span>
                                     )}
                                   </div>
                                   <span className="text-[11px] text-[var(--text-muted)]">
-                                    {isAllHiddenPassed
-                                      ? 'All hidden checks passed'
-                                      : `${hiddenTotal - hiddenPassed} hidden check(s) failed`}
+                                    ({runtimeSec}s)
                                   </span>
                                 </div>
-                              )}
-
-                              {/* Diagnostic guidance if any sample failed */}
-                              {sampleResults.some((tc: any) => !(tc.passed ?? (tc.verdict === 'ACCEPTED')) && tc.stderr) && (
-                                <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs mt-2 space-y-1">
-                                  <span className="font-semibold block text-[11px] uppercase tracking-wider text-amber-400 font-sans">
-                                    Diagnostic Guidance:
-                                  </span>
-                                  {sampleResults
-                                    .filter((tc: any) => !(tc.passed ?? (tc.verdict === 'ACCEPTED')) && tc.stderr)
-                                    .map((tc: any, idx: number) => (
-                                      <div key={idx} className="text-[11px] leading-relaxed">
-                                        • Sample #{tc.orderIndex != null ? tc.orderIndex + 1 : idx + 1}: {tc.stderr}
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-
-                        {submissionResult.verdict === 'ACCEPTED' && (
-                          <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                                <Trophy className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <div className="text-xs font-bold text-emerald-400">
-                                  Challenge Solved! All test cases passed.
-                                </div>
-                                <div className="flex items-center gap-2.5 text-[11px] font-mono my-1">
-                                  <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
-                                    Attempt #{(userProgress?.attemptsCount || 0) || 1}
-                                  </span>
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    Time Taken:{' '}
-                                    {(() => {
-                                      const s = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
-                                      if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
-                                      if (s > 0) return `${s}s`;
-                                      return '< 1m';
-                                    })()}
-                                  </span>
-                                </div>
-                                <div className="text-[11px] text-[var(--text-muted)]">
-                                  {nextProblem
-                                    ? `Next challenge: #${nextProblem.moduleOrder} ${nextProblem.title}`
-                                    : 'Outstanding! You have completed all problems in this module.'}
-                                </div>
-                              </div>
-                            </div>
-                            {nextProblem ? (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
-                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0"
-                              >
-                                <span>Next Question</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              </button>
-                            ) : (
-                              <Link
-                                to={`/practice/${moduleSlug}`}
-                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0"
-                              >
-                                <span>Back to Modules</span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              </Link>
-                            )}
+                              );
+                            })}
                           </div>
-                        )}
-                      </div>
-                    ) : runResult ? (
-                      <div className="space-y-2.5 font-mono">
-                        <div className="p-3 rounded-xl border flex items-center justify-between text-xs bg-[var(--bg-main)] border-[var(--border-line)]">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-[var(--text-muted)] font-sans">
-                              Compiler & Execution Status:
-                            </span>
-                            <span
-                              className={`font-bold ${
-                                runResult.verdict === 'ACCEPTED'
-                                  ? 'text-emerald-400'
-                                  : runResult.verdict === 'COMPILATION_ERROR'
-                                  ? 'text-rose-400'
-                                  : 'text-amber-400'
+
+                          {/* Hidden Use Cases */}
+                          {hiddenTotal > 0 && (
+                            <div
+                              className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                                isAllHiddenPassed
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                                  : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
                               }`}
                             >
-                              {runResult.verdict === 'ACCEPTED'
-                                ? 'SUCCESS / PASS ✅'
-                                : runResult.verdict === 'COMPILATION_ERROR'
-                                ? 'COMPILATION ERROR ❌'
-                                : `${runResult.verdict} ⚠️`}
-                            </span>
-                          </div>
-                          {runResult.runtimeMs != null && (
-                            <span className="text-[11px] text-[var(--text-muted)]">
-                              ({((runResult.runtimeMs || 0) / 1000).toFixed(2)}s)
-                            </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-[var(--text-main)]">
+                                  Hidden Use Cases:
+                                </span>
+                                <span className="font-bold">
+                                  Passed {hiddenPassed}/{hiddenTotal} {isAllHiddenPassed ? '✅' : '❌'}
+                                </span>
+                                {isAllHiddenPassed && (
+                                  <span className="text-emerald-400 font-bold ml-1">
+                                    (+{problem?.points || 20} PTS)
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-[var(--text-muted)]">
+                                {isAllHiddenPassed
+                                  ? 'All hidden checks passed'
+                                  : `${hiddenTotal - hiddenPassed} hidden check(s) failed`}
+                              </span>
+                            </div>
                           )}
                         </div>
+                      );
+                    })()}
 
-                        {/* Plain-English Guided Diagnostic Card for Students */}
-                        {(runResult.compileOutput || runResult.stderr) && (
-                          <GccFriendlyHintCard
-                            compileOutput={runResult.compileOutput}
-                            stderr={runResult.stderr}
-                          />
-                        )}
-
-                        {runResult.compileOutput && (
-                          <div>
-                            <span className="text-[10px] text-rose-400 uppercase block font-sans font-semibold mb-1 flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                              Compiler Error Output (GCC):
-                            </span>
-                            <pre className="p-3 rounded-xl bg-[#13090e] text-rose-300 border border-rose-500/30 whitespace-pre-wrap max-h-80 overflow-y-auto text-xs font-mono leading-relaxed shadow-inner">
-                              {runResult.compileOutput}
-                            </pre>
+                    {/* Accepted Celebration Banner */}
+                    {submissionResult?.verdict === 'ACCEPTED' && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                            <Trophy className="w-4 h-4" />
                           </div>
-                        )}
-                        <div>
-                          <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
-                            Standard Output:
-                          </span>
-                          <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-emerald-400 whitespace-pre-wrap max-h-36 overflow-y-auto border border-[var(--border-line)] text-xs">
-                            {runResult.stdout || '(no standard output)'}
-                          </pre>
+                          <div>
+                            <div className="text-xs font-bold text-emerald-400">
+                              Challenge Solved! All use cases passed.
+                            </div>
+                            <div className="flex items-center gap-2.5 text-[11px] font-mono my-1">
+                              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
+                                Attempt #{(userProgress?.attemptsCount || 0) || 1}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Time Taken:{' '}
+                                {(() => {
+                                  const s = userProgress?.timeToSolveSeconds || practiceTimerRef.current?.getActiveSeconds() || userProgress?.activeSeconds || 0;
+                                  if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+                                  if (s > 0) return `${s}s`;
+                                  return '< 1m';
+                                })()}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-[var(--text-muted)]">
+                              {nextProblem
+                                ? `Next challenge: #${nextProblem.moduleOrder} ${nextProblem.title}`
+                                : 'Outstanding! You have completed all problems in this module.'}
+                            </div>
+                          </div>
                         </div>
-                        {runResult.stderr && (
-                          <div>
-                            <span className="text-[10px] text-[var(--text-muted)] uppercase block font-sans font-semibold mb-1">
-                              Standard Error:
-                            </span>
-                            <pre className="p-2.5 rounded-lg bg-[var(--bg-main)] text-rose-400 whitespace-pre-wrap max-h-24 overflow-y-auto border border-[var(--border-line)] text-xs">
-                              {runResult.stderr}
-                            </pre>
-                          </div>
+                        {nextProblem ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/practice/${moduleSlug}/${nextProblem.slug}`)}
+                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
+                          >
+                            <span>Next Question</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <Link
+                            to={`/practice/${moduleSlug}`}
+                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[var(--accent)] hover:opacity-90 text-[#0C0F1F] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0"
+                          >
+                            <span>Back to Modules</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
                         )}
                       </div>
-                    ) : !executionError ? (
-                      <div className="text-center py-6 text-[var(--text-muted)]">
-                        Press &ldquo;Run Code&rdquo; or &ldquo;Submit&rdquo; to execute your solution.
-                      </div>
-                    ) : null}
+                    )}
                   </div>
                 )}
               </div>

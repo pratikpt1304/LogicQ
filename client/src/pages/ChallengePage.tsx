@@ -50,6 +50,7 @@ import {
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { TerminalConsole } from '../components/common/TerminalConsole.js';
 import { auth } from '../config/firebase.js';
 export const ChallengePage: React.FC = () => {
   const { slug } = useParams<{ slug?: string }>();
@@ -63,7 +64,7 @@ export const ChallengePage: React.FC = () => {
   const [runResult, setRunResult] = useState<any | null>(null);
   const [submissionResult, setSubmissionResult] = useState<any | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'custom' | 'output'>('cases');
+  const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output'>('cases');
   const [selectedCaseIndex, setSelectedCaseIndex] = useState<number>(0);
   const [isOffline, setIsOffline] = useState<boolean>(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
@@ -411,12 +412,7 @@ export const ChallengePage: React.FC = () => {
   const userStatus = problemData?.data?.userStatus;
   const serverSecondsUntilReset = problemData?.data?.secondsUntilNextReset;
 
-  // For Daily Challenge, prevent custom stdin tab
-  useEffect(() => {
-    if (isDaily && activeBottomTab === 'custom') {
-      setActiveBottomTab('cases');
-    }
-  }, [isDaily, activeBottomTab]);
+
 
   // Initialize & tick down the 17:00 IST challenge window timer while the page is open
   useEffect(() => {
@@ -608,13 +604,16 @@ export const ChallengePage: React.FC = () => {
 
   // Run Code mutation (Ephemeral dry run against real C compiler)
   const runMutation = useMutation({
-    mutationFn: () =>
-      api.post('/submissions/run', {
+    mutationFn: () => {
+      const currentCase = sampleCases[selectedCaseIndex] || sampleCases[0];
+      const stdinInput = currentCase?.input ?? customInput ?? '';
+      return api.post('/submissions/run', {
         problemId: problem?.id,
         code,
-        stdin: customInput,
+        stdin: stdinInput,
         timeLimitMs: problem?.timeLimitMs || 1000,
-      }),
+      });
+    },
     onSuccess: (res) => {
       setSubmissionResult(null);
       setRunResult(res.data);
@@ -1383,27 +1382,8 @@ export const ChallengePage: React.FC = () => {
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span>Test Cases ({sampleCases.length})</span>
+                  <span>Use Cases ({sampleCases.length})</span>
                 </button>
-
-                {!isDaily && (
-                  <button
-                    type="button"
-                    data-testid="tab-custom-stdin"
-                    onClick={() => {
-                      setActiveBottomTab('custom');
-                      setIsDrawerOpen(true);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      activeBottomTab === 'custom' && isDrawerOpen
-                        ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
-                    }`}
-                  >
-                    <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                    <span>Custom Stdin</span>
-                  </button>
-                )}
 
                 <button
                   type="button"
@@ -1463,14 +1443,14 @@ export const ChallengePage: React.FC = () => {
             {/* Drawer Body */}
             {isDrawerOpen && (
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs bg-white dark:bg-[#0c1017]">
-                {/* Tab 1: Interactive Test Cases */}
+                {/* Tab 1: Interactive Use Cases */}
                 {activeBottomTab === 'cases' && (
                   <div className="h-full flex flex-col space-y-3 font-mono">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
                         {sampleCases.length === 0 ? (
                           <span className="text-slate-500 dark:text-slate-400 text-xs">
-                            {isDaily ? 'No sample cases provided.' : 'No sample cases. Use Custom Stdin.'}
+                            No use cases provided.
                           </span>
                         ) : (
                           sampleCases.map((tc: any, idx: number) => (
@@ -1487,7 +1467,7 @@ export const ChallengePage: React.FC = () => {
                                   : 'bg-slate-100 dark:bg-[#131b2c] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/70'
                               }`}
                             >
-                              <span>Case {idx + 1}</span>
+                              <span>Use Case {idx + 1}</span>
                             </button>
                           ))
                         )}
@@ -1504,7 +1484,7 @@ export const ChallengePage: React.FC = () => {
                           className="px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/40 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <Play className="w-3 h-3 fill-current" />
-                          <span>Run Case {selectedCaseIndex + 1}</span>
+                          <span>Run Use Case {selectedCaseIndex + 1}</span>
                         </button>
                       )}
                     </div>
@@ -1512,17 +1492,27 @@ export const ChallengePage: React.FC = () => {
                     {sampleCases[selectedCaseIndex] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
                         <div className="flex flex-col min-h-0">
-                          <span className="text-cyan-700 dark:text-cyan-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
-                            INPUT:
-                          </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-cyan-700 dark:text-cyan-400 text-[11px] font-bold uppercase tracking-wider">
+                              USE CASE INPUT (AUTOMATIC STDIN):
+                            </span>
+                            <span className="text-[10px] text-cyan-500 font-mono">
+                              Injected Directly
+                            </span>
+                          </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-slate-900 dark:text-cyan-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs">
-                            {sampleCases[selectedCaseIndex].input}
+                            {sampleCases[selectedCaseIndex].input || '(No input required for this case)'}
                           </pre>
                         </div>
                         <div className="flex flex-col min-h-0">
-                          <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold mb-1 uppercase tracking-wider">
-                            EXPECTED OUTPUT:
-                          </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
+                              EXPECTED OUTPUT:
+                            </span>
+                            <span className="text-[10px] text-emerald-500/70 font-mono">
+                              Ground Truth
+                            </span>
+                          </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs">
                             {sampleCases[selectedCaseIndex].expectedOutput}
                           </pre>
@@ -1532,30 +1522,44 @@ export const ChallengePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab 2: Custom Stdin (Disabled for Daily Challenge) */}
-                {!isDaily && activeBottomTab === 'custom' && (
-                  <div className="h-full flex flex-col">
-                    <label
-                      htmlFor="custom-stdin-input"
-                      className="text-slate-600 dark:text-[var(--text-muted)] text-xs mb-1 font-semibold"
-                    >
-                      Standard Input (passed to program&apos;s stdin):
-                    </label>
-                    <textarea
-                      id="custom-stdin-input"
-                      value={customInput}
-                      disabled={isWindowExpired}
-                      onChange={(e) => setCustomInput(e.target.value)}
-                      rows={4}
-                      className="w-full flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[var(--bg-main)] border border-slate-200 dark:border-[var(--border-line)] text-xs font-mono text-slate-900 dark:text-[var(--text-main)] resize-none disabled:opacity-60"
-                      placeholder="Enter raw input here..."
-                    />
-                  </div>
-                )}
-
-                {/* Tab 3: Verdict & Output */}
+                {/* Tab 2: Verdict & Terminal Output */}
                 {activeBottomTab === 'output' && (
                   <div className="space-y-4 font-mono">
+                    {/* Prominent Real-time GCC Terminal */}
+                    <TerminalConsole
+                      status={
+                        runMutation.isPending || submitMutation.isPending
+                          ? 'COMPILING'
+                          : submissionResult?.verdict || runResult?.verdict || 'IDLE'
+                      }
+                      compileOutput={runResult?.compileOutput || submissionResult?.compileOutput}
+                      stdout={runResult?.stdout}
+                      stderr={runResult?.stderr}
+                      exitCode={
+                        runResult?.exitCode ??
+                        (submissionResult?.verdict === 'COMPILE_ERROR'
+                          ? 1
+                          : submissionResult?.verdict === 'ACCEPTED'
+                          ? 0
+                          : null)
+                      }
+                      runtimeMs={runResult?.runtimeMs || submissionResult?.runtimeMs}
+                      useCaseInput={sampleCases[selectedCaseIndex]?.input}
+                      expectedOutput={sampleCases[selectedCaseIndex]?.expectedOutput}
+                      useCaseIndex={selectedCaseIndex}
+                      totalUseCases={sampleCases.length}
+                      testCases={submissionResult?.testCaseResults}
+                      isLoading={runMutation.isPending || submitMutation.isPending}
+                      onRetry={() => {
+                        if (submissionResult) submitMutation.mutate();
+                        else runMutation.mutate();
+                      }}
+                      onClear={() => {
+                        setRunResult(null);
+                        setSubmissionResult(null);
+                      }}
+                    />
+
                     {/* Submission Verdict Banner */}
                     {submissionResult && (
                       <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#111622] flex items-center justify-between flex-wrap gap-2 shadow-xs">
@@ -1593,67 +1597,6 @@ export const ChallengePage: React.FC = () => {
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Compile Error Output */}
-                    {submissionResult?.compileOutput && (
-                      <div>
-                        <span className="text-[var(--color-error)] font-semibold block mb-1">
-                          Compiler Diagnostics:
-                        </span>
-                        <pre className="p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--color-error)] text-[var(--color-error)] overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
-                          {submissionResult.compileOutput}
-                        </pre>
-                      </div>
-                    )}
-
-                    {/* Ephemeral Run Result Output */}
-                    {runResult && !submissionResult && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400 text-xs font-semibold">Run Output:</span>
-                          <span className="text-cyan-400 font-semibold">
-                            {runResult.runtimeMs ?? runResult.executionTimeMs ?? 0}ms
-                          </span>
-                        </div>
-                        {runResult.compileOutput ? (
-                          <div>
-                            <span className="text-rose-400 font-semibold block mb-1">
-                              Compiler Diagnostics:
-                            </span>
-                            <pre className="p-3 rounded-xl bg-rose-50 dark:bg-[#050811] border border-rose-300 dark:border-rose-500/50 text-rose-800 dark:text-rose-300 overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-relaxed max-h-80 overflow-y-auto">
-                              {runResult.compileOutput}
-                            </pre>
-                          </div>
-                        ) : (
-                          <pre className="p-3 rounded-lg bg-slate-50 dark:bg-[#050811] text-slate-900 dark:text-cyan-300 border border-slate-200 dark:border-slate-800 overflow-x-auto whitespace-pre-wrap font-mono font-medium">
-                            {runResult.stdout || '(No output produced)'}
-                          </pre>
-                        )}
-                        {runResult.stderr && (
-                          <div>
-                            <span className="text-rose-600 dark:text-rose-400 text-xs font-semibold">
-                              Stderr:
-                            </span>
-                            <pre className="p-2.5 rounded-lg bg-rose-50 dark:bg-[#050811] text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-slate-800">
-                              {runResult.stderr}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {!runResult && !submissionResult && (
-                      <div className="py-6 text-center text-[var(--text-muted)]">
-                        {submitMutation.isPending ? (
-                          <div className="flex items-center justify-center gap-2 text-cyan-400">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Compiling and running against test cases...</span>
-                          </div>
-                        ) : (
-                          <span>Click &apos;Compile &amp; Run&apos; (Ctrl+↵) above to execute — passes all test cases to auto-submit!</span>
-                        )}
                       </div>
                     )}
                   </div>
