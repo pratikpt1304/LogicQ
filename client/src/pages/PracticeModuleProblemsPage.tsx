@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -337,55 +338,101 @@ export const PracticeModuleProblemsPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredProblems.map((prob) => (
-            <Link
-              key={prob.id}
-              to={`/practice/${moduleSlug}/${prob.slug}`}
-              className="glass-card rounded-xl p-4 border border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:bg-[var(--bg-surface)]/60 transition-all flex items-center justify-between gap-4 group"
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-center text-xs font-mono font-semibold text-[var(--text-muted)] group-hover:text-[var(--accent)] shrink-0">
-                  {prob.moduleOrder}
-                </span>
+          {filteredProblems.map((prob) => {
+            const sortedProblems = [...problems].sort((a, b) => a.moduleOrder - b.moduleOrder);
+            const probIdx = sortedProblems.findIndex((p) => p.id === prob.id);
+            const isProbLocked = probIdx > 0 && !sortedProblems[probIdx - 1]?.isSolved && !prob.isSolved && !isAdmin;
 
-                <div className="min-w-0">
+            if (isProbLocked) {
+              return (
+                <div
+                  key={prob.id}
+                  onClick={() => toast.error(`🔒 Question #${prob.moduleOrder} is locked! Solve Question #${prob.moduleOrder - 1} first to unlock.`)}
+                  className="glass-card rounded-xl p-4 border border-[var(--border-line)] opacity-60 bg-[var(--bg-panel)]/40 cursor-not-allowed flex items-center justify-between gap-4 select-none"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-[var(--bg-surface)] border border-slate-700/60 flex items-center justify-center text-xs font-mono font-semibold text-slate-500 shrink-0">
+                      <Lock className="w-3.5 h-3.5" />
+                    </span>
+
+                    <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-[var(--text-main)] truncate group-hover:text-[var(--accent)] transition-colors">
+                    <h3 className="text-sm font-semibold text-slate-400 truncate">
                       {prob.title}
                     </h3>
-                    {prob.isSolved && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    )}
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                      Locked
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-muted)] font-mono">
                     <span>{prob.category}</span>
                     <span>•</span>
-                    <span>
-                      {prob.attemptsCount === 0
-                        ? 'Not attempted'
-                        : `${prob.attemptsCount} attempt${prob.attemptsCount > 1 ? 's' : ''}`}
-                    </span>
+                    <span className="text-amber-400/90 font-medium">Solve Question #{prob.moduleOrder - 1} first to unlock</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 <DifficultyBadge difficulty={prob.difficulty as any} />
-                {prob.status === 'SOLVED' && (
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>SOLVED</span>
-                  </span>
-                )}
-                {prob.status === 'ATTEMPTED' && (
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                    ATTEMPTED
-                  </span>
-                )}
-                <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all" />
+                <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-slate-800/80 text-slate-400 border border-slate-700/60 flex items-center gap-1.5 shadow-xs">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Locked</span>
+                </span>
               </div>
-            </Link>
-          ))}
+            </div>
+          );
+        }
+
+            return (
+              <Link
+                key={prob.id}
+                to={`/practice/${moduleSlug}/${prob.slug}`}
+                className="glass-card rounded-xl p-4 border border-[var(--border-line)] hover:border-[var(--accent)]/50 hover:bg-[var(--bg-surface)]/60 transition-all flex items-center justify-between gap-4 group"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <span className="w-7 h-7 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-center text-xs font-mono font-semibold text-[var(--text-muted)] group-hover:text-[var(--accent)] shrink-0">
+                    {prob.moduleOrder}
+                  </span>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-[var(--text-main)] truncate group-hover:text-[var(--accent)] transition-colors">
+                        {prob.title}
+                      </h3>
+                      {prob.isSolved && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-muted)] font-mono">
+                      <span>{prob.category}</span>
+                      <span>•</span>
+                      <span>
+                        {prob.attemptsCount === 0
+                          ? 'Not attempted'
+                          : `${prob.attemptsCount} attempt${prob.attemptsCount > 1 ? 's' : ''}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <DifficultyBadge difficulty={prob.difficulty as any} />
+                  {prob.status === 'SOLVED' && (
+                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>SOLVED</span>
+                    </span>
+                  )}
+                  {prob.status === 'ATTEMPTED' && (
+                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      ATTEMPTED
+                    </span>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

@@ -335,10 +335,18 @@ export const TopicPracticeHubPage: React.FC = () => {
       const target = TOPIC_PRACTICE_DATA.find((t) => t.id === topicParam);
       if (target) {
         hasAttemptedRestoreRef.current = true;
-        handleOpenTopic(target);
+        if (isTopicLocked(target)) {
+          // If requested topic is locked, redirect to highest unlocked topic in module
+          const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === target.moduleIndex);
+          const solved = solvedTopics || getSolvedPracticeTopicIds(user?.id);
+          const firstUnlocked = moduleTopics.find((t) => !solved.includes(t.id)) || moduleTopics[0];
+          handleOpenTopic(firstUnlocked);
+        } else {
+          handleOpenTopic(target);
+        }
       }
     }
-  }, [searchParams, activeTopic]);
+  }, [searchParams, activeTopic, solvedTopics]);
 
   // Fullscreen change tracking & strict auto-exit guard
   useEffect(() => {
@@ -585,6 +593,31 @@ export const TopicPracticeHubPage: React.FC = () => {
     return { isUnlocked: true, lockReason: '' };
   };
 
+  // Sequential progression: Each question is locked until previous question is solved
+  const isTopicLocked = (topic: TopicPracticeItem): boolean => {
+    // Admin or Faculty can preview any question without restriction
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return false;
+
+    // If module itself is locked, all topics inside are locked
+    const moduleInfo = getModuleUnlockInfo(topic.moduleIndex);
+    if (!moduleInfo.isUnlocked) return true;
+
+    // Already solved topics are always unlocked for review
+    const solved = solvedTopics || getSolvedPracticeTopicIds(user?.id);
+    if (solved.includes(topic.id)) return false;
+
+    // Find all topics belonging to the same module
+    const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === topic.moduleIndex);
+    const topicIdx = moduleTopics.findIndex((t) => t.id === topic.id);
+
+    // Question 1 in any unlocked module is always unlocked
+    if (topicIdx <= 0) return false;
+
+    // Any subsequent question requires the immediately preceding question to be solved
+    const prevTopicInMod = moduleTopics[topicIdx - 1];
+    return !solved.includes(prevTopicInMod.id);
+  };
+
   // Module-aware topic navigation (Each module has 25 topics)
   const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
     (t) => t.moduleIndex === (activeTopic ? activeTopic.moduleIndex : selectedModuleFilter)
@@ -615,7 +648,8 @@ export const TopicPracticeHubPage: React.FC = () => {
         effectiveCode &&
         effectiveCode.trim() &&
         effectiveCode.trim() !== topic.problem.starterCode.trim() &&
-        !isSolved
+        !isSolved &&
+        !isTopicLocked(topic)
       ) {
         return { topic, code: effectiveCode };
       }
@@ -629,6 +663,14 @@ export const TopicPracticeHubPage: React.FC = () => {
     const unlockInfo = getModuleUnlockInfo(topic.moduleIndex);
     if (!unlockInfo.isUnlocked) {
       toast.error(unlockInfo.lockReason || '🔒 This module is locked!');
+      return;
+    }
+
+    if (isTopicLocked(topic)) {
+      const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === topic.moduleIndex);
+      const topicIdx = moduleTopics.findIndex((t) => t.id === topic.id);
+      const prevTopicInMod = topicIdx > 0 ? moduleTopics[topicIdx - 1] : null;
+      toast.error(`🔒 Question ${topicIdx + 1} is locked! Solve Q${topicIdx} (${prevTopicInMod?.topicTitle || 'previous question'}) first to unlock.`);
       return;
     }
 
@@ -1068,18 +1110,22 @@ export const TopicPracticeHubPage: React.FC = () => {
             <span>Palette Legend</span>
             <span className="text-emerald-400">{solvedInMod}/25</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+          <div className="grid grid-cols-4 gap-1 text-[10px]">
+            <div className="flex items-center gap-1 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
               <span className="text-[var(--text-muted)] truncate">Solved ({solvedInMod})</span>
             </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-cyan-500/40">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+            <div className="flex items-center gap-1 p-1 rounded bg-[var(--bg-panel)] border border-cyan-500/40">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
               <span className="text-cyan-400 font-semibold truncate">Current</span>
             </div>
-            <div className="flex items-center gap-1.5 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--text-muted)] opacity-50 shrink-0" />
-              <span className="text-[var(--text-muted)] truncate">Unsolved</span>
+            <div className="flex items-center gap-1 p-1 rounded bg-[var(--bg-panel)] border border-[var(--border-line)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--text-muted)] opacity-50 shrink-0" />
+              <span className="text-[var(--text-muted)] truncate">Open</span>
+            </div>
+            <div className="flex items-center gap-1 p-1 rounded bg-[var(--bg-panel)] border border-slate-800 text-slate-500">
+              <Lock className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+              <span className="truncate">Locked</span>
             </div>
           </div>
         </div>
@@ -1098,25 +1144,40 @@ export const TopicPracticeHubPage: React.FC = () => {
               const qNum = idx + 1;
               const isCurrent = activeTopic?.id === t.id;
               const isSolved = solvedTopics.includes(t.id);
+              const isLocked = isTopicLocked(t);
 
               return (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => {
+                    if (isLocked) {
+                      toast.error(`🔒 Question ${qNum} is locked! Solve Q${qNum - 1} first to unlock.`);
+                      return;
+                    }
                     handleOpenTopic(t);
                     if (isMobile) setIsMobilePaletteOpen(false);
                   }}
-                  className={`h-10 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center relative cursor-pointer ${
+                  className={`h-10 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center relative ${
                     isCurrent
-                      ? 'border-2 border-cyan-400 bg-cyan-500/25 text-cyan-300 shadow-md shadow-cyan-500/25 scale-105 z-10'
+                      ? 'border-2 border-cyan-400 bg-cyan-500/25 text-cyan-300 shadow-md shadow-cyan-500/25 scale-105 z-10 cursor-pointer'
                       : isSolved
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 shadow-xs'
-                      : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-line)]'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 shadow-xs cursor-pointer'
+                      : isLocked
+                      ? 'bg-slate-900/60 text-slate-500 border border-slate-800/80 opacity-60 cursor-not-allowed hover:border-slate-700'
+                      : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--border-line)] cursor-pointer'
                   }`}
-                  title={`Q${qNum}: ${t.topicTitle} (${isSolved ? 'Solved' : 'Unsolved'})`}
+                  title={
+                    isLocked
+                      ? `Q${qNum}: ${t.topicTitle} (Locked • Solve Q${qNum - 1} to unlock)`
+                      : `Q${qNum}: ${t.topicTitle} (${isSolved ? 'Solved' : 'Open'})`
+                  }
                 >
-                  <span>{qNum}</span>
+                  {isLocked ? (
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                  ) : (
+                    <span>{qNum}</span>
+                  )}
                   {isSolved && !isCurrent && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-[var(--bg-panel)]" />
                   )}
@@ -1541,6 +1602,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <div className="space-y-2">
                   {filteredTopics.map((topic, idx) => {
                     const isSolved = solvedTopics.includes(topic.id);
+                    const isLocked = isTopicLocked(topic);
                     const isHard = topic.problem.difficulty === 'HARD';
                     const isMedium = topic.problem.difficulty === 'MEDIUM';
 
@@ -1557,30 +1619,45 @@ export const TopicPracticeHubPage: React.FC = () => {
                     return (
                       <div
                         key={topic.id}
-                        onClick={() => handleOpenTopic(topic)}
-                        className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
-                          isSolved
-                            ? 'border-emerald-500/25 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                        onClick={() => {
+                          if (isLocked) {
+                            const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === topic.moduleIndex);
+                            const topicIdx = moduleTopics.findIndex((t) => t.id === topic.id);
+                            const prevTopicInMod = topicIdx > 0 ? moduleTopics[topicIdx - 1] : null;
+                            toast.error(`🔒 Question ${topicIdx + 1} is locked! Complete Q${topicIdx} (${prevTopicInMod?.topicTitle || 'previous question'}) first to unlock.`);
+                            return;
+                          }
+                          handleOpenTopic(topic);
+                        }}
+                        className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
+                          isLocked
+                            ? 'border-slate-800/80 bg-slate-900/30 opacity-70 cursor-not-allowed hover:border-slate-700/80'
+                            : isSolved
+                            ? 'border-emerald-500/25 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10 cursor-pointer'
                             : hasDraft
-                            ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10'
-                            : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)]'
+                            ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10 cursor-pointer'
+                            : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)] cursor-pointer'
                         }`}
                       >
                         {/* Left: Number + Title + Problem Info */}
                         <div className="flex items-start sm:items-center gap-3 min-w-0">
                           <span className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 border ${
-                            isSolved
+                            isLocked
+                              ? 'bg-slate-900/80 text-slate-500 border-slate-800'
+                              : isSolved
                               ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                               : hasDraft
                               ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                               : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)]'
                           }`}>
-                            {idx + 1}
+                            {isLocked ? <Lock className="w-3.5 h-3.5 text-slate-500" /> : idx + 1}
                           </span>
 
                           <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-bold text-sm text-[var(--text-main)] group-hover:text-emerald-400 transition-colors">
+                              <h4 className={`font-bold text-sm transition-colors ${
+                                isLocked ? 'text-slate-400' : 'text-[var(--text-main)] group-hover:text-emerald-400'
+                              }`}>
                                 {topic.topicTitle}
                               </h4>
                               <span className={`text-[10px] font-mono font-bold px-2 py-0.2 rounded-full border ${
@@ -1593,10 +1670,17 @@ export const TopicPracticeHubPage: React.FC = () => {
                                 {topic.problem.difficulty}
                               </span>
 
-                              {hasDraft && !isSolved && (
+                              {hasDraft && !isSolved && !isLocked && (
                                 <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold flex items-center gap-1 shadow-xs">
                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                                   <span>Draft Saved</span>
+                                </span>
+                              )}
+
+                              {isLocked && (
+                                <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-400 text-[10px] font-mono font-medium flex items-center gap-1">
+                                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>Locked</span>
                                 </span>
                               )}
                             </div>
@@ -1608,6 +1692,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                               </span>
                               <span>•</span>
                               <span className="truncate">{topic.summary}</span>
+                              {isLocked && idx > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-amber-400/90 font-medium hidden lg:inline">Complete Q{idx} first to unlock</span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1619,7 +1709,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                             <span>Syntax Tip</span>
                           </span>
 
-                          {isSolved ? (
+                          {isLocked ? (
+                            <span className="px-3.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-400 text-xs font-mono font-medium flex items-center gap-1.5 shadow-xs">
+                              <Lock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Locked</span>
+                            </span>
+                          ) : isSolved ? (
                             <span className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Solved</span>
