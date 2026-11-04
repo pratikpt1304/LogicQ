@@ -1764,12 +1764,10 @@ export const SectionManagementPage: React.FC = () => {
                         <thead>
                           <tr className="bg-slate-50/70 dark:bg-[#111622]/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-mono uppercase tracking-wider text-[11px]">
                             <th className="py-3 px-4 w-12 text-center">#</th>
-                            <th className="py-3 px-4">Student</th>
-                            <th className="py-3 px-4">PRN / Roll No</th>
+                            <th className="py-3 px-4 min-w-[180px]">Student & PRN</th>
                             <th className="py-3 px-4">Practical Modules</th>
                             <th className="py-3 px-4">Lab Internal (CIE)</th>
                             <th className="py-3 px-4">Total Score</th>
-                            <th className="py-3 px-4">Grade</th>
                             <th className="py-3 px-4 text-right">Result</th>
                           </tr>
                         </thead>
@@ -1788,11 +1786,10 @@ export const SectionManagementPage: React.FC = () => {
                                 <tr key={m.raw.id || m.prn || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                                   <td className="py-3 px-4 font-mono text-slate-400 text-center">{idx + 1}</td>
                                   <td className="py-3 px-4">
-                                    <div className="font-semibold text-slate-900 dark:text-white">{m.name}</div>
-                                    <div className="text-[11px] font-mono text-slate-400 truncate max-w-xs">{m.actualEmail}</div>
-                                  </td>
-                                  <td className="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400 text-xs">
-                                    {m.prn}
+                                    <div className="font-semibold text-slate-900 dark:text-white text-xs">{m.name}</div>
+                                    <div className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                                      {m.prn}
+                                    </div>
                                   </td>
                                   <td className="py-3 px-4">
                                     <div className="flex items-center gap-1.5 font-mono text-xs">
@@ -1819,21 +1816,6 @@ export const SectionManagementPage: React.FC = () => {
                                     <span className={m.points > 0 ? "text-slate-900 dark:text-white" : "text-slate-400"}>
                                       {m.points} pts
                                     </span>
-                                  </td>
-                                  <td className="py-3 px-4">
-                                    {m.grade === '—' ? (
-                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 border border-slate-300/40 dark:border-slate-800">
-                                        —
-                                      </span>
-                                    ) : (
-                                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black font-mono ${
-                                        m.grade === 'A+' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
-                                        m.grade === 'A' ? 'bg-indigo-500/15 text-indigo-500 border border-indigo-500/30' :
-                                        'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                                      }`}>
-                                        {m.grade}
-                                      </span>
-                                    )}
                                   </td>
                                   <td className="py-3 px-4 text-right">
                                     {m.isQualified ? (

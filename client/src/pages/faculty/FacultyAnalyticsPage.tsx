@@ -1089,46 +1089,32 @@ Generated On   : ${new Date().toLocaleString()}`;
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-slate-400 font-mono uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-3">#</th>
-                    <th className="py-3 px-3">Student Name</th>
-                    <th className="py-3 px-3">PRN / Roll No</th>
+                    <th className="py-3 px-3 min-w-[180px]">Student & PRN</th>
                     <th className="py-3 px-3">Practical Mastery</th>
                     <th className="py-3 px-3">Score</th>
-                    <th className="py-3 px-3">Grade</th>
                     <th className="py-3 px-3">Integrity</th>
                     <th className="py-3 px-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
                   {filteredStudents.map((student, idx) => {
-                    const grade = (student.totalPoints === 0 && student.solvedCount === 0)
-                      ? '—'
-                      : student.totalPoints >= 180
-                      ? 'A+'
-                      : student.totalPoints >= 140
-                      ? 'A'
-                      : student.totalPoints >= 100
-                      ? 'B+'
-                      : student.totalPoints >= 60
-                      ? 'B'
-                      : 'C';
                     const isCopied = copiedPrn && copiedPrn === (student.prn as any);
                     return (
                       <tr key={student.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
                         <td className="py-3 px-3 text-slate-400 font-bold font-mono">{idx + 1}</td>
                         <td className="py-3 px-3">
                           <div className="font-bold text-slate-900 dark:text-white text-xs">{student.fullName}</div>
-                          <div className="text-[11px] text-slate-400 font-mono truncate max-w-xs">{student.email}</div>
-                        </td>
-                        <td className="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyPrn(student.prn)}
-                            className="inline-flex items-center gap-1 hover:underline cursor-pointer group text-left"
-                            title="Click to copy PRN"
-                          >
-                            <span>{student.prn}</span>
-                            <Copy className="w-2.5 h-2.5 text-slate-400 group-hover:text-indigo-500 opacity-60 group-hover:opacity-100 transition" />
-                          </button>
+                          <div className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPrn(student.prn)}
+                              className="inline-flex items-center gap-1 hover:underline cursor-pointer group text-left"
+                              title="Click to copy PRN"
+                            >
+                              <span>{student.prn}</span>
+                              <Copy className="w-2.5 h-2.5 text-slate-400 group-hover:text-indigo-500 opacity-60 group-hover:opacity-100 transition" />
+                            </button>
+                          </div>
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
@@ -1145,23 +1131,6 @@ Generated On   : ${new Date().toLocaleString()}`;
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">
                           {student.totalPoints} pts
-                        </td>
-                        <td className="py-3 px-3">
-                          {grade === '—' ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
-                              —
-                            </span>
-                          ) : (
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
-                              grade === 'A+' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
-                              grade === 'A' ? 'bg-indigo-500/15 text-indigo-500 border border-indigo-500/30' :
-                              grade === 'B+' ? 'bg-cyan-500/15 text-cyan-500 border border-cyan-500/30' :
-                              grade === 'B' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30' :
-                              'bg-rose-500/15 text-rose-500 border border-rose-500/30'
-                            }`}>
-                              {grade}
-                            </span>
-                          )}
                         </td>
                         <td className="py-3 px-3">
                           {student.tabSwitchCount === 0 && student.copyPasteAttempts === 0 ? (
