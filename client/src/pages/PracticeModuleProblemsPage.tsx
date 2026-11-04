@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext.js';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
+import { getLabModuleUnlockInfo } from '../utils/progression.js';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -85,28 +86,13 @@ export const PracticeModuleProblemsPage: React.FC = () => {
     })();
   }, [user, effectiveUid]);
 
-  let isLockedByProgression = false;
-  let lockReason = '';
-
-  if (!isAdmin && targetModuleIdx > 0) {
-    if (targetModule?.order === 5 || targetModule?.requiresAdminUnlock) {
-      if (!isModule5UnlockedByAdmin()) {
-        isLockedByProgression = true;
-        lockReason = 'Module 5 is locked by your Instructor / Admin for all students.';
-      }
-    } else {
-      const prevModuleSlug = PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.slug;
-      const prevMod = allModules.find((m: any) => m.slug === prevModuleSlug);
-      const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
-        (t) => t.moduleSlug === prevModuleSlug && solvedTopicIds.includes(t.id)
-      ).length;
-      const prevSolved = Math.max(prevMod?.solvedCount ?? 0, prevTopicsSolved);
-      if (prevSolved < 20) {
-        isLockedByProgression = true;
-        lockReason = `You must solve all 20 questions in Module ${targetModuleIdx} (${PRACTICE_CONFIG.MODULES[targetModuleIdx - 1]?.title}) before unlocking this module (${prevSolved}/20 solved).`;
-      }
-    }
-  }
+  const unlockInfo = getLabModuleUnlockInfo(
+    targetModule?.order || (targetModuleIdx + 1),
+    solvedTopicIds,
+    Boolean(isAdmin || user?.role === 'FACULTY')
+  );
+  const isLockedByProgression = !unlockInfo.isUnlocked;
+  const lockReason = unlockInfo.lockReason;
 
   // Read fallback solved slugs from localStorage
   const fallbackSolvedSet = new Set<string>();

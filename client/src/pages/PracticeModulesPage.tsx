@@ -18,6 +18,7 @@ import { auth } from '../config/firebase.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { toast } from 'sonner';
+import { getLabModuleUnlockInfo } from '../utils/progression.js';
 
 const MODULE_PROBLEM_SLUGS: Record<string, string[]> = {
   'control-structures': PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
@@ -165,49 +166,9 @@ export const PracticeModulesPage: React.FC = () => {
     const isPracticeComplete = modPracticeTotal === 0 || modPracticeSolved >= modPracticeTotal;
 
     // 2. Progressive Lock Evaluation:
-    let isUnlocked = false;
-    let requirementText = '';
-
-    if (cfg.order === 5 || cfg.requiresAdminUnlock) {
-      const isM5Unlocked = module5Unlocked || isModule5UnlockedByAdmin();
-      if (!isM5Unlocked) {
-        isUnlocked = Boolean(isPrivileged);
-        requirementText = isUnlocked
-          ? 'Activated for Instructors & Faculty'
-          : 'Locked by Faculty / Instructor. Will be unlocked during your faculty-supervised lab evaluation session.';
-      } else {
-        isUnlocked = true;
-      }
-    } else if (idx === 0) {
-      // Module 1: Requires all Module 1 practice topics solved
-      isUnlocked = Boolean(isPracticeComplete || isAdmin);
-      if (!isUnlocked) {
-        requirementText = `Solve all ${modPracticeTotal} practice questions in Module 1 (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
-      }
-    } else {
-      // Module 2, 3, 4: Requires:
-      // A) All practice questions of THIS module must be solved first
-      // B) Previous module's test problems must be solved (20/20)
-      const prevModFromApi = modules.find((m) => m.order === cfg.order - 1);
-      const prevConfig = allConfigModules[idx - 1];
-      const prevTopicsSolved = TOPIC_PRACTICE_DATA.filter(
-        (t) => t.moduleSlug === prevConfig.slug && solvedTopics.includes(t.id)
-      ).length;
-      const prevSlugs = MODULE_PROBLEM_SLUGS[prevConfig.slug] || [];
-      const prevProblemsSolved = prevSlugs.filter((slug) => solvedTopics.includes(slug)).length;
-      const prevSolved = Math.max(prevModFromApi?.solvedCount ?? 0, prevTopicsSolved, prevProblemsSolved);
-      const prevRequired = cfg.requiredSolvedToUnlock || 20;
-
-      if (!isPracticeComplete) {
-        isUnlocked = Boolean(isAdmin);
-        requirementText = `Solve all ${modPracticeTotal} practice questions in Module ${cfg.order} (${cfg.title}) on the Practice tab to unlock this Lab Internal Test (${modPracticeSolved}/${modPracticeTotal} solved)`;
-      } else if (prevSolved < prevRequired) {
-        isUnlocked = Boolean(isAdmin);
-        requirementText = `Solve all 20 problems in Module ${prevConfig.order} (${prevConfig.title}) to unlock (${prevSolved}/20 solved)`;
-      } else {
-        isUnlocked = true;
-      }
-    }
+    const unlockInfo = getLabModuleUnlockInfo(cfg.order, solvedTopics, Boolean(isPrivileged || isAdmin));
+    const isUnlocked = unlockInfo.isUnlocked;
+    const requirementText = unlockInfo.lockReason;
 
     return {
       id: cfg.id,

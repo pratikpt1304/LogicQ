@@ -61,6 +61,7 @@ import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
 import { api } from '../api/client.js';
 import { formatPracticeTime } from '../components/practice/PracticeTimer.js';
+import { getPracticeModuleUnlockInfo } from '../utils/progression.js';
 
 const STORAGE_KEY = 'logicq_solved_practice_topics';
 
@@ -539,58 +540,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   );
 
   const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
-    if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return { isUnlocked: true, lockReason: '' };
-    if (moduleIndex === 1) return { isUnlocked: true, lockReason: '' };
-
-    if (moduleIndex === 2) {
-      if (!isM1PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 1 (${m1PracticeSolved}/25 solved) to unlock Lab Internal 1 first.`,
-        };
-      }
-      if (!isLab1Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete Lab Internal 1 Continuous Evaluation to unlock Module 2 Practice.`,
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    if (moduleIndex === 3) {
-      if (!getModuleUnlockInfo(2).isUnlocked || !isM2PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 2 (${m2PracticeSolved}/25 solved) and Lab Internal 2 first.`,
-        };
-      }
-      if (!isLab2Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete Lab Internal 2 Continuous Evaluation to unlock Module 3 Practice.`,
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    if (moduleIndex === 4) {
-      if (!getModuleUnlockInfo(3).isUnlocked || !isM3PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 3 (${m3PracticeSolved}/25 solved) and Lab Internal 3 first.`,
-        };
-      }
-      if (!isLab3Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete Lab Internal 3 Continuous Evaluation to unlock Module 4 Practice.`,
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    return { isUnlocked: true, lockReason: '' };
+    return getPracticeModuleUnlockInfo(moduleIndex, solvedTopics, user?.role === 'ADMIN' || user?.role === 'FACULTY');
   };
 
   // Sequential progression: Each question is locked until previous question is solved

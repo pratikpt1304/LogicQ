@@ -21,6 +21,7 @@ import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
 import { C_PROGRAMMING_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
+import { getPracticeModuleUnlockInfo, getLabModuleUnlockInfo } from '../utils/progression.js';
 import { toast } from 'sonner';
 import {
   Flame,
@@ -585,9 +586,11 @@ export const DashboardPage: React.FC = () => {
       const solvedCount = Math.max(m.solvedCount || 0, labSolvedInMod);
       const totalQuestions = m.totalQuestions || 20;
       const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
+      const unlockInfo = getLabModuleUnlockInfo(m.order || 1, solvedTopicIds, isAdmin || isFaculty);
       return {
         ...m,
-        isUnlocked: isM5 ? Boolean(isModule5UnlockedByAdmin() || isAdmin || isFaculty) : m.isUnlocked,
+        isUnlocked: unlockInfo.isUnlocked,
+        lockReason: unlockInfo.lockReason,
         isFacultyLocked: isM5 && !isModule5UnlockedByAdmin() && !isAdmin && !isFaculty,
         solvedCount,
         progressPercent,
@@ -639,61 +642,6 @@ export const DashboardPage: React.FC = () => {
     (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
   );
 
-  const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
-    if (isAdmin || isFaculty) return { isUnlocked: true, lockReason: '' };
-    if (moduleIndex === 1) return { isUnlocked: true, lockReason: '' };
-
-    if (moduleIndex === 2) {
-      if (!isM1PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 1 (${m1PracticeSolved}/25 solved) to unlock Lab Internal 1 first.`,
-        };
-      }
-      if (!isLab1Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: 'Complete Lab Internal 1 Continuous Evaluation to unlock Module 2 Practice.',
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    if (moduleIndex === 3) {
-      if (!getModuleUnlockInfo(2).isUnlocked || !isM2PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 2 (${m2PracticeSolved}/25 solved) and Lab Internal 2 first.`,
-        };
-      }
-      if (!isLab2Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: 'Complete Lab Internal 2 Continuous Evaluation to unlock Module 3 Practice.',
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    if (moduleIndex === 4) {
-      if (!getModuleUnlockInfo(3).isUnlocked || !isM3PracticeComplete) {
-        return {
-          isUnlocked: false,
-          lockReason: `Complete all 25 practice questions in Module 3 (${m3PracticeSolved}/25 solved) and Lab Internal 3 first.`,
-        };
-      }
-      if (!isLab3Complete) {
-        return {
-          isUnlocked: false,
-          lockReason: 'Complete Lab Internal 3 Continuous Evaluation to unlock Module 4 Practice.',
-        };
-      }
-      return { isUnlocked: true, lockReason: '' };
-    }
-
-    return { isUnlocked: true, lockReason: '' };
-  };
-
   const practiceModulesList = [
     {
       id: 1,
@@ -703,7 +651,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getModuleUnlockInfo(1),
+      ...getPracticeModuleUnlockInfo(1, solvedTopicIds, isAdmin || isFaculty),
     },
     {
       id: 2,
@@ -713,7 +661,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getModuleUnlockInfo(2),
+      ...getPracticeModuleUnlockInfo(2, solvedTopicIds, isAdmin || isFaculty),
     },
     {
       id: 3,
@@ -723,7 +671,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getModuleUnlockInfo(3),
+      ...getPracticeModuleUnlockInfo(3, solvedTopicIds, isAdmin || isFaculty),
     },
     {
       id: 4,
@@ -733,7 +681,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getModuleUnlockInfo(4),
+      ...getPracticeModuleUnlockInfo(4, solvedTopicIds, isAdmin || isFaculty),
     },
   ].map((m) => ({
     ...m,
@@ -958,14 +906,14 @@ export const DashboardPage: React.FC = () => {
   const nextUnlockedPracticeTopic = React.useMemo(() => {
     for (const t of TOPIC_PRACTICE_DATA) {
       if (!solvedTopicIds.includes(t.id)) {
-        const unlock = getModuleUnlockInfo(t.moduleIndex);
+        const unlock = getPracticeModuleUnlockInfo(t.moduleIndex, solvedTopicIds, isAdmin || isFaculty);
         if (unlock.isUnlocked) {
           return t;
         }
       }
     }
     return TOPIC_PRACTICE_DATA[0];
-  }, [solvedTopicIds, isM1PracticeComplete, isLab1Complete, isM2PracticeComplete, isLab2Complete, isM3PracticeComplete, isLab3Complete]);
+  }, [solvedTopicIds, isAdmin, isFaculty]);
 
   const getNextTopicInModule = (modIdx: number) => {
     const modTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === modIdx);
@@ -2428,7 +2376,13 @@ export const DashboardPage: React.FC = () => {
                   return (
                     <Link
                       key={m.id || idx}
-                      to={`/lab-internal/${m.slug}`}
+                      to={isLocked ? '#' : `/lab-internal/${m.slug}`}
+                      onClick={(e) => {
+                        if (isLocked) {
+                          e.preventDefault();
+                          toast.warning(`🔒 ${m.lockReason || 'Complete previous requirements first.'}`);
+                        }
+                      }}
                       className={`p-5 rounded-3xl border transition-all flex flex-col justify-between group ${
                         isLocked
                           ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/20 opacity-60'
