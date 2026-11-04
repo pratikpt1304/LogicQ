@@ -983,12 +983,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check device registration and single instance for cohort students
     const cohortStudent = findCohortStudent(cleanId);
-    const prnToCheck = cohortStudent ? cohortStudent.prn : cleanId.toUpperCase();
+    const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : (cleanId.toUpperCase().startsWith('212') ? cleanId.toUpperCase() : null);
 
     if (prnToCheck && prnToCheck.startsWith('212')) {
       const reg = await DeviceSessionService.registerDeviceSession(prnToCheck);
       if (!reg.success) {
         throw new Error(reg.message || 'Device registration limit reached (maximum 2 devices allowed).');
+      }
+    }
+
+    // STRICT CROSS-DEVICE CREDENTIAL RESOLUTION:
+    // If student has changed their password, the default PRN password is permanently invalidated!
+    if (prnToCheck) {
+      let knownCustomPw =
+        (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${prnToCheck}`) : null) ||
+        (cohortStudent ? localStorage.getItem(`logicq_custom_password_cohort-${cohortStudent.prn.toLowerCase()}`) : null);
+
+      if (!knownCustomPw && typeof window !== 'undefined') {
+        try {
+          const rawUsers = localStorage.getItem('logicq_stored_users_v1');
+          if (rawUsers) {
+            const parsed = JSON.parse(rawUsers);
+            const foundUser = parsed.find(
+              (u: any) =>
+                (u.prn && u.prn.toUpperCase() === prnToCheck) ||
+                (cohortStudent && u.id === `cohort-${cohortStudent.prn.toLowerCase()}`)
+            );
+            if (foundUser?.password && foundUser.password.toUpperCase() !== prnToCheck) {
+              knownCustomPw = foundUser.password;
+            }
+          }
+        } catch {}
+      }
+
+      if (!knownCustomPw) {
+        try {
+          const secDoc = await getDoc(doc(db, 'cohort_progress', prnToCheck, 'drafts', '__account_security'));
+          if (secDoc.exists()) {
+            const data = secDoc.data();
+            if (data?.code && typeof data.code === 'string') {
+              knownCustomPw = data.code;
+              try {
+                localStorage.setItem(`logicq_custom_password_${prnToCheck}`, data.code);
+              } catch {}
+            }
+          }
+        } catch (secErr) {
+          console.warn('Firestore security credential check skipped:', secErr);
+        }
+      }
+
+      if (knownCustomPw) {
+        if (cleanPwd.toUpperCase() === prnToCheck) {
+          throw new Error('You have changed your password. The default PRN password is no longer valid. Please enter your new password.');
+        }
+        if (cleanPwd !== knownCustomPw) {
+          throw new Error('Invalid password. Please enter the new password you set for this account.');
+        }
       }
     }
 
@@ -1101,6 +1152,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               authUser.currentStreak = Math.max(authUser.currentStreak || 0, stats.currentStreak || 0);
               authUser.longestStreak = Math.max(authUser.longestStreak || 0, stats.longestStreak || 0);
             }
+          } catch {}
+
+          // Ensure stored users cache has this user with current password
+          try {
+            const rawUsers = localStorage.getItem('logicq_stored_users_v1');
+            let list = rawUsers ? JSON.parse(rawUsers) : [];
+            let target = list.find((u: any) => (u.prn && u.prn.toUpperCase() === prnUpper) || u.id === authUser?.id);
+            if (!target) {
+              list.push({ ...authUser, password: customPw || prnUpper });
+            } else if (customPw) {
+              target.password = customPw;
+            }
+            localStorage.setItem('logicq_stored_users_v1', JSON.stringify(list));
           } catch {}
         }
       } else {

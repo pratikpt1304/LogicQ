@@ -929,6 +929,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!isPasswordValid) {
+      if (user.prn && password.toUpperCase() === user.prn.toUpperCase()) {
+        res.status(401).json({
+          success: false,
+          message: 'You have updated your password. The default PRN password is no longer valid. Please enter your new password.',
+        });
+        return;
+      }
       res.status(401).json({ success: false, message: 'Invalid credentials' });
       return;
     }
