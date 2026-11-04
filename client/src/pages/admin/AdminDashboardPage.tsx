@@ -2629,35 +2629,35 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="space-y-8" data-testid="pilot-analytics-view">
           {/* Pilot Window KPI Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="glass-card p-5 rounded-2xl border border-cyan-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+            <div className="p-5 rounded-2xl border border-cyan-500/25 bg-cyan-50/60 dark:bg-cyan-950/20 shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider block mb-1">
                 DAILY ACTIVE STUDENTS (DAU)
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-cyan-400 font-mono">
+                <span className="text-2xl font-black text-cyan-600 dark:text-cyan-400 font-mono">
                   {pilotAnalytics?.window?.todayDau ?? 0}
                 </span>
-                <span className="text-xs font-mono text-slate-400">
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
                   today · peak {pilotAnalytics?.window?.peakDau ?? 0}
                 </span>
               </div>
-              <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                 Avg {pilotAnalytics?.window?.averageDau ?? 0}/day ·{' '}
                 {pilotAnalytics?.window?.totalActivePilotStudents ?? 0} unique in 14d
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-emerald-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+            <div className="p-5 rounded-2xl border border-emerald-500/25 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider block mb-1">
                 SOLVING ≥ 4 OF 7 CHALLENGES
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-extrabold text-emerald-400 font-mono">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
                   {pilotAnalytics?.fourOfSevenCohort?.uniqueQualifiedStudentsAnyWeek ?? 0}
                 </span>
-                <span className="text-xs font-mono text-slate-400">students qualified</span>
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 font-medium">students qualified</span>
               </div>
-              <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                 W1: {pilotAnalytics?.fourOfSevenCohort?.week1?.qualifiedCount ?? 0} (
                 {pilotAnalytics?.fourOfSevenCohort?.week1?.qualifiedPctOfActive ?? 0}%) · W2:{' '}
                 {pilotAnalytics?.fourOfSevenCohort?.week2?.qualifiedCount ?? 0} (
@@ -2665,52 +2665,52 @@ export const AdminDashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-amber-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+            <div className="p-5 rounded-2xl border border-amber-500/25 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider block mb-1">
                 STEEPEST DAILY DROP-OFF
               </span>
               {pilotAnalytics?.dropOffByDay?.steepestDropOffDay ? (
                 <>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-extrabold text-amber-400 font-mono">
+                    <span className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
                       -{pilotAnalytics.dropOffByDay.steepestDropOffDay.dropOffCount}
                     </span>
-                    <span className="text-xs font-mono text-rose-400">
+                    <span className="text-xs font-mono text-rose-600 dark:text-rose-400 font-bold">
                       (-{pilotAnalytics.dropOffByDay.steepestDropOffDay.dropOffRatePct}%)
                     </span>
                   </div>
-                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                     On {pilotAnalytics.dropOffByDay.steepestDropOffDay.label}
                   </p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-extrabold text-emerald-400 font-mono">0%</span>
-                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">0%</span>
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                     No day-over-day drop recorded
                   </p>
                 </>
               )}
             </div>
 
-            <div className="glass-card p-5 rounded-2xl border border-rose-500/20">
-              <span className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
+            <div className="p-5 rounded-2xl border border-rose-500/25 bg-rose-50/60 dark:bg-rose-950/20 shadow-xs">
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider block mb-1">
                 MOST-FAILED PROBLEM
               </span>
               {pilotAnalytics?.mostFailedProblems?.length > 0 ? (
                 <>
-                  <span className="text-base font-extrabold text-rose-400 font-mono truncate block">
+                  <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono truncate block">
                     {pilotAnalytics.mostFailedProblems[0].title}
                   </span>
-                  <p className="text-[11px] font-mono text-slate-400 mt-1.5">
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                     {pilotAnalytics.mostFailedProblems[0].failedSubmissions} failed (
                     {pilotAnalytics.mostFailedProblems[0].failureRatePct}% fail rate)
                   </p>
                 </>
               ) : (
                 <>
-                  <span className="text-xl font-extrabold text-slate-400 font-mono">—</span>
-                  <p className="text-[11px] font-mono text-slate-500 mt-1.5">
+                  <span className="text-xl font-black text-slate-400 font-mono">—</span>
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
                     No failed submissions in window
                   </p>
                 </>
@@ -2719,22 +2719,23 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 1. Daily Active Students (14-Day Visual Bar Chart) */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-4">
+          <div className="p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                  <Users className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   <span>1. Daily Active Students (14-Day Pilot Window · 17:00 IST Boundary)</span>
                 </h2>
-                <p className="text-xs font-mono text-slate-400 mt-0.5">
+                <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                   Window: {pilotAnalytics?.window?.startDate || 'Day 1'} to{' '}
-                  {pilotAnalytics?.window?.endDate || 'Day 14'} · Cyan = Active Students (Attempted) ·
-                  Emerald = Students Who Solved (AC)
+                  {pilotAnalytics?.window?.endDate || 'Day 14'} ·{' '}
+                  <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Cyan = Attempted</span> ·{' '}
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Emerald = Solved (AC)</span>
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-4 items-end min-h-[160px]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pt-4 items-end min-h-[160px]">
               {(pilotAnalytics?.dailyActiveStudents || []).map((day: any) => {
                 const maxDau = Math.max(1, pilotAnalytics?.window?.peakDau || 1);
                 const activeHeightPct = Math.max(8, Math.round((day.activeStudents / maxDau) * 100));
@@ -2745,27 +2746,27 @@ export const AdminDashboardPage: React.FC = () => {
                 return (
                   <div
                     key={day.date}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-dark-900/60 border border-white/[0.05]"
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-slate-50/80 dark:bg-[#111622]/80 hover:border-cyan-500/50 hover:shadow-md transition-all cursor-pointer"
                   >
-                    <span className="text-xs font-mono font-bold text-cyan-300">
+                    <span className="text-sm font-mono font-black text-slate-900 dark:text-cyan-300">
                       {day.activeStudents}
                     </span>
-                    <div className="w-full h-24 flex items-end justify-center gap-1.5 bg-dark-950/70 rounded-lg p-1.5">
+                    <div className="w-full h-24 flex items-end justify-center gap-1.5 bg-white dark:bg-[#080c14] border border-slate-200/70 dark:border-slate-800/70 rounded-xl p-1.5 shadow-2xs">
                       <div
                         style={{ height: `${activeHeightPct}%` }}
-                        className="w-3 rounded-t bg-cyan-400 transition-all"
+                        className="w-3 rounded-t-md bg-cyan-500 dark:bg-cyan-400 shadow-2xs transition-all"
                         title={`Active Students: ${day.activeStudents}`}
                       />
                       <div
                         style={{ height: `${solvedHeightPct}%` }}
-                        className="w-3 rounded-t bg-emerald-400 transition-all"
+                        className="w-3 rounded-t-md bg-emerald-500 dark:bg-emerald-400 shadow-2xs transition-all"
                         title={`Solving Students (AC): ${day.solvingStudents}`}
                       />
                     </div>
-                    <span className="text-xs font-mono text-slate-300 text-center leading-tight">
+                    <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 text-center leading-tight">
                       W{day.weekNumber}·D{day.dayInWeek}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
                       {day.date.slice(5)}
                     </span>
                   </div>
@@ -2775,13 +2776,13 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 2. Students Solving at Least 4 of 7 Challenges */}
-          <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-5">
+          <div className="p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs space-y-5">
             <div>
-              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>2. Students Solving at Least 4 of 7 Challenges (7-Day Rolling Retention Cohort)</span>
               </h2>
-              <p className="text-xs font-mono text-slate-400 mt-0.5">
+              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                 Tracks students who solved ≥ 4 distinct challenges within a 7-day rolling window.
               </p>
             </div>
@@ -2792,20 +2793,20 @@ export const AdminDashboardPage: React.FC = () => {
                 .map((wk: any, idx: number) => (
                   <div
                     key={idx}
-                    className="p-5 rounded-xl bg-dark-900/70 border border-white/[0.07] space-y-4"
+                    className="p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-slate-50/70 dark:bg-[#111622]/70 space-y-4"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-bold text-white font-mono">{wk.weekLabel}</h3>
-                        <span className="text-xs font-mono text-slate-400">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white font-mono">{wk.weekLabel}</h3>
+                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
                           {wk.startDate} → {wk.endDate}
                         </span>
                       </div>
                       <div className="text-right font-mono">
-                        <span className="text-xl font-extrabold text-emerald-400">
+                        <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
                           {wk.qualifiedCount} / {wk.activeStudentsInWeek}
                         </span>
-                        <span className="block text-xs text-slate-400">
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
                           {wk.qualifiedPctOfActive}% of active ({wk.qualifiedPctOfRegistered}% of all
                           registered)
                         </span>
@@ -2814,37 +2815,37 @@ export const AdminDashboardPage: React.FC = () => {
 
                     {/* Solve Count Buckets */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs">
-                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                        <span className="text-base font-bold text-emerald-300 block">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                        <span className="text-base font-bold text-emerald-600 dark:text-emerald-300 block">
                           {wk.buckets?.solved7Plus ?? 0}
                         </span>
-                        <span className="text-xs text-emerald-400">7/7 Perfect</span>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">7/7 Perfect</span>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
-                        <span className="text-base font-bold text-cyan-300 block">
+                      <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
+                        <span className="text-base font-bold text-cyan-600 dark:text-cyan-300 block">
                           {wk.buckets?.solved4to6 ?? 0}
                         </span>
-                        <span className="text-xs text-cyan-400">4–6/7 Met</span>
+                        <span className="text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold">4–6/7 Met</span>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                        <span className="text-base font-bold text-amber-300 block">
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                        <span className="text-base font-bold text-amber-600 dark:text-amber-300 block">
                           {wk.buckets?.solved1to3 ?? 0}
                         </span>
-                        <span className="text-xs text-amber-400">1–3/7 Partial</span>
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">1–3/7 Partial</span>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30">
-                        <span className="text-base font-bold text-rose-300 block">
+                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                        <span className="text-base font-bold text-rose-600 dark:text-rose-300 block">
                           {wk.buckets?.solved0 ?? 0}
                         </span>
-                        <span className="text-xs text-rose-400">0/7 Solved</span>
+                        <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">0/7 Solved</span>
                       </div>
                     </div>
 
                     {/* Student Breakdown List */}
                     {wk.students?.length > 0 ? (
-                      <div className="max-h-48 overflow-y-auto border-t border-white/[0.06] pt-3">
+                      <div className="max-h-48 overflow-y-auto border-t border-slate-200 dark:border-slate-800 pt-3">
                         <table className="w-full text-left text-[11px] font-mono">
-                          <thead className="text-slate-400 uppercase text-[10px]">
+                          <thead className="text-slate-500 dark:text-slate-400 uppercase text-[10px]">
                             <tr>
                               <th className="pb-2">Student</th>
                               <th className="pb-2">Solved</th>
@@ -2852,24 +2853,24 @@ export const AdminDashboardPage: React.FC = () => {
                               <th className="pb-2 text-right">Cohort Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/[0.04]">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {wk.students.map((st: any) => (
                               <tr key={st.userId}>
-                                <td className="py-1.5 text-white font-semibold">
+                                <td className="py-1.5 text-slate-900 dark:text-white font-semibold">
                                   {st.fullName}{' '}
-                                  <span className="text-slate-500">(@{st.username})</span>
+                                  <span className="text-slate-400">(@{st.username})</span>
                                 </td>
-                                <td className="py-1.5 text-cyan-400 font-bold">
+                                <td className="py-1.5 text-cyan-600 dark:text-cyan-400 font-bold">
                                   {st.solvedCount} / 7
                                 </td>
-                                <td className="py-1.5 text-slate-400">{st.totalSubmissions}</td>
+                                <td className="py-1.5 text-slate-500 dark:text-slate-400">{st.totalSubmissions}</td>
                                 <td className="py-1.5 text-right">
                                   {st.metFourOfSeven ? (
-                                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
                                       MET ≥4/7
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px]">
+                                    <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[10px]">
                                       BELOW 4/7
                                     </span>
                                   )}
@@ -2890,13 +2891,13 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 3. Drop-Off by Day (14-Day Funnel Table) */}
-          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-            <div className="p-6 border-b border-white/[0.06]">
-              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-amber-400" />
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs overflow-hidden">
+            <div className="p-6 border-b border-slate-200/80 dark:border-slate-800/80">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                 <span>3. Drop-Off by Day (Day 1 → Day 14 Retention & Participation Funnel)</span>
               </h2>
-              <p className="text-xs font-mono text-slate-400 mt-0.5">
+              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                 Day-over-day active challenger retention, solve conversion, and drop-off rate across
                 the 2-week pilot.
               </p>
@@ -2904,7 +2905,7 @@ export const AdminDashboardPage: React.FC = () => {
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                <thead className="bg-slate-50 dark:bg-[#111622] text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="px-6 py-3">Pilot Day (17:00 IST)</th>
                     <th className="px-6 py-3">Active Students</th>
@@ -2914,24 +2915,24 @@ export const AdminDashboardPage: React.FC = () => {
                     <th className="px-6 py-3">Retention vs Baseline</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {(pilotAnalytics?.dropOffByDay?.dailyFunnel || []).map((row: any) => (
-                    <tr key={row.date} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-3 font-bold text-white">{row.label}</td>
-                      <td className="px-6 py-3 text-cyan-400 font-bold">{row.activeStudents}</td>
-                      <td className="px-6 py-3 text-emerald-400 font-bold">
+                    <tr key={row.date} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-6 py-3 font-bold text-slate-900 dark:text-white">{row.label}</td>
+                      <td className="px-6 py-3 text-cyan-600 dark:text-cyan-400 font-bold">{row.activeStudents}</td>
+                      <td className="px-6 py-3 text-emerald-600 dark:text-emerald-400 font-bold">
                         {row.solvingStudents}
                       </td>
-                      <td className="px-6 py-3 text-slate-300">{row.solveConversionPct}%</td>
+                      <td className="px-6 py-3 text-slate-700 dark:text-slate-300">{row.solveConversionPct}%</td>
                       <td className="px-6 py-3">
                         {row.dayIndex === 1 ? (
-                          <span className="text-slate-500">Baseline (Day 1)</span>
+                          <span className="text-slate-400 font-medium">Baseline (Day 1)</span>
                         ) : row.dropOffCount > 0 ? (
-                          <span className="text-rose-400 font-bold">
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">
                             -{row.dropOffCount} students (-{row.dropOffRatePct}%)
                           </span>
                         ) : row.netChangeCount > 0 ? (
-                          <span className="text-emerald-400 font-semibold">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                             +{row.netChangeCount} students
                           </span>
                         ) : (
@@ -2940,15 +2941,15 @@ export const AdminDashboardPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-24 h-2 bg-dark-900 rounded-full overflow-hidden">
+                          <div className="w-24 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
                               style={{
                                 width: `${Math.min(100, row.retentionFromBaselinePct)}%`,
                               }}
-                              className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                              className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500"
                             />
                           </div>
-                          <span className="text-slate-300 text-[11px]">
+                          <span className="text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
                             {row.retentionFromBaselinePct}%
                           </span>
                         </div>
@@ -2962,19 +2963,19 @@ export const AdminDashboardPage: React.FC = () => {
 
           {/* 4. Department & Year Academic Breakdowns */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-              <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-white font-mono">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono">
                     4. Department Breakdown
                   </h2>
-                  <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                     Student count, points, and average streak by Department
                   </p>
                 </div>
                 <button
                   onClick={() => handleDownloadCsv('daily-results')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-cyan-400 hover:bg-dark-800"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Daily Results CSV
@@ -2982,7 +2983,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-dark-900/80 text-slate-400 uppercase tracking-wider border-b border-white/[0.06]">
+                  <thead className="bg-slate-50 dark:bg-[#111622] text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 text-[10px]">
                     <tr>
                       <th className="px-4 py-3">Department</th>
                       <th className="px-4 py-3">Students</th>
@@ -2990,13 +2991,13 @@ export const AdminDashboardPage: React.FC = () => {
                       <th className="px-4 py-3">Avg Points</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                     {departmentBreakdown.map((d: any) => (
-                      <tr key={d.department} className="hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 font-bold text-white">{d.department}</td>
-                        <td className="px-4 py-3 text-slate-300">{d.studentCount}</td>
-                        <td className="px-4 py-3 text-cyan-400 font-bold">{d.totalPoints} PTS</td>
-                        <td className="px-4 py-3 text-emerald-400">{d.avgPoints} PTS</td>
+                      <tr key={d.department} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{d.department}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{d.studentCount}</td>
+                        <td className="px-4 py-3 text-cyan-600 dark:text-cyan-400 font-bold">{d.totalPoints} PTS</td>
+                        <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-semibold">{d.avgPoints} PTS</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3004,19 +3005,19 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-              <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-white font-mono">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono">
                     5. Academic Year Breakdown
                   </h2>
-                  <p className="text-xs font-mono text-slate-400 mt-0.5">
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                     Student count, points, and average streak by Year (FY, SY, TY)
                   </p>
                 </div>
                 <button
                   onClick={() => handleDownloadCsv('users')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-850 border border-dark-700 text-xs font-mono text-emerald-400 hover:bg-dark-800"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Export Users CSV
@@ -3024,7 +3025,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-dark-900/80 text-slate-400 uppercase tracking-wider border-b border-white/[0.06]">
+                  <thead className="bg-slate-50 dark:bg-[#111622] text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 text-[10px]">
                     <tr>
                       <th className="px-4 py-3">Year</th>
                       <th className="px-4 py-3">Students</th>
@@ -3032,13 +3033,13 @@ export const AdminDashboardPage: React.FC = () => {
                       <th className="px-4 py-3">Avg Points</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                     {yearBreakdown.map((y: any) => (
-                      <tr key={y.year} className="hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 font-bold text-white">{y.year}</td>
-                        <td className="px-4 py-3 text-slate-300">{y.studentCount}</td>
-                        <td className="px-4 py-3 text-cyan-400 font-bold">{y.totalPoints} PTS</td>
-                        <td className="px-4 py-3 text-emerald-400">{y.avgPoints} PTS</td>
+                      <tr key={y.year} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
+                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{y.year}</td>
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{y.studentCount}</td>
+                        <td className="px-4 py-3 text-cyan-600 dark:text-cyan-400 font-bold">{y.totalPoints} PTS</td>
+                        <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-semibold">{y.avgPoints} PTS</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3048,26 +3049,26 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 6. Most-Failed Problems */}
-          <div className="glass-card rounded-2xl border border-white/[0.08] overflow-hidden">
-            <div className="p-6 border-b border-white/[0.06]">
-              <h2 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-rose-400" />
+          <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-[#0c1017] shadow-xs overflow-hidden">
+            <div className="p-6 border-b border-slate-200/80 dark:border-slate-800/80">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-rose-500 dark:text-rose-400" />
                 <span>6. Most-Failed Problems (2-Week Pilot Bottlenecks)</span>
               </h2>
-              <p className="text-xs font-mono text-slate-400 mt-0.5">
+              <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                 Problems ranked by failed submission volume and failure rate, with error verdict
                 distribution.
               </p>
             </div>
 
             {!pilotAnalytics?.mostFailedProblems?.length ? (
-              <div className="p-10 text-center text-xs font-mono text-slate-500">
+              <div className="p-10 text-center text-xs font-mono text-slate-400">
                 No problem submissions recorded in the 2-week pilot window yet.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-dark-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
+                  <thead className="bg-slate-50 dark:bg-[#111622] text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="px-6 py-3.5">Problem</th>
                       <th className="px-6 py-3.5">Difficulty</th>
@@ -3078,57 +3079,57 @@ export const AdminDashboardPage: React.FC = () => {
                       <th className="px-6 py-3.5">Verdict Breakdown</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                     {pilotAnalytics.mostFailedProblems.map((prob: any) => (
-                      <tr key={prob.problemId} className="hover:bg-white/[0.02] transition-colors">
+                      <tr key={prob.problemId} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="px-6 py-4">
-                          <span className="font-bold text-white text-sm block">{prob.title}</span>
-                          <span className="text-slate-500 text-[11px]">{prob.category}</span>
+                          <span className="font-bold text-slate-900 dark:text-white text-sm block">{prob.title}</span>
+                          <span className="text-slate-400 text-[11px]">{prob.category}</span>
                         </td>
                         <td className="px-6 py-4">
                           <DifficultyBadge difficulty={prob.difficulty as Difficulty} size="sm" />
                         </td>
-                        <td className="px-6 py-4 font-bold text-rose-400">
+                        <td className="px-6 py-4 font-bold text-rose-600 dark:text-rose-400">
                           {prob.failedSubmissions} / {prob.totalSubmissions}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-20 h-2 bg-dark-900 rounded-full overflow-hidden">
+                            <div className="w-20 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                               <div
                                 style={{ width: `${prob.failureRatePct}%` }}
                                 className="h-full bg-rose-500"
                               />
                             </div>
-                            <span className="text-rose-300 font-bold">{prob.failureRatePct}%</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-bold">{prob.failureRatePct}%</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-300">
-                          <span className="text-rose-400 font-bold">
+                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">
                             {prob.uniqueFailedStudents}
                           </span>{' '}
                           /{' '}
-                          <span className="text-cyan-400">{prob.uniqueAttemptedStudents}</span> /{' '}
-                          <span className="text-emerald-400">{prob.uniqueSolvedStudents}</span>
+                          <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{prob.uniqueAttemptedStudents}</span> /{' '}
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{prob.uniqueSolvedStudents}</span>
                         </td>
                         <td className="px-6 py-4">
                           {prob.topFailureVerdict ? (
                             <VerdictBadge verdict={prob.topFailureVerdict as Verdict} size="sm" />
                           ) : (
-                            <span className="text-emerald-400 text-[11px]">0 Failures</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">0 Failures</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1.5 text-[10px]">
-                            <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300">
+                            <span className="px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-300 border border-rose-500/20 font-bold">
                               WA: {prob.verdictBreakdown?.WRONG_ANSWER || 0}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300">
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20 font-bold">
                               CE: {prob.verdictBreakdown?.COMPILE_ERROR || 0}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-300">
+                            <span className="px-1.5 py-0.5 rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-300 border border-orange-500/20 font-bold">
                               TLE: {prob.verdictBreakdown?.TIME_LIMIT_EXCEEDED || 0}
                             </span>
-                            <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300">
+                            <span className="px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20 font-bold">
                               RE: {prob.verdictBreakdown?.RUNTIME_ERROR || 0}
                             </span>
                           </div>
