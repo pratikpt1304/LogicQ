@@ -26,6 +26,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { Difficulty, Verdict } from '../types/index.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
+import { DraftSyncService } from '../services/draftSync.service.js';
 
 type FilterTab = 'ALL' | 'ACCEPTED' | 'FAILED';
 
@@ -107,6 +110,88 @@ export const HistoryPage: React.FC = () => {
             tag: existing.tag || s.tag,
             cheatReason: existing.cheatReason || s.cheatReason,
           });
+        }
+      }
+
+      // Fetch student's Topic Practice submissions from backend
+      try {
+        const topicRes = await api.get('/practice/topics/my');
+        const topicSubs = topicRes?.data?.data || topicRes?.data || [];
+        if (Array.isArray(topicSubs)) {
+          for (const ts of topicSubs) {
+            const topicKey = `topic_${ts.topicId}`;
+            if (!combinedMap.has(topicKey) && !combinedMap.has(ts.topicId)) {
+              combinedMap.set(topicKey, {
+                id: topicKey,
+                problemId: ts.topicId,
+                code: ts.code || '',
+                language: 'c',
+                verdict: ts.status === 'SOLVED' ? 'ACCEPTED' : 'WRONG_ANSWER',
+                pointsAwarded: ts.status === 'SOLVED' ? 20 : 0,
+                submissionType: 'PRACTICE',
+                timeTakenSeconds: ts.timeTakenSeconds || 0,
+                timeToSolveSeconds: ts.timeTakenSeconds || 0,
+                createdAt: ts.solvedAt || ts.updatedAt || ts.firstOpenedAt || new Date().toISOString(),
+                problem: {
+                  id: ts.topicId,
+                  title: ts.topicTitle || 'Topic Practice',
+                  slug: ts.topicId,
+                  difficulty: ts.difficulty || 'EASY',
+                },
+              });
+            }
+          }
+        }
+      } catch {
+        // Non-blocking
+      }
+
+      // Client-side Solved Topics sync & backfill
+      const solvedIds = getSolvedPracticeTopicIds(effectiveUid);
+      for (const tid of solvedIds) {
+        const topicKey = `topic_${tid}`;
+        const hasExisting = Array.from(combinedMap.values()).some(
+          (s: any) => s.problemId === tid || s.problem?.slug === tid || s.id === topicKey
+        );
+        if (!hasExisting) {
+          const topicItem = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
+          if (topicItem) {
+            const draftKey = `topic_${tid}`;
+            const localDraft = DraftSyncService.getLocalDraft(draftKey);
+            const entry = {
+              id: topicKey,
+              problemId: tid,
+              code: localDraft?.code || topicItem.problem?.solutionCode || '',
+              language: 'c',
+              verdict: 'ACCEPTED',
+              pointsAwarded: 20,
+              submissionType: 'PRACTICE',
+              timeTakenSeconds: 45,
+              timeToSolveSeconds: 45,
+              createdAt: new Date().toISOString(),
+              problem: {
+                id: tid,
+                title: topicItem.topicTitle,
+                slug: tid,
+                difficulty: topicItem.problem?.difficulty || 'EASY',
+              },
+            };
+            combinedMap.set(topicKey, entry);
+
+            // Auto-mirror to Firestore submissions collection so it permanently appears across devices
+            if (effectiveUid) {
+              FirestoreDataService.recordDailySubmission(effectiveUid, {
+                problemId: tid,
+                problemTitle: topicItem.topicTitle,
+                problemSlug: tid,
+                difficulty: topicItem.problem?.difficulty || 'EASY',
+                code: entry.code,
+                verdict: 'ACCEPTED',
+                timeTakenSeconds: 45,
+                submissionType: 'PRACTICE',
+              }).catch(() => {});
+            }
+          }
         }
       }
 

@@ -2338,3 +2338,20 @@ export async function getAdminLabSubmissions(req: AuthRequest, res: Response): P
     res.status(500).json({ success: false, message: 'Failed to fetch lab submissions' });
   }
 }
+
+export async function getMyTopicPracticeSubmissions(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+    const list = await prisma.topicPracticeSubmission.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { updatedAt: 'desc' },
+    });
+    res.status(200).json({ success: true, data: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Failed to fetch topic submissions' });
+  }
+}
+
