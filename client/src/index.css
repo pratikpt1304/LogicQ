@@ -122,20 +122,26 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  /* Theme-aware Scrollbars */
+  /* Clean, invisible scrollbars while retaining full scrollability across all browsers */
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 0px !important;
+    height: 0px !important;
+    display: none !important;
   }
   ::-webkit-scrollbar-track {
-    background: var(--scrollbar-track);
+    background: transparent !important;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb);
-    border-radius: 4px;
+    background: transparent !important;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-accent);
+  ::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
   }
 
   /* Accessible 2px Accent Focus Rings with Offset */
@@ -622,31 +628,53 @@ html {
   -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Apple-style floating rounded scrollbars */
+/* Global invisible scrollbars across all viewports & containers */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent !important;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb) !important;
-  border-radius: 9999px !important;
-  border: 2px solid transparent !important;
-  background-clip: content-box !important;
-  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: transparent !important;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent) !important;
-  border-radius: 9999px !important;
-  border: 2px solid transparent !important;
-  background-clip: content-box !important;
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+}
+
+/* Explicit utility for no scrollbars */
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+}
+
+/* Hide Monaco Editor internal scrollbars completely */
+.monaco-editor .scrollbar,
+.monaco-editor .decorationsOverviewRuler,
+.monaco-editor .visible.scrollbar {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }
 
 /* Apple tactile button physics */

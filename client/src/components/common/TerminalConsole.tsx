@@ -311,7 +311,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
       </div>
 
       {/* 3. Terminal Body Content */}
-      <div className="flex-1 p-4 overflow-y-auto font-mono text-xs leading-relaxed space-y-3 bg-[#060a14]">
+      <div className="flex-1 p-4 overflow-y-auto no-scrollbar font-mono text-xs leading-relaxed space-y-3 bg-[#060a14]">
         {isLoading ? (
           <div className="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400">
             <div className="relative">

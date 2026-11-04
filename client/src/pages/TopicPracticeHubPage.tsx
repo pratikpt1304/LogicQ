@@ -1803,7 +1803,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 isDesktopPaletteOpen
                   ? 'lg:w-[32%] xl:w-[30%] 2xl:w-[28%]'
                   : 'lg:w-[40%] xl:w-[38%] 2xl:w-[36%]'
-              } flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
+              } flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto no-scrollbar p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
               onCopy={(e) => {
@@ -1943,7 +1943,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 }`}
               >
                 {/* Dock Header Bar */}
-                <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs gap-1.5 select-none overflow-x-auto">
+                <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs gap-1.5 select-none overflow-x-auto no-scrollbar">
                   <div className="inline-flex items-center gap-1 p-0.5 sm:p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800 shrink-0">
                     <button
                       type="button"
@@ -2029,7 +2029,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                 {/* Dock Body */}
                 {isDrawerOpen && (
-                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
+                  <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
                     {activeBottomTab === 'cases' && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
