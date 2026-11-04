@@ -680,6 +680,7 @@ export class FirestoreDataService {
       tabSwitchCount?: number;
       copyPasteAttempts?: number;
       fullscreenExits?: number;
+      submissionType?: string;
     }
   ): Promise<void> {
     try {
@@ -692,7 +693,7 @@ export class FirestoreDataService {
         language: 'c',
         verdict: data.verdict,
         pointsAwarded: data.verdict === 'ACCEPTED' ? 20 : 0,
-        submissionType: 'DAILY',
+        submissionType: data.submissionType || 'DAILY',
         timeTakenSeconds: data.timeTakenSeconds,
         timeToSolveSeconds: data.timeTakenSeconds,
         activeSeconds: data.timeTakenSeconds,

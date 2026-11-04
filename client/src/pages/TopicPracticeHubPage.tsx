@@ -902,11 +902,13 @@ export const TopicPracticeHubPage: React.FC = () => {
     setActiveMobileTab('results');
 
     try {
+      const currentCode = codeRef.current || code;
+
       // Standard automated mode: evaluate BOTH open and hidden use cases automatically without manual typing
       const [resOpen, resHidden] = await Promise.all([
         api.post('/submissions/run', {
-          code,
-          stdin: activeTopic.problem.openTestCase.input,
+          code: currentCode,
+          stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) => ({
           error: err?.message || 'Execution failed',
@@ -915,8 +917,8 @@ export const TopicPracticeHubPage: React.FC = () => {
           verdict: 'COMPILATION_ERROR',
         })),
         api.post('/submissions/run', {
-          code,
-          stdin: activeTopic.problem.hiddenTestCase.input,
+          code: currentCode,
+          stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) => ({
           error: err?.message || 'Execution failed',
@@ -926,8 +928,15 @@ export const TopicPracticeHubPage: React.FC = () => {
         })),
       ]);
 
-      const openData = (resOpen as any)?.data || resOpen;
-      const hiddenData = (resHidden as any)?.data || resHidden;
+      const resolvePayload = (res: any) => {
+        if (!res) return {};
+        if (res.data?.data) return res.data.data;
+        if (res.data) return res.data;
+        return res;
+      };
+
+      const openData = resolvePayload(resOpen);
+      const hiddenData = resolvePayload(resHidden);
 
       const actualOpenOut = (openData?.stdout || openData?.output || '').trim();
       const expectedOpenOut = (activeTopic.problem.openTestCase.expectedOutput || '').trim();
@@ -965,7 +974,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         const draftKey = `topic_${activeTopic.id}`;
         const draft: DraftData = {
           problemSlug: draftKey,
-          code,
+          code: currentCode,
           updatedAt: Date.now(),
           deviceLabel: getDeviceLabel(),
         };
@@ -983,6 +992,21 @@ export const TopicPracticeHubPage: React.FC = () => {
           }).catch(() => {});
 
           FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
+
+          // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
+          FirestoreDataService.recordDailySubmission(user.id, {
+            problemId: activeTopic.id,
+            problemTitle: activeTopic.topicTitle,
+            problemSlug: activeTopic.id,
+            difficulty: activeTopic.problem.difficulty || 'EASY',
+            code: currentCode,
+            verdict: 'ACCEPTED',
+            timeTakenSeconds: elapsedSeconds,
+            tabSwitchCount: 0,
+            copyPasteAttempts: 0,
+            fullscreenExits: 0,
+            submissionType: 'PRACTICE',
+          }).catch(() => {});
         }
 
         // 2. Sync to backend practice API with full details, code, solve time, and typing velocity
@@ -993,7 +1017,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           moduleIndex: activeTopic.moduleIndex,
           topicTitle: activeTopic.topicTitle,
           difficulty: activeTopic.problem.difficulty,
-          code,
+          code: currentCode,
           timeTakenSeconds: elapsedSeconds,
           typingVelocityCPM: velocity,
         }).catch(() => {});
@@ -1017,6 +1041,19 @@ export const TopicPracticeHubPage: React.FC = () => {
           toast.success(`🎉 Module Complete! Mastered "${activeTopic.topicTitle}"!`);
         }
       } else {
+        // Log attempt telemetry to backend so Admin sees every attempt & code written
+        api.post('/practice/topics/telemetry', {
+          topicId: activeTopic.id,
+          currentCode,
+          elapsedSec: elapsedSecondsRef.current,
+          typingVelocityCPM: getTypingVelocityCPM(),
+          eventLog: {
+            event: compileErr ? 'COMPILE_ERROR' : !openPassed ? 'SAMPLE_FAILED' : 'HIDDEN_FAILED',
+            detail: compileErr ? 'Compilation error during test run' : !openPassed ? 'Sample use case output mismatch' : 'Hidden use case failed',
+            elapsedSec: elapsedSecondsRef.current,
+          },
+        }).catch(() => {});
+
         if (compileErr) {
           toast.error('Compilation error! Review GCC hints in the terminal.');
         } else if (!openPassed) {
