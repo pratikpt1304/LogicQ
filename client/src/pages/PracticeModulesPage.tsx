@@ -797,30 +797,6 @@ export const PracticeModulesPage: React.FC = () => {
                 )}
               </div>
             </div>
-
-            {/* Muted Preview of Questions in Locked Module */}
-            <div className="rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 p-5 space-y-3">
-              <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                <span className="font-bold uppercase tracking-wider">
-                  Upcoming Module Topics Preview ({activeProblems.length} Problems)
-                </span>
-                <span>Unlocks automatically upon completion</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 opacity-60 pointer-events-none">
-                {activeProblems.slice(0, 6).map((prob) => (
-                  <div
-                    key={prob.slug}
-                    className="p-3 rounded-xl border border-slate-200/50 dark:border-slate-800/50 bg-white/40 dark:bg-slate-800/40 flex items-center justify-between text-xs"
-                  >
-                    <span className="truncate font-medium text-slate-500 dark:text-slate-400">
-                      #{prob.index}. {prob.title}
-                    </span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0 ml-2" />
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </div>
