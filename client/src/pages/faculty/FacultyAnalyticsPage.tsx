@@ -134,9 +134,10 @@ export const FacultyAnalyticsPage: React.FC = () => {
       const facultyId = user?.id || (user as any)?.uid;
 
       // Parallel fetch from Firestore & Backend
-      const [fsSections, fsUsers] = await Promise.all([
+      const [fsSections, fsUsers, allRealSubmissions] = await Promise.all([
         FirestoreDataService.getSectionsFromFirestore(),
         FirestoreDataService.getAllFirestoreUsers(),
+        FirestoreDataService.getAllFirestoreSubmissions().catch(() => []),
       ]);
 
       let backendOverview: any = null;
@@ -206,6 +207,40 @@ export const FacultyAnalyticsPage: React.FC = () => {
       // Map to deduplicate students across all sections by email or PRN
       const studentMap = new Map<string, StudentRosterItem>();
 
+      // Helper to compute strictly authentic student performance from actual verified submissions
+      const computeRealMetricsForStudent = (
+        stPrn: string,
+        stEmail: string,
+        stId: string,
+        fallbackSolved = 0,
+        fallbackPoints = 0,
+        fallbackStreak = 0
+      ) => {
+        const cleanP = (stPrn || '').toUpperCase().trim();
+        const cleanE = (stEmail || '').toLowerCase().trim();
+        const matched = (allRealSubmissions || []).filter((sub: any) => {
+          const sp = (sub.prn || sub.studentPrn || sub.user?.prn || '').trim().toUpperCase();
+          const se = (sub.email || sub.studentEmail || sub.user?.email || '').trim().toLowerCase();
+          const su = sub.userId || sub.uid || sub.user?.id;
+          return (cleanP && cleanP !== 'PENDING' && cleanP !== '—' && sp === cleanP) ||
+                 (cleanE && cleanE !== '—' && se === cleanE) ||
+                 (stId && su === stId);
+        });
+
+        const accepted = matched.filter((s: any) => {
+          const v = String(s.verdict || s.status || '').toUpperCase();
+          return v === 'ACCEPTED' || v === 'AC' || v === 'PASSED';
+        });
+
+        const distinct = new Set(accepted.map((s: any) => s.problemId || s.problemSlug || s.id));
+        const solvedCount = distinct.size > 0 ? distinct.size : Number(fallbackSolved || 0);
+        const calcPoints = accepted.reduce((acc: number, s: any) => acc + (Number(s.score || s.points) || 10), 0);
+        const totalPoints = calcPoints > 0 ? calcPoints : Number(fallbackPoints || 0);
+        const currentStreak = Number(fallbackStreak || (solvedCount > 0 ? 1 : 0));
+
+        return { solvedCount, totalPoints, currentStreak };
+      };
+
       // A. Populate students enrolled directly in mySections
       mySections.forEach((sec: any) => {
         const secId = sec.id;
@@ -223,14 +258,17 @@ export const FacultyAnalyticsPage: React.FC = () => {
           if (!key) return;
 
           const fullName = cohort?.fullName || st.name || st.fullName || st.student?.fullName || st.student?.displayName || (prn ? `Student ${prn.slice(-4)}` : 'Enrolled Student');
-          const prnDigits = parseInt(prn.replace(/\D/g, '').slice(-2), 10) || 5;
-          const defaultSolved = Math.max(3, (prnDigits % 18) + 5);
-          const solvedCount = st.solvedCount || st.student?.solvedCount || defaultSolved;
-          const points = Number(st.totalPoints ?? st.student?.totalPoints ?? (solvedCount * 10));
-          const streak = Number(st.currentStreak ?? st.student?.currentStreak ?? (solvedCount > 5 ? 4 : 1));
+          const { solvedCount, totalPoints: points, currentStreak: streak } = computeRealMetricsForStudent(
+            prn,
+            email,
+            id,
+            Number(st.solvedCount || st.student?.solvedCount || 0),
+            Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
+            Number(st.currentStreak ?? st.student?.currentStreak ?? 0)
+          );
           const statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 
             Number(st.tabSwitchCount || 0) > 3 ? 'INTEGRITY_FLAG' :
-            solvedCount < 8 ? 'NEEDS_HELP' : 'CONSISTENT';
+            solvedCount < 1 ? 'NEEDS_HELP' : 'CONSISTENT';
 
           studentMap.set(key, {
             id,
@@ -297,13 +335,16 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
         const existing = studentMap.get(key);
 
-        const prnDigits = parseInt(prn.replace(/\D/g, '').slice(-2), 10) || 5;
-        const defaultSolved = Math.max(3, (prnDigits % 18) + 5);
-        const solvedCount = u.solvedCount || existing?.solvedCount || defaultSolved;
-        const points = Number(u.totalPoints ?? existing?.totalPoints ?? (solvedCount * 10));
-        const streak = Number(u.currentStreak ?? existing?.currentStreak ?? (solvedCount > 5 ? 4 : 1));
-        const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || 0);
-        const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || 0);
+        const { solvedCount, totalPoints: points, currentStreak: streak } = computeRealMetricsForStudent(
+          prn,
+          email,
+          id,
+          Number(u.solvedCount || existing?.solvedCount || 0),
+          Number(u.totalPoints ?? existing?.totalPoints ?? 0),
+          Number(u.currentStreak ?? existing?.currentStreak ?? 0)
+        );
+        const tabSwitches = Number(u.tabSwitchCount || u.tabSwitches || existing?.tabSwitchCount || 0);
+        const pasteAttempts = Number(u.copyPasteAttempts || u.pasteCount || existing?.copyPasteAttempts || 0);
 
         let integrityRisk: 'NORMAL' | 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'NORMAL';
         let integrityScore = 100;
@@ -325,7 +366,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
         let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
         if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
           statusCategory = 'INTEGRITY_FLAG';
-        } else if (solvedCount < 8) {
+        } else if (solvedCount < 1) {
           statusCategory = 'NEEDS_HELP';
         }
 
@@ -828,7 +869,7 @@ Generated On   : ${new Date().toLocaleString()}`;
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
             <span className="font-bold text-slate-900 dark:text-slate-200">
-              {metrics.totalEnrolled > 0 ? Math.round((metrics.activeSolvers / metrics.totalEnrolled) * 100) : 82}%
+              {metrics.totalEnrolled > 0 ? Math.round((metrics.activeSolvers / metrics.totalEnrolled) * 100) : 0}%
             </span> class practical mastery
           </p>
         </div>
@@ -845,7 +886,16 @@ Generated On   : ${new Date().toLocaleString()}`;
             {metrics.avgScore} <span className="text-sm font-normal text-slate-400">pts</span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            <span className="text-purple-600 dark:text-purple-400 font-bold">Grade B+</span> average honor score
+            {metrics.avgScore > 0 ? (
+              <>
+                <span className="text-purple-600 dark:text-purple-400 font-bold">
+                  Grade {metrics.avgScore >= 180 ? 'A+' : metrics.avgScore >= 140 ? 'A' : metrics.avgScore >= 100 ? 'B+' : metrics.avgScore >= 60 ? 'B' : 'C'}
+                </span>{' '}
+                average honor score
+              </>
+            ) : (
+              <span className="text-slate-400">Awaiting student submissions</span>
+            )}
           </p>
         </div>
 
@@ -1050,7 +1100,17 @@ Generated On   : ${new Date().toLocaleString()}`;
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
                   {filteredStudents.map((student, idx) => {
-                    const grade = student.totalPoints >= 180 ? 'A+' : student.totalPoints >= 140 ? 'A' : student.totalPoints >= 100 ? 'B+' : student.totalPoints >= 60 ? 'B' : 'C';
+                    const grade = (student.totalPoints === 0 && student.solvedCount === 0)
+                      ? '—'
+                      : student.totalPoints >= 180
+                      ? 'A+'
+                      : student.totalPoints >= 140
+                      ? 'A'
+                      : student.totalPoints >= 100
+                      ? 'B+'
+                      : student.totalPoints >= 60
+                      ? 'B'
+                      : 'C';
                     const isCopied = copiedPrn && copiedPrn === (student.prn as any);
                     return (
                       <tr key={student.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
@@ -1073,13 +1133,13 @@ Generated On   : ${new Date().toLocaleString()}`;
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-bold text-slate-700 dark:text-slate-300 text-xs">
-                              {student.solvedCount || 18} <span className="text-[10px] text-slate-400 font-normal">/ 25</span>
+                              {student.solvedCount || 0} <span className="text-[10px] text-slate-400 font-normal">/ 25</span>
                             </span>
                           </div>
                           <div className="w-20 bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">
                             <div
-                              className="bg-emerald-500 h-full rounded-full"
-                              style={{ width: `${Math.min(100, ((student.solvedCount || 18) / 25) * 100)}%` }}
+                              className="bg-emerald-500 h-full rounded-full transition-all"
+                              style={{ width: `${Math.min(100, ((student.solvedCount || 0) / 25) * 100)}%` }}
                             />
                           </div>
                         </td>
@@ -1087,9 +1147,21 @@ Generated On   : ${new Date().toLocaleString()}`;
                           {student.totalPoints} pts
                         </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
-                            {grade}
-                          </span>
+                          {grade === '—' ? (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
+                              —
+                            </span>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono ${
+                              grade === 'A+' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                              grade === 'A' ? 'bg-indigo-500/15 text-indigo-500 border border-indigo-500/30' :
+                              grade === 'B+' ? 'bg-cyan-500/15 text-cyan-500 border border-cyan-500/30' :
+                              grade === 'B' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30' :
+                              'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                            }`}>
+                              {grade}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-3">
                           {student.tabSwitchCount === 0 && student.copyPasteAttempts === 0 ? (

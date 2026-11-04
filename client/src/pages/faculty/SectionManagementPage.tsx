@@ -891,13 +891,12 @@ export const SectionManagementPage: React.FC = () => {
       const email = boundStorage || cohort?.email || item.student?.email || item.email || '';
       const dept = normalizeDepartment(item.department || item.student?.department || sec.course) || 'Computer Engineering';
       const year = item.year || item.student?.year || 'FY';
-      const prnDigits = parseInt(prn.replace(/\D/g, '').slice(-2), 10) || 5;
-      const solved = Number(item.student?.solvedCount || item.solvedCount || 0) || Math.min(25, 18 + (idx % 8));
-      const labCompleted = Math.min(5, Math.max(1, Math.round(solved / 4.2)));
-      const labMarks = Math.min(20, Math.max(8, Math.round((labCompleted / 5) * 16 + (prnDigits % 4))));
+      const solved = Number(item.student?.solvedCount || item.solvedCount || 0);
+      const labCompleted = Number(item.labCompletedModules || 0);
+      const labMarks = Math.min(20, Math.round((labCompleted / 5) * 20));
       const points = (solved * 10) + (labMarks * 4);
-      const honor = '98%';
-      const status = solved >= 10 && labCompleted >= 2 ? 'QUALIFIED' : 'IN_PROGRESS';
+      const honor = solved > 0 ? '98%' : '—';
+      const status = solved >= 10 && labCompleted >= 2 ? 'QUALIFIED' : solved > 0 ? 'IN_PROGRESS' : 'PENDING';
       return [
         `"${prn}"`,
         `"${name.replace(/"/g, '""')}"`,
@@ -1180,14 +1179,12 @@ export const SectionManagementPage: React.FC = () => {
           });
 
           const distinctProblems = new Set(acceptedSubs.map((s: any) => s.problemId || s.problemSlug || s.id));
-          const prnDigits = parseInt(prnClean.replace(/\D/g, '').slice(-2), 10) || 5;
-          const defaultPracticalSolved = Math.max(3, (prnDigits % 18) + 5);
           const solvedCount = distinctProblems.size > 0
             ? distinctProblems.size
-            : (Number(st.solvedCount || st.student?.solvedCount || 0) || defaultPracticalSolved);
+            : Number(st.solvedCount || st.student?.solvedCount || 0);
 
           const rawPoints = acceptedSubs.reduce((acc: number, s: any) => acc + (Number(s.score || s.points) || 10), 0);
-          const practicalPoints = rawPoints > 0 ? rawPoints : (Number(st.totalPoints || st.student?.totalPoints || 0) || (solvedCount * 10));
+          const practicalPoints = rawPoints > 0 ? rawPoints : Number(st.totalPoints || st.student?.totalPoints || 0);
 
           // Match Lab Internal coursework submissions
           const matchedLab = (sectionLabSubmissions as any[]).filter((ls: any) => {
@@ -1200,12 +1197,21 @@ export const SectionManagementPage: React.FC = () => {
                    (st.id && luid === st.id);
           });
           const realCompletedLab = matchedLab.filter((ls: any) => ls.status === 'COMPLETED').length;
-          const defaultLabCompleted = Math.min(5, Math.max(1, Math.round(solvedCount / 4.2)));
-          const labCompletedModules = realCompletedLab > 0 ? realCompletedLab : defaultLabCompleted;
-          const labInternalScore = Math.min(20, Math.max(8, Math.round((labCompletedModules / 5) * 16 + (prnDigits % 4))));
+          const labCompletedModules = realCompletedLab;
+          const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
 
           const totalScore = practicalPoints + (labInternalScore * 4);
-          const grade = totalScore >= 200 ? 'A+' : totalScore >= 160 ? 'A' : totalScore >= 120 ? 'B+' : totalScore >= 80 ? 'B' : 'C';
+          const grade = (totalScore === 0 && solvedCount === 0)
+            ? '—'
+            : totalScore >= 200
+            ? 'A+'
+            : totalScore >= 160
+            ? 'A'
+            : totalScore >= 120
+            ? 'B+'
+            : totalScore >= 80
+            ? 'B'
+            : 'C';
           const isQualified = solvedCount >= 10 && labCompletedModules >= 2;
           const isActive = matchedSubs.length > 0 || isClaimed || solvedCount > 0 || matchedLab.length > 0;
 

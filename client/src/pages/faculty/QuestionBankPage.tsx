@@ -344,12 +344,12 @@ export const QuestionBankPage: React.FC = () => {
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] font-mono uppercase tracking-wider text-[11px]">
                 <th className="py-2.5 px-3">Title & Topic</th>
-                <th className="py-2.5 px-3">Module & Section</th>
-                <th className="py-2.5 px-3">Difficulty & Time</th>
-                <th className="py-2.5 px-3">Sandbox Correctness</th>
-                <th className="py-2.5 px-3">Lifecycle Status</th>
-                <th className="py-2.5 px-3">Created Time</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3 w-36">Module & Section</th>
+                <th className="py-2.5 px-3 w-28">Difficulty & Time</th>
+                <th className="py-2.5 px-3 w-36">Sandbox Correctness</th>
+                <th className="py-2.5 px-3 w-28">Lifecycle Status</th>
+                <th className="py-2.5 px-3 w-36">Created Time</th>
+                <th className="py-2.5 px-3 text-center w-28">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]/60 font-sans">
@@ -456,11 +456,11 @@ export const QuestionBankPage: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="inline-flex flex-col items-stretch gap-1 w-24">
+                      <td className="py-2.5 px-3 text-center align-middle w-28">
+                        <div className="inline-flex flex-col items-stretch gap-1 w-24 mx-auto">
                           <button
                             onClick={() => setInspectQuestion(q)}
-                            className="w-full justify-center px-2 py-0.5 text-xs rounded-md border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] inline-flex items-center gap-1 transition"
+                            className="w-full justify-center px-2 py-1 text-xs rounded-md border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--foreground)] inline-flex items-center gap-1 transition shadow-2xs font-medium cursor-pointer"
                             title="View Question Details"
                           >
                             <Eye className="w-3 h-3 text-sky-400" />
@@ -470,7 +470,7 @@ export const QuestionBankPage: React.FC = () => {
                           <button
                             onClick={() => validateMutation.mutate(q.id)}
                             disabled={validateMutation.isPending}
-                            className="w-full justify-center px-2 py-0.5 text-xs rounded-md border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 inline-flex items-center gap-1 transition disabled:opacity-40"
+                            className="w-full justify-center px-2 py-1 text-xs rounded-md border border-amber-500/30 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10 inline-flex items-center gap-1 transition disabled:opacity-40 shadow-2xs font-medium cursor-pointer"
                             title="Re-run C Sandbox Check"
                           >
                             <Play className="w-3 h-3" />
@@ -478,7 +478,7 @@ export const QuestionBankPage: React.FC = () => {
                           </button>
 
                           {isApproved ? (
-                            <span className="w-full justify-center px-2 py-0.5 text-xs text-emerald-400 font-medium inline-flex items-center gap-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
+                            <span className="w-full justify-center px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 bg-emerald-500/10 rounded-md border border-emerald-500/20">
                               <Check className="w-3 h-3" />
                               <span>Approved</span>
                             </span>
@@ -486,7 +486,7 @@ export const QuestionBankPage: React.FC = () => {
                             <button
                               onClick={() => approveMutation.mutate(q.id)}
                               disabled={approveMutation.isPending || !isPassed}
-                              className="w-full justify-center px-2 py-0.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold inline-flex items-center gap-1 transition disabled:opacity-40"
+                              className="w-full justify-center px-2 py-1 text-xs rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold inline-flex items-center gap-1 transition disabled:opacity-40 shadow-2xs cursor-pointer"
                               title="Approve for Test Assignment"
                             >
                               <Check className="w-3 h-3" />
