@@ -445,14 +445,6 @@ export const LeaderboardPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-center">
-                <span className="text-[10px] text-slate-400 block uppercase">Streak</span>
-                <span className="font-bold text-amber-500 flex items-center justify-center gap-1">
-                  <Flame className="w-3 h-3 fill-amber-500/20" />
-                  {pinnedOwnRow.currentStreak || 0}d
-                </span>
-              </div>
-
               <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-center">
                 <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block uppercase font-bold">
                   Score
@@ -575,7 +567,7 @@ export const LeaderboardPage: React.FC = () => {
                 : 'Overall College Standings'}{' '}
               ({filteredUsers.length} Students)
             </span>
-            <span>Sorted by Points & Streak</span>
+            <span>Sorted by Points</span>
           </div>
 
           {isLoading ? (
@@ -611,7 +603,6 @@ export const LeaderboardPage: React.FC = () => {
                 const sub = getSubtitle(u);
                 const points = formatPoints(u.totalPoints ?? u.score ?? 0);
                 const solved = resolveSolvedCount(u);
-                const streak = u.currentStreak || 0;
 
                 return (
                   <div
@@ -647,18 +638,13 @@ export const LeaderboardPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Right: Points + Solved/Streak */}
+                    {/* Right: Points + Solved */}
                     <div className="text-right shrink-0 font-mono">
                       <div className="text-sm font-extrabold text-slate-900 dark:text-white">
                         {points}
                       </div>
                       <div className="text-[11px] text-slate-400 flex items-center justify-end gap-1.5 mt-0.5">
                         <span>{solved} solved</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
-                          <Flame className="w-3 h-3" />
-                          {streak}d
-                        </span>
                       </div>
                     </div>
                   </div>
