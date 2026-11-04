@@ -248,9 +248,19 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
               </div>
 
               <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
-                <span className="text-amber-400 font-bold">{w.totalPoints} XP</span>
+                {w.copyPasteAttempts > 0 ? (
+                  <span className="text-amber-400 font-bold" title="Copy-paste attempts detected">
+                    📋 {w.copyPasteAttempts} paste{w.copyPasteAttempts > 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  <span className="text-slate-400" title="Zero copy-paste attempts">
+                    0 pastes
+                  </span>
+                )}
                 {w.tabSwitchCount > 0 ? (
-                  <span className="text-rose-400 font-bold">⚠️ {w.tabSwitchCount} tab</span>
+                  <span className="text-rose-400 font-bold" title="Tab switches detected">
+                    ⚠️ {w.tabSwitchCount} tab{w.tabSwitchCount > 1 ? 's' : ''}
+                  </span>
                 ) : (
                   <span className="text-emerald-400">0 tabs</span>
                 )}
@@ -290,8 +300,10 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
             {/* Metrics Snapshot */}
             <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
               <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-                <div className="text-[10px] text-[var(--muted-foreground)]">ACADEMIC XP</div>
-                <div className="text-sm font-bold text-indigo-400 mt-0.5">{selectedSeat.totalPoints} PTS</div>
+                <div className="text-[10px] text-[var(--muted-foreground)]">COPY-PASTE</div>
+                <div className={`text-sm font-bold mt-0.5 ${selectedSeat.copyPasteAttempts > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {selectedSeat.copyPasteAttempts} Pastes
+                </div>
               </div>
               <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
                 <div className="text-[10px] text-[var(--muted-foreground)]">STREAK</div>
@@ -300,7 +312,7 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
               <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
                 <div className="text-[10px] text-[var(--muted-foreground)]">TAB SWITCHES</div>
                 <div className={`text-sm font-bold mt-0.5 ${selectedSeat.tabSwitchCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {selectedSeat.tabSwitchCount}
+                  {selectedSeat.tabSwitchCount} Tabs
                 </div>
               </div>
             </div>
