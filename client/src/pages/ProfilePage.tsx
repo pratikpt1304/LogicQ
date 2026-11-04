@@ -83,6 +83,7 @@ export const ProfilePage: React.FC = () => {
   );
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [studentProfileTab, setStudentProfileTab] = useState<'practice' | 'lab' | 'submissions'>('practice');
   const [editError, setEditError] = useState<string | null>(null);
   const [isDriveBackingUp, setIsDriveBackingUp] = useState(false);
   const [profileWorkspaceBlockMsg, setProfileWorkspaceBlockMsg] = useState<string | null>(null);
@@ -1258,543 +1259,392 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* STANDARD STUDENT PROFILE VIEW */
-        <div className="space-y-8">
+        /* STANDARD STUDENT PROFILE VIEW (APPLE HIG REDESIGN) */
+        <div className="space-y-6 sm:space-y-8">
 
-      {/* Profile Header Banner */}
-      <div className="glass-card p-6 sm:p-8 rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#8B9BFF] flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-[#0C0F1F] shadow-xl font-mono shrink-0">
-              {((resolvedDisplayName || publicLabel || 'S')[0] || 'S').toUpperCase()}
-            </div>
+          {/* ========================================================= */}
+          {/* Apple ID Style Frosted Profile Banner                     */}
+          {/* ========================================================= */}
+          <div className="relative rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/75 dark:bg-slate-900/75 backdrop-blur-2xl shadow-xl shadow-slate-900/5 p-6 sm:p-8 overflow-hidden transition-all">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-extrabold text-[#E8EAF6]">{headerTitle}</h1>
-                <span className="text-xs font-mono font-bold text-[#8B9BFF] bg-[#8B9BFF]/15 border border-[#8B9BFF]/40 px-2.5 py-0.5 rounded">
-                  {profile?.rank ? `RANK #${profile.rank}` : 'NOT RANKED YET'}
-                </span>
-                {isOwnProfile && ownPrnDisplay && (
-                  <span
-                    data-testid="own-masked-prn"
-                    className="text-xs font-mono font-semibold text-[#46D9A0] bg-[#46D9A0]/10 border border-[#46D9A0]/30 px-2.5 py-0.5 rounded"
-                  >
-                    PRN: {ownPrnDisplay}
-                  </span>
-                )}
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-indigo-500 text-white font-extrabold text-2xl sm:text-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                  {((resolvedDisplayName || publicLabel || 'S')[0] || 'S').toUpperCase()}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                      {headerTitle}
+                    </h1>
+
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      <Trophy className="w-3 h-3 text-amber-500" />
+                      <span>{profile?.rank ? `Rank #${profile.rank}` : 'Unranked'}</span>
+                    </span>
+
+                    {isOwnProfile && ownPrnDisplay && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                        PRN: {ownPrnDisplay}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Clean Academic Tags */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                      <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{profile?.college || currentUser?.college || 'LogicQ'}</span>
+                    </span>
+
+                    {(profile?.department || currentUser?.department) && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>{profile?.department || currentUser?.department}</span>
+                      </span>
+                    )}
+
+                    {(profile?.year || currentUser?.year) && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                        <Calendar className="w-3.5 h-3.5 text-cyan-500" />
+                        <span>Year: {profile?.year || currentUser?.year}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {(profile?.bio || currentUser?.bio) && (
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xl leading-relaxed">
+                      {profile?.bio || currentUser?.bio}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Academic Tags: College, Department, Year, Division */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]">
-                  <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                  <span>{profile?.college || currentUser?.college || 'LogicQ'}</span>
-                </span>
-                {(profile?.department || currentUser?.department) && (
-                  <span
-                    data-testid="profile-department"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
+              {/* Action Buttons (Apple Style Pills) */}
+              {isOwnProfile && (
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
                   >
-                    <GraduationCap className="w-3.5 h-3.5 text-[#46D9A0]" />
-                    <span>{profile?.department || currentUser?.department}</span>
-                  </span>
-                )}
-                {(profile?.year || currentUser?.year) && (
-                  <span
-                    data-testid="profile-year"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-[#E8EAF6]"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                    <span>Year: {profile?.year || currentUser?.year}</span>
-                  </span>
-                )}
-                
-              </div>
+                    <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Profile Settings</span>
+                  </button>
 
-              {(profile?.bio || currentUser?.bio) && (
-                <p className="text-sm text-[#E8EAF6] mt-2 max-w-xl leading-relaxed font-sans">
-                  {profile?.bio || currentUser?.bio}
-                </p>
+                  <button
+                    type="button"
+                    onClick={handleBackupToGoogleDrive}
+                    disabled={isDriveBackingUp}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
+                  >
+                    {isDriveBackingUp ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Folder className="w-3.5 h-3.5 text-emerald-500" />
+                    )}
+                    <span>Drive Backup</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportData}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-teal-500" />
+                    <span>Export Data</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
 
-          {isOwnProfile && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleOpenEdit}
-                data-testid="edit-profile-btn"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors shadow-sm"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                <span>Profile Settings</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleBackupToGoogleDrive}
-                disabled={isDriveBackingUp}
-                data-testid="drive-backup-btn"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#8B9BFF] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors disabled:opacity-50"
-                title="Back up history to personal Google Drive"
-              >
-                {isDriveBackingUp ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Folder className="w-3.5 h-3.5" />
-                )}
-                <span>Drive Backup</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleExportData}
-                data-testid="export-data-btn"
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-[#E8EAF6] bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-[#46D9A0]" />
-                <span>Export Data</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Primary Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <span className="text-xs font-mono text-[#9AA1C4] block mb-1">TOTAL SCORE</span>
-          <span className="text-2xl font-extrabold text-[#8B9BFF] font-mono">
-            {Math.max(profile.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0)} PTS
-          </span>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <span className="text-xs font-mono text-[#9AA1C4] block mb-1">CURRENT STREAK</span>
-          <span className="text-2xl font-extrabold text-[#46D9A0] font-mono flex items-center gap-1">
-            <Flame className="w-6 h-6" />
-            {Math.max(profile.currentStreak || 0, isOwnProfile ? (currentUser?.currentStreak || 0) : 0)}d
-          </span>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <span className="text-xs font-mono text-[#9AA1C4] block mb-1">LONGEST STREAK</span>
-          <span className="text-2xl font-extrabold text-[#E8EAF6] font-mono">
-            {Math.max(profile.longestStreak || 0, isOwnProfile ? (currentUser?.longestStreak || 0) : 0)} days
-          </span>
-        </div>
-
-        <div className="glass-card p-5 rounded-2xl border border-[#252C4F] bg-[#141932]">
-          <span className="text-xs font-mono text-[#9AA1C4] block mb-1">PROBLEMS SOLVED</span>
-          <span className="text-2xl font-extrabold text-[#46D9A0] font-mono">
-            {profile.totalSolved || 0}
-          </span>
-        </div>
-      </div>
-
-
-      {/* Solved by Difficulty Breakdown */}
-      <div className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-        <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
-          Solved by Difficulty
-        </h2>
-
-        <div className="grid grid-cols-3 gap-3 pt-2 text-center">
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#46D9A0]/30">
-            <span className="text-xs font-mono text-[#46D9A0] font-bold block mb-1">EASY</span>
-            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-              {solvedByDiff.EASY ?? solvedByDiff.easy ?? 0}
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#8B9BFF]/30">
-            <span className="text-xs font-mono text-[#8B9BFF] font-bold block mb-1">MEDIUM</span>
-            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-              {solvedByDiff.MEDIUM ?? solvedByDiff.medium ?? 0}
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-[#FF7A8A]/30">
-            <span className="text-xs font-mono text-[#FF7A8A] font-bold block mb-1">HARD</span>
-            <span className="text-xl font-mono font-extrabold text-[#E8EAF6]">
-              {solvedByDiff.HARD ?? solvedByDiff.hard ?? 0}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Practice Curriculum Mastery & Module Progress */}
-      {(() => {
-        const stats = profile.practiceStats || {
-          totalSolved: profile.totalSolved || 0,
-          totalQuestions: 80,
-          percentage: Math.min(100, Math.round(((profile.totalSolved || 0) / 80) * 100)),
-          easySolved: solvedByDiff.EASY ?? solvedByDiff.easy ?? 0,
-          mediumSolved: solvedByDiff.MEDIUM ?? solvedByDiff.medium ?? 0,
-          hardSolved: solvedByDiff.HARD ?? solvedByDiff.hard ?? 0,
-          totalActiveSeconds: 0,
-          firstAttemptAcceptedCount: 0,
-          modules: [
-            { id: '1', order: 1, title: 'Branching & Decisions', totalQuestions: 20, solvedCount: Math.min(20, profile.totalSolved || 0), percentage: Math.min(100, Math.round((Math.min(20, profile.totalSolved || 0) / 20) * 100)), isUnlocked: true, isCompleted: (profile.totalSolved || 0) >= 20 },
-            { id: '2', order: 2, title: 'Loops & Iteration', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 20)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 20)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 20, isCompleted: (profile.totalSolved || 0) >= 40 },
-            { id: '3', order: 3, title: 'Arrays & Matrices', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 40)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 40)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 40, isCompleted: (profile.totalSolved || 0) >= 60 },
-            { id: '4', order: 4, title: 'Pointers & Dynamic Memory', totalQuestions: 20, solvedCount: Math.max(0, Math.min(20, (profile.totalSolved || 0) - 60)), percentage: Math.min(100, Math.round((Math.max(0, Math.min(20, (profile.totalSolved || 0) - 60)) / 20) * 100)), isUnlocked: (profile.totalSolved || 0) >= 60, isCompleted: (profile.totalSolved || 0) >= 80 },
-          ],
-        };
-
-        const totalQ = stats.totalQuestions || 80;
-        const easyQ = Math.round(totalQ * 0.4);
-        const medQ = Math.round(totalQ * 0.4);
-        const hardQ = totalQ - easyQ - medQ;
-
-        return (
-          <div data-testid="profile-practice-mastery" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#252C4F] pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-[#8B9BFF]" />
-                  <h2 className="text-base font-mono font-bold text-[#E8EAF6] tracking-wide uppercase">
-                    Practice Curriculum Mastery
-                  </h2>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/30 font-semibold">
-                    4 Modules • {totalQ} Problems
-                  </span>
-                </div>
-                <p className="text-xs font-mono text-[#9AA1C4] mt-1">
-                  Structured C programming curriculum from Control Structures to Dynamic Memory
-                </p>
+          {/* ========================================================= */}
+          {/* Apple Fitness Style 4-Metric Grid                         */}
+          {/* ========================================================= */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                Total Score
+              </span>
+              <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1.5">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <span>{Math.max(profile.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0)} PTS</span>
               </div>
-              <Link
-                to="/practice"
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#8B9BFF]/10 hover:bg-[#8B9BFF]/20 text-[#8B9BFF] border border-[#8B9BFF]/30 text-xs font-mono font-semibold transition-colors self-start sm:self-auto"
-              >
-                <span>Go to Practice Arena</span>
-                <span>→</span>
-              </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              {/* Left: Donut Progress Ring */}
-              <div className="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-[#0C0F1F] border border-[#252C4F]/80">
-                <div className="relative w-44 h-44 flex items-center justify-center">
-                  {(() => {
-                    const size = 160;
-                    const strokeWidth = 14;
-                    const radius = (size - strokeWidth) / 2;
-                    const circumference = 2 * Math.PI * radius;
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                Problems Solved
+              </span>
+              <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                <span>{profile.totalSolved || 0}</span>
+              </div>
+            </div>
 
-                    const total = totalQ;
-                    const easy = stats.easySolved || 0;
-                    const medium = stats.mediumSolved || 0;
-                    const hard = stats.hardSolved || 0;
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                Current Streak
+              </span>
+              <div className="text-2xl font-extrabold text-amber-500 font-mono flex items-center gap-1.5">
+                <Flame className="w-5 h-5 fill-amber-500/20" />
+                <span>{Math.max(profile.currentStreak || 0, isOwnProfile ? (currentUser?.currentStreak || 0) : 0)}d</span>
+              </div>
+            </div>
 
-                    const easyLen = total > 0 ? (easy / total) * circumference : 0;
-                    const medLen = total > 0 ? (medium / total) * circumference : 0;
-                    const hardLen = total > 0 ? (hard / total) * circumference : 0;
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
+                Longest Streak
+              </span>
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-1.5">
+                <Target className="w-5 h-5 text-teal-500" />
+                <span>{Math.max(profile.longestStreak || 0, isOwnProfile ? (currentUser?.longestStreak || 0) : 0)} days</span>
+              </div>
+            </div>
+          </div>
 
-                    const easyOffset = 0;
-                    const medOffset = -easyLen;
-                    const hardOffset = -(easyLen + medLen);
+          {/* ========================================================= */}
+          {/* Apple Segmented Tab Switcher (Practice, Lab, Submissions) */}
+          {/* ========================================================= */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setStudentProfileTab('practice')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap select-none ${
+                  studentProfileTab === 'practice'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10 font-bold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                📚 Practice Hub (100 Topics)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStudentProfileTab('lab')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap select-none ${
+                  studentProfileTab === 'lab'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10 font-bold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🔬 Lab Internal (100 Problems • 20 M)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStudentProfileTab('submissions')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap select-none ${
+                  studentProfileTab === 'submissions'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10 font-bold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                💻 Code History ({`${profile.recentSubmissions?.length || 0}`})
+              </button>
+            </div>
+
+            {/* TAB 1: PRACTICE HUB TRACK (100 TOPICS) */}
+            {studentProfileTab === 'practice' && (
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-6 animate-in fade-in duration-150">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Practice Track Progress (100 Topics)
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Targeted C programming exercises with instant compiler feedback.
+                    </p>
+                  </div>
+                  <Link
+                    to="/practice"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-xs shrink-0"
+                  >
+                    <span>Practice Arena →</span>
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {[
+                    { order: 1, title: 'Control Flow', desc: 'Branching, decisions, loops and conditions', total: 25 },
+                    { order: 2, title: 'Pointers & Functions', desc: 'Addresses, dereferencing, pass-by-reference', total: 25 },
+                    { order: 3, title: 'Array and its Applications', desc: 'Arrays, matrices, sorting and searching', total: 25 },
+                    { order: 4, title: 'Advanced Data Types', desc: 'Dynamic heap allocation, structs, unions', total: 25 },
+                  ].map((m) => {
+                    const modSolved = Math.min(m.total, Math.max(0, (profile.totalSolved || 0) - (m.order - 1) * 25));
+                    const modPct = Math.round((modSolved / m.total) * 100);
+                    const isUnlocked = m.order === 1 || (profile.totalSolved || 0) >= (m.order - 1) * 25;
 
                     return (
-                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-                        <circle
-                          cx={size / 2}
-                          cy={size / 2}
-                          r={radius}
-                          fill="none"
-                          stroke="#1F2647"
-                          strokeWidth={strokeWidth}
-                        />
-                        {easy > 0 && (
-                          <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#46D9A0"
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={`${easyLen} ${circumference}`}
-                            strokeDashoffset={easyOffset}
-                            strokeLinecap="round"
+                      <Link
+                        key={m.order}
+                        to={`/practice?module=${m.order}`}
+                        className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-800/50 hover:border-emerald-500/40 p-4 transition-all block group"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            MODULE {m.order}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                            {modSolved}/{m.total} Solved
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
+                          {m.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                          {m.desc}
+                        </p>
+                        <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-3 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
+                            style={{ width: `${modPct}%` }}
                           />
-                        )}
-                        {medium > 0 && (
-                          <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#8B9BFF"
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={`${medLen} ${circumference}`}
-                            strokeDashoffset={medOffset}
-                            strokeLinecap="round"
-                          />
-                        )}
-                        {hard > 0 && (
-                          <circle
-                            cx={size / 2}
-                            cy={size / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#FF7A8A"
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={`${hardLen} ${circumference}`}
-                            strokeDashoffset={hardOffset}
-                            strokeLinecap="round"
-                          />
-                        )}
-                      </svg>
+                        </div>
+                      </Link>
                     );
-                  })()}
+                  })}
+                </div>
+              </div>
+            )}
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-2xl font-extrabold font-mono text-[#E8EAF6] tracking-tight">
-                      {stats.totalSolved}
-                      <span className="text-xs text-[#9AA1C4] font-normal">/{totalQ}</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-[#9AA1C4] uppercase tracking-wider">
-                      Solved
-                    </span>
-                    <span className="text-[11px] font-mono font-bold text-[#8B9BFF] mt-0.5">
-                      {stats.percentage}%
-                    </span>
+            {/* TAB 2: LAB INTERNAL TRACK (100 PROBLEMS) */}
+            {studentProfileTab === 'lab' && (
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-6 animate-in fade-in duration-150">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Lab Coursework & CIE Continuous Evaluation (100 Problems)
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Continuous internal evaluation (20 Marks total). Proctored verification.
+                    </p>
                   </div>
+                  <Link
+                    to="/lab-internal"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-xs shrink-0"
+                  >
+                    <span>Lab Coursework →</span>
+                  </Link>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-[#252C4F]">
-                  <div className="text-center">
-                    <div className="text-[10px] font-mono font-semibold text-[#46D9A0] flex items-center justify-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#46D9A0]" />
-                      Easy
-                    </div>
-                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                      {stats.easySolved}
-                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{easyQ}</span>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {[
+                    { order: 1, title: 'Control Structures', total: 20 },
+                    { order: 2, title: 'Pointers & Functions', total: 20 },
+                    { order: 3, title: 'Arrays & Strings', total: 20 },
+                    { order: 4, title: 'Dynamic Memory', total: 20 },
+                    { order: 5, title: 'Capstone Arena', total: 20 },
+                  ].map((m) => {
+                    const modSolved = Math.min(m.total, Math.max(0, (profile.totalSolved || 0) - (m.order - 1) * 20));
+                    const modPct = Math.round((modSolved / m.total) * 100);
 
-                  <div className="text-center">
-                    <div className="text-[10px] font-mono font-semibold text-[#8B9BFF] flex items-center justify-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#8B9BFF]" />
-                      Med
-                    </div>
-                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                      {stats.mediumSolved}
-                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{medQ}</span>
-                    </div>
-                  </div>
+                    return (
+                      <Link
+                        key={m.order}
+                        to={`/lab-internal?module=${m.order}`}
+                        className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-800/50 hover:border-indigo-500/40 p-4 transition-all block group"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                            MOD 0{m.order}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                            {modSolved}/{m.total}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
+                          {m.title}
+                        </h4>
+                        <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-3 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all duration-300"
+                            style={{ width: `${modPct}%` }}
+                          />
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-                  <div className="text-center">
-                    <div className="text-[10px] font-mono font-semibold text-[#FF7A8A] flex items-center justify-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF7A8A]" />
-                      Hard
-                    </div>
-                    <div className="text-sm font-mono font-bold text-[#E8EAF6] mt-0.5">
-                      {stats.hardSolved}
-                      <span className="text-[10px] text-[#9AA1C4] font-normal">/{hardQ}</span>
-                    </div>
+            {/* TAB 3: CODE HISTORY & SUBMISSIONS */}
+            {studentProfileTab === 'submissions' && (
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-4 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-emerald-500" />
+                      <span>Verified Problem Evaluations</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Permanent cloud-verified records of your submitted solutions
+                    </p>
                   </div>
+                  <span className="text-xs font-mono text-slate-400">
+                    {profile.recentSubmissions?.length || 0} Evaluated
+                  </span>
                 </div>
 
-                {(stats.totalActiveSeconds > 0 || stats.firstAttemptAcceptedCount > 0) && (
-                  <div className="flex items-center justify-between w-full mt-3 px-1 text-[11px] font-mono text-[#9AA1C4] pt-2 border-t border-[#252C4F]/60">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#8B9BFF]" />
-                      {stats.totalActiveSeconds >= 3600
-                        ? `${Math.floor(stats.totalActiveSeconds / 3600)}h ${Math.floor((stats.totalActiveSeconds % 3600) / 60)}m`
-                        : `${Math.round(stats.totalActiveSeconds / 60)} mins`}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-[#46D9A0]" />
-                      {stats.firstAttemptAcceptedCount} first-try
-                    </span>
+                {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
+                  <div className="text-center py-12 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-6 space-y-2">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      No code submissions recorded yet.
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Solve any problem in Practice Arena or Lab Coursework to establish your verified record!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {profile.recentSubmissions.map((sub: any) => (
+                      <div
+                        key={sub.id}
+                        className="p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {sub.problem?.title || 'Practice Problem'}
+                            </h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                              #{sub.attemptNumber || 1}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-2">
+                            <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}</span>
+                            <span>•</span>
+                            <span className="text-emerald-500 font-bold">+{sub.pointsAwarded || 0} PTS</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <VerdictBadge verdict={sub.verdict} size="sm" />
+                          {sub.code && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setViewCodeSubmission(sub);
+                                setHasCopiedCode(false);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold font-mono transition-colors cursor-pointer"
+                            >
+                              View Code
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {/* Right: 4 Module Progress Bars */}
-              <div className="md:col-span-7 space-y-3">
-                <div className="text-xs font-mono font-semibold text-[#9AA1C4] uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Modules Curriculum Progress</span>
-                  <span className="text-[10px] text-[#8B9BFF]">{stats.totalSolved} of {totalQ} completed</span>
-                </div>
-
-                {(stats.modules || []).map((mod: any) => {
-                  const isLocked = !mod.isUnlocked;
-                  const isDone = mod.isCompleted;
-
-                  return (
-                    <div
-                      key={mod.id}
-                      className={`p-3.5 rounded-xl border transition-all ${
-                        isDone
-                          ? 'bg-[#0C0F1F] border-[#46D9A0]/30 hover:border-[#46D9A0]/50'
-                          : isLocked
-                          ? 'bg-[#0C0F1F]/50 border-[#252C4F]/40 opacity-70'
-                          : 'bg-[#0C0F1F] border-[#8B9BFF]/30 hover:border-[#8B9BFF]/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs font-mono font-bold text-[#8B9BFF] px-1.5 py-0.5 rounded bg-[#8B9BFF]/10 shrink-0">
-                            M{mod.order}
-                          </span>
-                          <span className="text-xs font-mono font-bold text-[#E8EAF6] truncate">
-                            {mod.title}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isDone ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#46D9A0] bg-[#46D9A0]/10 px-2 py-0.5 rounded-full border border-[#46D9A0]/30">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Completed
-                            </span>
-                          ) : isLocked ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#9AA1C4] bg-[#252C4F]/30 px-2 py-0.5 rounded-full border border-[#252C4F]">
-                              <Lock className="w-3 h-3 text-[#9AA1C4]" />
-                              Locked
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#8B9BFF] bg-[#8B9BFF]/10 px-2 py-0.5 rounded-full border border-[#8B9BFF]/30">
-                              In Progress
-                            </span>
-                          )}
-
-                          <span className="text-xs font-mono font-bold text-[#E8EAF6]">
-                            {mod.solvedCount}/{mod.totalQuestions}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full bg-[#141932] h-2 rounded-full overflow-hidden border border-[#252C4F]/50">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            isDone
-                              ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                              : isLocked
-                              ? 'bg-[#252C4F]'
-                              : 'bg-gradient-to-r from-indigo-500 to-blue-400'
-                          }`}
-                          style={{ width: `${Math.max(mod.percentage, isDone ? 100 : 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            )}
           </div>
-        );
-      })()}
-
-
-
-      {/* Real Recent Submissions Table & Code Modal */}
-      <div data-testid="profile-recent-submissions-card" className="glass-card p-6 rounded-2xl border border-[#252C4F] bg-[#141932] space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-mono font-bold text-[#E8EAF6] tracking-wide uppercase flex items-center gap-2">
-              <Code2 className="w-4 h-4 text-[#8B9BFF]" />
-              <span>Recent Submissions</span>
-            </h2>
-            <p className="text-xs font-mono text-[#9AA1C4] mt-0.5">
-              Verified problem-solving evaluations and submitted code
-            </p>
-          </div>
-          <span className="text-xs font-mono text-[#9AA1C4]">
-            {profile.recentSubmissions?.length || 0} Evaluated
-          </span>
-        </div>
-
-        {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
-          <div className="text-center py-10 font-mono text-xs text-[#9AA1C4] space-y-2 border border-dashed border-[#252C4F] rounded-xl p-6">
-            <p>No evaluated submissions recorded yet.</p>
-            <p className="text-[#8B9BFF]">
-              Solve today&apos;s daily challenge or practice problems to establish your personal code record!
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="text-[#9AA1C4] uppercase text-[10px] tracking-wider border-b border-[#252C4F]">
-                <tr>
-                  <th className="pb-3">Challenge Title</th>
-                  <th className="pb-3">Attempt</th>
-                  <th className="pb-3">Time Taken</th>
-                  <th className="pb-3">Verdict</th>
-                  <th className="pb-3">Points</th>
-                  <th className="pb-3">Runtime</th>
-                  <th className="pb-3">Submitted</th>
-                  <th className="pb-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#252C4F]">
-                {profile.recentSubmissions.map((sub: any) => (
-                  <tr key={sub.id} className="hover:bg-[#0C0F1F]/40 transition-colors">
-                    <td className="py-3 font-semibold text-[#E8EAF6]">
-                      {sub.problem?.title || 'Daily Challenge'}
-                    </td>
-                    <td className="py-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                        #{sub.attemptNumber || 1}
-                      </span>
-                    </td>
-                    <td className="py-3 text-[#9AA1C4] font-mono text-[11px]">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        {sub.timeToSolveFormatted || (sub.timeToSolveSeconds ? (sub.timeToSolveSeconds >= 60 ? `${Math.floor(sub.timeToSolveSeconds / 60)}m ${sub.timeToSolveSeconds % 60}s` : `${sub.timeToSolveSeconds}s`) : '< 1m')}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      {sub.isCheatAutoSubmit || sub.isCheatAttempt || sub.tag === 'TRY_TO_CHEAT' ? (
-                        <div className="flex flex-col gap-1 items-start">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                            🚨 Cheated
-                          </span>
-                          <VerdictBadge verdict={sub.verdict} size="sm" />
-                        </div>
-                      ) : (
-                        <VerdictBadge verdict={sub.verdict} size="sm" />
-                      )}
-                    </td>
-                    <td className="py-3 text-[#46D9A0] font-bold">
-                      +{sub.pointsAwarded || 0} PTS
-                    </td>
-                    <td className="py-3 text-[#9AA1C4]">
-                      {sub.runtimeMs ? `${sub.runtimeMs}ms` : '—'}
-                    </td>
-                    <td className="py-3 text-[#9AA1C4]">
-                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}
-                    </td>
-                    <td className="py-3 text-right">
-                      {sub.code ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setViewCodeSubmission(sub);
-                            setHasCopiedCode(false);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#0C0F1F] hover:bg-[#252C4F] border border-[#252C4F] text-[#8B9BFF] hover:text-[#E8EAF6] text-xs font-mono font-semibold transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Code</span>
-                        </button>
-                      ) : (
-                        <span className="text-[#9AA1C4] text-[11px]">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
         </div>
       )}
 
