@@ -205,220 +205,193 @@ export const Navbar: React.FC = () => {
                 {profileDropdownOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-64 rounded-xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute right-0 mt-2 w-72 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl shadow-slate-950/20 p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100"
                   >
-                    {/* User Header */}
-                    <div className="px-3.5 py-2.5 border-b border-[var(--border-line)] bg-[var(--bg-surface)]/50">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <p className="font-semibold text-[var(--text-main)] text-xs truncate">
-                          {user.displayName || user.fullName || user.username}
-                        </p>
-                        {isAdmin ? (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider shrink-0">
-                            Admin
-                          </span>
-                        ) : isFaculty ? (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 uppercase tracking-wider shrink-0">
-                            Faculty
-                          </span>
-                        ) : isChecker ? (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider shrink-0">
-                            Evaluator
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 uppercase tracking-wider shrink-0">
-                            Student
-                          </span>
-                        )}
+                    {/* Apple ID Style User Card */}
+                    <div className="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                          {(user.displayName || user.fullName || user.username || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs truncate">
+                              {user.displayName || user.fullName || user.username}
+                            </p>
+                            <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 uppercase tracking-wider shrink-0">
+                              {isAdmin ? 'Admin' : isFaculty ? 'Faculty' : isChecker ? 'Evaluator' : 'Student'}
+                            </span>
+                          </div>
+                          <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate mt-0.5">
+                            {user.maskedPrn || user.email || `@${user.username}`}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[var(--text-muted)] font-mono text-[11px] truncate">
-                        {user.maskedPrn || user.email || `@${user.username}`}
-                      </p>
 
-                      {/* Student Stats Badges (Streak & Total Points) inside Profile Dropdown */}
+                      {/* Student Stats Pill Strip */}
                       {isStudent && (
-                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--border-line)]/60 font-mono text-[11px]">
-                          <div title="Total Solved" className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 dark:text-emerald-400 font-semibold">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 font-mono text-[11px]">
+                          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             <span>{user.totalSolved || 0} Solved</span>
-                          </div>
-                          <div
-                            title="Total Points"
-                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 text-indigo-500 dark:text-indigo-400 font-semibold"
-                          >
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
                             <span className="text-[10px] text-slate-400">PTS</span>
-                            <span>{user.totalPoints}</span>
-                          </div>
+                            <span>{user.totalPoints || 0}</span>
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="max-h-[80vh] overflow-y-auto py-1 divide-y divide-[var(--border-line)]">
-                      {/* Section 1: Account & Learning */}
-                      <div className="py-1">
-                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                          {isStudent ? 'My Learning' : 'Account'}
-                        </div>
-                        <Link
-                          to="/profile"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                        >
-                          <UserIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                          <span>View Profile</span>
-                        </Link>
+                    {/* Apple Style Menu Items */}
+                    <div className="space-y-0.5">
+                      <Link
+                        to="/profile"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                      >
+                        <UserIcon className="w-4 h-4 text-slate-400" />
+                        <span>View Profile</span>
+                      </Link>
 
-                        {isStudent && (
-                          <>
-                            <Link
-                              to="/student/tests"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                      {isStudent && (
+                        <>
+                          <Link
+                            to="/student/tests"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                          >
+                            <FileCode2 className="w-4 h-4 text-indigo-500" />
+                            <span>My Assigned Tests</span>
+                          </Link>
+
+                          <Link
+                            to="/history"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                          >
+                            <Code2 className="w-4 h-4 text-emerald-500" />
+                            <span>My Submissions</span>
+                          </Link>
+
+                          <Link
+                            to="/analytics"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                          >
+                            <Brain className="w-4 h-4 text-cyan-500" />
+                            <span>Learning Analytics</span>
+                          </Link>
+
+                          {!isStandalone && (
+                            <button
+                              type="button"
+                              onClick={handleInstallClick}
+                              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer text-left"
                             >
-                              <FileCode2 className="w-3.5 h-3.5 text-indigo-400" />
-                              <span>My Assigned Tests</span>
-                            </Link>
+                              <Download className="w-4 h-4 text-teal-500" />
+                              <span>Install LogicQ App</span>
+                            </button>
+                          )}
+                        </>
+                      )}
 
-                            <Link
-                              to="/history"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                            >
-                              <Code2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                              <span>My Submissions</span>
-                            </Link>
-
-                            <Link
-                              to="/analytics"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                            >
-                              <Brain className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                              <span>Learning Analytics</span>
-                            </Link>
-
-                            {!isStandalone && (
-                              <button
-                                type="button"
-                                onClick={handleInstallClick}
-                                className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left"
-                              >
-                                <Download className="w-3.5 h-3.5 text-[var(--color-accent)]" />
-                                <span>Install LogicQ App</span>
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* Section 2: Faculty Suite */}
+                      {/* Faculty Items */}
                       {isFaculty && (
-                        <div className="py-1">
-                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                        <>
+                          <div className="pt-1.5 pb-1 px-3 text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-500">
                             Faculty Portal
                           </div>
                           <Link
                             to="/faculty/sections"
                             onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                           >
-                            <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                            <BookOpen className="w-4 h-4 text-indigo-500" />
                             <span>Sections & Rosters</span>
                           </Link>
                           <Link
                             to="/faculty/questions"
                             onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                           >
-                            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                            <Sparkles className="w-4 h-4 text-purple-500" />
                             <span>Question Bank & AI</span>
                           </Link>
                           <Link
                             to="/faculty/tests"
                             onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                           >
-                            <FileCode2 className="w-3.5 h-3.5 text-cyan-400" />
+                            <FileCode2 className="w-4 h-4 text-cyan-500" />
                             <span>Assign Tests</span>
                           </Link>
                           <Link
                             to="/faculty/analytics"
                             onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
+                            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                           >
-                            <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                            <Brain className="w-4 h-4 text-indigo-500" />
                             <span>Cohort Analytics</span>
                           </Link>
-                        </div>
+                        </>
                       )}
 
-                      {/* Section 3: Administration & Evaluation */}
-                      {(isAdmin || isChecker) && (
-                        <div className="py-1">
-                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                            Administration
-                          </div>
-                          {isAdmin && (
-                            <Link
-                              to="/admin"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Admin Dashboard</span>
-                            </Link>
-                          )}
-
-                        </div>
+                      {/* Admin Items */}
+                      {isAdmin && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setProfileDropdownOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-amber-500" />
+                          <span>Admin Dashboard</span>
+                        </Link>
                       )}
 
-                      {/* Change Password Button */}
-                      <div className="py-1">
+                      {/* Preferences Section */}
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 space-y-0.5">
                         <button
                           type="button"
                           onClick={() => {
                             setProfileDropdownOpen(false);
                             setIsChangePasswordModalOpen(true);
                           }}
-                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group cursor-pointer"
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer text-left"
                         >
-                          <KeyRound className="w-3.5 h-3.5 text-cyan-500 group-hover:rotate-12 transition-transform" />
-                          <span className="font-medium">Change Password</span>
-                          <span className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">2/week</span>
+                          <div className="flex items-center gap-3">
+                            <KeyRound className="w-4 h-4 text-slate-400" />
+                            <span>Change Password</span>
+                          </div>
                         </button>
-                      </div>
 
-                      {/* Theme Toggle (Inside profile menu, directly above Sign Out) */}
-                      <div className="py-1">
                         <button
                           type="button"
                           onClick={() => toggleTheme()}
-                          className="w-[calc(100%-8px)] flex items-center justify-between px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--bg-surface)] rounded-md mx-1 transition-colors text-left group"
+                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer text-left"
                         >
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-3">
                             {theme === 'dark' ? (
-                              <Sun className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-45 transition-transform" />
+                              <Sun className="w-4 h-4 text-amber-500" />
                             ) : (
-                              <Moon className="w-3.5 h-3.5 text-indigo-500 group-hover:-rotate-12 transition-transform" />
+                              <Moon className="w-4 h-4 text-indigo-500" />
                             )}
-                            <span className="font-medium">
-                              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                            </span>
+                            <span>Appearance</span>
                           </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] group-hover:border-indigo-400/40 transition-colors">
-                            {theme === 'dark' ? 'Switch' : 'Switch'}
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 font-semibold">
+                            {theme === 'dark' ? 'Dark' : 'Light'}
                           </span>
                         </button>
                       </div>
 
-                      {/* Section 4: Sign Out */}
-                      <div className="pt-1">
+                      {/* Sign Out */}
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="w-[calc(100%-8px)] flex items-center gap-2.5 px-3 py-1.5 text-xs text-[var(--color-error)] hover:bg-[var(--color-error)]/10 rounded-md mx-1 transition-colors text-left font-medium"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer text-left"
                         >
-                          <LogOut className="w-3.5 h-3.5 text-[var(--color-error)]" />
+                          <LogOut className="w-4 h-4 text-rose-500" />
                           <span>Sign Out</span>
                         </button>
                       </div>
