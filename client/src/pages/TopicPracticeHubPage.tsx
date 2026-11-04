@@ -2020,20 +2020,14 @@ export const TopicPracticeHubPage: React.FC = () => {
                             <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs">
                               Use Case 1
                             </span>
-                            <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                              (Visible Test Case • Auto-fed Stdin)
-                            </span>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
-                                USE CASE INPUT (AUTOMATIC STDIN):
-                              </span>
-                              <span className="text-[10px] text-cyan-400 font-mono">
-                                Injected Directly
+                              <span className="text-[11px] font-semibold text-[var(--text-muted)] tracking-wide">
+                                Input
                               </span>
                             </div>
                             <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
@@ -2042,11 +2036,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">
-                                EXPECTED OUTPUT:
-                              </span>
-                              <span className="text-[10px] text-emerald-500/70 font-mono">
-                                Ground Truth
+                              <span className="text-[11px] font-semibold text-emerald-500 tracking-wide">
+                                Expected Output
                               </span>
                             </div>
                             <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-emerald-400 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">

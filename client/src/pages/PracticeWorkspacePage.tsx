@@ -2136,9 +2136,6 @@ export const PracticeWorkspacePage: React.FC = () => {
                             <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
                               EXPECTED OUTPUT:
                             </span>
-                            <span className="text-[10px] text-emerald-500/80 font-mono">
-                              Ground Truth
-                            </span>
                           </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs font-bold">
                             {sampleCases[selectedCaseIndex].expectedOutput}

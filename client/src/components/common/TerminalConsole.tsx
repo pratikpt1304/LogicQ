@@ -79,7 +79,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
   totalUseCases,
   testCases,
   isLoading = false,
-  title = 'GCC 14.2.0 (Ubuntu x86_64) • -std=c11 -O2',
+  title = 'GCC C11',
   onRetry,
   onClear,
   className = '',
@@ -222,11 +222,7 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
               <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
               <span>COMPILED & EXECUTED (Exit 0)</span>
             </span>
-          ) : (
-            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold">
-              <span>SANDBOX READY</span>
-            </span>
-          )}
+          ) : null}
         </div>
 
         {/* Right: Quick Action Controls */}
@@ -290,21 +286,6 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
             >
               <Lightbulb className="w-3 h-3 text-amber-400 animate-pulse" />
               <span>Bug Guidance ({hints.length})</span>
-            </button>
-          )}
-
-          {useCaseInput != null && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('usecase')}
-              className={`px-2.5 py-1 rounded-md transition font-semibold flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'usecase'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
-            >
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>Use Case Evaluation</span>
             </button>
           )}
         </div>
