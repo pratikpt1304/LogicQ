@@ -175,24 +175,27 @@ export const TopicPracticeHubPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number | null>(() => {
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(() => {
     const p = new URLSearchParams(window.location.search).get('module');
     if (p) {
       const n = parseInt(p, 10);
-      if (!isNaN(n) && n >= 1 && n <= 5) return n;
+      if (!isNaN(n) && n >= 1 && n <= 4) return n;
     }
-    return null;
+    const t = new URLSearchParams(window.location.search).get('topic');
+    if (t) {
+      const found = TOPIC_PRACTICE_DATA.find((x) => x.id === t);
+      if (found) return found.moduleIndex;
+    }
+    return 1;
   });
 
   useEffect(() => {
     const mod = searchParams.get('module');
     if (mod) {
       const parsed = parseInt(mod, 10);
-      if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 4) {
         setSelectedModuleFilter(parsed);
       }
-    } else {
-      setSelectedModuleFilter(null);
     }
   }, [searchParams]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -567,6 +570,12 @@ export const TopicPracticeHubPage: React.FC = () => {
     const prevTopicInMod = moduleTopics[topicIdx - 1];
     return !solved.includes(prevTopicInMod.id);
   };
+
+  // Next unsolved question in current module for Apple-style 1-click launch
+  const nextUnsolvedInModule = useMemo(() => {
+    const modTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === selectedModuleFilter);
+    return modTopics.find((t) => !solvedTopics.includes(t.id)) || modTopics[0];
+  }, [selectedModuleFilter, solvedTopics]);
 
   // Module-aware topic navigation (Each module has 25 topics)
   const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
@@ -1227,33 +1236,37 @@ export const TopicPracticeHubPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
-      {/* 1. Header Banner */}
-      <div className="glass-card p-6 sm:p-7 rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-sm">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
+      {/* 1. APPLE FROSTED HEADER */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-bold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Daily Practice Arena</span>
+              <span>Curriculum Practice</span>
+              <span className="w-1 h-1 rounded-full bg-indigo-400" />
+              <span>C11 GCC 14</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-              Daily C Practice
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              C Programming Practice
             </h1>
-            <p className="text-xs sm:text-sm text-[var(--text-muted)] max-w-2xl leading-relaxed">
-              Targeted C programming exercises with instant compiler feedback and syntax tip boxes. No timers, unlimited attempts.
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+              Targeted logic exercises with instant compiler feedback and syntax tip boxes. No timers, unlimited attempts.
             </p>
           </div>
 
-          {/* Progress & Quick Link */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0 bg-[var(--bg-surface)] p-3.5 sm:p-4 rounded-xl border border-[var(--border-line)]">
-            <div className="space-y-1.5 min-w-[160px]">
+          {/* Quick Mastery & Lab Link */}
+          <div className="flex items-center gap-4 shrink-0 bg-slate-50/80 dark:bg-slate-800/40 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
+            <div className="space-y-1.5 min-w-[140px]">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-[var(--text-muted)]">Progress</span>
-                <span className="font-bold text-emerald-400">{solvedCount}/{totalTopics} ({progressPct}%)</span>
+                <span className="text-slate-500 dark:text-slate-400">Total Solved</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                  {solvedCount}/{totalTopics} ({progressPct}%)
+                </span>
               </div>
-              <div className="w-full bg-[var(--bg-panel)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -1261,486 +1274,398 @@ export const TopicPracticeHubPage: React.FC = () => {
 
             <Link
               to="/lab-internal"
-              className="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-600 border border-indigo-500/20 transition flex items-center gap-1.5 whitespace-nowrap self-stretch sm:self-auto justify-center"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Lab Internal &rarr;</span>
+              <BookOpen className="w-3.5 h-3.5 text-cyan-500" />
+              <span>Lab Internal →</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* VIEW CONDITIONAL: ALL MODULES OVERVIEW OR DEDICATED MODULE TOPICS */}
-      {selectedModuleFilter === null ? (
-        /* ========================================================
-           VIEW A: ALL 5 PRACTICE MODULE CARDS OVERVIEW
-           ======================================================== */
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)]">
-              Select Practice Track:
-            </h2>
-            <span className="text-xs font-mono text-emerald-400 font-semibold">
-              4 Sequential Topic Modules • {totalTopics} Questions
-            </span>
-          </div>
+      {/* 2. APPLE SEGMENTED MODULE SWITCHER */}
+      <div className="p-1.5 rounded-2xl bg-slate-200/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+        {[
+          { id: 1, title: 'Control Flow', desc: 'Decisions & Loops' },
+          { id: 2, title: 'Pointers & Functions', desc: 'Addresses & Recursion' },
+          { id: 3, title: 'Array & Applications', desc: 'Matrices & Sorting' },
+          { id: 4, title: 'Dynamic Memory', desc: 'Structs & Heap' },
+        ].map((m) => {
+          const uInfo = getModuleUnlockInfo(m.id);
+          const isCur = selectedModuleFilter === m.id;
+          const mTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === m.id);
+          const mSolved = mTopics.filter((t) => solvedTopics.includes(t.id)).length;
+          const isLocked = !uInfo.isUnlocked;
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
-            {[
-              {
-                id: 1,
-                name: '1. Control Flow',
-                title: 'Control Flow',
-                subtitle: 'Decisions, Branching & Loops',
-                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length,
-                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopics.includes(t.id)).length,
-              },
-              {
-                id: 2,
-                name: '2. Pointers & Functions',
-                title: 'Pointers & Functions',
-                subtitle: 'Memory Addresses & Modular Logic',
-                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length,
-                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopics.includes(t.id)).length,
-              },
-              {
-                id: 3,
-                name: '3. Array and its Applications',
-                title: 'Array and its Applications',
-                subtitle: 'Single and multi-dimensional arrays, searching, sorting, rotations, and matrices',
-                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length,
-                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopics.includes(t.id)).length,
-              },
-              {
-                id: 4,
-                name: '4. Advanced Data Types, Dynamic Memory',
-                title: 'Advanced Data Types, Dynamic Memory',
-                subtitle: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures',
-                total: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length,
-                solved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopics.includes(t.id)).length,
-              },
-            ].map((block) => {
-              const pct = block.total > 0 ? Math.round((block.solved / block.total) * 100) : 0;
-              const unlockInfo = getModuleUnlockInfo(block.id);
-              const isLocked = !unlockInfo.isUnlocked;
-
-              return (
-                <div
-                  key={block.id}
-                  onClick={() => {
-                    if (isLocked) {
-                      toast.warning(`🔒 ${unlockInfo.lockReason}`);
-                      return;
-                    }
-                    setSelectedModuleFilter(block.id);
-                    setSearchParams({ module: String(block.id) });
-                  }}
-                  className={`glass-card p-6 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow-lg ${
-                    isLocked
-                      ? 'border-[var(--border-line)] bg-[var(--bg-surface)]/50 opacity-60 cursor-not-allowed'
-                      : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/50 hover:bg-[var(--bg-surface)] cursor-pointer'
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-md bg-[var(--bg-surface)] border border-[var(--border-line)] text-emerald-400">
-                        MODULE {block.id}
-                      </span>
-                      {isLocked ? (
-                        <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/30 inline-flex items-center gap-1">
-                          <Lock className="w-3 h-3 text-amber-400" />
-                          <span>Locked</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs font-mono font-semibold text-emerald-400">
-                          {block.solved}/{block.total} solved ({pct}%)
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-xl font-bold text-[var(--text-main)] group-hover:text-emerald-400 transition-colors">
-                      {block.title}
-                    </h3>
-                    <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-                      {isLocked ? unlockInfo.lockReason : block.subtitle}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-[var(--border-line)] space-y-3">
-                    <div className="w-full bg-[var(--bg-surface)] h-2 rounded-full overflow-hidden border border-[var(--border-line)]">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          isLocked ? 'bg-slate-600' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      {isLocked ? (
-                        <span className="text-amber-400/90 text-xs flex items-center gap-1">
-                          <Lock className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Requires Lab Internal {block.id - 1}</span>
-                        </span>
-                      ) : (
-                        <span className="text-emerald-400 font-bold group-hover:underline flex items-center gap-1">
-                          <span>Practice Module Questions</span>
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        /* ========================================================
-           VIEW B: DEDICATED MODULE PRACTICE VIEW (TOPIC LIST)
-           ======================================================== */
-        <div id="practice-topic-list-section" className="space-y-4">
-          {/* Back Button & Module Tabs Switcher */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          return (
             <button
+              key={m.id}
               type="button"
               onClick={() => {
-                setSelectedModuleFilter(null);
-                setSearchParams({});
+                if (isLocked) {
+                  toast.warning(`🔒 ${uInfo.lockReason}`);
+                  return;
+                }
+                setSelectedModuleFilter(m.id);
+                setSearchParams({ module: String(m.id) });
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-bold text-[var(--accent)] hover:text-white bg-[var(--bg-panel)] hover:bg-[var(--accent)] border border-[var(--border-line)] transition-all cursor-pointer shadow-xs w-fit"
+              className={`py-3 px-4 rounded-xl text-left transition-all flex flex-col justify-between gap-1 group active:scale-98 cursor-pointer ${
+                isCur
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                  : isLocked
+                  ? 'text-slate-400 dark:text-slate-600 opacity-60 hover:opacity-80'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-800/40'
+              }`}
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>← All Practice Modules</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">
+                  Module 0${m.id}
+                </span>
+                {isLocked ? (
+                  <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-semibold">
+                    <Lock className="w-3 h-3 text-amber-500" />
+                    <span>Locked</span>
+                  </span>
+                ) : (
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                    isCur
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'text-slate-500'
+                  }`}>
+                    ${mSolved}/25
+                  </span>
+                )}
+              </div>
+              <div className="font-bold text-sm truncate">
+                {m.title}
+              </div>
+              <div className="text-[11px] text-slate-400 truncate hidden sm:block">
+                {m.desc}
+              </div>
             </button>
+          );
+        })}
+      </div>
 
-            {/* Quick Switch Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-mono">
-              {[1, 2, 3, 4].map((mId) => {
-                const isCur = selectedModuleFilter === mId;
-                const uInfo = getModuleUnlockInfo(mId);
-                return (
-                  <button
-                    key={mId}
-                    type="button"
-                    onClick={() => {
-                      if (!uInfo.isUnlocked) {
-                        toast.warning(`🔒 ${uInfo.lockReason}`);
-                        return;
-                      }
-                      setSelectedModuleFilter(mId);
-                      setSearchParams({ module: String(mId) });
-                    }}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer ${
-                      isCur
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-sm'
-                        : !uInfo.isUnlocked
-                        ? 'opacity-40 bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] cursor-not-allowed'
-                        : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)]'
-                    }`}
-                  >
-                    Module {mId}
-                  </button>
-                );
-              })}
+      {/* 3. HERO: 1-CLICK NEXT QUESTION ACTION */}
+      {nextUnsolvedInModule && getModuleUnlockInfo(selectedModuleFilter).isUnlocked && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-indigo-50/80 via-white/80 to-purple-50/50 dark:from-indigo-950/20 dark:via-slate-900/40 dark:to-slate-900/60 backdrop-blur-xl border border-indigo-100 dark:border-indigo-900/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-indigo-600 text-white shadow-xs">
+                Next Up
+              </span>
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                Module {selectedModuleFilter} · {nextUnsolvedInModule.problem.difficulty} · +20 XP
+              </span>
             </div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              {nextUnsolvedInModule.topicTitle}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xl">
+              {nextUnsolvedInModule.summary || nextUnsolvedInModule.problem.description}
+            </p>
           </div>
 
-          {!getModuleUnlockInfo(selectedModuleFilter).isUnlocked ? (
-            <div className="p-8 sm:p-12 rounded-2xl bg-[var(--bg-panel)] border border-amber-500/20 bg-amber-500/5 text-center space-y-4">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-                <Lock className="w-7 h-7 text-amber-400" />
+          <button
+            type="button"
+            onClick={() => handleOpenTopic(nextUnsolvedInModule)}
+            className="w-full sm:w-auto px-6 py-3 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/35 flex items-center justify-center gap-2 group active:scale-95 shrink-0 cursor-pointer"
+          >
+            <Play className="w-4 h-4 fill-current group-hover:scale-110 transition-transform" />
+            <span>Continue Solving</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      )}
+
+      {/* 4. MODULE CONTENT OR LOCK CARD */}
+      {!getModuleUnlockInfo(selectedModuleFilter).isUnlocked ? (
+        <div className="p-8 sm:p-12 rounded-3xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl border border-amber-500/20 text-center space-y-4 shadow-xs">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 flex items-center justify-center">
+            <Lock className="w-7 h-7 text-amber-500" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Module {selectedModuleFilter} Practice is Locked
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              {getModuleUnlockInfo(selectedModuleFilter).lockReason}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const prevMod = Math.max(1, selectedModuleFilter - 1);
+              setSelectedModuleFilter(prevMod);
+              setSearchParams({ module: String(prevMod) });
+            }}
+            className="px-5 py-2.5 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Go to Module {Math.max(1, selectedModuleFilter - 1)}</span>
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Header of selected module + quick search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded border border-indigo-500/20">
+                  Module {selectedModuleFilter} Topics
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  ({filteredTopics.length} questions available)
+                </span>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-[var(--text-main)] font-mono uppercase tracking-wider">
-                  Module {selectedModuleFilter} Practice is Locked
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] font-mono max-w-lg mx-auto">
-                  {getModuleUnlockInfo(selectedModuleFilter).lockReason}
-                </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Click any topic item below to open Monaco Editor workspace directly.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 sm:w-60">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search questions..."
+                  className="w-full pl-8 pr-7 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/60 text-slate-900 dark:text-white placeholder-slate-400 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
-                <Link
-                  to="/lab-internal"
-                  className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/20 flex items-center gap-2"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span>Go to Lab Internal Continuous Evaluation &rarr;</span>
-                </Link>
+
+              {/* Status Filter */}
+              <div className="flex items-center bg-slate-200/60 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs font-mono">
                 <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedModuleFilter(null);
-                    setSearchParams({});
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-mono font-medium border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-[var(--text-main)]"
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-3 py-1 rounded-lg font-semibold transition ${
+                    statusFilter === 'ALL'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
-                  Back to All Modules
+                  All
+                </button>
+                <button
+                  onClick={() => setStatusFilter('UNSOLVED')}
+                  className={`px-3 py-1 rounded-lg font-semibold transition ${
+                    statusFilter === 'UNSOLVED'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  To Do
+                </button>
+                <button
+                  onClick={() => setStatusFilter('SOLVED')}
+                  className={`px-3 py-1 rounded-lg font-semibold transition ${
+                    statusFilter === 'SOLVED'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Solved
                 </button>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Header of selected module + quick search */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)]">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/30">
-                      Module {selectedModuleFilter} Practice Topics
-                    </span>
-                    <span className="text-xs text-[var(--text-muted)] font-mono">
-                      ({filteredTopics.length} topics available)
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
-                    Click any topic item in the list below to open the practice workspace.
-                  </p>
+          </div>
+
+          {/* Resume In-Progress Draft Banner */}
+          {lastActiveTopicItem && !statusFilter.includes('SOLVED') && (
+            <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-4 h-4 text-amber-500" />
                 </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="relative flex-1 sm:w-64">
-                    <Search className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Filter topics..."
-                      className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] text-[var(--text-main)] placeholder-[var(--text-muted)] text-xs font-medium focus:outline-none focus:border-emerald-500 transition"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs"
-                      >
-                        ✕
-                      </button>
-                    )}
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5 font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>In-Progress Draft Saved</span>
                   </div>
-
-                  {/* Status Filter */}
-                  <div className="flex items-center bg-[var(--bg-surface)] p-0.5 rounded-xl border border-[var(--border-line)]">
-                    <button
-                      onClick={() => setStatusFilter('ALL')}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
-                        statusFilter === 'ALL'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('UNSOLVED')}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
-                        statusFilter === 'UNSOLVED'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      To Do
-                    </button>
-                    <button
-                      onClick={() => setStatusFilter('SOLVED')}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition ${
-                        statusFilter === 'SOLVED'
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      Solved
-                    </button>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                    {lastActiveTopicItem.topic.topicTitle} ({lastActiveTopicItem.code.length} chars)
                   </div>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => handleOpenTopic(lastActiveTopicItem.topic)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 shrink-0 cursor-pointer"
+              >
+                <span>Resume Coding</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
-              {/* Resume In-Progress Draft Banner (Floating top banner if student left without finishing) */}
-              {lastActiveTopicItem && !statusFilter.includes('SOLVED') && (
-                <div className="mb-4 p-4 rounded-xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-cyan-500/10 to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in duration-300">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 flex items-center justify-center font-mono font-bold shrink-0 shadow-xs">
-                      <RotateCcw className="w-5 h-5 text-amber-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5 font-mono">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Resume In-Progress Question</span>
-                      </div>
-                      <div className="text-sm font-semibold text-[var(--text-main)] truncate">
-                        Module {lastActiveTopicItem.topic.moduleIndex}: {lastActiveTopicItem.topic.topicTitle}
-                      </div>
-                      <div className="text-xs text-[var(--text-muted)] font-mono truncate">
-                        Your half-written code ({lastActiveTopicItem.code.length} characters) is safely saved.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenTopic(lastActiveTopicItem.topic)}
-                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs font-mono flex items-center justify-center gap-2 shadow-sm transition cursor-pointer shrink-0"
+          {/* Clean Numbered Question List */}
+          {filteredTopics.length === 0 ? (
+            <div className="text-center py-12 bg-white/60 dark:bg-slate-900/40 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
+              <Code2 className="w-8 h-8 text-slate-400 mx-auto opacity-50" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">No Questions Match Filter</h3>
+              <p className="text-xs text-slate-400">Try clearing search or changing the filter.</p>
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('ALL'); }}
+                className="px-4 py-2 text-xs font-semibold rounded-full bg-indigo-600 text-white cursor-pointer"
+              >
+                Reset Filter
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredTopics.map((topic, idx) => {
+                const isSolved = solvedTopics.includes(topic.id);
+                const isLocked = isTopicLocked(topic);
+                const isHard = topic.problem.difficulty === 'HARD';
+                const isMedium = topic.problem.difficulty === 'MEDIUM';
+
+                const draftKey = `topic_${topic.id}`;
+                const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
+                const directCode = typeof localStorage !== 'undefined' ? localStorage.getItem(`logicq_practice_draft_${draftKey}`) : null;
+                const effectiveCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : directCode;
+                const hasDraft = Boolean(
+                  effectiveCode &&
+                  effectiveCode.trim() &&
+                  effectiveCode.trim() !== topic.problem.starterCode.trim()
+                );
+
+                return (
+                  <div
+                    key={topic.id}
+                    onClick={() => {
+                      if (isLocked) {
+                        const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === topic.moduleIndex);
+                        const topicIdx = moduleTopics.findIndex((t) => t.id === topic.id);
+                        const prevTopicInMod = topicIdx > 0 ? moduleTopics[topicIdx - 1] : null;
+                        toast.error(`🔒 Question ${topicIdx + 1} is locked! Complete Q${topicIdx} (${prevTopicInMod?.topicTitle || 'previous question'}) first to unlock.`);
+                        return;
+                      }
+                      handleOpenTopic(topic);
+                    }}
+                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group active:scale-[0.99] ${
+                      isLocked
+                        ? 'border-slate-200/60 dark:border-slate-800/60 bg-slate-100/40 dark:bg-slate-900/20 opacity-60 cursor-not-allowed'
+                        : isSolved
+                        ? 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40 hover:bg-emerald-500/10 cursor-pointer shadow-xs'
+                        : hasDraft
+                        ? 'border-amber-500/25 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10 cursor-pointer shadow-xs'
+                        : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 hover:border-indigo-500/40 hover:bg-white dark:hover:bg-slate-800/80 cursor-pointer shadow-xs hover:shadow-sm'
+                    }`}
                   >
-                    <span>Continue Coding</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
+                    {/* Left: Indicator + Title + Meta */}
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                      <span className={`w-8 h-8 rounded-xl font-mono text-xs font-bold flex items-center justify-center shrink-0 border transition-all ${
+                        isLocked
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                          : isSolved
+                          ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                          : hasDraft
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                          : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 group-hover:scale-105'
+                      }`}>
+                        {isSolved ? (
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        ) : isLocked ? (
+                          <Lock className="w-3.5 h-3.5" />
+                        ) : (
+                          idx + 1
+                        )}
+                      </span>
 
-              {/* Clean Numbered Topic List */}
-              {filteredTopics.length === 0 ? (
-                <div className="text-center py-12 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-line)] space-y-2">
-                  <Code2 className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-50" />
-                  <h3 className="text-sm font-bold text-[var(--text-main)]">No Topics Found</h3>
-                  <p className="text-xs text-[var(--text-muted)]">Try resetting the search filter.</p>
-                  <button
-                    onClick={() => { setSearchQuery(''); setStatusFilter('ALL'); }}
-                    className="px-3.5 py-1.5 text-xs font-mono font-bold rounded-lg bg-emerald-600 text-white"
-                  >
-                    Reset Filter
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTopics.map((topic, idx) => {
-                    const isSolved = solvedTopics.includes(topic.id);
-                    const isLocked = isTopicLocked(topic);
-                    const isHard = topic.problem.difficulty === 'HARD';
-                    const isMedium = topic.problem.difficulty === 'MEDIUM';
-
-                    const draftKey = `topic_${topic.id}`;
-                    const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
-                    const directCode = typeof localStorage !== 'undefined' ? localStorage.getItem(`logicq_practice_draft_${draftKey}`) : null;
-                    const effectiveCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : directCode;
-                    const hasDraft = Boolean(
-                      effectiveCode &&
-                      effectiveCode.trim() &&
-                      effectiveCode.trim() !== topic.problem.starterCode.trim()
-                    );
-
-                    return (
-                      <div
-                        key={topic.id}
-                        onClick={() => {
-                          if (isLocked) {
-                            const moduleTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === topic.moduleIndex);
-                            const topicIdx = moduleTopics.findIndex((t) => t.id === topic.id);
-                            const prevTopicInMod = topicIdx > 0 ? moduleTopics[topicIdx - 1] : null;
-                            toast.error(`🔒 Question ${topicIdx + 1} is locked! Complete Q${topicIdx} (${prevTopicInMod?.topicTitle || 'previous question'}) first to unlock.`);
-                            return;
-                          }
-                          handleOpenTopic(topic);
-                        }}
-                        className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
-                          isLocked
-                            ? 'border-slate-800/80 bg-slate-900/30 opacity-70 cursor-not-allowed hover:border-slate-700/80'
-                            : isSolved
-                            ? 'border-emerald-500/25 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10 cursor-pointer'
-                            : hasDraft
-                            ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10 cursor-pointer'
-                            : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)] cursor-pointer'
-                        }`}
-                      >
-                        {/* Left: Number + Title + Problem Info */}
-                        <div className="flex items-start sm:items-center gap-3 min-w-0">
-                          <span className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 border ${
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className={`font-bold text-sm transition-colors ${
                             isLocked
-                              ? 'bg-slate-900/80 text-slate-500 border-slate-800'
-                              : isSolved
-                              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                              : hasDraft
-                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                              : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)]'
+                              ? 'text-slate-400 dark:text-slate-500'
+                              : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
                           }`}>
-                            {isLocked ? <Lock className="w-3.5 h-3.5 text-slate-500" /> : idx + 1}
+                            {topic.topicTitle}
+                          </h4>
+
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                            isHard
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                              : isMedium
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          }`}>
+                            {topic.problem.difficulty}
                           </span>
 
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className={`font-bold text-sm transition-colors ${
-                                isLocked ? 'text-slate-400' : 'text-[var(--text-main)] group-hover:text-emerald-400'
-                              }`}>
-                                {topic.topicTitle}
-                              </h4>
-                              <span className={`text-[10px] font-mono font-bold px-2 py-0.2 rounded-full border ${
-                                isHard
-                                  ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                                  : isMedium
-                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                  : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                              }`}>
-                                {topic.problem.difficulty}
-                              </span>
+                          {hasDraft && !isSolved && !isLocked && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              <span>Draft</span>
+                            </span>
+                          )}
 
-                              {hasDraft && !isSolved && !isLocked && (
-                                <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold flex items-center gap-1 shadow-xs">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                  <span>Draft Saved</span>
-                                </span>
-                              )}
-
-                              {isLocked && (
-                                <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-400 text-[10px] font-mono font-medium flex items-center gap-1">
-                                  <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                  <span>Locked</span>
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                              <span className="text-emerald-400 font-semibold truncate flex items-center gap-1">
-                                <Code2 className="w-3.5 h-3.5 shrink-0" />
-                                {topic.problem.title}
-                              </span>
-                              <span>•</span>
-                              <span className="truncate">{topic.summary}</span>
-                              {isLocked && idx > 0 && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-amber-400/90 font-medium hidden lg:inline">Complete Q{idx} first to unlock</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Right: Solved / Practice Action */}
-                        <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                          <span className="text-[11px] font-mono text-amber-400/90 hidden md:flex items-center gap-1">
-                            <Lightbulb className="w-3 h-3 text-amber-400" />
-                            <span>Syntax Tip</span>
-                          </span>
-
-                          {isLocked ? (
-                            <span className="px-3.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-400 text-xs font-mono font-medium flex items-center gap-1.5 shadow-xs">
-                              <Lock className="w-3.5 h-3.5 text-slate-400" />
+                          {isLocked && (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 text-[10px] font-mono flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" />
                               <span>Locked</span>
                             </span>
-                          ) : isSolved ? (
-                            <span className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Solved</span>
-                            </span>
-                          ) : hasDraft ? (
-                            <button
-                              type="button"
-                              className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm group-hover:scale-102 cursor-pointer"
-                            >
-                              <span>Resume</span>
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm group-hover:scale-102 cursor-pointer"
-                            >
-                              <span>Practice</span>
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
                           )}
                         </div>
+
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate">
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                            {topic.problem.title}
+                          </span>
+                          <span>•</span>
+                          <span className="truncate">{topic.summary}</span>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
+                    </div>
+
+                    {/* Right: Solved / Solve Action */}
+                    <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                      <span className="text-[11px] font-mono text-amber-600 dark:text-amber-400/90 hidden md:flex items-center gap-1">
+                        <Lightbulb className="w-3.5 h-3.5" />
+                        <span>Syntax Tip</span>
+                      </span>
+
+                      {isLocked ? (
+                        <span className="px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs font-mono flex items-center gap-1.5">
+                          <Lock className="w-3 h-3" />
+                          <span>Locked</span>
+                        </span>
+                      ) : isSolved ? (
+                        <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Solved</span>
+                        </span>
+                      ) : hasDraft ? (
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold transition flex items-center gap-1 shadow-xs group-hover:scale-105 cursor-pointer"
+                        >
+                          <span>Resume</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center gap-1 shadow-xs group-hover:scale-105 cursor-pointer"
+                        >
+                          <span>Solve</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
