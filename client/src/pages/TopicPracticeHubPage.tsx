@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   Code2,
   BookOpen,
+  Home,
   Sparkles,
   CheckCircle2,
   ChevronRight,
@@ -1237,6 +1238,17 @@ export const TopicPracticeHubPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
+      {/* 0. APPLE NAVIGATION BAR CRUMB */}
+      <div className="flex items-center justify-between">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100/80 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 transition-all active:scale-95 group"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+          <span>Exit to Dashboard</span>
+        </Link>
+      </div>
+
       {/* 1. APPLE FROSTED HEADER */}
       <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1255,9 +1267,9 @@ export const TopicPracticeHubPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Mastery & Lab Link */}
-          <div className="flex items-center gap-4 shrink-0 bg-slate-50/80 dark:bg-slate-800/40 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-            <div className="space-y-1.5 min-w-[140px]">
+          {/* Quick Mastery, Dashboard Exit & Lab Link */}
+          <div className="flex items-center gap-3 shrink-0 bg-slate-50/80 dark:bg-slate-800/40 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
+            <div className="space-y-1.5 min-w-[130px]">
               <div className="flex items-center justify-between text-xs font-mono">
                 <span className="text-slate-500 dark:text-slate-400">Total Solved</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
@@ -1273,10 +1285,18 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             <Link
-              to="/lab-internal"
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
+              to="/dashboard"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
             >
-              <BookOpen className="w-3.5 h-3.5 text-cyan-500" />
+              <Home className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Dashboard</span>
+            </Link>
+
+            <Link
+              to="/lab-internal"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xs transition-all flex items-center gap-1.5 whitespace-nowrap active:scale-95"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
               <span>Lab Internal →</span>
             </Link>
           </div>

@@ -203,8 +203,8 @@ export const App: React.FC = () => {
   }, []);
 
   const isWorkspaceRoute =
-    location.pathname.startsWith('/practice') ||
-    location.pathname.startsWith('/lab-internal/') ||
+    (location.pathname.startsWith('/practice/') && location.pathname.split('/').filter(Boolean).length >= 3) ||
+    (location.pathname.startsWith('/lab-internal/') && location.pathname.split('/').filter(Boolean).length >= 3) ||
     location.pathname.startsWith('/exam/') ||
     location.pathname.startsWith('/mini-project/') ||
     location.pathname.startsWith('/compiler');
