@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
-import { auth } from '../../config/firebase.js';
+import { auth, db } from '../../config/firebase.js';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -246,6 +247,42 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             colors: ['#10b981', '#06b6d4', '#6366f1'],
           });
         } catch {}
+
+        const prnUpper = (user.prn || '').toUpperCase().trim();
+        if (prnUpper) {
+          try {
+            localStorage.setItem(`logicq_custom_password_${prnUpper}`, cleanNew);
+          } catch {}
+        }
+        if (user.id) {
+          try {
+            localStorage.setItem(`logicq_custom_password_${user.id}`, cleanNew);
+          } catch {}
+        }
+
+        // Update stored users cache
+        try {
+          const rawStored = localStorage.getItem('logicq_stored_users_v1');
+          if (rawStored) {
+            const list = JSON.parse(rawStored);
+            const target = list.find((u: any) => (u.prn && u.prn.toUpperCase() === prnUpper) || u.id === user.id);
+            if (target) {
+              target.password = cleanNew;
+              localStorage.setItem('logicq_stored_users_v1', JSON.stringify(list));
+            }
+          }
+        } catch {}
+
+        // Persist cross-device account security credential in Firestore
+        if (prnUpper) {
+          try {
+            setDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'), {
+              code: cleanNew,
+              problemSlug: '__auth_credential',
+              updatedAt: Date.now(),
+            }, { merge: true }).catch(() => {});
+          } catch {}
+        }
 
         if (user.id) {
           (FirestoreDataService as any).updateUserProfile?.(user.id, {

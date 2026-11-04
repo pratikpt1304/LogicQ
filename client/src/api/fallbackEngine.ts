@@ -1289,16 +1289,29 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error(`Account not found for "${cleanId}". Please check your PRN or institutional email.`);
     }
 
-    const hasCustomPassword = Boolean(found.password && found.password.toUpperCase() !== (found.prn || '').toUpperCase());
-    const isValidPassword =
-      (found.password && found.password === cleanPwd) ||
-      (found.password && found.password.toLowerCase() === cleanPwd.toLowerCase()) ||
-      (!hasCustomPassword && found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
-      (cleanId.toLowerCase() === 'dummy' && cleanPwd.toLowerCase() === 'dummy') ||
-      cleanPwd === 'password123';
+    const prnKey = (found.prn || '').toUpperCase().trim();
+    const customStoredPw = prnKey ? localStorage.getItem(`logicq_custom_password_${prnKey}`) : null;
+    const effectivePassword = customStoredPw || found.password;
+    const hasCustomPassword = Boolean(effectivePassword && effectivePassword.toUpperCase() !== prnKey);
 
-    if (!isValidPassword) {
-      throw new Error('Invalid email/PRN or password. Default password is your PRN.');
+    let isValidPassword = false;
+    if (hasCustomPassword && effectivePassword) {
+      if (cleanPwd === effectivePassword || cleanPwd.toLowerCase() === effectivePassword.toLowerCase()) {
+        isValidPassword = true;
+      } else if (cleanPwd.toUpperCase() === prnKey) {
+        throw new Error('Your password has been changed. Default PRN password is no longer valid. Please enter your new password.');
+      } else {
+        throw new Error('Invalid password. Please enter the new password you set for this account.');
+      }
+    } else {
+      isValidPassword =
+        (found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
+        (cleanId.toLowerCase() === 'dummy' && cleanPwd.toLowerCase() === 'dummy') ||
+        cleanPwd === 'password123' ||
+        cleanPwd === 'StudentPassword123!';
+      if (!isValidPassword) {
+        throw new Error('Invalid email/PRN or password. Default password is your PRN.');
+      }
     }
 
     if (found.isBanned) {
@@ -1577,6 +1590,19 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
     (user as any).password = newPassword;
     saveStoredUsers(users);
+
+    const prnKey = (user.prn || '').toUpperCase().trim();
+    if (prnKey) {
+      try {
+        localStorage.setItem(`logicq_custom_password_${prnKey}`, newPassword);
+      } catch {}
+    }
+    if (user.id) {
+      try {
+        localStorage.setItem(`logicq_custom_password_${user.id}`, newPassword);
+      } catch {}
+    }
+
     (FirestoreDataService as any).updateUserProfile?.(user.id, {
       password: newPassword,
       passwordChangedAt: new Date().toISOString()

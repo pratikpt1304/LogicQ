@@ -8,7 +8,8 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { auth as firebaseAuth, googleAuthProvider } from '../config/firebase.js';
+import { auth as firebaseAuth, googleAuthProvider, db } from '../config/firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
 import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
@@ -1005,11 +1006,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (apiErr: any) {
       if (cohortStudent) {
-        const isValidPwd =
-          cleanPwd.toUpperCase() === cohortStudent.prn.toUpperCase() ||
-          cleanPwd === 'StudentPassword123!' ||
-          cleanPwd === 'password123' ||
-          cleanPwd.toLowerCase() === 'dummy';
+        const prnUpper = cohortStudent.prn.toUpperCase();
+
+        // 1. Check local custom password overrides
+        let customPw =
+          (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${prnUpper}`) : null) ||
+          (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_cohort-${cohortStudent.prn.toLowerCase()}`) : null);
+
+        // 2. Check fallback engine stored users
+        if (!customPw && typeof window !== 'undefined') {
+          try {
+            const rawUsers = localStorage.getItem('logicq_stored_users_v1');
+            if (rawUsers) {
+              const parsed = JSON.parse(rawUsers);
+              const foundUser = parsed.find(
+                (u: any) =>
+                  (u.prn && u.prn.toUpperCase() === prnUpper) ||
+                  u.id === `cohort-${cohortStudent.prn.toLowerCase()}`
+              );
+              if (foundUser?.password && foundUser.password.toUpperCase() !== prnUpper) {
+                customPw = foundUser.password;
+              }
+            }
+          } catch {}
+        }
+
+        // 3. Check Firestore cross-device security credential
+        if (!customPw) {
+          try {
+            const secDoc = await getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'));
+            if (secDoc.exists()) {
+              const data = secDoc.data();
+              if (data?.code && typeof data.code === 'string') {
+                customPw = data.code;
+                try {
+                  localStorage.setItem(`logicq_custom_password_${prnUpper}`, data.code);
+                } catch {}
+              }
+            }
+          } catch (secErr) {
+            console.warn('Firestore security credential check skipped:', secErr);
+          }
+        }
+
+        let isValidPwd = false;
+        if (customPw) {
+          // If the student has changed their password, ONLY the new password is valid!
+          if (cleanPwd === customPw) {
+            isValidPwd = true;
+          } else if (cleanPwd.toUpperCase() === prnUpper) {
+            throw new Error('You have changed your password. The default PRN password is no longer valid. Please enter your new password.');
+          } else {
+            throw new Error('Invalid password. Please enter the new password you set for this account.');
+          }
+        } else {
+          // Default password is their PRN
+          isValidPwd =
+            cleanPwd.toUpperCase() === prnUpper ||
+            cleanPwd === 'StudentPassword123!' ||
+            cleanPwd === 'password123' ||
+            cleanPwd.toLowerCase() === 'dummy';
+          if (!isValidPwd) {
+            throw new Error('Invalid password. Default password is your PRN.');
+          }
+        }
 
         if (isValidPwd) {
           authUser = {
@@ -1042,8 +1102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               authUser.longestStreak = Math.max(authUser.longestStreak || 0, stats.longestStreak || 0);
             }
           } catch {}
-        } else {
-          throw new Error('Invalid password. Default password is your PRN.');
         }
       } else {
         throw apiErr;
