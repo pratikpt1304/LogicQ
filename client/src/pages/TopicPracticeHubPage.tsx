@@ -1584,13 +1584,13 @@ export const TopicPracticeHubPage: React.FC = () => {
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
             
-            {/* PANE: Problem Description Statement (Right side on desktop) */}
+            {/* PANE: Problem Description Statement (Left side on desktop) */}
             <div
               className={`w-full ${
                 isDesktopPaletteOpen
                   ? 'lg:w-[38%] xl:w-[34%] 2xl:w-[32%]'
                   : 'lg:w-1/2'
-              } flex flex-col border-b lg:border-b-0 lg:border-l border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-2 ${
+              } flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
               onCopy={(e) => {
@@ -1767,9 +1767,9 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
             </div>
 
-            {/* PANE: Code Editor + Custom Stdin & Verdict Drawer (Left side on desktop - Expanded) */}
+            {/* PANE: Code Editor + Terminal & Verdict Drawer (Right side on desktop - Expanded) */}
             <div
-              className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] lg:border-r border-[var(--border-line)] lg:order-1 ${
+              className={`flex-1 min-w-0 flex flex-col min-h-0 h-full bg-[var(--bg-main)] lg:border-r-0 border-[var(--border-line)] lg:order-2 ${
                 activeMobileTab === 'statement' ? 'hidden lg:flex' : 'flex-1 flex'
               }`}
             >

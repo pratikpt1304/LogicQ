@@ -1141,9 +1141,9 @@ export const ChallengePage: React.FC = () => {
 
       {/* Main Split Grid */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[minmax(0,1fr)] overflow-hidden">
-        {/* Right Pane on desktop: Problem Statement (Columns 7-12 on desktop) */}
+        {/* Left Pane on desktop: Problem Statement (Columns 1-6 on desktop) */}
         <div
-          className={`lg:col-span-6 h-full min-h-0 overflow-y-auto overscroll-contain scroll-pt-6 border-l border-[var(--border-line)] bg-[var(--bg-main)] p-6 space-y-6 select-none lg:order-2 ${
+          className={`lg:col-span-6 h-full min-h-0 overflow-y-auto overscroll-contain scroll-pt-6 border-r border-[var(--border-line)] bg-[var(--bg-main)] p-6 space-y-6 select-none lg:order-1 ${
             activeMobileTab !== 'statement' ? 'hidden lg:block' : ''
           }`}
           onCopy={(e) => {
@@ -1302,9 +1302,9 @@ export const ChallengePage: React.FC = () => {
           )}
         </div>
 
-        {/* Left Pane on desktop: Code Editor & Execution Drawer (Columns 1-6 on desktop) */}
+        {/* Right Pane on desktop: Code Editor & Execution Drawer (Columns 7-12 on desktop) */}
         <div
-          className={`lg:col-span-6 flex flex-col h-full min-h-0 bg-[#0c1017] overflow-hidden terminal-window border-r border-[var(--border-line)] lg:order-1 ${
+          className={`lg:col-span-6 flex flex-col h-full min-h-0 bg-[#0c1017] overflow-hidden terminal-window border-r-0 lg:order-2 ${
             activeMobileTab === 'statement' ? 'hidden lg:flex' : ''
           }`}
         >
