@@ -144,6 +144,20 @@ export const DashboardPage: React.FC = () => {
     refetchInterval: 6000,
   });
 
+  // Fetch real-time Lab Internal coursework submissions for student progress drawer
+  const { data: allLabSubmissions = [] } = useQuery({
+    queryKey: ['dashboard-admin-lab-submissions'],
+    queryFn: async () => {
+      try {
+        const res: any = await api.get('/practice/admin/lab-submissions?limit=300');
+        return res?.data?.submissions || res?.submissions || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 15000,
+  });
+
   const handleCopyCode = (text: string, key: string, label: string = 'Code') => {
     navigator.clipboard.writeText(text);
     setCopiedCodeKey(key);
@@ -2656,7 +2670,39 @@ export const DashboardPage: React.FC = () => {
         const distinctSolved = new Set(acceptedSubs.map((s: any) => s.problemId || s.problemSlug || s.problem?.title || s.id)).size;
         const totalPoints = acceptedSubs.reduce((acc: number, s: any) => acc + (Number(s.score || s.points) || 10), 0);
         const accuracy = subs.length > 0 ? Math.round((acceptedSubs.length / subs.length) * 100) : 100;
-        const grade = distinctSolved >= 20 ? 'A+' : distinctSolved >= 15 ? 'A' : distinctSolved >= 10 ? 'B+' : distinctSolved >= 5 ? 'B' : distinctSolved > 0 ? 'C' : 'Ready';
+
+        // Compute Lab Internal Coursework (5 CIE Continuous Assessment Modules)
+        const matchedLab = (allLabSubmissions || []).filter((ls: any) => {
+          const lprn = (ls.user?.prn || '').trim().toUpperCase();
+          const lemail = (ls.user?.email || '').trim().toLowerCase();
+          const luid = ls.userId || ls.user?.id;
+          return (prnClean && prnClean !== '—' && lprn === prnClean) ||
+                 (selectedDashboardStudent.email && lemail === selectedDashboardStudent.email.toLowerCase().trim()) ||
+                 (selectedDashboardStudent.id && luid === selectedDashboardStudent.id);
+        });
+
+        const labCompletedModules = matchedLab.filter((ls: any) => ls.status === 'COMPLETED').length;
+        const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+        const combinedScore = totalPoints + (labInternalScore * 4);
+        const overallGrade = (combinedScore === 0 && distinctSolved === 0)
+          ? '—'
+          : combinedScore >= 200
+          ? 'A+'
+          : combinedScore >= 160
+          ? 'A'
+          : combinedScore >= 120
+          ? 'B+'
+          : combinedScore >= 80
+          ? 'B'
+          : 'C';
+
+        const LAB_MODULES_LIST = [
+          { order: 1, title: 'Control Structures', slug: 'control-structures', maxMarks: 4 },
+          { order: 2, title: 'Pointers & Functions', slug: 'pointers-and-functions', maxMarks: 4 },
+          { order: 3, title: 'Arrays & Strings', slug: 'arrays-and-strings', maxMarks: 4 },
+          { order: 4, title: 'Recursion & Bit Manipulation', slug: 'recursion-and-bit-manipulation', maxMarks: 4 },
+          { order: 5, title: 'Structures, Unions & DMA', slug: 'structures-unions-and-dma', maxMarks: 4 },
+        ];
 
         const isModalPrnCopied = copiedCodeKey === `modal-prn-${prnClean}`;
 
@@ -2704,60 +2750,145 @@ export const DashboardPage: React.FC = () => {
 
               {/* Scrollable Modal Content */}
               <div className="p-6 overflow-y-auto space-y-4 text-xs font-sans flex-1">
-                {/* 3-Pillar Progress Bento Cards */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-500/5">
-                    <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
-                      <span className="text-[10px] font-mono uppercase font-bold">Solved</span>
-                      <Target className="w-3.5 h-3.5" />
+                {/* 4-Pillar Performance Bento Cards (Practical + Lab Internal + Total Score + Accuracy) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {/* Card 1: Practical Modules */}
+                  <div className="p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-500/5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                        <span className="text-[10px] font-mono uppercase font-bold tracking-wider">Practical</span>
+                        <Target className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                        {distinctSolved} <span className="text-xs text-slate-400 font-normal">/ 25</span>
+                      </div>
                     </div>
-                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
-                      {distinctSolved} <span className="text-xs text-slate-400 font-normal">/ 25</span>
-                    </div>
-                    {/* Progress Bar */}
-                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                      <div
-                        className="bg-indigo-500 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, (distinctSolved / 25) * 100)}%` }}
-                      />
-                    </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
-                      C Practical Modules
+                    <div>
+                      <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, (distinctSolved / 25) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono truncate">
+                        25 Practical Modules
+                      </div>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5">
-                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
-                      <span className="text-[10px] font-mono uppercase font-bold">Score</span>
-                      <Trophy className="w-3.5 h-3.5" />
+                  {/* Card 2: Lab Internal CIE Coursework */}
+                  <div className="p-3 rounded-2xl border border-purple-200/80 dark:border-purple-500/20 bg-purple-50/40 dark:bg-purple-500/5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
+                        <span className="text-[10px] font-mono uppercase font-bold tracking-wider">Lab Internal</span>
+                        <BookOpen className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                        {labCompletedModules} <span className="text-xs text-slate-400 font-normal">/ 5 Mod</span>
+                      </div>
                     </div>
-                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
-                      {totalPoints} <span className="text-xs text-slate-400 font-normal">pts</span>
+                    <div>
+                      <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className="bg-purple-500 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, (labCompletedModules / 5) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 font-mono font-bold truncate">
+                        {labInternalScore} / 20 CIE Marks
+                      </div>
                     </div>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                        Grade {grade}
+                  </div>
+
+                  {/* Card 3: Total Verified Points & Grade */}
+                  <div className="p-3 rounded-2xl border border-emerald-200/80 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                        <span className="text-[10px] font-mono uppercase font-bold tracking-wider">Total Score</span>
+                        <Trophy className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                        {combinedScore} <span className="text-xs text-slate-400 font-normal">pts</span>
+                      </div>
+                    </div>
+                    <div className="mt-1">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        overallGrade === '—'
+                          ? 'bg-slate-200/60 dark:bg-slate-800 text-slate-400'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        Grade {overallGrade}
+                      </span>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono truncate">
+                        Practical + Lab CIE
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Accuracy & Compiler */}
+                  <div className="p-3 rounded-2xl border border-sky-200/80 dark:border-sky-500/20 bg-sky-50/40 dark:bg-sky-500/5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 mb-1">
+                        <span className="text-[10px] font-mono uppercase font-bold tracking-wider">Accuracy</span>
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
+                        {accuracy}%
+                      </div>
+                    </div>
+                    <div className="mt-1 font-mono text-[10px]">
+                      <div className="text-slate-500 dark:text-slate-400 truncate">
+                        {acceptedSubs.length} AC / {subs.length} Total
+                      </div>
+                      <div className="text-sky-600 dark:text-sky-400 mt-0.5 truncate">
+                        GCC 14.2 Sandbox
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lab Internal Coursework Breakdown (5 CIE Continuous Assessment Modules) */}
+                <div className="p-3.5 rounded-2xl border border-purple-200/80 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-950/20 space-y-2 font-mono">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">
+                        Lab Internal Coursework (5 CIE Modules)
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
-                      Evaluation Honor
-                    </div>
+                    <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
+                      {labCompletedModules}/5 Completed • {labInternalScore}/20 M
+                    </span>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl border border-purple-200/80 dark:border-purple-500/20 bg-purple-50/40 dark:bg-purple-500/5">
-                    <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
-                      <span className="text-[10px] font-mono uppercase font-bold">Accuracy</span>
-                      <TrendingUp className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
-                      {accuracy}%
-                    </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-mono truncate">
-                      {acceptedSubs.length} AC / {subs.length} Total
-                    </div>
-                    <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 font-mono">
-                      GCC 14.2 Sandbox
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 text-[10px]">
+                    {LAB_MODULES_LIST.map((mod) => {
+                      const modSub = matchedLab.find((l: any) =>
+                        (l.moduleSlug === mod.slug || l.moduleOrder === mod.order) && l.status === 'COMPLETED'
+                      );
+                      const isModDone = Boolean(modSub);
+                      return (
+                        <div
+                          key={mod.slug}
+                          className={`p-2 rounded-xl border flex flex-col justify-between transition-all ${
+                            isModDone
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold'
+                              : 'bg-white/70 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-800/80 text-slate-500'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold">Mod {mod.order}</span>
+                            {isModDone ? <Check className="w-3 h-3 text-emerald-500 shrink-0" /> : <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />}
+                          </div>
+                          <div className="mt-1 truncate font-medium text-[9px] text-slate-600 dark:text-slate-400" title={mod.title}>
+                            {mod.title}
+                          </div>
+                          <div className="mt-1 text-right font-bold text-[10px]">
+                            {isModDone ? `${mod.maxMarks}/${mod.maxMarks} M` : `0/${mod.maxMarks} M`}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
