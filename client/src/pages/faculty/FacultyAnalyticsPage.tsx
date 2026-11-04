@@ -61,6 +61,8 @@ interface StudentRosterItem {
   sectionId?: string;
   sectionName?: string;
   sectionJoinCode?: string;
+  labCompletedModules?: number;
+  labInternalScore?: number;
 }
 
 export const FacultyAnalyticsPage: React.FC = () => {
@@ -134,11 +136,13 @@ export const FacultyAnalyticsPage: React.FC = () => {
       const facultyId = user?.id || (user as any)?.uid;
 
       // Parallel fetch from Firestore & Backend
-      const [fsSections, fsUsers, allRealSubmissions] = await Promise.all([
+      const [fsSections, fsUsers, allRealSubmissions, labSubmissionsRes] = await Promise.all([
         FirestoreDataService.getSectionsFromFirestore(),
         FirestoreDataService.getAllFirestoreUsers(),
         FirestoreDataService.getAllFirestoreSubmissions().catch(() => []),
+        api.get('/practice/admin/lab-submissions?limit=500').then((res) => res?.data?.submissions || res?.submissions || []).catch(() => []),
       ]);
+      const allLabSubmissions: any[] = Array.isArray(labSubmissionsRes) ? labSubmissionsRes : [];
 
       let backendOverview: any = null;
       try {
@@ -238,7 +242,20 @@ export const FacultyAnalyticsPage: React.FC = () => {
         const totalPoints = calcPoints > 0 ? calcPoints : Number(fallbackPoints || 0);
         const currentStreak = Number(fallbackStreak || (solvedCount > 0 ? 1 : 0));
 
-        return { solvedCount, totalPoints, currentStreak };
+        // Match Lab Internal Coursework (5 Modules • 20 Marks CIE)
+        const matchedLab = (allLabSubmissions || []).filter((ls: any) => {
+          const lprn = (ls.user?.prn || ls.prn || '').trim().toUpperCase();
+          const lemail = (ls.user?.email || ls.email || '').trim().toLowerCase();
+          const luid = ls.userId || ls.uid || ls.user?.id;
+          return (cleanP && cleanP !== 'PENDING' && cleanP !== '—' && lprn === cleanP) ||
+                 (cleanE && cleanE !== '—' && lemail === cleanE) ||
+                 (stId && luid === stId);
+        });
+        const realCompletedLab = matchedLab.filter((ls: any) => ls.status === 'COMPLETED').length;
+        const labCompletedModules = realCompletedLab;
+        const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+
+        return { solvedCount, totalPoints, currentStreak, labCompletedModules, labInternalScore };
       };
 
       // A. Populate students enrolled directly in mySections
@@ -258,7 +275,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
           if (!key) return;
 
           const fullName = cohort?.fullName || st.name || st.fullName || st.student?.fullName || st.student?.displayName || (prn ? `Student ${prn.slice(-4)}` : 'Enrolled Student');
-          const { solvedCount, totalPoints: points, currentStreak: streak } = computeRealMetricsForStudent(
+          const { solvedCount, totalPoints: points, currentStreak: streak, labCompletedModules, labInternalScore } = computeRealMetricsForStudent(
             prn,
             email,
             id,
@@ -268,7 +285,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
           );
           const statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 
             Number(st.tabSwitchCount || 0) > 3 ? 'INTEGRITY_FLAG' :
-            solvedCount < 1 ? 'NEEDS_HELP' : 'CONSISTENT';
+            (solvedCount < 1 && labCompletedModules < 1) ? 'NEEDS_HELP' : 'CONSISTENT';
 
           studentMap.set(key, {
             id,
@@ -291,6 +308,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
             sectionId: secId,
             sectionName: secName,
             sectionJoinCode: secCode,
+            labCompletedModules,
+            labInternalScore,
           });
         });
       });
@@ -335,7 +354,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
 
         const existing = studentMap.get(key);
 
-        const { solvedCount, totalPoints: points, currentStreak: streak } = computeRealMetricsForStudent(
+        const { solvedCount, totalPoints: points, currentStreak: streak, labCompletedModules, labInternalScore } = computeRealMetricsForStudent(
           prn,
           email,
           id,
@@ -366,7 +385,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
         let statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 'CONSISTENT';
         if (integrityRisk === 'HIGH' || integrityRisk === 'CRITICAL' || tabSwitches >= 3) {
           statusCategory = 'INTEGRITY_FLAG';
-        } else if (solvedCount < 1) {
+        } else if (solvedCount < 1 && labCompletedModules < 1) {
           statusCategory = 'NEEDS_HELP';
         }
 
@@ -391,6 +410,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
           sectionId: matchedSec?.id || u.sectionId || existing?.sectionId,
           sectionName: matchedSec?.name || existing?.sectionName,
           sectionJoinCode: matchedSec?.joinCode || existing?.sectionJoinCode,
+          labCompletedModules: labCompletedModules || existing?.labCompletedModules || 0,
+          labInternalScore: labInternalScore || existing?.labInternalScore || 0,
         });
       });
 
@@ -676,6 +697,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
       vivaList,
       integrityScore: finalScore,
       integrityRisk: finalRisk,
+      matchedStudent: matched,
     };
   }, [deepDiveData, analyticsData?.students, selectedStudentForInspect]);
 
@@ -715,6 +737,8 @@ Candidate Name : ${s.fullName}
 PRN / Roll No  : ${s.prn || 'N/A'}
 Email Address  : ${s.email}
 Academic Dept  : ${s.department || '—'} (Year ${s.year || 'SY'})
+Practical Modules: ${inspectTelemetry?.matchedStudent?.solvedCount || 0} / 25 Solved
+Lab Internal CIE : ${inspectTelemetry?.matchedStudent?.labCompletedModules || 0} / 5 Modules (${inspectTelemetry?.matchedStudent?.labInternalScore || 0} / 20 Marks)
 Total Points   : ${s.totalPoints || 0} PTS
 Current Streak : ${s.currentStreak || 0} Days
 Total Submissions: ${submissions.length} (${acceptedCount} Accepted)
@@ -748,7 +772,7 @@ Generated On   : ${new Date().toLocaleString()}`;
     try {
       setIsExportingCsv(true);
       const rows = [
-        ['PRN / Roll No', 'Student Name', 'Email', 'Department', 'Year', 'Division', 'Points', 'Streak', 'Tab Switches', 'Copy-Paste Attempts', 'Integrity Risk', 'Status'],
+        ['PRN / Roll No', 'Student Name', 'Email', 'Department', 'Year', 'Division', 'Practical Solved (25)', 'Lab Internal Coursework (5)', 'Lab Internal Marks (20M)', 'Points', 'Streak', 'Tab Switches', 'Copy-Paste Attempts', 'Integrity Risk', 'Status'],
         ...filteredStudents.map((s) => [
           `"${s.prn}"`,
           `"${s.fullName}"`,
@@ -756,6 +780,9 @@ Generated On   : ${new Date().toLocaleString()}`;
           `"${s.department}"`,
           `"${s.year}"`,
           `"${s.division}"`,
+          s.solvedCount || 0,
+          s.labCompletedModules || 0,
+          s.labInternalScore || 0,
           s.totalPoints,
           s.currentStreak,
           s.tabSwitchCount,
@@ -1091,6 +1118,7 @@ Generated On   : ${new Date().toLocaleString()}`;
                     <th className="py-3 px-3">#</th>
                     <th className="py-3 px-3 min-w-[180px]">Student & PRN</th>
                     <th className="py-3 px-3">Practical Mastery</th>
+                    <th className="py-3 px-3">Lab Internal (CIE)</th>
                     <th className="py-3 px-3">Score</th>
                     <th className="py-3 px-3">Integrity</th>
                     <th className="py-3 px-3 text-right">Action</th>
@@ -1127,6 +1155,13 @@ Generated On   : ${new Date().toLocaleString()}`;
                               className="bg-emerald-500 h-full rounded-full transition-all"
                               style={{ width: `${Math.min(100, ((student.solvedCount || 0) / 25) * 100)}%` }}
                             />
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-[11px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                            <span>{student.labCompletedModules || 0}/5 Modules</span>
+                            <span className="opacity-40">•</span>
+                            <span className="font-bold">{student.labInternalScore || 0}/20 M</span>
                           </div>
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">
@@ -1238,6 +1273,11 @@ Generated On   : ${new Date().toLocaleString()}`;
                     <span className="inline-flex items-center gap-1 text-[var(--muted-foreground)] font-mono">
                       <FileCode className="w-3.5 h-3.5 text-emerald-500" />
                       {(deepDiveData.submissions || []).length} Submissions
+                    </span>
+                    <span className="text-[var(--border)]">|</span>
+                    <span className="inline-flex items-center gap-1 font-mono text-purple-600 dark:text-purple-400 font-semibold">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {inspectTelemetry?.matchedStudent?.labCompletedModules || 0}/5 Lab CIE ({inspectTelemetry?.matchedStudent?.labInternalScore || 0}/20 M)
                     </span>
                   </div>
 
@@ -1487,6 +1527,61 @@ Generated On   : ${new Date().toLocaleString()}`;
                       </div>
                     </div>
                   )}
+
+                  {/* Academic & Practical Progress Card */}
+                  <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">
+                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-purple-500" />
+                        <h4 className="font-bold text-[var(--foreground)] text-xs uppercase tracking-wider">
+                          Coursework &amp; Module Progression
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {inspectTelemetry?.matchedStudent?.department || 'Computer Engineering'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Practical Modules */}
+                      <div className="p-3 bg-[var(--card)] rounded-xl border border-[var(--border)] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--foreground)]">Practical Modules</span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            {inspectTelemetry?.matchedStudent?.solvedCount || 0} / 25 Solved
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (((inspectTelemetry?.matchedStudent?.solvedCount || 0) / 25) * 100))}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">
+                          Practical Lab Programming Exercises &amp; Sandbox Submissions
+                        </p>
+                      </div>
+
+                      {/* Lab Internal (CIE) */}
+                      <div className="p-3 bg-[var(--card)] rounded-xl border border-[var(--border)] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--foreground)]">Lab Internal (CIE)</span>
+                          <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
+                            {inspectTelemetry?.matchedStudent?.labCompletedModules || 0} / 5 Modules • {inspectTelemetry?.matchedStudent?.labInternalScore || 0} / 20 M
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-purple-500 h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (((inspectTelemetry?.matchedStudent?.labCompletedModules || 0) / 5) * 100))}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">
+                          Continuous Internal Evaluation (5 Modules • 20 Marks Total)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* AI Viva Voce Oral Defense */}
                   <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3">
