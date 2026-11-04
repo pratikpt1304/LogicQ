@@ -39,13 +39,13 @@ practiceRouter.post('/track-run', authenticate, trackPracticeRun);
 practiceRouter.get('/reports/module/:moduleSlug', authenticate, getPracticeModuleReport);
 practiceRouter.get('/reports/final', authenticate, getPracticeFinalReport);
 
-// Admin practice analytics & management (admin role required)
-practiceRouter.get('/admin/reports', authenticate, requireRole('ADMIN'), getAdminPracticeReports);
-practiceRouter.get('/admin/reports/csv', authenticate, requireRole('ADMIN'), exportAdminPracticeCsv);
-practiceRouter.post('/admin/correct-progress', authenticate, requireRole('ADMIN'), correctStudentPracticeProgress);
+// Admin & Faculty practice analytics & management
+practiceRouter.get('/admin/reports', authenticate, requireRole(['ADMIN', 'FACULTY']), getAdminPracticeReports);
+practiceRouter.get('/admin/reports/csv', authenticate, requireRole(['ADMIN', 'FACULTY']), exportAdminPracticeCsv);
+practiceRouter.post('/admin/correct-progress', authenticate, requireRole(['ADMIN', 'FACULTY']), correctStudentPracticeProgress);
 
 practiceRouter.post('/topics/solve', authenticate, recordTopicPracticeSolved);
 practiceRouter.post('/topics/track-open', authenticate, trackTopicOpen);
 practiceRouter.post('/topics/telemetry', authenticate, recordTopicTelemetry);
-practiceRouter.get('/admin/topic-submissions', authenticate, requireRole('ADMIN'), getAdminTopicPracticeSubmissions);
-practiceRouter.get('/admin/lab-submissions', authenticate, requireRole('ADMIN'), getAdminLabSubmissions);
+practiceRouter.get('/admin/topic-submissions', authenticate, requireRole(['ADMIN', 'FACULTY']), getAdminTopicPracticeSubmissions);
+practiceRouter.get('/admin/lab-submissions', authenticate, requireRole(['ADMIN', 'FACULTY']), getAdminLabSubmissions);
