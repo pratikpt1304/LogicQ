@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -272,9 +272,12 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(document.fullscreenElement));
+  const [draftSyncStatus, setDraftSyncStatus] = useState<'saved' | 'saving' | 'offline'>('saved');
   const remoteDraftTimeoutRef = useRef<any>(null);
   const activeTopicRef = useRef<TopicPracticeItem | null>(null);
   activeTopicRef.current = activeTopic;
+  const customInputRef = useRef<string>(customInput);
+  useEffect(() => { customInputRef.current = customInput; }, [customInput]);
   const hasEnteredFullscreenRef = useRef<boolean>(false);
   const isExitingRef = useRef<boolean>(false);
 
@@ -292,7 +295,52 @@ export const TopicPracticeHubPage: React.FC = () => {
     setSolvedTopics(getSolvedPracticeTopicIds(user?.id));
   }, [user?.id]);
 
-  // Fullscreen change tracking & strict auto-exit enforcement
+  // Resilient draft auto-save on tab close / window unload / visibilitychange
+  useEffect(() => {
+    const flushDraft = () => {
+      if (!activeTopicRef.current || !codeRef.current) return;
+      const draftKey = `topic_${activeTopicRef.current.id}`;
+      const draft: DraftData = {
+        problemSlug: draftKey,
+        code: codeRef.current,
+        customInput: customInputRef.current,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(draft, true);
+      try {
+        localStorage.setItem('logicq_last_topic_id', activeTopicRef.current.id);
+        localStorage.setItem(`logicq_practice_draft_${draftKey}`, codeRef.current);
+      } catch {}
+
+      if (user?.id) {
+        DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', flushDraft);
+    window.addEventListener('pagehide', flushDraft);
+    return () => {
+      window.removeEventListener('beforeunload', flushDraft);
+      window.removeEventListener('pagehide', flushDraft);
+    };
+  }, [user?.id]);
+
+  // Auto-restore topic from URL query param (?topic=...) on mount
+  const hasAttemptedRestoreRef = useRef(false);
+  useEffect(() => {
+    if (hasAttemptedRestoreRef.current || activeTopic) return;
+    const topicParam = searchParams.get('topic');
+    if (topicParam) {
+      const target = TOPIC_PRACTICE_DATA.find((t) => t.id === topicParam);
+      if (target) {
+        hasAttemptedRestoreRef.current = true;
+        handleOpenTopic(target);
+      }
+    }
+  }, [searchParams, activeTopic]);
+
+  // Fullscreen change tracking
   useEffect(() => {
     const handleFullscreenChange = () => {
       const elem = document as any;
@@ -301,11 +349,6 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       if (isNowFullscreen) {
         hasEnteredFullscreenRef.current = true;
-      } else if (hasEnteredFullscreenRef.current && activeTopicRef.current && !isExitingRef.current) {
-        // Strict Fullscreen Rule: Exiting fullscreen automatically closes the question
-        hasEnteredFullscreenRef.current = false;
-        handleCloseTopic();
-        toast.warning('⚠️ Fullscreen exited! Practice question has been closed.');
       }
     };
 
@@ -547,6 +590,32 @@ export const TopicPracticeHubPage: React.FC = () => {
       : null;
   const moduleSolvedCount = currentModuleTopics.filter((t) => solvedTopics.includes(t.id)).length;
 
+  // Detected in-progress draft for prominent resume banner
+  const lastActiveTopicItem = useMemo(() => {
+    try {
+      const lastId = localStorage.getItem('logicq_last_topic_id');
+      if (!lastId) return null;
+      const topic = TOPIC_PRACTICE_DATA.find((t) => t.id === lastId);
+      if (!topic) return null;
+      const draftKey = `topic_${topic.id}`;
+      const draft = DraftSyncService.getLocalDraft(draftKey, true);
+      const directCode = typeof localStorage !== 'undefined' ? localStorage.getItem(`logicq_practice_draft_${draftKey}`) : null;
+      const effectiveCode = (draft?.code && draft.code.trim()) ? draft.code : directCode;
+      const isSolved = solvedTopics.includes(topic.id);
+      if (
+        effectiveCode &&
+        effectiveCode.trim() &&
+        effectiveCode.trim() !== topic.problem.starterCode.trim() &&
+        !isSolved
+      ) {
+        return { topic, code: effectiveCode };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [solvedTopics, activeTopic]);
+
   const handleOpenTopic = async (topic: TopicPracticeItem) => {
     const unlockInfo = getModuleUnlockInfo(topic.moduleIndex);
     if (!unlockInfo.isUnlocked) {
@@ -554,7 +623,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       return;
     }
 
-    // 1. Automatically launch full screen on Practice click
+    // 1. Automatically launch full screen on Practice click if user gesture permits
     const elem = document.documentElement as any;
     if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
       try {
@@ -568,7 +637,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           setIsFullscreen(true);
         }
       } catch (fsErr) {
-        console.warn('Fullscreen automatic launch deferred:', fsErr);
+        // Fullscreen launch deferred on automatic restore (browsers require direct user gesture)
       }
     } else {
       hasEnteredFullscreenRef.current = true;
@@ -580,10 +649,28 @@ export const TopicPracticeHubPage: React.FC = () => {
       localStorage.setItem('logicq_last_topic_id', topic.id);
     } catch {}
 
+    // Synchronize URL search params (?topic=xxx) so reloading or bookmarking preserves state
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('topic', topic.id);
+      return next;
+    }, { replace: true });
+
     // 1. Check local draft first (prevents reset when switching or returning)
     const draftKey = `topic_${topic.id}`;
     const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
-    const initialCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : topic.problem.starterCode;
+    const directStorageCode = typeof localStorage !== 'undefined'
+      ? localStorage.getItem(`logicq_practice_draft_${draftKey}`)
+      : null;
+    const effectiveDraftCode = (localDraft?.code && localDraft.code.trim())
+      ? localDraft.code
+      : (directStorageCode && directStorageCode.trim())
+        ? directStorageCode
+        : null;
+
+    const initialCode = (effectiveDraftCode && effectiveDraftCode.trim())
+      ? effectiveDraftCode
+      : topic.problem.starterCode;
 
     // Reset per-question proctoring counters
     charsTypedRef.current = 0;
@@ -613,11 +700,20 @@ export const TopicPracticeHubPage: React.FC = () => {
     if (user?.id) {
       DraftSyncService.fetchRemoteDraft(user.id, draftKey, true)
         .then((remoteDraft: DraftData | null) => {
-          if (remoteDraft?.code && remoteDraft.code.trim()) {
-            if (!localDraft || remoteDraft.updatedAt > (localDraft.updatedAt || 0)) {
+          if (
+            remoteDraft?.code &&
+            remoteDraft.code.trim() &&
+            remoteDraft.code.trim() !== topic.problem.starterCode.trim()
+          ) {
+            const isLocalStarter = !effectiveDraftCode || effectiveDraftCode.trim() === topic.problem.starterCode.trim();
+            const isRemoteStrictlyNewer = remoteDraft.updatedAt > ((localDraft?.updatedAt || 0) + 2000);
+            if (isLocalStarter || isRemoteStrictlyNewer) {
               setCode(remoteDraft.code);
               if (remoteDraft.customInput) setCustomInput(remoteDraft.customInput);
               DraftSyncService.saveLocalDraft(remoteDraft, true);
+              try {
+                localStorage.setItem(`logicq_practice_draft_${draftKey}`, remoteDraft.code);
+              } catch {}
             }
           }
         })
@@ -632,23 +728,36 @@ export const TopicPracticeHubPage: React.FC = () => {
     codeRef.current = newCode;
     setCode(newCode);
     if (!activeTopic) return;
+    setDraftSyncStatus('saving');
     const draftKey = `topic_${activeTopic.id}`;
     const draft: DraftData = {
       problemSlug: draftKey,
       code: newCode,
-      customInput,
+      customInput: customInputRef.current,
       updatedAt: Date.now(),
       deviceLabel: getDeviceLabel(),
     };
+    // 0ms instant local storage persistence
     DraftSyncService.saveLocalDraft(draft, true);
+    try {
+      localStorage.setItem(`logicq_practice_draft_${draftKey}`, newCode);
+      localStorage.setItem('logicq_last_topic_id', activeTopic.id);
+    } catch {}
 
     if (user?.id) {
       if (remoteDraftTimeoutRef.current) {
         clearTimeout(remoteDraftTimeoutRef.current);
       }
-      remoteDraftTimeoutRef.current = setTimeout(() => {
-        DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+      remoteDraftTimeoutRef.current = setTimeout(async () => {
+        try {
+          await DraftSyncService.saveRemoteDraft(user.id, draft, true);
+          setDraftSyncStatus('saved');
+        } catch {
+          setDraftSyncStatus('offline');
+        }
       }, 1500);
+    } else {
+      setTimeout(() => setDraftSyncStatus('saved'), 300);
     }
   };
 
@@ -660,11 +769,14 @@ export const TopicPracticeHubPage: React.FC = () => {
     const draft: DraftData = {
       problemSlug: draftKey,
       code: starter,
-      customInput,
+      customInput: customInputRef.current,
       updatedAt: Date.now(),
       deviceLabel: getDeviceLabel(),
     };
     DraftSyncService.saveLocalDraft(draft, true);
+    try {
+      localStorage.setItem(`logicq_practice_draft_${draftKey}`, starter);
+    } catch {}
     if (user?.id) {
       DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
     }
@@ -676,8 +788,34 @@ export const TopicPracticeHubPage: React.FC = () => {
     setShowCelebrationModal(false);
     setIsTipDrawerOpen(false);
     setIsMobilePaletteOpen(false);
+
+    // Save current in-progress code before exiting
+    if (activeTopicRef.current && codeRef.current) {
+      const draftKey = `topic_${activeTopicRef.current.id}`;
+      const draft: DraftData = {
+        problemSlug: draftKey,
+        code: codeRef.current,
+        customInput: customInputRef.current,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(draft, true);
+      try {
+        localStorage.setItem(`logicq_practice_draft_${draftKey}`, codeRef.current);
+        localStorage.setItem('logicq_last_topic_id', activeTopicRef.current.id);
+      } catch {}
+      if (user?.id) {
+        DraftSyncService.saveRemoteDraft(user.id, draft, true).catch(() => {});
+      }
+    }
+
     setActiveTopic(null);
     hasEnteredFullscreenRef.current = false;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('topic');
+      return next;
+    }, { replace: true });
 
     const elem = document as any;
     if (document.fullscreenElement || elem.webkitFullscreenElement) {
@@ -1339,6 +1477,37 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Resume In-Progress Draft Banner (Floating top banner if student left without finishing) */}
+              {lastActiveTopicItem && !statusFilter.includes('SOLVED') && (
+                <div className="mb-4 p-4 rounded-xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-cyan-500/10 to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in duration-300">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30 flex items-center justify-center font-mono font-bold shrink-0 shadow-xs">
+                      <RotateCcw className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5 font-mono">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Resume In-Progress Question</span>
+                      </div>
+                      <div className="text-sm font-semibold text-[var(--text-main)] truncate">
+                        Module {lastActiveTopicItem.topic.moduleIndex}: {lastActiveTopicItem.topic.topicTitle}
+                      </div>
+                      <div className="text-xs text-[var(--text-muted)] font-mono truncate">
+                        Your half-written code ({lastActiveTopicItem.code.length} characters) is safely saved.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTopic(lastActiveTopicItem.topic)}
+                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs font-mono flex items-center justify-center gap-2 shadow-sm transition cursor-pointer shrink-0"
+                  >
+                    <span>Continue Coding</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Clean Numbered Topic List */}
               {filteredTopics.length === 0 ? (
                 <div className="text-center py-12 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-line)] space-y-2">
@@ -1359,6 +1528,16 @@ export const TopicPracticeHubPage: React.FC = () => {
                     const isHard = topic.problem.difficulty === 'HARD';
                     const isMedium = topic.problem.difficulty === 'MEDIUM';
 
+                    const draftKey = `topic_${topic.id}`;
+                    const localDraft = DraftSyncService.getLocalDraft(draftKey, true);
+                    const directCode = typeof localStorage !== 'undefined' ? localStorage.getItem(`logicq_practice_draft_${draftKey}`) : null;
+                    const effectiveCode = (localDraft?.code && localDraft.code.trim()) ? localDraft.code : directCode;
+                    const hasDraft = Boolean(
+                      effectiveCode &&
+                      effectiveCode.trim() &&
+                      effectiveCode.trim() !== topic.problem.starterCode.trim()
+                    );
+
                     return (
                       <div
                         key={topic.id}
@@ -1366,6 +1545,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                         className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
                           isSolved
                             ? 'border-emerald-500/25 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                            : hasDraft
+                            ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10'
                             : 'border-[var(--border-line)] bg-[var(--bg-panel)] hover:border-emerald-500/40 hover:bg-[var(--bg-surface)]'
                         }`}
                       >
@@ -1374,6 +1555,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                           <span className={`w-7 h-7 rounded-lg font-mono text-xs font-bold flex items-center justify-center shrink-0 border ${
                             isSolved
                               ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                              : hasDraft
+                              ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                               : 'bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-line)]'
                           }`}>
                             {idx + 1}
@@ -1393,6 +1576,13 @@ export const TopicPracticeHubPage: React.FC = () => {
                               }`}>
                                 {topic.problem.difficulty}
                               </span>
+
+                              {hasDraft && !isSolved && (
+                                <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-mono font-bold flex items-center gap-1 shadow-xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                  <span>Draft Saved</span>
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
@@ -1418,6 +1608,14 @@ export const TopicPracticeHubPage: React.FC = () => {
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Solved</span>
                             </span>
+                          ) : hasDraft ? (
+                            <button
+                              type="button"
+                              className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono font-bold transition flex items-center gap-1 shadow-sm group-hover:scale-102 cursor-pointer"
+                            >
+                              <span>Resume</span>
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
                           ) : (
                             <button
                               type="button"
@@ -1486,19 +1684,34 @@ export const TopicPracticeHubPage: React.FC = () => {
 
 
 
-            {/* Center: Practice Mode - Unlimited Time */}
-            <div
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
-              title="Practice Mode has unlimited time. Code and learn at your own pace without pressure."
-            >
-              <Infinity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                  Unlimited Time
-                </span>
-                <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] sm:text-xs font-semibold hidden md:inline">
-                  (Elapsed: {formatPracticeTime(elapsedSeconds)})
-                </span>
+            {/* Center: Practice Mode - Unlimited Time & Live Auto-Save Status */}
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
+                title="Practice Mode has unlimited time. Code and learn at your own pace without pressure."
+              >
+                <Infinity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    Unlimited Time
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] sm:text-xs font-semibold hidden md:inline">
+                    (Elapsed: {formatPracticeTime(elapsedSeconds)})
+                  </span>
+                </div>
+              </div>
+
+              {/* Auto-Save Continuous Telemetry Indicator */}
+              <div
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-xs font-medium transition-all ${
+                  draftSyncStatus === 'saving'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400 shadow-xs'
+                    : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                }`}
+                title="Your code is automatically saved on every keystroke and syncs to cloud storage."
+              >
+                <span className={`w-2 h-2 rounded-full ${draftSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                <span className="text-[11px] font-semibold">{draftSyncStatus === 'saving' ? 'Saving...' : '✓ Auto-Saved'}</span>
               </div>
             </div>
 

@@ -47,6 +47,7 @@ import {
   DraftData,
   ConflictInfo,
   getDeviceLabel,
+  getDailyCutoffTimestamp,
 } from '../services/draftSync.service.js';
 import { DraftConflictModal } from '../components/editor/DraftConflictModal.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
@@ -512,7 +513,12 @@ export const ChallengePage: React.FC = () => {
           const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
           if (conflict) {
             setConflictInfo(conflict);
-          } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
+          } else if (
+            remoteDraft.code &&
+            remoteDraft.code.trim() &&
+            remoteDraft.code.trim() !== problem.starterCode.trim() &&
+            (!localDraft?.code || localDraft.code.trim() === problem.starterCode.trim() || remoteDraft.updatedAt > ((localDraft.updatedAt || 0) + 2000))
+          ) {
             setCode(remoteDraft.code);
             DraftSyncService.saveLocalDraft(remoteDraft, false);
           }
@@ -568,6 +574,33 @@ export const ChallengePage: React.FC = () => {
       }
     }
   };
+
+  // Continuous auto-save flush on window unload or page hide
+  useEffect(() => {
+    const flushDailyDraft = () => {
+      if (!problem?.slug || !code || isWindowExpired || isWorkspaceLocked) return;
+      const draftObj: DraftData = {
+        problemId: problem.id,
+        problemSlug: problem.slug,
+        code,
+        customInput,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+        expiresAt: getDailyCutoffTimestamp(),
+      };
+      DraftSyncService.saveLocalDraft(draftObj, false);
+      if (user?.id && !isOffline) {
+        DraftSyncService.saveRemoteDraft(user.id, draftObj, false).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', flushDailyDraft);
+    window.addEventListener('pagehide', flushDailyDraft);
+    return () => {
+      window.removeEventListener('beforeunload', flushDailyDraft);
+      window.removeEventListener('pagehide', flushDailyDraft);
+    };
+  }, [problem?.slug, problem?.id, code, customInput, user?.id, isWindowExpired, isWorkspaceLocked, isOffline]);
 
   // Conflict resolution actions
   const handleKeepRemoteDraft = () => {

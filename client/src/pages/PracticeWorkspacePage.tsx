@@ -1029,13 +1029,19 @@ export const PracticeWorkspacePage: React.FC = () => {
 
       // 1. Instant local cache restore
       const localDraft = DraftSyncService.getLocalDraft(problem.slug, true);
+      const directCode = typeof localStorage !== 'undefined'
+        ? localStorage.getItem(`logicq_practice_draft_${problem.slug}`)
+        : null;
       let initialCode = cleanDraftCode(problem.starterCode);
 
       if (sessionCodeMapRef.current[problem.slug]) {
         initialCode = sessionCodeMapRef.current[problem.slug];
         setCode(initialCode);
-      } else if (localDraft?.code) {
+      } else if (localDraft?.code && cleanDraftCode(localDraft.code).trim()) {
         initialCode = cleanDraftCode(localDraft.code);
+        setCode(initialCode);
+      } else if (directCode && cleanDraftCode(directCode).trim()) {
+        initialCode = cleanDraftCode(directCode);
         setCode(initialCode);
       } else {
         setCode(initialCode);
@@ -1054,10 +1060,18 @@ export const PracticeWorkspacePage: React.FC = () => {
             const conflict = DraftSyncService.detectConflict(localDraft, remoteDraft);
             if (conflict) {
               setConflictInfo(conflict);
-            } else if (remoteDraft.code && remoteDraft.code !== initialCode) {
+            } else if (
+              remoteDraft.code &&
+              cleanDraftCode(remoteDraft.code).trim() &&
+              cleanDraftCode(remoteDraft.code).trim() !== cleanDraftCode(problem.starterCode).trim() &&
+              (!localDraft?.code || cleanDraftCode(localDraft.code).trim() === cleanDraftCode(problem.starterCode).trim() || remoteDraft.updatedAt > ((localDraft.updatedAt || 0) + 2000))
+            ) {
               const cleanedRemote = cleanDraftCode(remoteDraft.code);
               setCode(cleanedRemote);
               DraftSyncService.saveLocalDraft({ ...remoteDraft, code: cleanedRemote }, true);
+              try {
+                localStorage.setItem(`logicq_practice_draft_${problem.slug}`, cleanedRemote);
+              } catch {}
             }
           })
           .catch(() => {});
@@ -1121,6 +1135,10 @@ export const PracticeWorkspacePage: React.FC = () => {
       };
 
       DraftSyncService.saveLocalDraft(draftObj, true);
+      try {
+        localStorage.setItem(`logicq_practice_draft_${problem.slug}`, nextCode);
+        localStorage.setItem('logicq_last_workspace_problem', problem.slug);
+      } catch {}
 
       if (user?.id && navigator.onLine) {
         setDraftSyncStatus('saving');
@@ -1136,6 +1154,36 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
     }
   };
+
+  // Continuous auto-save flush on window unload or page hide
+  useEffect(() => {
+    const flushWorkspaceDraft = () => {
+      if (!problem?.slug || !code) return;
+      const draftObj: DraftData = {
+        problemId: problem.id,
+        problemSlug: problem.slug,
+        code,
+        customInput,
+        updatedAt: Date.now(),
+        deviceLabel: getDeviceLabel(),
+      };
+      DraftSyncService.saveLocalDraft(draftObj, true);
+      try {
+        localStorage.setItem(`logicq_practice_draft_${problem.slug}`, code);
+        localStorage.setItem('logicq_last_workspace_problem', problem.slug);
+      } catch {}
+      if (user?.id && navigator.onLine) {
+        DraftSyncService.saveRemoteDraft(user.id, draftObj, true).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', flushWorkspaceDraft);
+    window.addEventListener('pagehide', flushWorkspaceDraft);
+    return () => {
+      window.removeEventListener('beforeunload', flushWorkspaceDraft);
+      window.removeEventListener('pagehide', flushWorkspaceDraft);
+    };
+  }, [problem?.slug, problem?.id, code, customInput, user?.id]);
 
   const handleKeepRemoteDraft = () => {
     if (conflictInfo) {
