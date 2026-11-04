@@ -1657,7 +1657,7 @@ export const TopicPracticeHubPage: React.FC = () => {
               <div className="h-4 w-[1px] bg-[var(--border-line)] hidden sm:block shrink-0" />
 
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+                <span className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl">
                   Q{currentTopicIndex + 1}. {activeTopic.topicTitle}
                 </span>
 
@@ -1684,38 +1684,31 @@ export const TopicPracticeHubPage: React.FC = () => {
 
 
 
-            {/* Center: Practice Mode - Unlimited Time & Live Auto-Save Status */}
+            {/* Center: Practice Mode - Sleek Timer & Live Auto-Save Status */}
             <div className="flex items-center gap-2">
               <div
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#0c1017] font-mono shadow-xs shrink-0 text-emerald-700 dark:text-emerald-300"
-                title="Practice Mode has unlimited time. Code and learn at your own pace without pressure."
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] font-mono text-xs text-[var(--text-main)] shadow-xs shrink-0"
+                title="Practice Mode (Unlimited Time)"
               >
-                <Infinity className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                    Unlimited Time
-                  </span>
-                  <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] sm:text-xs font-semibold hidden md:inline">
-                    (Elapsed: {formatPracticeTime(elapsedSeconds)})
-                  </span>
-                </div>
+                <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="font-semibold text-xs">{formatPracticeTime(elapsedSeconds)}</span>
               </div>
 
               {/* Auto-Save Continuous Telemetry Indicator */}
               <div
-                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border font-mono text-xs font-medium transition-all ${
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-medium transition-all ${
                   draftSyncStatus === 'saving'
                     ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400 shadow-xs'
                     : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
                 }`}
                 title="Your code is automatically saved on every keystroke and syncs to cloud storage."
               >
-                <span className={`w-2 h-2 rounded-full ${draftSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${draftSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
                 <span className="text-[11px] font-semibold">{draftSyncStatus === 'saving' ? 'Saving...' : '✓ Auto-Saved'}</span>
               </div>
             </div>
 
-            {/* Right: Palette Toggle + Fullscreen + Actions */}
+            {/* Right: Palette Toggle + Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
@@ -1730,21 +1723,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <span>Palette ({moduleSolvedCount}/{currentModuleTopics.length})</span>
               </button>
 
-
               <button
                 onClick={() => setIsIssueModalOpen(true)}
                 className="p-2 rounded-lg text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
                 title="Report issue"
               >
                 <Flag className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={handleCloseTopic}
-                className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface-hover)] transition cursor-pointer"
-                title="Exit workspace"
-              >
-                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1861,122 +1845,31 @@ export const TopicPracticeHubPage: React.FC = () => {
                   {activeTopic.problem.title}
                 </h1>
 
-                <div className="flex items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
-                  <span>Points: <strong className="text-[var(--text-main)]">50 XP</strong></span>
-                  <span>•</span>
-                  <span>Time: <strong className="text-[var(--text-main)]">1000ms</strong></span>
-                  <span>•</span>
-                  <span>Memory: <strong className="text-[var(--text-main)]">64MB</strong></span>
-                </div>
-              </div>
-
-              {/* Topic Reference (Syntax & Example Box) */}
-              <div className="rounded-2xl p-4 border border-amber-500/30 bg-[#080c14] space-y-3 text-xs font-mono shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-                    <Lightbulb className="w-4 h-4 shrink-0 text-amber-400" />
-                    <span>Topic Reference</span>
+                <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-mono text-[var(--text-muted)] pt-1">
+                  <div className="flex items-center gap-3">
+                    <span>Points: <strong className="text-[var(--text-main)]">50 XP</strong></span>
+                    <span>•</span>
+                    <span>Time: <strong className="text-[var(--text-main)]">1000ms</strong></span>
+                    <span>•</span>
+                    <span>Memory: <strong className="text-[var(--text-main)]">64MB</strong></span>
                   </div>
-                  
-                  <div className="flex items-center gap-1.5">
-                    {/* Copy Code Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleCopyTip(activeTipTab === 'syntax' ? activeTopic.tipBox.syntax : activeTopic.tipBox.example)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-amber-500/50 transition cursor-pointer"
-                      title="Copy to clipboard"
-                    >
-                      {copiedTip ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedTip ? 'Copied!' : 'Copy'}</span>
-                    </button>
 
-                    {/* Expand to Slide-over Drawer */}
-                    <button
-                      type="button"
-                      onClick={() => setIsTipDrawerOpen(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
-                      title="Open full reference drawer"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      <span className="hidden sm:inline">Drawer</span>
-                    </button>
-
-                    {/* Segmented Switcher */}
-                    <div className="flex items-center bg-[#050811] p-0.5 rounded-lg border border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTipTab('syntax')}
-                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                          activeTipTab === 'syntax' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Syntax
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTipTab('example')}
-                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
-                          activeTipTab === 'example' ? 'bg-amber-500 text-black shadow-xs' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Example
-                      </button>
-                    </div>
-                  </div>
+                  {/* Compact Reference Trigger Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setIsTipDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-mono font-medium transition cursor-pointer shadow-xs"
+                    title="View syntax cheat sheet and reference"
+                  >
+                    <Lightbulb className="w-3.5 h-3.5" />
+                    <span>Syntax Reference</span>
+                  </button>
                 </div>
-
-                {activeTipTab === 'syntax' && (
-                  <pre className="p-3 rounded-xl bg-[#050811] text-amber-300 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-slate-800 shadow-inner">
-                    {activeTopic.tipBox.syntax}
-                  </pre>
-                )}
-                {activeTipTab === 'example' && (
-                  <pre className="p-3 rounded-xl bg-[#050811] text-emerald-400 overflow-x-auto text-xs whitespace-pre-wrap font-mono border border-slate-800 shadow-inner">
-                    {activeTopic.tipBox.example}
-                  </pre>
-                )}
               </div>
 
               {/* Problem Statement Content */}
-              <StatementMarkdown content={activeTopic.problem.description} />
-
-              {/* Sample Test Cases */}
-              <div className="space-y-4 pt-4 border-t border-[var(--border-line)]">
-                <h3 className="text-xs font-mono font-bold tracking-wider text-[var(--text-main)] uppercase">
-                  Sample Test Cases
-                </h3>
-                <div className="glass-card rounded-xl p-3.5 border border-[var(--border-line)] space-y-2 text-xs font-mono">
-                  <div className="text-[11px] text-cyan-400 font-semibold">
-                    Sample #1 (Visible Test)
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
-                      Input
-                    </span>
-                    <pre className="p-2 rounded bg-[var(--bg-main)] text-[var(--text-main)] overflow-x-auto mt-0.5 border border-[var(--border-line)]">
-                      {activeTopic.problem.openTestCase.input}
-                    </pre>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)] block text-[10px] uppercase font-bold">
-                      Expected Output
-                    </span>
-                    <pre className="p-2 rounded bg-[var(--bg-main)] text-emerald-600 dark:text-emerald-400 overflow-x-auto mt-0.5 font-bold border border-[var(--border-line)]">
-                      {activeTopic.problem.openTestCase.expectedOutput}
-                    </pre>
-                  </div>
-                  {activeTopic.problem.openTestCase.explanation && (
-                    <div className="text-[var(--text-muted)] font-sans text-xs pt-1 border-t border-[var(--border-line)]">
-                      <span className="font-semibold text-[var(--text-main)]">Explanation: </span>
-                      {activeTopic.problem.openTestCase.explanation}
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-dashed border-[var(--border-line)] flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                  <ShieldCheck className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                  <span>Hidden edge cases are evaluated automatically when you submit.</span>
-                </div>
+              <div className="pt-2">
+                <StatementMarkdown content={activeTopic.problem.description} />
               </div>
             </div>
 
@@ -2092,15 +1985,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                               (Visible Test Case • Auto-fed Stdin)
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={handleRunOpenTest}
-                            disabled={isRunning}
-                            className="px-3 py-1.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border-line)] hover:border-cyan-500/50 text-cyan-400 text-xs font-mono font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Run Use Case 1</span>
-                          </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -2220,21 +2104,6 @@ export const TopicPracticeHubPage: React.FC = () => {
               <div className="hidden xl:flex w-72 2xl:w-80 shrink-0 border-l border-[var(--border-line)] bg-[var(--bg-panel)] flex-col h-full overflow-hidden lg:order-3">
                 {renderPaletteContent(false)}
               </div>
-            )}
-
-            {/* Floating edge tab to reopen Question Palette when collapsed on desktop */}
-            {!isDesktopPaletteOpen && (
-              <button
-                type="button"
-                onClick={() => setIsDesktopPaletteOpen(true)}
-                className="hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[var(--bg-panel)] border border-r-0 border-[var(--border-line)] py-3 px-1.5 rounded-l-xl text-xs font-mono font-bold text-cyan-400 hover:text-white hover:bg-[var(--bg-surface-hover)] shadow-xl transition-all cursor-pointer flex-col items-center gap-1.5"
-                title="Open 25-Question Palette"
-              >
-                <ChevronLeft className="w-4 h-4 text-cyan-400" />
-                <span className="[writing-mode:vertical-lr] text-[11px] tracking-wider uppercase">
-                  Palette ({moduleSolvedCount}/{currentModuleTopics.length})
-                </span>
-              </button>
             )}
 
           </div>

@@ -48,8 +48,24 @@ export function sanitizeMathInStatement(text: string): string {
     .replace(/\\\{/g, '{')
     .replace(/\\\}/g, '}');
 
+  // 1.5 Handle $$...$$ display math blocks (Formulas, Equations)
+  result = result.replace(/\$\$([\s\S]+?)\$\$/g, (_, mathContent) => {
+    let m = mathContent
+      .replace(/\\text\{([^}]+)\}/g, '$1')
+      .replace(/\\times\b/g, '×')
+      .replace(/\\cdot\b/g, '·')
+      .replace(/\\pm\b/g, '±')
+      .replace(/\\approx\b/g, '≈')
+      .replace(/\\le\b|\\leq\b/g, '≤')
+      .replace(/\\ge\b|\\geq\b/g, '≥')
+      .replace(/\\ne\b|\\neq\b/g, '≠')
+      .replace(/\\/g, '')
+      .trim();
+    return `\n\n\`${m}\`\n\n`;
+  });
+
   // 2. Handle $...$ inline math blocks
-  result = result.replace(/\$([^$]+)\$/g, (_, mathContent) => {
+  result = result.replace(/\$([^$\n]+)\$/g, (_, mathContent) => {
     let m = mathContent;
     m = m.replace(/\\text\{([^}]+)\}/g, '$1');
     m = m.replace(/\\to\b|\\rightarrow\b/g, '→');
@@ -68,8 +84,11 @@ export function sanitizeMathInStatement(text: string): string {
     m = m.replace(/_([0-9ijkmn])/g, (_: any, sub: string) => toSubscript(sub));
     m = m.replace(/\\([a-zA-Z≤≥≠×·±∈∞→]+)/g, '$1');
     m = m.replace(/\\/g, '');
-    return m.trim();
+    return `\`${m.trim()}\``;
   });
+
+  // Clean up any remaining stray math delimiter dollars
+  result = result.replace(/(^|[\s\n])\$([^\$\n]+)\$([\s\n]|$)/g, '$1`$2`$3');
 
   // 3. Exponents outside math blocks
   result = result.replace(/10\^\{?(\d+)\}?/g, (_: any, exp: string) => `10${toSuperscript(exp)}`);
