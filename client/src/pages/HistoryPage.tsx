@@ -15,6 +15,7 @@ import {
   Upload,
   FileText,
   CheckCircle2,
+  BookOpen,
   Search,
   CheckCircle,
   XCircle,
@@ -147,7 +148,12 @@ export const HistoryPage: React.FC = () => {
       }
 
       // Client-side Solved Topics sync & backfill
-      const solvedIds = getSolvedPracticeTopicIds(effectiveUid);
+      const solvedIds = Array.from(new Set([
+        ...getSolvedPracticeTopicIds(),
+        ...(effectiveUid ? getSolvedPracticeTopicIds(effectiveUid) : []),
+        ...(user?.id ? getSolvedPracticeTopicIds(user.id) : []),
+        ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
+      ]));
       for (const tid of solvedIds) {
         const topicKey = `topic_${tid}`;
         const hasExisting = Array.from(combinedMap.values()).some(
@@ -408,11 +414,11 @@ export const HistoryPage: React.FC = () => {
         {/* Quick Jump Shortcuts */}
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            to="/challenge"
-            className="px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-[#8B9BFF] bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 hover:bg-[#8B9BFF]/20 transition-colors flex items-center gap-1.5"
+            to="/lab-internal"
+            className="px-3 py-1.5 rounded-xl font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Daily Challenge</span>
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Lab Internal</span>
           </Link>
           <Link
             to="/practice"
@@ -538,7 +544,7 @@ export const HistoryPage: React.FC = () => {
                 {uploadedSolutions.map((up: any) => (
                   <tr key={up.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-bold text-white">
-                      {up.problem?.title || 'Daily Challenge'}
+                      {up.problem?.title || 'Practice Solution'}
                     </td>
                     <td className="px-6 py-4 text-slate-300">
                       <span className="inline-flex items-center gap-1 text-[11px]">
@@ -589,15 +595,15 @@ export const HistoryPage: React.FC = () => {
             </div>
             <span className="font-bold text-base text-white">No Code Submissions Yet</span>
             <p className="text-xs text-slate-400 max-w-md leading-relaxed">
-              Whenever you solve a Daily Challenge or a Practice problem, your full code, test verdicts, runtime, and timestamps will appear here.
+              Whenever you solve a Practice problem or Lab Internal coursework, your full code, test verdicts, runtime, and timestamps will appear here.
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-3">
               <Link
-                to="/challenge"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] shadow-md shadow-[#8B9BFF]/20 transition-all"
+                to="/lab-internal"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition-all"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>Solve Today's Challenge</span>
+                <BookOpen className="w-4 h-4" />
+                <span>Open Lab Internal</span>
               </Link>
               <Link
                 to="/practice"
@@ -655,7 +661,7 @@ export const HistoryPage: React.FC = () => {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-white text-sm">
-                              {sub.problem?.title || 'Daily Challenge'}
+                              {sub.problem?.title || 'Practice Problem'}
                             </span>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-[#8B9BFF]/10 text-[#8B9BFF] border border-[#8B9BFF]/20">
                               #{attemptNum}
@@ -725,7 +731,7 @@ export const HistoryPage: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="font-bold text-white text-sm">
-                          {sub.problem?.title || 'Daily Challenge'}
+                          {sub.problem?.title || 'Practice Problem'}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
                           Attempt #{attemptNum} • {new Date(sub.createdAt).toLocaleDateString()}

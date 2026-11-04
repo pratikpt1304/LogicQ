@@ -737,6 +737,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       difficulty: topic.problem.difficulty,
       code: initialCode,
     }).catch(() => {});
+    codeRef.current = initialCode;
     setCode(initialCode);
     setCustomInput(localDraft?.customInput || '');
     setRunResult(null);
@@ -938,16 +939,26 @@ export const TopicPracticeHubPage: React.FC = () => {
       const openData = resolvePayload(resOpen);
       const hiddenData = resolvePayload(resHidden);
 
-      const actualOpenOut = (openData?.stdout || openData?.output || '').trim();
-      const expectedOpenOut = (activeTopic.problem.openTestCase.expectedOutput || '').trim();
-      const openPassed = actualOpenOut === expectedOpenOut && !openData?.compileOutput;
+      const norm = (s: any) => (typeof s === 'string' ? s : '').replace(/\r\n/g, '\n').trim();
+      const actualOpenOut = norm(openData?.stdout || openData?.output || '');
+      const expectedOpenOut = norm(activeTopic.problem.openTestCase.expectedOutput || '');
+      const actualHiddenOut = norm(hiddenData?.stdout || hiddenData?.output || '');
+      const expectedHiddenOut = norm(activeTopic.problem.hiddenTestCase.expectedOutput || '');
 
-      const actualHiddenOut = (hiddenData?.stdout || hiddenData?.output || '').trim();
-      const expectedHiddenOut = (activeTopic.problem.hiddenTestCase.expectedOutput || '').trim();
-      const hiddenPassed = actualHiddenOut === expectedHiddenOut && !hiddenData?.compileOutput;
+      const hasActualCompileError = Boolean(
+        openData?.verdict === 'COMPILE_ERROR' ||
+        hiddenData?.verdict === 'COMPILE_ERROR' ||
+        (openData?.compileOutput && /error:/i.test(openData.compileOutput)) ||
+        (hiddenData?.compileOutput && /error:/i.test(hiddenData.compileOutput))
+      );
 
-      const compileErr = openData?.compileOutput || hiddenData?.compileOutput || openData?.stderr || '';
-      const allPassed = !compileErr && openPassed && hiddenPassed;
+      const openPassed = actualOpenOut === expectedOpenOut && !hasActualCompileError;
+      const hiddenPassed = actualHiddenOut === expectedHiddenOut && !hasActualCompileError;
+
+      const compileErr = hasActualCompileError
+        ? (openData?.compileOutput || hiddenData?.compileOutput || openData?.stderr || '')
+        : '';
+      const allPassed = !hasActualCompileError && openPassed && hiddenPassed;
 
       setRunResult({
         success: openPassed,
@@ -2062,6 +2073,8 @@ export const TopicPracticeHubPage: React.FC = () => {
                   code={code}
                   onChange={handleCodeChange}
                   onReset={handleResetCode}
+                  onSubmit={handleRunOpenTest}
+                  onRun={handleRunOpenTest}
                   readOnly={false}
                   disableCopyPaste={true}
                   forceTheme="dark"

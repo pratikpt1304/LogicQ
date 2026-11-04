@@ -275,7 +275,7 @@ int main() {
       'utf-8'
     );
     expect(navbarCode).toContain("label: 'Home'");
-    expect(navbarCode).toContain("label: 'Daily Challenge'");
+    expect(navbarCode).toContain("label: 'Practice'");
     expect(navbarCode).toContain("label: 'Leaderboard'");
     expect(navbarCode).not.toContain('/archive');
     expect(navbarCode).not.toContain('/arena');

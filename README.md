@@ -31,15 +31,15 @@ It combines **Apple-grade minimalist UI** with **strict institutional-grade exam
 │                                     LOGICQ ECOSYSTEM                                         │
 ├──────────────────────────────────────────────┬───────────────────────────────────────────────┤
 │        📘 CONCEPTUAL MASTERY ARENA           │        🛡️ PROCTORED LAB & EXAM SUITE          │
-│       (/practice & /challenge)               │      (/lab-internal & /student/tests)         │
+│                 (/practice)                  │      (/lab-internal & /student/tests)         │
 ├──────────────────────────────────────────────┼───────────────────────────────────────────────┤
-│ • 48 Hand-Curated Progressive C Problems     │ • Anti-Cheating PRN Deterministic Subsetting  │
-│ • Multi-Tier: Easy, Medium, Hard             │ • Adjacent Lab Seat Zero-Overlap Guarantee    │
-│ • Interactive Syntax Tip Reference Box       │ • Excel Question Pool Importer (.xlsx/.csv)   │
-│ • Custom Stdin & Real-Time Compiler Verdicts │ • 2 Visible + 1 Server Hidden Test Case       │
-│ • Portal-Powered True Fullscreen Studio      │ • Fullscreen Lockdown & Focus Loss Telemetry  │
-│ • Zero Penalty, Unlimited Concept Reattempts │ • Real Student Profile Binding (Zero Fakes)   │
-│ • Daily 17:00 IST Streak Arena (🔥)          │ • Real-Time Gradebook (A+, A, B, Qualified)   │
+│ • 100 Hand-Curated Progressive C Topics      │ • Anti-Cheating PRN Deterministic Subsetting  │
+│ • 4 Core Modules (25 Topics Each)            │ • Adjacent Lab Seat Zero-Overlap Guarantee    │
+│ • Sequential Question Unlock Gating          │ • Excel Question Pool Importer (.xlsx/.csv)   │
+│ • Interactive Syntax Tip Reference Box       │ • 2 Visible + 1 Server Hidden Test Case       │
+│ • Custom Stdin & Real-Time GCC Verdicts      │ • Fullscreen Lockdown & Focus Loss Telemetry  │
+│ • Portal-Powered True Fullscreen Studio      │ • Continuous CIE Coursework (80 Questions)    │
+│ • Zero Penalty, Unlimited Practice Attempts  │ • Real-Time Gradebook (A+, A, B, Qualified)   │
 └──────────────────────────────────────────────┴───────────────────────────────────────────────┘
 ```
 
@@ -106,7 +106,7 @@ Faculty can publish complete lab tests in seconds without manual copy-pasting:
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["Client Experience Tier (React 18 + TypeScript + Monaco + Tailwind)"]
-        PracticeHub["Topic Practice Hub (/practice)<br/>48 Problems • Fullscreen Studio • Custom Stdin"]
+        PracticeHub["Topic Practice Hub (/practice)<br/>100 Topics • Fullscreen Studio • Custom Stdin"]
         LabInternal["Lab Internal Arena (/lab-internal)<br/>Sequential Gating • Time Scoring • Rules Agreement"]
         ExamProctor["Smart Exam Engine (/student/tests)<br/>Anti-Cheating Subsetting • Clipboard Lock • Telemetry"]
         FacultyPortal["Faculty Console (/faculty/sections)<br/>Apple-Grade Drawer • Real Roster • Verified Scores"]

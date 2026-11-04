@@ -144,7 +144,7 @@ export async function resolveActiveDailyChallenge(now: Date = getServerNow()): P
       status: 'PUBLISHED',
       isPractice: false,
       scheduledDate: challengeDayIST,
-      NOT: [{ slug: { startsWith: 'practice-' } }, { slug: { startsWith: 'kanetkar-' } }],
+      NOT: [{ slug: { startsWith: 'practice-' } }],
     },
     include: {
       testCases: {
@@ -164,7 +164,7 @@ export async function resolveActiveDailyChallenge(now: Date = getServerNow()): P
     where: {
       status: 'PUBLISHED',
       isPractice: false,
-      NOT: [{ slug: { startsWith: 'practice-' } }, { slug: { startsWith: 'kanetkar-' } }],
+      NOT: [{ slug: { startsWith: 'practice-' } }],
       OR: [{ scheduledDate: null }, { scheduledDate: '' }],
     },
     orderBy: { createdAt: 'asc' },

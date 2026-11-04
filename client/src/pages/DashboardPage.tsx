@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { StreakReminderBanner } from '../components/dashboard/StreakReminderBanner.js';
-import { DailyCTipPopup } from '../components/dashboard/DailyCTipPopup.js';
 import { OnlineCompilerCard } from '../components/dashboard/OnlineCompilerCard.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
@@ -79,16 +77,7 @@ export const DashboardPage: React.FC = () => {
     }
   });
 
-  const {
-    data: dailyData,
-    isLoading: isDailyLoading,
-    error: dailyError,
-    refetch: refetchDaily,
-  } = useQuery({
-    queryKey: ['daily-challenge'],
-    queryFn: () => api.get('/problems/daily'),
-    refetchInterval: 12000,
-  });
+  const dailyData: any = null; const isDailyLoading = false; const dailyError = null; const refetchDaily = () => {};
 
   const {
     data: statsData,
@@ -1204,7 +1193,7 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-8">
       {/* Daily C Tip Popup - shown once per day on load */}
-      {isStudent && <DailyCTipPopup />}
+      
       {/* EXECUTIVE ADMIN & FACULTY HOME DASHBOARD (APPLE HIG MINIMALIST REDESIGN) */}
       {!isStudent ? (
         <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-200">
@@ -2149,7 +2138,7 @@ export const DashboardPage: React.FC = () => {
           {/* 2. TOP BENTO ROW: 2 DISTINCT MASTERY GRAPHS (PRACTICE & LAB INTERNAL) + 7-DAY CONSISTENCY MATRIX */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5">
             {/* GRAPH 1: TOPIC PRACTICE MASTERY (4 Cols) */}
-            <div className="lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+            <div className="lg:col-span-6 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-emerald-500/40 transition-all">
               <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20">
@@ -2318,77 +2307,7 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* BENTO TILE 3: 7-DAY CONSISTENCY & ACTIVITY MATRIX (4 Cols) */}
-            <div className="md:col-span-2 lg:col-span-4 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 flex flex-col justify-between shadow-md relative overflow-hidden group hover:border-amber-500/40 transition-all">
-              <div className="flex items-center justify-between border-b border-[var(--border-line)] pb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
-                    <Flame className="w-4 h-4 animate-bounce" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-[var(--text-main)]">Daily Streak & Consistency</h3>
-                    <p className="text-[11px] font-mono text-[var(--text-muted)]">Solve every day for university streak bonus</p>
-                  </div>
-                </div>
-                <div className="text-right font-mono">
-                  <span className="text-xl font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 justify-end">
-                    <span>{computedStreak}</span>
-                    <span className="text-xs font-normal text-[var(--text-muted)]">Days 🔥</span>
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)] block">Personal Best: {Math.max(Number(stats?.longestStreak || user?.longestStreak || 0), computedStreak)}d</span>
-                </div>
-              </div>
-
-              {/* 7-Day Interactive Matrix */}
-              <div className="py-6 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  {past7Days.map((d, i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 py-3 px-1 rounded-2xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                        d.isActive
-                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                          : d.isToday
-                          ? 'bg-[var(--bg-surface)] border-indigo-500/30 text-[var(--text-main)] shadow-sm'
-                          : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-muted)]'
-                      }`}
-                    >
-                      <span className="text-[10px] font-mono uppercase font-bold">{d.dayName}</span>
-                      <div
-                        className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                          d.isActive
-                            ? 'bg-emerald-500 text-white shadow-sm'
-                            : d.isToday
-                            ? 'border border-indigo-400/40 bg-[var(--bg-panel)]'
-                            : 'bg-[var(--border-line)]'
-                        }`}
-                      >
-                        {d.isActive ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : null}
-                      </div>
-                      <span className="text-[10px] font-mono font-medium">{d.dateNum}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Instant WhatsApp Streak Reminder Button */}
-              <div className="pt-4 border-t border-[var(--border-line)] flex items-center justify-between">
-                <span className="text-xs text-[var(--text-muted)] font-mono">Save streak & invite classmates</span>
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    `🔥 *LogicQ Daily C Challenge Reminder* 🔥\n\nHey! Don't let your streak break today.\n\n⚡ *My Current Streak:* ${stats?.currentStreak || user?.currentStreak || 0} Days 🔥\n💎 *Reward:* +25 Academic XP\n👉 *Solve Now:* https://logicq-clanguage.web.app/daily\n\nCompete on the Sanjivani University daily leaderboard! 🚀`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  <span>Ping to WhatsApp</span>
-                </a>
-              </div>
-            </div>
           </div>
-
 
           {/* 4. ASSIGNED LAB ASSESSMENTS & TESTS (High Institutional Priority) */}
           <div className="rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-7 shadow-md space-y-5">

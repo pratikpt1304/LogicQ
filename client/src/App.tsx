@@ -16,7 +16,6 @@ import { PrivacyPage } from './pages/PrivacyPage.js';
 import { HowToInstallPage } from './pages/HowToInstallPage.js';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/ForgotPasswordPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
-import { ChallengePage } from './pages/ChallengePage.js';
 import { LeaderboardPage } from './pages/LeaderboardPage.js';
 import { HistoryPage } from './pages/HistoryPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
@@ -204,8 +203,7 @@ export const App: React.FC = () => {
   }, []);
 
   const isWorkspaceRoute =
-    location.pathname.startsWith('/challenge') ||
-    location.pathname.startsWith('/practice/') ||
+    location.pathname.startsWith('/practice') ||
     location.pathname.startsWith('/lab-internal/') ||
     location.pathname.startsWith('/exam/') ||
     location.pathname.startsWith('/mini-project/') ||
@@ -275,47 +273,10 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/challenge"
-            element={
-              <ProtectedRoute>
-                <ChallengePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/challenge/:slug"
-            element={
-              <ProtectedRoute>
-                <ChallengePage />
-              </ProtectedRoute>
-            }
-          />
-          {/* Daily Challenge Workspace (Unlocks every day at 5:00 PM) */}
-          <Route
-            path="/challenge"
-            element={
-              <ProtectedRoute>
-                <ChallengePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/challenge/:slug"
-            element={
-              <ProtectedRoute>
-                <ChallengePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/daily"
-            element={
-              <ProtectedRoute>
-                <ChallengePage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Deprecated Daily Challenge routes: seamlessly redirect to Practice Hub */}
+          <Route path="/challenge" element={<Navigate to="/practice" replace />} />
+          <Route path="/challenge/:slug" element={<Navigate to="/practice" replace />} />
+          <Route path="/daily" element={<Navigate to="/practice" replace />} />
 
           {/* Practice Arena (100 Topic Practice Problems) */}
           <Route

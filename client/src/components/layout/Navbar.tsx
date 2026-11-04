@@ -16,6 +16,7 @@ import {
   Flame,
   Trophy,
   Code2,
+  CheckCircle2,
   Calendar,
   ShieldCheck,
   User as UserIcon,
@@ -76,10 +77,7 @@ export const Navbar: React.FC = () => {
   }, [isStudent]);
 
   const isActive = (path: string) => {
-    if (path === '/challenge' || path === '/daily') {
-      return location.pathname === '/challenge' || location.pathname.startsWith('/challenge/') || location.pathname === '/daily';
-    }
-    if (path === '/practice') {
+        if (path === '/practice') {
       return location.pathname === '/practice' || location.pathname.startsWith('/practice/');
     }
     if (path === '/lab-internal') {
@@ -98,8 +96,7 @@ export const Navbar: React.FC = () => {
   const appNavLinks = isStudent
     ? [
         { label: 'Home', path: '/dashboard', icon: Home },
-        { label: 'Daily Challenge', path: '/challenge', icon: Calendar },
-        { label: 'Practice', path: '/practice', icon: Code2 },
+                { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
         { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
       ]
@@ -241,12 +238,9 @@ export const Navbar: React.FC = () => {
                       {/* Student Stats Badges (Streak & Total Points) inside Profile Dropdown */}
                       {isStudent && (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[var(--border-line)]/60 font-mono text-[11px]">
-                          <div
-                            title="Daily Streak"
-                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-500 dark:text-amber-400 font-semibold"
-                          >
-                            <Flame className="w-3 h-3 text-amber-500 fill-amber-500/20" />
-                            <span>{user.currentStreak}d streak</span>
+                          <div title="Total Solved" className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 dark:text-emerald-400 font-semibold">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <span>{user.totalSolved || 0} Solved</span>
                           </div>
                           <div
                             title="Total Points"
