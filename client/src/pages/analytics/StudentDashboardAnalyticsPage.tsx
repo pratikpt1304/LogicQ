@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client.js';
 import { auth } from '../../config/firebase.js';
 import { useAuth } from '../../context/AuthContext.js';
@@ -19,17 +20,20 @@ import {
   Printer,
   Sparkles,
   Code2,
-  CheckCircle,
-  HelpCircle,
-  Activity,
   Layers,
-  Check,
+  Activity,
   X,
+  ExternalLink,
+  ChevronRight,
+  Zap,
 } from 'lucide-react';
+
+type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
   const { user, isAdmin, isFaculty } = useAuth();
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -38,20 +42,20 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     refetchOnWindowFocus: false,
   });
 
-  const { data: fsTelemetry, isLoading: isFsLoading } = useQuery({
+  const { data: fsTelemetry } = useQuery({
     queryKey: ['proctoring-telemetry-student', targetUid],
     queryFn: () => FirestoreDataService.getProctoringTelemetry(targetUid),
     refetchOnWindowFocus: true,
   });
 
-  const { data: reportData, isLoading: isReportLoading } = useQuery({
+  const { data: reportData } = useQuery({
     queryKey: ['student-report-data', selectedReportTestId],
     queryFn: () => api.get(`/analytics/student/report/${selectedReportTestId}`),
     enabled: Boolean(selectedReportTestId),
   });
 
   // Collect local quarantined problem slugs across all module sessions
-  const quarantinedSlugs = React.useMemo(() => {
+  const quarantinedSlugs = useMemo(() => {
     const set = new Set<string>();
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -69,8 +73,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
 
   const incidents = fsTelemetry?.incidents || [];
 
-  // Aggregated list of all questions with cheating penalties
-  const cheatedQuestionsList = React.useMemo(() => {
+  // Aggregated list of questions with proctoring incidents
+  const cheatedQuestionsList = useMemo(() => {
     const list: Array<{
       title: string;
       slug: string;
@@ -97,7 +101,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             list.push({
               title: inc.problemTitle || inc.problemSlug || 'Practice Question',
               slug: inc.problemSlug || '',
-              reason: inc.reason || 'Exceeded 3 tab switches on question',
+              reason: inc.reason || 'Exceeded tab switches on question',
               type: inc.type,
               timestamp: inc.timestamp || new Date().toISOString(),
             });
@@ -113,7 +117,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         list.push({
           title,
           slug: qSlug,
-          reason: 'Exceeded 3 tab switches (Quarantined Attempt)',
+          reason: 'Exceeded tab switches (Quarantined Attempt)',
           type: 'EXCEEDED_TAB_SWITCHES',
           timestamp: new Date().toISOString(),
         });
@@ -123,62 +127,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     return list;
   }, [incidents, quarantinedSlugs]);
 
-  // All Hooks have run unconditionally; early returns are now 100% safe
   if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
   }
 
-  if (isLoading) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-16 text-center font-mono space-y-4">
-        <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mx-auto" />
-        <span className="text-xs text-[var(--text-muted)] font-medium">Loading learning analytics...</span>
-      </div>
-    );
-  }
-
   const rawAnl = data?.data;
-  const hasBackendData = Boolean(rawAnl && typeof rawAnl === 'object' && Object.keys(rawAnl).length > 0);
-  const hasFsData = Boolean(
-    fsTelemetry &&
-      (fsTelemetry.tabSwitchCount > 0 ||
-        fsTelemetry.copyPasteAttempts > 0 ||
-        fsTelemetry.fullscreenExits > 0 ||
-        fsTelemetry.autoLockCount > 0 ||
-        (fsTelemetry.incidents && fsTelemetry.incidents.length > 0))
-  );
-
-  if (!hasBackendData && !hasFsData) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16">
-        <div className="p-8 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-sm text-center font-mono space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center mx-auto shadow-sm">
-            <Brain className="w-6 h-6" />
-          </div>
-          <h2 className="text-base font-bold text-[var(--text-main)] font-sans">
-            No Test or Practice Analytics Recorded Yet
-          </h2>
-          <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
-            Complete questions in the Daily Practice Arena or take an assigned test to unlock your verified dual-score performance analytics.
-          </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Link
-              to="/daily"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md transition-colors"
-            >
-              <span>Open Daily Practice</span>
-            </Link>
-            <Link
-              to="/student/tests"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[var(--text-main)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)]/80 border border-[var(--border-line)] transition-colors"
-            >
-              <span>View Assigned Tests</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const defaultAnalytics = {
     academicScore: 0,
@@ -187,7 +140,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     integrityScore: 100,
     integrityRisk: 'NORMAL' as const,
     learnerInsightMessage:
-      'Continue solving problems in the Practice Hub to boost your algorithmic problem-solving accuracy.',
+      'Continue solving problems in the Practice Arena to boost your algorithmic problem-solving accuracy and velocity.',
     telemetry: {
       totalTabSwitches: 0,
       totalClipboardAttempts: 0,
@@ -229,7 +182,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const totalClipboardAttempts = (anl.telemetry?.totalClipboardAttempts || 0) + (fsTelemetry?.copyPasteAttempts || 0);
   const totalFullscreenExits = fsTelemetry?.fullscreenExits || 0;
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
-  // Backend integrityScore is RISK POINTS (0 is CLEAN, 100 is MAX CHEAT)
   const backendRiskPoints = typeof anl.integrityScore === 'number' ? anl.integrityScore : 0;
   const backendCleanScore = Math.max(0, 100 - backendRiskPoints);
 
@@ -243,594 +195,536 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           autoLockCount,
         });
 
-  // Dual-Verified Integrity Score (starts at 100, drops with infractions)
   const finalIntegrityScore = Math.max(0, Math.min(backendCleanScore, fsIntegrity));
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 font-mono text-xs">
-      {/* Header */}
-      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 sm:p-8 space-y-3 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-xs font-mono font-bold">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
+      {/* 1. APPLE FROSTED HEADER */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
               <Brain className="w-3.5 h-3.5" />
-              <span>Learning Insights &amp; Performance</span>
+              <span>Learning Analytics</span>
+              <span className="w-1 h-1 rounded-full bg-indigo-400" />
+              <span>Academic Growth</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-main)] tracking-tight font-sans mt-2">
-              Performance Dashboard
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Learning Analytics
             </h1>
-            <p className="text-[var(--text-muted)] max-w-2xl font-sans text-sm mt-1 leading-relaxed">
-              Review your overall programming marks, question completion progress, and printable assessment reports.
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+              Verified programming metrics, algorithmic mastery, proctored telemetry, and official assessment reports.
             </p>
           </div>
 
+          {/* Quick Hub Shortcuts */}
           <div className="flex items-center gap-2 shrink-0">
             <Link
               to="/student/tests"
-              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
             >
-              <FileText className="w-3.5 h-3.5" />
+              <FileText className="w-3.5 h-3.5 text-blue-500" />
               <span>Assigned Tests</span>
             </Link>
             <Link
-              to="/daily"
-              className="px-3.5 py-2 rounded-xl font-mono text-xs font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+              to="/practice"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
             >
               <Code2 className="w-3.5 h-3.5" />
-              <span>Daily Practice</span>
+              <span>Practice Arena →</span>
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* Top 2 Score & Assessment Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Score 1: Academic Performance */}
-        <div className="bg-[var(--bg-panel)] border border-emerald-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 font-bold border border-emerald-500/20 text-[11px]">
-              OVERALL ACADEMIC SCORE
+        {/* Apple Fitness-Style Metric Tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
+          <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
+              Academic Score
             </span>
-            <Award className="w-6 h-6 text-emerald-500" />
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-4xl sm:text-5xl font-black text-[var(--text-main)] font-mono">
-              {academicScore.toFixed(1)} <span className="text-xl text-[var(--text-muted)] font-normal">/ 100</span>
+            <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
+              {academicScore.toFixed(1)} <span className="text-xs text-slate-400 font-sans font-normal">/ 100</span>
             </div>
-            <p className="text-[var(--text-muted)] text-xs font-sans">
-              Cumulative score across all evaluated section questions and test submissions.
-            </p>
           </div>
 
-          <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-            <span>Questions Solved: <strong className="text-[var(--text-main)]">{totalQuestionsSolved}</strong> / {totalQuestionsAttempted}</span>
-            <span className="text-emerald-500 font-bold">
-              {academicScore >= 40 ? 'Passing Range ✅' : 'Attempt Tests to Boost'}
+          <div className="p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
+            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
+              Problems Mastered
             </span>
+            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
+              <span>{totalQuestionsSolved}</span>
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20">
+            <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 block mb-0.5">
+              Exam Standing
+            </span>
+            <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1.5">
+              <span>{finalIntegrityScore}</span>
+              <span className="text-xs font-sans font-medium text-indigo-500">
+                {finalIntegrityScore >= 80 ? 'Verified' : 'Review'}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20">
+            <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 block mb-0.5">
+              Time Efficiency
+            </span>
+            <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
+              {anl.netTimeDeviationSec <= 0 ? 'Optimal' : `+${anl.netTimeDeviationSec}s`}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Score 2: Session Integrity & Proctored Health */}
-        <div className="bg-[var(--bg-panel)] border border-indigo-500/30 rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 font-bold border border-indigo-500/20 text-[11px]">
-              BEHAVIORAL INTEGRITY HEALTH
-            </span>
-            {isCleanSession ? (
-              <ShieldCheck className="w-6 h-6 text-emerald-500" />
-            ) : (
-              <ShieldAlert className="w-6 h-6 text-rose-500" />
-            )}
-          </div>
+      {/* 2. APPLE SEGMENTED TAB SWITCHER */}
+      <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-1">
+        {[
+          { id: 'overview' as const, label: 'Overview', icon: TrendingUp },
+          { id: 'mastery' as const, label: 'Skill Mastery', icon: Layers },
+          { id: 'standing' as const, label: 'Exam Standing', icon: ShieldCheck },
+          { id: 'reports' as const, label: 'Reports (PDF)', icon: FileText },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isCur = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                isCur
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-          <div className="space-y-1">
-            <div className="text-3xl sm:text-4xl font-black font-mono flex items-center gap-2">
-              <span className={finalIntegrityScore >= 80 ? 'text-emerald-500' : finalIntegrityScore >= 50 ? 'text-amber-500' : 'text-rose-500'}>
-                {finalIntegrityScore}
-              </span>
-              <span className="text-xl text-[var(--text-muted)] font-normal">/ 100</span>
-              {autoLockCount > 0 && (
-                <span className="text-[11px] px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-500 border border-rose-500/30 font-bold ml-auto">
-                  {autoLockCount} AUTO-LOCK PENALTY
-                </span>
+      {/* 3. TAB PANELS */}
+      <AnimatePresence mode="wait">
+        {/* TAB 1: OVERVIEW */}
+        {activeTab === 'overview' && (
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Apple Intelligence Learning Insights */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Personalized Learning Insights
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Automated curriculum analysis based on evaluated code submissions
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                {anl.learnerInsightMessage}
+              </div>
+
+              {anl.recommendations && anl.recommendations.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Actionable Next Steps:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {anl.recommendations.map((rec: string, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-xl bg-white/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-700/60 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-            <p className="text-[var(--text-muted)] text-xs font-sans">
-              {isCleanSession
-                ? 'Your proctored test & practice sessions adhered cleanly to examination guidelines.'
-                : autoLockCount > 0
-                ? 'Score reduced due to cheating infractions (exceeded tab switches or copy-paste attempts).'
-                : 'Focus loss, tab switches, or paste events were logged during test evaluation windows.'}
-            </p>
-          </div>
 
-          <div className="pt-3 border-t border-[var(--border-line)] flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-            <span>Tab Switches: <strong className={totalTabSwitches > 0 ? (totalTabSwitches >= 3 ? "text-rose-500 font-bold" : "text-amber-500") : "text-[var(--text-main)]"}>{totalTabSwitches}</strong></span>
-            <span>Clipboard Guard: <strong className={totalClipboardAttempts > 0 ? (totalClipboardAttempts >= 5 ? "text-rose-500 font-bold" : "text-amber-500") : "text-[var(--text-main)]"}>{totalClipboardAttempts} blocked</strong></span>
-            <span>Fullscreen Exits: <strong className={totalFullscreenExits > 0 ? "text-amber-500" : "text-[var(--text-main)]"}>{totalFullscreenExits}</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* Cheating Penalties & Academic Score Loss Breakdown */}
-      {cheatedQuestionsList.length > 0 && (
-        <div className="bg-[#141932] border border-rose-500/40 rounded-2xl p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
-          {/* Ambient Warning Radial */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-500/20 pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <AlertTriangle className="w-5 h-5 animate-pulse" />
+            {/* Telemetry Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Hidden Test Case Verification
+                </span>
+                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                  {anl.hiddenTestPassRatio || 'Verified'}
+                </div>
+                <p className="text-[11px] text-slate-400">Edge cases evaluated via GCC sandbox</p>
               </div>
+
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Keyboard & Velocity Activity
+                </span>
+                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                  {(anl.telemetry?.totalKeystrokes || 0).toLocaleString()} keys
+                </div>
+                <p className="text-[11px] text-slate-400">Active keystrokes logged in editor</p>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Proctored Exam Health
+                </span>
+                <div className={`text-xl font-bold font-mono ${finalIntegrityScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
+                  {finalIntegrityScore >= 80 ? 'Verified Clean' : 'Review Required'}
+                </div>
+                <p className="text-[11px] text-slate-400">Tab switches & clipboard monitored</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 2: SKILL MASTERY */}
+        {activeTab === 'mastery' && (
+          <motion.div
+            key="mastery"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-6"
+          >
+            <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-base text-white font-sans flex items-center gap-2 flex-wrap">
-                  <span>Cheating Penalties &amp; Score Deduction Record</span>
-                  <span className="px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                    {cheatedQuestionsList.length} Question{cheatedQuestionsList.length > 1 ? 's' : ''} Penalized
-                  </span>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Difficulty Level Breakdown
                 </h3>
-                <p className="text-xs text-rose-300/80 font-sans mt-0.5">
-                  Detailed academic audit of questions where score was reduced to 0 due to tab switches or copy-paste violations.
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Mastery distribution across Practice Arena & Coursework
                 </p>
               </div>
+              <span className="text-xs font-mono text-slate-400">GCC 14 (C11)</span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-mono font-bold">
-                Total Score Forfeited: -{cheatedQuestionsList.length * 20} PTS
-              </span>
-            </div>
-          </div>
+            <div className="space-y-4">
+              {Object.entries(anl.difficultyStats || defaultAnalytics.difficultyStats).map(([diff, stats]: any) => {
+                const safeStats = stats || { solved: 0, total: 25, avgTimeSec: 0 };
+                const pct = safeStats.total > 0 ? Math.round((safeStats.solved / safeStats.total) * 100) : 0;
+                const barColor =
+                  diff === 'EASY'
+                    ? 'bg-emerald-500'
+                    : diff === 'MEDIUM'
+                    ? 'bg-amber-500'
+                    : 'bg-rose-500';
 
-          {/* Table of Cheated Questions & Lost Scores */}
-          <div className="space-y-3">
-            <span className="text-xs font-bold font-mono text-white uppercase tracking-wider block">
-              Affected Questions &amp; Lost Marks
-            </span>
-            <div className="overflow-x-auto rounded-xl border border-rose-500/30">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-[#0C0F1F] text-slate-400 uppercase text-[10px] tracking-wider border-b border-rose-500/20">
-                  <tr>
-                    <th className="py-3 px-4">Question Title</th>
-                    <th className="py-3 px-4">Violation Detected</th>
-                    <th className="py-3 px-4">Score Impact</th>
-                    <th className="py-3 px-4">Integrity Deduction</th>
-                    <th className="py-3 px-4 text-right">Academic Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-rose-500/10 bg-[#0C0F1F]/60">
-                  {cheatedQuestionsList.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-rose-500/5 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-white">
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping shrink-0" />
-                          <span>{item.title}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-rose-300">
-                        <span className="inline-flex items-center gap-1.5">
-                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                          <span>{item.reason}</span>
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-rose-400">
-                        0 / 20 PTS (-100% Forfeited)
-                      </td>
-                      <td className="py-3.5 px-4 text-amber-400 font-bold">
-                        -15 Integrity Points
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <span className="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
-                          🚨 You have cheated in this
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 4 Steps: Institutional Consequences (Cheating karne pe kya hota hai) */}
-          <div className="p-4 rounded-xl bg-[#0C0F1F] border border-rose-500/20 space-y-3">
-            <span className="text-xs font-bold text-white font-mono uppercase tracking-wider block">
-              Institutional Consequences (Cheating karne pe kya hota hai):
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-sans">
-              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
-                <div className="text-rose-400 font-bold font-mono text-[11px] flex items-center gap-1">
-                  <span>1. Instant Auto-Lock</span>
-                </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  3 tab switches or 5 paste events instantly freeze your workspace to prevent external AI / web lookup.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
-                <div className="text-rose-400 font-bold font-mono text-[11px] flex items-center gap-1">
-                  <span>2. 0 Marks Forfeited</span>
-                </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  The C judge auto-submits current incomplete code with a cheat penalty. Zero marks (0 PTS) are credited.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
-                <div className="text-amber-400 font-bold font-mono text-[11px] flex items-center gap-1">
-                  <span>3. Integrity Score Drop</span>
-                </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  Behavioral integrity rating drops (-15 PTS per lock), permanently flagged for college faculty &amp; admin review.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-lg bg-[#141932] border border-[#252C4F] space-y-1">
-                <div className="text-[#8B9BFF] font-bold font-mono text-[11px] flex items-center gap-1">
-                  <span>4. 1-Chance Mercy Lock</span>
-                </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  The question is quarantined. You must solve all remaining module problems to unlock 1 final mercy attempt.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Anti-Cheat & Proctoring Audit Record */}
-      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 sm:p-7 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-line)] pb-3">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className={`w-5 h-5 ${isCleanSession ? 'text-emerald-500' : 'text-rose-500'}`} />
-            <div>
-              <h3 className="font-bold text-sm text-[var(--text-main)] font-sans">
-                Anti-Cheat Audit &amp; Proctoring Violations Log
-              </h3>
-              <p className="text-xs text-[var(--text-muted)] font-sans mt-0.5">
-                Review your monitored tab events, blocked clipboard attempts, and questions auto-locked for cheating.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${
-              finalIntegrityScore >= 80
-                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                : finalIntegrityScore >= 50
-                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-            }`}>
-              Integrity: {finalIntegrityScore}/100 {finalIntegrityScore >= 80 ? '✅ Clean' : '⚠️ Flagged'}
-            </span>
-          </div>
-        </div>
-
-        {/* Institutional Rule Explainer Banner */}
-        <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs text-[var(--text-muted)] font-sans flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <span className="font-bold text-[var(--text-main)] block">Institutional Anti-Cheat Thresholds:</span>
-            <p className="text-[var(--text-muted)] leading-relaxed">
-              • Switching tabs <strong>3 times</strong> on a question triggers an automatic submission with a cheat penalty and advances to the next question.<br/>
-              • Attempting copy-paste <strong>5 times</strong> on a question auto-locks and submits with a cheat penalty.<br/>
-              • Every infraction reduces your Behavioral Integrity Score (Starts at 100), monitored by faculty and admin.
-            </p>
-          </div>
-        </div>
-
-        {/* Log of Recorded Incidents */}
-        {incidents.length > 0 ? (
-          <div className="space-y-2.5 pt-1">
-            <div className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-              Recorded Infractions Log ({incidents.length})
-            </div>
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {incidents.map((inc: any) => (
-                <div
-                  key={inc.id}
-                  className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-500 border border-rose-500/30 uppercase">
-                        {inc.type === 'EXCEEDED_TAB_SWITCHES' ? '3+ Tab Switches' : inc.type === 'EXCEEDED_COPY_PASTE' ? '5+ Paste Attempts' : inc.type}
-                      </span>
-                      <span className="font-bold text-[var(--text-main)] font-mono truncate">
-                        {inc.problemTitle || inc.problemSlug || 'Question Problem'}
+                return (
+                  <div
+                    key={diff}
+                    className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 dark:text-white">{diff}</span>
+                        <span className="text-slate-400 text-[11px]">Avg solve time: {safeStats.avgTimeSec || 0}s</span>
+                      </div>
+                      <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                        {safeStats.solved} / {safeStats.total} Solved ({pct}%)
                       </span>
                     </div>
-                    <p className="text-rose-400 text-[11px] font-mono">
-                      {inc.reason}
+                    <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 3: EXAM STANDING */}
+        {activeTab === 'standing' && (
+          <motion.div
+            key="standing"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Standing Card */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-3 rounded-2xl ${isCleanSession ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                    {isCleanSession ? <ShieldCheck className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      Academic Behavioral Integrity
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Standard proctored telemetry across tests and evaluation windows
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-mono block">
-                      Auto-Submitted &amp; Penalized
-                    </span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-mono mt-1 block">
-                      {(() => {
-                        try {
-                          const d = new Date(inc.timestamp);
-                          return isNaN(d.getTime()) ? 'Recently' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        } catch {
-                          return 'Recently';
-                        }
-                      })()}
-                    </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono ${
+                    finalIntegrityScore >= 80
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                  }`}>
+                    Score: {finalIntegrityScore} / 100
+                  </span>
+                </div>
+              </div>
+
+              {/* Monitored Counters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Tab Switches</span>
+                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
+                    {totalTabSwitches} events
                   </div>
                 </div>
-              ))}
+
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Clipboard Paste Blocked</span>
+                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
+                    {totalClipboardAttempts} blocked
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Fullscreen Exits</span>
+                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
+                    {totalFullscreenExits} exits
+                  </div>
+                </div>
+              </div>
+
+              {/* Incidents List if any */}
+              {cheatedQuestionsList.length > 0 ? (
+                <div className="space-y-3 pt-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Recorded Proctoring Notices ({cheatedQuestionsList.length}):
+                  </span>
+                  <div className="divide-y divide-slate-200/60 dark:divide-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden bg-white/50 dark:bg-slate-800/30">
+                    {cheatedQuestionsList.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-slate-900 dark:text-white block">
+                            {item.title}
+                          </span>
+                          <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                            {item.reason}
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 self-start sm:self-auto shrink-0">
+                          Auto-Submitted with Penalty
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Clean Academic Conduct: Zero infractions or auto-lock penalties logged.</span>
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-emerald-500/20 text-center text-xs text-emerald-500 font-mono flex items-center justify-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span>Clean Record: No cheating infractions or auto-lock penalties recorded. Excellent academic conduct!</span>
-          </div>
+          </motion.div>
         )}
-      </div>
 
-      {/* Learning Insights & Next Steps */}
-      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-3 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-indigo-500" />
-          <h3 className="font-bold text-sm text-[var(--text-main)] font-sans">
-            Personalized Learning Insights
-          </h3>
-        </div>
-
-        <p className="text-xs text-[var(--text-muted)] font-sans leading-relaxed">
-          {anl.totalQuestionsAttempted === 0
-            ? 'Complete your first assigned test to unlock personalized learning tips and skill insights.'
-            : anl.learnerInsightMessage}
-        </p>
-
-        {anl.recommendations && anl.recommendations.length > 0 && (
-          <div className="pt-2 border-t border-[var(--border-line)] space-y-1.5">
-            <div className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-              Recommended Next Steps:
-            </div>
-            <ul className="space-y-1 text-xs text-[var(--text-muted)] font-sans list-disc list-inside">
-              {anl.recommendations.map((rec: string, idx: number) => {
-                // Filter out any intimidating typing rhythm comments
-                if (rec.toLowerCase().includes('typing rhythm') || rec.toLowerCase().includes('integrity variance')) {
-                  return (
-                    <li key={idx}>Focus on solving algorithmic problems with optimal time &amp; memory complexity.</li>
-                  );
-                }
-                return <li key={idx}>{rec}</li>;
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Difficulty Mastery & Speed Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Difficulty Mastery Progress */}
-        <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h4 className="font-bold text-[var(--text-main)] text-xs uppercase tracking-wider flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-500" />
-              <span>Difficulty Mastery</span>
-            </h4>
-            <span className="text-[10px] text-[var(--text-muted)] font-mono">Test &amp; Practice Questions</span>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            {Object.entries(anl.difficultyStats || defaultAnalytics.difficultyStats).map(([diff, stats]: any) => {
-              const safeStats = stats || { solved: 0, total: 25, avgTimeSec: 0 };
-              const pct = safeStats.total > 0 ? Math.round((safeStats.solved / safeStats.total) * 100) : 0;
-              const color =
-                diff === 'EASY'
-                  ? 'bg-emerald-500 text-emerald-500'
-                  : diff === 'MEDIUM'
-                  ? 'bg-amber-500 text-amber-500'
-                  : 'bg-rose-500 text-rose-500';
-
-              return (
-                <div key={diff} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[var(--text-main)]">{diff}</span>
-                    <span className="font-mono text-[var(--text-muted)]">
-                      {safeStats.solved} / {safeStats.total} Solved ({pct}%)
-                    </span>
-                  </div>
-                  <div className="h-2 bg-[var(--bg-surface)] rounded-full overflow-hidden border border-[var(--border-line)]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        diff === 'EASY'
-                          ? 'bg-emerald-500'
-                          : diff === 'MEDIUM'
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="text-[10px] text-[var(--text-muted)] text-right">
-                    Avg solve time: {safeStats.avgTimeSec || 0}s
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Speed & Test Efficiency */}
-        <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h4 className="font-bold text-[var(--text-main)] text-xs uppercase tracking-wider flex items-center gap-2">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              <span>Speed &amp; Accuracy Breakdown</span>
-            </h4>
-            <span className="text-[10px] text-[var(--text-muted)] font-mono">Telemetry</span>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
-              <div>
-                <span className="text-[var(--text-muted)] text-[11px] block">Time Efficiency</span>
-                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
-                  {anl.netTimeDeviationSec <= 0 ? 'Optimal & Fast Paced' : 'Slightly Extended'}
-                </span>
-              </div>
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                anl.netTimeDeviationSec <= 0 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-              }`}>
-                {anl.netTimeDeviationSec <= 0 ? 'Ahead of Benchmark' : `+${anl.netTimeDeviationSec}s`}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
-              <div>
-                <span className="text-[var(--text-muted)] text-[11px] block">Hidden Test Case Pass Rate</span>
-                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
-                  Edge Case Verification
-                </span>
-              </div>
-              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 font-mono">
-                {anl.hiddenTestPassRatio || '0/0 Passed'}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] flex items-center justify-between">
-              <div>
-                <span className="text-[var(--text-muted)] text-[11px] block">Keyboard Activity</span>
-                <span className="text-[var(--text-main)] text-xs font-bold block mt-0.5">
-                  Active keystrokes logged
-                </span>
-              </div>
-              <span className="text-[var(--text-main)] text-xs font-bold font-mono">
-                {(anl.telemetry?.totalKeystrokes || 0).toLocaleString()} keys
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Official Assessment Reports (PDF / Printable) */}
-      <div className="bg-[var(--bg-panel)] border border-[var(--border-line)] rounded-2xl p-6 space-y-4 shadow-sm">
-        <div>
-          <h3 className="font-bold text-sm text-[var(--text-main)] flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-500" />
-            <span>Official Assessment Reports (Printable PDF)</span>
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-1 font-sans">
-            Download or view verified reports of your submitted tests with code solutions, evaluated marks, and timestamps.
-          </p>
-        </div>
-
-        {anl.assignments && anl.assignments.length > 0 ? (
-          <div className="flex flex-wrap gap-2.5 pt-1">
-            {anl.assignments.map((as: any) => (
-              <button
-                key={as.assignmentId}
-                onClick={() => setSelectedReportTestId(as.testTitle ? as.assignmentId : null)}
-                className="px-4 py-2 rounded-xl bg-[var(--bg-surface)] hover:bg-indigo-500/10 text-[var(--text-main)] hover:text-indigo-500 font-mono text-xs transition-colors flex items-center gap-2 border border-[var(--border-line)] hover:border-indigo-500/40"
-              >
-                <Download className="w-3.5 h-3.5 text-indigo-500" />
-                <span>View Report: {as.testTitle}</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="p-4 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] text-[var(--text-muted)] text-xs text-center font-sans">
-            No completed tests available for report export yet. Complete an assigned test to generate printable verification reports.
-          </div>
-        )}
-      </div>
-
-      {/* Printable Report Modal */}
-      {selectedReportTestId && reportData?.report && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-[#141932] text-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 font-sans border border-[#252C4F] shadow-2xl">
-            {/* Report Header */}
-            <div className="flex items-start justify-between border-b border-[#252C4F] pb-4">
-              <div>
-                <div className="text-xs font-mono font-bold text-[#8B9BFF] uppercase tracking-wider">
-                  {reportData?.report?.institution || 'LogicQ'} • Examination Verification
-                </div>
-                <h2 className="text-xl font-black text-white mt-1">
-                  OFFICIAL PROGRAMMING ASSESSMENT REPORT
-                </h2>
-                <div className="text-xs text-slate-400 font-mono mt-1">
-                  Student: {reportData?.report?.student?.fullName || 'Student'} | PRN: {reportData?.report?.student?.prn || 'N/A'} | Dept: {reportData?.report?.student?.department || 'N/A'}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="px-3.5 py-2 rounded-xl bg-[#8B9BFF] text-[#0C0F1F] font-mono font-bold text-xs flex items-center gap-1.5 hover:bg-[#9FAOFF] transition-colors"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print PDF</span>
-                </button>
-                <button
-                  onClick={() => setSelectedReportTestId(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-[#252C4F]/50 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Scores Overview */}
-            <div className="grid grid-cols-3 gap-3 bg-[#0C0F1F] p-4 rounded-xl border border-[#252C4F] text-center font-mono">
-              <div>
-                <div className="text-xs text-slate-400">Academic Score</div>
-                <div className="text-2xl font-bold text-emerald-400 mt-1">
-                  {reportData?.report?.summary?.academicScore ?? 0} Marks
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-400">Integrity Health</div>
-                <div className="text-2xl font-bold text-[#8B9BFF] mt-1">
-                  {reportData?.report?.summary?.integrityScore ?? 100} / 100
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-slate-400">Status</div>
-                <div className="text-2xl font-bold text-white mt-1">
-                  {reportData?.report?.summary?.integrityRisk || 'NORMAL'}
-                </div>
-              </div>
-            </div>
-
-            {/* Submitted Solutions */}
-            <div className="space-y-3">
-              <h3 className="font-bold text-sm uppercase tracking-wider border-b border-[#252C4F] pb-1 text-slate-200">
-                Submitted Solutions &amp; Verified Marks
+        {/* TAB 4: REPORTS */}
+        {activeTab === 'reports' && (
+          <motion.div
+            key="reports"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-5"
+          >
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                Official Assessment Reports
               </h3>
-              {(reportData?.report?.partA_Solutions || []).map((sol: any, idx: number) => (
-                <div key={idx} className="bg-[#0C0F1F] p-4 rounded-xl border border-[#252C4F] space-y-2 font-mono text-xs">
-                  <div className="flex justify-between font-bold">
-                    <span className="text-white">Q{idx + 1}: {sol.title} ({sol.difficulty})</span>
-                    <span className="text-emerald-400">Verdict: {sol.verdict} ({sol.academicScore} Mark)</span>
-                  </div>
-                  <pre className="bg-[#050814] text-cyan-200 p-3 rounded-lg overflow-x-auto text-[11px] leading-relaxed border border-[#252C4F]/50 select-text">
-                    {sol.submittedCode}
-                  </pre>
-                </div>
-              ))}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Printable PDF summaries with verified code, marks breakdown, and institutional credentials.
+              </p>
             </div>
 
-            {/* Close Button */}
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSelectedReportTestId(null)}
-                className="px-5 py-2 rounded-xl bg-[#252C4F] text-white text-xs font-mono font-bold hover:bg-[#252C4F]/80 transition-colors"
-              >
-                Close Report
-              </button>
-            </div>
+            {anl.assignments && anl.assignments.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {anl.assignments.map((as: any) => (
+                  <div
+                    key={as.assignmentId}
+                    className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {as.testTitle || 'Assigned Test'}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-mono">
+                        {as.submittedAt ? new Date(as.submittedAt).toLocaleDateString() : 'Evaluated'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReportTestId(as.testTitle ? as.assignmentId : null)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer shadow-xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Report</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  No Completed Tests Available
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                  Take your first faculty-assigned test to generate a verified, printable institutional report.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. APPLE PRINTABLE REPORT SHEET / MODAL */}
+      <AnimatePresence>
+        {selectedReportTestId && reportData?.report && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedReportTestId(null)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-md"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative w-full max-w-3xl rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10"
+            >
+              {/* Report Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
+                <div className="space-y-0.5">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {reportData?.report?.institution || 'LogicQ'} Examination Report
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    Student: {reportData?.report?.student?.fullName || 'Student'} • PRN: {reportData?.report?.student?.prn || 'N/A'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReportTestId(null)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scores Overview */}
+              <div className="p-6 overflow-y-auto space-y-6">
+                <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-center font-mono">
+                  <div>
+                    <div className="text-[11px] text-slate-400 font-sans">Academic Score</div>
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {reportData?.report?.summary?.academicScore ?? 0} Marks
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 font-sans">Integrity Rating</div>
+                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                      {reportData?.report?.summary?.integrityScore ?? 100} / 100
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 font-sans">Exam Status</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
+                      {reportData?.report?.summary?.integrityRisk || 'NORMAL'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submitted Solutions */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Evaluated Solutions
+                  </h4>
+                  {(reportData?.report?.partA_Solutions || []).map((sol: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
+                    >
+                      <div className="flex justify-between font-bold">
+                        <span className="text-slate-900 dark:text-white">Q{idx + 1}: {sol.title}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-mono">
+                          {sol.verdict} ({sol.academicScore} Mark)
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto shadow-inner">
+                        <pre className="whitespace-pre-wrap">{sol.submittedCode}</pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReportTestId(null)}
+                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-200/60 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };
