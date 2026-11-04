@@ -187,18 +187,29 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
     const isOwner = req.user?.userId === user.id;
     const isAdmin = req.user?.role === 'ADMIN';
 
-    const acceptedSubmissions = await prisma.submission.findMany({
-      where: { userId: user.id, verdict: 'ACCEPTED' },
-      select: {
-        problemId: true,
-        problem: { select: { difficulty: true } },
-      },
-    });
+    const [acceptedSubmissions, solvedTopicProfileSubs] = await Promise.all([
+      prisma.submission.findMany({
+        where: { userId: user.id, verdict: 'ACCEPTED' },
+        select: {
+          problemId: true,
+          problem: { select: { difficulty: true } },
+        },
+      }),
+      prisma.topicPracticeSubmission.findMany({
+        where: { userId: user.id, status: 'SOLVED' },
+        select: { topicId: true, difficulty: true },
+      }),
+    ]);
 
     const uniqueSolvedMap = new Map<string, string>();
     for (const s of acceptedSubmissions) {
       if (!uniqueSolvedMap.has(s.problemId)) {
         uniqueSolvedMap.set(s.problemId, s.problem.difficulty);
+      }
+    }
+    for (const t of solvedTopicProfileSubs) {
+      if (!uniqueSolvedMap.has(t.topicId)) {
+        uniqueSolvedMap.set(t.topicId, t.difficulty);
       }
     }
 
@@ -1126,7 +1137,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    const [acceptedSubs, approvedUploads] = await Promise.all([
+    const [acceptedSubs, approvedUploads, solvedTopicSubs] = await Promise.all([
       prisma.submission.findMany({
         where: { userId, verdict: 'ACCEPTED' },
         select: { problemId: true, problem: { select: { difficulty: true } } },
@@ -1134,6 +1145,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
       prisma.uploadedSolution.findMany({
         where: { userId, status: 'APPROVED' },
         select: { problemId: true, problem: { select: { difficulty: true } } },
+      }),
+      prisma.topicPracticeSubmission.findMany({
+        where: { userId, status: 'SOLVED' },
+        select: { topicId: true, difficulty: true },
       }),
     ]);
 
@@ -1144,8 +1159,12 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
     for (const u of approvedUploads) {
       solvedProblems.set(u.problemId, u.problem.difficulty);
     }
+    for (const t of solvedTopicSubs) {
+      solvedProblems.set(t.topicId, t.difficulty);
+    }
 
-    const totalSubmissionsCount = await prisma.submission.count({ where: { userId } });
+    const totalTopicSubmissions = await prisma.topicPracticeSubmission.count({ where: { userId } });
+    const totalSubmissionsCount = (await prisma.submission.count({ where: { userId } })) + totalTopicSubmissions;
     const acceptedSubmissionsCount = acceptedSubs.length;
     // Accuracy Rate: accepted divided by total evaluated submissions. With 0 submissions, null (displays "—")
     const accuracy =

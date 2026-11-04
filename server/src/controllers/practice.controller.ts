@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/auth.middleware.js';
 import { PRACTICE_CONFIG, PracticeModuleConfig, getModuleRequirementText } from '../config/practice.config.js';
 import { maskPrn } from '../config/academic.config.js';
 import { practiceReportService } from '../services/practice-report.service.js';
+import { getChallengeDayIST } from '../utils/ist.js';
 
 export async function getPracticeModules(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -2020,53 +2021,57 @@ export async function recordTopicPracticeSolved(req: AuthRequest, res: Response)
       });
     }
 
-    // 2. Existing practice progress sync
-    let problem = await prisma.problem.findFirst({
-      where: {
-        moduleSlug: slug,
-        isPractice: true,
-      },
-    });
-
-    if (!problem) {
-      problem = await prisma.problem.findFirst({
-        where: { isPractice: true },
-      });
-    }
-
-    if (problem) {
-      await prisma.practiceProgress.upsert({
-        where: {
-          userId_problemId: {
-            userId: req.user.userId,
-            problemId: problem.id,
+    // 2. Ensure Problem entry and record in prisma.submission so it appears in student history, admin, and stats
+    if (topicId) {
+      try {
+        const topicProblem = await prisma.problem.upsert({
+          where: { slug: topicId },
+          update: {
+            title: topicTitle || topicId,
+            difficulty: difficulty || 'EASY',
+            moduleSlug: slug,
+            isPractice: true,
           },
-        },
-        update: {
-          isSolved: true,
-          solvedAt: now,
-          attemptsCount: { increment: 1 },
-          lastSyncedAt: now,
-        },
-        create: {
-          userId: req.user.userId,
-          problemId: problem.id,
-          moduleSlug: slug,
-          isSolved: true,
-          solvedAt: now,
-          runsCount: 1,
-          attemptsCount: 1,
-          activeSeconds: 60,
-          firstOpenedAt: now,
-          lastSyncedAt: now,
-        },
-      });
+          create: {
+            slug: topicId,
+            title: topicTitle || topicId,
+            difficulty: difficulty || 'EASY',
+            category: 'Practice',
+            tags: JSON.stringify(['Topic Practice', slug]),
+            description: topicTitle || 'Practice Problem',
+            starterCode: '#include <stdio.h>\n\nint main() {\n    return 0;\n}',
+            isPractice: true,
+            moduleSlug: slug,
+            status: 'PUBLISHED',
+            sourceType: 'PRACTICE',
+            basePoints: 20,
+          },
+        });
+
+        await prisma.submission.create({
+          data: {
+            userId: req.user.userId,
+            problemId: topicProblem.id,
+            submissionType: 'PRACTICE',
+            code: code || '',
+            language: 'c',
+            verdict: 'ACCEPTED',
+            pointsAwarded: 20,
+            runtimeMs: 15,
+            memoryKb: 1024,
+          },
+        });
+      } catch (subErr) {
+        console.error('Error mirroring topic solve to submission:', subErr);
+      }
     }
 
+    const nowDay = getChallengeDayIST(now);
     await prisma.user.update({
       where: { id: req.user.userId },
       data: {
         totalPoints: { increment: 20 },
+        lastSolvedDate: nowDay,
       },
     });
 
@@ -2202,9 +2207,13 @@ export async function getAdminLabSubmissions(req: AuthRequest, res: Response): P
     const MODULE_ORDERS: Record<string, number> = {
       'control-structures': 1,
       'pointers-and-functions': 2,
+      'array-and-its-applications': 3,
       'arrays-and-strings': 3,
+      'advanced-data-types-dynamic-memory': 4,
+      'structures-unions-and-dma': 4,
+      'structures-and-memory': 4,
       'recursion-and-bit-manipulation': 4,
-      'structures-unions-and-dma': 5,
+      'advanced-competitive-c': 5,
     };
 
     // Find all practice progress records for students

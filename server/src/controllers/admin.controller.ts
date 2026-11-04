@@ -1018,7 +1018,7 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
     }
     where.user = userFilter;
 
-    const [submissions, total] = await Promise.all([
+    const [submissions, total, topicSubmissions] = await Promise.all([
       prisma.submission.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -1043,9 +1043,73 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
         },
       }),
       prisma.submission.count({ where }),
+      prisma.topicPracticeSubmission.findMany({
+        where: {
+          user: userFilter,
+          ...(verdict && verdict !== 'ALL'
+            ? verdict === 'ACCEPTED'
+              ? { status: 'SOLVED' }
+              : { verdict }
+            : {}),
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              prn: true,
+              displayName: true,
+              fullName: true,
+              email: true,
+              college: true,
+              department: true,
+              year: true,
+              division: true,
+            },
+          },
+        },
+      }),
     ]);
 
-    const userProblemPairs = submissions.map((s) => ({
+    const existingAdminSubProblemIds = new Set(submissions.map((s) => `${s.userId}_${s.problemId}`));
+    const existingAdminSubProblemSlugs = new Set(submissions.map((s) => `${s.userId}_${s.problem.slug}`));
+
+    const formattedTopicAdminSubmissions: any[] = topicSubmissions
+      .filter(
+        (t) =>
+          !existingAdminSubProblemIds.has(`${t.userId}_${t.topicId}`) &&
+          !existingAdminSubProblemSlugs.has(`${t.userId}_${t.topicId}`)
+      )
+      .map((t) => ({
+        id: t.id,
+        userId: t.userId,
+        problemId: t.topicId,
+        contestId: null,
+        submissionType: 'PRACTICE',
+        code: t.code || '',
+        language: 'c',
+        verdict: t.verdict || (t.status === 'SOLVED' ? 'ACCEPTED' : 'PENDING'),
+        runtimeMs: 15,
+        memoryKb: 1024,
+        compileOutput: null,
+        pointsAwarded: t.status === 'SOLVED' ? 20 : 0,
+        createdAt: t.solvedAt || t.updatedAt || t.firstOpenedAt,
+        user: t.user,
+        problem: {
+          id: t.topicId,
+          title: t.topicTitle || 'Practice Problem',
+          slug: t.topicId,
+          difficulty: t.difficulty || 'EASY',
+        },
+      }));
+
+    const combinedAdminSubmissions = [...submissions, ...formattedTopicAdminSubmissions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    const userProblemPairs = combinedAdminSubmissions.map((s) => ({
       userId: s.userId,
       problemId: s.problemId,
     }));
@@ -1104,7 +1168,7 @@ export async function getAdminSubmissions(req: AuthRequest, res: Response): Prom
       attemptNumberMap.set(sub.id, current);
     }
 
-    const enrichedSubmissions = submissions.map((sub) => {
+    const enrichedSubmissions = combinedAdminSubmissions.map((sub) => {
       const key = `${sub.userId}_${sub.problemId}`;
       const prog = progressMap.get(key);
       const attemptNumber = attemptNumberMap.get(sub.id) || 1;

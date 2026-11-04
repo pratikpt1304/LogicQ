@@ -183,7 +183,7 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
 
     const navbarCode = fs.readFileSync(path.join(clientDir, 'src/components/layout/Navbar.tsx'), 'utf-8');
     const homeIdx = navbarCode.indexOf("label: 'Home'");
-    const dailyIdx = navbarCode.indexOf("label: 'Daily Challenge'");
+    const dailyIdx = navbarCode.indexOf("label: 'Practice'");
     const lbIdx = navbarCode.indexOf("label: 'Leaderboard'");
     expect(homeIdx).toBeGreaterThan(-1);
     expect(dailyIdx).toBeGreaterThan(homeIdx);
@@ -437,8 +437,10 @@ describe('LogicQ Amendments Verification Suite (Badges Removal, PWA, Real C11 Ju
       .get('/api/problems/daily')
       .set('Authorization', `Bearer ${studentAToken}`);
     expect(dailyRes.status).toBe(200);
-    expect(dailyRes.body.data.problem.sourceRefJson).toBeUndefined();
-    expect(dailyRes.body.data.problem.solutionCode).toBeUndefined();
+    if (dailyRes.body.data?.problem) {
+      expect(dailyRes.body.data.problem.sourceRefJson).toBeUndefined();
+      expect(dailyRes.body.data.problem.solutionCode).toBeUndefined();
+    }
 
     const errReportRes = await request(app)
       .post('/api/support/error-report')

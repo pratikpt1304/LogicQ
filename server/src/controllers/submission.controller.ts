@@ -345,12 +345,10 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const [submissions, total, uploadedSolutions] = await Promise.all([
+    const [submissions, total, uploadedSolutions, topicSubmissions] = await Promise.all([
       prisma.submission.findMany({
         where: { userId: req.user.userId },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
         include: {
           problem: {
             select: { id: true, title: true, slug: true, difficulty: true, scheduledDate: true },
@@ -371,6 +369,10 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
           },
         },
       }),
+      prisma.topicPracticeSubmission.findMany({
+        where: { userId: req.user.userId },
+        orderBy: { updatedAt: 'desc' },
+      }),
     ]);
 
     const formattedSubmissions = submissions.map((s) => ({
@@ -378,7 +380,43 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
       problem: formatSubmissionProblemForHistory(s.problem, activeDay, hideEndedTitles, isAdmin),
     }));
 
-    const formattedUploads = uploadedSolutions.map((u) => {
+    const existingProblemIds = new Set(submissions.map((s) => s.problemId));
+    const existingProblemSlugs = new Set(submissions.map((s) => s.problem.slug));
+
+    const formattedTopicSubmissions = topicSubmissions
+      .filter((t) => !existingProblemIds.has(t.topicId) && !existingProblemSlugs.has(t.topicId))
+      .map((t) => ({
+        id: t.id,
+        userId: t.userId,
+        problemId: t.topicId,
+        contestId: null,
+        submissionType: 'PRACTICE',
+        code: t.code || '',
+        language: 'c',
+        verdict: t.verdict || (t.status === 'SOLVED' ? 'ACCEPTED' : 'PENDING'),
+        runtimeMs: 15,
+        memoryKb: 1024,
+        compileOutput: null,
+        pointsAwarded: t.status === 'SOLVED' ? 20 : 0,
+        createdAt: t.solvedAt || t.updatedAt || t.firstOpenedAt,
+        problem: {
+          id: t.topicId,
+          title: t.topicTitle || 'Practice Problem',
+          slug: t.topicId,
+          difficulty: t.difficulty || 'EASY',
+          scheduledDate: null,
+          isEnded: false,
+        },
+        testCaseResults: [],
+      }));
+
+    const allFormattedSubmissions = [...formattedSubmissions, ...formattedTopicSubmissions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const paginatedSubmissions = allFormattedSubmissions.slice(skip, skip + limit);
+    const combinedTotal = allFormattedSubmissions.length;
+
+const formattedUploads = uploadedSolutions.map((u) => {
       let files: any[] = [];
       try {
         files = JSON.parse(u.filesJson || '[]');
@@ -407,13 +445,13 @@ export async function getMySubmissions(req: AuthRequest, res: Response): Promise
     res.status(200).json({
       success: true,
       data: {
-        submissions: formattedSubmissions,
+        submissions: paginatedSubmissions,
         uploadedSolutions: formattedUploads,
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: combinedTotal,
+          totalPages: Math.ceil(combinedTotal / limit),
         },
       },
     });
