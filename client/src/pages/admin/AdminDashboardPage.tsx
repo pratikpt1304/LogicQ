@@ -1550,7 +1550,7 @@ export const AdminDashboardPage: React.FC = () => {
     const cohortEnrolledStudents: any[] = [];
     C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
       const pKey = cs.prn.toUpperCase().trim();
-      const validEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email.toLowerCase().trim() : '';
+      const validEmail = (cs.email || `${pKey.toLowerCase()}@sanjivani.edu.in`).toLowerCase().trim();
       if (!existingPrns.has(pKey) && (!validEmail || !existingEmails.has(validEmail))) {
         if (validEmail) existingEmails.add(validEmail);
         existingPrns.add(pKey);

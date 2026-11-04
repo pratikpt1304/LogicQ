@@ -1160,9 +1160,8 @@ export const SectionManagementPage: React.FC = () => {
           const boundEmail = prnClean !== '—' && typeof window !== 'undefined'
             ? localStorage.getItem(`logicq_bound_email_${prnClean}`)
             : null;
-          // Prioritize actual email: boundStorage -> st.email (if not generic) -> st.student?.email -> cohort?.email
-          const rawActual = boundEmail || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : null) || (st.student?.email && !st.student.email.endsWith('@sanjivani.edu.in') ? st.student.email : null) || (cohort?.email && !cohort.email.endsWith('@sanjivani.edu.in') ? cohort.email : null);
-          const actualEmail = (rawActual && !rawActual.endsWith('@sanjivani.edu.in')) ? rawActual : '';
+          const rawActual = boundEmail || st.email || st.student?.email || cohort?.email || (prnClean !== '—' ? `${prnClean.toLowerCase()}@sanjivani.edu.in` : '');
+          const actualEmail = rawActual || '';
           const isClaimed = Boolean(actualEmail && !actualEmail.endsWith('@sanjivani.edu.in'));
           const studentName = st.student?.fullName || st.student?.displayName || st.name || st.fullName || cohort?.fullName || 'Student';
 
@@ -1644,7 +1643,7 @@ export const SectionManagementPage: React.FC = () => {
                                               </span>
                                             ) : (
                                               <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                                                UNCLAIMED
+                                                OFFICIAL ID
                                               </span>
                                             )}
                                           </div>

@@ -535,6 +535,7 @@ export const ProfilePage: React.FC = () => {
       const cleanEmail = currentUser?.email || auth.currentUser?.email || '';
       FirestoreDataService.syncStudentProfileUpdate({
         userId: effectiveUid,
+        newPrn: currentUser?.prn,
         email: cleanEmail,
         displayName: updatedUser?.displayName || editForm.displayName,
         fullName: updatedUser?.fullName || editForm.displayName,
@@ -748,6 +749,7 @@ export const ProfilePage: React.FC = () => {
 
       FirestoreDataService.syncStudentProfileUpdate({
         userId: effectiveUid,
+        newPrn: currentUser?.prn,
         email: profile?.email || currentUser?.email,
         displayName: trimmedDisplay || null,
         fullName: trimmedDisplay || null,

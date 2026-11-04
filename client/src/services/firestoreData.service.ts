@@ -259,6 +259,11 @@ export class FirestoreDataService {
     if (updates.photoURL !== undefined) safePayload.photoURL = updates.photoURL;
     if (updates.storagePreference !== undefined) safePayload.storagePreference = updates.storagePreference;
     if (updates.themePreference !== undefined) safePayload.themePreference = updates.themePreference;
+    if ((updates as any).email !== undefined) {
+      safePayload.email = String((updates as any).email).trim().toLowerCase();
+      safePayload.isEmailBound = true;
+      safePayload.emailVerified = true;
+    }
     if ((updates as any).password !== undefined) safePayload.password = (updates as any).password;
     if ((updates as any).passwordChangedAt !== undefined) safePayload.passwordChangedAt = (updates as any).passwordChangedAt;
 
@@ -286,6 +291,7 @@ export class FirestoreDataService {
     try {
       await FirestoreDataService.syncStudentProfileUpdate({
         userId: targetUid,
+        email: (updates as any).email,
         displayName: updates.displayName,
         department: updates.department,
         year: updates.year,
@@ -334,6 +340,11 @@ export class FirestoreDataService {
         if (params.division !== undefined) userPayload.division = params.division;
         if (params.bio !== undefined) userPayload.bio = params.bio;
         if (params.newPrn) userPayload.prn = params.newPrn;
+        if (cleanEmail) {
+          userPayload.email = cleanEmail;
+          userPayload.isEmailBound = !cleanEmail.endsWith('@sanjivani.edu.in');
+          userPayload.emailVerified = true;
+        }
         if (params.storagePreference) userPayload.storagePreference = params.storagePreference;
         if (params.hidePracticeTimer !== undefined) userPayload.hidePracticeTimer = params.hidePracticeTimer;
 
@@ -376,7 +387,7 @@ export class FirestoreDataService {
           const updateData: Record<string, any> = {
             updatedAt: serverTimestamp(),
           };
-          if (cleanEmail && !cleanEmail.endsWith('@sanjivani.edu.in')) {
+          if (cleanEmail) {
             updateData.email = cleanEmail;
           }
           if (effectiveName) {
@@ -408,7 +419,7 @@ export class FirestoreDataService {
             prn: effectivePrn,
             updatedAt: serverTimestamp(),
           };
-          if (cleanEmail && !cleanEmail.endsWith('@sanjivani.edu.in')) {
+          if (cleanEmail) {
             canonicalPayload.email = cleanEmail;
           }
           if (effectiveName) {
@@ -1297,6 +1308,15 @@ export class FirestoreDataService {
         );
 
         if (existingStudent) {
+          if (email) {
+            existingStudent.email = email;
+            (existingStudent as any).isEmailBound = !email.endsWith('@sanjivani.edu.in');
+          }
+          if (raw.name || raw.fullName || raw.displayName) {
+            const rName = raw.name || raw.fullName || raw.displayName;
+            existingStudent.fullName = rName;
+            existingStudent.displayName = rName;
+          }
           if (raw.sectionId && !existingStudent.sectionId) existingStudent.sectionId = raw.sectionId;
           if ((raw.sectionName || raw.subject) && !existingStudent.sectionName) {
             existingStudent.sectionName = raw.sectionName || raw.subject;
@@ -1476,7 +1496,7 @@ export class FirestoreDataService {
     // Merge authoritative C Programming Cohort (all 116 registered students)
     C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
       const pKey = cs.prn.toUpperCase();
-      const validEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email : '';
+      const validEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
       const eKey = validEmail.toLowerCase();
       if (!seenPrns.has(pKey) && (!eKey || !seenEmails.has(eKey))) {
         list.push({
@@ -2514,7 +2534,7 @@ export class FirestoreDataService {
 
       C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
         const prnUpper = cs.prn.toUpperCase();
-        const validCohortEmail = (cs.email && !cs.email.endsWith('@sanjivani.edu.in')) ? cs.email : '';
+        const validCohortEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
         const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
         if (existing) {
           if (validCohortEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
@@ -2803,8 +2823,8 @@ export class FirestoreDataService {
           // Check if student has actual registered profile in users collection
           const realUser = registeredUsersByPrn.get(key) || (cs.email && registeredUsersByEmail.get(cs.email.toLowerCase().trim()));
           const boundLocal = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
-          const candidateEmail = realUser?.email || boundLocal || (cs.email && !cs.email.endsWith('@sanjivani.edu.in') ? cs.email : '');
-          const actualEmail = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
+          const candidateEmail = realUser?.email || boundLocal || cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
+          const actualEmail = candidateEmail;
           const actualName = realUser?.displayName || realUser?.fullName || realUser?.name || cs.fullName;
 
           list.push({
@@ -2814,7 +2834,8 @@ export class FirestoreDataService {
             fullName: actualName,
             displayName: actualName,
             email: actualEmail,
-            isRegistered: Boolean(realUser || (actualEmail && !actualEmail.endsWith('@sanjivani.edu.in'))),
+            isRegistered: true,
+            isEmailBound: Boolean(actualEmail && !actualEmail.endsWith('@sanjivani.edu.in')),
             prn: cs.prn,
             department: realUser?.department || cs.department,
             year: realUser?.year || cs.year,

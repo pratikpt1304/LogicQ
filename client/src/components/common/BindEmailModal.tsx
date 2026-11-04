@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { db } from '../../config/firebase.js';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface BindEmailModalProps {
   isOpen: boolean;
@@ -231,6 +233,27 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
         const effectivePrn = (user.prn || '').toUpperCase().trim();
         const effectiveName = user.displayName || user.fullName || '';
+
+        // Immediate direct canonical write to Firestore enrolled_students
+        if (effectivePrn) {
+          try {
+            const canonicalRef = doc(db, 'enrolled_students', effectivePrn);
+            setDoc(canonicalRef, {
+              prn: effectivePrn,
+              email: cleanEmail,
+              name: effectiveName,
+              fullName: effectiveName,
+              displayName: effectiveName,
+              sectionId: 'LQ-C31A',
+              college: 'Sanjivani University',
+              status: 'ACTIVE',
+              updatedAt: serverTimestamp(),
+            }, { merge: true }).catch((err) => console.warn('Direct enrolled_students write notice:', err));
+          } catch (writeErr) {
+            console.warn('Direct canonical write setup notice:', writeErr);
+          }
+        }
+
         if (effectivePrn || user.id) {
           FirestoreDataService.syncStudentProfileUpdate({
             userId: user.id,

@@ -11,7 +11,8 @@ import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
@@ -231,6 +232,28 @@ export const DashboardPage: React.FC = () => {
     },
     refetchInterval: 5000,
   });
+
+  // 1a.2 Instant 0ms onSnapshot live listener on 'enrolled_students' for instantaneous bound email & profile sync
+  const [liveEnrolledStudentsMap, setLiveEnrolledStudentsMap] = React.useState<Map<string, any>>(new Map());
+  React.useEffect(() => {
+    try {
+      const unsub = onSnapshot(collection(db, 'enrolled_students'), (snap) => {
+        const m = new Map<string, any>();
+        snap.forEach((d) => {
+          const raw = d.data();
+          if (raw && raw.prn) {
+            m.set(String(raw.prn).toUpperCase().trim(), { id: d.id, ...raw });
+          }
+        });
+        setLiveEnrolledStudentsMap(m);
+      }, (err) => {
+        console.warn('Dashboard live enrolled_students onSnapshot notice:', err);
+      });
+      return () => unsub();
+    } catch {
+      return undefined;
+    }
+  }, []);
 
   // 1b. Fetch Student Sections from Firestore (so student always sees their real enrolled section name)
   const { data: studentFirestoreSections = [] } = useQuery({
@@ -759,11 +782,23 @@ export const DashboardPage: React.FC = () => {
   const allStudentsList = React.useMemo(() => {
     const map = new Map<string, any>();
 
-    // 1. Map registered Firestore users first (authentic source of truth)
+    // 1. Map registered Firestore users and live enrolled_students (authentic source of truth)
     const directoryMapByPrn = new Map<string, any>();
     (realDirectoryUsers || []).forEach((u: any) => {
       const prn = (u.prn || '').toUpperCase().trim();
       if (prn) directoryMapByPrn.set(prn, u);
+    });
+
+    // Overlay live onSnapshot enrolled_students (0ms real-time updates when student binds email or updates profile)
+    liveEnrolledStudentsMap.forEach((enr: any, prn: string) => {
+      const existing = directoryMapByPrn.get(prn);
+      directoryMapByPrn.set(prn, {
+        ...(existing || {}),
+        ...enr,
+        email: enr.email || existing?.email,
+        name: enr.name || enr.fullName || existing?.name || existing?.fullName,
+        fullName: enr.fullName || enr.name || existing?.fullName || existing?.name,
+      });
     });
 
     // 2. Add from loaded sections
@@ -774,9 +809,11 @@ export const DashboardPage: React.FC = () => {
       studs.forEach((st: any) => {
         const prn = (st.prn || st.student?.prn || '').toUpperCase().trim();
         const dirUser = prn ? directoryMapByPrn.get(prn) : null;
-        const candidateEmail = dirUser?.email || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : '') || (st.student?.email && !st.student.email.endsWith('@sanjivani.edu.in') ? st.student.email : '');
-        const email = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
-        const name = dirUser?.fullName || dirUser?.displayName || st.fullName || st.name || st.student?.fullName || st.student?.displayName || 'Student';
+        const boundEmail = typeof window !== 'undefined' && prn ? localStorage.getItem(`logicq_bound_email_${prn}`) : null;
+        const candidateEmail = dirUser?.email || boundEmail || st.email || st.student?.email || (prn ? `${prn.toLowerCase()}@sanjivani.edu.in` : '');
+        const email = candidateEmail || '';
+        const isCustomBound = Boolean(email && !email.endsWith('@sanjivani.edu.in'));
+        const name = dirUser?.fullName || dirUser?.displayName || dirUser?.name || st.fullName || st.name || st.student?.fullName || st.student?.displayName || 'Student';
         const key = prn || (email ? email.toLowerCase().trim() : st.id);
         if (key && !map.has(key)) {
           map.set(key, {
@@ -785,7 +822,8 @@ export const DashboardPage: React.FC = () => {
             prn: prn || 'N/A',
             name,
             email,
-            isRegistered: Boolean(dirUser || email),
+            isCustomBound,
+            isRegistered: true,
             sectionName: sName,
             sectionJoinCode: sCode,
             status: st.status || 'ENROLLED',
@@ -800,9 +838,10 @@ export const DashboardPage: React.FC = () => {
       const key = st.prn.toUpperCase().trim();
       const dirUser = directoryMapByPrn.get(key);
       const boundEmail = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
-      const candidateEmail = dirUser?.email || boundEmail || (st.email && !st.email.endsWith('@sanjivani.edu.in') ? st.email : '');
-      const validEmail = (candidateEmail && !candidateEmail.endsWith('@sanjivani.edu.in')) ? candidateEmail : '';
-      const validName = dirUser?.fullName || dirUser?.displayName || st.fullName;
+      const candidateEmail = dirUser?.email || boundEmail || st.email || `${key.toLowerCase()}@sanjivani.edu.in`;
+      const validEmail = candidateEmail || '';
+      const isCustomBound = Boolean(validEmail && !validEmail.endsWith('@sanjivani.edu.in'));
+      const validName = dirUser?.fullName || dirUser?.displayName || dirUser?.name || st.fullName;
 
       if (!map.has(key)) {
         map.set(key, {
@@ -810,7 +849,8 @@ export const DashboardPage: React.FC = () => {
           prn: st.prn,
           name: validName,
           email: validEmail,
-          isRegistered: Boolean(dirUser || (boundEmail && !boundEmail.endsWith('@sanjivani.edu.in')) || validEmail),
+          isCustomBound,
+          isRegistered: true,
           sectionName: st.sectionName || 'C Programming',
           sectionJoinCode: st.joinCode || 'LQ-C31A',
           status: 'ENROLLED',
@@ -818,9 +858,13 @@ export const DashboardPage: React.FC = () => {
         });
       } else {
         const existing = map.get(key);
-        if (validEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
-          map.set(key, { ...existing, email: validEmail, name: validName, isRegistered: true });
-        }
+        map.set(key, {
+          ...existing,
+          email: validEmail,
+          name: validName,
+          isCustomBound,
+          isRegistered: true,
+        });
       }
     });
 
@@ -835,7 +879,7 @@ export const DashboardPage: React.FC = () => {
       if (numA !== numB) return numA - numB;
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
-  }, [sectionsList, realDirectoryUsers]);
+  }, [sectionsList, realDirectoryUsers, liveEnrolledStudentsMap]);
 
   // Filtered Students for Zero-Click Search
   const filteredStudentsList = React.useMemo(() => {
@@ -1735,17 +1779,20 @@ export const DashboardPage: React.FC = () => {
                               <div className="font-bold text-slate-900 dark:text-white font-sans text-xs">
                                 {st.name}
                               </div>
-                              {st.email && !st.email.endsWith('@sanjivani.edu.in') ? (
-                                <div className="text-[11px] text-slate-400 font-mono truncate max-w-xs">
-                                  {st.email}
-                                </div>
-                              ) : (
-                                <div className="text-[10px] text-amber-500 font-mono font-medium flex items-center gap-1 mt-0.5">
-                                  <span>Awaiting Registration</span>
-                                  <span className="opacity-40">•</span>
-                                  <span className="text-slate-400">Login with PRN</span>
-                                </div>
-                              )}
+                              <div className="text-[11px] font-mono truncate max-w-xs flex items-center gap-1.5 mt-0.5">
+                                <span className={st.isCustomBound ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-slate-400"}>
+                                  {st.email || (st.prn ? `${st.prn.toLowerCase()}@sanjivani.edu.in` : '—')}
+                                </span>
+                                {st.isCustomBound ? (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20 inline-flex items-center gap-0.5">
+                                    ✓ Bound
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-400 font-medium border border-slate-200/60 dark:border-slate-700/60">
+                                    Official ID
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-3 font-bold text-indigo-600 dark:text-indigo-400 font-mono">
                               <button
@@ -2952,23 +2999,20 @@ export const DashboardPage: React.FC = () => {
                   <div className="text-[10px] text-slate-400 uppercase font-bold">Account &amp; Binding Details</div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                     <span className="text-[11px] text-slate-400">Registered Email:</span>
-                    {selectedDashboardStudent.email && !selectedDashboardStudent.email.endsWith('@sanjivani.edu.in') ? (
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 truncate max-w-[250px]">{selectedDashboardStudent.email}</span>
-                    ) : (
-                      <span className="text-amber-500 text-[11px] font-semibold">Not Bound Yet (Login via PRN)</span>
-                    )}
+                    <span className={`font-semibold truncate max-w-[250px] flex items-center gap-1.5 ${selectedDashboardStudent.isCustomBound ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"}`}>
+                      <span>{selectedDashboardStudent.email || `${selectedDashboardStudent.prn?.toLowerCase()}@sanjivani.edu.in`}</span>
+                      {selectedDashboardStudent.isCustomBound && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                          ✓ Bound
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                     <span className="text-[11px] text-slate-400">Account Status:</span>
-                    {selectedDashboardStudent.isRegistered || (selectedDashboardStudent.email && !selectedDashboardStudent.email.endsWith('@sanjivani.edu.in')) ? (
-                      <span className="text-emerald-500 font-semibold inline-flex items-center gap-1 text-[11px]">
-                        <ShieldCheck className="w-3.5 h-3.5" /> Verified Student Profile
-                      </span>
-                    ) : (
-                      <span className="text-amber-500 font-semibold inline-flex items-center gap-1 text-[11px]">
-                        <Clock className="w-3.5 h-3.5" /> Awaiting Student First Login
-                      </span>
-                    )}
+                    <span className="text-emerald-500 font-semibold inline-flex items-center gap-1 text-[11px]">
+                      <ShieldCheck className="w-3.5 h-3.5" /> {selectedDashboardStudent.isCustomBound ? "Verified Personal Email (Bound)" : "Official Institutional Profile"}
+                    </span>
                   </div>
                 </div>
 

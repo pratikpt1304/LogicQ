@@ -485,7 +485,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
 
       // Ensure all cohort students are registered with password = prn
       C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
-        const validEmail = (st.email && !st.email.endsWith('@sanjivani.edu.in')) ? st.email : '';
+        const validEmail = st.email || `${st.prn.toLowerCase()}@sanjivani.edu.in`;
         const existing = sanitized.find(
           (u) =>
             (u.prn && u.prn.toUpperCase() === st.prn.toUpperCase()) ||
@@ -627,7 +627,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
   ];
 
   C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
-    const validEmail = (st.email && !st.email.endsWith('@sanjivani.edu.in')) ? st.email : '';
+    const validEmail = st.email || `${st.prn.toLowerCase()}@sanjivani.edu.in`;
     seeded.push({
       id: `cohort-${st.prn.toLowerCase()}`,
       username: st.prn.toLowerCase(),
@@ -1509,6 +1509,18 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       user.emailVerified = true;
       saveStoredUsers(users);
       (FirestoreDataService as any).updateUserProfile?.(user.id, { email: cleanEmail, isEmailBound: true, emailVerified: true }).catch(() => {});
+    }
+
+    const effectivePrn = (user?.prn || prn || currUser?.prn || '').toUpperCase().trim();
+    const effectiveName = user?.displayName || user?.fullName || currUser?.displayName || currUser?.fullName || '';
+    if (effectivePrn) {
+      FirestoreDataService.syncStudentProfileUpdate({
+        userId: user?.id || currUser?.id,
+        newPrn: effectivePrn,
+        email: cleanEmail,
+        displayName: effectiveName,
+        fullName: effectiveName,
+      }).catch(() => {});
     }
     return {
       success: true,
