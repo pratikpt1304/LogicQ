@@ -26,6 +26,8 @@ import {
   Search,
   ExternalLink,
   Laptop,
+  Target,
+  BookOpen,
 } from 'lucide-react';
 
 interface StudentActivityInspectorModalProps {
@@ -228,9 +230,21 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
         }
       } catch {}
 
+      // Count distinct practical problems solved (25 C Practical Challenges)
+      const practicalSolved = Math.min(25, Number(
+        user.solvedCount ||
+        user.practicalSolved ||
+        allSubs.filter((s: any) => {
+          const v = String(s.verdict || s.status || '').toUpperCase();
+          return v === 'ACCEPTED' || v === 'AC' || v === 'PASSED';
+        }).length ||
+        0
+      ));
+
       return {
         submissions: allSubs,
         completedProblemIds,
+        practicalSolved,
         totalSolved: Math.max(user.totalSolved || 0, completedProblemIds.size),
         moduleStats,
         telemetry,
@@ -239,6 +253,7 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
   });
 
   const submissions = activityData?.submissions || [];
+  const practicalSolved = activityData?.practicalSolved ?? Number(user.solvedCount || user.practicalSolved || 0);
   const totalSolved = activityData?.totalSolved || user.totalSolved || 0;
   const telemetry = activityData?.telemetry || {
     tabSwitchCount: Number(user.tabSwitchCount || user.tabSwitches || 0),
@@ -401,29 +416,50 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
           </div>
         </div>
 
-        {/* 4 Summary Performance Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* 5 Summary Performance Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="glass-card p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-1">
-            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">
-              Curriculum Mastery
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold flex items-center gap-1">
+              <Target className="w-3 h-3 text-emerald-400" />
+              <span>Practical Modules</span>
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-mono font-bold text-emerald-400">
+                {practicalSolved}
+              </span>
+              <span className="text-xs font-mono text-[var(--text-muted)]">/ 25 Solved</span>
+            </div>
+            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round((practicalSolved / 25) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="glass-card p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-1">
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold flex items-center gap-1">
+              <BookOpen className="w-3 h-3 text-purple-400" />
+              <span>Lab Internal (CIE)</span>
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-mono font-bold text-purple-400">
                 {totalSolved}
               </span>
               <span className="text-xs font-mono text-[var(--text-muted)]">/ 100 Solved</span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
+                className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.round((totalSolved / 100) * 100))}%` }}
               />
             </div>
           </div>
 
           <div className="glass-card p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-1">
-            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">
-              Total Score & Rank
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-amber-400" />
+              <span>Total Points</span>
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-mono font-bold text-amber-400">
@@ -432,13 +468,14 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
               <span className="text-xs font-mono text-[var(--text-muted)]">PTS</span>
             </div>
             <p className="text-[11px] font-mono text-cyan-400">
-              {user.rank ? `Rank #${user.rank}` : user.totalPoints > 0 ? 'Rank #1' : 'Not Ranked'}
+              {user.rank ? `Rank #${user.rank}` : user.totalPoints > 0 ? 'Rank #1' : 'Verified'}
             </p>
           </div>
 
           <div className="glass-card p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-1">
-            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold">
-              Learning Consistency
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold flex items-center gap-1">
+              <Flame className="w-3 h-3 text-orange-400" />
+              <span>Consistency</span>
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-mono font-bold text-orange-400">
@@ -459,33 +496,101 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
               <>
                 <div className="flex items-center gap-1.5 text-rose-400 font-bold text-sm">
                   <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <span>Cheat Flags ({telemetry.autoLockCount} Locks)</span>
+                  <span>Cheat Flags</span>
                 </div>
                 <p className="text-[11px] font-mono text-rose-300">
-                  Integrity: {telemetry.integrityScore}/100 • {telemetry.tabSwitchCount} Tabs • {telemetry.copyPasteAttempts} Pastes
+                  {telemetry.tabSwitchCount} Tabs • {telemetry.copyPasteAttempts} Pastes
                 </p>
               </>
             ) : telemetry.tabSwitchCount > 0 || telemetry.copyPasteAttempts > 0 ? (
               <>
                 <div className="flex items-center gap-1.5 text-amber-400 font-bold text-sm">
                   <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span>Monitored ({telemetry.tabSwitchCount + telemetry.copyPasteAttempts} Events)</span>
+                  <span>Monitored</span>
                 </div>
                 <p className="text-[11px] font-mono text-amber-300">
-                  Integrity: {telemetry.integrityScore}/100 • {telemetry.tabSwitchCount} Tabs
+                  {telemetry.tabSwitchCount} Tabs • {telemetry.copyPasteAttempts} Pastes
                 </p>
               </>
             ) : (
               <>
                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-sm">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Clean &amp; Verified</span>
+                  <span>Clean</span>
                 </div>
                 <p className="text-[11px] font-mono text-emerald-400 font-bold">
-                  100/100 Clean (0 Flags)
+                  100% Verified
                 </p>
               </>
             )}
+          </div>
+        </div>
+
+        {/* C Practical Modules Progression (25 Problems) */}
+        <div className="p-4 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
+              <Target className="w-4 h-4 text-emerald-400" />
+              <span>C Practical Modules Progression (25 Problems)</span>
+            </h4>
+            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              {practicalSolved} / 25 Solved
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+            {[
+              { id: 1, title: 'C Fundamentals & I/O', problems: '5 Challenges', range: 'P1–P5' },
+              { id: 2, title: 'Control Flow & Logic', problems: '5 Challenges', range: 'P6–P10' },
+              { id: 3, title: 'Loops & Patterns', problems: '5 Challenges', range: 'P11–P15' },
+              { id: 4, title: 'Arrays & Strings', problems: '5 Challenges', range: 'P16–P20' },
+              { id: 5, title: 'Functions & Pointers', problems: '5 Challenges', range: 'P21–P25' },
+            ].map((track, idx) => {
+              const trackSolved = Math.max(0, Math.min(5, practicalSolved - (idx * 5)));
+              const trackPct = Math.round((trackSolved / 5) * 100);
+              const isDone = trackSolved >= 5;
+
+              return (
+                <div
+                  key={track.id}
+                  className={`p-3 rounded-xl border text-xs font-mono space-y-1.5 transition-all ${
+                    isDone
+                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      : trackSolved > 0
+                      ? 'bg-indigo-500/10 border-indigo-500/30'
+                      : 'bg-[var(--bg-panel)] border-[var(--border-line)] opacity-80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold">
+                      PART #{track.id}
+                    </span>
+                    {isDone ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <span className="text-[10px] text-[var(--text-muted)]">{trackPct}%</span>
+                    )}
+                  </div>
+                  <div className="font-sans font-semibold text-xs text-[var(--text-main)] truncate" title={track.title}>
+                    {track.title}
+                  </div>
+                  <div className="flex items-baseline justify-between text-[11px]">
+                    <span className={trackSolved > 0 ? 'text-emerald-400 font-bold' : 'text-[var(--text-muted)]'}>
+                      {trackSolved} / 5
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)]">{track.range}</span>
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-500 ${
+                        isDone ? 'bg-emerald-400' : 'bg-indigo-500'
+                      }`}
+                      style={{ width: `${trackPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
