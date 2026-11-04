@@ -53,23 +53,68 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
   const [search, setSearch] = useState('');
   const [selectedSeat, setSelectedSeat] = useState<RadarStudent | null>(null);
 
+  // Track acknowledged / reviewed cheating alerts in component state & persistent storage
+  const [acknowledgedStudentIds, setAcknowledgedStudentIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('logicq_acknowledged_cheats');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const handleSelectSeat = (seat: RadarStudent) => {
+    const key = (seat.prn || seat.id || '').toUpperCase();
+    if (key) {
+      setAcknowledgedStudentIds((prev) => {
+        const next = new Set(prev);
+        next.add(key);
+        try {
+          localStorage.setItem('logicq_acknowledged_cheats', JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+    }
+    setSelectedSeat(seat);
+  };
+
+  const handleToggleAcknowledge = (studentKey: string) => {
+    const key = studentKey.toUpperCase();
+    setAcknowledgedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      try {
+        localStorage.setItem('logicq_acknowledged_cheats', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
   // Derive realistic workstation states
   const workstations = useMemo(() => {
     return students.map((s, index) => {
-      const seatNumber = String(index + 1).padStart(2, '0');
-      const hasAlert = s.integrityRisk === 'HIGH' || s.integrityRisk === 'CRITICAL' || s.tabSwitchCount >= 2;
-      const isStuck = s.statusCategory === 'NEEDS_HELP' || (s.compileErrorsCount && s.compileErrorsCount >= 3);
-      const isActive = !hasAlert && !isStuck && s.totalPoints > 0;
+      const hasCheated =
+        Number(s.tabSwitchCount || 0) > 0 ||
+        Number(s.copyPasteAttempts || 0) > 0 ||
+        s.integrityRisk === 'HIGH' ||
+        s.integrityRisk === 'CRITICAL' ||
+        s.integrityRisk === 'MODERATE';
+
+      const isStuck = Number(s.compileErrorsCount || 0) >= 3;
+      const isActive = !hasCheated && !isStuck && Number(s.totalPoints || 0) > 0;
 
       let state: 'ALERT' | 'STUCK' | 'ACTIVE' | 'OFFLINE';
-      if (hasAlert) state = 'ALERT';
-      else if (isStuck) state = 'STUCK';
+      if (hasCheated) state = 'ALERT';
       else if (isActive) state = 'ACTIVE';
+      else if (isStuck) state = 'STUCK';
       else state = 'OFFLINE';
 
       return {
         ...s,
-        seatNumber: `PC-${seatNumber}`,
         state,
       };
     });
@@ -80,8 +125,7 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
       const matchSearch =
         search.trim() === '' ||
         w.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        w.prn.toLowerCase().includes(search.toLowerCase()) ||
-        w.seatNumber.toLowerCase().includes(search.toLowerCase());
+        w.prn.toLowerCase().includes(search.toLowerCase());
 
       if (!matchSearch) return false;
 
@@ -192,7 +236,7 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
             <input
               type="text"
-              placeholder="Search PC, student, PRN..."
+              placeholder="Search student, PRN..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:border-indigo-500 font-mono"
@@ -204,36 +248,81 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
       {/* 60-Seat Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {filteredWorkstations.map((w) => {
+          const studentKey = (w.prn || w.id || '').toUpperCase();
+          const hasCheated =
+            Number(w.tabSwitchCount || 0) > 0 ||
+            Number(w.copyPasteAttempts || 0) > 0 ||
+            w.integrityRisk === 'HIGH' ||
+            w.integrityRisk === 'CRITICAL' ||
+            w.integrityRisk === 'MODERATE';
+          const isAcknowledged = acknowledgedStudentIds.has(studentKey);
+          const isBlinkingAlert = hasCheated && !isAcknowledged;
+
           let cardStyle = 'border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700';
           let badge = (
             <span className="w-2 h-2 rounded-full bg-slate-500"></span>
           );
 
-          if (w.state === 'ACTIVE') {
+          if (isBlinkingAlert) {
+            cardStyle = 'border-rose-500 bg-rose-950/40 text-rose-100 hover:border-rose-400 shadow-[0_0_16px_rgba(244,63,94,0.45)] ring-2 ring-rose-500/60 animate-pulse';
+            badge = <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>;
+          } else if (hasCheated) {
+            cardStyle = 'border-rose-500/50 bg-rose-950/20 text-rose-300 hover:border-rose-400 shadow-sm';
+            badge = <span className="w-2 h-2 rounded-full bg-rose-500"></span>;
+          } else if (w.state === 'ACTIVE') {
             cardStyle = 'border-emerald-500/40 bg-emerald-950/20 text-emerald-200 hover:border-emerald-500 shadow-sm';
             badge = <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>;
           } else if (w.state === 'STUCK') {
             cardStyle = 'border-amber-500/50 bg-amber-950/25 text-amber-200 hover:border-amber-500 shadow-md';
             badge = <span className="w-2 h-2 rounded-full bg-amber-400"></span>;
-          } else if (w.state === 'ALERT') {
-            cardStyle = 'border-rose-500/70 bg-rose-950/30 text-rose-200 hover:border-rose-500 shadow-lg animate-pulse';
-            badge = <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>;
           }
 
           return (
             <div
               key={w.id}
-              onClick={() => setSelectedSeat(w)}
+              onClick={() => handleSelectSeat(w)}
               className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 group ${cardStyle}`}
             >
               <div className="flex items-center justify-between">
-                <span className="px-1.5 py-0.5 rounded bg-black/40 font-mono text-[10px] font-bold tracking-wider text-slate-300 border border-white/10">
-                  {w.seatNumber}
-                </span>
+                {/* Red Anti-Cheat Indicator LED Light */}
+                {isBlinkingAlert ? (
+                  <div className="flex items-center gap-1.5" title="🚨 CHEATING DETECTED! Click this box to inspect and stop alarm">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-90" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 shadow-[0_0_10px_#ef4444] border border-white" />
+                    </span>
+                    <span className="text-[10px] font-mono font-black text-rose-400 uppercase tracking-wider animate-pulse">
+                      CHEAT ALERT
+                    </span>
+                  </div>
+                ) : hasCheated ? (
+                  <div className="flex items-center gap-1.5" title="Cheating Detected (Inspected & Silenced by Faculty)">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="inline-flex rounded-full h-2.5 w-2.5 bg-rose-500/90 border border-rose-300 shadow-[0_0_6px_#f43f5e]" />
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-rose-400/90 uppercase tracking-wider">
+                      FLAGGED
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5" title="Anti-Cheat Indicator: Normal / Idle (Off)">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="inline-flex rounded-full h-2.5 w-2.5 bg-red-950/80 border border-red-900/60 opacity-40 shadow-inner" />
+                    </span>
+                    <span className="text-[10px] font-mono font-medium text-slate-500 uppercase tracking-wider">
+                      OFF
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-1.5">
                   {badge}
-                  <span className="text-[10px] font-mono font-bold uppercase">
-                    {w.state === 'ALERT' ? 'FLAG' : w.state}
+                  <span className={`text-[10px] font-mono font-bold uppercase ${
+                    hasCheated ? 'text-rose-400' :
+                    w.state === 'ACTIVE' ? 'text-emerald-400' :
+                    w.state === 'STUCK' ? 'text-amber-400' : 'text-slate-400'
+                  }`}>
+                    {hasCheated ? (isBlinkingAlert ? 'CHEATING' : 'REVIEWED') : w.state}
                   </span>
                 </div>
               </div>
@@ -277,7 +366,14 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-mono font-bold text-sm">
-                  {selectedSeat.seatNumber}
+                  {selectedSeat.fullName
+                    ? selectedSeat.fullName
+                        .split(' ')
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()
+                    : 'ST'}
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-[var(--foreground)]">
@@ -316,6 +412,25 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Cheating Alarm Status Banner */}
+            {selectedSeat && (Number(selectedSeat.tabSwitchCount || 0) > 0 || Number(selectedSeat.copyPasteAttempts || 0) > 0 || selectedSeat.integrityRisk === 'HIGH' || selectedSeat.integrityRisk === 'CRITICAL' || selectedSeat.integrityRisk === 'MODERATE') && (
+              <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-rose-300 font-semibold font-mono">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span>Cheating Alarm Silenced (Reviewed by Faculty)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleAcknowledge(selectedSeat.prn || selectedSeat.id)}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-mono text-[10px] font-bold border border-rose-500/30 transition cursor-pointer"
+                >
+                  {acknowledgedStudentIds.has((selectedSeat.prn || selectedSeat.id || '').toUpperCase())
+                    ? 'Re-Arm Blinking Light'
+                    : 'Silence Alert Light'}
+                </button>
+              </div>
+            )}
 
             {/* Status Diagnostics */}
             <div className="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-1.5 text-xs font-mono">
