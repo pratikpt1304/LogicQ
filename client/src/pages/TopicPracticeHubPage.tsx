@@ -773,7 +773,13 @@ export const TopicPracticeHubPage: React.FC = () => {
   const handleResetCode = () => {
     if (!activeTopic) return;
     const starter = activeTopic.problem.starterCode;
+    if (code.trim() !== starter.trim()) {
+      const confirmed = window.confirm('Reset code to starter template? Your current edits will be replaced.');
+      if (!confirmed) return;
+    }
     setCode(starter);
+    setRunResult(null);
+    setSubmitResult(null);
     const draftKey = `topic_${activeTopic.id}`;
     const draft: DraftData = {
       problemSlug: draftKey,
@@ -1923,6 +1929,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 <CodeEditor
                   code={code}
                   onChange={handleCodeChange}
+                  onReset={handleResetCode}
                   readOnly={false}
                   disableCopyPaste={true}
                   forceTheme="dark"
@@ -1977,6 +1984,16 @@ export const TopicPracticeHubPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResetCode}
+                      title="Reset code to default starter template"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-mono font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700/80 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                      <span className="hidden sm:inline">Reset Code</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleRunOpenTest}

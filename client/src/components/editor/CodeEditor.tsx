@@ -529,10 +529,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 type="button"
                 onClick={onReset}
                 title="Reset code to starter template"
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] rounded-md transition-colors"
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md transition-colors cursor-pointer ${
+                  effectiveTheme === 'dark'
+                    ? 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 shadow-xs'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-main)] bg-[var(--bg-panel)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)]'
+                }`}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span>Reset Code</span>
               </button>
             )}
 
