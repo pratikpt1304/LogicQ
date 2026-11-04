@@ -340,7 +340,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     }
   }, [searchParams, activeTopic]);
 
-  // Fullscreen change tracking
+  // Fullscreen change tracking & strict auto-exit guard
   useEffect(() => {
     const handleFullscreenChange = () => {
       const elem = document as any;
@@ -349,6 +349,9 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       if (isNowFullscreen) {
         hasEnteredFullscreenRef.current = true;
+      } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current) {
+        toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
+        handleCloseTopicRef.current();
       }
     };
 
@@ -380,6 +383,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const charsTypedRef = useRef(0);
   const keystrokesRef = useRef(0);
   const fullscreenExitsRef = useRef(0);
+  const handleCloseTopicRef = useRef<() => void>(() => {});
 
   const getTypingVelocityCPM = () => {
     const minutes = Math.max(10, elapsedSecondsRef.current) / 60;
@@ -434,7 +438,9 @@ export const TopicPracticeHubPage: React.FC = () => {
     };
 
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && activeTopic) {
+      const elem = document as any;
+      const isNowFullscreen = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
+      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current) {
         fullscreenExitsRef.current += 1;
         FirestoreDataService.saveProctoringTelemetry(user.id, {
           fullscreenExits: 1,
@@ -448,22 +454,25 @@ export const TopicPracticeHubPage: React.FC = () => {
           typingVelocityCPM: getTypingVelocityCPM(),
           eventLog: {
             event: 'FULLSCREEN_EXIT',
-            detail: 'Student exited full screen examination mode',
+            detail: 'Student exited full screen examination mode - workspace automatically closed',
             elapsedSec: elapsedSecondsRef.current,
           },
         }).catch(() => {});
-        toast.warning('⚠️ Fullscreen Exit Detected! Please remain in full screen examination mode.');
+        toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
+        handleCloseTopicRef.current();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('paste', handlePaste);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('paste', handlePaste);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
   }, [activeTopic, user?.id]);
 
@@ -832,6 +841,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       isExitingRef.current = false;
     }, 400);
   };
+  handleCloseTopicRef.current = handleCloseTopic;
 
   // Run test case & verify solution (Compile & Run) directly with Use Cases
   const handleRunOpenTest = async () => {
