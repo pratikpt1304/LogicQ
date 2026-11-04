@@ -1230,8 +1230,8 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. APPLE INTERACTIVE 4-METRIC STRIP (1-CLICK DIRECT TAB SWITCHING) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* 3. APPLE INTERACTIVE 3-METRIC STRIP (1-CLICK DIRECT TAB SWITCHING) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             {/* Metric 1: Enrolled Students */}
             <button
               type="button"
@@ -1309,34 +1309,6 @@ export const DashboardPage: React.FC = () => {
                 <span>Practicals</span>
                 <span className="text-cyan-500 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                   Manage →
-                </span>
-              </div>
-            </button>
-
-            {/* Metric 4: GCC 14 Sandbox */}
-            <button
-              type="button"
-              onClick={() => setAdminActiveTab('submissions')}
-              className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer group ${
-                adminActiveTab === 'submissions'
-                  ? 'border-emerald-500/60 bg-emerald-50/50 dark:bg-emerald-950/25 shadow-sm shadow-emerald-500/10'
-                  : 'border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1017]/80 hover:border-emerald-500/40 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 mb-2">
-                <span className="font-bold tracking-wider">GCC 14 JUDGE</span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono tracking-tight flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Online</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                <span>Isolated Sandbox</span>
-                <span className="text-emerald-500 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
-                  Live Feed →
                 </span>
               </div>
             </button>
