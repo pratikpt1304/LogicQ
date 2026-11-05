@@ -47,14 +47,29 @@ It combines **Apple-grade minimalist UI** with **strict institutional-grade exam
 
 ## 🍏 What's New: Apple-Grade Minimalist Experience
 
-Designed according to modern human-interface guidelines for faculty and administrators:
-- **Zero-Clutter Single-Click Navigation**: All complex controls replaced with clean segmented controls and unified drawer consoles.
-- **Academic Section Console**: 1-click modal with 4 segmented views:
-  1. **📊 Report**: Real-time aggregated active learners, practical mastery, and pass rate.
-  2. **👥 Student Roster**: Natural ascending PRN sort (`1001` → `1124`), bound profile email verification (`BOUND` vs `UNCLAIMED`).
-  3. **🏆 Score Gradebook**: 100% genuine marks based on verified `ACCEPTED` submissions (no fake data or arbitrary mock scores).
-  4. **💻 Submissions**: Instant filterable audit log of live student code attempts.
-- **Question Bank Timeline**: Questions sorted chronologically with live creation timestamps (`03 Nov 2026, 11:05 PM`), `Just now` relative indicators, and `NEW` badges.
+Designed according to modern Apple Human Interface Guidelines (HIG) with zero-clutter, frosted glass styling, and low-friction 1-click flows:
+- **Zero Gamified Streak Clutter**: Completely removed arbitrary streaks across student profile, leaderboard, and activity radars. Replaced with genuine academic indicators:
+  - 🎯 **Curriculum Progress**: Actual completion rate (`0% - 100%`) across 100 progressive C topics.
+  - 🏆 **Total Verified Points**: Earned strictly from genuine GCC-evaluated AC submissions.
+  - 📈 **Campus Standing**: Deterministic institutional percentile & rank standing.
+  - ✅ **Problems Solved**: Exact count of passing test suites.
+- **Apple System Settings Sheet (`/profile`)**:
+  - Modal redesigned with Apple System Settings grouped card layout.
+  - Instant inspection of Academic Identity: Verified PRN, Bound Institutional Email (`@sanjivani.edu.in`), Department, Academic Year, and OTP-protected Password Reset.
+- **1-Click Learning Analytics Navigation (`/analytics`)**:
+  - Promoted directly to the top desktop Navbar and mobile bottom navigation bar.
+  - Live inspection of academic marks, compiler verdicts, behavioral integrity telemetry, and printable assessment reports.
+- **Streamlined Practice Arena & Lab Internal (`/practice` & `/lab-internal`)**:
+  - Removed locked preview clutter and distraction cards.
+  - 100 progressive C programming challenges across 4 structured modules with Monaco IDE workspace and instant compiler feedback.
+- **Unified Academic Section Console (`/faculty/sections`)**:
+  - 1-click drawer modal with 4 segmented views:
+    1. **📊 Report**: Real-time aggregated active learners, practical mastery, and pass rate.
+    2. **👥 Student Roster**: Natural ascending PRN sort (`1001` → `1124`), bound profile email verification (`BOUND` vs `UNCLAIMED`).
+    3. **🏆 Score Gradebook**: 100% genuine marks based on verified `ACCEPTED` submissions.
+    4. **💻 Submissions**: Instant filterable audit log of live student code attempts.
+- **Chronological Question Bank (`/faculty/questions`)**:
+  - Sorted by creation timestamps with relative indicators (`Just now`, `Yesterday`) and `NEW` status badges.
 
 ---
 
@@ -279,9 +294,13 @@ npm --prefix server test tests/e2e-institutional-lifecycle.test.ts
 
 - **Frontend Application (PWA v41)**: Deployed on **Firebase Hosting** with global edge CDN.
   - **Live Portal**: [https://logicq-clanguage.web.app](https://logicq-clanguage.web.app)
-  - **Faculty Sections**: [https://logicq-clanguage.web.app/faculty/sections](https://logicq-clanguage.web.app/faculty/sections)
-  - **Faculty Tests**: [https://logicq-clanguage.web.app/faculty/tests](https://logicq-clanguage.web.app/faculty/tests)
+  - **Practice Arena (100 Topics)**: [https://logicq-clanguage.web.app/practice](https://logicq-clanguage.web.app/practice)
+  - **Lab Internal (CIE Coursework)**: [https://logicq-clanguage.web.app/lab-internal](https://logicq-clanguage.web.app/lab-internal)
   - **Student Exam Hub**: [https://logicq-clanguage.web.app/student/tests](https://logicq-clanguage.web.app/student/tests)
+  - **Learning Analytics**: [https://logicq-clanguage.web.app/analytics](https://logicq-clanguage.web.app/analytics)
+  - **Submission History**: [https://logicq-clanguage.web.app/history](https://logicq-clanguage.web.app/history)
+  - **Faculty Sections Console**: [https://logicq-clanguage.web.app/faculty/sections](https://logicq-clanguage.web.app/faculty/sections)
+  - **Faculty Test Creator**: [https://logicq-clanguage.web.app/faculty/tests](https://logicq-clanguage.web.app/faculty/tests)
 - **Backend API & Judge Runtime**: Deployed on **Render.com** via Docker.
   - **Healthcheck**: [https://logicq-bitwiseclub.onrender.com/api/health](https://logicq-bitwiseclub.onrender.com/api/health)
 
