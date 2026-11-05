@@ -207,10 +207,15 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
         // Permanently persist bound status in storage so refresh never re-prompts
         if (user.prn) {
-          localStorage.setItem(`logicq_bound_email_${user.prn.toUpperCase()}`, cleanEmail);
-          localStorage.setItem(`logicq_bound_status_${user.prn.toUpperCase()}`, 'true');
+          const prnUp = user.prn.toUpperCase();
+          localStorage.setItem(`logicq_bound_v2_${prnUp}`, 'true');
+          localStorage.setItem(`logicq_bound_v2_email_${prnUp}`, cleanEmail);
+          localStorage.setItem(`logicq_bound_email_${prnUp}`, cleanEmail);
+          localStorage.setItem(`logicq_bound_status_${prnUp}`, 'true');
         }
         if (user.id) {
+          localStorage.setItem(`logicq_bound_v2_${user.id}`, 'true');
+          localStorage.setItem(`logicq_bound_v2_email_${user.id}`, cleanEmail);
           localStorage.setItem(`logicq_bound_email_${user.id}`, cleanEmail);
           localStorage.setItem(`logicq_bound_status_${user.id}`, 'true');
         }
@@ -221,6 +226,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
           email: cleanEmail,
           isEmailBound: true,
           emailVerified: true,
+          isEmailBoundV2: true,
         });
 
         if (user.id) {
@@ -301,10 +307,10 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] font-sans">
-                    Bind Your Email Address
+                    Mandatory Email Binding
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-mono font-bold border border-cyan-500/30">
-                    Recommended
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold border border-emerald-500/30">
+                    Required
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
@@ -324,7 +330,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
           </div>
 
           <p className="text-xs text-[var(--text-muted)] font-sans mt-3 leading-relaxed">
-            Link your active personal or college email to your PRN. This allows you to <strong>log in via Email OTP</strong>, reset your password, and receive exam scores.
+            In accordance with university guidelines, all students must link their active email to their PRN for continuous evaluation marks, test verification, and secure password recovery.
           </p>
         </div>
 

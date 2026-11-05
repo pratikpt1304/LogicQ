@@ -714,13 +714,13 @@ const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
   {
     id: 'sub_arch_001',
     problemId: 'kanetkar-ch02-rotate-array',
-    userId: 'user_pratik_1039',
+    userId: 'user_demo_1034',
     user: {
-      id: 'user_pratik_1039',
-      fullName: 'Pratik Thorat',
-      displayName: 'Pratik Thorat',
-      prn: '2026VAL1039',
-      email: 'pratikpt1304@gmail.com',
+      id: 'user_demo_1034',
+      fullName: 'Avinash Mapari',
+      displayName: 'Avinash Mapari',
+      prn: '2126PMIM1034',
+      email: '2126pmim1034@sanjivani.edu.in',
       department: 'Integrated M.Tech',
       year: 'FY',
     },
@@ -734,7 +734,7 @@ const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
     verdict: 'ACCEPTED',
     runtimeMs: 14,
     memoryKb: 2048,
-    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Cyclic array rotation by Pratik Thorat\nvoid reverse(int* arr, int start, int end) {\n    while (start < end) {\n        int temp = arr[start];\n        arr[start] = arr[end];\n        arr[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nvoid rotate(int* nums, int numsSize, int k) {\n    if (numsSize <= 1) return;\n    k = k % numsSize;\n    reverse(nums, 0, numsSize - 1);\n    reverse(nums, 0, k - 1);\n    reverse(nums, k, numsSize - 1);\n}\n\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int* arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) {\n        scanf("%d", &arr[i]);\n    }\n    rotate(arr, n, k);\n    for (int i = 0; i < n; i++) {\n        printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n    }\n    free(arr);\n    return 0;\n}`,
+    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Cyclic array rotation\nvoid reverse(int* arr, int start, int end) {\n    while (start < end) {\n        int temp = arr[start];\n        arr[start] = arr[end];\n        arr[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nvoid rotate(int* nums, int numsSize, int k) {\n    if (numsSize <= 1) return;\n    k = k % numsSize;\n    reverse(nums, 0, numsSize - 1);\n    reverse(nums, 0, k - 1);\n    reverse(nums, k, numsSize - 1);\n}\n\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int* arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) {\n        scanf("%d", &arr[i]);\n    }\n    rotate(arr, n, k);\n    for (int i = 0; i < n; i++) {\n        printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n    }\n    free(arr);\n    return 0;\n}`,
     createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
   },
   {
@@ -792,13 +792,13 @@ const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
   {
     id: 'sub_arch_004',
     problemId: 'kanetkar-ch16-dynamic-array-growth',
-    userId: 'user_pratik_1039',
+    userId: 'user_demo_1034',
     user: {
-      id: 'user_pratik_1039',
-      fullName: 'Pratik Thorat',
-      displayName: 'Pratik Thorat',
-      prn: '2026VAL1039',
-      email: 'pratikpt1304@gmail.com',
+      id: 'user_demo_1034',
+      fullName: 'Avinash Mapari',
+      displayName: 'Avinash Mapari',
+      prn: '2126PMIM1034',
+      email: '2126pmim1034@sanjivani.edu.in',
       department: 'Integrated M.Tech',
       year: 'FY',
     },
@@ -812,7 +812,7 @@ const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
     verdict: 'ACCEPTED',
     runtimeMs: 12,
     memoryKb: 1980,
-    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Geometric capacity doubler by Pratik Thorat\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    int capacity = 2;\n    int reallocCount = 0;\n    for (int i = 1; i <= n; i++) {\n        if (i > capacity) {\n            capacity *= 2;\n            reallocCount++;\n        }\n    }\n    printf("Final Capacity: %d, Reallocations: %d\\n", capacity, reallocCount);\n    return 0;\n}`,
+    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Geometric capacity doubler\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    int capacity = 2;\n    int reallocCount = 0;\n    for (int i = 1; i <= n; i++) {\n        if (i > capacity) {\n            capacity *= 2;\n            reallocCount++;\n        }\n    }\n    printf("Final Capacity: %d, Reallocations: %d\\n", capacity, reallocCount);\n    return 0;\n}`,
     createdAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
   }
 ];
@@ -3320,7 +3320,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
           code: `#include <stdio.h>\n\n// Solution for ${mod.title}\nint main() {\n    printf("Module ${mod.order} Test Solved\\n");\n    return 0;\n}`,
           user: {
             id: stu.id,
-            prn: stu.prn || '2126PMIM1039',
+            prn: stu.prn || '2126PMIM1034',
             email: stu.email || 'student@sanjivani.edu.in',
             displayName: stu.displayName || stu.fullName || 'Student',
             fullName: stu.fullName || stu.displayName || 'Student',

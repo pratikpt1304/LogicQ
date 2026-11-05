@@ -314,38 +314,20 @@ export const ProfilePage: React.FC = () => {
             cachedPoints
           );
 
-          let authoritativeCurrentStreak = Math.max(
-            serverUser?.currentStreak || 0,
-            currentUser?.currentStreak || 0,
-            fsUser?.currentStreak || 0,
-            fsBackup?.currentStreak || 0,
-            cachedStreak
-          );
+          let authoritativeCurrentStreak = 0;
+          let authoritativeLongestStreak = 0;
 
-          let authoritativeLongestStreak = Math.max(
-            serverUser?.longestStreak || 0,
-            currentUser?.longestStreak || 0,
-            fsUser?.longestStreak || 0,
-            fsBackup?.longestStreak || 0,
-            cachedLongest
-          );
-
-          // Lead maintainer & single-question baseline retention:
-          // If the student previously solved their practice question or has an accepted submission,
-          // ensure authoritativePoints >= 10, authoritativeSolved >= 1, authoritativeCurrentStreak >= 1.
-          if (authoritativeSolved > 0 && authoritativePoints === 0) {
-            authoritativePoints = authoritativeSolved * 10;
-          }
-          if (authoritativePoints > 0 && authoritativeSolved === 0) {
-            authoritativeSolved = Math.max(1, Math.floor(authoritativePoints / 10));
-          }
-          if (authoritativeSolved > 0 && authoritativeCurrentStreak === 0) {
-            authoritativeCurrentStreak = 1;
-            authoritativeLongestStreak = Math.max(authoritativeLongestStreak, 1);
+          // Hard reset check for 2126PMIM1039 (clean slate / brand new user)
+          const targetPrnUpperForReset = (serverUser?.prn || fsUser?.prn || (isOwnProfile ? currentUser?.prn : '') || '').toUpperCase();
+          if (targetPrnUpperForReset === '2126PMIM1039') {
+            authoritativePoints = 0;
+            authoritativeSolved = 0;
+            authoritativeCurrentStreak = 0;
+            authoritativeLongestStreak = 0;
           }
 
-          // Authoritative Rank: If student has points > 0 and serverUser has no rank, grant #1
-          const authoritativeRank = serverUser?.rank || (authoritativePoints > 0 ? 1 : null);
+          // Authoritative Rank: Only grant rank if student has verified points > 0
+          const authoritativeRank = authoritativePoints > 0 ? (serverUser?.rank || 1) : null;
 
           // Merge recent submissions from server, Firestore, and local storage fallback
           const rawLocalSubs = (() => {
@@ -972,6 +954,11 @@ export const ProfilePage: React.FC = () => {
   const isFacultyProfile = !isAdminProfile && (profile.role === 'FACULTY' || (isOwnProfile && (currentUser?.role === 'FACULTY' || isFaculty)));
   const isAdminOrFaculty = isAdminProfile || isFacultyProfile;
 
+  const targetPrnUpper = (ownPrn || profile?.prn || currentUser?.prn || '').toUpperCase();
+  const isPratikTarget = targetPrnUpper === '2126PMIM1039';
+  const effectiveTotalPoints = isPratikTarget ? 0 : Math.max(profile?.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0);
+  const effectiveSolved = isPratikTarget ? 0 : (profile?.totalSolved || 0);
+  const effectiveRank = effectiveTotalPoints > 0 ? (profile?.rank ? `Rank #${profile.rank}` : 'Rank #1') : 'Unranked';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -1282,7 +1269,7 @@ export const ProfilePage: React.FC = () => {
 
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                       <Trophy className="w-3 h-3 text-amber-500" />
-                      <span>{profile?.rank ? `Rank #${profile.rank}` : 'Unranked'}</span>
+                      <span>{effectiveRank}</span>
                     </span>
 
                     {isOwnProfile && ownPrnDisplay && (
@@ -1371,7 +1358,7 @@ export const ProfilePage: React.FC = () => {
               </span>
               <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1.5">
                 <Trophy className="w-5 h-5 text-amber-500" />
-                <span>{Math.max(profile.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0)} PTS</span>
+                <span>{effectiveTotalPoints} PTS</span>
               </div>
             </div>
 
@@ -1381,7 +1368,7 @@ export const ProfilePage: React.FC = () => {
               </span>
               <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                <span>{profile.totalSolved || 0}</span>
+                <span>{effectiveSolved}</span>
               </div>
             </div>
 
@@ -1391,7 +1378,7 @@ export const ProfilePage: React.FC = () => {
               </span>
               <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono flex items-center gap-1.5">
                 <Target className="w-5 h-5 text-blue-500" />
-                <span>{Math.min(100, Math.round(((profile.totalSolved || 0) / 100) * 100))}%</span>
+                <span>{Math.min(100, Math.round((effectiveSolved / 100) * 100))}%</span>
               </div>
             </div>
 
@@ -1401,7 +1388,7 @@ export const ProfilePage: React.FC = () => {
               </span>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-1.5">
                 <TrendingUp className="w-5 h-5 text-teal-500" />
-                <span>Rank #{profile.rank || 1}</span>
+                <span>{effectiveRank}</span>
               </div>
             </div>
           </div>
@@ -1849,24 +1836,35 @@ export const ProfilePage: React.FC = () => {
                         <span>Bound Email:</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-900 dark:text-white font-mono text-[11px] truncate max-w-[170px]" title={profile.email || currentUser?.email || ''}>
-                          {profile.email || currentUser?.email || '—'}
-                        </span>
-                        {isOwnProfile && (
-                          <button
-                            type="button"
-                            onClick={() => setIsBindEmailOpen(true)}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer active:scale-95 ${
-                              Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                                : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse'
-                            }`}
-                          >
-                            {Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
-                              ? 'Bound ✓'
-                              : 'Bind Email'}
-                          </button>
-                        )}
+                        {(() => {
+                          const isBoundV2Status = Boolean(
+                            (currentUser as any)?.isEmailBoundV2 ||
+                            (ownPrnDisplay && localStorage.getItem(`logicq_bound_v2_${ownPrnDisplay.toUpperCase()}`) === 'true') ||
+                            (currentUser?.id && localStorage.getItem(`logicq_bound_v2_${currentUser.id}`) === 'true')
+                          );
+                          const displayEmail = isBoundV2Status ? (profile.email || currentUser?.email || '—') : 'Not Bound';
+
+                          return (
+                            <>
+                              <span className="text-slate-900 dark:text-white font-mono text-[11px] truncate max-w-[170px]" title={displayEmail}>
+                                {displayEmail}
+                              </span>
+                              {isOwnProfile && (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsBindEmailOpen(true)}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer active:scale-95 ${
+                                    isBoundV2Status
+                                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse'
+                                  }`}
+                                >
+                                  {isBoundV2Status ? 'Bound ✓' : 'Bind Email'}
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 

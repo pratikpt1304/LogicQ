@@ -48,6 +48,7 @@ export interface User {
   enrolledSections?: string[];
   sections?: Array<{ id: string; sectionName: string; joinCode?: string; subject?: string; course?: string }>;
   isEmailBound?: boolean;
+  isEmailBoundV2?: boolean;
   emailVerified?: boolean;
   createdAt?: string;
 }

@@ -9,7 +9,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider, db } from '../config/firebase.js';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
@@ -185,7 +185,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getCachedUser = (): User | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const prnUpper = (parsed?.prn || '').toUpperCase();
+    if (prnUpper === '2126PMIM1039') {
+      if (localStorage.getItem('logicq_pratik_clean_slate_v2') !== 'true') {
+        localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
+        localStorage.removeItem('logicq_solved_topics_2126PMIM1039');
+        localStorage.removeItem('logicq_bound_email_2126PMIM1039');
+        localStorage.removeItem('logicq_bound_status_2126PMIM1039');
+        localStorage.removeItem('logicq_bound_v2_2126PMIM1039');
+        localStorage.removeItem('logicq_bound_v2_email_2126PMIM1039');
+        localStorage.removeItem('logicq_practice_progress');
+        localStorage.removeItem('logicq_last_bound_email');
+        parsed.totalPoints = 0;
+        parsed.totalSolved = 0;
+        parsed.currentStreak = 0;
+        parsed.longestStreak = 0;
+        parsed.email = '';
+        parsed.isEmailBound = false;
+        parsed.emailVerified = false;
+        parsed.isEmailBoundV2 = false;
+        parsed.rank = null;
+        localStorage.setItem('logicq_pratik_clean_slate_v2', 'true');
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
+      }
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -249,31 +275,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : (Array.isArray((active as any)?.sections) ? (active as any).sections : []);
 
       const prnUpper = (finalUser.prn || active?.prn || '').toUpperCase();
-      const storedBound =
-        (prnUpper ? localStorage.getItem(`logicq_bound_email_${prnUpper}`) : null) ||
-        (finalUser.id ? localStorage.getItem(`logicq_bound_email_${finalUser.id}`) : null) ||
-        (active?.id ? localStorage.getItem(`logicq_bound_email_${active.id}`) : null) ||
-        localStorage.getItem('logicq_last_bound_email');
 
-      const retainedEmail =
-        (finalUser.email && !finalUser.email.endsWith('@sanjivani.edu.in') && !finalUser.email.includes('placeholder'))
-          ? finalUser.email
-          : storedBound ||
-            (active?.email && !active.email.endsWith('@sanjivani.edu.in') && !active.email.includes('placeholder')
-              ? active?.email || ''
-              : finalUser.email || active?.email || '');
+      // Reset Pratik Thorat (2126PMIM1039) clean slate enforcement:
+      if (prnUpper === '2126PMIM1039') {
+        try {
+          localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
+          localStorage.removeItem('logicq_solved_topics_2126PMIM1039');
+          localStorage.removeItem('logicq_bound_email_2126PMIM1039');
+          localStorage.removeItem('logicq_bound_status_2126PMIM1039');
+          localStorage.removeItem('logicq_bound_v2_2126PMIM1039');
+          localStorage.removeItem('logicq_bound_v2_email_2126PMIM1039');
+          localStorage.removeItem('logicq_practice_progress');
+          localStorage.removeItem('logicq_last_bound_email');
 
-      const retainedIsEmailBound = Boolean(
-        finalUser.isEmailBound ||
-        active?.isEmailBound ||
-        storedBound ||
-        (retainedEmail && !retainedEmail.endsWith('@sanjivani.edu.in') && !retainedEmail.includes('placeholder'))
+          const uid = finalUser.id || firebaseAuth.currentUser?.uid;
+          if (uid) {
+            deleteDoc(doc(db, 'stats_backups', '2126PMIM1039')).catch(() => {});
+            deleteDoc(doc(db, 'stats_backups', uid)).catch(() => {});
+            updateDoc(doc(db, 'users', uid), {
+              totalPoints: 0,
+              totalSolved: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+              email: '',
+              isEmailBound: false,
+              emailVerified: false,
+            }).catch(() => {});
+            updateDoc(doc(db, 'publicProfiles', uid), {
+              totalPoints: 0,
+              totalSolved: 0,
+              currentStreak: 0,
+              longestStreak: 0,
+            }).catch(() => {});
+          }
+        } catch {}
+
+        finalUser.totalPoints = 0;
+        finalUser.totalSolved = 0;
+        finalUser.currentStreak = 0;
+        finalUser.longestStreak = 0;
+        finalUser.email = '';
+        finalUser.isEmailBound = false;
+        finalUser.emailVerified = false;
+        (finalUser as any).isEmailBoundV2 = false;
+        (finalUser as any).rank = null;
+      }
+
+      // Mandatory Institutional Email Binding Epoch V2 for all students:
+      // Invalidate legacy V1 flags so all students are prompted to bind their institutional email.
+      const isStudentRole = finalUser.role === 'STUDENT';
+      const isBoundV2 = !isStudentRole || Boolean(
+        (finalUser as any).isEmailBoundV2 ||
+        (prnUpper ? localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true' : false) ||
+        (finalUser.id ? localStorage.getItem(`logicq_bound_v2_${finalUser.id}`) === 'true' : false) ||
+        (active?.id ? localStorage.getItem(`logicq_bound_v2_${active.id}`) === 'true' : false)
       );
-      const retainedEmailVerified = Boolean(
-        finalUser.emailVerified ||
-        active?.emailVerified ||
-        retainedIsEmailBound
-      );
+
+      const boundEmailV2 = isBoundV2
+        ? (prnUpper ? localStorage.getItem(`logicq_bound_v2_email_${prnUpper}`) : null) ||
+          (finalUser.id ? localStorage.getItem(`logicq_bound_v2_email_${finalUser.id}`) : null) ||
+          (finalUser.email && !finalUser.email.endsWith('@sanjivani.edu.in') && !finalUser.email.includes('placeholder') ? finalUser.email : '')
+        : '';
+
+      const retainedIsEmailBound = isBoundV2;
+      const retainedEmailVerified = isBoundV2;
+      const retainedEmail = isBoundV2 ? (boundEmailV2 || finalUser.email || '') : '';
 
       finalUser = {
         ...finalUser,
@@ -284,10 +350,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         year: retainedYear,
         division: retainedDivision,
         bio: retainedBio,
-        totalPoints: retainedPoints,
-        currentStreak: retainedCurrentStreak,
-        longestStreak: retainedLongestStreak,
-        totalSolved: retainedSolved,
+        totalPoints: prnUpper === '2126PMIM1039' ? 0 : retainedPoints,
+        currentStreak: prnUpper === '2126PMIM1039' ? 0 : retainedCurrentStreak,
+        longestStreak: prnUpper === '2126PMIM1039' ? 0 : retainedLongestStreak,
+        totalSolved: prnUpper === '2126PMIM1039' ? 0 : retainedSolved,
         storagePreference: retainedStorage,
         sectionId: retainedSectionId,
         sectionName: retainedSectionName,

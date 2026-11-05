@@ -153,27 +153,25 @@ export const App: React.FC = () => {
   const location = useLocation();
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
 
-  // Optional email binding for students who haven't bound their verified personal email yet
+  // Mandatory email binding for students who haven't bound their verified personal email yet (Epoch V2)
   useEffect(() => {
     if (user && user.role === 'STUDENT') {
       const prnUpper = (user.prn || '').toUpperCase();
-      const storedBound =
-        (prnUpper ? localStorage.getItem(`logicq_bound_email_${prnUpper}`) : null) ||
-        (user.id ? localStorage.getItem(`logicq_bound_email_${user.id}`) : null) ||
-        localStorage.getItem('logicq_last_bound_email');
-
-      const isDismissed = sessionStorage.getItem('logicq_dismiss_bind_modal');
-
-      const isBound = Boolean(
-        user.isEmailBound ||
-        user.emailVerified ||
-        storedBound ||
-        (user.email && !user.email.endsWith('@sanjivani.edu.in') && !user.email.includes('placeholder'))
+      const isBoundV2 = Boolean(
+        (user as any).isEmailBoundV2 ||
+        (prnUpper && localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true') ||
+        (user.id && localStorage.getItem(`logicq_bound_v2_${user.id}`) === 'true')
       );
-      if (!isBound && !isDismissed && location.pathname !== '/login') {
+
+      if (!isBoundV2) {
+        // Clear legacy dismissal so all students receive the mandatory prompt
+        sessionStorage.removeItem('logicq_dismiss_bind_modal');
+      }
+
+      if (!isBoundV2 && location.pathname !== '/login') {
         const timer = setTimeout(() => setIsAutoBindEmailOpen(true), 1200);
         return () => clearTimeout(timer);
-      } else if (isBound || isDismissed) {
+      } else if (isBoundV2) {
         setIsAutoBindEmailOpen(false);
       }
     }
