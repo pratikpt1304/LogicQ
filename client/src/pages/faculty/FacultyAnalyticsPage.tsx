@@ -1265,9 +1265,9 @@ Generated On   : ${new Date().toLocaleString()}`;
                       {deepDiveData.student.totalPoints || 0} PTS
                     </span>
                     <span className="text-[var(--border)]">|</span>
-                    <span className="inline-flex items-center gap-1 font-mono text-amber-600 dark:text-amber-400 font-semibold">
-                      <Flame className="w-3.5 h-3.5" />
-                      {deepDiveData.student.currentStreak || 0}d Streak
+                    <span className="inline-flex items-center gap-1 font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {deepDiveData.student.solvedCount || 0} Solved
                     </span>
                     <span className="text-[var(--border)]">|</span>
                     <span className="inline-flex items-center gap-1 text-[var(--muted-foreground)] font-mono">

@@ -5404,8 +5404,8 @@ export const AdminDashboardPage: React.FC = () => {
                                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                                 <span>{u.totalPoints || 0} PTS</span>
                               </div>
-                              <div className="text-[11px] text-orange-400/90 font-medium">
-                                🔥 {u.currentStreak || 0}d streak
+                              <div className="text-[11px] text-emerald-400/90 font-medium">
+                                ✓ {u.totalSolved || 0} Solved
                               </div>
                               {Number(u.tabSwitchCount || u.tabSwitches || 0) > 0 || Number(u.copyPasteAttempts || u.pasteCount || 0) > 0 ? (
                                 <div className="pt-0.5">

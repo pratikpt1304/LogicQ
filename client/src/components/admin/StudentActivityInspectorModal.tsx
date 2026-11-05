@@ -474,17 +474,17 @@ export const StudentActivityInspectorModal: React.FC<StudentActivityInspectorMod
 
           <div className="glass-card p-3.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] space-y-1">
             <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block font-semibold flex items-center gap-1">
-              <Flame className="w-3 h-3 text-orange-400" />
-              <span>Consistency</span>
+              <Target className="w-3 h-3 text-blue-400" />
+              <span>Curriculum Progress</span>
             </span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg font-mono font-bold text-orange-400">
-                {user.currentStreak || 0}d
+              <span className="text-lg font-mono font-bold text-blue-400">
+                {Math.min(100, Math.round(((user.totalSolved || 0) / 100) * 100))}%
               </span>
-              <span className="text-xs font-mono text-[var(--text-muted)]">Active</span>
+              <span className="text-xs font-mono text-[var(--text-muted)]">Completed</span>
             </div>
             <p className="text-[11px] font-mono text-[var(--text-muted)]">
-              Longest: {user.longestStreak || 0} days
+              {user.totalSolved || 0} / 100 Topics
             </p>
           </div>
 

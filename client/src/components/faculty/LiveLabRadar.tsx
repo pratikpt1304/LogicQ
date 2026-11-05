@@ -402,8 +402,8 @@ export const LiveLabRadar: React.FC<LiveLabRadarProps> = ({
                 </div>
               </div>
               <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-                <div className="text-[10px] text-[var(--muted-foreground)]">STREAK</div>
-                <div className="text-sm font-bold text-amber-400 mt-0.5">{selectedSeat.currentStreak} Days 🔥</div>
+                <div className="text-[10px] text-[var(--muted-foreground)]">SCORE</div>
+                <div className="text-sm font-bold text-indigo-400 mt-0.5">{selectedSeat.totalPoints || 0} PTS</div>
               </div>
               <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)]">
                 <div className="text-[10px] text-[var(--muted-foreground)]">TAB SWITCHES</div>
