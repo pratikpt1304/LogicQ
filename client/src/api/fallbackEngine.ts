@@ -421,8 +421,8 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
           id: 'faculty-demo-president',
           username: 'faculty_demo',
           email: 'faculty.demo@sanjivani.edu.in',
-          fullName: 'Prof. Hariprasad K.',
-          displayName: 'Prof. Hariprasad K.',
+          fullName: 'Prof. Rajesh Sharma',
+          displayName: 'Prof. Rajesh Sharma',
           role: 'FACULTY',
           college: 'Sanjivani University',
           department: 'Integrated M.Tech',
@@ -628,8 +628,8 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       id: 'faculty-demo-president',
       username: 'faculty_demo',
       email: 'faculty.demo@sanjivani.edu.in',
-      fullName: 'Prof. Hariprasad K.',
-      displayName: 'Prof. Hariprasad K.',
+      fullName: 'Prof. Rajesh Sharma',
+      displayName: 'Prof. Rajesh Sharma',
       role: 'FACULTY',
       college: 'Sanjivani University',
       department: 'Integrated M.Tech',
@@ -1069,8 +1069,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         id: 'faculty-demo-president',
         username: 'faculty_demo',
         email: 'faculty.demo@sanjivani.edu.in',
-        fullName: 'Prof. Hariprasad K.',
-        displayName: 'Prof. Hariprasad K.',
+        fullName: 'Prof. Rajesh Sharma',
+        displayName: 'Prof. Rajesh Sharma',
         role: 'FACULTY',
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -1244,8 +1244,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         id: 'faculty-demo-president',
         username: 'faculty_demo',
         email: 'faculty.demo@sanjivani.edu.in',
-        fullName: 'Prof. Hariprasad K.',
-        displayName: 'Prof. Hariprasad K.',
+        fullName: 'Prof. Rajesh Sharma',
+        displayName: 'Prof. Rajesh Sharma',
         role: 'FACULTY',
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -3760,6 +3760,11 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
           _count: { students: count },
         };
       });
+
+      const curUser = getCurrentUser();
+      if (curUser && (curUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || curUser.username === 'faculty_demo' || curUser.id === 'faculty-demo-president')) {
+        localSections = localSections.filter((s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO');
+      }
     } catch {}
     return {
       success: true,

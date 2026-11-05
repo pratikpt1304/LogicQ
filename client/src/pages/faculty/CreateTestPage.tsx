@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 
 export const CreateTestPage: React.FC = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<any>(null);
@@ -94,7 +96,11 @@ export const CreateTestPage: React.FC = () => {
     refetchInterval: 8000,
   });
 
-  const sections: any[] = Array.isArray(sectionsData) ? sectionsData : [];
+  const rawSections: any[] = Array.isArray(sectionsData) ? sectionsData : [];
+  const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.id === 'faculty-demo-president' || user?.username === 'faculty_demo';
+  const sections: any[] = isDemoFaculty
+    ? rawSections.filter((s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO')
+    : rawSections;
 
   // Fetch existing tests
   const { data: testsData, isLoading, refetch } = useQuery({

@@ -201,6 +201,11 @@ const getCachedUser = (): User | null => {
       }
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
     }
+    if (parsed?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || parsed?.username === 'faculty_demo' || parsed?.id === 'faculty-demo-president') {
+      parsed.fullName = 'Prof. Rajesh Sharma';
+      parsed.displayName = 'Prof. Rajesh Sharma';
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
+    }
     if (prnUpper === '2126PMIM1039') {
       if (localStorage.getItem('logicq_pratik_clean_slate_v2') !== 'true') {
         localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
@@ -358,6 +363,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         retainedSolved = 56;
         retainedCurrentStreak = 0;
         retainedLongestStreak = 0;
+      }
+      if (finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || finalUser.username === 'faculty_demo' || finalUser.id === 'faculty-demo-president') {
+        finalUser.fullName = 'Prof. Rajesh Sharma';
+        finalUser.displayName = 'Prof. Rajesh Sharma';
       }
 
       const retainedIsEmailBound = isBoundV2;

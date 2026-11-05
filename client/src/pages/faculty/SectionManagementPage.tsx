@@ -234,12 +234,17 @@ export const SectionManagementPage: React.FC = () => {
       });
 
       // Filter out deleted/legacy demo sections - all institutional sections are shared and visible
-      const mergedList = Array.from(sectionMap.values()).filter((s: any) => {
+      let mergedList = Array.from(sectionMap.values()).filter((s: any) => {
         if (FirestoreDataService.isSectionDeleted(s.id, s.joinCode) || FirestoreDataService.isLegacyDemoSection(s)) {
           return false;
         }
         return true;
       });
+
+      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.id === 'faculty-demo-president' || user?.username === 'faculty_demo';
+      if (isDemoFaculty) {
+        mergedList = mergedList.filter((s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO');
+      }
 
       return mergedList;
     },

@@ -2713,7 +2713,7 @@ export class FirestoreDataService {
         semester: 'Semester 1',
         description: 'Comprehensive coursework on C Programming, memory models, pointers, and systems development.',
         facultyId: 'faculty-demo-president',
-        facultyName: 'Prof. Hariprasad K.',
+        facultyName: 'Prof. Rajesh Sharma',
         facultyEmail: 'faculty.demo@sanjivani.edu.in',
         students: demoStudentsEnriched,
         studentsCount: demoStudentsEnriched.length,
@@ -2726,7 +2726,7 @@ export class FirestoreDataService {
       demoSec.sectionName = 'C Programming Masterclass';
       demoSec.subject = 'C Programming & Data Structures';
       demoSec.course = 'CS101-DEMO';
-      demoSec.facultyName = 'Prof. Hariprasad K.';
+      demoSec.facultyName = 'Prof. Rajesh Sharma';
       demoSec.facultyEmail = 'faculty.demo@sanjivani.edu.in';
       demoSec.facultyId = 'faculty-demo-president';
       demoSec.students = demoStudentsEnriched;
@@ -2743,6 +2743,18 @@ export class FirestoreDataService {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       localStorage.setItem(LOCAL_KEY, JSON.stringify(result));
     } catch {}
+
+    // Strict Scoping for Dummy Faculty: ONLY give demo section (LQ-DEMO) access
+    const currentActiveEmail = auth.currentUser?.email || (typeof window !== 'undefined' ? (() => {
+      try {
+        const u = JSON.parse(localStorage.getItem('logicq_active_user') || '{}');
+        return u.email || '';
+      } catch { return ''; }
+    })() : '');
+
+    if (currentActiveEmail && (currentActiveEmail.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || currentActiveEmail.toLowerCase().includes('faculty.demo'))) {
+      return [demoSec];
+    }
 
     return result;
   }

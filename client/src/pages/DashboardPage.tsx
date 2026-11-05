@@ -207,8 +207,9 @@ export const DashboardPage: React.FC = () => {
           sectionMap.set(key, { ...existing, ...s });
         }
       });
+      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.id === 'faculty-demo-president' || user?.username === 'faculty_demo';
       return Array.from(sectionMap.values()).filter(
-        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)
+        (s) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && (!isDemoFaculty || s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO')
       );
     },
     refetchInterval: 6000,
