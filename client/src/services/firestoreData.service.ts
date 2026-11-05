@@ -20,18 +20,13 @@ import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
-import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
+import { C_PROGRAMMING_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 
-export const DEMO_1001_COMPLETED_PROBLEMS: string[] = [
-  ...TOPIC_PRACTICE_DATA.slice(0, 56).map((t) => t.id),
-  ...PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
-  ...PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug),
-  ...PRACTICE_MODULE_3_PROBLEMS.slice(0, 16).map((p) => p.slug),
-];
+export const DEMO_1001_COMPLETED_PROBLEMS: string[] = [];
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -888,26 +883,6 @@ export class FirestoreDataService {
   public static async getPracticeProgress(uid: string): Promise<StudentPracticeProgress | null> {
     const prn = FirestoreDataService.resolvePrn(uid);
 
-    // Divya Sonawane (2126DEMO1001): Rich pre-seeded practice & lab telemetry
-    if (prn === '2126DEMO1001' || (uid && uid.toUpperCase().includes('2126DEMO1001'))) {
-      try {
-        localStorage.setItem('logicq_solved_practice_topics_2126DEMO1001', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
-        localStorage.setItem('logicq_solved_practice_topics_cohort-2126demo1001', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
-        localStorage.setItem('logicq_solved_practice_topics', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
-      } catch {}
-      return {
-        userId: '2126DEMO1001',
-        completedProblems: DEMO_1001_COMPLETED_PROBLEMS,
-        moduleProgress: {
-          'control-structures': { completedCount: 20, isUnlocked: true },
-          'pointers-and-functions': { completedCount: 20, isUnlocked: true },
-          'arrays-and-strings': { completedCount: 16, isUnlocked: true },
-          'structures-and-memory': { completedCount: 0, isUnlocked: true },
-        },
-        updatedAt: new Date().toISOString(),
-      };
-    }
-
     const effectiveUid = auth.currentUser?.uid || uid;
     const localKey = effectiveUid ? `logicq_practice_progress_${effectiveUid}` : 'logicq_practice_progress';
     let localCompleted: string[] = [];
@@ -1114,19 +1089,6 @@ export class FirestoreDataService {
   public static async getStatsBackup(uid: string): Promise<StudentStatsBackup | null> {
     const prn = FirestoreDataService.resolvePrn(uid);
 
-    // Divya Sonawane (2126DEMO1001): 56 solved, 760 points, clean realistic metrics
-    if (prn === '2126DEMO1001' || (uid && uid.toUpperCase().includes('2126DEMO1001'))) {
-      return {
-        userId: '2126DEMO1001',
-        totalPoints: 760,
-        currentStreak: 0,
-        longestStreak: 0,
-        totalSolved: 56,
-        completedProblems: DEMO_1001_COMPLETED_PROBLEMS,
-        lastSolvedDate: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    }
 
     const effectiveUid = auth.currentUser?.uid;
     const localKey = effectiveUid || uid ? `logicq_stats_backup_${effectiveUid || uid}` : null;
@@ -1613,14 +1575,9 @@ export class FirestoreDataService {
         const realName = [raw.displayName, raw.fullName].find(isRealPersonName);
         let cleanName = realName || raw.displayName || raw.fullName || 'Student';
 
-        const isDivya = uid === 'cohort-2126demo1001' || raw.prn === '2126DEMO1001' || cleanName.toLowerCase().includes('aarav sharma');
-        if (isDivya) {
-          cleanName = 'Divya Sonawane';
-        }
-
         const isPratik = uid === '5ba003c2-608b-495b-a362-7f9a11ab5d52' || raw.prn === '2126PMIM1039' || (raw.username === 'pratik_thorat');
-        const finalPoints = isPratik ? 0 : (isDivya ? 760 : Number(raw.totalPoints || 0));
-        const finalSolved = isPratik ? 0 : (isDivya ? 56 : Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0)));
+        const finalPoints = isPratik ? 0 : Number(raw.totalPoints || 0);
+        const finalSolved = isPratik ? 0 : Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0));
 
         list.push({
           id: uid,
@@ -1658,8 +1615,6 @@ export class FirestoreDataService {
             seenUids.add(uid);
             const realName = [st.displayName, st.fullName, st.name].find(isRealPersonName);
             let cleanName = realName || st.displayName || st.fullName || 'Student';
-            const isDivyaSt = uid === 'cohort-2126demo1001' || st.prn === '2126DEMO1001' || cleanName.toLowerCase().includes('aarav sharma');
-            if (isDivyaSt) cleanName = 'Divya Sonawane';
             list.push({
               id: uid,
               userId: uid,
@@ -1672,10 +1627,10 @@ export class FirestoreDataService {
               department: normalizeDepartment(st.department) || st.department || null,
               year: st.year || 'FY',
               division: st.division || sec.sectionName || null,
-              totalPoints: isDivyaSt ? 760 : Number(st.totalPoints || 0),
+              totalPoints: Number(st.totalPoints || 0),
               currentStreak: 0,
               longestStreak: 0,
-              totalSolved: isDivyaSt ? 56 : Number(st.totalSolved || (Number(st.totalPoints || 0) > 0 ? 1 : 0)),
+              totalSolved: Number(st.totalSolved || (Number(st.totalPoints || 0) > 0 ? 1 : 0)),
             });
           }
         }
@@ -1840,9 +1795,12 @@ export class FirestoreDataService {
     const upperCode = (joinCode || '').toUpperCase();
     const upperId = (id || '').toUpperCase();
 
-    // Never consider authoritative active sections (LQ-C31A or LQ-DEMO) as legacy
-    if (upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO' || upperCode === 'LQ-C31A' || upperId === 'LQ-C31A') {
+    // Never consider authoritative active sections (LQ-C31A) as legacy
+    if (upperCode === 'LQ-C31A' || upperId === 'LQ-C31A') {
       return false;
+    }
+    if (upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO') {
+      return true;
     }
 
     return (
@@ -1868,6 +1826,7 @@ export class FirestoreDataService {
       const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
       const list: string[] = raw ? JSON.parse(raw) : [];
       [
+        'LQ-DEMO', 'lq-demo',
         'LQ-DC85', 'lq-dc85',
         'LQ-4904', 'lq-4904',
         'LQ-CE68', 'lq-ce68',
@@ -2653,108 +2612,11 @@ export class FirestoreDataService {
       } catch {}
     }
 
-    // Authoritative Demonstration Section: LQ-DEMO with Faculty Prof. Hariprasad K.
-    let demoSec = result.find(
-      (s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO'
-    );
-
-    const demoStudentsEnriched = DEMO_SECTION_COHORT_STUDENTS.map((ds, idx) => {
-      const isDivya = ds.prn === '2126DEMO1001';
-      const solved = isDivya ? 56 : (26 - (idx % 6));
-      const labCompleted = isDivya ? 4 : 5;
-      const labMarks = isDivya ? 18 : (18 + (idx % 3 === 0 ? 2 : 1));
-      const points = isDivya ? 760 : ((solved * 10) + (labMarks * 4));
-      const tabSwitches = isDivya ? 2 : 0;
-      const copyPastes = isDivya ? 1 : 0;
-      const honorScore = isDivya ? 92 : 100;
-      const risk = isDivya ? 'LOW' : 'NORMAL';
-
-      return {
-        id: ds.prn,
-        uid: ds.prn,
-        prn: ds.prn,
-        name: ds.fullName,
-        fullName: ds.fullName,
-        email: ds.email,
-        department: ds.department,
-        year: ds.year,
-        college: ds.college,
-        sectionId: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass',
-        joinCode: 'LQ-DEMO',
-        status: 'ACTIVE',
-        enrolledAt: 1730419200000,
-        solvedCount: solved,
-        totalPoints: points,
-        labCompletedModules: labCompleted,
-        labInternalScore: labMarks,
-        currentStreak: 0,
-        integrityScore: honorScore,
-        integrityRisk: risk,
-        tabSwitchCount: tabSwitches,
-        copyPasteAttempts: copyPastes,
-        statusCategory: 'CONSISTENT',
-      };
-    });
-
-    if (!demoSec) {
-      demoSec = {
-        id: 'LQ-DEMO',
-        joinCode: 'LQ-DEMO',
-        joinToken: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass',
-        subject: 'C Programming & Data Structures',
-        course: 'CS101-DEMO',
-        department: 'Integrated M.Tech',
-        year: 'FY',
-        college: 'Sanjivani University',
-        institution: 'Sanjivani University',
-        academicYear: '2026-2027',
-        semester: 'Semester 1',
-        description: 'Comprehensive coursework on C Programming, memory models, pointers, and systems development.',
-        facultyId: 'faculty-demo-president',
-        facultyName: 'Prof. Rajesh Sharma',
-        facultyEmail: 'faculty.demo@sanjivani.edu.in',
-        students: demoStudentsEnriched,
-        studentsCount: demoStudentsEnriched.length,
-        _count: { students: demoStudentsEnriched.length },
-        createdAt: 1730419200000,
-        isActive: true,
-      };
-      result.unshift(demoSec);
-    } else {
-      demoSec.sectionName = 'C Programming Masterclass';
-      demoSec.subject = 'C Programming & Data Structures';
-      demoSec.course = 'CS101-DEMO';
-      demoSec.facultyName = 'Prof. Rajesh Sharma';
-      demoSec.facultyEmail = 'faculty.demo@sanjivani.edu.in';
-      demoSec.facultyId = 'faculty-demo-president';
-      demoSec.students = demoStudentsEnriched;
-      demoSec.studentsCount = demoStudentsEnriched.length;
-      demoSec._count = { students: demoStudentsEnriched.length };
-    }
-
-    try {
-      localStorage.setItem('logicq_section_students_LQ-DEMO', JSON.stringify(demoStudentsEnriched));
-    } catch {}
-
     // Update persistent local backup so fallback always has current valid sections
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       localStorage.setItem(LOCAL_KEY, JSON.stringify(result));
     } catch {}
-
-    // Strict Scoping for Dummy Faculty: ONLY give demo section (LQ-DEMO) access
-    const currentActiveEmail = auth.currentUser?.email || (typeof window !== 'undefined' ? (() => {
-      try {
-        const u = JSON.parse(localStorage.getItem('logicq_active_user') || '{}');
-        return u.email || '';
-      } catch { return ''; }
-    })() : '');
-
-    if (currentActiveEmail && (currentActiveEmail.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || currentActiveEmail.toLowerCase().includes('faculty.demo'))) {
-      return [demoSec];
-    }
 
     return result;
   }

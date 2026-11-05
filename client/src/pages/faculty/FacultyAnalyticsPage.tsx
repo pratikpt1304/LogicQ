@@ -208,11 +208,6 @@ export const FacultyAnalyticsPage: React.FC = () => {
         return true;
       });
 
-      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.id === 'faculty-demo-president' || user?.username === 'faculty_demo';
-      if (isDemoFaculty) {
-        mySections = mySections.filter((s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO');
-      }
-
       // Map to deduplicate students across all sections by email or PRN
       const studentMap = new Map<string, StudentRosterItem>();
 

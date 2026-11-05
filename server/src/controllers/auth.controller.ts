@@ -1319,22 +1319,18 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
   const lower = cleanId.toLowerCase().trim();
   if (
     lower === 'faculty@logicq.io' ||
-    lower === 'faculty.demo@sanjivani.edu.in' ||
-    lower === 'hariprasad.demo@sanjivani.edu.in' ||
-    lower === 'faculty_demo' ||
-    lower === 'faculty' ||
-    lower === 'prof.hariprasad'
+    lower === 'faculty'
   ) {
     const passwordHash = await bcrypt.hash('password123', 10);
     return await prisma.user.upsert({
-      where: { email: 'faculty.demo@sanjivani.edu.in' },
+      where: { email: 'faculty@logicq.io' },
       update: { role: 'FACULTY', profileComplete: true, passwordHash },
       create: {
-        username: 'faculty_demo',
-        email: 'faculty.demo@sanjivani.edu.in',
+        username: 'faculty_walkthrough',
+        email: 'faculty@logicq.io',
         role: 'FACULTY',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
+        fullName: 'Faculty Instructor',
+        displayName: 'Faculty',
         passwordHash,
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -1573,10 +1569,7 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
     // Fixed walkthrough bypass for demo faculty and students
     if (
       targetEmail.toLowerCase() === 'student@logicq.io' ||
-      targetEmail.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
-      targetEmail.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
-      targetEmail.toLowerCase() === 'faculty@logicq.io' ||
-      targetEmail.toLowerCase().includes('demo')
+      targetEmail.toLowerCase() === 'faculty@logicq.io'
     ) {
       res.json({
         success: true,
@@ -1769,12 +1762,10 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Whitelist check: faculty@logicq.io, student@logicq.io, faculty.demo@sanjivani.edu.in, admin@logicq.io & logicqarena@gmail.com can authenticate using OTP 123456
+    // Whitelist check: faculty@logicq.io, student@logicq.io, admin@logicq.io & logicqarena@gmail.com can authenticate using OTP 123456
     const cleanEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
       cleanEmail === 'faculty@logicq.io' ||
-      cleanEmail === 'faculty.demo@sanjivani.edu.in' ||
-      cleanEmail === 'hariprasad.demo@sanjivani.edu.in' ||
       cleanEmail === 'student@logicq.io' ||
       cleanEmail === 'admin@logicq.io' ||
       cleanEmail === 'logicqarena@gmail.com' ||

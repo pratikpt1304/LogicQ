@@ -143,36 +143,10 @@ export const C_PROGRAMMING_COHORT_STUDENTS: EnrolledCohortStudent[] = [
   { index: 116, prn: "2126PMIM1124", fullName: "Vivek Gangadhar Tuwar", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-C31A", sectionName: "C Programming", joinCode: "LQ-C31A", email: "2126pmim1124@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
 ];
 
-/**
- * Demonstration Section (LQ-DEMO)
- * Realistic cohort for University Leadership and course reviews.
- */
-export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [
-  { index: 1, prn: "2126DEMO1001", fullName: "Divya Sonawane", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "divya.sonawane@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 2, prn: "2126DEMO1002", fullName: "Ananya Deshmukh", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "ananya.deshmukh@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 3, prn: "2126DEMO1003", fullName: "Rohan Kulkarni", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "rohan.kulkarni@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 4, prn: "2126DEMO1004", fullName: "Priya Patil", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "priya.patil@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 5, prn: "2126DEMO1005", fullName: "Aditya Joshi", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "aditya.joshi@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 6, prn: "2126DEMO1006", fullName: "Neha Shinde", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "neha.shinde@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 7, prn: "2126DEMO1007", fullName: "Omkar Pawar", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "omkar.pawar@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 8, prn: "2126DEMO1008", fullName: "Sneha More", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "sneha.more@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 9, prn: "2126DEMO1009", fullName: "Tanmay Gholap", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "tanmay.gholap@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 10, prn: "2126DEMO1010", fullName: "Isha Kadam", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "isha.kadam@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 11, prn: "2126DEMO1011", fullName: "Sarthak Jagtap", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "sarthak.jagtap@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 12, prn: "2126DEMO1012", fullName: "Rutuja Bhalerao", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "rutuja.bhalerao@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 13, prn: "2126DEMO1013", fullName: "Kunal Gaikwad", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "kunal.gaikwad@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 14, prn: "2126DEMO1014", fullName: "Pooja Salunke", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "pooja.salunke@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 15, prn: "2126DEMO1015", fullName: "Atharva Sonawane", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "atharva.sonawane@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 16, prn: "2126DEMO1016", fullName: "Vaishnavi Wagh", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "vaishnavi.wagh@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 17, prn: "2126DEMO1017", fullName: "Yash Tambe", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "yash.tambe@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 18, prn: "2126DEMO1018", fullName: "Divya Navale", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "divya.navale@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 19, prn: "2126DEMO1019", fullName: "Pranav Gunjal", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "pranav.gunjal@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-  { index: 20, prn: "2126DEMO1020", fullName: "Sakshi Thorat", department: "Integrated M.Tech", year: "FY", college: "Sanjivani University", sectionId: "LQ-DEMO", sectionName: "C Programming Masterclass", joinCode: "LQ-DEMO", email: "sakshi.thorat@sanjivani.edu.in", role: 'STUDENT', profileComplete: true },
-];
+export const DEMO_SECTION_COHORT_STUDENTS: EnrolledCohortStudent[] = [];
 
 export const ALL_COHORT_STUDENTS = [
   ...C_PROGRAMMING_COHORT_STUDENTS,
-  ...DEMO_SECTION_COHORT_STUDENTS,
 ];
 
 /**

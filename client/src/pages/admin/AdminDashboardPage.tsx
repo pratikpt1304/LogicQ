@@ -1635,9 +1635,9 @@ export const AdminDashboardPage: React.FC = () => {
       {
         id: 'faculty_default',
         email: 'faculty@logicq.io',
-        username: 'faculty_demo',
-        fullName: 'Prof. Demo Faculty (Walkthrough)',
-        displayName: 'Prof. Demo Faculty',
+        username: 'faculty_instructor',
+        fullName: 'Prof. Faculty Instructor',
+        displayName: 'Prof. Faculty Instructor',
         role: 'FACULTY',
         department: 'Integrated M.Tech',
         college: 'Sanjivani University',

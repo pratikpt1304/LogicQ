@@ -320,7 +320,6 @@ export function resolveGreetingName(
 ): string {
   const prn = (user as any)?.prn?.toUpperCase();
   if (prn === '2126PMIM1039') return 'Pratik Thorat';
-  if (prn === '2126DEMO1001') return 'Divya Sonawane';
   if (user) {
     if (isRealPersonName(user.displayName)) return user.displayName!.trim();
     if (isRealPersonName(user.fullName)) return user.fullName!.trim();

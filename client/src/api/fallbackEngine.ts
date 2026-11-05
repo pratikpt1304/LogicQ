@@ -416,31 +416,13 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io' || u.email.toLowerCase() === 'faculty.demo@sanjivani.edu.in')) {
-        sanitized.push({
-          id: 'faculty-demo-president',
-          username: 'faculty_demo',
-          email: 'faculty.demo@sanjivani.edu.in',
-          fullName: 'Prof. Rajesh Sharma',
-          displayName: 'Prof. Rajesh Sharma',
-          role: 'FACULTY',
-          college: 'Sanjivani University',
-          department: 'Integrated M.Tech',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'HARI',
-          createdAt: new Date().toISOString(),
-        } as any);
+      if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
         sanitized.push({
           id: 'faculty-walkthrough-1',
-          username: 'faculty_demo_walkthrough',
+          username: 'faculty_instructor',
           email: 'faculty@logicq.io',
-          fullName: 'Prof. Demo Faculty (Walkthrough)',
-          displayName: 'Prof. Demo Faculty',
+          fullName: 'Course Instructor',
+          displayName: 'Course Instructor',
           role: 'FACULTY',
           college: 'Sanjivani University',
           department: 'CSE',
@@ -625,29 +607,11 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       createdAt: new Date().toISOString(),
     },
     {
-      id: 'faculty-demo-president',
-      username: 'faculty_demo',
-      email: 'faculty.demo@sanjivani.edu.in',
-      fullName: 'Prof. Rajesh Sharma',
-      displayName: 'Prof. Rajesh Sharma',
-      role: 'FACULTY',
-      college: 'Sanjivani University',
-      department: 'Integrated M.Tech',
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: 'HARI',
-      createdAt: new Date().toISOString(),
-    },
-    {
       id: 'faculty-walkthrough-1',
-      username: 'faculty_demo_walkthrough',
+      username: 'faculty_instructor',
       email: 'faculty@logicq.io',
-      fullName: 'Prof. Demo Faculty (Walkthrough)',
-      displayName: 'Prof. Demo Faculty',
+      fullName: 'Course Instructor',
+      displayName: 'Course Instructor',
       role: 'FACULTY',
       college: 'Sanjivani University',
       department: 'CSE',
@@ -747,89 +711,6 @@ function getCurrentUser(): User | null {
 }
 
 const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
-  {
-    id: 'sub_demo_1001_p1',
-    problemId: 'kanetkar-ch02-rotate-array',
-    userId: 'cohort-2126demo1001',
-    user: {
-      id: 'cohort-2126demo1001',
-      fullName: 'Divya Sonawane',
-      displayName: 'Divya Sonawane',
-      prn: '2126DEMO1001',
-      email: 'divya.sonawane@sanjivani.edu.in',
-      department: 'Integrated M.Tech',
-      year: 'FY',
-    },
-    tabSwitchCount: 2,
-    copyPasteAttempts: 1,
-    honorScore: 92,
-    integrityScore: 92,
-    integrityRisk: 'LOW',
-    problem: {
-      id: 'kanetkar-ch02-rotate-array',
-      title: 'Cyclic Array Rotation & Memory Barrier',
-      slug: 'kanetkar-ch02-rotate-array',
-      difficulty: 'MEDIUM',
-      category: 'Arrays & Pointers',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 2,
-    memoryKb: 1024,
-    code: `#include <stdio.h>\n#include <stdlib.h>\n\nvoid reverse(int* arr, int start, int end) {\n    while (start < end) {\n        int temp = arr[start];\n        arr[start] = arr[end];\n        arr[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nvoid rotate(int* nums, int numsSize, int k) {\n    if (numsSize <= 1) return;\n    k = k % numsSize;\n    reverse(nums, 0, numsSize - 1);\n    reverse(nums, 0, k - 1);\n    reverse(nums, k, numsSize - 1);\n}\n\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int* arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) {\n        scanf("%d", &arr[i]);\n    }\n    rotate(arr, n, k);\n    for (int i = 0; i < n; i++) {\n        printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n    }\n    free(arr);\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-  },
-  {
-    id: 'sub_demo_1002_p2',
-    problemId: 'kanetkar-ch03-reverse-string',
-    userId: 'cohort-2126demo1002',
-    user: {
-      id: 'cohort-2126demo1002',
-      fullName: 'Ananya Deshmukh',
-      displayName: 'Ananya Deshmukh',
-      prn: '2126DEMO1002',
-      email: 'ananya.deshmukh@sanjivani.edu.in',
-      department: 'Integrated M.Tech',
-      year: 'FY',
-    },
-    problem: {
-      id: 'kanetkar-ch03-reverse-string',
-      title: 'In-Place String Inversion Using Pointers',
-      slug: 'kanetkar-ch03-reverse-string',
-      difficulty: 'EASY',
-      category: 'Strings & Pointers',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 1,
-    memoryKb: 980,
-    code: `#include <stdio.h>\n#include <string.h>\n\nvoid reverseString(char* s) {\n    int left = 0;\n    int right = strlen(s) - 1;\n    while (left < right) {\n        char temp = s[left];\n        s[left] = s[right];\n        s[right] = temp;\n        left++;\n        right--;\n    }\n}\n\nint main() {\n    char str[1024];\n    if (fgets(str, sizeof(str), stdin)) {\n        str[strcspn(str, "\\n")] = 0;\n        reverseString(str);\n        printf("%s\\n", str);\n    }\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
-  },
-  {
-    id: 'sub_demo_1003_p3',
-    problemId: 'kanetkar-ch04-string-compression',
-    userId: 'cohort-2126demo1003',
-    user: {
-      id: 'cohort-2126demo1003',
-      fullName: 'Rohan Kulkarni',
-      displayName: 'Rohan Kulkarni',
-      prn: '2126DEMO1003',
-      email: 'rohan.kulkarni@sanjivani.edu.in',
-      department: 'Integrated M.Tech',
-      year: 'FY',
-    },
-    problem: {
-      id: 'kanetkar-ch04-string-compression',
-      title: 'Run-Length Character Compression',
-      slug: 'kanetkar-ch04-string-compression',
-      difficulty: 'MEDIUM',
-      category: 'Data Structures',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 3,
-    memoryKb: 1120,
-    code: `#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char str[1024];\n    if (!fgets(str, sizeof(str), stdin)) return 0;\n    str[strcspn(str, "\\n")] = 0;\n    int len = strlen(str);\n    for (int i = 0; i < len; i++) {\n        int count = 1;\n        while (i + 1 < len && str[i] == str[i + 1]) {\n            count++;\n            i++;\n        }\n        printf("%c%d", str[i], count);\n    }\n    printf("\\n");\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 6).toISOString(),
-  },
   {
     id: 'sub_arch_001',
     problemId: 'kanetkar-ch02-rotate-array',
@@ -1057,20 +938,13 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (!user && (
-      cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
-      cleanId.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
-      cleanId.toLowerCase() === 'faculty_demo' ||
-      cleanId.toLowerCase() === 'faculty@logicq.io' ||
-      cleanId.toLowerCase() === 'faculty' ||
-      cleanId.toLowerCase() === 'prof.hariprasad'
-    )) {
+    if (!user && (cleanId.toLowerCase() === 'faculty@logicq.io' || cleanId.toLowerCase() === 'faculty')) {
       user = {
-        id: 'faculty-demo-president',
-        username: 'faculty_demo',
-        email: 'faculty.demo@sanjivani.edu.in',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
+        id: 'faculty-walkthrough-1',
+        username: 'faculty_instructor',
+        email: 'faculty@logicq.io',
+        fullName: 'Faculty Instructor',
+        displayName: 'Faculty',
         role: 'FACULTY',
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -1232,20 +1106,13 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (!user && (
-      cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
-      cleanId.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
-      cleanId.toLowerCase() === 'faculty_demo' ||
-      cleanId.toLowerCase() === 'faculty@logicq.io' ||
-      cleanId.toLowerCase() === 'faculty' ||
-      cleanId.toLowerCase() === 'prof.hariprasad'
-    )) {
+    if (!user && (cleanId.toLowerCase() === 'faculty@logicq.io' || cleanId.toLowerCase() === 'faculty')) {
       user = {
-        id: 'faculty-demo-president',
-        username: 'faculty_demo',
-        email: 'faculty.demo@sanjivani.edu.in',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
+        id: 'faculty-walkthrough-1',
+        username: 'faculty_instructor',
+        email: 'faculty@logicq.io',
+        fullName: 'Faculty Instructor',
+        displayName: 'Faculty',
         role: 'FACULTY',
         college: 'Sanjivani University',
         department: 'Integrated M.Tech',
@@ -1332,12 +1199,10 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       throw new Error('Your account has been suspended by an administrator.');
     }
 
-    // Whitelist check: faculty@logicq.io, student@logicq.io, faculty.demo@sanjivani.edu.in, logicqarena@gmail.com & admin@logicq.io can authenticate using OTP 123456
+    // Whitelist check: faculty@logicq.io, student@logicq.io, logicqarena@gmail.com & admin@logicq.io can authenticate using OTP 123456
     const cleanUserEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
       cleanUserEmail === 'faculty@logicq.io' ||
-      cleanUserEmail === 'faculty.demo@sanjivani.edu.in' ||
-      cleanUserEmail === 'hariprasad.demo@sanjivani.edu.in' ||
       cleanUserEmail === 'student@logicq.io' ||
       cleanUserEmail === 'admin@logicq.io' ||
       cleanUserEmail === 'logicqarena@gmail.com' ||
@@ -1429,11 +1294,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         u.username.toLowerCase() === cleanLower ||
         (u.prn && u.prn.toUpperCase() === cleanId.toUpperCase())
     );
-
-    // Fast resolution for Presidential Demo Faculty
-    if (!found && (cleanLower === 'faculty' || cleanLower === 'faculty_demo' || cleanLower === 'faculty.demo@sanjivani.edu.in' || cleanLower === 'hariprasad.demo@sanjivani.edu.in' || cleanLower === 'prof.hariprasad')) {
-      found = users.find((u) => u.id === 'faculty-demo-president' || u.email.toLowerCase() === 'faculty.demo@sanjivani.edu.in');
-    }
 
     if (!found) {
       const cohortSt = findCohortStudent(cleanId);
@@ -3761,10 +3621,6 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
         };
       });
 
-      const curUser = getCurrentUser();
-      if (curUser && (curUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || curUser.username === 'faculty_demo' || curUser.id === 'faculty-demo-president')) {
-        localSections = localSections.filter((s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO');
-      }
     } catch {}
     return {
       success: true,
@@ -4034,58 +3890,6 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
       tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
       if (!Array.isArray(tests)) tests = [];
     } catch {}
-
-    // Ensure Presidential Demo Section (LQ-DEMO) always has realistic assessments ready for showcase
-    if (!tests.some((t: any) => t.sectionId === 'LQ-DEMO' || t.id === 'test_demo_cie_1')) {
-      const demoTests = [
-        {
-          id: 'test_demo_cie_1',
-          title: 'Continuous Evaluation 1: Control Flow & Bitwise Operations',
-          sectionId: 'LQ-DEMO',
-          section: { id: 'LQ-DEMO', sectionName: 'C Programming Masterclass', joinCode: 'LQ-DEMO' },
-          moduleId: 'Module 1 & 2 - Core Control Flow',
-          instructions: 'Proctored institutional evaluation. Auto-graded with C11 GCC. Full test suite execution required.',
-          durationMinutes: 45,
-          questionCount: 2,
-          easyRatio: 50,
-          mediumRatio: 50,
-          hardRatio: 0,
-          randomiseQuestions: true,
-          startTime: new Date(Date.now() - 86400000 * 2).toISOString(),
-          endTime: new Date(Date.now() + 86400000 * 5).toISOString(),
-          attemptPolicy: 'STRICT_NO_REATTEMPT',
-          status: 'PUBLISHED',
-          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-          creationMode: 'AUTO_SYLLABUS',
-          _count: { questions: 2 },
-        },
-        {
-          id: 'test_demo_lab_2',
-          title: 'Mid-Term Practical Assessment: Pointers, Memory Models & Arrays',
-          sectionId: 'LQ-DEMO',
-          section: { id: 'LQ-DEMO', sectionName: 'C Programming Masterclass', joinCode: 'LQ-DEMO' },
-          moduleId: 'Module 3 - Pointers & Memory Management',
-          instructions: 'Hands-on lab practical. Pointers, memory allocation, and algorithmic performance verified.',
-          durationMinutes: 60,
-          questionCount: 2,
-          easyRatio: 30,
-          mediumRatio: 50,
-          hardRatio: 20,
-          randomiseQuestions: true,
-          startTime: new Date(Date.now() - 86400000).toISOString(),
-          endTime: new Date(Date.now() + 86400000 * 6).toISOString(),
-          attemptPolicy: 'STRICT_NO_REATTEMPT',
-          status: 'ACTIVE',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          creationMode: 'AUTO_SYLLABUS',
-          _count: { questions: 2 },
-        },
-      ];
-      tests = [...demoTests, ...tests];
-      try {
-        localStorage.setItem(TESTS_KEY, JSON.stringify(tests));
-      } catch {}
-    }
 
     return {
       success: true,

@@ -359,7 +359,7 @@ export async function autoSeedDatabase(): Promise<void> {
       where: { email: 'faculty@logicq.io' },
       update: { role: 'FACULTY', profileComplete: true },
       create: {
-        username: 'faculty_demo',
+        username: 'faculty_walkthrough',
         email: 'faculty@logicq.io',
         fullName: 'Prof. Demo Faculty (Walkthrough)',
         displayName: 'Prof. Demo Faculty',
