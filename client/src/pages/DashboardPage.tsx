@@ -19,7 +19,7 @@ import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
-import { C_PROGRAMMING_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
+import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { getPracticeModuleUnlockInfo, getLabModuleUnlockInfo } from '../utils/progression.js';
 import { toast } from 'sonner';
@@ -533,6 +533,13 @@ export const DashboardPage: React.FC = () => {
     const list = getSolvedPracticeTopicIds(user?.id);
     if (user?.prn) {
       getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+    }
+    const prnUpper = (user?.prn || '').toUpperCase();
+    if (prnUpper.startsWith('2126DEMO')) {
+      const demoSt = DEMO_SECTION_COHORT_STUDENTS.find((s) => s.prn.toUpperCase() === prnUpper);
+      const count = demoSt?.totalSolved ?? 58;
+      const demoSolved = TOPIC_PRACTICE_DATA.slice(0, count).map((t) => t.id);
+      return Array.from(new Set([...list, ...demoSolved]));
     }
     return list;
   });

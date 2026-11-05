@@ -252,6 +252,22 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleQuickFacultyDemoLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await login('faculty.demo@sanjivani.edu.in', 'demo123');
+      setIsVerifiedSuccess(true);
+      setTimeout(() => {
+        navigate('/faculty/analytics', { replace: true });
+      }, 700);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to initialize faculty demo session.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fullOtpCode = otpDigits.join('');
 
   return (
@@ -628,6 +644,22 @@ export const LoginPage: React.FC = () => {
                   )}
                 </>
               )}
+
+              {/* Demo Faculty 1-Click Access Portal */}
+              <div className="mt-5 pt-4 border-t border-[var(--border-line)]">
+                <button
+                  type="button"
+                  onClick={handleQuickFacultyDemoLogin}
+                  disabled={loading}
+                  className="w-full py-2.5 px-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-between transition-all cursor-pointer shadow-xs active:scale-98"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping inline-block" />
+                    <span>Faculty Demo Portal (Prof. Rajesh Sharma)</span>
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </>
           )}
         </div>

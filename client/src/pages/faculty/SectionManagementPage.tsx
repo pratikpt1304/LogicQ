@@ -241,6 +241,11 @@ export const SectionManagementPage: React.FC = () => {
         return true;
       });
 
+      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.username === 'faculty_demo';
+      if (isDemoFaculty) {
+        mergedList = mergedList.filter((s: any) => s.id === 'LQ-DEMO' || s.joinCode === 'LQ-DEMO');
+      }
+
       return mergedList;
     },
     refetchInterval: 6000, // Live real-time sync with student enrollments & admin

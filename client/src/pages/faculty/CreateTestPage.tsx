@@ -97,7 +97,10 @@ export const CreateTestPage: React.FC = () => {
   });
 
   const rawSections: any[] = Array.isArray(sectionsData) ? sectionsData : [];
-  const sections: any[] = rawSections;
+  const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.username === 'faculty_demo';
+  const sections: any[] = isDemoFaculty
+    ? rawSections.filter((s: any) => s.id === 'LQ-DEMO' || s.joinCode === 'LQ-DEMO')
+    : rawSections;
 
   // Fetch existing tests
   const { data: testsData, isLoading, refetch } = useQuery({

@@ -20,7 +20,7 @@ import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
-import { C_PROGRAMMING_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
+import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
@@ -1795,12 +1795,9 @@ export class FirestoreDataService {
     const upperCode = (joinCode || '').toUpperCase();
     const upperId = (id || '').toUpperCase();
 
-    // Never consider authoritative active sections (LQ-C31A) as legacy
-    if (upperCode === 'LQ-C31A' || upperId === 'LQ-C31A') {
+    // Never consider authoritative active sections (LQ-C31A, LQ-DEMO) as legacy
+    if (upperCode === 'LQ-C31A' || upperId === 'LQ-C31A' || upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO') {
       return false;
-    }
-    if (upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO') {
-      return true;
     }
 
     return (
@@ -2609,6 +2606,72 @@ export class FirestoreDataService {
         if (cProgSec.joinCode) {
           localStorage.setItem(`logicq_section_students_${cProgSec.joinCode}`, JSON.stringify(existingStudents));
         }
+      } catch {}
+    }
+
+    // Authoritative Demo Cohort Injection: Ensure LQ-DEMO (C Programming Masterclass) has all demo students
+    if (DEMO_SECTION_COHORT_STUDENTS && DEMO_SECTION_COHORT_STUDENTS.length > 0) {
+      let demoSec = result.find(
+        (s: any) =>
+          s.joinCode === 'LQ-DEMO' ||
+          s.id === 'LQ-DEMO' ||
+          s.sectionName === 'C Programming Masterclass'
+      );
+
+      const demoStudentsList = DEMO_SECTION_COHORT_STUDENTS.map((st) => ({
+        id: `demo_${st.prn.toLowerCase()}`,
+        userId: `demo_${st.prn.toLowerCase()}`,
+        name: st.fullName,
+        fullName: st.fullName,
+        displayName: st.fullName,
+        email: st.email,
+        prn: st.prn,
+        department: st.department,
+        year: st.year,
+        college: st.college,
+        status: 'ENROLLED',
+        sectionId: 'LQ-DEMO',
+        sectionName: 'C Programming Masterclass',
+        joinCode: 'LQ-DEMO',
+        totalPoints: st.totalPoints ?? 0,
+        solvedCount: st.totalSolved ?? 0,
+        currentStreak: st.currentStreak ?? 0,
+        labCompletedModules: st.labCompletedModules ?? 0,
+        labInternalScore: st.labInternalScore ?? 0,
+        cieScore: st.cieScore ?? 0,
+        tabSwitchCount: st.tabSwitchCount ?? 0,
+      }));
+
+      if (!demoSec) {
+        demoSec = {
+          id: 'LQ-DEMO',
+          joinCode: 'LQ-DEMO',
+          sectionName: 'C Programming Masterclass',
+          subject: 'C Programming',
+          course: 'Integrated M.Tech (CSE)',
+          department: 'Integrated M.Tech',
+          year: 'FY',
+          college: 'Sanjivani University',
+          facultyId: 'faculty_demo',
+          facultyEmail: 'faculty.demo@sanjivani.edu.in',
+          facultyName: 'Prof. Rajesh Sharma',
+          students: demoStudentsList,
+          studentsCount: demoStudentsList.length,
+          _count: { students: demoStudentsList.length },
+          createdAt: 1730000000000,
+        };
+        result.push(demoSec);
+      } else {
+        demoSec.students = demoStudentsList;
+        demoSec.studentsCount = demoStudentsList.length;
+        demoSec._count = { students: demoStudentsList.length };
+        demoSec.facultyId = 'faculty_demo';
+        demoSec.facultyEmail = 'faculty.demo@sanjivani.edu.in';
+        demoSec.facultyName = 'Prof. Rajesh Sharma';
+      }
+
+      try {
+        localStorage.setItem(`logicq_section_students_LQ-DEMO`, JSON.stringify(demoStudentsList));
       } catch {}
     }
 

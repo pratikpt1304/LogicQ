@@ -208,6 +208,11 @@ export const FacultyAnalyticsPage: React.FC = () => {
         return true;
       });
 
+      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.username === 'faculty_demo';
+      if (isDemoFaculty) {
+        mySections = mySections.filter((s: any) => s.id === 'LQ-DEMO' || s.joinCode === 'LQ-DEMO');
+      }
+
       // Map to deduplicate students across all sections by email or PRN
       const studentMap = new Map<string, StudentRosterItem>();
 
@@ -218,7 +223,9 @@ export const FacultyAnalyticsPage: React.FC = () => {
         stId: string,
         fallbackSolved = 0,
         fallbackPoints = 0,
-        fallbackStreak = 0
+        fallbackStreak = 0,
+        fallbackLabModules = 0,
+        fallbackLabScore = 0
       ) => {
         const cleanP = (stPrn || '').toUpperCase().trim();
         const cleanE = (stEmail || '').toLowerCase().trim();
@@ -252,8 +259,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
                  (stId && luid === stId);
         });
         const realCompletedLab = matchedLab.filter((ls: any) => ls.status === 'COMPLETED').length;
-        const labCompletedModules = realCompletedLab;
-        const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+        const labCompletedModules = realCompletedLab > 0 ? realCompletedLab : Number(fallbackLabModules || 0);
+        const labInternalScore = realCompletedLab > 0 ? Math.min(20, Math.round((labCompletedModules / 5) * 20)) : Number(fallbackLabScore || 0);
 
         return { solvedCount, totalPoints, currentStreak, labCompletedModules, labInternalScore };
       };
@@ -279,13 +286,15 @@ export const FacultyAnalyticsPage: React.FC = () => {
             prn,
             email,
             id,
-            Number(st.solvedCount || st.student?.solvedCount || 0),
+            Number(st.solvedCount ?? st.totalSolved ?? st.student?.solvedCount ?? 0),
             Number(st.totalPoints ?? st.student?.totalPoints ?? 0),
-            Number(st.currentStreak ?? st.student?.currentStreak ?? 0)
+            Number(st.currentStreak ?? st.student?.currentStreak ?? 0),
+            Number(st.labCompletedModules ?? st.student?.labCompletedModules ?? 0),
+            Number(st.labInternalScore ?? st.student?.labInternalScore ?? 0)
           );
           const statusCategory: 'CONSISTENT' | 'NEEDS_HELP' | 'INTEGRITY_FLAG' = 
             Number(st.tabSwitchCount || 0) > 3 ? 'INTEGRITY_FLAG' :
-            (solvedCount < 1 && labCompletedModules < 1) ? 'NEEDS_HELP' : 'CONSISTENT';
+            (solvedCount < 10 && labCompletedModules < 2) ? 'NEEDS_HELP' : 'CONSISTENT';
 
           studentMap.set(key, {
             id,
@@ -295,13 +304,13 @@ export const FacultyAnalyticsPage: React.FC = () => {
             prn: prn || 'PENDING',
             email: email || '—',
             department: normalizeDepartment(st.department) || st.department || normalizeDepartment(sec.course) || 'General',
-            year: st.year || 'SY',
+            year: st.year || 'FY',
             division: st.division || sec.sectionName || 'A',
             totalPoints: points,
             currentStreak: streak,
-            solvedCount: Math.min(25, solvedCount),
-            integrityScore: 100,
-            integrityRisk: 'NORMAL',
+            solvedCount: Math.min(100, solvedCount),
+            integrityScore: Math.max(40, 100 - (Number(st.tabSwitchCount || 0) * 12)),
+            integrityRisk: Number(st.tabSwitchCount || 0) > 3 ? 'HIGH' : 'NORMAL',
             tabSwitchCount: Number(st.tabSwitchCount || 0),
             copyPasteAttempts: Number(st.copyPasteAttempts || 0),
             statusCategory,
