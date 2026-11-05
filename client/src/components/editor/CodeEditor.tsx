@@ -1,6 +1,6 @@
 import React from 'react';
 import { monaco } from '../../utils/monacoSetup.js';
-import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2 } from 'lucide-react';
+import { RotateCcw, Copy, Check, Upload, ShieldCheck, ShieldAlert, Lock, Play, Loader2, Cloud } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../../context/ThemeContext.js';
 
@@ -472,6 +472,13 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               solution.c
               <span className={`text-xs px-1.5 py-0.5 rounded border font-bold ${effectiveTheme === 'dark' ? 'bg-slate-800 border-slate-700 text-cyan-300' : 'text-[var(--color-accent)] bg-[var(--bg-panel)] border-[var(--border-line)]'}`}>
                 C
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-2xs font-semibold"
+                title="All your C programming code is auto-saved in real-time to Cloud Firestore. Zero data loss."
+              >
+                <Cloud className="w-3 h-3 text-emerald-500" />
+                <span>Auto-Saved</span>
               </span>
               {readOnly && (
                 <span

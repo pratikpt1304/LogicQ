@@ -453,6 +453,38 @@ export const TerminalConsole: React.FC<TerminalConsoleProps> = ({
               )}
             </div>
 
+            {/* Friendly GCC Human Error Explainer Card (Zero Clicks Needed) */}
+            {hints.length > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 space-y-3 font-sans">
+                <div className="flex items-center gap-2 text-amber-500 dark:text-amber-400 font-bold text-xs">
+                  <Lightbulb className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
+                  <span>Plain-English Compiler Hint ({hints.length} issue{hints.length > 1 ? 's' : ''} detected):</span>
+                </div>
+                {hints.map((hint, hIdx) => (
+                  <div key={hIdx} className="space-y-1.5 pt-2 border-t border-amber-500/20 first:border-0 first:pt-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-amber-600 dark:text-amber-300">{hint.title}</span>
+                      {hint.line && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                          Line {hint.line}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                      {hint.explanation}
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-white/70 dark:bg-black/50 border border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-emerald-800 dark:text-emerald-200">How to Fix: </strong>
+                        <span>{hint.remedy}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Compiler Error / Warning Diagnostics */}
             {compileOutput && (
               <div className="space-y-1.5">
