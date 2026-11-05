@@ -25,7 +25,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [fastTrackCode, setFastTrackCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -89,14 +88,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
       if (res?.success) {
         setStep('otp');
-        const code = res.code || res.devOtp;
-        if (code && String(code).length === 6) {
-          setFastTrackCode(String(code));
-          setOtpDigits(String(code).split(''));
-        } else {
-          setFastTrackCode(null);
-          setOtpDigits(['', '', '', '', '', '']);
-        }
+        setOtpDigits(['', '', '', '', '', '']);
         setCooldown(res.cooldownRemaining || 60);
         toast.success('Verification code dispatched!', {
           description: `Check your inbox at ${cleanEmail}`,
@@ -429,12 +421,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                 <p className="text-xs text-[var(--text-muted)] font-mono">
                   We sent a 6-digit code to <strong className="text-[var(--text-main)]">{email}</strong>
                 </p>
-                {fastTrackCode && (
-                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono flex items-center justify-between">
-                    <span>Quick Code: <strong>{fastTrackCode}</strong></span>
-                    <span className="text-[10px] text-emerald-300">Auto-filled</span>
-                  </div>
-                )}
               </div>
 
               {/* 6-Digit OTP Input */}

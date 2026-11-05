@@ -1024,7 +1024,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       message: `6-digit verification OTP sent to ${maskedTarget}`,
       target: maskedTarget,
       cooldownRemaining: 60,
-      devOtp: rawOtp,
     };
   }
 
@@ -1573,7 +1572,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       message: `Verification code sent to ${maskedTarget}`,
       target: maskedTarget,
       cooldownRemaining: 60,
-      devOtp: rawOtp,
     };
   }
 
