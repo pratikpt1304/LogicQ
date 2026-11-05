@@ -1387,21 +1387,21 @@ export const ProfilePage: React.FC = () => {
 
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                Current Streak
+                Curriculum Progress
               </span>
-              <div className="text-2xl font-extrabold text-amber-500 font-mono flex items-center gap-1.5">
-                <Flame className="w-5 h-5 fill-amber-500/20" />
-                <span>{Math.max(profile.currentStreak || 0, isOwnProfile ? (currentUser?.currentStreak || 0) : 0)}d</span>
+              <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono flex items-center gap-1.5">
+                <Target className="w-5 h-5 text-blue-500" />
+                <span>{Math.min(100, Math.round(((profile.totalSolved || 0) / 100) * 100))}%</span>
               </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                Longest Streak
+                Campus Standing
               </span>
               <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono flex items-center gap-1.5">
-                <Target className="w-5 h-5 text-teal-500" />
-                <span>{Math.max(profile.longestStreak || 0, isOwnProfile ? (currentUser?.longestStreak || 0) : 0)} days</span>
+                <TrendingUp className="w-5 h-5 text-teal-500" />
+                <span>Rank #{profile.rank || 1}</span>
               </div>
             </div>
           </div>
@@ -2142,7 +2142,7 @@ export const ProfilePage: React.FC = () => {
                     <span>Rolling 30-Day Policy</span>
                   </div>
                   <p className="text-[#E8EAF6] leading-relaxed">
-                    You can change your PRN at most <strong>once every 30 days</strong>. Points, streaks, submissions, and ranking history belong to your account and will remain completely intact.
+                    You can change your PRN at most <strong>once every 30 days</strong>. Points, submissions, and ranking history belong to your account and will remain completely intact.
                   </p>
                 </div>
 
