@@ -13,6 +13,7 @@ import {
   onSnapshot,
   serverTimestamp,
   arrayUnion,
+  increment,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase.js';
@@ -617,6 +618,102 @@ export class FirestoreDataService {
         }
       }
 
+      let activePrn = '';
+      let activeEmail = '';
+      try {
+        const raw = localStorage.getItem('logicq_active_user');
+        if (raw) {
+          const u = JSON.parse(raw);
+          activePrn = (u.prn || '').trim().toUpperCase();
+          activeEmail = (u.email || '').trim().toLowerCase();
+        }
+      } catch {}
+
+      if (activePrn) {
+        const qPrn = query(collection(db, 'submissions'), where('studentPrn', '==', activePrn));
+        const snapPrn = await getDocs(qPrn).catch(() => null);
+        if (snapPrn) {
+          snapPrn.forEach((d) => {
+            const data = d.data();
+            if (!submissionMap.has(d.id)) {
+              submissionMap.set(d.id, {
+                id: d.id,
+                userId: data.userId || uid,
+                problemId: data.problemId || '',
+                contestId: data.contestId || null,
+                code: data.code || '',
+                language: data.language || 'c',
+                verdict: data.verdict || 'PENDING',
+                runtimeMs: data.runtimeMs ?? null,
+                memoryKb: data.memoryKb ?? null,
+                compileOutput: data.compileOutput ?? null,
+                pointsAwarded: Number(data.pointsAwarded || data.points || 0),
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : (data.createdAt || new Date().toISOString()),
+                isCheatAutoSubmit: Boolean(data.isCheatAutoSubmit),
+                isCheatAttempt: Boolean(data.isCheatAttempt),
+                quarantinedAttempt: Boolean(data.quarantinedAttempt),
+                tag: data.tag || (data.isCheatAttempt ? 'TRY_TO_CHEAT' : undefined),
+                cheatReason: data.cheatReason || undefined,
+                problem: data.problem || {
+                  id: data.problemId || '',
+                  title: data.problemTitle || 'Challenge Problem',
+                  slug: data.problemSlug || data.problemId || '',
+                  difficulty: data.difficulty || 'MEDIUM',
+                },
+              });
+            }
+          });
+        }
+      }
+
+      // Merge locally recorded submissions from fallback store
+      try {
+        const rawSubs = localStorage.getItem('logicq_fallback_submissions_v1');
+        if (rawSubs) {
+          const parsed = JSON.parse(rawSubs);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((s: any) => {
+              const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+              const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
+              const su = s.userId || s.uid || s.user?.id;
+              if (
+                (targetUids.includes(su)) ||
+                (activePrn && sp === activePrn) ||
+                (activeEmail && se === activeEmail)
+              ) {
+                if (!submissionMap.has(s.id)) {
+                  submissionMap.set(s.id, {
+                    id: s.id,
+                    userId: s.userId || uid,
+                    problemId: s.problemId || '',
+                    contestId: s.contestId || null,
+                    code: s.code || '',
+                    language: s.language || 'c',
+                    verdict: s.verdict || 'ACCEPTED',
+                    runtimeMs: s.runtimeMs ?? 14,
+                    memoryKb: s.memoryKb ?? 1024,
+                    compileOutput: s.compileOutput ?? null,
+                    pointsAwarded: Number(s.pointsAwarded || 10),
+                    createdAt: s.createdAt || new Date().toISOString(),
+                    isCheatAutoSubmit: Boolean(s.isCheatAutoSubmit),
+                    isCheatAttempt: Boolean(s.isCheatAttempt),
+                    quarantinedAttempt: Boolean(s.quarantinedAttempt),
+                    tag: s.tag,
+                    cheatReason: s.cheatReason,
+                    problem: s.problem || {
+                      id: s.problemId || '',
+                      title: s.problemTitle || 'Challenge Problem',
+                      slug: s.problemSlug || s.problemId || '',
+                      difficulty: s.difficulty || 'MEDIUM',
+                    },
+                  });
+                }
+              }
+            });
+          }
+        }
+      } catch {}
+
       const list = Array.from(submissionMap.values());
       return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (err) {
@@ -701,6 +798,8 @@ export class FirestoreDataService {
       const effectiveEmail = (data.email || data.studentEmail || '').toLowerCase().trim();
       const effectiveName = data.studentName || '';
 
+      const pointsAwarded = data.verdict === 'ACCEPTED' ? (data.submissionType === 'LAB_INTERNAL' ? 20 : 10) : 0;
+
       await addDoc(collection(db, 'submissions'), {
         userId: primaryUid,
         uid: primaryUid,
@@ -720,7 +819,7 @@ export class FirestoreDataService {
         code: data.code,
         language: 'c',
         verdict: data.verdict,
-        pointsAwarded: data.verdict === 'ACCEPTED' ? 20 : 0,
+        pointsAwarded,
         submissionType: data.submissionType || 'DAILY',
         timeTakenSeconds: data.timeTakenSeconds,
         timeToSolveSeconds: data.timeTakenSeconds,
@@ -736,6 +835,84 @@ export class FirestoreDataService {
           difficulty: data.difficulty || 'EASY',
         },
       });
+
+      // Synchronize with local fallback submissions store for instant offline/API visibility
+      const subObj = {
+        id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        userId: primaryUid,
+        uid: primaryUid,
+        prn: effectivePrn,
+        studentPrn: effectivePrn,
+        email: effectiveEmail,
+        studentEmail: effectiveEmail,
+        studentName: effectiveName,
+        user: {
+          id: primaryUid,
+          uid: primaryUid,
+          prn: effectivePrn,
+          email: effectiveEmail,
+          fullName: effectiveName,
+          displayName: effectiveName,
+        },
+        problemId: data.problemId,
+        code: data.code,
+        language: 'c',
+        verdict: data.verdict,
+        pointsAwarded,
+        submissionType: data.submissionType || 'PRACTICE',
+        timeTakenSeconds: data.timeTakenSeconds,
+        timeToSolveSeconds: data.timeTakenSeconds,
+        activeSeconds: data.timeTakenSeconds,
+        tabSwitchCount: data.tabSwitchCount || 0,
+        copyPasteAttempts: data.copyPasteAttempts || 0,
+        fullscreenExits: data.fullscreenExits || 0,
+        createdAt: new Date().toISOString(),
+        problem: {
+          id: data.problemId,
+          title: data.problemTitle,
+          slug: data.problemSlug,
+          difficulty: data.difficulty || 'EASY',
+        },
+      };
+
+      try {
+        const rawSubs = localStorage.getItem('logicq_fallback_submissions_v1');
+        const parsedSubs = rawSubs ? JSON.parse(rawSubs) : [];
+        if (Array.isArray(parsedSubs)) {
+          parsedSubs.unshift(subObj);
+          localStorage.setItem('logicq_fallback_submissions_v1', JSON.stringify(parsedSubs.slice(0, 500)));
+        }
+      } catch {}
+
+      // Update active user points, streak, and solved count in localStorage
+      try {
+        const rawUser = localStorage.getItem('logicq_active_user');
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          if (data.verdict === 'ACCEPTED') {
+            u.totalPoints = (u.totalPoints || 0) + pointsAwarded;
+            u.totalSolved = (u.totalSolved || 0) + 1;
+            u.currentStreak = Math.max(u.currentStreak || 0, 1);
+            localStorage.setItem('logicq_active_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
+
+      // Update Firestore user document if user has an established profile
+      try {
+        if (primaryUid && data.verdict === 'ACCEPTED') {
+          updateDoc(doc(db, 'users', primaryUid), {
+            totalPoints: increment(pointsAwarded),
+            totalSolved: increment(1),
+            lastSolvedDate: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      } catch {}
+
+      // Broadcast real-time updates across open tabs and listener hooks
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('DASHBOARD');
+      RealtimeSyncService.emit('USERS');
     } catch (err) {
       console.warn('FirestoreDataService.recordDailySubmission warning:', err);
     }

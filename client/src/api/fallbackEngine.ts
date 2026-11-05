@@ -2113,9 +2113,19 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   if (path === '/submissions/my' || path.startsWith('/submissions/problem/')) {
     const user = getCurrentUser();
-    const subs = getStoredSubmissions().filter((s) => !user || s.userId === user.id);
+    const cleanPrn = (user?.prn || '').trim().toUpperCase();
+    const cleanEmail = (user?.email || '').trim().toLowerCase();
+    const subs = getStoredSubmissions().filter((s: any) => {
+      if (!user) return true;
+      const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+      const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
+      const su = s.userId || s.uid || s.user?.id;
+      return (su && (su === user.id || su === (user as any).uid)) ||
+             (cleanPrn && sp === cleanPrn) ||
+             (cleanEmail && se === cleanEmail);
+    });
     const userUploads = getStoredUploads().filter((u) => !user || u.userId === user.id);
-    return { success: true, data: { submissions: subs, uploadedSolutions: userUploads } };
+    return { success: true, submissions: subs, data: { submissions: subs, uploadedSolutions: userUploads } };
   }
 
   if (path.startsWith('/submissions/') && method === 'GET') {
@@ -2127,17 +2137,39 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   // USERS & DASHBOARD ROUTES
   if (path === '/users/dashboard/stats' && method === 'GET') {
     const user = getCurrentUser();
-    const subs = getStoredSubmissions().filter((s) => user && s.userId === user.id);
-    const solvedIds = new Set(subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId));
+    const cleanPrn = (user?.prn || '').trim().toUpperCase();
+    const cleanEmail = (user?.email || '').trim().toLowerCase();
+    const subs = getStoredSubmissions().filter((s: any) => {
+      if (!user) return false;
+      const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+      const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
+      const su = s.userId || s.uid || s.user?.id;
+      return (su && (su === user.id || su === (user as any).uid)) ||
+             (cleanPrn && sp === cleanPrn) ||
+             (cleanEmail && se === cleanEmail);
+    });
+
+    let solvedPracticeIds: string[] = [];
+    try {
+      const rawSolved = localStorage.getItem('logicq_solved_practice_topics');
+      if (rawSolved) solvedPracticeIds = JSON.parse(rawSolved);
+    } catch {}
+
+    const solvedIds = new Set([
+      ...subs.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId || s.problemSlug),
+      ...solvedPracticeIds,
+    ]);
+
     const activityMap: Record<string, number> = {};
     subs.forEach((s) => {
-      const day = s.createdAt.split('T')[0];
+      const day = (s.createdAt || new Date().toISOString()).split('T')[0];
       activityMap[day] = (activityMap[day] || 0) + 1;
     });
 
-    const totalPoints = user?.totalPoints || 0;
+    const calculatedPoints = Array.from(solvedIds).length * 10;
+    const totalPoints = Math.max(user?.totalPoints || 0, calculatedPoints);
     const acceptedCount = subs.filter((s) => s.verdict === 'ACCEPTED').length;
-    const accuracy = subs.length > 0 ? Math.round((acceptedCount / subs.length) * 100) : null;
+    const accuracy = subs.length > 0 ? Math.round((acceptedCount / subs.length) * 100) : 100;
     const rank = totalPoints > 0 ? 1 : null;
     const percentile = null; // Staging mock has < 10 ranked users
 
@@ -2847,7 +2879,19 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   }
 
   if (path === '/admin/submissions' && method === 'GET') {
-    return { success: true, data: { submissions: getStoredSubmissions() } };
+    const search = params.get('search')?.toLowerCase().trim();
+    const limit = parseInt(params.get('limit') || '50', 10);
+    let subs = getStoredSubmissions();
+    if (search) {
+      subs = subs.filter((s: any) => {
+        const prn = (s.prn || s.studentPrn || s.user?.prn || '').toLowerCase();
+        const email = (s.email || s.studentEmail || s.user?.email || '').toLowerCase();
+        const name = (s.studentName || s.user?.fullName || '').toLowerCase();
+        return prn.includes(search) || email.includes(search) || name.includes(search);
+      });
+    }
+    const finalSubs = subs.slice(0, limit);
+    return { success: true, submissions: finalSubs, data: { submissions: finalSubs } };
   }
 
   if (path === '/admin/users' && method === 'GET') {
@@ -3343,6 +3387,31 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
             if (Array.isArray(stats?.completedProblems)) {
               solved = Math.max(solved, stats.completedProblems.length);
             }
+          }
+        } catch {}
+
+        const prnUpper = (stu.prn || '').toUpperCase().trim();
+        if (prnUpper) {
+          try {
+            const rawPrnProg = localStorage.getItem(`logicq_practice_progress_${prnUpper}`);
+            if (rawPrnProg) {
+              const list = JSON.parse(rawPrnProg);
+              if (Array.isArray(list)) solved = Math.max(solved, list.length);
+            }
+          } catch {}
+          try {
+            const rawPrnStats = localStorage.getItem(`logicq_stats_backup_${prnUpper}`);
+            if (rawPrnStats) {
+              const st = JSON.parse(rawPrnStats);
+              if (Array.isArray(st?.completedProblems)) solved = Math.max(solved, st.completedProblems.length);
+            }
+          } catch {}
+        }
+        try {
+          const userProg = localStorage.getItem(`logicq_practice_progress_${stu.id}`);
+          if (userProg) {
+            const list = JSON.parse(userProg);
+            if (Array.isArray(list)) solved = Math.max(solved, list.length);
           }
         } catch {}
 

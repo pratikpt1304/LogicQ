@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import {
   Clock,
   Code2,
@@ -65,6 +66,15 @@ export const HistoryPage: React.FC = () => {
     } catch {}
     return set;
   }, []);
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const unsub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['my-submissions'] });
+    });
+    return () => unsub();
+  }, [queryClient]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-submissions', user?.id, auth.currentUser?.uid],

@@ -447,7 +447,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
     refetchOnWindowFocus: true,
   });
 
-  // Subscribe to real-time events from Section Management Page
+  // Subscribe to real-time events from Section Management Page & Submissions
   useEffect(() => {
     const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
       refetch();
@@ -455,9 +455,13 @@ export const FacultyAnalyticsPage: React.FC = () => {
     const unsubUsers = RealtimeSyncService.on('USERS', () => {
       refetch();
     });
+    const unsubSubmissions = RealtimeSyncService.on('SUBMISSIONS', () => {
+      refetch();
+    });
     return () => {
       unsubSections();
       unsubUsers();
+      unsubSubmissions();
     };
   }, [refetch]);
 

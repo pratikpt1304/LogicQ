@@ -197,27 +197,6 @@ const getCachedUser = (): User | null => {
         parsed.email = 'thoratpratik2323@gmail.com';
       }
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
-      if (localStorage.getItem('logicq_pratik_clean_slate_v2') !== 'true') {
-        localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
-        localStorage.removeItem('logicq_solved_topics_2126PMIM1039');
-        localStorage.removeItem('logicq_bound_email_2126PMIM1039');
-        localStorage.removeItem('logicq_bound_status_2126PMIM1039');
-        localStorage.removeItem('logicq_bound_v2_2126PMIM1039');
-        localStorage.removeItem('logicq_bound_v2_email_2126PMIM1039');
-        localStorage.removeItem('logicq_practice_progress');
-        localStorage.removeItem('logicq_last_bound_email');
-        parsed.totalPoints = 0;
-        parsed.totalSolved = 0;
-        parsed.currentStreak = 0;
-        parsed.longestStreak = 0;
-        parsed.email = 'thoratpratik2323@gmail.com';
-        parsed.isEmailBound = false;
-        parsed.emailVerified = false;
-        parsed.isEmailBoundV2 = false;
-        parsed.rank = null;
-        localStorage.setItem('logicq_pratik_clean_slate_v2', 'true');
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
-      }
     }
     return parsed;
   } catch {
@@ -284,51 +263,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const prnUpper = (finalUser.prn || active?.prn || '').toUpperCase();
 
-      // Reset Pratik Thorat (2126PMIM1039) clean slate enforcement:
-      if (prnUpper === '2126PMIM1039') {
-        try {
-          localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
-          localStorage.removeItem('logicq_solved_topics_2126PMIM1039');
-          localStorage.removeItem('logicq_bound_email_2126PMIM1039');
-          localStorage.removeItem('logicq_bound_status_2126PMIM1039');
-          localStorage.removeItem('logicq_bound_v2_2126PMIM1039');
-          localStorage.removeItem('logicq_bound_v2_email_2126PMIM1039');
-          localStorage.removeItem('logicq_practice_progress');
-          localStorage.removeItem('logicq_last_bound_email');
-
-          const uid = finalUser.id || firebaseAuth.currentUser?.uid;
-          if (uid) {
-            deleteDoc(doc(db, 'stats_backups', '2126PMIM1039')).catch(() => {});
-            deleteDoc(doc(db, 'stats_backups', uid)).catch(() => {});
-            updateDoc(doc(db, 'users', uid), {
-              totalPoints: 0,
-              totalSolved: 0,
-              currentStreak: 0,
-              longestStreak: 0,
-              email: '',
-              isEmailBound: false,
-              emailVerified: false,
-            }).catch(() => {});
-            updateDoc(doc(db, 'publicProfiles', uid), {
-              totalPoints: 0,
-              totalSolved: 0,
-              currentStreak: 0,
-              longestStreak: 0,
-            }).catch(() => {});
-          }
-        } catch {}
-
-        finalUser.totalPoints = 0;
-        finalUser.totalSolved = 0;
-        finalUser.currentStreak = 0;
-        finalUser.longestStreak = 0;
-        finalUser.email = '';
-        finalUser.isEmailBound = false;
-        finalUser.emailVerified = false;
-        (finalUser as any).isEmailBoundV2 = false;
-        (finalUser as any).rank = null;
-      }
-
       // Mandatory Institutional Email Binding Epoch V2 for all students:
       // Invalidate legacy V1 flags so all students are prompted to bind their institutional email.
       const isStudentRole = finalUser.role === 'STUDENT';
@@ -369,10 +303,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         year: retainedYear,
         division: retainedDivision,
         bio: retainedBio,
-        totalPoints: prnUpper === '2126PMIM1039' ? 0 : retainedPoints,
-        currentStreak: prnUpper === '2126PMIM1039' ? 0 : retainedCurrentStreak,
-        longestStreak: prnUpper === '2126PMIM1039' ? 0 : retainedLongestStreak,
-        totalSolved: prnUpper === '2126PMIM1039' ? 0 : retainedSolved,
+        totalPoints: retainedPoints,
+        currentStreak: retainedCurrentStreak,
+        longestStreak: retainedLongestStreak,
+        totalSolved: retainedSolved,
         storagePreference: retainedStorage,
         sectionId: retainedSectionId,
         sectionName: cleanSectionName || 'C Programming Masterclass',

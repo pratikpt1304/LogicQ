@@ -123,7 +123,7 @@ export const DashboardPage: React.FC = () => {
       const email = selectedDashboardStudent?.email?.trim();
       try {
         const res: any = await api.get(`/admin/submissions?search=${encodeURIComponent(prn)}&limit=25`);
-        const list = res?.submissions || res?.data || [];
+        const list = res?.submissions || res?.data?.submissions || (Array.isArray(res?.data) ? res.data : []);
         if (Array.isArray(list) && list.length > 0) return list;
       } catch (err) {
         console.warn('Failed to fetch student submissions by PRN:', err);
@@ -295,7 +295,7 @@ export const DashboardPage: React.FC = () => {
     queryFn: async () => {
       try {
         const res = await api.get('/admin/submissions?limit=6');
-        return res.submissions || res.data || [];
+        return res?.submissions || res?.data?.submissions || (Array.isArray(res?.data) ? res.data : []);
       } catch {
         return [];
       }
@@ -465,7 +465,15 @@ export const DashboardPage: React.FC = () => {
     const unsubSubmissions = RealtimeSyncService.on('SUBMISSIONS', () => {
       queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-recent-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-admin-lab-submissions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['student-practice-modules'] });
+      const current = Array.from(new Set([
+        ...getSolvedPracticeTopicIds(user?.id),
+        ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
+      ]));
+      setSolvedTopicIds(current);
     });
     return () => {
       unsubDashboard();

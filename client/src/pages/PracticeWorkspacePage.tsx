@@ -1334,11 +1334,42 @@ export const PracticeWorkspacePage: React.FC = () => {
       const currentList = getSolvedPracticeTopicIds(effectiveUid);
       const updatedList = Array.from(new Set([...currentList, problemSlug]));
       FirestoreDataService.savePracticeProgress(effectiveUid, updatedList).catch(() => {});
+      if (user?.prn) {
+        FirestoreDataService.savePracticeProgress(user.prn, updatedList).catch(() => {});
+      }
       FirestoreDataService.saveStatsBackup(effectiveUid, {
         totalSolved: updatedList.length,
         completedProblems: updatedList,
         lastSolvedDate: new Date().toISOString(),
       }).catch(() => {});
+
+      // Mirror solved submission to primary Firestore submissions collection with full student metadata
+      const isLab = location.pathname.startsWith('/lab-internal');
+      FirestoreDataService.recordDailySubmission(effectiveUid, {
+        problemId: problem?.id || problemSlug,
+        problemTitle: problem?.title || problemSlug,
+        problemSlug,
+        difficulty: (problem as any)?.difficulty || 'MEDIUM',
+        code,
+        verdict: 'ACCEPTED',
+        timeTakenSeconds: practiceTimerRef.current?.getActiveSeconds() || 60,
+        submissionType: isLab ? 'LAB_INTERNAL' : 'PRACTICE',
+        prn: user?.prn || '',
+        studentPrn: user?.prn || '',
+        email: user?.email || '',
+        studentEmail: user?.email || '',
+        studentName: user?.fullName || user?.displayName || '',
+      }).catch(() => {});
+
+      // Invalidate query caches so Dashboard, History, and Admin reflect progress in real-time
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-recent-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-admin-lab-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
+      queryClient.invalidateQueries({ queryKey: ['student-practice-modules'] });
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('DASHBOARD');
 
       if (nextProb?.slug && moduleSlug) {
         try {

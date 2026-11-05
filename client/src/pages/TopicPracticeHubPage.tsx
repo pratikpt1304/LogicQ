@@ -1033,6 +1033,9 @@ export const TopicPracticeHubPage: React.FC = () => {
           }).catch(() => {});
 
           FirestoreDataService.savePracticeProgress(user.id, updated).catch(() => {});
+          if (user?.prn) {
+            FirestoreDataService.savePracticeProgress(user.prn, updated).catch(() => {});
+          }
 
           // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
           FirestoreDataService.recordDailySubmission(user.id, {
@@ -1068,10 +1071,13 @@ export const TopicPracticeHubPage: React.FC = () => {
           typingVelocityCPM: velocity,
         }).catch(() => {});
 
-        // 3. Invalidate query cache so /lab-internal and Dashboard reflect solved count instantly
+        // 3. Invalidate query cache so /lab-internal, Dashboard, and Admin reflect solved count instantly
         queryClient.invalidateQueries({ queryKey: ['practice-modules'] });
         queryClient.invalidateQueries({ queryKey: ['student-practice-modules'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['student-my-submissions'] });
+        queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-recent-submissions'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-admin-lab-submissions'] });
         RealtimeSyncService.emit('SUBMISSIONS');
         RealtimeSyncService.emit('DASHBOARD');
 

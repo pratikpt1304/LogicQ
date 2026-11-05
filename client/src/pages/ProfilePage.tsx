@@ -5,6 +5,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -317,15 +318,6 @@ export const ProfilePage: React.FC = () => {
           let authoritativeCurrentStreak = 0;
           let authoritativeLongestStreak = 0;
 
-          // Hard reset check for 2126PMIM1039 (clean slate / brand new user)
-          const targetPrnUpperForReset = (serverUser?.prn || fsUser?.prn || (isOwnProfile ? currentUser?.prn : '') || '').toUpperCase();
-          if (targetPrnUpperForReset === '2126PMIM1039') {
-            authoritativePoints = 0;
-            authoritativeSolved = 0;
-            authoritativeCurrentStreak = 0;
-            authoritativeLongestStreak = 0;
-          }
-
           // Authoritative Rank: Only grant rank if student has verified points > 0
           const authoritativeRank = authoritativePoints > 0 ? (serverUser?.rank || 1) : null;
 
@@ -491,6 +483,15 @@ export const ProfilePage: React.FC = () => {
   });
 
   const profile = data?.data?.user;
+
+  // Real-time synchronization for learning analytics and submissions
+  useEffect(() => {
+    const unsub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    });
+    return () => unsub();
+  }, [refetch, queryClient]);
 
   const updateMutation = useMutation({
     mutationFn: (body: any) => api.put('/users/profile', body),
