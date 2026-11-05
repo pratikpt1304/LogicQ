@@ -188,6 +188,19 @@ const getCachedUser = (): User | null => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const prnUpper = (parsed?.prn || '').toUpperCase();
+    if (prnUpper === '2126DEMO1001' || (parsed?.fullName && parsed.fullName.includes('Aarav'))) {
+      parsed.fullName = 'Divya Sonawane';
+      parsed.displayName = 'Divya Sonawane';
+      parsed.email = 'divya.sonawane@sanjivani.edu.in';
+      parsed.totalPoints = 760;
+      parsed.totalSolved = 56;
+      parsed.currentStreak = 0;
+      parsed.longestStreak = 0;
+      if (parsed.sectionName) {
+        parsed.sectionName = parsed.sectionName.replace(/\s*\(Presidential Showcase\)/gi, '').trim();
+      }
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
+    }
     if (prnUpper === '2126PMIM1039') {
       if (localStorage.getItem('logicq_pratik_clean_slate_v2') !== 'true') {
         localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
@@ -240,10 +253,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // MONOTONIC RETENTION: Never allow points, streak, or solved count to downgrade to 0!
       const active = user || getCachedUser();
-      const retainedPoints = Math.max(active?.totalPoints || 0, finalUser.totalPoints || 0);
-      const retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
-      const retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
-      const retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
+      let retainedPoints = Math.max(active?.totalPoints || 0, finalUser.totalPoints || 0);
+      let retainedCurrentStreak = Math.max(active?.currentStreak || 0, finalUser.currentStreak || 0);
+      let retainedLongestStreak = Math.max(active?.longestStreak || 0, finalUser.longestStreak || 0);
+      let retainedSolved = Math.max(active?.totalSolved || 0, finalUser.totalSolved || 0);
       const prnDerivedDept = deriveDepartmentFromPrn(finalUser.prn || active?.prn);
       const retainedDepartment =
         (finalUser.department && finalUser.department !== 'CSE' ? normalizeDepartment(finalUser.department) || finalUser.department : null) ||
@@ -337,9 +350,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           (finalUser.email && !finalUser.email.endsWith('@sanjivani.edu.in') && !finalUser.email.includes('placeholder') ? finalUser.email : '')
         : '';
 
+      if (prnUpper === '2126DEMO1001' || (finalUser.fullName && finalUser.fullName.includes('Aarav'))) {
+        finalUser.fullName = 'Divya Sonawane';
+        finalUser.displayName = 'Divya Sonawane';
+        finalUser.email = 'divya.sonawane@sanjivani.edu.in';
+        retainedPoints = 760;
+        retainedSolved = 56;
+        retainedCurrentStreak = 0;
+        retainedLongestStreak = 0;
+      }
+
       const retainedIsEmailBound = isBoundV2;
       const retainedEmailVerified = isBoundV2;
       const retainedEmail = isBoundV2 ? (boundEmailV2 || finalUser.email || '') : '';
+      const cleanSectionName = retainedSectionName ? String(retainedSectionName).replace(/\s*\(Presidential Showcase\)/gi, '').trim() : '';
 
       finalUser = {
         ...finalUser,
@@ -356,7 +380,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalSolved: prnUpper === '2126PMIM1039' ? 0 : retainedSolved,
         storagePreference: retainedStorage,
         sectionId: retainedSectionId,
-        sectionName: retainedSectionName,
+        sectionName: cleanSectionName || 'C Programming Masterclass',
         joinCode: retainedJoinCode,
         enrolledSections: retainedEnrolledSections,
         sections: retainedSections,

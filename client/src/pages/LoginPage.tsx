@@ -149,7 +149,7 @@ export const LoginPage: React.FC = () => {
           colors: ['#6366f1', '#8b5cf6', '#10b981'],
         });
       } catch {}
-      toast.success(`Welcome, Prof. Hariprasad K.! Loaded Presidential Showcase.`);
+      toast.success(`Welcome, Prof. Hariprasad K.! Loaded Demo Section LQ-DEMO.`);
       setTimeout(() => {
         navigate('/faculty/sections', { replace: true });
       }, 800);
@@ -668,7 +668,7 @@ export const LoginPage: React.FC = () => {
             <div>
               <div className="text-xs font-bold text-[var(--text-main)] flex items-center gap-1.5">
                 <span>Faculty Demo Portal</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-500 font-semibold">President Showcase</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-500 font-semibold">Demo Access</span>
               </div>
               <div className="text-[11px] text-[var(--text-muted)]">
                 Prof. Hariprasad K. • C Programming (LQ-DEMO)

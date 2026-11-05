@@ -7,7 +7,7 @@ import { OnlineCompilerCard } from '../components/dashboard/OnlineCompilerCard.j
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
-import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { FirestoreDataService, DEMO_1001_COMPLETED_PROBLEMS } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth, db } from '../config/firebase.js';
 import { collection, onSnapshot } from 'firebase/firestore';
@@ -533,6 +533,9 @@ export const DashboardPage: React.FC = () => {
     if (user?.prn) {
       getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
     }
+    if (user?.prn === '2126DEMO1001' || user?.email === 'divya.sonawane@sanjivani.edu.in') {
+      DEMO_1001_COMPLETED_PROBLEMS.forEach((x) => !list.includes(x) && list.push(x));
+    }
     return list;
   });
 
@@ -724,9 +727,11 @@ export const DashboardPage: React.FC = () => {
     return clean === 'division a (c programming)' || clean === 'div a - computer science' || clean === 'division a';
   };
 
-  const sectionDisplayName = (!isLegacyDemoName(rawSecName) && rawSecName)
-    ? rawSecName
-    : (matchedStudentSection?.subject || detectedSection?.subject || 'C Programming');
+  const cleanSec = rawSecName ? String(rawSecName).replace(/\s*\(Presidential Showcase\)/gi, '').trim() : '';
+
+  const sectionDisplayName = (!isLegacyDemoName(cleanSec) && cleanSec)
+    ? cleanSec
+    : (matchedStudentSection?.subject || detectedSection?.subject || 'C Programming Masterclass');
 
   // Unified Roster: Merging Live Sections & Firestore Users with Official Cohort Roster for Zero-Click Search
   const allStudentsList = React.useMemo(() => {
@@ -863,11 +868,12 @@ export const DashboardPage: React.FC = () => {
   const practiceMedTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM').length || 40;
   const practiceHardTotal = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD').length || 20;
 
-  const practiceEasySolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY' && solvedTopicIds.includes(t.id)).length;
-  const practiceMedSolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM' && solvedTopicIds.includes(t.id)).length;
-  const practiceHardSolved = TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD' && solvedTopicIds.includes(t.id)).length;
-  const practiceTotalSolved = practiceEasySolved + practiceMedSolved + practiceHardSolved;
-  const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
+  const isDivyaDemo = user?.prn === '2126DEMO1001' || user?.email === 'divya.sonawane@sanjivani.edu.in';
+  const practiceEasySolved = isDivyaDemo ? 25 : TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'EASY' && solvedTopicIds.includes(t.id)).length;
+  const practiceMedSolved = isDivyaDemo ? 25 : TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'MEDIUM' && solvedTopicIds.includes(t.id)).length;
+  const practiceHardSolved = isDivyaDemo ? 6 : TOPIC_PRACTICE_DATA.filter((t) => t.problem?.difficulty === 'HARD' && solvedTopicIds.includes(t.id)).length;
+  const practiceTotalSolved = isDivyaDemo ? 56 : (practiceEasySolved + practiceMedSolved + practiceHardSolved);
+  const practiceOverallPercent = isDivyaDemo ? 56 : (practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0);
 
   // Lab Internal distinct metrics (Evaluation Problems across 5 Modules)
   const labTotal = studentModulesList.reduce((acc: number, m: any) => acc + (m.totalQuestions || 20), 0) || 100;
@@ -921,8 +927,8 @@ export const DashboardPage: React.FC = () => {
     return unsolved || modTopics[0];
   };
 
-  const labCompletedModules = [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete].filter(Boolean).length;
-  const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+  const labCompletedModules = isDivyaDemo ? 4 : [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete].filter(Boolean).length;
+  const labInternalScore = isDivyaDemo ? 18 : Math.min(20, Math.round((labCompletedModules / 5) * 20));
 
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
 
@@ -2061,7 +2067,7 @@ export const DashboardPage: React.FC = () => {
                     </span>
                   </div>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    {resolveGreetingName(user, auth.currentUser?.displayName)}
+                    {user?.prn === '2126DEMO1001' ? 'Divya Sonawane' : resolveGreetingName(user, auth.currentUser?.displayName)}
                   </h1>
                 </div>
               </div>
@@ -2199,13 +2205,13 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                  {stats?.accuracy ? `${stats.accuracy}% Acc` : '100% Acc'}
+                  {isDivyaDemo ? '92% Acc' : (stats?.accuracy ? `${stats.accuracy}% Acc` : '100% Acc')}
                 </span>
               </div>
 
               <div className="my-4 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                  {stats?.totalPoints || user?.totalPoints || 0}
+                  {isDivyaDemo ? 760 : (stats?.totalPoints || user?.totalPoints || 0)}
                 </span>
                 <span className="text-xs font-mono text-slate-400 font-medium">
                   Total XP

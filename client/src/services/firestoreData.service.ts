@@ -21,6 +21,17 @@ import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonN
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
 import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
+
+export const DEMO_1001_COMPLETED_PROBLEMS: string[] = [
+  ...TOPIC_PRACTICE_DATA.slice(0, 56).map((t) => t.id),
+  ...PRACTICE_MODULE_1_PROBLEMS.map((p) => p.slug),
+  ...PRACTICE_MODULE_2_PROBLEMS.map((p) => p.slug),
+  ...PRACTICE_MODULE_3_PROBLEMS.slice(0, 16).map((p) => p.slug),
+];
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -875,6 +886,28 @@ export class FirestoreDataService {
    * Reads student practice progress from cohort_progress/{prn} or users/{uid}/drafts/practice_progress
    */
   public static async getPracticeProgress(uid: string): Promise<StudentPracticeProgress | null> {
+    const prn = FirestoreDataService.resolvePrn(uid);
+
+    // Divya Sonawane (2126DEMO1001): Rich pre-seeded practice & lab telemetry
+    if (prn === '2126DEMO1001' || (uid && uid.toUpperCase().includes('2126DEMO1001'))) {
+      try {
+        localStorage.setItem('logicq_solved_practice_topics_2126DEMO1001', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
+        localStorage.setItem('logicq_solved_practice_topics_cohort-2126demo1001', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
+        localStorage.setItem('logicq_solved_practice_topics', JSON.stringify(DEMO_1001_COMPLETED_PROBLEMS));
+      } catch {}
+      return {
+        userId: '2126DEMO1001',
+        completedProblems: DEMO_1001_COMPLETED_PROBLEMS,
+        moduleProgress: {
+          'control-structures': { completedCount: 20, isUnlocked: true },
+          'pointers-and-functions': { completedCount: 20, isUnlocked: true },
+          'arrays-and-strings': { completedCount: 16, isUnlocked: true },
+          'structures-and-memory': { completedCount: 0, isUnlocked: true },
+        },
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     const effectiveUid = auth.currentUser?.uid || uid;
     const localKey = effectiveUid ? `logicq_practice_progress_${effectiveUid}` : 'logicq_practice_progress';
     let localCompleted: string[] = [];
@@ -888,7 +921,6 @@ export class FirestoreDataService {
     let cloudUpdatedAt: any = null;
 
     // 1. Immediate Cross-Device Cloud Sync from cohort_progress/{prn}
-    const prn = FirestoreDataService.resolvePrn(uid);
     if (prn) {
       try {
         const cohortRef = doc(db, 'cohort_progress', prn);
@@ -1080,6 +1112,22 @@ export class FirestoreDataService {
    * Retrieves student stats backup from cohort_progress/{prn} or users/{uid}/drafts/stats_backup
    */
   public static async getStatsBackup(uid: string): Promise<StudentStatsBackup | null> {
+    const prn = FirestoreDataService.resolvePrn(uid);
+
+    // Divya Sonawane (2126DEMO1001): 56 solved, 760 points, clean realistic metrics
+    if (prn === '2126DEMO1001' || (uid && uid.toUpperCase().includes('2126DEMO1001'))) {
+      return {
+        userId: '2126DEMO1001',
+        totalPoints: 760,
+        currentStreak: 0,
+        longestStreak: 0,
+        totalSolved: 56,
+        completedProblems: DEMO_1001_COMPLETED_PROBLEMS,
+        lastSolvedDate: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     const effectiveUid = auth.currentUser?.uid;
     const localKey = effectiveUid || uid ? `logicq_stats_backup_${effectiveUid || uid}` : null;
     let localData: StudentStatsBackup | null = null;
@@ -1091,7 +1139,6 @@ export class FirestoreDataService {
     }
 
     // 1. Immediate Cross-Device Cloud Sync from cohort_progress/{prn}
-    const prn = FirestoreDataService.resolvePrn(uid);
     if (prn) {
       try {
         const cohortRef = doc(db, 'cohort_progress', prn);
@@ -1564,11 +1611,16 @@ export class FirestoreDataService {
         seenUids.add(uid);
 
         const realName = [raw.displayName, raw.fullName].find(isRealPersonName);
-        const cleanName = realName || raw.displayName || raw.fullName || 'Student';
+        let cleanName = realName || raw.displayName || raw.fullName || 'Student';
+
+        const isDivya = uid === 'cohort-2126demo1001' || raw.prn === '2126DEMO1001' || cleanName.toLowerCase().includes('aarav sharma');
+        if (isDivya) {
+          cleanName = 'Divya Sonawane';
+        }
 
         const isPratik = uid === '5ba003c2-608b-495b-a362-7f9a11ab5d52' || raw.prn === '2126PMIM1039' || (raw.username === 'pratik_thorat');
-        const finalPoints = isPratik ? 0 : Number(raw.totalPoints || 0);
-        const finalSolved = isPratik ? 0 : Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0));
+        const finalPoints = isPratik ? 0 : (isDivya ? 760 : Number(raw.totalPoints || 0));
+        const finalSolved = isPratik ? 0 : (isDivya ? 56 : Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0)));
 
         list.push({
           id: uid,
@@ -1605,7 +1657,9 @@ export class FirestoreDataService {
           if (uid && !seenUids.has(uid)) {
             seenUids.add(uid);
             const realName = [st.displayName, st.fullName, st.name].find(isRealPersonName);
-            const cleanName = realName || st.displayName || st.fullName || 'Student';
+            let cleanName = realName || st.displayName || st.fullName || 'Student';
+            const isDivyaSt = uid === 'cohort-2126demo1001' || st.prn === '2126DEMO1001' || cleanName.toLowerCase().includes('aarav sharma');
+            if (isDivyaSt) cleanName = 'Divya Sonawane';
             list.push({
               id: uid,
               userId: uid,
@@ -1618,10 +1672,10 @@ export class FirestoreDataService {
               department: normalizeDepartment(st.department) || st.department || null,
               year: st.year || 'FY',
               division: st.division || sec.sectionName || null,
-              totalPoints: Number(st.totalPoints || 0),
-              currentStreak: Number(st.currentStreak || 0),
-              longestStreak: Number(st.longestStreak || 0),
-              totalSolved: Number(st.totalSolved || (Number(st.totalPoints || 0) > 0 ? 1 : 0)),
+              totalPoints: isDivyaSt ? 760 : Number(st.totalPoints || 0),
+              currentStreak: 0,
+              longestStreak: 0,
+              totalSolved: isDivyaSt ? 56 : Number(st.totalSolved || (Number(st.totalPoints || 0) > 0 ? 1 : 0)),
             });
           }
         }
@@ -2599,16 +2653,22 @@ export class FirestoreDataService {
       } catch {}
     }
 
-    // Authoritative Presidential Showcase Section: LQ-DEMO with Dummy Faculty (Prof. Hariprasad K.)
+    // Authoritative Demonstration Section: LQ-DEMO with Faculty Prof. Hariprasad K.
     let demoSec = result.find(
       (s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO'
     );
 
     const demoStudentsEnriched = DEMO_SECTION_COHORT_STUDENTS.map((ds, idx) => {
-      const solved = 26 - (idx % 6);
-      const labCompleted = 5;
-      const labMarks = 18 + (idx % 3 === 0 ? 2 : 1);
-      const points = (solved * 10) + (labMarks * 4);
+      const isDivya = ds.prn === '2126DEMO1001';
+      const solved = isDivya ? 56 : (26 - (idx % 6));
+      const labCompleted = isDivya ? 4 : 5;
+      const labMarks = isDivya ? 18 : (18 + (idx % 3 === 0 ? 2 : 1));
+      const points = isDivya ? 760 : ((solved * 10) + (labMarks * 4));
+      const tabSwitches = isDivya ? 2 : 0;
+      const copyPastes = isDivya ? 1 : 0;
+      const honorScore = isDivya ? 92 : 100;
+      const risk = isDivya ? 'LOW' : 'NORMAL';
+
       return {
         id: ds.prn,
         uid: ds.prn,
@@ -2620,7 +2680,7 @@ export class FirestoreDataService {
         year: ds.year,
         college: ds.college,
         sectionId: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass (Presidential Showcase)',
+        sectionName: 'C Programming Masterclass',
         joinCode: 'LQ-DEMO',
         status: 'ACTIVE',
         enrolledAt: 1730419200000,
@@ -2629,10 +2689,10 @@ export class FirestoreDataService {
         labCompletedModules: labCompleted,
         labInternalScore: labMarks,
         currentStreak: 0,
-        integrityScore: 100,
-        integrityRisk: 'NORMAL',
-        tabSwitchCount: 0,
-        copyPasteAttempts: 0,
+        integrityScore: honorScore,
+        integrityRisk: risk,
+        tabSwitchCount: tabSwitches,
+        copyPasteAttempts: copyPastes,
         statusCategory: 'CONSISTENT',
       };
     });
@@ -2642,7 +2702,7 @@ export class FirestoreDataService {
         id: 'LQ-DEMO',
         joinCode: 'LQ-DEMO',
         joinToken: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass (Presidential Showcase)',
+        sectionName: 'C Programming Masterclass',
         subject: 'C Programming & Data Structures',
         course: 'CS101-DEMO',
         department: 'Integrated M.Tech',
@@ -2651,7 +2711,7 @@ export class FirestoreDataService {
         institution: 'Sanjivani University',
         academicYear: '2026-2027',
         semester: 'Semester 1',
-        description: 'Presidential Showcase Section: Live Demonstration of LogicQ Continuous Evaluation, Compiler Telemetry & Automated Gradebook.',
+        description: 'Comprehensive coursework on C Programming, memory models, pointers, and systems development.',
         facultyId: 'faculty-demo-president',
         facultyName: 'Prof. Hariprasad K.',
         facultyEmail: 'faculty.demo@sanjivani.edu.in',
@@ -2663,7 +2723,7 @@ export class FirestoreDataService {
       };
       result.unshift(demoSec);
     } else {
-      demoSec.sectionName = 'C Programming Masterclass (Presidential Showcase)';
+      demoSec.sectionName = 'C Programming Masterclass';
       demoSec.subject = 'C Programming & Data Structures';
       demoSec.course = 'CS101-DEMO';
       demoSec.facultyName = 'Prof. Hariprasad K.';
