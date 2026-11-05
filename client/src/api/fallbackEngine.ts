@@ -1052,6 +1052,33 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
+    if (!user && (
+      cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
+      cleanId.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
+      cleanId.toLowerCase() === 'faculty_demo' ||
+      cleanId.toLowerCase() === 'faculty@logicq.io' ||
+      cleanId.toLowerCase() === 'faculty' ||
+      cleanId.toLowerCase() === 'prof.hariprasad'
+    )) {
+      user = {
+        id: 'faculty-demo-president',
+        username: 'faculty_demo',
+        email: 'faculty.demo@sanjivani.edu.in',
+        fullName: 'Prof. Hariprasad K.',
+        displayName: 'Prof. Hariprasad K.',
+        role: 'FACULTY',
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
+        profileComplete: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        isBanned: false,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
+    }
+
     if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
       user = {
         id: 'student-walkthrough-1',
@@ -1198,6 +1225,33 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           saveStoredUsers(users);
         }
       }
+    }
+
+    if (!user && (
+      cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
+      cleanId.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
+      cleanId.toLowerCase() === 'faculty_demo' ||
+      cleanId.toLowerCase() === 'faculty@logicq.io' ||
+      cleanId.toLowerCase() === 'faculty' ||
+      cleanId.toLowerCase() === 'prof.hariprasad'
+    )) {
+      user = {
+        id: 'faculty-demo-president',
+        username: 'faculty_demo',
+        email: 'faculty.demo@sanjivani.edu.in',
+        fullName: 'Prof. Hariprasad K.',
+        displayName: 'Prof. Hariprasad K.',
+        role: 'FACULTY',
+        college: 'Sanjivani University',
+        department: 'Integrated M.Tech',
+        profileComplete: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        isBanned: false,
+      } as any;
+      if (user) users.push(user as any);
+      saveStoredUsers(users);
     }
 
     if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {

@@ -252,18 +252,16 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
 
   if (!response.ok || !data) {
     if (cleanEndpoint.includes('-otp')) {
-      if (data && data.message) {
-        const err = new Error(data.message) as LogicQApiError;
-        err.status = response.status;
-        throw err;
-      }
       try {
         const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
         if (fallbackRes && typeof fallbackRes === 'object') {
           return fallbackRes as T;
         }
       } catch (fallbackErr: any) {
-        const err = new Error(fallbackErr?.message || data?.message || 'Access Denied: Account not enrolled.') as LogicQApiError;
+        // Continue to server error if fallback didn't resolve
+      }
+      if (data && data.message) {
+        const err = new Error(data.message) as LogicQApiError;
         err.status = response.status;
         throw err;
       }

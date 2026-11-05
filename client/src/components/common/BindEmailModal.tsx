@@ -41,6 +41,16 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  // Reset modal state when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSuccess(false);
+      setStep('email');
+      setError(null);
+      setOtpDigits(['', '', '', '', '', '']);
+    }
+  }, [isOpen]);
+
   if (!isOpen || !user) return null;
 
   const handleSendOtp = async (e?: React.FormEvent) => {
@@ -336,7 +346,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
           )}
 
           {isSuccess ? (
-            <div className="py-6 text-center space-y-3">
+            <div className="py-4 text-center space-y-4">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
@@ -346,6 +356,14 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   {email} is now securely linked to PRN {user.prn}.
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer mt-3"
+              >
+                <span>Continue to Platform</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           ) : step === 'email' ? (
             <form onSubmit={handleSendOtp} className="space-y-4">

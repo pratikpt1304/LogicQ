@@ -1570,12 +1570,18 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<void> =
 
     const targetEmail = cohortEmail || user.email;
 
-    // Fixed walkthrough bypass for demo student
-    if (targetEmail.toLowerCase() === 'student@logicq.io') {
+    // Fixed walkthrough bypass for demo faculty and students
+    if (
+      targetEmail.toLowerCase() === 'student@logicq.io' ||
+      targetEmail.toLowerCase() === 'faculty.demo@sanjivani.edu.in' ||
+      targetEmail.toLowerCase() === 'hariprasad.demo@sanjivani.edu.in' ||
+      targetEmail.toLowerCase() === 'faculty@logicq.io' ||
+      targetEmail.toLowerCase().includes('demo')
+    ) {
       res.json({
         success: true,
-        message: '6-digit verification OTP dispatched (Demo student OTP is 123456)',
-        target: 's***t@logicq.io',
+        message: '6-digit verification OTP dispatched (Demo account OTP is 123456)',
+        target: targetEmail,
         cooldownRemaining: 60,
       });
       return;
