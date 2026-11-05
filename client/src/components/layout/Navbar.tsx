@@ -37,7 +37,8 @@ import {
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
-  const isStudent = !isFaculty && !isAdmin;
+  const isFacultyUser = (isFaculty || user?.role === 'FACULTY' || (user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' && !user?.prn)) && user?.prn !== '2126PMIM1039' && user?.prn !== '2126DEMO1001';
+  const isStudent = !isFacultyUser && !isAdmin;
   const { theme, toggleTheme } = useTheme();
   const isStandalone = useIsStandalonePwa();
   const location = useLocation();
@@ -198,7 +199,7 @@ export const Navbar: React.FC = () => {
                     {(user.displayName || user.username || 'S').charAt(0).toUpperCase()}
                   </div>
                   <span className="font-medium text-[var(--text-main)] text-xs max-w-[110px] truncate">
-                    {user.displayName || user.maskedPrn || user.username}
+                    {user?.prn === '2126PMIM1039' ? 'Pratik Thorat' : user?.prn === '2126DEMO1001' ? 'Divya Sonawane' : (user.displayName || user.maskedPrn || user.username)}
                   </span>
                   <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                 </button>
@@ -217,7 +218,7 @@ export const Navbar: React.FC = () => {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">
                             <p className="font-bold text-slate-900 dark:text-white text-xs truncate">
-                              {user.displayName || user.fullName || user.username}
+                              {user?.prn === '2126PMIM1039' ? 'Pratik Thorat' : user?.prn === '2126DEMO1001' ? 'Divya Sonawane' : (user.displayName || user.fullName || user.username)}
                             </p>
                             <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 uppercase tracking-wider shrink-0">
                               {isAdmin ? 'Admin' : isFaculty ? 'Faculty' : isChecker ? 'Evaluator' : 'Student'}

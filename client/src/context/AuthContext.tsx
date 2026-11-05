@@ -201,12 +201,15 @@ const getCachedUser = (): User | null => {
       }
       localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
     }
-    if (parsed?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || parsed?.username === 'faculty_demo' || parsed?.id === 'faculty-demo-president') {
-      parsed.fullName = 'Prof. Rajesh Sharma';
-      parsed.displayName = 'Prof. Rajesh Sharma';
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
-    }
     if (prnUpper === '2126PMIM1039') {
+      parsed.fullName = 'Pratik Balasaheb Thorat';
+      parsed.displayName = 'Pratik Thorat';
+      parsed.role = 'STUDENT';
+      parsed.prn = '2126PMIM1039';
+      if (parsed.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
+        parsed.email = 'thoratpratik2323@gmail.com';
+      }
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
       if (localStorage.getItem('logicq_pratik_clean_slate_v2') !== 'true') {
         localStorage.removeItem('logicq_stats_backup_2126PMIM1039');
         localStorage.removeItem('logicq_solved_topics_2126PMIM1039');
@@ -220,7 +223,7 @@ const getCachedUser = (): User | null => {
         parsed.totalSolved = 0;
         parsed.currentStreak = 0;
         parsed.longestStreak = 0;
-        parsed.email = '';
+        parsed.email = 'thoratpratik2323@gmail.com';
         parsed.isEmailBound = false;
         parsed.emailVerified = false;
         parsed.isEmailBoundV2 = false;
@@ -228,6 +231,13 @@ const getCachedUser = (): User | null => {
         localStorage.setItem('logicq_pratik_clean_slate_v2', 'true');
         localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
       }
+    }
+    if (!prnUpper && (parsed?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || parsed?.username === 'faculty_demo' || parsed?.id === 'faculty-demo-president')) {
+      parsed.fullName = 'Prof. Rajesh Sharma';
+      parsed.displayName = 'Prof. Rajesh Sharma';
+      parsed.role = 'FACULTY';
+      delete parsed.prn;
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
     }
     return parsed;
   } catch {
@@ -363,10 +373,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         retainedSolved = 56;
         retainedCurrentStreak = 0;
         retainedLongestStreak = 0;
-      }
-      if (finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || finalUser.username === 'faculty_demo' || finalUser.id === 'faculty-demo-president') {
+      } else if (prnUpper === '2126PMIM1039') {
+        finalUser.fullName = 'Pratik Balasaheb Thorat';
+        finalUser.displayName = 'Pratik Thorat';
+        finalUser.role = 'STUDENT';
+        finalUser.prn = '2126PMIM1039';
+        if (finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
+          finalUser.email = 'thoratpratik2323@gmail.com';
+        }
+      } else if (!prnUpper && (finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || finalUser.username === 'faculty_demo' || finalUser.id === 'faculty-demo-president')) {
         finalUser.fullName = 'Prof. Rajesh Sharma';
         finalUser.displayName = 'Prof. Rajesh Sharma';
+        finalUser.role = 'FACULTY';
+        delete (finalUser as any).prn;
       }
 
       const retainedIsEmailBound = isBoundV2;
@@ -1582,7 +1601,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading: authState === 'loading',
         isAuthenticated: authState === 'signedIn' && Boolean(user),
         isAdmin: user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
-        isFaculty: user?.role === 'FACULTY' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
+        isFaculty: (user?.role === 'FACULTY' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email) || (user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' && !user?.prn)) && user?.prn !== '2126PMIM1039' && user?.prn !== '2126DEMO1001',
         isChecker: user?.role === 'CHECKER' || user?.role === 'ADMIN' || isExplicitAdminEmail(user?.email),
         isOffline,
         login,

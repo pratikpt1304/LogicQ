@@ -67,7 +67,8 @@ import {
 
 export const DashboardPage: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, refreshUser } = useAuth();
-  const isStudent = !isFaculty && !isAdmin;
+  const isFacultyUser = (isFaculty || user?.role === 'FACULTY' || (user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' && !user?.prn)) && user?.prn !== '2126PMIM1039' && user?.prn !== '2126DEMO1001';
+  const isStudent = !isFacultyUser && !isAdmin;
   const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests'>('practice');
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
@@ -2068,7 +2069,11 @@ export const DashboardPage: React.FC = () => {
                     </span>
                   </div>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    {user?.prn === '2126DEMO1001' ? 'Divya Sonawane' : resolveGreetingName(user, auth.currentUser?.displayName)}
+                    {user?.prn === '2126DEMO1001'
+                      ? 'Divya Sonawane'
+                      : user?.prn === '2126PMIM1039'
+                      ? 'Pratik Thorat'
+                      : resolveGreetingName(user, auth.currentUser?.displayName)}
                   </h1>
                 </div>
               </div>
