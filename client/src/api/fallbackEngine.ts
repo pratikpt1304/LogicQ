@@ -4281,31 +4281,84 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   }
 
   if (path === '/analytics/student/dashboard' && method === 'GET') {
-    const subs = getStoredSubmissions();
-    const solvedCount = subs.filter((s) => s.verdict === 'ACCEPTED').length;
+    const user = getCurrentUser();
+    const cleanPrn = (user?.prn || '').trim().toUpperCase();
+    const cleanEmail = (user?.email || '').trim().toLowerCase();
+    const subs = getStoredSubmissions().filter((s: any) => {
+      if (!user) return false;
+      const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+      const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
+      const su = s.userId || s.uid || s.user?.id;
+      return (su && (su === user.id || su === (user as any).uid)) ||
+             (cleanPrn && sp === cleanPrn) ||
+             (cleanEmail && se === cleanEmail);
+    });
+
+    let solvedPracticeIds: string[] = [];
+    try {
+      const rawSolved = localStorage.getItem('logicq_solved_practice_topics');
+      if (rawSolved) solvedPracticeIds = JSON.parse(rawSolved);
+    } catch {}
+
+    let prnPracticeIds: string[] = [];
+    if (cleanPrn) {
+      try {
+        const rawPrnProg = localStorage.getItem(`logicq_practice_progress_${cleanPrn}`);
+        if (rawPrnProg) {
+          const parsed = JSON.parse(rawPrnProg);
+          if (Array.isArray(parsed?.completedProblems)) prnPracticeIds = parsed.completedProblems;
+        }
+      } catch {}
+    }
+
+    const acceptedSubs = subs.filter((s) => s.verdict === 'ACCEPTED');
+    const solvedSet = new Set([
+      ...acceptedSubs.map((s) => s.problemId || s.problemSlug),
+      ...solvedPracticeIds,
+      ...prnPracticeIds,
+    ]);
+
+    const solvedCount = Math.max(solvedSet.size, user?.totalSolved || 0);
+    const attemptedCount = Math.max(subs.length, solvedCount);
+    const academicScore = Math.min(100, Math.round(solvedCount * 10));
+
+    let easyCount = 0;
+    let medCount = 0;
+    let hardCount = 0;
+    acceptedSubs.forEach((s) => {
+      const d = (s.difficulty || '').toUpperCase();
+      if (d === 'HARD') hardCount++;
+      else if (d === 'MEDIUM') medCount++;
+      else easyCount++;
+    });
+    if (solvedCount > (easyCount + medCount + hardCount)) {
+      const remainder = solvedCount - (easyCount + medCount + hardCount);
+      easyCount += remainder;
+    }
+
     return {
       success: true,
       data: {
-        academicScore: Math.min(100, Math.round(solvedCount * 10)),
+        academicScore,
         totalQuestionsSolved: solvedCount,
-        totalQuestionsAttempted: subs.length,
+        totalQuestionsAttempted: attemptedCount,
         integrityScore: 100,
         integrityRisk: 'NORMAL',
         difficultyStats: {
-          EASY: { solved: solvedCount, total: 25, avgTimeSec: 45 },
-          MEDIUM: { solved: 0, total: 25, avgTimeSec: 0 },
-          HARD: { solved: 0, total: 25, avgTimeSec: 0 },
+          EASY: { solved: easyCount, total: 25, avgTimeSec: 45 },
+          MEDIUM: { solved: medCount, total: 25, avgTimeSec: medCount > 0 ? 120 : 0 },
+          HARD: { solved: hardCount, total: 25, avgTimeSec: hardCount > 0 ? 300 : 0 },
         },
         telemetry: {
           totalTabSwitches: 0,
           totalClipboardAttempts: 0,
           totalFocusLossDurationSec: 0,
           totalFullScreenExits: 0,
-          totalKeystrokes: solvedCount * 120,
+          totalKeystrokes: Math.max(120, solvedCount * 120),
           vivaCompletedRatio: 'None triggered',
         },
         netTimeDeviationSec: 0,
-        hiddenTestPassRatio: `${solvedCount}/${subs.length || 1} Passed`,
+        hiddenTestPassRatio: `${solvedCount}/${attemptedCount || 1} Passed`,
         assignments: [],
         recommendations: [
           'Continue solving section problem sets within the prescribed time windows.',

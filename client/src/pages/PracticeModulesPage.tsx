@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   PRACTICE_CONFIG,
@@ -126,42 +127,58 @@ export const PracticeModulesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Sync and restore solved practice topics from Firestore and local storage
-  useEffect(() => {
-    (async () => {
+  const refreshSolvedTopics = useCallback(async () => {
+    try {
+      const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
+      const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
+      const fallbackSolvedSlugs: string[] = [];
       try {
-        const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
-        const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
-        const fallbackSolvedSlugs: string[] = [];
-        try {
-          const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
-          if (rawProg) {
-            const progMap = JSON.parse(rawProg);
-            Object.keys(progMap).forEach((k) => {
-              if (progMap[k]?.isSolved) {
-                const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
-                fallbackSolvedSlugs.push(cleanSlug);
-              }
-            });
-          }
-        } catch {}
-
-        const cloudSolved = Array.from(
-          new Set([
-            ...(stats?.completedProblems || []),
-            ...(prog?.completedProblems || []),
-            ...fallbackSolvedSlugs,
-            ...getSolvedPracticeTopicIds(effectiveUid),
-          ])
-        );
-        if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
-          setSolvedTopics(getSolvedPracticeTopicIds(effectiveUid));
+        const rawProg = localStorage.getItem('logicq_fallback_practice_progress_v1');
+        if (rawProg) {
+          const progMap = JSON.parse(rawProg);
+          Object.keys(progMap).forEach((k) => {
+            if (progMap[k]?.isSolved) {
+              const cleanSlug = k.includes(':') ? k.split(':')[1] : k;
+              fallbackSolvedSlugs.push(cleanSlug);
+            }
+          });
         }
-      } catch (err) {
-        console.warn('PracticeModules restore error:', err);
+      } catch {}
+
+      const cloudSolved = Array.from(
+        new Set([
+          ...(stats?.completedProblems || []),
+          ...(prog?.completedProblems || []),
+          ...fallbackSolvedSlugs,
+          ...getSolvedPracticeTopicIds(effectiveUid),
+          ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
+        ])
+      );
+      if (cloudSolved.length > 0) {
+        cloudSolved.forEach((id) => {
+          markPracticeTopicSolved(id, effectiveUid);
+          if (user?.prn) markPracticeTopicSolved(id, user.prn);
+        });
+        setSolvedTopics(getSolvedPracticeTopicIds(effectiveUid));
       }
-    })();
-  }, [user, effectiveUid]);
+    } catch (err) {
+      console.warn('PracticeModules restore error:', err);
+    }
+  }, [effectiveUid, user?.prn]);
+
+  useEffect(() => {
+    refreshSolvedTopics();
+    const unsubSub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      refreshSolvedTopics();
+    });
+    const unsubDash = RealtimeSyncService.on('DASHBOARD', () => {
+      refreshSolvedTopics();
+    });
+    return () => {
+      unsubSub();
+      unsubDash();
+    };
+  }, [refreshSolvedTopics]);
 
   // Read backend modules data if available
   const { data, isLoading, error, refetch } = useQuery({

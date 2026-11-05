@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import {
   ALLOWED_DEPARTMENTS,
   ALLOWED_YEARS,
@@ -48,6 +49,15 @@ export const LeaderboardPage: React.FC = () => {
     if (scope === 'MY_YEAR' && currentUser?.year) return currentUser.year;
     return yearFilter;
   }, [scope, currentUser?.year, yearFilter]);
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const unsub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+    });
+    return () => unsub();
+  }, [queryClient]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['leaderboard', activeDepartment, activeYear],

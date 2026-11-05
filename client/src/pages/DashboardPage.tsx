@@ -129,8 +129,8 @@ export const DashboardPage: React.FC = () => {
         console.warn('Failed to fetch student submissions by PRN:', err);
       }
       return (recentSubmissions || []).filter((s: any) => {
-        const sp = (s.prn || s.user?.prn || '').trim().toUpperCase();
-        const se = (s.email || s.user?.email || '').trim().toLowerCase();
+        const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+        const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
         return (prn && sp === prn.toUpperCase()) || (email && se === email.toLowerCase());
       });
     },
@@ -2554,8 +2554,8 @@ export const DashboardPage: React.FC = () => {
       {selectedDashboardStudent && (() => {
         const prnClean = selectedDashboardStudent.prn?.trim() || '';
         const subs = (selectedStudentSubmissions || []).filter((s: any) => {
-          const sp = (s.prn || s.user?.prn || '').trim().toUpperCase();
-          const se = (s.email || s.user?.email || '').trim().toLowerCase();
+          const sp = (s.prn || s.studentPrn || s.user?.prn || '').trim().toUpperCase();
+          const se = (s.email || s.studentEmail || s.user?.email || '').trim().toLowerCase();
           return (prnClean && sp === prnClean.toUpperCase()) || (selectedDashboardStudent.email && se === selectedDashboardStudent.email.toLowerCase());
         });
 

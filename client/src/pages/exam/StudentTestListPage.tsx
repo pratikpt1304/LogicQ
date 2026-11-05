@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
@@ -40,6 +40,19 @@ export const StudentTestListPage: React.FC = () => {
     refetchOnWindowFocus: false,
     refetchInterval: 30000,
   });
+
+  useEffect(() => {
+    const unsubTests = RealtimeSyncService.on('TESTS', () => {
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+    });
+    const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+    });
+    return () => {
+      unsubTests();
+      unsubSections();
+    };
+  }, [queryClient]);
 
   const joinMutation = useMutation({
     mutationFn: async (code: string) => {

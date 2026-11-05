@@ -486,7 +486,7 @@ export const FacultyAnalyticsPage: React.FC = () => {
       if (!resultData?.student) {
         const fsStudent = await FirestoreDataService.findEnrolledStudentInFirestore(selectedStudentForInspect);
         if (fsStudent) {
-          const fsSubmissions = await FirestoreDataService.getUserSubmissions(fsStudent.id || fsStudent.uid || '');
+          const fsSubmissions = await FirestoreDataService.getUserSubmissions(fsStudent.id || fsStudent.uid || fsStudent.prn || selectedStudentForInspect);
           resultData = {
             student: {
               id: fsStudent.id || fsStudent.uid || 'fs_student',

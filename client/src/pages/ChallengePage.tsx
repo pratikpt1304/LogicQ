@@ -697,6 +697,12 @@ export const ChallengePage: React.FC = () => {
             tabSwitchCount,
             copyPasteAttempts,
             fullscreenExits,
+            submissionType: 'DAILY',
+            prn: user?.prn || '',
+            studentPrn: user?.prn || '',
+            email: user?.email || '',
+            studentEmail: user?.email || '',
+            studentName: user?.fullName || user?.displayName || '',
           }).catch(() => {});
         }
         setSubmissionResult({
@@ -762,6 +768,12 @@ export const ChallengePage: React.FC = () => {
                   tabSwitchCount,
                   copyPasteAttempts,
                   fullscreenExits,
+                  submissionType: 'DAILY',
+                  prn: user?.prn || '',
+                  studentPrn: user?.prn || '',
+                  email: user?.email || '',
+                  studentEmail: user?.email || '',
+                  studentName: user?.fullName || user?.displayName || '',
                 }).catch(() => {});
               }
               setSubmissionResult((prev: any) =>

@@ -362,6 +362,10 @@ export const TopicPracticeHubPage: React.FC = () => {
   // Sync solved topics
   useEffect(() => {
     setSolvedTopics(getSolvedPracticeTopicIds(user?.id));
+    const unsub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      setSolvedTopics(getSolvedPracticeTopicIds(user?.id));
+    });
+    return () => unsub();
   }, [user?.id]);
 
   // Resilient draft auto-save on tab close / window unload / visibilitychange

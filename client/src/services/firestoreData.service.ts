@@ -1774,9 +1774,8 @@ export class FirestoreDataService {
         const realName = [raw.displayName, raw.fullName].find(isRealPersonName);
         let cleanName = realName || raw.displayName || raw.fullName || 'Student';
 
-        const isPratik = uid === '5ba003c2-608b-495b-a362-7f9a11ab5d52' || raw.prn === '2126PMIM1039' || (raw.username === 'pratik_thorat');
-        const finalPoints = isPratik ? 0 : Number(raw.totalPoints || 0);
-        const finalSolved = isPratik ? 0 : Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0));
+        const finalPoints = Number(raw.totalPoints || 0);
+        const finalSolved = Number(raw.totalSolved || (finalPoints > 0 ? Math.max(1, Math.floor(finalPoints / 10)) : 0));
 
         list.push({
           id: uid,
@@ -1791,8 +1790,8 @@ export class FirestoreDataService {
           year: raw.year || null,
           division: raw.division || null,
           totalPoints: finalPoints,
-          currentStreak: isPratik ? 0 : Number(raw.currentStreak || 0),
-          longestStreak: isPratik ? 0 : Number(raw.longestStreak || 0),
+          currentStreak: Number(raw.currentStreak || 0),
+          longestStreak: Number(raw.longestStreak || 0),
           totalSolved: finalSolved,
         });
       });
@@ -1839,9 +1838,8 @@ export class FirestoreDataService {
     // 3. Ensure current user is included if authenticated
     const current = filters.currentUser;
     if (current && current.id && !seenUids.has(current.id)) {
-      const isPratik = (current.prn || '').toUpperCase() === '2126PMIM1039' || current.id === '5ba003c2-608b-495b-a362-7f9a11ab5d52';
-      const userPoints = isPratik ? 0 : Number(current.totalPoints || 0);
-      const userSolved = isPratik ? 0 : Number((current as any).totalSolved || (userPoints > 0 ? 1 : 0));
+      const userPoints = Number(current.totalPoints || 0);
+      const userSolved = Number((current as any).totalSolved || (userPoints > 0 ? 1 : 0));
 
       list.push({
         id: current.id,
@@ -1857,8 +1855,8 @@ export class FirestoreDataService {
         year: current.year || null,
         division: current.division || null,
         totalPoints: userPoints,
-        currentStreak: isPratik ? 0 : Number(current.currentStreak || 0),
-        longestStreak: isPratik ? 0 : Number(current.longestStreak || 0),
+        currentStreak: Number(current.currentStreak || 0),
+        longestStreak: Number(current.longestStreak || 0),
         totalSolved: userSolved,
       });
     }

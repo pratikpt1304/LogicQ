@@ -10,6 +10,9 @@ import { AiVivaModal } from '../../components/exam/AiVivaModal.js';
 import { RaiseIssueModal } from '../../components/common/RaiseIssueModal.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { DraftSyncService, getDeviceLabel } from '../../services/draftSync.service.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { auth } from '../../config/firebase.js';
 import { Flag } from 'lucide-react';
 import {
   Play,
@@ -357,6 +360,27 @@ export const ExamWorkspacePage: React.FC = () => {
         setAcademicScore(res.academicScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
         toast.success(`ACCEPTED! Score: ${res.academicScore} Mark. Question is now permanently locked.`);
+
+        // Record submission in Firestore and broadcast to all faculty & admin dashboards
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordDailySubmission(uid, {
+          problemId: problemId || assignmentId || 'exam-q1',
+          problemTitle: problemData?.title || 'Continuous Internal Evaluation Question',
+          problemSlug: problemId || assignmentId || 'exam-q1',
+          difficulty: problemData?.difficulty || 'MEDIUM',
+          code,
+          verdict: res.verdict,
+          timeTakenSeconds: elapsedSec,
+          submissionType: 'ASSESSMENT',
+          prn: user?.prn || '',
+          studentPrn: user?.prn || '',
+          email: user?.email || '',
+          studentEmail: user?.email || '',
+          studentName: user?.fullName || user?.displayName || '',
+        }).catch(() => {});
+        RealtimeSyncService.emit('SUBMISSIONS');
+        RealtimeSyncService.emit('DASHBOARD');
+        RealtimeSyncService.emit('TESTS');
 
         // Section 29: Trigger AI Viva Verification if returned by engine
         if (res.vivaTriggered && res.vivaId) {

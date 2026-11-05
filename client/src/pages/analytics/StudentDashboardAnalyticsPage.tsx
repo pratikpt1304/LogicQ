@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client.js';
 import { auth } from '../../config/firebase.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import {
   Award,
   ShieldCheck,
@@ -32,9 +33,25 @@ type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
   const { user, isAdmin, isFaculty } = useAuth();
+  const queryClient = useQueryClient();
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubSub = RealtimeSyncService.on('SUBMISSIONS', () => {
+      queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student'] });
+    });
+    const unsubDash = RealtimeSyncService.on('DASHBOARD', () => {
+      queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
+      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student'] });
+    });
+    return () => {
+      unsubSub();
+      unsubDash();
+    };
+  }, [queryClient]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['student-dashboard-analytics'],
@@ -182,8 +199,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const totalClipboardAttempts = (anl.telemetry?.totalClipboardAttempts || 0) + (fsTelemetry?.copyPasteAttempts || 0);
   const totalFullscreenExits = fsTelemetry?.fullscreenExits || 0;
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
-  const backendRiskPoints = typeof anl.integrityScore === 'number' ? anl.integrityScore : 0;
-  const backendCleanScore = Math.max(0, 100 - backendRiskPoints);
+  const backendIntegrity = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
 
   const fsIntegrity =
     fsTelemetry?.integrityScore !== undefined
@@ -195,7 +211,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           autoLockCount,
         });
 
-  const finalIntegrityScore = Math.max(0, Math.min(backendCleanScore, fsIntegrity));
+  const finalIntegrityScore = Math.max(0, Math.min(backendIntegrity, fsIntegrity));
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
   return (
