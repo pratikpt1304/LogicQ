@@ -406,14 +406,6 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                     </>
                   )}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full py-2 rounded-xl text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer text-center"
-                >
-                  Skip for now (Continue to Practice)
-                </button>
               </div>
             </form>
           ) : (
