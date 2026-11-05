@@ -1754,110 +1754,112 @@ export const ProfilePage: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="profile-settings-title"
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md animate-fadeIn"
         >
-          <div className="w-full max-w-lg glass-card rounded-2xl border border-[#252C4F] bg-[#141932] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-            {/* Sticky Header */}
-            <div className="flex items-center justify-between p-5 border-b border-[#252C4F] bg-[#141932] shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#8B9BFF]/10 border border-[#8B9BFF]/20 flex items-center justify-center text-[#8B9BFF]">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden transition-all">
+            {/* Apple Sheet Header */}
+            <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                   <Edit3 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 id="profile-settings-title" className="text-base font-bold text-[#E8EAF6]">
-                    Edit Profile & Settings
+                  <h3 id="profile-settings-title" className="text-base font-bold text-slate-900 dark:text-white">
+                    Profile &amp; Settings
                   </h3>
-                  <p className="text-[11px] text-[#9AA1C4]">Update your public name, academic info, and preferences</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Manage academic credentials and personal preferences</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEditOpen(false)}
                 aria-label="Close profile settings"
-                className="p-1 text-[#9AA1C4] hover:text-[#E8EAF6] rounded-lg hover:bg-[#252C4F]/50 transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Form with Scrollable Body and Sticky Footer */}
+            {/* Form with Scrollable Body */}
             <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+              <div className="p-6 overflow-y-auto space-y-5 flex-1">
                 {editError && (
                   <div
                     role="alert"
-                    className="p-3 rounded-lg bg-[#FF7A8A]/10 border border-[#FF7A8A]/40 text-[#FF7A8A] text-xs font-mono"
+                    className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-mono"
                   >
                     {editError}
                   </div>
                 )}
 
+                {/* Section 1: Academic Identity (Apple Card) */}
                 {!isAdminOrFaculty ? (
-                  <>
-                  /* Compact Student Academic Identity Card */
-                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-[#9AA1C4]">
-                        <KeyRound className="w-3.5 h-3.5 text-[#8B9BFF]" />
-                        <span>PRN:</span>
-                        <span className="text-[#E8EAF6] font-bold">{ownPrnDisplay || '••••••'}</span>
-                      </div>
-
-                      {isOwnProfile && (
-                        <div>
-                          {(() => {
-                            const cooldown = getPrnChangeCooldownStatus(profile.prnChangedAt);
-                            if (cooldown.isEligible) {
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPrnError(null);
-                                    setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
-                                    setIsPrnModalOpen(true);
-                                  }}
-                                  className="px-2.5 py-1 rounded bg-[#8B9BFF]/20 hover:bg-[#8B9BFF]/30 text-[#8B9BFF] border border-[#8B9BFF]/40 text-xs font-bold transition-colors cursor-pointer"
-                                >
-                                  Change PRN
-                                </button>
-                              );
-                            }
-                            const dateStr = cooldown.nextAllowedDate
-                              ? cooldown.nextAllowedDate.toLocaleDateString('en-IN', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                })
-                              : '30 days';
-                            return (
-                              <span
-                                className="px-2 py-0.5 rounded bg-[#252C4F]/40 text-[#9AA1C4] text-[10px]"
-                                title={`Cooldown active: ${cooldown.daysRemaining} days remaining`}
-                              >
-                                Changeable {dateStr}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
-                      <span className="flex items-center gap-1.5">
-                        <Mail className="w-3 h-3 text-emerald-400" />
-                        <span>Registered Email:</span>
+                  <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3 text-xs">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <KeyRound className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Academic PRN:</span>
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[#E8EAF6] font-medium truncate max-w-[180px]" title={profile.email || currentUser?.email || ''}>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          {ownPrnDisplay || '••••••'}
+                        </span>
+                        {isOwnProfile && (
+                          <div>
+                            {(() => {
+                              const cooldown = getPrnChangeCooldownStatus(profile.prnChangedAt);
+                              if (cooldown.isEligible) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPrnError(null);
+                                      setPrnForm({ newPrn: '', confirmPrn: '', reauthConfirmed: false });
+                                      setIsPrnModalOpen(true);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                                  >
+                                    Change
+                                  </button>
+                                );
+                              }
+                              const dateStr = cooldown.nextAllowedDate
+                                ? cooldown.nextAllowedDate.toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                  })
+                                : '30 days';
+                              return (
+                                <span
+                                  className="px-2 py-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]"
+                                  title={`Cooldown active: ${cooldown.daysRemaining} days remaining`}
+                                >
+                                  Changeable {dateStr}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
+                        <Mail className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Bound Email:</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-900 dark:text-white font-mono text-[11px] truncate max-w-[170px]" title={profile.email || currentUser?.email || ''}>
                           {profile.email || currentUser?.email || '—'}
                         </span>
                         {isOwnProfile && (
                           <button
                             type="button"
                             onClick={() => setIsBindEmailOpen(true)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer active:scale-95 ${
                               Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
-                                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40'
-                                : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 animate-pulse'
+                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse'
                             }`}
                           >
                             {Boolean(currentUser?.isEmailBound || (currentUser?.email && !currentUser.email.endsWith('@sanjivani.edu.in') && !currentUser.email.includes('placeholder')))
@@ -1868,142 +1870,137 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[#9AA1C4] pt-1.5 border-t border-[#252C4F]/40">
-                      <span className="flex items-center gap-1.5">
-                        <Lock className="w-3 h-3 text-[#8B9BFF]" />
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
+                        <Building2 className="w-3.5 h-3.5 text-blue-500" />
                         <span>Institution:</span>
                       </span>
-                      <span className="text-[#E8EAF6] font-semibold">
+                      <span className="text-slate-900 dark:text-white font-semibold">
                         {profile.college || 'LogicQ'}
                       </span>
                     </div>
-                  </div>
 
-                  {/* Security & Password Card */}
-                  {isOwnProfile && (
-                    <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2.5 text-xs font-mono mt-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-[#9AA1C4]">
-                          <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                    {isOwnProfile && (
+                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/60 dark:border-slate-700/50 text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold">
+                          <Lock className="w-3.5 h-3.5 text-indigo-500" />
                           <span>Password:</span>
-                          <span className="text-[#E8EAF6] font-bold tracking-widest">••••••••</span>
-                        </div>
-
+                        </span>
                         <button
                           type="button"
                           onClick={() => setIsChangePasswordOpen(true)}
-                          className="px-2.5 py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                          className="px-2.5 py-1 rounded-lg bg-slate-200/60 dark:bg-slate-700/60 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
                         >
                           <Lock className="w-3 h-3" />
                           <span>Change Password</span>
                         </button>
                       </div>
-                      <p className="text-[10px] text-[#9AA1C4] leading-relaxed">
-                        Rule: Changing password requires OTP verification sent to your bound email address.
-                      </p>
-                    </div>
-                  )}
-                  </>
+                    )}
+                  </div>
                 ) : (
-                  /* Admin/Faculty Authority Info */
-                  <div className="p-3.5 rounded-xl bg-[#0C0F1F] border border-[#252C4F] space-y-2 text-xs font-mono">
-                    <div className="flex items-center justify-between text-[#9AA1C4]">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  /* Admin/Faculty Authority Card */
+                  <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
                         <span>Account Role:</span>
                       </span>
-                      <span className="text-[#E8EAF6] font-bold">
+                      <span className="text-slate-900 dark:text-white font-bold">
                         {isAdminProfile ? 'System Administrator' : 'Faculty Member'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[#9AA1C4]">
-                      <span className="flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-[#8B9BFF]" />
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/50">
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
+                        <Building2 className="w-3.5 h-3.5 text-blue-500" />
                         <span>Institution:</span>
                       </span>
-                      <span className="text-[#E8EAF6] font-semibold">
+                      <span className="text-slate-900 dark:text-white font-semibold">
                         {profile.college || 'LogicQ'}
                       </span>
                     </div>
                   </div>
                 )}
 
-                {/* Public Full Name / Display Handle (3-30 chars) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label
-                      htmlFor="edit-display-name"
-                      className="block text-xs font-mono font-bold text-[#E8EAF6]"
-                    >
-                      FULL NAME / DISPLAY HANDLE
-                    </label>
-                    <span className="text-[10px] font-mono text-[#9AA1C4]">
-                      {editForm.displayName.length}/{DISPLAY_NAME_MAX}
+                {/* Section 2: Public Profile Fields */}
+                <div className="space-y-4">
+                  {/* Public Full Name */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="edit-display-name"
+                        className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                      >
+                        Full Name / Display Handle
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {editForm.displayName.length}/{DISPLAY_NAME_MAX}
+                      </span>
+                    </div>
+                    <input
+                      id="edit-display-name"
+                      type="text"
+                      maxLength={DISPLAY_NAME_MAX}
+                      value={editForm.displayName}
+                      onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                      placeholder="e.g. Pratik Balasaheb Thorat"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                    <span className="text-[11px] text-slate-400 block">
+                      Shown to peers on the leaderboard and campus discussions.
                     </span>
                   </div>
-                  <input
-                    id="edit-display-name"
-                    type="text"
-                    maxLength={DISPLAY_NAME_MAX}
-                    value={editForm.displayName}
-                    onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                    placeholder={`e.g. Pratik Balasaheb Thorat`}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-sm text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF]"
-                  />
-                  <span className="text-[11px] text-[#9AA1C4] block mt-1">
-                    Shown to peers on the leaderboard and discussions instead of your PRN.
-                  </span>
-                </div>
 
-                {/* Department & Year (Clean 2-Column Responsive Grid) */}
-                <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
-                  <div>
-                    <label
-                      htmlFor="edit-department"
-                      className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
-                    >
-                      DEPARTMENT
-                    </label>
-                    <select
-                      id="edit-department"
-                      value={editForm.department}
-                      onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
-                    >
-                      {ALLOWED_DEPARTMENTS.map((dept) => (
-                        <option key={dept} value={dept} className="bg-[#141932] text-[#E8EAF6]">
-                          {dept}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {!isAdminOrFaculty && (
-                    <div>
+                  {/* Department & Academic Year Grid */}
+                  <div className={isAdminOrFaculty ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
+                    <div className="space-y-1.5">
                       <label
-                        htmlFor="edit-year"
-                        className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1"
+                        htmlFor="edit-department"
+                        className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
                       >
-                        ACADEMIC YEAR
+                        Department
                       </label>
                       <select
-                        id="edit-year"
-                        value={editForm.year}
-                        onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] focus:outline-none focus:border-[#8B9BFF]"
+                        id="edit-department"
+                        value={editForm.department}
+                        onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
                       >
-                        {ALLOWED_YEARS.map((yr) => (
-                          <option key={yr} value={yr} className="bg-[#141932] text-[#E8EAF6]">
-                            {yr === 'FY' ? 'FY (First Year)' : yr === 'SY' ? 'SY (Second Year)' : 'TY (Third Year)'}
+                        {ALLOWED_DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                            {dept}
                           </option>
                         ))}
                       </select>
                     </div>
-                  )}
 
-                  <div className={isAdminOrFaculty ? "sm:col-span-1" : "sm:col-span-2"}>
-                    <label htmlFor="edit-bio" className="block text-xs font-mono font-bold text-[#E8EAF6] mb-1">
-                      BIO (OPTIONAL)
+                    {!isAdminOrFaculty && (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="edit-year"
+                          className="block text-xs font-semibold text-slate-700 dark:text-slate-300"
+                        >
+                          Academic Year
+                        </label>
+                        <select
+                          id="edit-year"
+                          value={editForm.year}
+                          onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer"
+                        >
+                          {ALLOWED_YEARS.map((yr) => (
+                            <option key={yr} value={yr} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                              {yr === 'FY' ? 'FY (First Year)' : yr === 'SY' ? 'SY (Second Year)' : 'TY (Third Year)'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bio */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="edit-bio" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Bio (Optional)
                     </label>
                     <input
                       id="edit-bio"
@@ -2012,40 +2009,42 @@ export const ProfilePage: React.FC = () => {
                       value={editForm.bio}
                       onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                       placeholder="Share a short line about your C programming journey..."
-                      className="w-full px-3 py-2 rounded-lg bg-[#0C0F1F] border border-[#252C4F] text-xs text-[#E8EAF6] placeholder-[#9AA1C4]/50 focus:outline-none focus:border-[#8B9BFF]"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
                   </div>
                 </div>
 
-                {/* Preferences Section (Clean & Streamlined) */}
-                <div className="pt-2 border-t border-[#252C4F]/40">
-                  <label className="flex items-center gap-2.5 cursor-pointer text-xs font-mono text-[#9AA1C4] hover:text-[#E8EAF6]">
+                {/* Section 3: Preferences */}
+                <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800/60">
+                  <label className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 cursor-pointer text-xs group">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Hide active timer count-up in practice problems
+                    </span>
                     <input
                       type="checkbox"
                       checked={editForm.hidePracticeTimer}
                       onChange={(e) => setEditForm({ ...editForm, hidePracticeTimer: e.target.checked })}
-                      className="rounded border-[#252C4F] bg-[#0C0F1F] text-[#8B9BFF] focus:ring-[#8B9BFF] cursor-pointer"
+                      className="w-4 h-4 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     />
-                    <span>Hide active timer count-up while solving practice problems</span>
                   </label>
                 </div>
               </div>
 
-              {/* Sticky Footer: Always visible on 360px and with mobile keyboard */}
-              <div className="p-4 border-t border-[#252C4F] bg-[#141932] flex items-center justify-between shrink-0">
+              {/* Apple Sheet Footer */}
+              <div className="px-6 py-4 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between shrink-0">
                 <Link
                   to="/privacy"
-                  className="text-xs font-mono text-[#8B9BFF] hover:underline flex items-center gap-1"
+                  className="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
                   <span>Privacy Policy</span>
                 </Link>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => setIsEditOpen(false)}
-                    className="px-4 py-2 rounded-lg text-xs font-mono text-[#9AA1C4] hover:text-[#E8EAF6] hover:bg-[#252C4F]/40 transition-colors"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -2053,7 +2052,7 @@ export const ProfilePage: React.FC = () => {
                     type="submit"
                     disabled={updateMutation.isPending}
                     data-testid="save-profile-settings-btn"
-                    className="px-4 py-2 rounded-lg text-xs font-mono font-bold text-[#0C0F1F] bg-[#8B9BFF] hover:bg-[#9FAOFF] disabled:opacity-50 transition-colors"
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer"
                   >
                     {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
                   </button>
