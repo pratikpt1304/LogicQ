@@ -99,6 +99,7 @@ export const Navbar: React.FC = () => {
                 { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
         { label: 'Leaderboard', path: '/leaderboard', icon: Trophy },
+        { label: 'Analytics', path: '/analytics', icon: Brain },
       ]
     : [
         { label: 'Dashboard', path: '/dashboard', icon: Home },
