@@ -171,7 +171,7 @@ export function markPracticeTopicSolved(topicId: string, userId?: string): strin
   }
 }
 
-function getHiddenCaseHint(topic: TopicPracticeItem | null, result?: any): string {
+function getHiddenCaseHint(topic: TopicPracticeItem | null, result?: any, userCode?: string): string {
   if (!topic) return 'Check edge case inputs like boundary numbers, negative values, and exact output formatting.';
 
   const id = topic.id || '';
@@ -181,6 +181,9 @@ function getHiddenCaseHint(topic: TopicPracticeItem | null, result?: any): strin
 
   // Specific high-impact topic hints:
   if (id === 'm1-t1-basic-io' || titleLower.includes('temperature') || titleLower.includes('format specifier')) {
+    if (userCode && (/\/\/\s*scanf/i.test(userCode) || !/\bscanf\s*\(/i.test(userCode))) {
+      return '⚠️ Input not being read: Notice that scanf() is commented out (//scanf("%f",&c);) or missing in your code! The automated test feeds "37.5" via standard input (stdin), but without scanf("%f", &c), variable c remains uninitialized (0.0) and always prints 32.00 instead of 99.50. Please uncomment scanf("%f", &c); so the program reads input!';
+    }
     if (actualOut === '32.00' || actualOut === '32') {
       return 'Notice your output is 32.00: in C, integer division (9 / 5) evaluates to integer 1, causing (C * 9 / 5) to truncate decimals or evaluate to 0 if C is small! Always use (9.0 / 5.0) or (c * 9.0 / 5.0) + 32.0, and print with "%.2f\\n".';
     }
@@ -2313,7 +2316,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                                   </button>
                                 </div>
                                 <div className="p-3 rounded-lg bg-black/60 border border-amber-500/30 text-[12px] leading-relaxed text-amber-100 font-sans">
-                                  {getHiddenCaseHint(activeTopic, submitResult)}
+                                  {getHiddenCaseHint(activeTopic, submitResult, codeRef.current || code)}
                                 </div>
                                 {activeTopic.tipBox?.syntax && (
                                   <div className="flex items-center justify-between text-[11px] text-amber-300/90 pt-1 border-t border-amber-500/20">
