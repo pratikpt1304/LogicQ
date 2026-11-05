@@ -20,7 +20,7 @@ import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
 import { RealtimeSyncService } from './realtimeSync.service.js';
-import { C_PROGRAMMING_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
+import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 
 export interface StudentPracticeProgress {
   userId: string;
@@ -1786,6 +1786,11 @@ export class FirestoreDataService {
     const upperCode = (joinCode || '').toUpperCase();
     const upperId = (id || '').toUpperCase();
 
+    // Never consider authoritative active sections (LQ-C31A or LQ-DEMO) as legacy
+    if (upperCode === 'LQ-DEMO' || upperId === 'LQ-DEMO' || upperCode === 'LQ-C31A' || upperId === 'LQ-C31A') {
+      return false;
+    }
+
     return (
       upperCode === 'LQ-DC85' ||
       upperCode === 'LQ-4904' ||
@@ -2517,7 +2522,7 @@ export class FirestoreDataService {
       (s: any) =>
         s.joinCode === 'LQ-C31A' ||
         s.id === 'LQ-C31A' ||
-        (s.sectionName && String(s.sectionName).toLowerCase().includes('c programming'))
+        s.sectionName === 'C Programming'
     );
 
     if (!cProgSec) {
@@ -2593,6 +2598,85 @@ export class FirestoreDataService {
         }
       } catch {}
     }
+
+    // Authoritative Presidential Showcase Section: LQ-DEMO with Dummy Faculty (Prof. Hariprasad K.)
+    let demoSec = result.find(
+      (s: any) => s.joinCode === 'LQ-DEMO' || s.id === 'LQ-DEMO'
+    );
+
+    const demoStudentsEnriched = DEMO_SECTION_COHORT_STUDENTS.map((ds, idx) => {
+      const solved = 26 - (idx % 6);
+      const labCompleted = 5;
+      const labMarks = 18 + (idx % 3 === 0 ? 2 : 1);
+      const points = (solved * 10) + (labMarks * 4);
+      return {
+        id: ds.prn,
+        uid: ds.prn,
+        prn: ds.prn,
+        name: ds.fullName,
+        fullName: ds.fullName,
+        email: ds.email,
+        department: ds.department,
+        year: ds.year,
+        college: ds.college,
+        sectionId: 'LQ-DEMO',
+        sectionName: 'C Programming Masterclass (Presidential Showcase)',
+        joinCode: 'LQ-DEMO',
+        status: 'ACTIVE',
+        enrolledAt: 1730419200000,
+        solvedCount: solved,
+        totalPoints: points,
+        labCompletedModules: labCompleted,
+        labInternalScore: labMarks,
+        currentStreak: 0,
+        integrityScore: 100,
+        integrityRisk: 'NORMAL',
+        tabSwitchCount: 0,
+        copyPasteAttempts: 0,
+        statusCategory: 'CONSISTENT',
+      };
+    });
+
+    if (!demoSec) {
+      demoSec = {
+        id: 'LQ-DEMO',
+        joinCode: 'LQ-DEMO',
+        joinToken: 'LQ-DEMO',
+        sectionName: 'C Programming Masterclass (Presidential Showcase)',
+        subject: 'C Programming & Data Structures',
+        course: 'CS101-DEMO',
+        department: 'Integrated M.Tech',
+        year: 'FY',
+        college: 'Sanjivani University',
+        institution: 'Sanjivani University',
+        academicYear: '2026-2027',
+        semester: 'Semester 1',
+        description: 'Presidential Showcase Section: Live Demonstration of LogicQ Continuous Evaluation, Compiler Telemetry & Automated Gradebook.',
+        facultyId: 'faculty-demo-president',
+        facultyName: 'Prof. Hariprasad K.',
+        facultyEmail: 'faculty.demo@sanjivani.edu.in',
+        students: demoStudentsEnriched,
+        studentsCount: demoStudentsEnriched.length,
+        _count: { students: demoStudentsEnriched.length },
+        createdAt: 1730419200000,
+        isActive: true,
+      };
+      result.unshift(demoSec);
+    } else {
+      demoSec.sectionName = 'C Programming Masterclass (Presidential Showcase)';
+      demoSec.subject = 'C Programming & Data Structures';
+      demoSec.course = 'CS101-DEMO';
+      demoSec.facultyName = 'Prof. Hariprasad K.';
+      demoSec.facultyEmail = 'faculty.demo@sanjivani.edu.in';
+      demoSec.facultyId = 'faculty-demo-president';
+      demoSec.students = demoStudentsEnriched;
+      demoSec.studentsCount = demoStudentsEnriched.length;
+      demoSec._count = { students: demoStudentsEnriched.length };
+    }
+
+    try {
+      localStorage.setItem('logicq_section_students_LQ-DEMO', JSON.stringify(demoStudentsEnriched));
+    } catch {}
 
     // Update persistent local backup so fallback always has current valid sections
     try {

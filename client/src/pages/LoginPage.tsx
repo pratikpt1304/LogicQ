@@ -133,6 +133,33 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  // Presidential Showcase 1-Click Faculty Demo Login
+  const handleQuickFacultyDemoLogin = async () => {
+    setError(null);
+    setInfoMessage(null);
+    setLoading(true);
+    try {
+      const user = await login('faculty.demo@sanjivani.edu.in', 'password123');
+      setIsVerifiedSuccess(true);
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#6366f1', '#8b5cf6', '#10b981'],
+        });
+      } catch {}
+      toast.success(`Welcome, Prof. Hariprasad K.! Loaded Presidential Showcase.`);
+      setTimeout(() => {
+        navigate('/faculty/sections', { replace: true });
+      }, 800);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to enter Demo Faculty mode.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 1: Dispatch OTP
   const handleSendOtp = async (eOrEmail?: React.FormEvent | string) => {
     let cleanId = identifier.trim();
@@ -630,6 +657,33 @@ export const LoginPage: React.FC = () => {
               )}
             </>
           )}
+        </div>
+
+        {/* Presidential Showcase Demo Quick Access */}
+        <div className="mt-4 p-3.5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 dark:bg-[#131726]/80 backdrop-blur-sm shadow-sm flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold text-base">
+              🏛️
+            </div>
+            <div>
+              <div className="text-xs font-bold text-[var(--text-main)] flex items-center gap-1.5">
+                <span>Faculty Demo Portal</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-500 font-semibold">President Showcase</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-muted)]">
+                Prof. Hariprasad K. • C Programming (LQ-DEMO)
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleQuickFacultyDemoLogin}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <span>Enter Demo</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
