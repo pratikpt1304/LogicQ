@@ -171,6 +171,65 @@ export function markPracticeTopicSolved(topicId: string, userId?: string): strin
   }
 }
 
+function getHiddenCaseHint(topic: TopicPracticeItem | null, result?: any): string {
+  if (!topic) return 'Check edge case inputs like boundary numbers, negative values, and exact output formatting.';
+
+  const id = topic.id || '';
+  const titleLower = (topic.topicTitle || '').toLowerCase();
+  const descLower = (topic.problem?.description || '').toLowerCase();
+  const actualOut = String(result?.actualHiddenOut || result?.actualOutput || '').trim();
+
+  // Specific high-impact topic hints:
+  if (id === 'm1-t1-basic-io' || titleLower.includes('temperature') || titleLower.includes('format specifier')) {
+    if (actualOut === '32.00' || actualOut === '32') {
+      return 'Notice your output is 32.00: in C, integer division (9 / 5) evaluates to integer 1, causing (C * 9 / 5) to truncate decimals or evaluate to 0 if C is small! Always use (9.0 / 5.0) or (c * 9.0 / 5.0) + 32.0, and print with "%.2f\\n".';
+    }
+    return 'Hidden test uses fractional float inputs (e.g., 37.5°C). In C, (9 / 5) evaluates to integer 1, which truncates all decimals! Always use (9.0 / 5.0) or (c * 9.0 / 5.0) + 32.0, and print with "%.2f\\n".';
+  }
+
+  if (id === 'm1-t2-if-else' || titleLower.includes('triangle') || descLower.includes('equilateral') || descLower.includes('scalene')) {
+    return 'Hidden test checks scalene and invalid side lengths (e.g., 3 4 5). Verify triangle inequality: (a + b > c && a + c > b && b + c > a), and check conditions in strict priority order.';
+  }
+
+  if (id === 'm1-t3-switch-case' || titleLower.includes('calculator') || titleLower.includes('switch')) {
+    return 'Hidden test checks division by zero (e.g., "10 / 0"). Make sure to test if the denominator is 0 before dividing and print "ERROR" without performing the division.';
+  }
+
+  if (id === 'm1-t4-for-loops' || titleLower.includes('for loops') || descLower.includes('multiples of 3')) {
+    return 'Hidden test checks larger limits (e.g., N = 100) and numbers divisible by both 3 and 5 (avoid duplicate addition). Use: if (i % 3 == 0 || i % 5 == 0).';
+  }
+
+  if (id === 'm1-t5-while-loops' || titleLower.includes('reverse') || titleLower.includes('digits')) {
+    return 'Hidden test checks numbers with trailing zeros (e.g., 908 or 100). Extract digits using while(n > 0) { rem = n % 10; ... n /= 10; } and handle 0 correctly.';
+  }
+
+  if (id === 'm1-t6-nested-loops' || titleLower.includes('pattern') || descLower.includes('inverted')) {
+    return 'Hidden test tests height N = 4. Ensure your outer loop runs from i = N down to 1, and no extraneous spaces precede the newline character.';
+  }
+
+  if (titleLower.includes('prime') || descLower.includes('prime')) {
+    return 'Hidden test checks large numbers (e.g. 101, 103) and edge values 1 and 2. Remember: 1 is NOT prime; 2 is the smallest prime.';
+  }
+
+  if (titleLower.includes('pointer') || descLower.includes('pointer') || descLower.includes('swap')) {
+    return 'Hidden test checks pointer swapping with negative integers and identical values. Ensure you are dereferencing (*a, *b) and not modifying the addresses themselves.';
+  }
+
+  if (titleLower.includes('array') || descLower.includes('second largest') || descLower.includes('rotate')) {
+    return 'Hidden test checks arrays with negative numbers or all duplicate elements. If no distinct second largest exists, output -1 as specified.';
+  }
+
+  if (titleLower.includes('string') || descLower.includes('palindrome') || descLower.includes('vowel')) {
+    return 'Hidden test checks mixed-case inputs ("Programming") and strings with spaces. Ensure you strip trailing "\\n" when using fgets and compare characters case-insensitively.';
+  }
+
+  if (titleLower.includes('struct') || descLower.includes('structure')) {
+    return 'Hidden test checks records with spaces or tied maximum values. Make sure scanf format strings consume whitespace correctly.';
+  }
+
+  return `Hint for "${topic.topicTitle}": ${topic.summary || 'Make sure your solution handles non-sample edge inputs (such as zero, negative values, and large numbers) with exact whitespace matching.'}`;
+}
+
 export const TopicPracticeHubPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -256,6 +315,8 @@ export const TopicPracticeHubPage: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [runResult, setRunResult] = useState<any>(null);
   const [submitResult, setSubmitResult] = useState<any>(null);
+  const [showHiddenHint, setShowHiddenHint] = useState<boolean>(false);
+  const [showVisibleHint, setShowVisibleHint] = useState<boolean>(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(true);
   const [activeBottomTab, setActiveBottomTab] = useState<'cases' | 'output'>('cases');
   const [activeTipTab, setActiveTipTab] = useState<'syntax' | 'example'>('syntax');
@@ -702,6 +763,8 @@ export const TopicPracticeHubPage: React.FC = () => {
     setCustomInput(localDraft?.customInput || '');
     setRunResult(null);
     setSubmitResult(null);
+    setShowHiddenHint(false);
+    setShowVisibleHint(false);
     setShowCelebrationModal(false);
     setIsTipDrawerOpen(false);
     setIsDrawerOpen(true);
@@ -783,6 +846,8 @@ export const TopicPracticeHubPage: React.FC = () => {
     setCode(starter);
     setRunResult(null);
     setSubmitResult(null);
+    setShowHiddenHint(false);
+    setShowVisibleHint(false);
     const draftKey = `topic_${activeTopic.id}`;
     const draft: DraftData = {
       problemSlug: draftKey,
@@ -935,6 +1000,8 @@ export const TopicPracticeHubPage: React.FC = () => {
         hiddenPassed,
         allPassed,
         compileError: compileErr,
+        actualOpenOut,
+        actualHiddenOut,
       });
 
       if (allPassed) {
@@ -2167,16 +2234,123 @@ export const TopicPracticeHubPage: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.openPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!submitResult.openPassed) {
+                                    setShowVisibleHint((prev) => !prev);
+                                  }
+                                }}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between transition-all text-left ${
+                                  submitResult.openPassed
+                                    ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400 cursor-default'
+                                    : 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-300 cursor-pointer shadow-xs active:scale-98'
+                                }`}
+                                title={!submitResult.openPassed ? 'Click to inspect visible case details' : undefined}
+                              >
                                 <span>Use Case #1 (Visible)</span>
                                 <strong>{submitResult.openPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                              </div>
-                              <div className={`p-2.5 rounded-xl border flex items-center justify-between ${submitResult.hiddenPassed ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/5 border-rose-500/20 text-rose-400'}`}>
-                                <span>Use Case #2 (Hidden)</span>
-                                <strong>{submitResult.hiddenPassed ? 'Passed ✓' : 'Failed ✗'}</strong>
-                              </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!submitResult.hiddenPassed) {
+                                    setShowHiddenHint((prev) => !prev);
+                                  }
+                                }}
+                                className={`p-2.5 rounded-xl border flex items-center justify-between transition-all text-left ${
+                                  submitResult.hiddenPassed
+                                    ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400 cursor-default'
+                                    : 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 text-rose-200 cursor-pointer shadow-sm active:scale-98 ring-1 ring-amber-500/40 hover:ring-amber-400/60'
+                                }`}
+                                title={!submitResult.hiddenPassed ? 'Click to reveal hidden test case diagnostic hint' : undefined}
+                              >
+                                <span className="flex items-center gap-1.5 flex-wrap">
+                                  <span>Use Case #2 (Hidden)</span>
+                                  {!submitResult.hiddenPassed && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1 animate-pulse">
+                                      <span>💡 Click for Hint</span>
+                                    </span>
+                                  )}
+                                </span>
+                                <strong className="flex items-center gap-1 shrink-0 ml-2">
+                                  {submitResult.hiddenPassed ? (
+                                    'Passed ✓'
+                                  ) : (
+                                    <>
+                                      <span className="text-rose-400">Failed ✗</span>
+                                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showHiddenHint ? 'rotate-180 text-amber-400' : 'text-amber-400/80'}`} />
+                                    </>
+                                  )}
+                                </strong>
+                              </button>
                             </div>
+
+                            {/* Hidden Test Case Diagnostic Hint Card */}
+                            {showHiddenHint && !submitResult.hiddenPassed && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/15 via-amber-950/25 to-black/50 border border-amber-500/40 text-amber-200 text-xs font-mono space-y-2.5 shadow-lg backdrop-blur-md"
+                              >
+                                <div className="flex items-center justify-between font-bold text-amber-300 border-b border-amber-500/20 pb-1.5">
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-300 text-xs">
+                                      💡
+                                    </span>
+                                    <span>Hidden Test Case Diagnostic Guidance</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowHiddenHint(false)}
+                                    className="p-1 text-amber-400/80 hover:text-amber-200 rounded-md hover:bg-amber-500/20 cursor-pointer transition-colors"
+                                    title="Close hint"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="p-3 rounded-lg bg-black/60 border border-amber-500/30 text-[12px] leading-relaxed text-amber-100 font-sans">
+                                  {getHiddenCaseHint(activeTopic, submitResult)}
+                                </div>
+                                {activeTopic.tipBox?.syntax && (
+                                  <div className="flex items-center justify-between text-[11px] text-amber-300/90 pt-1 border-t border-amber-500/20">
+                                    <span>Syntax Tip: <code className="px-2 py-0.5 rounded bg-black/60 text-cyan-300 font-mono border border-cyan-500/20">{activeTopic.tipBox.syntax}</code></span>
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+
+                            {/* Visible Case Diff Hint */}
+                            {showVisibleHint && !submitResult.openPassed && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs font-mono space-y-2 shadow-md backdrop-blur-sm"
+                              >
+                                <div className="flex items-center justify-between font-bold text-rose-300">
+                                  <span>Use Case #1 Diagnostic Info</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowVisibleHint(false)}
+                                    className="p-1 text-rose-400/80 hover:text-rose-200 rounded-md hover:bg-rose-500/10 cursor-pointer transition-colors"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="text-[11px] leading-relaxed text-rose-100 space-y-1">
+                                  {activeTopic.problem.openTestCase.explanation && (
+                                    <p>{activeTopic.problem.openTestCase.explanation}</p>
+                                  )}
+                                  <div className="font-mono text-[10px] p-2 rounded bg-black/40 text-slate-300">
+                                    <div>Expected: <span className="text-emerald-400">{activeTopic.problem.openTestCase.expectedOutput}</span></div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
                           </motion.div>
                         )}
                       </div>

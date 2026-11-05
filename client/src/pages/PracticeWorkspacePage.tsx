@@ -218,6 +218,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
   const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
   const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(false);
+  const [showHiddenPracticeHint, setShowHiddenPracticeHint] = useState<boolean>(false);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
 
@@ -2317,31 +2318,68 @@ export const PracticeWorkspacePage: React.FC = () => {
 
                           {/* Hidden Use Cases */}
                           {hiddenTotal > 0 && (
-                            <div
-                              className={`px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                                isAllHiddenPassed
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                                  : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-[var(--text-main)]">
-                                  Hidden Use Cases:
-                                </span>
-                                <span className="font-bold">
-                                  Passed {hiddenPassed}/{hiddenTotal} {isAllHiddenPassed ? '✅' : '❌'}
-                                </span>
-                                {isAllHiddenPassed && (
-                                  <span className="text-emerald-400 font-bold ml-1">
-                                    (+{problem?.points || 20} PTS)
+                            <div className="space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!isAllHiddenPassed) {
+                                    setShowHiddenPracticeHint((prev) => !prev);
+                                  }
+                                }}
+                                className={`w-full px-3 py-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors text-left ${
+                                  isAllHiddenPassed
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25 cursor-default'
+                                    : 'bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20 cursor-pointer shadow-xs active:scale-98 ring-1 ring-amber-500/40 hover:ring-amber-400/60'
+                                }`}
+                                title={!isAllHiddenPassed ? 'Click to reveal hidden test case diagnostic hint' : undefined}
+                              >
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-[var(--text-main)]">
+                                    Hidden Use Cases:
                                   </span>
-                                )}
-                              </div>
-                              <span className="text-[11px] text-[var(--text-muted)]">
-                                {isAllHiddenPassed
-                                  ? 'All hidden checks passed'
-                                  : `${hiddenTotal - hiddenPassed} hidden check(s) failed`}
-                              </span>
+                                  <span className="font-bold">
+                                    Passed {hiddenPassed}/{hiddenTotal} {isAllHiddenPassed ? '✅' : '❌'}
+                                  </span>
+                                  {!isAllHiddenPassed && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 animate-pulse flex items-center gap-1">
+                                      <span>💡 Click for Hint</span>
+                                    </span>
+                                  )}
+                                  {isAllHiddenPassed && (
+                                    <span className="text-emerald-400 font-bold ml-1">
+                                      (+{problem?.points || 20} PTS)
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1 shrink-0 ml-2">
+                                  {isAllHiddenPassed
+                                    ? 'All hidden checks passed'
+                                    : `${hiddenTotal - hiddenPassed} hidden check(s) failed`}
+                                </span>
+                              </button>
+
+                              {showHiddenPracticeHint && !isAllHiddenPassed && (
+                                <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/15 via-amber-950/25 to-black/40 border border-amber-500/40 text-amber-200 text-xs font-mono space-y-2 shadow-lg backdrop-blur-md">
+                                  <div className="flex items-center justify-between font-bold text-amber-300 border-b border-amber-500/20 pb-1.5">
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-300 text-xs">
+                                        💡
+                                      </span>
+                                      <span>Hidden Test Case Diagnostic Guidance</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowHiddenPracticeHint(false)}
+                                      className="p-1 text-amber-400/80 hover:text-amber-200 rounded-md hover:bg-amber-500/20 cursor-pointer transition-colors"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-black/60 border border-amber-500/30 text-[11px] leading-relaxed text-amber-100 font-sans">
+                                    Check edge case inputs like boundary numbers, negative values, 0 or large limits, and verify integer division in C (e.g. use float division 9.0/5.0 instead of 9/5). Make sure there are no extra leading/trailing whitespace or unexpected characters printed.
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
