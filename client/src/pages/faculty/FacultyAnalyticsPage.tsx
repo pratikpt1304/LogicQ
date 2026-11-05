@@ -208,11 +208,6 @@ export const FacultyAnalyticsPage: React.FC = () => {
         return true;
       });
 
-      const isDemoFaculty = user?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || user?.username === 'faculty_demo';
-      if (isDemoFaculty) {
-        mySections = mySections.filter((s: any) => s.id === 'LQ-DEMO' || s.joinCode === 'LQ-DEMO');
-      }
-
       // Map to deduplicate students across all sections by email or PRN
       const studentMap = new Map<string, StudentRosterItem>();
 
@@ -235,7 +230,8 @@ export const FacultyAnalyticsPage: React.FC = () => {
           const su = sub.userId || sub.uid || sub.user?.id;
           return (cleanP && cleanP !== 'PENDING' && cleanP !== '—' && sp === cleanP) ||
                  (cleanE && cleanE !== '—' && se === cleanE) ||
-                 (stId && su === stId);
+                 (stId && su === stId) ||
+                 (cleanP && (su === cleanP || su === 'cohort-' + cleanP.toLowerCase()));
         });
 
         const accepted = matched.filter((s: any) => {

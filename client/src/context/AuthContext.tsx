@@ -188,27 +188,6 @@ const getCachedUser = (): User | null => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const prnUpper = (parsed?.prn || '').toUpperCase();
-    if (parsed?.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || parsed?.username === 'faculty_demo') {
-      parsed.role = 'FACULTY';
-      parsed.fullName = 'Prof. Rajesh Sharma';
-      parsed.displayName = 'Prof. Rajesh Sharma';
-      parsed.sections = [{ id: 'LQ-DEMO', sectionName: 'C Programming Masterclass', joinCode: 'LQ-DEMO' }];
-      return parsed;
-    }
-    if (prnUpper.startsWith('2126DEMO')) {
-      const demoSt = findCohortStudent(prnUpper);
-      if (demoSt) {
-        parsed.role = 'STUDENT';
-        parsed.fullName = demoSt.fullName;
-        parsed.displayName = demoSt.fullName;
-        parsed.sectionId = 'LQ-DEMO';
-        parsed.sectionName = 'C Programming Masterclass';
-        parsed.totalPoints = demoSt.totalPoints ?? 0;
-        parsed.totalSolved = demoSt.totalSolved ?? 0;
-        parsed.currentStreak = demoSt.currentStreak ?? 0;
-        return parsed;
-      }
-    }
     if (prnUpper === '2126PMIM1039') {
       parsed.fullName = 'Pratik Balasaheb Thorat';
       parsed.displayName = 'Pratik Thorat';
@@ -1087,56 +1066,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = String(identifier || '').trim();
     const cleanPwd = String(password || cleanId).trim();
 
-    if (cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || cleanId.toLowerCase() === 'faculty_demo') {
-      const demoFacultyUser: User = {
-        id: 'faculty_demo_id',
-        email: 'faculty.demo@sanjivani.edu.in',
-        username: 'faculty_demo',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
-        role: 'FACULTY',
-        department: 'Integrated M.Tech',
-        college: 'Sanjivani University',
-        profileComplete: true,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        sections: [{ id: 'LQ-DEMO', sectionName: 'C Programming Masterclass', joinCode: 'LQ-DEMO' }],
-      };
-      recordUserActivity();
-      persistUser(demoFacultyUser);
-      setAuthState('signedIn');
-      return demoFacultyUser;
-    }
-
     // Check device registration and single instance for cohort students
     const cohortStudent = findCohortStudent(cleanId);
-    if (cohortStudent && cohortStudent.prn.startsWith('2126DEMO')) {
-      const demoStudentUser: User = {
-        id: `demo_${cohortStudent.prn.toLowerCase()}`,
-        email: cohortStudent.email,
-        username: cohortStudent.prn.toLowerCase(),
-        prn: cohortStudent.prn,
-        fullName: cohortStudent.fullName,
-        displayName: cohortStudent.fullName,
-        role: 'STUDENT',
-        college: cohortStudent.college,
-        department: cohortStudent.department,
-        year: cohortStudent.year,
-        division: 'A',
-        sectionId: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass',
-        profileComplete: true,
-        totalPoints: cohortStudent.totalPoints ?? 0,
-        currentStreak: cohortStudent.currentStreak ?? 0,
-        longestStreak: cohortStudent.currentStreak ?? 0,
-        totalSolved: cohortStudent.totalSolved ?? 0,
-      };
-      recordUserActivity();
-      persistUser(demoStudentUser);
-      setAuthState('signedIn');
-      return demoStudentUser;
-    }
 
     const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : (cleanId.toUpperCase().startsWith('212') ? cleanId.toUpperCase() : null);
 
@@ -1572,9 +1503,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!cleanId) {
       throw new Error('Please enter your institutional email address or PRN.');
     }
-    if (cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || cleanId.toLowerCase() === 'faculty_demo') {
-      return { success: true, message: 'OTP sent to demo faculty email.' };
-    }
     if (FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
       throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');
     }
@@ -1594,27 +1522,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = (identifier || '').trim();
     if (!cleanId || !code) {
       throw new Error('Identifier and 6-digit OTP code are required.');
-    }
-    if (cleanId.toLowerCase() === 'faculty.demo@sanjivani.edu.in' || cleanId.toLowerCase() === 'faculty_demo') {
-      const demoFacultyUser: User = {
-        id: 'faculty_demo_id',
-        email: 'faculty.demo@sanjivani.edu.in',
-        username: 'faculty_demo',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
-        role: 'FACULTY',
-        department: 'Integrated M.Tech',
-        college: 'Sanjivani University',
-        profileComplete: true,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        sections: [{ id: 'LQ-DEMO', sectionName: 'C Programming Masterclass', joinCode: 'LQ-DEMO' }],
-      };
-      recordUserActivity();
-      persistUser(demoFacultyUser);
-      setAuthState('signedIn');
-      return demoFacultyUser;
     }
     if (FirestoreDataService.isPurgedStudent({ email: cleanId, prn: cleanId })) {
       throw new Error('Access Denied: This account has been removed. Please contact your course instructor.');

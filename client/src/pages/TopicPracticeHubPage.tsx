@@ -1047,6 +1047,11 @@ export const TopicPracticeHubPage: React.FC = () => {
             copyPasteAttempts: 0,
             fullscreenExits: 0,
             submissionType: 'PRACTICE',
+            prn: user?.prn || '',
+            studentPrn: user?.prn || '',
+            email: user?.email || '',
+            studentEmail: user?.email || '',
+            studentName: user?.fullName || user?.displayName || '',
           }).catch(() => {});
         }
 

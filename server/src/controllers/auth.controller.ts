@@ -1318,27 +1318,6 @@ export const getSessionEvents = async (req: AuthRequest, res: Response): Promise
 async function ensureWalkthroughOrAdminUser(cleanId: string) {
   const lower = cleanId.toLowerCase().trim();
   if (
-    lower === 'faculty.demo@sanjivani.edu.in' ||
-    lower === 'faculty_demo'
-  ) {
-    const passwordHash = await bcrypt.hash('demo123', 10);
-    return await prisma.user.upsert({
-      where: { email: 'faculty.demo@sanjivani.edu.in' },
-      update: { role: 'FACULTY', profileComplete: true, passwordHash },
-      create: {
-        username: 'faculty_demo',
-        email: 'faculty.demo@sanjivani.edu.in',
-        role: 'FACULTY',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
-        passwordHash,
-        college: 'Sanjivani University',
-        department: 'Integrated M.Tech',
-        profileComplete: true,
-      },
-    });
-  }
-  if (
     lower === 'faculty@logicq.io' ||
     lower === 'faculty'
   ) {

@@ -416,28 +416,7 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty.demo@sanjivani.edu.in')) {
-        sanitized.push({
-          id: 'faculty_demo_id',
-          username: 'faculty_demo',
-          email: 'faculty.demo@sanjivani.edu.in',
-          fullName: 'Prof. Rajesh Sharma',
-          displayName: 'Prof. Rajesh Sharma',
-          role: 'FACULTY',
-          college: 'Sanjivani University',
-          department: 'Integrated M.Tech',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'demo123',
-          isBanned: false,
-          shortId: 'DEMO',
-          sections: ['LQ-DEMO'],
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
+
       if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
         sanitized.push({
           id: 'faculty-walkthrough-1',
@@ -3913,47 +3892,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
       if (!Array.isArray(tests)) tests = [];
     } catch {}
 
-    // Seed realistic demo CIE-1 test for LQ-DEMO if not present
-    if (!tests.some((t: any) => t.id === 'test_demo_cie_1' || t.sectionId === 'LQ-DEMO')) {
-      const demoSubmissions = DEMO_SECTION_COHORT_STUDENTS.map((st) => ({
-        id: `sub_demo_${st.prn.toLowerCase()}`,
-        userId: `demo_${st.prn.toLowerCase()}`,
-        studentId: `demo_${st.prn.toLowerCase()}`,
-        studentName: st.fullName,
-        studentPrn: st.prn,
-        studentEmail: st.email,
-        score: st.cieScore ?? 0,
-        maxScore: 30,
-        percentage: Math.round(((st.cieScore ?? 0) / 30) * 100),
-        status: (st.cieScore ?? 0) > 0 ? 'SUBMITTED' : 'ABSENT',
-        submittedAt: (st.cieScore ?? 0) > 0 ? new Date(Date.now() - 3600000 * 4).toISOString() : null,
-        tabSwitches: st.tabSwitchCount ?? 0,
-        integrityRisk: (st.tabSwitchCount ?? 0) > 3 ? 'HIGH' : 'NORMAL',
-        flags: (st.tabSwitchCount ?? 0) > 3 ? ['TAB_SWITCH_LIMIT_EXCEEDED'] : [],
-      }));
 
-      const demoCieTest = {
-        id: 'test_demo_cie_1',
-        title: 'CIE-1: Fundamentals, Control Flow & Loops',
-        description: 'First Continuous Internal Evaluation (CIE-1) covering Basic I/O, Conditionals, and Nested Loops.',
-        course: 'Integrated M.Tech (CSE)',
-        sectionId: 'LQ-DEMO',
-        sectionName: 'C Programming Masterclass',
-        joinCode: 'LQ-DEMO',
-        status: 'PUBLISHED',
-        totalMarks: 30,
-        durationMinutes: 60,
-        questionsCount: 3,
-        submissionsCount: demoSubmissions.filter((s) => s.status === 'SUBMITTED').length,
-        submissions: demoSubmissions,
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        publishedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      };
-      tests.unshift(demoCieTest);
-      try {
-        localStorage.setItem(TESTS_KEY, JSON.stringify(tests));
-      } catch {}
-    }
 
     return {
       success: true,

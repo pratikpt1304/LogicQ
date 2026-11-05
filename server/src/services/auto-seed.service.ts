@@ -371,46 +371,6 @@ export async function autoSeedDatabase(): Promise<void> {
       },
     });
 
-    // 5b. Seed Demo Faculty Account (faculty.demo@sanjivani.edu.in) & Demo Section (LQ-DEMO)
-    const demoFacultyHash = await bcrypt.hash('demo123', 10);
-    const demoFacultyUser = await prisma.user.upsert({
-      where: { email: 'faculty.demo@sanjivani.edu.in' },
-      update: { role: 'FACULTY', profileComplete: true, fullName: 'Prof. Rajesh Sharma', displayName: 'Prof. Rajesh Sharma' },
-      create: {
-        username: 'faculty_demo',
-        email: 'faculty.demo@sanjivani.edu.in',
-        fullName: 'Prof. Rajesh Sharma',
-        displayName: 'Prof. Rajesh Sharma',
-        role: 'FACULTY',
-        passwordHash: demoFacultyHash,
-        college: 'Sanjivani University',
-        department: 'Integrated M.Tech',
-        profileComplete: true,
-      },
-    });
-
-    await prisma.section.upsert({
-      where: { joinCode: 'LQ-DEMO' },
-      update: {
-        sectionName: 'C Programming Masterclass',
-        subject: 'C Programming',
-        course: 'Integrated M.Tech',
-        institution: 'Sanjivani University',
-        facultyId: demoFacultyUser.id,
-      },
-      create: {
-        sectionName: 'C Programming Masterclass',
-        subject: 'C Programming',
-        course: 'Integrated M.Tech',
-        institution: 'Sanjivani University',
-        academicYear: '2026-2027',
-        semester: 'Semester 1',
-        joinCode: 'LQ-DEMO',
-        joinToken: 'lq-demo-token-2026',
-        facultyId: demoFacultyUser.id,
-      },
-    });
-
     const studentPassHash = await bcrypt.hash('StudentDemo123!', 10);
     const demoStudent = await prisma.user.upsert({
       where: { email: 'student@logicq.io' },
