@@ -75,7 +75,7 @@ const ThemedToaster: React.FC = () => {
       position={isMobile ? 'bottom-center' : 'top-right'}
       closeButton
       richColors
-      offset={isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 16px)' : '130px'}
+      offset={isMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 16px)' : '20px'}
       toastOptions={{
         className: 'font-mono text-xs sm:text-sm rounded-xl shadow-2xl border',
         style: {

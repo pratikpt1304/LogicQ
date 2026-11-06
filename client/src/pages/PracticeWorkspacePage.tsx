@@ -87,6 +87,12 @@ export const PracticeWorkspacePage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const isPratikReviewer = Boolean(
+    user?.prn === '2126PMIM1039' ||
+    (user as any)?.prn?.includes('1039') ||
+    user?.email === 'thoratpratik2323@gmail.com'
+  );
+
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isPaletteDrawerOpen, setIsPaletteDrawerOpen] = useState(false);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
@@ -217,7 +223,6 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [questionTabSwitchCount, setQuestionTabSwitchCount] = useState(0);
   const [questionPasteCount, setQuestionPasteCount] = useState(0);
   const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
-  const [isDesktopPaletteOpen, setIsDesktopPaletteOpen] = useState(false);
   const [showHiddenPracticeHint, setShowHiddenPracticeHint] = useState<boolean>(false);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
@@ -334,21 +339,22 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   };
 
-  // Prompt fullscreen on question open via explicit user gesture modal (Desktop/Laptop only)
+  // Prompt fullscreen on initial test entry only (Desktop/Laptop only)
   useEffect(() => {
     const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-    if (isMobile) return;
+    if (isMobile || isPratikReviewer) return;
 
     const timer = setTimeout(() => {
-      if (!document.fullscreenElement) {
+      if (!document.fullscreenElement && !sessionStorage.getItem(`logicq_fs_prompted_${moduleSlug}`)) {
+        sessionStorage.setItem(`logicq_fs_prompted_${moduleSlug}`, 'true');
         setShowFullscreenModal(true);
-      } else {
+      } else if (document.fullscreenElement) {
         setIsFullscreen(true);
       }
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [problemSlug]);
+  }, [problemSlug, isPratikReviewer, moduleSlug]);
 
   // Fullscreen Exit Detection (Desktop only)
   useEffect(() => {
@@ -356,15 +362,18 @@ export const PracticeWorkspacePage: React.FC = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
       const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-      if (!active && !isMobile) {
+      if (!active && !isMobile && !isPratikReviewer) {
         setFullscreenExits((prev) => {
           const next = prev + 1;
           syncTelemetryToCloud({ fullscreenExits: next });
           triggerProctorWarning(`Fullscreen exited (#${next})! Fullscreen is required in proctored mode.`, 'fullscreen');
-          toast.error(`⚠️ Fullscreen exited! (Exit #${next}) Fullscreen is required in proctored mode.`, {
-            duration: 6000,
-          });
-          setShowFullscreenModal(true);
+          const now = Date.now();
+          if (now - lastTabSwitchToastRef.current > 8000) {
+            lastTabSwitchToastRef.current = now;
+            toast.error(`⚠️ Fullscreen exited (#${next})! Please keep fullscreen enabled during test.`, {
+              duration: 3500,
+            });
+          }
           return next;
         });
       }
@@ -374,13 +383,14 @@ export const PracticeWorkspacePage: React.FC = () => {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [syncTelemetryToCloud, triggerProctorWarning]);
+  }, [syncTelemetryToCloud, triggerProctorWarning, isPratikReviewer]);
 
   // Step 2 & 4: Anti-Cheat Tab Switch, Window Focus, 1.5s Grace Period & 1-Strike Mercy Mode
   const isCurrentProblemMercy = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
 
   useEffect(() => {
     const recordTabViolation = (isProlonged: boolean) => {
+      if (isPratikReviewer) return;
       const now = Date.now();
       if (now - lastTabSwitchRecordedRef.current < 2000) return;
       lastTabSwitchRecordedRef.current = now;
@@ -1808,29 +1818,14 @@ export const PracticeWorkspacePage: React.FC = () => {
             </span>
           )}
 
-          {/* Desktop Question Palette Toggle (Expand/Collapse Editor) */}
-          <button
-            type="button"
-            onClick={() => setIsDesktopPaletteOpen(!isDesktopPaletteOpen)}
-            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition cursor-pointer"
-            title={isDesktopPaletteOpen ? 'Collapse Question Palette (Expand Editor)' : 'Show Question Palette'}
-          >
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Palette ({solvedSlugs.size}/{moduleProblems.length || 20})</span>
-            {isDesktopPaletteOpen ? (
-              <ChevronRight className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-            ) : (
-              <ChevronLeft className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-            )}
-          </button>
-
-          {/* Mobile Question Palette Drawer Toggle */}
+          {/* Question Palette Drawer Toggle */}
           <button
             type="button"
             onClick={() => setIsPaletteDrawerOpen(true)}
-            className="xl:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-mono text-xs font-bold hover:bg-cyan-500/25 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition cursor-pointer"
+            title="Open Question Palette"
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
             <span>Palette ({solvedSlugs.size}/{moduleProblems.length || 20})</span>
           </button>
         </div>
@@ -2026,6 +2021,7 @@ export const PracticeWorkspacePage: React.FC = () => {
               readOnly={false}
               disableCopyPaste={true}
               forceTheme="dark"
+              hideRunButton={true}
             />
           </div>
 
@@ -2486,132 +2482,89 @@ export const PracticeWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Pane: Authentic JEE Question Palette (Desktop XL+) */}
-        {isDesktopPaletteOpen && (
-          <div className="hidden xl:flex w-64 2xl:w-72 flex-col shrink-0 border-l border-[var(--border-line)] h-full overflow-hidden animate-in fade-in duration-150">
-            <JeeQuestionPalette
-              moduleTitle={moduleConfig.title}
-              moduleOrder={moduleConfig.order}
-              problems={moduleProblems}
-              currentProblemSlug={problemSlug || ''}
-              visitedProblems={sanitizedVisitedProblems}
-              markedForReview={markedForReview}
-              solvedSlugs={solvedSlugs}
-              quarantinedSlugs={quarantinedSlugs}
-              onSelectProblem={handleSelectProblem}
-              onSubmitTest={handleOpenSubmitOrMercy}
-              user={user}
-              onOpenQuestionPaper={() => setIsQuestionPaperOpen(true)}
-              onOpenInstructions={() => setIsInstructionsOpen(true)}
-              onCloseMobileDrawer={() => setIsDesktopPaletteOpen(false)}
-            />
-          </div>
-        )}
       </div>
 
-      {/* Floating Toggle Tab to reopen Question Palette when collapsed */}
-      {!isDesktopPaletteOpen && (
-        <button
-          type="button"
-          onClick={() => setIsDesktopPaletteOpen(true)}
-          className="hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[var(--bg-panel)] border border-r-0 border-[var(--border-line)] py-3 px-1.5 rounded-l-xl text-xs font-mono font-bold text-cyan-400 hover:text-white hover:bg-[var(--bg-surface-hover)] shadow-xl transition-all cursor-pointer flex-col items-center gap-1.5 group"
-          title="Open Question Palette"
-        >
-          <ChevronLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-0.5 transition-transform" />
-          <span className="[writing-mode:vertical-lr] text-[11px] tracking-wider uppercase">
-            Palette ({solvedSlugs.size}/{moduleProblems.length || 20})
-          </span>
-        </button>
-      )}
-
-      {/* Pinned Bottom JEE CBT Action Bar */}
-      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-2 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+      {/* Apple-Style Minimalist Bottom Action Bar */}
+      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-2 select-none">
+        {/* Left: Previous / Question Stepper / Next */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
-            onClick={handleClearResponse}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text-main)] transition cursor-pointer shrink-0"
-            title="Clear editor and revert to starter template"
+            disabled={!prevProblem}
+            onClick={() => prevProblem && handleSelectProblem(prevProblem.slug)}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+            title="Previous question"
           >
-            <RotateCcw className="w-3.5 h-3.5 inline sm:mr-1" />
-            <span className="hidden sm:inline">Clear Response</span>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Prev</span>
+          </button>
+
+          <div className="px-2.5 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-line)] text-xs font-mono font-bold text-[var(--text-muted)] shrink-0">
+            Q{currentProblemIndex >= 0 ? currentProblemIndex + 1 : 1} / {moduleProblems.length || 20}
+          </div>
+
+          <button
+            type="button"
+            disabled={!nextProblem}
+            onClick={() => nextProblem && handleSelectProblem(nextProblem.slug)}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+            title="Next question"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
           <button
             type="button"
             onClick={handleMarkForReviewAndNext}
-            className={`px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-mono font-semibold transition flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0 ${
+            className={`ml-1 px-2.5 py-1.5 rounded-xl border text-xs font-mono font-medium transition flex items-center gap-1 cursor-pointer shrink-0 ${
               markedForReview.has(problemSlug || '')
                 ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
                 : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30'
             }`}
-            title="Mark question for review and move to next"
+            title="Mark question for review"
           >
             <Bookmark className="w-3.5 h-3.5" />
             <span className="hidden md:inline">
-              {markedForReview.has(problemSlug || '') ? 'Unmark Review & Next' : 'Mark for Review & Next'}
+              {markedForReview.has(problemSlug || '') ? 'Marked' : 'Mark Review'}
             </span>
-            <span className="hidden sm:inline md:hidden">Review &amp; Next</span>
-            <span className="sm:hidden">Review</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            disabled={!prevProblem}
-            onClick={() => prevProblem && handleSelectProblem(prevProblem.slug)}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer shrink-0"
-            title="Previous question"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Previous</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={runMutation.isPending || submitMutation.isPending}
-            onClick={() => {
-              setActiveBottomTab('output');
-              setIsDrawerOpen(true);
-              setActiveMobileTab('editor');
-              runMutation.mutate();
-            }}
-            className="px-2.5 sm:px-3.5 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-mono text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
-            title="Run Code (Alt + Enter)"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>{runMutation.isPending ? 'Running...' : 'Run'}</span>
-          </button>
-
+        {/* Right: Save & Next (Primary) + Submit Test */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={handleSaveAndNext}
             disabled={submitMutation.isPending || runMutation.isPending}
-            className="px-2.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white font-mono text-xs font-bold shadow-md shadow-cyan-500/20 transition flex items-center gap-1 sm:gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
-            title="Save & Submit solution, then advance to next question"
+            className="px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-mono text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0 active:scale-95"
+            title="Save solution and advance to next question"
           >
-            <span>{submitMutation.isPending ? 'Submitting...' : 'Save & Next'}</span>
+            <span>{submitMutation.isPending ? 'Saving...' : 'Save & Next'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
 
           <button
             type="button"
             onClick={handleOpenSubmitOrMercy}
-            className="px-2.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-500/20 transition flex items-center gap-1 sm:gap-1.5 cursor-pointer ml-0.5 sm:ml-2 shrink-0"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
             title="Submit entire module test"
           >
             <Send className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">SUBMIT MODULE TEST</span>
-            <span className="md:hidden">SUBMIT</span>
+            <span className="hidden sm:inline">SUBMIT TEST</span>
+            <span className="sm:hidden">SUBMIT</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile Slide-Over Question Palette Drawer */}
+      {/* Apple Slide-Over Question Palette Drawer (Full Screen Overlay with Backdrop) */}
       {isPaletteDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm xl:hidden animate-in fade-in duration-150">
-          <div className="w-80 max-w-[85vw] h-full shadow-2xl animate-in slide-in-from-right duration-200">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="fixed inset-0"
+            onClick={() => setIsPaletteDrawerOpen(false)}
+          />
+          <div className="relative w-80 max-w-[85vw] h-full shadow-2xl z-10 animate-in slide-in-from-right duration-200 bg-[var(--bg-panel)] border-l border-[var(--border-line)]">
             <JeeQuestionPalette
               moduleTitle={moduleConfig.title}
               moduleOrder={moduleConfig.order}
@@ -2621,7 +2574,10 @@ export const PracticeWorkspacePage: React.FC = () => {
               markedForReview={markedForReview}
               solvedSlugs={solvedSlugs}
               quarantinedSlugs={quarantinedSlugs}
-              onSelectProblem={handleSelectProblem}
+              onSelectProblem={(slug) => {
+                handleSelectProblem(slug);
+                setIsPaletteDrawerOpen(false);
+              }}
               onSubmitTest={() => {
                 setIsPaletteDrawerOpen(false);
                 handleOpenSubmitOrMercy();
@@ -2784,7 +2740,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       )}
 
       {/* Mandatory Proctored Fullscreen Modal */}
-      {showFullscreenModal && !isFullscreen && (
+      {showFullscreenModal && !isFullscreen && !isPratikReviewer && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header with Icon */}
