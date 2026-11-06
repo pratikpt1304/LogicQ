@@ -909,24 +909,23 @@ export const DashboardPage: React.FC = () => {
   const practiceTotalSolved = practiceEasySolved + practiceMedSolved + practiceHardSolved;
   const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
 
-  // Lab Internal distinct metrics (Evaluation Problems across 5 Modules)
+  // Lab Internal distinct metrics (Evaluation Problems across 4 Modules)
   const allLabProblems = React.useMemo(() => [
     ...PRACTICE_MODULE_1_PROBLEMS,
     ...PRACTICE_MODULE_2_PROBLEMS,
     ...PRACTICE_MODULE_3_PROBLEMS,
     ...PRACTICE_MODULE_4_PROBLEMS,
-    ...PRACTICE_MODULE_5_PROBLEMS,
   ], []);
 
-  const labEasyTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'EASY').length || 37;
-  const labMedTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'MEDIUM').length || 42;
-  const labHardTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'HARD').length || 22;
+  const labEasyTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'EASY').length || 32;
+  const labMedTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'MEDIUM').length || 32;
+  const labHardTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'HARD').length || 16;
 
   const labEasySolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'EASY' && solvedTopicIds.includes(p.slug)).length;
   const labMedSolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'MEDIUM' && solvedTopicIds.includes(p.slug)).length;
   const labHardSolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'HARD' && solvedTopicIds.includes(p.slug)).length;
   const labTotalSolved = labEasySolved + labMedSolved + labHardSolved;
-  const labTotal = allLabProblems.length || 101;
+  const labTotal = allLabProblems.length || 80;
   const labOverallPercent = Math.min(100, Math.round((labTotalSolved / labTotal) * 100));
 
   const totalProblemsSolved = Math.max(
@@ -979,8 +978,8 @@ export const DashboardPage: React.FC = () => {
     return unsolved || modTopics[0];
   };
 
-  const labCompletedModules = [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete, isLab5Complete].filter(Boolean).length;
-  const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+  const labCompletedModules = [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete].filter(Boolean).length;
+  const labInternalScore = Math.min(20, Math.round((labTotalSolved * 0.25) || ((labCompletedModules / 4) * 20)));
 
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
 
@@ -2268,14 +2267,13 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* 5 Lab Modules Status Strip with Green Light on Complete */}
+                {/* 4 Lab Modules Status Strip with Green Light on Complete */}
                 <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
                   {[
                     { num: 1, isDone: isLab1Complete, solved: m1LabSolved, total: m1LabSlugs.length || 20 },
                     { num: 2, isDone: isLab2Complete, solved: m2LabSolved, total: m2LabSlugs.length || 20 },
                     { num: 3, isDone: isLab3Complete, solved: m3LabSolved, total: m3LabSlugs.length || 20 },
                     { num: 4, isDone: isLab4Complete, solved: m4LabSolved, total: m4LabSlugs.length || 20 },
-                    { num: 5, isDone: isLab5Complete, solved: m5LabSolved, total: m5LabSlugs.length || 21 },
                   ].map((m) => (
                     <span
                       key={m.num}
@@ -2681,7 +2679,7 @@ export const DashboardPage: React.FC = () => {
         const totalPoints = acceptedSubs.reduce((acc: number, s: any) => acc + (Number(s.score || s.points) || 10), 0);
         const accuracy = subs.length > 0 ? Math.round((acceptedSubs.length / subs.length) * 100) : 100;
 
-        // Compute Lab Internal Coursework (5 CIE Continuous Assessment Modules)
+        // Compute Lab Internal Coursework (4 CIE Continuous Assessment Modules)
         const matchedLab = (allLabSubmissions || []).filter((ls: any) => {
           const lprn = (ls.user?.prn || '').trim().toUpperCase();
           const lemail = (ls.user?.email || '').trim().toLowerCase();
@@ -2692,7 +2690,7 @@ export const DashboardPage: React.FC = () => {
         });
 
         const labCompletedModules = matchedLab.filter((ls: any) => ls.status === 'COMPLETED').length;
-        const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
+        const labInternalScore = Math.min(20, Math.round((labCompletedModules / 4) * 20));
         const combinedScore = totalPoints + (labInternalScore * 4);
         const overallGrade = (combinedScore === 0 && distinctSolved === 0)
           ? '—'
@@ -2707,11 +2705,10 @@ export const DashboardPage: React.FC = () => {
           : 'C';
 
         const LAB_MODULES_LIST = [
-          { order: 1, title: 'Control Structures', slug: 'control-structures', maxMarks: 4 },
-          { order: 2, title: 'Pointers & Functions', slug: 'pointers-and-functions', maxMarks: 4 },
-          { order: 3, title: 'Arrays & Strings', slug: 'arrays-and-strings', maxMarks: 4 },
-          { order: 4, title: 'Recursion & Bit Manipulation', slug: 'recursion-and-bit-manipulation', maxMarks: 4 },
-          { order: 5, title: 'Structures, Unions & DMA', slug: 'structures-unions-and-dma', maxMarks: 4 },
+          { order: 1, title: 'Control Structures', slug: 'control-structures', maxMarks: 5 },
+          { order: 2, title: 'Pointers & Functions', slug: 'pointers-and-functions', maxMarks: 5 },
+          { order: 3, title: 'Arrays & Strings', slug: 'arrays-and-strings', maxMarks: 5 },
+          { order: 4, title: 'Dynamic Memory & Structures', slug: 'dynamic-memory', maxMarks: 5 },
         ];
 
         const isModalPrnCopied = copiedCodeKey === `modal-prn-${prnClean}`;
@@ -2794,14 +2791,14 @@ export const DashboardPage: React.FC = () => {
                         <BookOpen className="w-3.5 h-3.5" />
                       </div>
                       <div className="text-base font-extrabold text-slate-900 dark:text-white font-mono">
-                        {labCompletedModules} <span className="text-xs text-slate-400 font-normal">/ 5 Mod</span>
+                        {labCompletedModules} <span className="text-xs text-slate-400 font-normal">/ 4 Mod</span>
                       </div>
                     </div>
                     <div>
                       <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                         <div
                           className="bg-purple-500 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(100, (labCompletedModules / 5) * 100)}%` }}
+                          style={{ width: `${Math.min(100, (labCompletedModules / 4) * 100)}%` }}
                         />
                       </div>
                       <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 font-mono font-bold truncate">
@@ -2863,15 +2860,15 @@ export const DashboardPage: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                       <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        Lab Internal Coursework (5 CIE Modules)
+                        Lab Internal Coursework (4 CIE Modules)
                       </span>
                     </div>
                     <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-md border border-purple-500/20">
-                      {labCompletedModules}/5 Completed • {labInternalScore}/20 M
+                      {labCompletedModules}/4 Completed • {labInternalScore}/20 M
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 text-[10px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-1.5 text-[10px]">
                     {LAB_MODULES_LIST.map((mod) => {
                       const modSub = matchedLab.find((l: any) =>
                         (l.moduleSlug === mod.slug || l.moduleOrder === mod.order) && l.status === 'COMPLETED'
