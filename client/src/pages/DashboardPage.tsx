@@ -475,11 +475,19 @@ export const DashboardPage: React.FC = () => {
       ]));
       setSolvedTopicIds(current);
     });
+    const unsubUsers = RealtimeSyncService.on('USERS', () => {
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['faculty-dashboard-global-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    });
     return () => {
       unsubDashboard();
       unsubTests();
       unsubSections();
       unsubSubmissions();
+      unsubUsers();
     };
   }, [queryClient]);
 
