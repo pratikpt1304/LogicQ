@@ -1518,31 +1518,14 @@ export const ChallengePage: React.FC = () => {
                         )}
                       </div>
 
-                      {sampleCases[selectedCaseIndex] && (
-                        <button
-                          type="button"
-                          disabled={runMutation.isPending || isOffline || isWindowExpired}
-                          onClick={() => {
-                            setCustomInput(sampleCases[selectedCaseIndex].input);
-                            runMutation.mutate();
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-500/20 hover:bg-cyan-100 dark:hover:bg-cyan-500/30 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/40 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
-                        >
-                          <Play className="w-3 h-3 fill-current" />
-                          <span>Run Use Case {selectedCaseIndex + 1}</span>
-                        </button>
-                      )}
                     </div>
 
                     {sampleCases[selectedCaseIndex] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 text-xs">
                         <div className="flex flex-col min-h-0">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-cyan-700 dark:text-cyan-400 text-[11px] font-bold uppercase tracking-wider">
-                              USE CASE INPUT (AUTOMATIC STDIN):
-                            </span>
-                            <span className="text-[10px] text-cyan-500 font-mono">
-                              Injected Directly
+                            <span className="text-[11px] font-mono font-bold text-[var(--text-muted)] tracking-wide">
+                              Input
                             </span>
                           </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-slate-900 dark:text-cyan-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs">
@@ -1551,8 +1534,8 @@ export const ChallengePage: React.FC = () => {
                         </div>
                         <div className="flex flex-col min-h-0">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-emerald-700 dark:text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
-                              EXPECTED OUTPUT:
+                            <span className="text-[11px] font-mono font-bold text-emerald-500 tracking-wide">
+                              Expected Output
                             </span>
                           </div>
                           <pre className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-[#050811] text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-slate-800/80 overflow-auto whitespace-pre font-mono font-medium shadow-xs">
