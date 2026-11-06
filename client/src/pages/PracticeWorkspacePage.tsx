@@ -1763,41 +1763,6 @@ export const PracticeWorkspacePage: React.FC = () => {
             />
           )}
 
-          {/* Cloud & Offline Autosave Status Pill */}
-          <div className="hidden sm:flex items-center">
-            {draftSyncStatus === 'saving' ? (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20" title="Saving code draft...">
-                <Loader2 className="w-3 h-3 animate-spin text-cyan-500" />
-                <span>Saving...</span>
-              </span>
-            ) : draftSyncStatus === 'offline' ? (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Saved safely in local storage (Offline)">
-                <CloudOff className="w-3 h-3 text-amber-500" />
-                <span>Saved Offline</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="All keystrokes autosaved to cloud">
-                <Check className="w-3 h-3 text-emerald-500" />
-                <span>Autosaved</span>
-              </span>
-            )}
-          </div>
-
-          {/* Proctoring Badge & Fullscreen Toggle */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
-              isFullscreen
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/40 animate-pulse'
-            }`}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode'}
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Fullscreen' : 'Go Fullscreen'}</span>
-          </button>
-
           {/* Tab Switch Counter Badge */}
           {sessionTabSwitches > 0 && (
             <span

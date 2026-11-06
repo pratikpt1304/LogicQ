@@ -1832,7 +1832,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
 
 
-            {/* Center: Practice Mode - Sleek Timer & Live Auto-Save Status */}
+            {/* Center: Practice Mode - Sleek Timer */}
             <div className="flex items-center gap-2">
               <div
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-line)] bg-[var(--bg-surface)] font-mono text-xs text-[var(--text-main)] shadow-xs shrink-0"
@@ -1840,19 +1840,6 @@ export const TopicPracticeHubPage: React.FC = () => {
               >
                 <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                 <span className="font-semibold text-xs">{formatPracticeTime(elapsedSeconds)}</span>
-              </div>
-
-              {/* Auto-Save Continuous Telemetry Indicator */}
-              <div
-                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-medium transition-all ${
-                  draftSyncStatus === 'saving'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400 shadow-xs'
-                    : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
-                }`}
-                title="Your code is automatically saved on every keystroke and syncs to cloud storage."
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${draftSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
-                <span className="text-[11px] font-semibold">{draftSyncStatus === 'saving' ? 'Saving...' : '✓ Auto-Saved'}</span>
               </div>
             </div>
 
