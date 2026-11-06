@@ -315,11 +315,42 @@ export const PracticeWorkspacePage: React.FC = () => {
     }).catch(() => {});
   }, [user?.id, tabSwitchCount, copyPasteAttempts, fullscreenExits]);
 
+  const moduleConfig = useMemo(() => {
+    return PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug) || {
+      title: 'Control Structures',
+      order: 1,
+      slug: moduleSlug || 'control-structures',
+      totalQuestions: 20,
+    };
+  }, [moduleSlug]);
+
+  const isLabRoute = location.pathname.startsWith('/lab-internal');
+  const hasEnteredFullscreenRef = useRef<boolean>(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
+  const isExitingRef = useRef<boolean>(false);
+
+  const returnToHub = useCallback(() => {
+    isExitingRef.current = true;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    if (isLabRoute) {
+      navigate(`/lab-internal?module=${moduleConfig.order}`);
+    } else {
+      navigate(`/practice?module=${moduleConfig.order}`);
+    }
+  }, [isLabRoute, moduleConfig.order, navigate]);
+
   const requestFullscreen = async () => {
     try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
+      const elem = document.documentElement as any;
+      if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        }
       }
+      hasEnteredFullscreenRef.current = true;
       setIsFullscreen(true);
       setShowFullscreenModal(false);
     } catch {
@@ -330,7 +361,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
+        await requestFullscreen();
       } else {
         await document.exitFullscreen();
       }
@@ -339,51 +370,68 @@ export const PracticeWorkspacePage: React.FC = () => {
     }
   };
 
-  // Prompt fullscreen on initial test entry only (Desktop/Laptop only)
+  // Auto-launch fullscreen on problem mount (Desktop/Laptop only)
   useEffect(() => {
     const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
     if (isMobile || isPratikReviewer) return;
 
-    const timer = setTimeout(() => {
-      if (!document.fullscreenElement && !sessionStorage.getItem(`logicq_fs_prompted_${moduleSlug}`)) {
-        sessionStorage.setItem(`logicq_fs_prompted_${moduleSlug}`, 'true');
+    const elem = document.documentElement as any;
+    if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
+      const tryFs = elem.requestFullscreen?.() || elem.webkitRequestFullscreen?.();
+      if (tryFs && typeof tryFs.then === 'function') {
+        tryFs
+          .then(() => {
+            hasEnteredFullscreenRef.current = true;
+            setIsFullscreen(true);
+            setShowFullscreenModal(false);
+          })
+          .catch(() => {
+            // Direct URL entry without gesture: show proctored entry modal to enter fullscreen with 1 click
+            setShowFullscreenModal(true);
+          });
+      } else {
         setShowFullscreenModal(true);
-      } else if (document.fullscreenElement) {
-        setIsFullscreen(true);
       }
-    }, 400);
+    } else {
+      hasEnteredFullscreenRef.current = true;
+      setIsFullscreen(true);
+      setShowFullscreenModal(false);
+    }
+  }, [problemSlug, isPratikReviewer]);
 
-    return () => clearTimeout(timer);
-  }, [problemSlug, isPratikReviewer, moduleSlug]);
-
-  // Fullscreen Exit Detection (Desktop only)
+  // Fullscreen Exit Detection (Desktop only) -> Immediate exit to module for exam security
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const active = Boolean(document.fullscreenElement);
+      const elem = document as any;
+      const active = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
       setIsFullscreen(active);
+
+      if (active) {
+        hasEnteredFullscreenRef.current = true;
+        setShowFullscreenModal(false);
+        return;
+      }
+
       const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-      if (!active && !isMobile && !isPratikReviewer) {
+      if (!active && !isMobile && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
+        isExitingRef.current = true;
         setFullscreenExits((prev) => {
           const next = prev + 1;
           syncTelemetryToCloud({ fullscreenExits: next });
-          triggerProctorWarning(`Fullscreen exited (#${next})! Fullscreen is required in proctored mode.`, 'fullscreen');
-          const now = Date.now();
-          if (now - lastTabSwitchToastRef.current > 8000) {
-            lastTabSwitchToastRef.current = now;
-            toast.error(`⚠️ Fullscreen exited (#${next})! Please keep fullscreen enabled during test.`, {
-              duration: 3500,
-            });
-          }
           return next;
         });
+        toast.error('🚫 Fullscreen Exited: Test session ended and returned to module for exam security. Your progress is auto-saved.');
+        returnToHub();
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
-  }, [syncTelemetryToCloud, triggerProctorWarning, isPratikReviewer]);
+  }, [syncTelemetryToCloud, isPratikReviewer, returnToHub]);
 
   // Step 2 & 4: Anti-Cheat Tab Switch, Window Focus, 1.5s Grace Period & 1-Strike Mercy Mode
   const isCurrentProblemMercy = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
@@ -594,23 +642,6 @@ export const PracticeWorkspacePage: React.FC = () => {
     enabled: Boolean(moduleSlug),
     refetchOnWindowFocus: false,
   });
-
-  
-  const moduleConfig = PRACTICE_CONFIG.MODULES.find((m) => m.slug === moduleSlug) || {
-    title: 'Control Structures',
-    order: 1,
-    slug: moduleSlug || 'control-structures',
-    totalQuestions: 20,
-  };
-
-  const isLabRoute = location.pathname.startsWith('/lab-internal');
-  const returnToHub = useCallback(() => {
-    if (isLabRoute) {
-      navigate(`/lab-internal?module=${moduleConfig.order}`);
-    } else {
-      navigate(`/practice?module=${moduleConfig.order}`);
-    }
-  }, [isLabRoute, moduleConfig.order, navigate]);
 
   const problem = responseData?.data?.problem;
   const userProgress = responseData?.data?.userProgress;
@@ -1682,24 +1713,6 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
       )}
 
-      {/* Inactive Fullscreen Warning Banner */}
-      {!isFullscreen && !isPratikReviewer && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono text-amber-300 shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
-            <span className="truncate">
-              Fullscreen is inactive{fullscreenExits > 0 ? ` (Exits: ${fullscreenExits})` : ''}. Please enter fullscreen for proctored mode.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={requestFullscreen}
-            className="px-2.5 py-1 rounded-lg bg-amber-500 text-black font-bold text-[11px] hover:bg-amber-400 transition-colors shrink-0 ml-3"
-          >
-            Go Fullscreen 🔒
-          </button>
-        </div>
-      )}
       {/* Top JEE CBT Exam Header */}
       <div className="h-14 border-b border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

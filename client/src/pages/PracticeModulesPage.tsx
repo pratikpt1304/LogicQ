@@ -310,6 +310,22 @@ export const PracticeModulesPage: React.FC = () => {
     });
   }, [activeProblems, filterDifficulty, searchQuery]);
 
+  const handleLaunchQuestionFullscreen = () => {
+    try {
+      const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+      if (!isMobile) {
+        const elem = document.documentElement as any;
+        if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
+          if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(() => {});
+          } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen().catch(() => {});
+          }
+        }
+      }
+    } catch {}
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-main)] py-6 sm:py-10 transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
@@ -524,6 +540,7 @@ export const PracticeModulesPage: React.FC = () => {
 
                 <Link
                   to={`/lab-internal/${activeModule.slug}/${nextProblem.slug}`}
+                  onClick={handleLaunchQuestionFullscreen}
                   className="w-full md:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer shrink-0"
                 >
                   <Play className="w-4 h-4 fill-white" />
@@ -684,6 +701,7 @@ export const PracticeModulesPage: React.FC = () => {
                     <Link
                       key={prob.slug}
                       to={`/lab-internal/${activeModule.slug}/${prob.slug}`}
+                      onClick={handleLaunchQuestionFullscreen}
                       className={`group rounded-2xl border transition-all duration-200 p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer select-none ${
                         isNextUp
                           ? 'border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm'
