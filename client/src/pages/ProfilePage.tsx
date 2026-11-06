@@ -1061,9 +1061,6 @@ export const ProfilePage: React.FC = () => {
     computedPointsFromSolved
   );
   const effectiveSolved = Math.max(profile?.totalSolved || 0, totalPracticeSolved + totalLabSolved, solvedTopicIds.length);
-  const effectiveRank = (effectiveTotalPoints > 0 || effectiveSolved > 0)
-    ? (profile?.rank ? `Rank #${profile.rank}` : 'Rank #1')
-    : 'Unranked';
 
   // Aggregated problem lists & difficulty distribution (180 Total Problems: 100 Practice + 80 Lab)
   const allLabProblems = [
@@ -1435,11 +1432,6 @@ export const ProfilePage: React.FC = () => {
                       {headerTitle}
                     </h1>
 
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                      <Trophy className="w-3 h-3 text-amber-500" />
-                      <span>{effectiveRank}</span>
-                    </span>
-
                     {isOwnProfile && ownPrnDisplay && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                         PRN: {ownPrnDisplay}
@@ -1602,7 +1594,7 @@ export const ProfilePage: React.FC = () => {
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                  {effectiveRank}
+                  GCC 14 (C11)
                 </span>
               </div>
 
