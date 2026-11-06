@@ -1169,40 +1169,143 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-5"
+            className="space-y-6"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Official Academic Records & Submissions
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Printable summaries with verified code, marks breakdown, and institutional credentials.
-                </p>
-              </div>
-              <Link
-                to="/history"
-                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shadow-xs"
-              >
-                <span>View Full History →</span>
-              </Link>
-            </div>
+            {/* Official Report Card */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-slate-800/60 pb-5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                      Standard Institutional Format
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Part A + Part B
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                    Official Student Academic &amp; Integrity Report
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Comprehensive two-part institutional dossier verified by GCC 14 sandbox compiler and proctoring telemetry.
+                  </p>
+                </div>
 
-            <div className="p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3 text-center sm:text-left sm:flex sm:items-center sm:justify-between">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Verified C Submissions Log
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {userSubmissions.length > 0 ? `${userSubmissions.length} compiler-verified submissions on record.` : 'Practice and lab submissions automatically recorded with compiler verdicts.'}
-                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Print / Save PDF Report</span>
+                  </button>
+                  <Link
+                    to="/history"
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5"
+                  >
+                    <span>Full Submissions Log →</span>
+                  </Link>
+                </div>
               </div>
-              <Link
-                to="/history"
-                className="inline-flex px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-xs transition-all"
-              >
-                Inspect Solution History
-              </Link>
+
+              {/* Standard Report Structure Breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Part A Box */}
+                <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <h4 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-900 dark:text-white">
+                        Part A: Academic Code Evaluation
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      {verdictStats.ac} Solved
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Detailed record of all problem submissions across Practice Arena (100 Topics) and Lab Internal CIE (80 Problems).
+                  </p>
+                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 pt-1 font-mono">
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500">✓</span>
+                      <span>Verbatim C Source Code (Syntax Highlighted)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500">✓</span>
+                      <span>Compiler Verdicts (Accepted, CE, WA)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500">✓</span>
+                      <span>Public &amp; Hidden Test Cases Passed</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-500">✓</span>
+                      <span>CIE Lab Continuous Evaluation Marks ({cieMarks.toFixed(1)} / 20.0 M)</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Part B Box */}
+                <div className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <h4 className="text-xs font-bold font-mono uppercase tracking-wide text-slate-900 dark:text-white">
+                        Part B: Proctoring &amp; Behavioral Telemetry
+                      </h4>
+                    </div>
+                    <span className={`text-[11px] font-mono font-bold ${finalIntegrityScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
+                      {finalIntegrityScore} / 100 Score
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Second-by-second anti-cheat audit logs captured during active student coding windows.
+                  </p>
+                  <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 pt-1 font-mono">
+                    <li className="flex items-center gap-2">
+                      <span className="text-indigo-500">✓</span>
+                      <span>Tab Switches: {totalTabSwitches} events recorded</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-indigo-500">✓</span>
+                      <span>Fullscreen Exits: {totalFullscreenExits} events logged</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-indigo-500">✓</span>
+                      <span>Clipboard Protection: {totalClipboardAttempts} paste attempts blocked</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-indigo-500">✓</span>
+                      <span>Institutional Verification Hash &amp; QR Seal</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Student Identity Metadata Preview */}
+              <div className="p-4 rounded-2xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-600 dark:text-slate-300">
+                <div>
+                  <span className="text-slate-400 text-[10px] block uppercase">Student Name &amp; ID</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{user?.displayName || user?.email || 'Registered Candidate'}</span>
+                  {user?.prn && <span className="text-slate-400 ml-1.5 font-normal">({user.prn})</span>}
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block uppercase">Institution</span>
+                  <span>Sanjivani University • Dept. of CSE</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block uppercase">Generated On</span>
+                  <span>{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[10px] block uppercase">Verification Status</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                    {finalIntegrityScore >= 80 ? '✓ Tamper-Proof Certified' : '⚠ Flagged for Faculty Audit'}
+                  </span>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
