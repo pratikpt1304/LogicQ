@@ -234,6 +234,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const totalTabSwitches = fsTelemetry?.tabSwitchCount || 0;
   const totalClipboardAttempts = fsTelemetry?.copyPasteAttempts || 0;
   const autoLockCount = fsTelemetry?.autoLockCount || 0;
+  const totalFullscreenExits = useMemo(() => {
+    const directCount = fsTelemetry?.fullscreenExits || 0;
+    const fromIncidents = (fsTelemetry?.incidents || []).filter((i: any) => i.type === 'FULLSCREEN_EXIT').length;
+    return Math.max(directCount, fromIncidents);
+  }, [fsTelemetry]);
   const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
@@ -812,9 +817,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Compiler Verification</span>
-                  <div className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                    GCC 14 (C11)
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Fullscreen Exits</span>
+                  <div className="text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                    {totalFullscreenExits} {totalFullscreenExits === 1 ? 'exit' : 'exits'}
                   </div>
                 </div>
               </div>
