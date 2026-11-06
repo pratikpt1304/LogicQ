@@ -237,6 +237,12 @@ export const TopicPracticeHubPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const isPratikReviewer = Boolean(
+    user?.prn === '2126PMIM1039' ||
+    (user as any)?.prn?.includes('1039') ||
+    user?.email === 'thoratpratik2323@gmail.com'
+  );
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(() => {
     const p = new URLSearchParams(window.location.search).get('module');
@@ -430,7 +436,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       if (isNowFullscreen) {
         hasEnteredFullscreenRef.current = true;
-      } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current) {
+      } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
         toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
         handleCloseTopicRef.current();
       }
@@ -521,7 +527,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     const handleFullscreenChange = () => {
       const elem = document as any;
       const isNowFullscreen = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
-      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current) {
+      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
         fullscreenExitsRef.current += 1;
         FirestoreDataService.saveProctoringTelemetry(user.id, {
           fullscreenExits: 1,
@@ -610,11 +616,6 @@ export const TopicPracticeHubPage: React.FC = () => {
     m4LabSolved >= m4LabSlugs.length ||
     (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
   );
-
-  const isPratikReviewer =
-    user?.prn === '2126PMIM1039' ||
-    (user as any)?.prn?.includes('1039') ||
-    user?.email === 'thoratpratik2323@gmail.com';
 
   const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
     return getPracticeModuleUnlockInfo(
@@ -1258,6 +1259,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       return;
                     }
                     handleOpenTopic(t);
+                    setIsDesktopPaletteOpen(false);
                     if (isMobile) setIsMobilePaletteOpen(false);
                   }}
                   className={`h-10 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center relative ${
@@ -1916,13 +1918,9 @@ export const TopicPracticeHubPage: React.FC = () => {
           {/* Main Three-Pane JEE Workspace (Statement | Editor | Authentic JEE Palette) */}
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
             
-            {/* PANE: Problem Description Statement (Left side on desktop - 38% width for spacious editor) */}
+            {/* PANE: Problem Description Statement (Left side on desktop - 50% split) */}
             <div
-              className={`w-full ${
-                isDesktopPaletteOpen
-                  ? 'lg:w-[32%] xl:w-[30%] 2xl:w-[28%]'
-                  : 'lg:w-[40%] xl:w-[38%] 2xl:w-[36%]'
-              } flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto no-scrollbar p-3.5 sm:p-4 space-y-3.5 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
+              className={`w-full lg:w-1/2 min-w-0 flex flex-col border-b lg:border-b-0 lg:border-r border-[var(--border-line)] overflow-y-auto no-scrollbar p-4 sm:p-6 space-y-4 bg-[var(--bg-panel)] min-h-0 h-full shrink-0 select-none lg:order-1 ${
                 activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
               }`}
               onCopy={(e) => {
@@ -1942,7 +1940,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-                        Module {activeTopic.moduleIndex}: {activeTopic.moduleTitle}
+                        Module {activeTopic.moduleIndex} • {activeTopic.moduleTitle.replace(/^MODULE\s+\d+:\s*/i, '')}
                       </span>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -2343,28 +2341,29 @@ export const TopicPracticeHubPage: React.FC = () => {
               </div>
             </div>
 
-            {/* PANE 3: Authentic JEE Question Palette (Right) */}
-            {isDesktopPaletteOpen && (
-              <div className="hidden xl:flex w-72 2xl:w-80 shrink-0 border-l border-[var(--border-line)] bg-[var(--bg-panel)] flex-col h-full overflow-hidden lg:order-3">
-                {renderPaletteContent(false)}
-              </div>
-            )}
-
           </div>
 
-
-
-          {/* Mobile Question Palette Slide-Over Drawer */}
-          {isMobilePaletteOpen && (
-            <div className="fixed inset-0 z-[9999999] flex justify-end bg-black/70 backdrop-blur-xs xl:hidden animate-in fade-in duration-150">
-              <div className="w-80 max-w-[85vw] h-full shadow-2xl bg-[var(--bg-panel)] flex flex-col animate-in slide-in-from-right duration-200">
-                <div className="p-3 border-b border-[var(--border-line)] flex items-center justify-between bg-[var(--bg-surface)]">
+          {/* Unified Apple Slide-Over Question Palette Drawer */}
+          {(isDesktopPaletteOpen || isMobilePaletteOpen) && (
+            <div className="fixed inset-0 z-[9999999] flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+              <div
+                className="fixed inset-0"
+                onClick={() => {
+                  setIsDesktopPaletteOpen(false);
+                  setIsMobilePaletteOpen(false);
+                }}
+              />
+              <div className="relative w-80 max-w-[85vw] h-full shadow-2xl bg-[var(--bg-panel)] flex flex-col z-10 animate-in slide-in-from-right duration-200 border-l border-[var(--border-line)]">
+                <div className="p-3.5 border-b border-[var(--border-line)] flex items-center justify-between bg-[var(--bg-surface)]">
                   <span className="font-mono text-xs font-bold text-[var(--text-main)] flex items-center gap-1.5">
                     <LayoutGrid className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Module {activeTopic.moduleIndex} Palette</span>
+                    <span>Module {activeTopic.moduleIndex} Questions</span>
                   </span>
                   <button
-                    onClick={() => setIsMobilePaletteOpen(false)}
+                    onClick={() => {
+                      setIsDesktopPaletteOpen(false);
+                      setIsMobilePaletteOpen(false);
+                    }}
                     className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                   >
                     <X className="w-4 h-4" />
