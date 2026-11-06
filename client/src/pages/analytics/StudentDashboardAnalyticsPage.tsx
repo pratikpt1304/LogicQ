@@ -216,16 +216,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         labSolved: m4Lab,
         concepts: ['Structures', 'Unions', 'malloc/free', 'Dynamic Memory'],
       },
-      {
-        id: 5,
-        title: 'Module 5: File I/O & Advanced C Programming',
-        desc: 'File streams (fopen, fscanf, fprintf, fclose), command line args',
-        topicsTotal: 20,
-        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
-        labTotal: 0,
-        labSolved: 0,
-        concepts: ['File Streams', 'Binary I/O', 'Error Handling'],
-      },
     ];
   }, [solvedTopicIds, userSubmissions]);
 
@@ -333,7 +323,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 4, moduleTitle: 'Module 4: Structures & Memory' };
       }
       if (cleanSlug.startsWith('m5') || cleanSlug.includes('file')) {
-        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 5, moduleTitle: 'Module 5: File I/O' };
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 4, moduleTitle: 'Module 4: Structures & Memory' };
       }
 
       return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 1, moduleTitle: 'Module 1: C Fundamentals' };
@@ -554,7 +544,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               {curriculumPercent}%
             </div>
             <span className="text-[10px] text-slate-400 mt-1 block">
-              5 Core Syllabus Modules
+              4 Core Syllabus Modules
             </span>
           </div>
         </div>
@@ -727,7 +717,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  5 Core C Language Syllabus Modules
+                  4 Core C Language Syllabus Modules
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Complete syllabus progression across both Practice Arena (100 Topics) and Lab Internal CIE (80 Coursework Experiments).
@@ -988,7 +978,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                       >
                         All
                       </button>
-                      {[1, 2, 3, 4, 5].map((mNum) => (
+                      {[1, 2, 3, 4].map((mNum) => (
                         <button
                           key={mNum}
                           type="button"
@@ -1018,9 +1008,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                           ? 'Module 2: Arrays, Strings & 2D Matrices'
                           : modNum === 3
                           ? 'Module 3: Functions, Recursion & Pointers'
-                          : modNum === 4
-                          ? 'Module 4: Structures, Unions & Dynamic Memory'
-                          : 'Module 5: File I/O & Advanced C';
+                          : 'Module 4: Structures, Unions & Dynamic Memory';
 
                       return (
                         <div key={modNum} className="space-y-3">
