@@ -2502,8 +2502,8 @@ export const DashboardPage: React.FC = () => {
 
             {/* TAB 2: LAB INTERNAL CIE MODULES */}
             {studentTab === 'lab' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-in fade-in duration-200">
-                {studentModulesList.map((m: any, idx: number) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-200">
+                {studentModulesList.filter((m: any) => m.order !== 5 && m.id !== 5).map((m: any, idx: number) => {
                   const isLocked = !m.isUnlocked;
                   const percent = m.progressPercent || 0;
                   return (

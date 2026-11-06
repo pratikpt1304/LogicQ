@@ -9,15 +9,12 @@ import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   PRACTICE_CONFIG,
-  isModule5UnlockedByAdmin,
-  setModule5UnlockedByAdmin,
 } from '../config/practice.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
-import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import {
   getLabModuleUnlockInfo,
@@ -99,16 +96,6 @@ const MODULE_DEFINITIONS: ModuleConfigItem[] = [
     description: 'Structures, unions, enums, dynamic heap allocation (malloc/calloc/realloc), and linked structures.',
     problems: PRACTICE_MODULE_4_PROBLEMS,
   },
-  {
-    order: 5,
-    id: 'module-5',
-    slug: 'advanced-competitive-c',
-    title: 'Competitive Mastery & Capstone Arena',
-    shortTitle: 'Capstone Arena',
-    description: 'Bitwise algorithms, performance optimization, system-level C, and instructor capstone challenges.',
-    problems: PRACTICE_MODULE_5_PROBLEMS,
-    isModule5: true,
-  },
 ];
 
 export const PracticeModulesPage: React.FC = () => {
@@ -125,7 +112,6 @@ export const PracticeModulesPage: React.FC = () => {
   const isPrivileged = Boolean(isAdmin || isFaculty || isPratikReviewer);
 
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
-  const [module5Unlocked, setModule5Unlocked] = useState<boolean>(isModule5UnlockedByAdmin());
   const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
   const [filterDifficulty, setFilterDifficulty] = useState<'ALL' | 'TODO' | 'SOLVED' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,26 +200,12 @@ export const PracticeModulesPage: React.FC = () => {
       if (match) return match.order;
     }
     const q = parseInt(searchParams.get('module') || '', 10);
-    if (q >= 1 && q <= 5) return q;
+    if (q >= 1 && q <= 4) return q;
     return 1;
   }, [moduleSlug, searchParams]);
 
   const handleSelectModule = (order: number) => {
     setSearchParams({ module: String(order) });
-  };
-
-  const handleToggleModule5 = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const nextVal = !module5Unlocked;
-    setModule5Unlocked(nextVal);
-    setModule5UnlockedByAdmin(nextVal);
-    refetch();
-    if (nextVal) {
-      toast.success('Module 5 has been unlocked for all students!');
-    } else {
-      toast.info('Module 5 is now locked for all students.');
-    }
   };
 
   // Build module progression cards
@@ -260,12 +232,12 @@ export const PracticeModulesPage: React.FC = () => {
   }, [solvedTopics, isPrivileged, isAdmin]);
 
   // Overall stats
-  const totalLabProblems = 100;
+  const totalLabProblems = 80;
   const totalLabSolved = useMemo(() => {
     return moduleCards.reduce((acc, m) => acc + m.solvedCount, 0);
   }, [moduleCards]);
   const overallPercent = Math.round((totalLabSolved / totalLabProblems) * 100);
-  const cieMarks = (totalLabSolved * 0.2).toFixed(1);
+  const cieMarks = (totalLabSolved * 0.25).toFixed(1);
 
   // Active module details
   const activeModule = useMemo(() => {
@@ -440,10 +412,10 @@ export const PracticeModulesPage: React.FC = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-400 px-1">
             <span className="font-bold tracking-wider uppercase">Select Lab Module</span>
-            <span>5 Sequential Modules • 20 Questions Each</span>
+            <span>4 Sequential Modules • 20 Questions Each</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-3xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-3xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner">
             {moduleCards.map((mod) => {
               const isSelected = mod.order === selectedModuleOrder;
               return (
@@ -775,26 +747,6 @@ export const PracticeModulesPage: React.FC = () => {
               )}
             </div>
 
-            {/* Faculty / Admin Toggle on Module 5 */}
-            {activeModule.isModule5 && isPrivileged && (
-              <div className="rounded-2xl border border-purple-500/30 bg-purple-500/5 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-mono text-purple-600 dark:text-purple-400">
-                  <Eye className="w-4 h-4" />
-                  <span className="font-bold">Faculty Supervised Capstone Control:</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleToggleModule5}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                    module5Unlocked
-                      ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
-                      : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-                  }`}
-                >
-                  {module5Unlocked ? '🔒 Lock for Students' : '🔓 Unlock for All Students'}
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           /* ========================================================= */
@@ -821,28 +773,13 @@ export const PracticeModulesPage: React.FC = () => {
 
               {/* 1-Click Action to Jump to Required Practice */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                {activeModule.order <= 4 ? (
-                  <Link
-                    to={`/practice?module=${activeModule.order}`}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Go to Practice Module {activeModule.order} (25 Topics) →</span>
-                  </Link>
-                ) : isPrivileged ? (
-                  <button
-                    type="button"
-                    onClick={handleToggleModule5}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-all shadow-lg shadow-purple-600/25 active:scale-95 cursor-pointer"
-                  >
-                    <Unlock className="w-4 h-4" />
-                    <span>Unlock Capstone Arena for All Students</span>
-                  </button>
-                ) : (
-                  <div className="px-5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-mono font-semibold">
-                    Supervised Evaluation • Awaiting Instructor Unlock
-                  </div>
-                )}
+                <Link
+                  to={`/practice?module=${activeModule.order}`}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-600/25 active:scale-95 cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Go to Practice Module {activeModule.order} (25 Topics) →</span>
+                </Link>
               </div>
             </div>
           </div>
