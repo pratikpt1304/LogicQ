@@ -633,14 +633,10 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   const handleCompileAndRun = () => {
     if (runMutation.isPending || submitMutation.isPending) return;
-    const currentCase = sampleCases[selectedCaseIndex] || sampleCases[0];
-    if (currentCase) {
-      setCustomInput(currentCase.input || '');
-    }
     setActiveBottomTab('output');
     setIsDrawerOpen(true);
-    setActiveMobileTab('editor');
-    runMutation.mutate();
+    setActiveMobileTab('results');
+    submitMutation.mutate();
   };
 
   // Practice completion guard: Student must complete practice questions for this module before attempting the Lab Internal Test
@@ -1411,26 +1407,21 @@ export const PracticeWorkspacePage: React.FC = () => {
     const attemptStr = `Attempt #${(userProgress?.attemptsCount || 0) || 1}`;
 
     if (nextProb) {
-      const nextUrl = isLabRoute
-        ? `/lab-internal/${moduleSlug}/${nextProb.slug}`
-        : `/practice/${moduleSlug}/${nextProb.slug}`;
-      toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🎉`, {
-        description: `Next up: #${nextProb.moduleOrder} ${nextProb.title}`,
-        action: {
-          label: 'Next Question →',
-          onClick: () => navigate(nextUrl),
-        },
-        duration: 12000,
+      toast.success(`🎉 All test cases passed! Advancing to Question #${nextProb.moduleOrder}...`, {
+        description: `${nextProb.title}`,
+        duration: 3500,
       });
+      setTimeout(() => {
+        handleSelectProblem(nextProb.slug);
+      }, 1200);
     } else {
-      toast.success(`Accepted in ${timeFormatted} (${attemptStr}) 🏆`, {
-        description: 'You have solved all 20 problems in this module!',
-        action: {
-          label: 'Back to Modules',
-          onClick: returnToHub,
-        },
-        duration: 12000,
+      toast.success(`🏆 All 20 Questions Completed in ${timeFormatted}!`, {
+        description: 'You have solved all questions in this module! Ready for final submission.',
+        duration: 8000,
       });
+      setTimeout(() => {
+        handleOpenSubmitOrMercy();
+      }, 1500);
     }
   };
 
@@ -2010,13 +2001,8 @@ export const PracticeWorkspacePage: React.FC = () => {
               code={code}
               onChange={handleCodeChange}
               onReset={handleResetStarterCode}
-              onRun={() => {
-                setActiveBottomTab('output');
-                setIsDrawerOpen(true);
-                setActiveMobileTab('results');
-                runMutation.mutate();
-              }}
-              isRunning={runMutation.isPending}
+              onRun={handleCompileAndRun}
+              isRunning={submitMutation.isPending || runMutation.isPending}
               isSubmitting={submitMutation.isPending}
               readOnly={false}
               disableCopyPaste={true}
@@ -2509,23 +2495,12 @@ export const PracticeWorkspacePage: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Save & Next (Primary) + Submit Test */}
+        {/* Right: Submit Test */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={handleSaveAndNext}
-            disabled={submitMutation.isPending || runMutation.isPending}
-            className="px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-mono text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0 active:scale-95"
-            title="Save solution and advance to next question"
-          >
-            <span>{submitMutation.isPending ? 'Saving...' : 'Save & Next'}</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
             onClick={handleOpenSubmitOrMercy}
-            className="px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+            className="px-4 sm:px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
             title="Submit entire module test"
           >
             <Send className="w-3.5 h-3.5" />
