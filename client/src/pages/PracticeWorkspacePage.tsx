@@ -2410,54 +2410,6 @@ export const PracticeWorkspacePage: React.FC = () => {
             )}
           </div>
         </div>
-
-      </div>
-
-      {/* Apple-Style Minimalist Bottom Action Bar */}
-      <div className="h-14 border-t border-[var(--border-line)] bg-[var(--bg-panel)] px-3 sm:px-6 flex items-center justify-between shrink-0 z-20 gap-2 select-none">
-        {/* Left: Previous + Mark Review */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <button
-            type="button"
-            disabled={!prevProblem}
-            onClick={() => prevProblem && handleSelectProblem(prevProblem.slug)}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-[var(--border-line)] bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] text-xs font-mono text-[var(--text-main)] transition disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
-            title="Previous question"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Prev</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleMarkForReviewAndNext}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-mono font-medium transition flex items-center gap-1 cursor-pointer shrink-0 ${
-              markedForReview.has(problemSlug || '')
-                ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
-                : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30'
-            }`}
-            title="Mark question for review"
-          >
-            <Bookmark className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">
-              {markedForReview.has(problemSlug || '') ? 'Marked' : 'Mark Review'}
-            </span>
-          </button>
-        </div>
-
-        {/* Right: Submit Test */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleOpenSubmitOrMercy}
-            className="px-4 sm:px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold tracking-wide shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
-            title="Submit entire module test"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">SUBMIT TEST</span>
-            <span className="sm:hidden">SUBMIT</span>
-          </button>
-        </div>
       </div>
 
       {/* Apple Slide-Over Question Palette Drawer (Full Screen Overlay with Backdrop) */}
