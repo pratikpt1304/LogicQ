@@ -3771,11 +3771,15 @@ export class FirestoreDataService {
       // Always save to localStorage immediately for instant resilience
       try {
         localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(payload));
+        if (targetUid && targetUid !== 'current') {
+          localStorage.setItem(`logicq_proctoring_telemetry_${targetUid}`, JSON.stringify(payload));
+        }
+        RealtimeSyncService.emit('SUBMISSIONS');
       } catch {}
 
       // Sync to Firestore (only if actively signed in to Firebase Auth)
       try {
-        const primaryUid = auth.currentUser?.uid;
+        const primaryUid = auth.currentUser?.uid || (userId && userId !== 'current' ? userId : null);
         if (primaryUid) {
           await setDoc(doc(db, 'users', primaryUid, 'drafts', 'proctoring_telemetry'), {
             ...payload,
@@ -3882,13 +3886,14 @@ export class FirestoreDataService {
   } | null> {
     let localData: any = null;
     try {
-      const raw = localStorage.getItem('logicq_proctoring_telemetry');
+      const raw = (userId && localStorage.getItem(`logicq_proctoring_telemetry_${userId}`)) || 
+                  localStorage.getItem('logicq_proctoring_telemetry');
       if (raw) {
         localData = JSON.parse(raw);
       }
     } catch {}
 
-    const targetUid = auth.currentUser?.uid;
+    const targetUid = auth.currentUser?.uid || (userId && userId !== 'current' ? userId : null);
     let remoteData: any = null;
     if (targetUid) {
       try {

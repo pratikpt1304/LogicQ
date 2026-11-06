@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,6 +39,7 @@ import {
   Check,
   Flame,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 
 type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
@@ -876,9 +878,22 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <span className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Integrity Rating: {finalIntegrityScore} / 100
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
+                      toast.success('Proctoring telemetry refreshed!');
+                    }}
+                    className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-all cursor-pointer shadow-xs"
+                    title="Refresh telemetry"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Integrity Rating: {finalIntegrityScore} / 100
+                  </span>
+                </div>
               </div>
 
               {/* Clean Telemetry Cards */}
