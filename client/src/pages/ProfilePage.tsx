@@ -921,8 +921,8 @@ export const ProfilePage: React.FC = () => {
               Retry Connection
             </button>
           )}
-          <Link to="/leaderboard" className="text-xs text-[#8B9BFF] underline py-2.5">
-            &larr; View competitive leaderboard
+          <Link to="/dashboard" className="text-xs text-[#8B9BFF] underline py-2.5">
+            &larr; Return to Dashboard
           </Link>
         </div>
       </div>

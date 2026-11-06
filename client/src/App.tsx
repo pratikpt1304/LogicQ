@@ -352,12 +352,12 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Leaderboard & History */}
+          {/* Leaderboard redirect to Analytics */}
           <Route
             path="/leaderboard"
             element={
               <ProtectedRoute>
-                <LeaderboardPage />
+                <Navigate to="/analytics" replace />
               </ProtectedRoute>
             }
           />

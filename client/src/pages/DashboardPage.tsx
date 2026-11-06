@@ -2242,7 +2242,7 @@ export const DashboardPage: React.FC = () => {
 
               <div className="flex items-center gap-2 text-xs font-mono">
                 <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold">
-                  Rank #{stats?.rank || 1}
+                  Verified Learner
                 </span>
                 <span className="text-slate-400">•</span>
                 <span className="text-slate-500">Auto-Evaluated</span>
@@ -2252,8 +2252,8 @@ export const DashboardPage: React.FC = () => {
                 <Link to="/history" className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition">
                   History
                 </Link>
-                <Link to="/leaderboard" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
-                  Leaderboard →
+                <Link to="/analytics" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                  Analytics →
                 </Link>
               </div>
             </div>

@@ -85,14 +85,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => { navigate('/history'); onClose(); },
     },
     {
-      id: 'nav-leaderboard',
-      category: 'Standings',
-      title: 'College Leaderboard',
-      subtitle: 'Check ranks, scores, and university standings',
-      icon: Trophy,
-      action: () => { navigate('/leaderboard'); onClose(); },
-    },
-    {
       id: 'nav-profile',
       category: 'Identity',
       title: 'Profile & Settings',
