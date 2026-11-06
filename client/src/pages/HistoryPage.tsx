@@ -171,6 +171,42 @@ export const HistoryPage: React.FC = () => {
           if (topicItem) {
             const draftKey = `topic_${tid}`;
             const localDraft = DraftSyncService.getLocalDraft(draftKey);
+
+            // Read stable persistent solved timestamp so refresh doesn't change time
+            let stableCreatedAt = localDraft?.updatedAt
+              ? new Date(localDraft.updatedAt).toISOString()
+              : undefined;
+            if (!stableCreatedAt) {
+              try {
+                const timesMap = JSON.parse(localStorage.getItem('logicq_topic_solved_times') || '{}');
+                if (timesMap[tid]) {
+                  stableCreatedAt = timesMap[tid];
+                } else {
+                  stableCreatedAt = new Date().toISOString();
+                  timesMap[tid] = stableCreatedAt;
+                  localStorage.setItem('logicq_topic_solved_times', JSON.stringify(timesMap));
+                }
+              } catch {
+                stableCreatedAt = new Date().toISOString();
+              }
+            }
+
+            let stableDuration = (localDraft as any)?.timeTakenSeconds || (localDraft as any)?.elapsedSec;
+            if (typeof stableDuration !== 'number' || stableDuration <= 0) {
+              try {
+                const durMap = JSON.parse(localStorage.getItem('logicq_topic_solved_durations') || '{}');
+                if (typeof durMap[tid] === 'number') {
+                  stableDuration = durMap[tid];
+                } else {
+                  stableDuration = 35;
+                  durMap[tid] = 35;
+                  localStorage.setItem('logicq_topic_solved_durations', JSON.stringify(durMap));
+                }
+              } catch {
+                stableDuration = 35;
+              }
+            }
+
             const entry = {
               id: topicKey,
               problemId: tid,
@@ -179,9 +215,9 @@ export const HistoryPage: React.FC = () => {
               verdict: 'ACCEPTED',
               pointsAwarded: 20,
               submissionType: 'PRACTICE',
-              timeTakenSeconds: 45,
-              timeToSolveSeconds: 45,
-              createdAt: new Date().toISOString(),
+              timeTakenSeconds: stableDuration,
+              timeToSolveSeconds: stableDuration,
+              createdAt: stableCreatedAt,
               problem: {
                 id: tid,
                 title: topicItem.topicTitle,
@@ -200,7 +236,7 @@ export const HistoryPage: React.FC = () => {
                 difficulty: topicItem.problem?.difficulty || 'EASY',
                 code: entry.code,
                 verdict: 'ACCEPTED',
-                timeTakenSeconds: 45,
+                timeTakenSeconds: stableDuration,
                 submissionType: 'PRACTICE',
               }).catch(() => {});
             }
@@ -384,7 +420,7 @@ export const HistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 space-y-6 font-sans animate-fadeIn">
       {/* 1. APPLE FROSTED HEADER & SUMMARY */}
       <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

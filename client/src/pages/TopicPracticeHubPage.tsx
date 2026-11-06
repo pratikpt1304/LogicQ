@@ -1025,6 +1025,17 @@ export const TopicPracticeHubPage: React.FC = () => {
         const updated = markPracticeTopicSolved(activeTopic.id, user?.id);
         setSolvedTopics(updated);
 
+        try {
+          const timesMap = JSON.parse(localStorage.getItem('logicq_topic_solved_times') || '{}');
+          if (!timesMap[activeTopic.id]) {
+            timesMap[activeTopic.id] = new Date().toISOString();
+            localStorage.setItem('logicq_topic_solved_times', JSON.stringify(timesMap));
+          }
+          const durMap = JSON.parse(localStorage.getItem('logicq_topic_solved_durations') || '{}');
+          durMap[activeTopic.id] = elapsedSeconds;
+          localStorage.setItem('logicq_topic_solved_durations', JSON.stringify(durMap));
+        } catch {}
+
         // Save verified code as authoritative draft so returning student never sees reset code
         const draftKey = `topic_${activeTopic.id}`;
         const draft: DraftData = {

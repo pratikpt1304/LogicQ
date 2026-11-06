@@ -219,6 +219,15 @@ export const App: React.FC = () => {
     location.pathname.startsWith('/mini-project/') ||
     location.pathname.startsWith('/compiler');
 
+  const isInternalAppRoute =
+    isWorkspaceRoute ||
+    location.pathname === '/history' ||
+    location.pathname === '/analytics' ||
+    location.pathname === '/student/analytics' ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/checker') ||
+    location.pathname.startsWith('/faculty');
+
   const isStaging =
     typeof window !== 'undefined' &&
     (window.location.hostname.includes('--staging') ||
@@ -500,7 +509,7 @@ export const App: React.FC = () => {
         </Routes>
       </main>
 
-      {!isWorkspaceRoute && <Footer />}
+      {!isInternalAppRoute && <Footer />}
       {!isWorkspaceRoute && <MobileBottomNav />}
 
       <BindEmailModal
