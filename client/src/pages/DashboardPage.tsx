@@ -2368,7 +2368,7 @@ export const DashboardPage: React.FC = () => {
                   }`}
                 >
                   <Code2 className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Topic Practice (100)</span>
+                  <span>Practice</span>
                 </button>
                 <button
                   type="button"
@@ -2380,7 +2380,7 @@ export const DashboardPage: React.FC = () => {
                   }`}
                 >
                   <BookOpen className="w-3.5 h-3.5 text-cyan-500" />
-                  <span>Lab Internal (5 Modules)</span>
+                  <span>Lab Internal</span>
                 </button>
                 <button
                   type="button"
@@ -2392,7 +2392,12 @@ export const DashboardPage: React.FC = () => {
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Assigned Tests ({studentAssignedList.length})</span>
+                  <span>Assigned Tests</span>
+                  {studentAssignedList.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-mono font-bold">
+                      {studentAssignedList.length}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
