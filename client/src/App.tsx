@@ -224,6 +224,7 @@ export const App: React.FC = () => {
     location.pathname === '/history' ||
     location.pathname === '/analytics' ||
     location.pathname === '/student/analytics' ||
+    location.pathname.startsWith('/profile') ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/checker') ||
     location.pathname.startsWith('/faculty');
