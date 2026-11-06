@@ -57,6 +57,7 @@ import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
 import { TerminalConsole } from '../components/common/TerminalConsole.js';
 import { useAuth } from '../context/AuthContext.js';
+import { auth } from '../config/firebase.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
@@ -427,7 +428,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     }
   }, [searchParams, activeTopic, solvedTopics]);
 
-  // Fullscreen change tracking & strict auto-exit guard
+  // Fullscreen change tracking & telemetry recording
   useEffect(() => {
     const handleFullscreenChange = () => {
       const elem = document as any;
@@ -437,8 +438,16 @@ export const TopicPracticeHubPage: React.FC = () => {
       if (isNowFullscreen) {
         hasEnteredFullscreenRef.current = true;
       } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current) {
-        toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
-        handleCloseTopicRef.current();
+        fullscreenExitsRef.current += 1;
+        const count = fullscreenExitsRef.current;
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: 'FULLSCREEN_EXIT',
+          problemSlug: activeTopicRef.current.id,
+          problemTitle: activeTopicRef.current.problem.title,
+          reason: `Fullscreen exited (Exit #${count})`,
+        }).catch(() => {});
+        toast.error(`⚠️ Fullscreen exited! (Exit #${count}) Fullscreen is required during practice.`);
       }
     };
 
@@ -448,7 +457,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
-  }, []);
+  }, [user]);
 
   // Lock body scroll whenever workspace is open so background never bleeds/scrolls
   useEffect(() => {
@@ -477,91 +486,71 @@ export const TopicPracticeHubPage: React.FC = () => {
     return Math.round(charsTypedRef.current / minutes);
   };
 
-  // Anti-Cheat: Tab Switch, Clipboard Guard & Fullscreen Monitor while topic workspace is active
-  useEffect(() => {
-    if (!activeTopic || !user?.id) return;
+  const handlePasteBlocked = useCallback(() => {
+    if (!activeTopicRef.current) return;
+    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+    FirestoreDataService.recordProctoringIncident(uid, {
+      type: 'COPY_PASTE',
+      problemSlug: activeTopicRef.current.id,
+      problemTitle: activeTopicRef.current.problem.title,
+      reason: 'Clipboard paste attempt blocked by proctoring guard',
+      codeSnippet: codeRef.current,
+    }).catch(() => {});
+    toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
+  }, [user]);
 
+  // Anti-Cheat: Tab Switch & Clipboard Guard while topic workspace is active
+  useEffect(() => {
+    if (!activeTopic) return;
+
+    let lastTabLog = 0;
     const handleVisibility = () => {
-      if (document.hidden) {
-        FirestoreDataService.saveProctoringTelemetry(user.id, {
-          tabSwitchCount: 1,
-          lastIncidentAt: new Date().toISOString(),
+      if (document.hidden && activeTopicRef.current) {
+        const now = Date.now();
+        if (now - lastTabLog < 1500) return;
+        lastTabLog = now;
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: 'TAB_SWITCH',
+          problemSlug: activeTopicRef.current.id,
+          problemTitle: activeTopicRef.current.problem.title,
+          reason: 'Tab switch or window unfocus detected during practice session',
         }).catch(() => {});
-        api.post('/practice/topics/telemetry', {
-          topicId: activeTopic.id,
-          tabSwitchDelta: 1,
-          currentCode: codeRef.current,
-          elapsedSec: elapsedSecondsRef.current,
-          typingVelocityCPM: getTypingVelocityCPM(),
-          eventLog: {
-            event: 'TAB_SWITCH',
-            detail: 'Student switched tab or window unfocused',
-            elapsedSec: elapsedSecondsRef.current,
-          },
+        toast.warning('⚠️ Tab Switch Detected! Focus loss is logged for faculty audit.');
+      }
+    };
+
+    const handleWindowBlur = () => {
+      const now = Date.now();
+      if (now - lastTabLog < 1500) return;
+      lastTabLog = now;
+      if (activeTopicRef.current) {
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: 'TAB_SWITCH',
+          problemSlug: activeTopicRef.current.id,
+          problemTitle: activeTopicRef.current.problem.title,
+          reason: 'Window focus lost during practice session',
         }).catch(() => {});
-        toast.warning('⚠️ Tab Switch Detected! Proctored telemetry records all window unfocus events.');
+        toast.warning('⚠️ Window Focus Lost! Proctored telemetry records all focus shifts.');
       }
     };
 
     const handlePaste = (e: ClipboardEvent) => {
       e.preventDefault();
-      FirestoreDataService.saveProctoringTelemetry(user.id, {
-        copyPasteAttempts: 1,
-        lastIncidentAt: new Date().toISOString(),
-      }).catch(() => {});
-      api.post('/practice/topics/telemetry', {
-        topicId: activeTopic.id,
-        copyPasteDelta: 1,
-        currentCode: codeRef.current,
-        elapsedSec: elapsedSecondsRef.current,
-        typingVelocityCPM: getTypingVelocityCPM(),
-        eventLog: {
-          event: 'PASTE_BLOCKED',
-          detail: 'External copy-paste attempt blocked by proctoring guard',
-          elapsedSec: elapsedSecondsRef.current,
-        },
-      }).catch(() => {});
-      toast.error('🚫 Pasting is strictly blocked! Manual typing is required.');
-    };
-
-    const handleFullscreenChange = () => {
-      const elem = document as any;
-      const isNowFullscreen = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
-      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current) {
-        fullscreenExitsRef.current += 1;
-        FirestoreDataService.saveProctoringTelemetry(user.id, {
-          fullscreenExits: 1,
-          lastIncidentAt: new Date().toISOString(),
-        }).catch(() => {});
-        api.post('/practice/topics/telemetry', {
-          topicId: activeTopic.id,
-          fullscreenExitDelta: 1,
-          currentCode: codeRef.current,
-          elapsedSec: elapsedSecondsRef.current,
-          typingVelocityCPM: getTypingVelocityCPM(),
-          eventLog: {
-            event: 'FULLSCREEN_EXIT',
-            detail: 'Student exited full screen examination mode - workspace automatically closed',
-            elapsedSec: elapsedSecondsRef.current,
-          },
-        }).catch(() => {});
-        toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
-        handleCloseTopicRef.current();
-      }
+      handlePasteBlocked();
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
-    document.addEventListener('paste', handlePaste);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('paste', handlePaste, true);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
-      document.removeEventListener('paste', handlePaste);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('paste', handlePaste, true);
     };
-  }, [activeTopic, user?.id]);
+  }, [activeTopic, user, handlePasteBlocked]);
 
   // Progressive Unlock Chain:
   // Module 1 Practice (25/25) -> Unlocks Lab Internal 1
@@ -2062,6 +2051,11 @@ export const TopicPracticeHubPage: React.FC = () => {
                   onRun={handleRunOpenTest}
                   readOnly={false}
                   disableCopyPaste={true}
+                  onBlockedAction={(action) => {
+                    if (action === 'paste') {
+                      handlePasteBlocked();
+                    }
+                  }}
                   forceTheme="dark"
                 />
               </div>

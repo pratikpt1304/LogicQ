@@ -225,6 +225,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   const [isCheatingAutoSubmitTriggered, setIsCheatingAutoSubmitTriggered] = useState(false);
   const [showHiddenPracticeHint, setShowHiddenPracticeHint] = useState<boolean>(false);
   const triggerAntiCheatAutoSubmitRef = useRef<(reason: 'TAB_SWITCH_LIMIT' | 'COPY_PASTE_LIMIT', count: number) => void>(() => {});
+  const handlePasteAttemptRef = useRef<() => void>(() => {});
   const lastTabSwitchToastRef = useRef<number>(0);
 
   // Inactivity / Heartbeat Tracking (Step 3: Bot / Extension Bypass Protection)
@@ -598,8 +599,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       e.preventDefault();
       toast.error('🚫 Cutting text is disabled in proctored mode.');
     };
-    const blockPaste = (e: ClipboardEvent) => {
-      e.preventDefault();
+    const handlePasteAttempt = () => {
       setQuestionPasteCount((prevQ) => {
         const nextQ = prevQ + 1;
         setCopyPasteAttempts((prevTotal) => {
@@ -626,6 +626,12 @@ export const PracticeWorkspacePage: React.FC = () => {
         }
         return nextQ;
       });
+    };
+    handlePasteAttemptRef.current = handlePasteAttempt;
+
+    const blockPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      handlePasteAttempt();
     };
     const blockContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -2005,6 +2011,11 @@ export const PracticeWorkspacePage: React.FC = () => {
               isSubmitting={submitMutation.isPending}
               readOnly={false}
               disableCopyPaste={true}
+              onBlockedAction={(action) => {
+                if (action === 'paste') {
+                  handlePasteAttemptRef.current?.();
+                }
+              }}
               forceTheme="dark"
             />
           </div>
