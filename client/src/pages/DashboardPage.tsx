@@ -929,6 +929,12 @@ export const DashboardPage: React.FC = () => {
     solvedTopicIds.length
   );
 
+  const studentTotalSubmissions = Math.max(
+    stats?.totalSubmissions ?? 0,
+    studentSubmissions?.length ?? 0,
+    practiceTotalSolved + labTotalSolved
+  );
+
   const hasSolvedFirstChallenge = Boolean(
     totalProblemsSolved >= 1 ||
       isDailySolved ||
@@ -2306,32 +2312,37 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Stat 3: Points & Activity */}
+            {/* Stat 3: Submissions & Accuracy */}
             <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
                     <Trophy className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Submissions & Accuracy</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Submissions</span>
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
                   {stats?.accuracy ? `${stats.accuracy}% Acc` : '100% Acc'}
                 </span>
               </div>
 
-              <div className="my-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                  {practiceTotalSolved}</span>
-                <span className="text-xs font-mono text-slate-400 font-medium">/ 100 Solved</span>
+              <div className="my-3 flex items-center justify-between gap-1.5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                    {studentTotalSubmissions}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400 font-medium">Total Submissions</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold font-mono text-[10px]">
+                  Verified
+                </span>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-mono">
-                <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold">
-                  Verified Learner
-                </span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-500">Auto-Evaluated</span>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${stats?.accuracy ?? 100}%` }}
+                />
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
