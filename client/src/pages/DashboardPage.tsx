@@ -667,6 +667,14 @@ export const DashboardPage: React.FC = () => {
     (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
   );
 
+  const m5LabSlugs = PRACTICE_MODULE_5_PROBLEMS.map((p) => p.slug);
+  const m5LabSolved = m5LabSlugs.filter((s) => solvedTopicIds.includes(s)).length;
+  const isLab5Complete = Boolean(
+    m5LabSolved >= 20 ||
+    m5LabSolved >= m5LabSlugs.length ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_mini-project'))
+  );
+
   const practiceModulesList = [
     {
       id: 1,
@@ -960,7 +968,7 @@ export const DashboardPage: React.FC = () => {
     return unsolved || modTopics[0];
   };
 
-  const labCompletedModules = [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete].filter(Boolean).length;
+  const labCompletedModules = [isLab1Complete, isLab2Complete, isLab3Complete, isLab4Complete, isLab5Complete].filter(Boolean).length;
   const labInternalScore = Math.min(20, Math.round((labCompletedModules / 5) * 20));
 
   const [isDownloadingBackup, setIsDownloadingBackup] = useState(false);
@@ -2239,13 +2247,49 @@ export const DashboardPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="my-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                  {labCompletedModules}
-                </span>
-                <span className="text-xs font-mono text-slate-400 font-medium">
-                  / 5 Modules Done
-                </span>
+              <div className="my-3 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
+                    {labCompletedModules}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400 font-medium">
+                    / 5 Modules Done
+                  </span>
+                </div>
+
+                {/* 5 Lab Modules Status Strip with Green Light on Complete */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px]">
+                  {[
+                    { num: 1, isDone: isLab1Complete, solved: m1LabSolved, total: m1LabSlugs.length || 20 },
+                    { num: 2, isDone: isLab2Complete, solved: m2LabSolved, total: m2LabSlugs.length || 20 },
+                    { num: 3, isDone: isLab3Complete, solved: m3LabSolved, total: m3LabSlugs.length || 20 },
+                    { num: 4, isDone: isLab4Complete, solved: m4LabSolved, total: m4LabSlugs.length || 20 },
+                    { num: 5, isDone: isLab5Complete, solved: m5LabSolved, total: m5LabSlugs.length || 21 },
+                  ].map((m) => (
+                    <span
+                      key={m.num}
+                      title={`Lab Module ${m.num}: ${m.solved}/${m.total} Solved ${m.isDone ? '(Completed)' : ''}`}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
+                        m.isDone
+                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
+                          : m.solved > 0
+                          ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-semibold'
+                          : 'text-slate-400 dark:text-slate-500 opacity-60'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          m.isDone
+                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
+                            : m.solved > 0
+                            ? 'bg-cyan-500'
+                            : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                      />
+                      <span>M{m.num}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
