@@ -961,13 +961,12 @@ export const ProfilePage: React.FC = () => {
   const isFacultyProfile = !isAdminProfile && (profile.role === 'FACULTY' || (isOwnProfile && (currentUser?.role === 'FACULTY' || isFaculty)));
   const isAdminOrFaculty = isAdminProfile || isFacultyProfile;
 
-  const solvedTopicIds = React.useMemo(() => {
-    try {
-      return getSolvedPracticeTopicIds();
-    } catch {
-      return [];
-    }
-  }, []);
+  let solvedTopicIds: string[] = [];
+  try {
+    solvedTopicIds = getSolvedPracticeTopicIds();
+  } catch {
+    solvedTopicIds = [];
+  }
 
   // Practice Modules (100 Topics total across 4 modules)
   const m1PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length;
