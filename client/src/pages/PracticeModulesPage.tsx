@@ -180,7 +180,14 @@ export const PracticeModulesPage: React.FC = () => {
 
   const { data: testsData } = useQuery({
     queryKey: ['my-assigned-tests'],
-    queryFn: () => api.get('/exam/my-tests'),
+    queryFn: async () => {
+      try {
+        const res = await api.get('/exam/my-tests');
+        return res;
+      } catch {
+        return { data: [], assignments: [] };
+      }
+    },
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });

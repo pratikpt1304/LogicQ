@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client.js';
+import { handleFallbackRequest } from '../../api/fallbackEngine.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { auth } from '../../config/firebase.js';
@@ -35,7 +36,23 @@ export const StudentTestListPage: React.FC = () => {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-assigned-tests'],
-    queryFn: () => api.get('/exam/my-tests'),
+    queryFn: async () => {
+      try {
+        const res = await api.get('/exam/my-tests');
+        return res;
+      } catch (err: any) {
+        console.warn('Backend /exam/my-tests notice, falling back gracefully:', err);
+        try {
+          const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
+          if (fallback) return fallback;
+        } catch {}
+        return {
+          success: true,
+          data: { active: [], upcoming: [], completed: [] },
+          tests: [],
+        };
+      }
+    },
     staleTime: 30000,
     refetchOnWindowFocus: false,
     refetchInterval: 30000,
