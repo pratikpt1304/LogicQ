@@ -90,7 +90,6 @@ export const ProfilePage: React.FC = () => {
   );
 
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [studentProfileTab, setStudentProfileTab] = useState<'all' | 'practice' | 'lab' | 'submissions'>('all');
   const [editError, setEditError] = useState<string | null>(null);
   const [isDriveBackingUp, setIsDriveBackingUp] = useState(false);
   const [profileWorkspaceBlockMsg, setProfileWorkspaceBlockMsg] = useState<string | null>(null);
@@ -1346,37 +1345,23 @@ export const ProfilePage: React.FC = () => {
 
               {/* Action Buttons (Apple Style Pills) */}
               {isOwnProfile && (
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={handleOpenEdit}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 shadow-sm transition-all active:scale-95 cursor-pointer"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Profile Settings</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleBackupToGoogleDrive}
-                    disabled={isDriveBackingUp}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
-                  >
-                    {isDriveBackingUp ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Folder className="w-3.5 h-3.5 text-emerald-500" />
-                    )}
-                    <span>Drive Backup</span>
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Profile</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleExportData}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
+                    title="Export Backup Data"
+                    className="p-2.5 rounded-full text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5 text-teal-500" />
-                    <span>Export Data</span>
                   </button>
                 </div>
               )}
@@ -1424,7 +1409,7 @@ export const ProfilePage: React.FC = () => {
                 to="/practice"
                 className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold font-mono transition-colors group"
               >
-                <span>Enter Practice Arena</span>
+                <span>Continue Practice Arena</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
@@ -1441,7 +1426,7 @@ export const ProfilePage: React.FC = () => {
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
-                  {labCieMarks} / 20.0 M
+                  {labCieMarks} / 20.0 Marks
                 </span>
               </div>
 
@@ -1466,12 +1451,12 @@ export const ProfilePage: React.FC = () => {
                 to="/lab-internal"
                 className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 text-xs font-semibold font-mono transition-colors group"
               >
-                <span>Enter Lab Internal</span>
+                <span>Continue Lab Coursework</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
 
-            {/* Card 3: Evaluated Code & Standing */}
+            {/* Card 3: Evaluated Code & Activity */}
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-5 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1479,7 +1464,7 @@ export const ProfilePage: React.FC = () => {
                     <Trophy className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Standing & Records
+                    Evaluated Records
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
@@ -1493,12 +1478,12 @@ export const ProfilePage: React.FC = () => {
                     {profile.recentSubmissions?.length || 0}
                   </span>
                   <span className="text-xs font-mono text-slate-400 font-medium">
-                    Evaluated Solutions
+                    Verified Submissions
                   </span>
                 </div>
                 <div className="text-xs font-mono text-slate-400 mt-2 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>Proctored Cloud Verification</span>
+                  <span>100% Compiler Verified Code</span>
                 </div>
               </div>
 
@@ -1506,243 +1491,223 @@ export const ProfilePage: React.FC = () => {
                 to="/history"
                 className="inline-flex items-center justify-between w-full px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold font-mono transition-colors group"
               >
-                <span>View Full Submission Logs</span>
+                <span>View Full Code History</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* Apple Segmented Filter (All Overview / Practice / Lab / History) */}
+          {/* Coursework Modules Inset Grid (Zero Clicks • 2 Columns)    */}
           {/* ========================================================= */}
-          <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/70 shadow-inner overflow-x-auto no-scrollbar">
-            {[
-              { id: 'all', label: '✨ All Overview' },
-              { id: 'practice', label: `📚 Practice Arena (${totalPracticeSolved}/100)` },
-              { id: 'lab', label: `🔬 Lab Internal (${totalLabSolved}/80)` },
-              { id: 'submissions', label: `💻 Code History (${profile.recentSubmissions?.length || 0})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStudentProfileTab(tab.id as any)}
-                className={`flex-1 py-2 px-3.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap select-none ${
-                  studentProfileTab === tab.id
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 dark:ring-white/10 font-bold'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ========================================================= */}
-          {/* SECTION 1: PRACTICE ARENA (100 TOPICS • 4 MODULES)        */}
-          {/* ========================================================= */}
-          {(studentProfileTab === 'all' || studentProfileTab === 'practice') && (
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-5 shadow-xs animate-in fade-in duration-150">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Left Column: Practice Arena Modules */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Code2 className="w-4 h-4 text-emerald-500" />
-                    <span>Practice Arena Track (100 Topics)</span>
+                    <span>Practice Track (100 Topics)</span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Targeted C programming exercises with instant compiler feedback. 4 sequential modules.
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Self-paced C programming exercises
                   </p>
                 </div>
                 <Link
                   to="/practice"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-xs shrink-0"
+                  className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                 >
-                  <span>Practice Arena →</span>
+                  <span>Practice Arena</span>
+                  <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
                 {[
                   { order: 1, title: 'Control Flow', desc: 'Branching decisions, loops, conditions', solved: m1PracticeSolved, total: 25 },
                   { order: 2, title: 'Pointers & Functions', desc: 'Addresses, dereferencing, pass-by-ref', solved: m2PracticeSolved, total: 25 },
-                  { order: 3, title: 'Array & Applications', desc: 'Arrays, matrices, sorting & searching', solved: m3PracticeSolved, total: 25 },
+                  { order: 3, title: 'Array and its Applications', desc: 'Arrays, matrices, sorting & searching', solved: m3PracticeSolved, total: 25 },
                   { order: 4, title: 'Advanced Data Types', desc: 'Dynamic heap allocation, structs, unions', solved: m4PracticeSolved, total: 25 },
                 ].map((m) => {
                   const pct = Math.round((m.solved / m.total) * 100);
-                  const isDone = m.solved >= m.total;
                   return (
                     <Link
                       key={m.order}
                       to={`/practice?module=${m.order}`}
-                      className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-800/50 hover:border-emerald-500/40 hover:bg-white dark:hover:bg-slate-800 p-4 transition-all block group shadow-xs"
+                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-white dark:hover:bg-slate-800/80 transition-colors group block"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                          MODULE {m.order}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                          {m.solved}/{m.total} {isDone ? '✓' : ''}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            MOD 0{m.order}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors truncate">
+                            {m.title}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200/80 dark:bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
-                        {m.title}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
-                        {m.desc}
-                      </p>
-                      <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-3 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                          {m.solved}/{m.total}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono block">
+                          {pct}%
+                        </span>
                       </div>
                     </Link>
                   );
                 })}
               </div>
             </div>
-          )}
 
-          {/* ========================================================= */}
-          {/* SECTION 2: LAB INTERNAL (80 QUESTIONS • 4 MODULES • 20 M) */}
-          {/* ========================================================= */}
-          {(studentProfileTab === 'all' || studentProfileTab === 'lab') && (
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-5 shadow-xs animate-in fade-in duration-150">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Right Column: Lab Internal Modules */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-cyan-500" />
-                    <span>Lab Internal Coursework (80 Questions • 20.0 CIE Marks)</span>
+                    <span>Lab Internal (80 Questions • 20 M)</span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Continuous Internal Evaluation (5.0 Marks per module, 20.0 Marks total). Proctored verification.
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Continuous Internal Evaluation (5.0 M / Module)
                   </p>
                 </div>
                 <Link
                   to="/lab-internal"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-xs shrink-0"
+                  className="text-xs font-mono font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                 >
-                  <span>Lab Coursework →</span>
+                  <span>Lab Internal</span>
+                  <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
                 {[
-                  { order: 1, title: 'Control Structures', desc: 'Branching decisions, loops, conditions', solved: m1LabSolved, total: 20 },
-                  { order: 2, title: 'Pointers & Functions', desc: 'Memory pointers, pass-by-reference', solved: m2LabSolved, total: 20 },
-                  { order: 3, title: 'Arrays & Strings', desc: 'Vectors, matrices, string operations', solved: m3LabSolved, total: 20 },
-                  { order: 4, title: 'Dynamic Memory', desc: 'Heap allocation, structs, bounds', solved: m4LabSolved, total: 20 },
+                  { order: 1, title: 'Control Structures', solved: m1LabSolved, total: 20 },
+                  { order: 2, title: 'Pointers & Functions', solved: m2LabSolved, total: 20 },
+                  { order: 3, title: 'Arrays & Strings', solved: m3LabSolved, total: 20 },
+                  { order: 4, title: 'Dynamic Memory', solved: m4LabSolved, total: 20 },
                 ].map((m) => {
                   const pct = Math.round((m.solved / m.total) * 100);
-                  const isDone = m.solved >= m.total;
+                  const marks = (m.solved * 0.25).toFixed(1);
                   return (
                     <Link
                       key={m.order}
                       to={`/lab-internal?module=${m.order}`}
-                      className="rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/60 dark:bg-slate-800/50 hover:border-cyan-500/40 hover:bg-white dark:hover:bg-slate-800 p-4 transition-all block group shadow-xs"
+                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-white dark:hover:bg-slate-800/80 transition-colors group block"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                          MOD 0{m.order}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                          {m.solved}/{m.total} {isDone ? '✓' : ''}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                            MOD 0{m.order}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-cyan-500 transition-colors truncate">
+                            {m.title}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200/80 dark:bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-cyan-500 transition-colors">
-                        {m.title}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
-                        {m.desc}
-                      </p>
-                      <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mt-3 overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                          {m.solved}/{m.total}
+                        </span>
+                        <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono font-semibold block">
+                          {marks}/5.0 M
+                        </span>
                       </div>
                     </Link>
                   );
                 })}
               </div>
             </div>
-          )}
+          </div>
 
           {/* ========================================================= */}
-          {/* SECTION 3: VERIFIED CODE SUBMISSIONS & EVALUATIONS        */}
+          {/* Verified Code Evaluations (Recent Submissions Inset)       */}
           {/* ========================================================= */}
-          {(studentProfileTab === 'all' || studentProfileTab === 'submissions') && (
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-6 sm:p-7 space-y-4 shadow-xs animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-indigo-500" />
-                    <span>Verified Code Submissions</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Permanent cloud-verified records of your submitted solutions with compiler verdicts.
-                  </p>
-                </div>
-                <Link
-                  to="/history"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold transition-all shrink-0"
-                >
-                  <span>All Submissions →</span>
-                </Link>
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-indigo-500" />
+                  <span>Recent Evaluated Submissions</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Permanent cloud-verified records of submitted C programs
+                </p>
               </div>
+              <Link
+                to="/history"
+                className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                <span>All Submissions ({profile.recentSubmissions?.length || 0})</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
 
-              {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
-                <div className="text-center py-10 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-6 space-y-2">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    No code submissions recorded yet.
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Solve any problem in Practice Arena or Lab Internal to establish your verified record!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {profile.recentSubmissions.slice(0, 5).map((sub: any) => (
-                    <div
-                      key={sub.id}
-                      className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-4 transition-colors hover:bg-white dark:hover:bg-slate-800/80"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                            {sub.problem?.title || 'Practice Problem'}
-                          </h4>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                            #{sub.attemptNumber || 1}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-2">
-                          <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}</span>
-                          <span>•</span>
-                          <span className="text-emerald-500 font-bold">Evaluated</span>
-                        </div>
+            {(!profile.recentSubmissions || profile.recentSubmissions.length === 0) ? (
+              <div className="text-center py-8 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-900/40 p-4 space-y-1">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  No submissions recorded yet.
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Solve your first problem in Practice Arena or Lab Internal to establish your verified record!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {profile.recentSubmissions.slice(0, 5).map((sub: any) => (
+                  <div
+                    key={sub.id}
+                    className="p-3 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-4 transition-colors hover:bg-white dark:hover:bg-slate-800"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                          {sub.problem?.title || 'Practice Problem'}
+                        </h4>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                          #{sub.attemptNumber || 1}
+                        </span>
                       </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <VerdictBadge verdict={sub.verdict} size="sm" />
-                        {sub.code && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setViewCodeSubmission(sub);
-                              setHasCopiedCode(false);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold font-mono transition-colors cursor-pointer"
-                          >
-                            View Code
-                          </button>
-                        )}
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                        <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}</span>
+                        <span>•</span>
+                        <span className="text-emerald-500 font-semibold">Verified</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <VerdictBadge verdict={sub.verdict} size="sm" />
+                      {sub.code && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewCodeSubmission(sub);
+                            setHasCopiedCode(false);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-[11px] font-semibold font-mono transition-colors cursor-pointer"
+                        >
+                          View Code
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
