@@ -373,7 +373,7 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Auto-launch fullscreen on problem mount (Desktop/Laptop only)
   useEffect(() => {
     const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-    if (isMobile || isPratikReviewer) return;
+    if (isMobile) return;
 
     const elem = document.documentElement as any;
     if (!document.fullscreenElement && !elem.webkitFullscreenElement) {
@@ -397,7 +397,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       setIsFullscreen(true);
       setShowFullscreenModal(false);
     }
-  }, [problemSlug, isPratikReviewer]);
+  }, [problemSlug]);
 
   // Fullscreen Exit Detection (Desktop only) -> Immediate exit to module for exam security
   useEffect(() => {
@@ -413,7 +413,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
 
       const isMobile = typeof window !== 'undefined' && (window.innerWidth < 1024 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
-      if (!active && !isMobile && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
+      if (!active && !isMobile && hasEnteredFullscreenRef.current && !isExitingRef.current) {
         isExitingRef.current = true;
         setFullscreenExits((prev) => {
           const next = prev + 1;
@@ -431,7 +431,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
-  }, [syncTelemetryToCloud, isPratikReviewer, returnToHub]);
+  }, [syncTelemetryToCloud, returnToHub]);
 
   // Step 2 & 4: Anti-Cheat Tab Switch, Window Focus, 1.5s Grace Period & 1-Strike Mercy Mode
   const isCurrentProblemMercy = Boolean(problemSlug && secondChanceSlugs.has(problemSlug));
@@ -1764,7 +1764,7 @@ export const PracticeWorkspacePage: React.FC = () => {
         </div>
 
         {/* Right Utility: Timer, Proctoring, and Mobile Palette Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 pr-4 sm:pr-8">
           {problem && (
             <PracticeTimer
               ref={practiceTimerRef}
@@ -2608,7 +2608,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       )}
 
       {/* Mandatory Proctored Fullscreen Modal */}
-      {showFullscreenModal && !isFullscreen && !isPratikReviewer && (
+      {showFullscreenModal && !isFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header with Icon */}

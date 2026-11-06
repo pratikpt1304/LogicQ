@@ -436,7 +436,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
       if (isNowFullscreen) {
         hasEnteredFullscreenRef.current = true;
-      } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
+      } else if (activeTopicRef.current && hasEnteredFullscreenRef.current && !isExitingRef.current) {
         toast.error('🚫 Fullscreen Exited: Practice session closed and returned to module for exam security. Your progress is auto-saved.');
         handleCloseTopicRef.current();
       }
@@ -527,7 +527,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     const handleFullscreenChange = () => {
       const elem = document as any;
       const isNowFullscreen = Boolean(document.fullscreenElement || elem.webkitFullscreenElement);
-      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current && !isPratikReviewer) {
+      if (!isNowFullscreen && activeTopic && hasEnteredFullscreenRef.current && !isExitingRef.current) {
         fullscreenExitsRef.current += 1;
         FirestoreDataService.saveProctoringTelemetry(user.id, {
           fullscreenExits: 1,
@@ -1846,7 +1846,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             </div>
 
             {/* Right: Palette Toggle + Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 pr-4 sm:pr-8">
               <button
                 type="button"
                 onClick={() => {
