@@ -316,20 +316,6 @@ export const ProfilePage: React.FC = () => {
             localAcceptedCount
           );
 
-          let authoritativePoints = Math.max(
-            serverUser?.totalPoints || 0,
-            currentUser?.totalPoints || 0,
-            fsUser?.totalPoints || 0,
-            fsBackup?.totalPoints || 0,
-            cachedPoints
-          );
-
-          let authoritativeCurrentStreak = 0;
-          let authoritativeLongestStreak = 0;
-
-          // Authoritative Rank: Only grant rank if student has verified points > 0
-          const authoritativeRank = authoritativePoints > 0 ? (serverUser?.rank || 1) : null;
-
           // Merge recent submissions from server, Firestore, and local storage fallback
           const rawLocalSubs = (() => {
             try {
@@ -356,6 +342,80 @@ export const ProfilePage: React.FC = () => {
               combinedSubsMap.set(s.id, s);
             }
           }
+
+          // Backfill solved practice topics into submissions if not already recorded
+          let solvedPracticeTopicIdsList: string[] = [];
+          try {
+            solvedPracticeTopicIdsList = Array.from(new Set([
+              ...getSolvedPracticeTopicIds(),
+              ...(effectiveUid ? getSolvedPracticeTopicIds(effectiveUid) : []),
+              ...(currentUser?.id ? getSolvedPracticeTopicIds(currentUser.id) : []),
+              ...(currentUser?.prn ? getSolvedPracticeTopicIds(currentUser.prn) : []),
+            ]));
+          } catch {}
+
+          for (const tid of solvedPracticeTopicIdsList) {
+            const topicKey = `topic_${tid}`;
+            const hasExisting = Array.from(combinedSubsMap.values()).some(
+              (s: any) => s.problemId === tid || s.problem?.slug === tid || s.id === topicKey
+            );
+            if (!hasExisting) {
+              const topicItem = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
+              if (topicItem) {
+                let localCode = '';
+                try {
+                  const draftRaw = localStorage.getItem(`logicq_practice_draft_${tid}`);
+                  if (draftRaw) {
+                    const parsed = JSON.parse(draftRaw);
+                    localCode = parsed.code || '';
+                  }
+                } catch {}
+
+                combinedSubsMap.set(topicKey, {
+                  id: topicKey,
+                  problemId: tid,
+                  code: localCode || topicItem.problem.solutionCode || topicItem.problem.starterCode,
+                  language: 'c',
+                  verdict: 'ACCEPTED',
+                  pointsAwarded: 20,
+                  submissionType: 'PRACTICE',
+                  createdAt: new Date().toISOString(),
+                  problem: {
+                    id: tid,
+                    title: topicItem.problem.title,
+                    slug: tid,
+                    difficulty: topicItem.problem.difficulty || 'EASY',
+                  },
+                });
+              }
+            }
+          }
+
+          let solvedPoints = 0;
+          combinedSubsMap.forEach((s) => {
+            if (s.verdict === 'ACCEPTED') {
+              solvedPoints += (Number(s.pointsAwarded) || 20);
+            }
+          });
+
+          let authoritativePoints = Math.max(
+            serverUser?.totalPoints || 0,
+            currentUser?.totalPoints || 0,
+            fsUser?.totalPoints || 0,
+            fsBackup?.totalPoints || 0,
+            cachedPoints,
+            solvedPoints,
+            authoritativeSolved * 20,
+            solvedPracticeTopicIdsList.length * 20
+          );
+
+          let authoritativeCurrentStreak = 0;
+          let authoritativeLongestStreak = 0;
+
+          // Authoritative Rank: Active solver rank if student has solved problems or points > 0
+          const authoritativeRank = (authoritativePoints > 0 || authoritativeSolved > 0 || solvedPracticeTopicIdsList.length > 0)
+            ? (serverUser?.rank || 1)
+            : null;
 
           const allUserSubs = Array.from(combinedSubsMap.values());
           allUserSubs.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
@@ -994,9 +1054,16 @@ export const ProfilePage: React.FC = () => {
   const totalLabSolved = m1LabSolved + m2LabSolved + m3LabSolved + m4LabSolved;
   const labCieMarks = (totalLabSolved * 0.25).toFixed(1);
 
-  const effectiveTotalPoints = Math.max(profile?.totalPoints || 0, isOwnProfile ? (currentUser?.totalPoints || 0) : 0);
+  const computedPointsFromSolved = (totalPracticeSolved * 20) + (totalLabSolved * 25);
+  const effectiveTotalPoints = Math.max(
+    profile?.totalPoints || 0,
+    isOwnProfile ? (currentUser?.totalPoints || 0) : 0,
+    computedPointsFromSolved
+  );
   const effectiveSolved = Math.max(profile?.totalSolved || 0, totalPracticeSolved + totalLabSolved, solvedTopicIds.length);
-  const effectiveRank = effectiveTotalPoints > 0 ? (profile?.rank ? `Rank #${profile.rank}` : 'Rank #1') : 'Unranked';
+  const effectiveRank = (effectiveTotalPoints > 0 || effectiveSolved > 0)
+    ? (profile?.rank ? `Rank #${profile.rank}` : 'Rank #1')
+    : 'Unranked';
 
   // Aggregated problem lists & difficulty distribution (180 Total Problems: 100 Practice + 80 Lab)
   const allLabProblems = [
@@ -1542,7 +1609,7 @@ export const ProfilePage: React.FC = () => {
               <div className="my-4">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {profile.recentSubmissions?.length || 0}
+                    {Math.max(profile.recentSubmissions?.length || 0, effectiveSolved)}
                   </span>
                   <span className="text-xs font-mono text-slate-400 font-medium">
                     Verified Submissions
