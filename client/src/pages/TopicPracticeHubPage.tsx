@@ -1424,7 +1424,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-slate-400">
-                  Module 0${m.id}
+                  Module 0{m.id}
                 </span>
                 {isLocked ? (
                   <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-semibold">
@@ -1437,7 +1437,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                       : 'text-slate-500'
                   }`}>
-                    ${mSolved}/25
+                    {mSolved}/25
                   </span>
                 )}
               </div>
