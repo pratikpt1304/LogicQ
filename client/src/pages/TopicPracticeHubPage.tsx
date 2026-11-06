@@ -1354,8 +1354,8 @@ export const TopicPracticeHubPage: React.FC = () => {
 
           {/* Quick Mastery, Dashboard Exit & Lab Link */}
           <div className="flex items-center gap-3 shrink-0 bg-slate-50/80 dark:bg-slate-800/40 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-            <div className="space-y-1.5 min-w-[130px]">
-              <div className="flex items-center justify-between text-xs font-mono">
+            <div className="space-y-1.5 min-w-[175px]">
+              <div className="flex items-center justify-between gap-3 text-xs font-mono">
                 <span className="text-slate-500 dark:text-slate-400">Total Solved</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                   {solvedCount}/{totalTopics} ({progressPct}%)
