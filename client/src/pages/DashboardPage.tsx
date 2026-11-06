@@ -2247,18 +2247,18 @@ export const DashboardPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="my-3 flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-baseline gap-2">
+              <div className="my-3 flex items-center justify-between gap-1.5">
+                <div className="flex items-baseline gap-1.5 shrink-0">
                   <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                    {labCompletedModules}
+                    {labTotalSolved}
                   </span>
                   <span className="text-xs font-mono text-slate-400 font-medium">
-                    / 5 Modules Done
+                    / {labTotal} Solved
                   </span>
                 </div>
 
                 {/* 5 Lab Modules Status Strip with Green Light on Complete */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px]">
+                <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
                   {[
                     { num: 1, isDone: isLab1Complete, solved: m1LabSolved, total: m1LabSlugs.length || 20 },
                     { num: 2, isDone: isLab2Complete, solved: m2LabSolved, total: m2LabSlugs.length || 20 },
@@ -2295,7 +2295,7 @@ export const DashboardPage: React.FC = () => {
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-cyan-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(labCompletedModules > 0 ? 4 : 0, (labCompletedModules / 5) * 100)}%` }}
+                  style={{ width: `${Math.max(labTotalSolved > 0 ? 4 : 0, (labTotalSolved / labTotal) * 100)}%` }}
                 />
               </div>
 
