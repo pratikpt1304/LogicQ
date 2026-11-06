@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
 import { OnlineCompilerCard } from '../components/dashboard/OnlineCompilerCard.js';
-import { DailyCTipPopup } from '../components/dashboard/DailyCTipPopup.js';
 import { DifficultyBadge, VerdictBadge } from '../components/common/Badge.js';
 import { CountdownClock } from '../components/common/CountdownClock.js';
 import { GoogleDriveService } from '../services/googleDrive.service.js';
@@ -1221,9 +1220,6 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-8">
-      {/* Daily C Tip Popup - shown once per day on load (Mandatory 10s center modal) */}
-      <DailyCTipPopup />
-      
       {/* EXECUTIVE ADMIN & FACULTY HOME DASHBOARD (APPLE HIG MINIMALIST REDESIGN) */}
       {!isStudent ? (
         <div className="space-y-5 sm:space-y-6 animate-in fade-in duration-200">
