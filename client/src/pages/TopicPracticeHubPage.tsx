@@ -620,6 +620,13 @@ export const TopicPracticeHubPage: React.FC = () => {
     // Admin or Faculty can preview any question without restriction
     if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return false;
 
+    // Pratik Thorat (PRN 1039 developer/curriculum author) can preview Module 1 without sequential lock
+    const isPratikReviewer =
+      user?.prn === '2126PMIM1039' ||
+      (user as any)?.prn?.includes('1039') ||
+      user?.email === 'thoratpratik2323@gmail.com';
+    if (isPratikReviewer && topic.moduleIndex === 1) return false;
+
     // If module itself is locked, all topics inside are locked
     const moduleInfo = getModuleUnlockInfo(topic.moduleIndex);
     if (!moduleInfo.isUnlocked) return true;
