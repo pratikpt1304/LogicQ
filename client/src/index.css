@@ -156,13 +156,32 @@
     outline-offset: 2px !important;
   }
 
-  /* High-contrast form controls & placeholders in both themes */
-  input:not([type='checkbox']):not([type='radio']),
-  select,
-  textarea {
+  /* High-contrast form controls & placeholders in both themes (excluding dark terminal consoles) */
+  input:not([type='checkbox']):not([type='radio']):not(.terminal-stdin):not([data-terminal]),
+  select:not([data-terminal]),
+  textarea:not(.terminal-stdin):not([data-terminal]) {
     background-color: var(--bg-main) !important;
     color: var(--text-main) !important;
     border-color: var(--border-line) !important;
+  }
+
+  /* Scoped dark terminal stdin console */
+  .terminal-stdin,
+  textarea.terminal-stdin,
+  [data-terminal] textarea,
+  textarea[data-terminal='true'] {
+    background-color: #020408 !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+    caret-color: #38bdf8 !important;
+  }
+
+  .terminal-stdin::placeholder,
+  textarea.terminal-stdin::placeholder,
+  [data-terminal] textarea::placeholder,
+  textarea[data-terminal='true']::placeholder {
+    color: #64748b !important;
+    opacity: 1 !important;
   }
 
   select option {

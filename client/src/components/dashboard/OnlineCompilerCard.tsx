@@ -601,7 +601,18 @@ export const OnlineCompilerCard: React.FC = () => {
                 onChange={(e) => setStdin(e.target.value)}
                 placeholder="Example:&#10;10 20&#10;Alice&#10;3.14"
                 rows={8}
-                className="flex-1 w-full p-3.5 rounded-lg border border-slate-800 bg-[#020408] text-slate-100 font-mono text-xs placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition shadow-inner resize-none"
+                data-terminal="true"
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                className="terminal-stdin flex-1 w-full p-3.5 rounded-lg border border-slate-700/80 bg-[#020408] text-slate-100 font-mono text-xs placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30 transition shadow-inner resize-none leading-relaxed"
+                style={{
+                  backgroundColor: '#020408',
+                  color: '#f8fafc',
+                  borderColor: '#334155',
+                  caretColor: '#38bdf8',
+                }}
               />
             </div>
           )}

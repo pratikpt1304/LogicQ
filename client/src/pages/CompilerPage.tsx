@@ -479,8 +479,18 @@ export const CompilerPage: React.FC = () => {
                   value={stdin}
                   onChange={(e) => setStdin(e.target.value)}
                   placeholder="e.g.&#10;10 20&#10;Hello C"
-                  className="flex-1 w-full p-3.5 rounded-lg bg-[#020408] border border-slate-800 text-slate-100 font-mono text-xs focus:outline-none focus:border-cyan-500 transition resize-none placeholder:text-slate-600"
+                  data-terminal="true"
                   spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  className="terminal-stdin flex-1 w-full p-3.5 rounded-lg bg-[#020408] border border-slate-700/80 text-slate-100 font-mono text-xs focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/30 transition resize-none placeholder:text-slate-500 leading-relaxed"
+                  style={{
+                    backgroundColor: '#020408',
+                    color: '#f8fafc',
+                    borderColor: '#334155',
+                    caretColor: '#38bdf8',
+                  }}
                 />
                 <p className="text-[11px] text-slate-500 italic">
                   💡 Tip: If your program uses <code>scanf("%d", &amp;x)</code>, supply inputs here before clicking Compile &amp; Run.
