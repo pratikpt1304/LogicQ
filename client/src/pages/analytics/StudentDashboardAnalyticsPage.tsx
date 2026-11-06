@@ -225,6 +225,107 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
+  // Process question-by-question proctoring audit log with exact timestamps
+  const questionIncidentsList = useMemo(() => {
+    interface QuestionAuditEvent {
+      type: string;
+      reason: string;
+      timestamp: string;
+    }
+
+    interface QuestionAuditItem {
+      problemTitle: string;
+      problemSlug: string;
+      tabSwitches: number;
+      pasteAttempts: number;
+      fullscreenExits: number;
+      isAutoLocked: boolean;
+      lastTimestamp: string;
+      events: QuestionAuditEvent[];
+    }
+
+    const rawIncidents = fsTelemetry?.incidents || [];
+    const map = new Map<string, QuestionAuditItem>();
+
+    // Check localStorage quarantined problems as well
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
+          const val = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(val)) {
+            val.forEach((slug: string) => {
+              const cleanSlug = String(slug).toLowerCase().trim();
+              if (!map.has(cleanSlug)) {
+                const title = cleanSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                map.set(cleanSlug, {
+                  problemTitle: title,
+                  problemSlug: cleanSlug,
+                  tabSwitches: 3,
+                  pasteAttempts: 0,
+                  fullscreenExits: 0,
+                  isAutoLocked: true,
+                  lastTimestamp: new Date().toISOString(),
+                  events: [
+                    {
+                      type: 'EXCEEDED_TAB_SWITCHES',
+                      reason: 'Exceeded 3 tab switches (Quarantined question)',
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
+                });
+              }
+            });
+          }
+        }
+      }
+    } catch {}
+
+    rawIncidents.forEach((inc: any) => {
+      const slug = (inc.problemSlug || inc.problemTitle || 'general-practice').toLowerCase().trim();
+      const title = inc.problemTitle || inc.problemSlug || 'Practice Question';
+      const existing: QuestionAuditItem = map.get(slug) || {
+        problemTitle: title,
+        problemSlug: slug,
+        tabSwitches: 0,
+        pasteAttempts: 0,
+        fullscreenExits: 0,
+        isAutoLocked: false,
+        lastTimestamp: inc.timestamp || new Date().toISOString(),
+        events: [] as QuestionAuditEvent[],
+      };
+
+      if (inc.type === 'TAB_SWITCH' || inc.type === 'EXCEEDED_TAB_SWITCHES') {
+        existing.tabSwitches += 1;
+      }
+      if (inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE') {
+        existing.pasteAttempts += 1;
+      }
+      if (inc.type === 'FULLSCREEN_EXIT') {
+        existing.fullscreenExits += 1;
+      }
+      if (inc.type === 'EXCEEDED_TAB_SWITCHES' || inc.type === 'EXCEEDED_COPY_PASTE') {
+        existing.isAutoLocked = true;
+      }
+
+      existing.events.push({
+        type: inc.type,
+        reason: inc.reason || 'Telemetry flag',
+        timestamp: inc.timestamp || new Date().toISOString(),
+      });
+
+      if (new Date(inc.timestamp).getTime() > new Date(existing.lastTimestamp).getTime()) {
+        existing.lastTimestamp = inc.timestamp;
+      }
+
+      map.set(slug, existing);
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+    );
+  }, [fsTelemetry?.incidents]);
+
   if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
   }
@@ -606,6 +707,106 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                     GCC 14 (C11)
                   </div>
                 </div>
+              </div>
+
+              {/* Question-by-Question Proctoring Audit Section */}
+              <div className="space-y-4 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span>Question-Level Proctoring & Anti-Cheat Audit</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Question-by-question log of tab switches, copy-paste attempts, and proctoring events with exact timestamps.
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    {questionIncidentsList.length} Flagged Questions
+                  </span>
+                </div>
+
+                {questionIncidentsList.length > 0 ? (
+                  <div className="space-y-3">
+                    {questionIncidentsList.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3.5"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h5 className="font-bold text-sm text-slate-900 dark:text-white">
+                                {q.problemTitle}
+                              </h5>
+                              {q.isAutoLocked && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                  Auto-Locked / Quarantined
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Latest Activity: {new Date(q.lastTimestamp).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(q.lastTimestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            </span>
+                          </div>
+
+                          {/* Violations Count Badges */}
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            {q.tabSwitches > 0 && (
+                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                🔄 {q.tabSwitches} Tab Switch{q.tabSwitches > 1 ? 'es' : ''}
+                              </span>
+                            )}
+                            {q.pasteAttempts > 0 && (
+                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                📋 {q.pasteAttempts} Paste Blocked
+                              </span>
+                            )}
+                            {q.fullscreenExits > 0 && (
+                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                ⛶ {q.fullscreenExits} Fullscreen Exits
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Detailed Timeline Events for this Question */}
+                        <div className="p-3.5 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 space-y-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Event Timeline:
+                          </span>
+                          <div className="space-y-1.5">
+                            {q.events.map((ev, eIdx) => (
+                              <div
+                                key={eIdx}
+                                className="flex items-start justify-between gap-3 text-xs text-slate-600 dark:text-slate-300 font-mono"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                                  <span>{ev.reason}</span>
+                                </div>
+                                <span className="text-[11px] text-slate-400 shrink-0">
+                                  {new Date(ev.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-center space-y-1.5">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+                    <h5 className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      Perfect Academic Integrity: 0 Violations Logged
+                    </h5>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                      No tab switches or copy-paste attempts were detected across any question. All code was written and verified with 100% compliance.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5">

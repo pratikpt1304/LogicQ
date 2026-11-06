@@ -466,6 +466,16 @@ export const PracticeWorkspacePage: React.FC = () => {
           return nextTotal;
         });
 
+        // Record question-specific tab switch incident with exact timestamp
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: nextQ >= maxAllowedSwitches ? 'EXCEEDED_TAB_SWITCHES' : 'TAB_SWITCH',
+          problemSlug: problem?.slug || problemSlug || '',
+          problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
+          reason: `Tab switch #${nextQ} detected on question`,
+          codeSnippet: code,
+        }).catch(() => {});
+
         if (nextQ >= maxAllowedSwitches) {
           triggerAntiCheatAutoSubmitRef.current('TAB_SWITCH_LIMIT', nextQ);
         }
@@ -597,6 +607,17 @@ export const PracticeWorkspacePage: React.FC = () => {
           syncTelemetryToCloud({ copyPasteAttempts: nextTotal });
           return nextTotal;
         });
+
+        // Record question-specific paste attempt incident with exact timestamp
+        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        FirestoreDataService.recordProctoringIncident(uid, {
+          type: nextQ >= 5 ? 'EXCEEDED_COPY_PASTE' : 'COPY_PASTE',
+          problemSlug: problem?.slug || problemSlug || '',
+          problemTitle: problem?.title || `Question #${problem?.moduleOrder || 1}`,
+          reason: `Clipboard paste attempt #${nextQ} blocked on question`,
+          codeSnippet: code,
+        }).catch(() => {});
+
         triggerProctorWarning(`🚫 Pasting is strictly blocked! Attempt ${nextQ}/5 on this question.`, 'paste');
         if (nextQ >= 5) {
           triggerAntiCheatAutoSubmitRef.current('COPY_PASTE_LIMIT', nextQ);
