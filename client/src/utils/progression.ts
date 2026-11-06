@@ -125,6 +125,13 @@ export function getLabModuleUnlockInfo(
   if (isPrivileged) return { isUnlocked: true, lockReason: '' };
 
   if (moduleOrder === 1) {
+    if (!isPracticeModuleComplete(1, solvedTopicIds)) {
+      const solved = getPracticeModuleSolvedCount(1, solvedTopicIds);
+      return {
+        isUnlocked: false,
+        lockReason: `Solve all 25 practice questions in Module 1 (${solved}/25 solved) on the Practice tab to unlock Lab Internal Module 1.`,
+      };
+    }
     return { isUnlocked: true, lockReason: '' };
   }
 
