@@ -356,38 +356,40 @@ export const ProfilePage: React.FC = () => {
 
           for (const tid of solvedPracticeTopicIdsList) {
             const topicKey = `topic_${tid}`;
+            const topicItem = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
             const hasExisting = Array.from(combinedSubsMap.values()).some(
-              (s: any) => s.problemId === tid || s.problem?.slug === tid || s.id === topicKey
+              (s: any) =>
+                s.problemId === tid ||
+                s.problem?.slug === tid ||
+                s.id === topicKey ||
+                (topicItem && s.problem?.title && s.problem.title.trim().toLowerCase() === topicItem.problem.title.trim().toLowerCase())
             );
-            if (!hasExisting) {
-              const topicItem = TOPIC_PRACTICE_DATA.find((t) => t.id === tid);
-              if (topicItem) {
-                let localCode = '';
-                try {
-                  const draftRaw = localStorage.getItem(`logicq_practice_draft_${tid}`);
-                  if (draftRaw) {
-                    const parsed = JSON.parse(draftRaw);
-                    localCode = parsed.code || '';
-                  }
-                } catch {}
+            if (!hasExisting && topicItem) {
+              let localCode = '';
+              try {
+                const draftRaw = localStorage.getItem(`logicq_practice_draft_${tid}`);
+                if (draftRaw) {
+                  const parsed = JSON.parse(draftRaw);
+                  localCode = parsed.code || '';
+                }
+              } catch {}
 
-                combinedSubsMap.set(topicKey, {
-                  id: topicKey,
-                  problemId: tid,
-                  code: localCode || topicItem.problem.solutionCode || topicItem.problem.starterCode,
-                  language: 'c',
-                  verdict: 'ACCEPTED',
-                  pointsAwarded: 20,
-                  submissionType: 'PRACTICE',
-                  createdAt: new Date().toISOString(),
-                  problem: {
-                    id: tid,
-                    title: topicItem.problem.title,
-                    slug: tid,
-                    difficulty: topicItem.problem.difficulty || 'EASY',
-                  },
-                });
-              }
+              combinedSubsMap.set(topicKey, {
+                id: topicKey,
+                problemId: tid,
+                code: localCode || topicItem.problem.solutionCode || topicItem.problem.starterCode,
+                language: 'c',
+                verdict: 'ACCEPTED',
+                pointsAwarded: 20,
+                submissionType: 'PRACTICE',
+                createdAt: new Date().toISOString(),
+                problem: {
+                  id: tid,
+                  title: topicItem.problem.title,
+                  slug: tid,
+                  difficulty: topicItem.problem.difficulty || 'EASY',
+                },
+              });
             }
           }
 
@@ -417,7 +419,20 @@ export const ProfilePage: React.FC = () => {
             ? (serverUser?.rank || 1)
             : null;
 
-          const allUserSubs = Array.from(combinedSubsMap.values());
+          const rawSubsList = Array.from(combinedSubsMap.values());
+          const seenProblemMap = new Map<string, any>();
+          for (const sub of rawSubsList) {
+            const normKey = (sub.problem?.title || sub.problem?.slug || sub.problemId || sub.id || '').trim().toLowerCase();
+            if (normKey) {
+              if (!seenProblemMap.has(normKey)) {
+                seenProblemMap.set(normKey, sub);
+              }
+            } else {
+              seenProblemMap.set(sub.id || String(Math.random()), sub);
+            }
+          }
+
+          const allUserSubs = Array.from(seenProblemMap.values());
           allUserSubs.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
 
           const attemptsCounter: Record<string, number> = {};
