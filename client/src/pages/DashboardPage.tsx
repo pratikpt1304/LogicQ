@@ -70,6 +70,11 @@ export const DashboardPage: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, refreshUser } = useAuth();
   const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039';
   const isStudent = !isFacultyUser && !isAdmin;
+  const isPratikReviewer =
+    user?.prn === '2126PMIM1039' ||
+    (user as any)?.prn?.includes('1039') ||
+    user?.email === 'thoratpratik2323@gmail.com';
+  const isPrivilegedProgression = Boolean(isAdmin || isFaculty || isPratikReviewer);
   const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests'>('practice');
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
@@ -611,7 +616,7 @@ export const DashboardPage: React.FC = () => {
       const solvedCount = Math.max(m.solvedCount || 0, labSolvedInMod);
       const totalQuestions = m.totalQuestions || 20;
       const progressPercent = totalQuestions > 0 ? Math.round((solvedCount / totalQuestions) * 100) : 0;
-      const unlockInfo = getLabModuleUnlockInfo(m.order || 1, solvedTopicIds, isAdmin || isFaculty);
+      const unlockInfo = getLabModuleUnlockInfo(m.order || 1, solvedTopicIds, isPrivilegedProgression);
       return {
         ...m,
         isUnlocked: unlockInfo.isUnlocked,
@@ -684,7 +689,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getPracticeModuleUnlockInfo(1, solvedTopicIds, isAdmin || isFaculty),
+      ...getPracticeModuleUnlockInfo(1, solvedTopicIds, isPrivilegedProgression),
     },
     {
       id: 2,
@@ -694,7 +699,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getPracticeModuleUnlockInfo(2, solvedTopicIds, isAdmin || isFaculty),
+      ...getPracticeModuleUnlockInfo(2, solvedTopicIds, isPrivilegedProgression),
     },
     {
       id: 3,
@@ -704,7 +709,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getPracticeModuleUnlockInfo(3, solvedTopicIds, isAdmin || isFaculty),
+      ...getPracticeModuleUnlockInfo(3, solvedTopicIds, isPrivilegedProgression),
     },
     {
       id: 4,
@@ -714,7 +719,7 @@ export const DashboardPage: React.FC = () => {
       totalQuestions: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4).length || 25,
       solvedCount: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
       progressPercent: 0,
-      ...getPracticeModuleUnlockInfo(4, solvedTopicIds, isAdmin || isFaculty),
+      ...getPracticeModuleUnlockInfo(4, solvedTopicIds, isPrivilegedProgression),
     },
   ].map((m) => ({
     ...m,
@@ -959,14 +964,14 @@ export const DashboardPage: React.FC = () => {
   const nextUnlockedPracticeTopic = React.useMemo(() => {
     for (const t of TOPIC_PRACTICE_DATA) {
       if (!solvedTopicIds.includes(t.id)) {
-        const unlock = getPracticeModuleUnlockInfo(t.moduleIndex, solvedTopicIds, isAdmin || isFaculty);
+        const unlock = getPracticeModuleUnlockInfo(t.moduleIndex, solvedTopicIds, isPrivilegedProgression);
         if (unlock.isUnlocked) {
           return t;
         }
       }
     }
     return TOPIC_PRACTICE_DATA[0];
-  }, [solvedTopicIds, isAdmin, isFaculty]);
+  }, [solvedTopicIds, isPrivilegedProgression]);
 
   const getNextTopicInModule = (modIdx: number) => {
     const modTopics = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === modIdx);

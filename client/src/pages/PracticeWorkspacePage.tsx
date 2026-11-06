@@ -856,7 +856,7 @@ export const PracticeWorkspacePage: React.FC = () => {
       user?.prn === '2126PMIM1039' ||
       (user as any)?.prn?.includes('1039') ||
       user?.email === 'thoratpratik2323@gmail.com';
-    if (isPratikReviewer && moduleSlug === 'control-structures') return true;
+    if (isPratikReviewer) return true;
     if (idx <= 0) return true;
     for (let i = 0; i < idx; i++) {
       const p = moduleProblems[i];

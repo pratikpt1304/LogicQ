@@ -611,21 +611,23 @@ export const TopicPracticeHubPage: React.FC = () => {
     (typeof localStorage !== 'undefined' && localStorage.getItem('logicq_practice_report_recursion-and-bit-manipulation'))
   );
 
+  const isPratikReviewer =
+    user?.prn === '2126PMIM1039' ||
+    (user as any)?.prn?.includes('1039') ||
+    user?.email === 'thoratpratik2323@gmail.com';
+
   const getModuleUnlockInfo = (moduleIndex: number): { isUnlocked: boolean; lockReason: string } => {
-    return getPracticeModuleUnlockInfo(moduleIndex, solvedTopics, user?.role === 'ADMIN' || user?.role === 'FACULTY');
+    return getPracticeModuleUnlockInfo(
+      moduleIndex,
+      solvedTopics,
+      Boolean(user?.role === 'ADMIN' || user?.role === 'FACULTY' || isPratikReviewer)
+    );
   };
 
   // Sequential progression: Each question is locked until previous question is solved
   const isTopicLocked = (topic: TopicPracticeItem): boolean => {
-    // Admin or Faculty can preview any question without restriction
-    if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return false;
-
-    // Pratik Thorat (PRN 1039 developer/curriculum author) can preview Module 1 without sequential lock
-    const isPratikReviewer =
-      user?.prn === '2126PMIM1039' ||
-      (user as any)?.prn?.includes('1039') ||
-      user?.email === 'thoratpratik2323@gmail.com';
-    if (isPratikReviewer && topic.moduleIndex === 1) return false;
+    // Admin, Faculty, or Pratik Thorat (PRN 1039 developer/curriculum author) can preview without restriction
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY' || isPratikReviewer) return false;
 
     // If module itself is locked, all topics inside are locked
     const moduleInfo = getModuleUnlockInfo(topic.moduleIndex);
