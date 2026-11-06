@@ -2744,6 +2744,17 @@ export const PracticeWorkspacePage: React.FC = () => {
           onKeepRemote={handleKeepRemoteDraft}
         />
       )}
+
+      {/* Raise Issue Modal */}
+      {isIssueModalOpen && (
+        <RaiseIssueModal
+          isOpen={isIssueModalOpen}
+          onClose={() => setIsIssueModalOpen(false)}
+          questionTitle={problem?.title || 'Coding Problem'}
+          questionId={problem?.id || problemSlug || ''}
+          contextType={location.pathname.startsWith('/lab-internal') ? 'LAB_INTERNAL' : 'PRACTICE'}
+        />
+      )}
     </div>
   );
 };
