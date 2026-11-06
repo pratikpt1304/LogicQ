@@ -2165,7 +2165,7 @@ export const DashboardPage: React.FC = () => {
                     <Code2 className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Practice Mastery
+                    Practice
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
@@ -2173,8 +2173,8 @@ export const DashboardPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="my-3 flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-baseline gap-2">
+              <div className="my-3 flex items-center justify-between gap-1.5">
+                <div className="flex items-baseline gap-1.5 shrink-0">
                   <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
                     {practiceTotalSolved}
                   </span>
@@ -2184,7 +2184,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
 
                 {/* 4 Modules Status Strip with Green Light on Complete */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px]">
+                <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px] shrink-0">
                   {[
                     { num: 1, isDone: isM1PracticeComplete, solved: m1PracticeSolved },
                     { num: 2, isDone: isM2PracticeComplete, solved: m2PracticeSolved },
@@ -2239,7 +2239,7 @@ export const DashboardPage: React.FC = () => {
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Lab Continuous Eval
+                    Lab Internal
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400">
