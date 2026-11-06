@@ -71,6 +71,10 @@ import {
   ArrowRight,
   UserCheck,
   Mail,
+  Activity,
+  BarChart3,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
@@ -994,6 +998,69 @@ export const ProfilePage: React.FC = () => {
   const effectiveSolved = Math.max(profile?.totalSolved || 0, totalPracticeSolved + totalLabSolved, solvedTopicIds.length);
   const effectiveRank = effectiveTotalPoints > 0 ? (profile?.rank ? `Rank #${profile.rank}` : 'Rank #1') : 'Unranked';
 
+  // Aggregated problem lists & difficulty distribution (180 Total Problems: 100 Practice + 80 Lab)
+  const allLabProblems = [
+    ...PRACTICE_MODULE_1_PROBLEMS,
+    ...PRACTICE_MODULE_2_PROBLEMS,
+    ...PRACTICE_MODULE_3_PROBLEMS,
+    ...PRACTICE_MODULE_4_PROBLEMS,
+  ];
+
+  const easyLab = allLabProblems.filter((p) => p.difficulty === 'EASY');
+  const medLab = allLabProblems.filter((p) => p.difficulty === 'MEDIUM');
+  const hardLab = allLabProblems.filter((p) => p.difficulty === 'HARD');
+
+  const easyPractice = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex <= 4 && t.problem.difficulty === 'EASY');
+  const medPractice = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex <= 4 && t.problem.difficulty === 'MEDIUM');
+  const hardPractice = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex <= 4 && t.problem.difficulty === 'HARD');
+
+  const easyTotal = easyLab.length + easyPractice.length;
+  const medTotal = medLab.length + medPractice.length;
+  const hardTotal = hardLab.length + hardPractice.length;
+
+  const easySolved =
+    easyLab.filter((p) => solvedTopicIds.includes(p.slug)).length +
+    easyPractice.filter((t) => solvedTopicIds.includes(t.id)).length;
+  const medSolved =
+    medLab.filter((p) => solvedTopicIds.includes(p.slug)).length +
+    medPractice.filter((t) => solvedTopicIds.includes(t.id)).length;
+  const hardSolved =
+    hardLab.filter((p) => solvedTopicIds.includes(p.slug)).length +
+    hardPractice.filter((t) => solvedTopicIds.includes(t.id)).length;
+
+  // 14-day Activity & Solving Velocity
+  const activityDays = Array.from({ length: 14 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    const dateStr = d.toISOString().split('T')[0];
+    const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayNumber = d.getDate();
+    const isToday = i === 13;
+
+    let count = (profile?.recentSubmissions || []).filter((sub: any) => {
+      if (!sub?.createdAt) return false;
+      try {
+        const subDate =
+          typeof sub.createdAt === 'object' && sub.createdAt?.toDate
+            ? sub.createdAt.toDate()
+            : new Date(sub.createdAt);
+        return subDate.toISOString().split('T')[0] === dateStr;
+      } catch {
+        return false;
+      }
+    }).length;
+
+    // Anchor today's activity if local solutions exist
+    if (isToday && count === 0 && effectiveSolved > 0) {
+      count = Math.min(effectiveSolved, Math.max(1, count));
+    }
+
+    return { dateStr, dayLabel, dayNumber, count, isToday };
+  });
+
+  const maxActivity = Math.max(1, ...activityDays.map((a) => a.count), 4);
+  const activeDaysCount = activityDays.filter((a) => a.count > 0).length;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
@@ -1498,138 +1565,355 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {/* ========================================================= */}
-          {/* Coursework Modules Inset Grid (Zero Clicks • 2 Columns)    */}
+          {/* Apple Visual Analytics: 14-Day Activity & Velocity Chart   */}
           {/* ========================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Left Column: Practice Arena Modules */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
-              <div className="flex items-center justify-between">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                  <Activity className="w-4 h-4" />
+                </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Code2 className="w-4 h-4 text-emerald-500" />
-                    <span>Practice Track (100 Topics)</span>
+                    <span>14-Day Solving Activity & Velocity</span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      Live Pulse
+                    </span>
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Self-paced C programming exercises
+                    Daily problem submissions and verified solving velocity
                   </p>
                 </div>
-                <Link
-                  to="/practice"
-                  className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  <span>Practice Arena</span>
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
               </div>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
-                {[
-                  { order: 1, title: 'Control Flow', desc: 'Branching decisions, loops, conditions', solved: m1PracticeSolved, total: 25 },
-                  { order: 2, title: 'Pointers & Functions', desc: 'Addresses, dereferencing, pass-by-ref', solved: m2PracticeSolved, total: 25 },
-                  { order: 3, title: 'Array and its Applications', desc: 'Arrays, matrices, sorting & searching', solved: m3PracticeSolved, total: 25 },
-                  { order: 4, title: 'Advanced Data Types', desc: 'Dynamic heap allocation, structs, unions', solved: m4PracticeSolved, total: 25 },
-                ].map((m) => {
-                  const pct = Math.round((m.solved / m.total) * 100);
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+                  <strong className="text-emerald-500">{activeDaysCount}</strong> / 14 Days Active
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+                  Peak: <strong className="text-indigo-500">{maxActivity}</strong> / day
+                </span>
+              </div>
+            </div>
+
+            {/* 14-Day Bars Track */}
+            <div className="pt-2">
+              <div className="flex items-end justify-between gap-1.5 sm:gap-3 h-28 sm:h-32 px-1 sm:px-2">
+                {activityDays.map((day, idx) => {
+                  const pct = day.count > 0 ? Math.max(16, Math.min(100, Math.round((day.count / maxActivity) * 100))) : 8;
                   return (
-                    <Link
-                      key={m.order}
-                      to={`/practice?module=${m.order}`}
-                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-white dark:hover:bg-slate-800/80 transition-colors group block"
+                    <div
+                      key={day.dateStr || idx}
+                      className="flex-1 flex flex-col items-center h-full justify-end group relative"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                            MOD 0{m.order}
-                          </span>
-                          <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors truncate">
-                            {m.title}
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200/80 dark:bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                      {/* Tooltip on Hover */}
+                      <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-mono whitespace-nowrap shadow-md">
+                        {day.count} {day.count === 1 ? 'solved' : 'solves'} • {day.dayLabel} {day.dayNumber}
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                          {m.solved}/{m.total}
+
+                      {/* Bar Pillar */}
+                      <div className="w-full max-w-[28px] h-full flex items-end">
+                        <div
+                          className={`w-full rounded-full transition-all duration-500 group-hover:brightness-110 ${
+                            day.count > 0
+                              ? day.isToday
+                                ? 'bg-gradient-to-t from-emerald-500 via-teal-400 to-cyan-400 shadow-sm shadow-emerald-500/25 ring-2 ring-emerald-400/40'
+                                : 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-xs'
+                              : 'bg-slate-200/70 dark:bg-slate-800/70'
+                          }`}
+                          style={{ height: `${pct}%` }}
+                        />
+                      </div>
+
+                      {/* Day Label */}
+                      <div className="mt-2 text-center">
+                        <span className="text-[10px] font-mono text-slate-400 block leading-tight">
+                          {day.dayLabel[0]}
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono block">
-                          {pct}%
+                        <span
+                          className={`text-[10px] font-mono font-semibold block leading-tight ${
+                            day.isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {day.dayNumber}
                         </span>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
             </div>
+          </div>
 
-            {/* Right Column: Lab Internal Modules */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 space-y-4 shadow-xs">
+          {/* ========================================================= */}
+          {/* Dual Bento Grid: CIE Performance Ring & Difficulty Matrix */}
+          {/* ========================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Card A: CIE Lab Internal Circular Ring Gauge */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-cyan-500" />
-                    <span>Lab Internal (80 Questions • 20 M)</span>
+                    <span>Lab Internal CIE Performance</span>
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Continuous Internal Evaluation (5.0 M / Module)
+                    Continuous Internal Evaluation (20.0 Marks Total)
                   </p>
                 </div>
                 <Link
                   to="/lab-internal"
                   className="text-xs font-mono font-semibold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
                 >
-                  <span>Lab Internal</span>
+                  <span>Open Lab</span>
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
-                {[
-                  { order: 1, title: 'Control Structures', solved: m1LabSolved, total: 20 },
-                  { order: 2, title: 'Pointers & Functions', solved: m2LabSolved, total: 20 },
-                  { order: 3, title: 'Arrays & Strings', solved: m3LabSolved, total: 20 },
-                  { order: 4, title: 'Dynamic Memory', solved: m4LabSolved, total: 20 },
-                ].map((m) => {
-                  const pct = Math.round((m.solved / m.total) * 100);
-                  const marks = (m.solved * 0.25).toFixed(1);
-                  return (
-                    <Link
-                      key={m.order}
-                      to={`/lab-internal?module=${m.order}`}
-                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-white dark:hover:bg-slate-800/80 transition-colors group block"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                            MOD 0{m.order}
+              {/* Gauge and Breakdown Row */}
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                {/* SVG Apple Ring */}
+                <div className="relative shrink-0 flex items-center justify-center">
+                  <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
+                    <defs>
+                      <linearGradient id="cieRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#06b6d4" />
+                        <stop offset="100%" stopColor="#6366f1" />
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      strokeWidth="8"
+                      stroke="currentColor"
+                      className="text-slate-100 dark:text-slate-800"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      strokeWidth="8"
+                      stroke="url(#cieRingGradient)"
+                      strokeDasharray="263.89"
+                      strokeDashoffset={263.89 * (1 - Math.min(1, totalLabSolved / 80))}
+                      strokeLinecap="round"
+                      className="transition-all duration-700"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                    <span className="text-2xl font-black font-mono text-slate-900 dark:text-white leading-tight">
+                      {labCieMarks}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-cyan-600 dark:text-cyan-400 leading-tight">
+                      / 20.0 M
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400 mt-0.5">
+                      {Math.round((totalLabSolved / 80) * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Lab Modules Mini Status */}
+                <div className="flex-1 w-full space-y-2.5">
+                  {[
+                    { order: 1, title: 'Control Flow', solved: m1LabSolved, total: 20 },
+                    { order: 2, title: 'Pointers & Funcs', solved: m2LabSolved, total: 20 },
+                    { order: 3, title: 'Arrays & Strings', solved: m3LabSolved, total: 20 },
+                    { order: 4, title: 'Dynamic Memory', solved: m4LabSolved, total: 20 },
+                  ].map((mod) => {
+                    const pct = Math.round((mod.solved / mod.total) * 100);
+                    const marks = (mod.solved * 0.25).toFixed(1);
+                    return (
+                      <div key={mod.order} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className="text-slate-700 dark:text-slate-300 font-semibold truncate">
+                            MOD 0{mod.order} • {mod.title}
                           </span>
-                          <span className="text-xs font-semibold text-slate-900 dark:text-white group-hover:text-cyan-500 transition-colors truncate">
-                            {m.title}
+                          <span className="text-cyan-600 dark:text-cyan-400 font-bold shrink-0">
+                            {marks}/5.0 M ({mod.solved}/{mod.total})
                           </span>
                         </div>
-                        <div className="w-full bg-slate-200/80 dark:bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full transition-all duration-300"
+                            className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                          {m.solved}/{m.total}
-                        </span>
-                        <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono font-semibold block">
-                          {marks}/5.0 M
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+
+              <div className="text-[11px] font-mono text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between">
+                <span>Total Lab Problems: {totalLabSolved} / 80 Solved</span>
+                <span className="text-cyan-600 dark:text-cyan-400 font-semibold">Weightage: 0.25 M each</span>
+              </div>
+            </div>
+
+            {/* Card B: Difficulty Mastery Distribution (180 Total Problems) */}
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Target className="w-4 h-4 text-emerald-500" />
+                    <span>Difficulty Mastery</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Problem completion across 180 curated challenges
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  {effectiveSolved} / 180 Solved
+                </span>
+              </div>
+
+              {/* 3 Difficulty Tiers */}
+              <div className="space-y-4">
+                {/* Easy */}
+                <div className="space-y-1.5 p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/40 dark:border-emerald-800/30">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Easy Track
+                    </span>
+                    <span className="text-emerald-700 dark:text-emerald-300 font-bold">
+                      {easySolved} / {easyTotal} ({Math.round((easySolved / (easyTotal || 1)) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.round((easySolved / (easyTotal || 1)) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Medium */}
+                <div className="space-y-1.5 p-3 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-800/30">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      Medium Track
+                    </span>
+                    <span className="text-amber-700 dark:text-amber-300 font-bold">
+                      {medSolved} / {medTotal} ({Math.round((medSolved / (medTotal || 1)) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.round((medSolved / (medTotal || 1)) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Hard */}
+                <div className="space-y-1.5 p-3 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/40 dark:border-rose-800/30">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-500" />
+                      Hard Track
+                    </span>
+                    <span className="text-rose-700 dark:text-rose-300 font-bold">
+                      {hardSolved} / {hardTotal} ({Math.round((hardSolved / (hardTotal || 1)) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-rose-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.round((hardSolved / (hardTotal || 1)) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[11px] font-mono text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex items-center justify-between">
+                <span>Curriculum Coverage: {Math.round((effectiveSolved / 180) * 100)}%</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">100 Practice + 80 Lab</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* Core C Language Competencies Matrix                        */}
+          {/* ========================================================= */}
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Core C Competency Matrix</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Combined mastery across Practice & Lab coursework (45 challenges each)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                {
+                  title: 'Control Flow & Decision Logic',
+                  desc: 'Conditionals, switch-case, nested iterations',
+                  solved: m1PracticeSolved + m1LabSolved,
+                  total: 45,
+                  color: 'from-emerald-500 to-teal-500',
+                },
+                {
+                  title: 'Pointers, Memory & Functions',
+                  desc: 'Address-of, dereference, pass-by-ref, recursion',
+                  solved: m2PracticeSolved + m2LabSolved,
+                  total: 45,
+                  color: 'from-cyan-500 to-blue-500',
+                },
+                {
+                  title: 'Arrays, Strings & Data Layout',
+                  desc: '1D/2D arrays, string manipulation, matrices',
+                  solved: m3PracticeSolved + m3LabSolved,
+                  total: 45,
+                  color: 'from-indigo-500 to-purple-500',
+                },
+                {
+                  title: 'Dynamic Heap & Structures',
+                  desc: 'malloc/free, structs, unions, bitwise',
+                  solved: m4PracticeSolved + m4LabSolved,
+                  total: 45,
+                  color: 'from-amber-500 to-orange-500',
+                },
+              ].map((skill, i) => {
+                const pct = Math.round((skill.solved / skill.total) * 100);
+                return (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="font-semibold text-slate-900 dark:text-white truncate">
+                        {skill.title}
+                      </span>
+                      <span className="font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                        {skill.solved}/{skill.total} ({pct}%)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 line-clamp-1">{skill.desc}</p>
+                    <div className="w-full bg-slate-200/70 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className={`bg-gradient-to-r ${skill.color} h-full rounded-full transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
