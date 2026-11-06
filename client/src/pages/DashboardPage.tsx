@@ -2151,18 +2151,54 @@ export const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Stat 1: Topic Practice Mastery */}
             <div className="p-5 rounded-3xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shrink-0">
                     <Code2 className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
                     Practice Mastery
                   </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {practiceOverallPercent}%
-                </span>
+
+                {/* Corner: 4 Modules Indicator with Green Light on Complete */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 font-mono text-[10px]">
+                    {[
+                      { num: 1, isDone: isM1PracticeComplete, solved: m1PracticeSolved },
+                      { num: 2, isDone: isM2PracticeComplete, solved: m2PracticeSolved },
+                      { num: 3, isDone: isM3PracticeComplete, solved: m3PracticeSolved },
+                      { num: 4, isDone: isM4PracticeComplete, solved: m4PracticeSolved },
+                    ].map((m) => (
+                      <span
+                        key={m.num}
+                        title={`Module ${m.num}: ${m.solved}/25 Solved ${m.isDone ? '(Completed)' : ''}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg transition-all ${
+                          m.isDone
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/40 shadow-xs'
+                            : m.solved > 0
+                            ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold'
+                            : 'text-slate-400 dark:text-slate-500 opacity-60'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            m.isDone
+                              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] ring-2 ring-emerald-500/30 animate-pulse'
+                              : m.solved > 0
+                              ? 'bg-indigo-500'
+                              : 'bg-slate-300 dark:bg-slate-600'
+                          }`}
+                        />
+                        <span>M{m.num}</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {practiceOverallPercent}%
+                  </span>
+                </div>
               </div>
 
               <div className="my-4 flex items-baseline gap-2">
