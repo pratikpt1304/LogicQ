@@ -1461,7 +1461,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                 Next Up
               </span>
               <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                Module {selectedModuleFilter} · {nextUnsolvedInModule.problem.difficulty} · +20 XP
+                Module {selectedModuleFilter} · {nextUnsolvedInModule.problem.difficulty} 
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
@@ -1958,12 +1958,12 @@ export const TopicPracticeHubPage: React.FC = () => {
                   {solvedTopics.includes(activeTopic.id) ? (
                     <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1 font-mono">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      Mastered (+50 XP)
+                      Mastered
                     </span>
                   ) : (
                     <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1 font-mono">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      +50 XP
+                      
                     </span>
                   )}
                 </div>
@@ -1986,7 +1986,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                 <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-mono text-[var(--text-muted)] pt-1">
                   <div className="flex items-center gap-3">
-                    <span>Points: <strong className="text-[var(--text-main)]">50 XP</strong></span>
+                    
                     <span>•</span>
                     <span>Time: <strong className="text-[var(--text-main)]">1000ms</strong></span>
                     <span>•</span>
@@ -2248,7 +2248,7 @@ export const TopicPracticeHubPage: React.FC = () => {
                               </span>
                               {submitResult.allPassed && (
                                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                  +50 XP
+                                  
                                 </span>
                               )}
                             </div>
@@ -2554,7 +2554,7 @@ export const TopicPracticeHubPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-400">
-                      Topic Mastered! (+50 XP)
+                      Topic Mastered! ()
                     </span>
                     <h3 className="text-lg font-bold text-[var(--text-main)]">
                       {activeTopic.topicTitle}

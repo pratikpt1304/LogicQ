@@ -2378,7 +2378,7 @@ export const PracticeWorkspacePage: React.FC = () => {
                                   )}
                                   {isAllHiddenPassed && (
                                     <span className="text-emerald-400 font-bold ml-1">
-                                      (+{problem?.points || 20} PTS)
+                                      (Solved)
                                     </span>
                                   )}
                                 </div>

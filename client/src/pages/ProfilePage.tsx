@@ -1355,11 +1355,11 @@ export const ProfilePage: React.FC = () => {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl p-5 shadow-xs">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block mb-1">
-                Total Score
+                Curriculum Track
               </span>
               <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1.5">
-                <Trophy className="w-5 h-5 text-amber-500" />
-                <span>{effectiveTotalPoints} PTS</span>
+                <CheckCircle2 className="w-5 h-5 text-indigo-500" />
+                <span className="text-lg">C11 Masterclass</span>
               </div>
             </div>
 
@@ -1607,7 +1607,7 @@ export const ProfilePage: React.FC = () => {
                           <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-2">
                             <span>{sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : 'Today'}</span>
                             <span>•</span>
-                            <span className="text-emerald-500 font-bold">+{sub.pointsAwarded || 0} PTS</span>
+                            <span className="text-emerald-500 font-bold">Evaluated</span>
                           </div>
                         </div>
 
@@ -1653,7 +1653,7 @@ export const ProfilePage: React.FC = () => {
                   <span>{viewCodeSubmission.problem?.title || 'Daily Challenge'} Solution</span>
                 </h3>
                 <p className="text-xs font-mono text-[var(--text-muted)]">
-                  Submitted on {new Date(viewCodeSubmission.createdAt).toLocaleString()} • {viewCodeSubmission.pointsAwarded || 0} PTS
+                  Submitted on {new Date(viewCodeSubmission.createdAt).toLocaleString()} • Verified
                 </p>
               </div>
 

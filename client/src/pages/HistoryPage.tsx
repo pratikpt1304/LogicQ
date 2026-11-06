@@ -659,12 +659,9 @@ export const HistoryPage: React.FC = () => {
                   {/* Right Actions & Score */}
                   <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
                     <div className="text-right">
-                      <div className={`text-sm font-extrabold font-mono ${isPassed ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
-                        +{sub.pointsAwarded || 0} PTS
-                      </div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        {isPassed ? 'Passed' : 'Review'}
-                      </div>
+                      <span className={`inline-block text-xs font-bold font-mono px-2 py-0.5 rounded-md ${isPassed ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-500 bg-rose-500/10 border border-rose-500/20'}`}>
+                        {isPassed ? 'ACCEPTED' : (sub.verdict || 'REVIEW')}
+                      </span>
                     </div>
 
                     <button
@@ -797,7 +794,7 @@ export const HistoryPage: React.FC = () => {
               {/* Footer */}
               <div className="px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                 <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                  Awarded: <span className="font-bold text-emerald-600 dark:text-emerald-400">+{selectedSubmission.pointsAwarded || 0} PTS</span>
+                  Status: <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedSubmission.verdict || 'ACCEPTED'}</span>
                 </div>
                 <button
                   type="button"

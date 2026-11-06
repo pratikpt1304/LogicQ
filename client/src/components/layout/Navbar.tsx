@@ -240,10 +240,7 @@ export const Navbar: React.FC = () => {
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             <span>{Math.max(user?.totalSolved || 0, (() => { try { const s = localStorage.getItem('logicq_solved_practice_topics'); return s ? JSON.parse(s).length : 0; } catch { return 0; } })())} Solved</span>
                           </span>
-                          <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400">PTS</span>
-                            <span>{Math.max(user?.totalPoints || 0, Math.max(user?.totalSolved || 0, (() => { try { const s = localStorage.getItem('logicq_solved_practice_topics'); return s ? JSON.parse(s).length : 0; } catch { return 0; } })()) * 10)}</span>
-                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">Active</span>
                         </div>
                       )}
                     </div>

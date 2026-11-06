@@ -722,7 +722,7 @@ export const ChallengePage: React.FC = () => {
           });
           toast.success(
             (res?.data?.pointsAwarded ?? immediateSub.pointsAwarded) > 0
-              ? `Accepted! +${res?.data?.pointsAwarded ?? immediateSub.pointsAwarded} points awarded!`
+              ? `Accepted! Accepted! Solution verified.`
               : 'Accepted! All test cases passed.'
           );
           refreshUser();
@@ -1223,12 +1223,12 @@ export const ChallengePage: React.FC = () => {
               {userStatus?.isSolved ? (
                 <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  Solved (+{problem.basePoints} PTS)
+                  Solved
                 </span>
               ) : (
                 <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  +{problem.basePoints} PTS
+                  C11 Challenge
                 </span>
               )}
             </div>
@@ -1275,7 +1275,7 @@ export const ChallengePage: React.FC = () => {
 
             <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
               <span>
-                Points: <strong className="text-[var(--color-accent)]">{problem.basePoints} PTS</strong>
+                Status: <strong className="text-emerald-500">Active</strong>
               </span>
               <span>•</span>
               <span>Time: {problem.timeLimitMs}ms</span>

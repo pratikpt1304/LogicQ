@@ -2110,7 +2110,7 @@ export const DashboardPage: React.FC = () => {
                     Next Up
                   </span>
                   <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                    Module {nextUnlockedPracticeTopic.moduleIndex} · {nextUnlockedPracticeTopic.problem?.difficulty || 'EASY'} · +20 XP
+                    Module {nextUnlockedPracticeTopic.moduleIndex} · {nextUnlockedPracticeTopic.problem?.difficulty || 'EASY'}
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
@@ -2222,9 +2222,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
                     <Trophy className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    XP & Accuracy
-                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Submissions & Accuracy</span>
                 </div>
                 <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">
                   {stats?.accuracy ? `${stats.accuracy}% Acc` : '100% Acc'}
@@ -2233,11 +2231,8 @@ export const DashboardPage: React.FC = () => {
 
               <div className="my-4 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
-                  {stats?.totalPoints || user?.totalPoints || 0}
-                </span>
-                <span className="text-xs font-mono text-slate-400 font-medium">
-                  Total XP
-                </span>
+                  {practiceTotalSolved}</span>
+                <span className="text-xs font-mono text-slate-400 font-medium">/ 100 Solved</span>
               </div>
 
               <div className="flex items-center gap-2 text-xs font-mono">
@@ -2249,9 +2244,7 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono">
-                <Link to="/history" className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition">
-                  History
-                </Link>
+                <Link to="/history" className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition">Submissions →</Link>
                 <Link to="/analytics" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
                   Analytics →
                 </Link>
