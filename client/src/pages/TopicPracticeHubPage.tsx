@@ -2120,37 +2120,6 @@ export const TopicPracticeHubPage: React.FC = () => {
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={handleResetCode}
-                      title="Reset code to default starter template"
-                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-mono font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700/80 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span className="hidden sm:inline">Reset Code</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleRunOpenTest}
-                      disabled={isRunning}
-                      className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap shrink-0"
-                      title="Compile & Run solution (Ctrl + Enter)"
-                    >
-                      {isRunning ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                          <span>Running...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5 fill-current shrink-0" />
-                          <span>Compile &amp; Run</span>
-                          <span className="text-[10px] opacity-75 font-normal hidden lg:inline ml-0.5">(Ctrl+↵)</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
                       aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                       onClick={() => setIsDrawerOpen(!isDrawerOpen)}
                       className="px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer whitespace-nowrap shrink-0"

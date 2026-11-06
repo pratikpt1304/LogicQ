@@ -2021,7 +2021,6 @@ export const PracticeWorkspacePage: React.FC = () => {
               readOnly={false}
               disableCopyPaste={true}
               forceTheme="dark"
-              hideRunButton={true}
             />
           </div>
 
@@ -2079,27 +2078,6 @@ export const PracticeWorkspacePage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleCompileAndRun}
-                  disabled={runMutation.isPending || submitMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap shrink-0"
-                  title="Compile & Run solution (Ctrl + Enter)"
-                >
-                  {runMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                      <span>Running...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current shrink-0" />
-                      <span>Compile &amp; Run</span>
-                      <span className="text-[10px] opacity-75 font-normal hidden lg:inline ml-0.5">(Ctrl+↵)</span>
-                    </>
-                  )}
-                </button>
-
                 <button
                   type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
