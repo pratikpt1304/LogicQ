@@ -57,6 +57,7 @@ export const MobileBottomNav: React.FC = () => {
         { label: 'Home', path: '/dashboard', icon: Home },
                 { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab', path: '/lab-internal', icon: BookOpen },
+        { label: 'Submissions', path: '/history', icon: FileCode2 },
         { label: 'Analytics', path: '/analytics', icon: Brain },
       ]
     : isAdmin

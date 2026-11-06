@@ -87,6 +87,9 @@ export const Navbar: React.FC = () => {
     if (path === '/student/tests') {
       return location.pathname === '/student/tests' || location.pathname.startsWith('/exam/');
     }
+    if (path === '/history') {
+      return location.pathname === '/history';
+    }
     if (path === '/analytics') {
       return location.pathname === '/analytics' || location.pathname.startsWith('/student/analytics');
     }
@@ -99,6 +102,7 @@ export const Navbar: React.FC = () => {
         { label: 'Home', path: '/dashboard', icon: Home },
                 { label: 'Practice', path: '/practice', icon: Code2 },
         { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
+        { label: 'Submissions', path: '/history', icon: FileCode2 },
         { label: 'Analytics', path: '/analytics', icon: Brain },
       ]
     : [
@@ -234,11 +238,11 @@ export const Navbar: React.FC = () => {
                         <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 font-mono text-[11px]">
                           <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>{user.totalSolved || 0} Solved</span>
+                            <span>{Math.max(user?.totalSolved || 0, (() => { try { const s = localStorage.getItem('logicq_solved_practice_topics'); return s ? JSON.parse(s).length : 0; } catch { return 0; } })())} Solved</span>
                           </span>
                           <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
                             <span className="text-[10px] text-slate-400">PTS</span>
-                            <span>{user.totalPoints || 0}</span>
+                            <span>{Math.max(user?.totalPoints || 0, Math.max(user?.totalSolved || 0, (() => { try { const s = localStorage.getItem('logicq_solved_practice_topics'); return s ? JSON.parse(s).length : 0; } catch { return 0; } })()) * 10)}</span>
                           </span>
                         </div>
                       )}
