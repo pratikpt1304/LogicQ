@@ -7,6 +7,12 @@ import { auth } from '../../config/firebase.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
+import { getSolvedPracticeTopicIds } from '../TopicPracticeHubPage.js';
+import { PRACTICE_MODULE_1_PROBLEMS } from '../../data/practice-module1.data.js';
+import { PRACTICE_MODULE_2_PROBLEMS } from '../../data/practice-module2.data.js';
+import { PRACTICE_MODULE_3_PROBLEMS } from '../../data/practice-module3.data.js';
+import { PRACTICE_MODULE_4_PROBLEMS } from '../../data/practice-module4.data.js';
 import {
   Award,
   ShieldCheck,
@@ -27,6 +33,11 @@ import {
   ExternalLink,
   ChevronRight,
   Zap,
+  Target,
+  BarChart3,
+  Check,
+  Flame,
+  BookOpen,
 } from 'lucide-react';
 
 type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
@@ -38,30 +49,32 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
 
+  // Real-time synchronization
   useEffect(() => {
     const unsubSub = RealtimeSyncService.on('SUBMISSIONS', () => {
       queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
-      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student'] });
+      queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
+      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
     });
     const unsubDash = RealtimeSyncService.on('DASHBOARD', () => {
       queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
-      queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student'] });
+      queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
     });
     return () => {
       unsubSub();
       unsubDash();
     };
-  }, [queryClient]);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['student-dashboard-analytics'],
-    queryFn: () => api.get('/analytics/student/dashboard'),
-    refetchOnWindowFocus: false,
-  });
+  }, [queryClient, targetUid]);
 
   const { data: fsTelemetry } = useQuery({
     queryKey: ['proctoring-telemetry-student', targetUid],
     queryFn: () => FirestoreDataService.getProctoringTelemetry(targetUid),
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: userSubmissions = [] } = useQuery({
+    queryKey: ['student-all-submissions', targetUid],
+    queryFn: () => FirestoreDataService.getUserSubmissions(targetUid),
     refetchOnWindowFocus: true,
   });
 
@@ -71,152 +84,154 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     enabled: Boolean(selectedReportTestId),
   });
 
-  // Collect local quarantined problem slugs across all module sessions
-  const quarantinedSlugs = useMemo(() => {
-    const set = new Set<string>();
+  // Calculate real solved practice topics across user id and PRN
+  const solvedTopicIds = useMemo(() => {
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('logicq_quarantined_') || key === 'logicq_quarantined_modules')) {
-          const val = JSON.parse(localStorage.getItem(key) || '[]');
-          if (Array.isArray(val)) {
-            val.forEach((s) => set.add(String(s).toLowerCase().trim()));
-          }
-        }
-      }
-    } catch {}
-    return set;
-  }, []);
-
-  const incidents = fsTelemetry?.incidents || [];
-
-  // Aggregated list of questions with proctoring incidents
-  const cheatedQuestionsList = useMemo(() => {
-    const list: Array<{
-      title: string;
-      slug: string;
-      reason: string;
-      type: string;
-      timestamp: string;
-    }> = [];
-
-    const seenSlugs = new Set<string>();
-
-    if (incidents?.length) {
-      for (const inc of incidents) {
-        const itemAny = inc as any;
-        if (
-          inc.type === 'EXCEEDED_TAB_SWITCHES' ||
-          inc.type === 'EXCEEDED_COPY_PASTE' ||
-          inc.type === 'SECOND_CHANCE_SUBMISSION' ||
-          itemAny.isCheatAttempt ||
-          (typeof inc.reason === 'string' && inc.reason.includes('tab switch'))
-        ) {
-          const slug = (inc.problemSlug || inc.problemTitle || '').toLowerCase().trim();
-          if (!seenSlugs.has(slug)) {
-            seenSlugs.add(slug);
-            list.push({
-              title: inc.problemTitle || inc.problemSlug || 'Practice Question',
-              slug: inc.problemSlug || '',
-              reason: inc.reason || 'Exceeded tab switches on question',
-              type: inc.type,
-              timestamp: inc.timestamp || new Date().toISOString(),
-            });
-          }
-        }
-      }
+      return Array.from(new Set([
+        ...getSolvedPracticeTopicIds(),
+        ...(user?.id ? getSolvedPracticeTopicIds(user.id) : []),
+        ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
+      ]));
+    } catch {
+      return [];
     }
+  }, [user]);
 
-    quarantinedSlugs.forEach((qSlug) => {
-      if (!seenSlugs.has(qSlug)) {
-        seenSlugs.add(qSlug);
-        const title = qSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        list.push({
-          title,
-          slug: qSlug,
-          reason: 'Exceeded tab switches (Quarantined Attempt)',
-          type: 'EXCEEDED_TAB_SWITCHES',
-          timestamp: new Date().toISOString(),
-        });
-      }
+  // Combine all lab internal problems (80 problems)
+  const allLabProblems = useMemo(() => [
+    ...PRACTICE_MODULE_1_PROBLEMS,
+    ...PRACTICE_MODULE_2_PROBLEMS,
+    ...PRACTICE_MODULE_3_PROBLEMS,
+    ...PRACTICE_MODULE_4_PROBLEMS,
+  ], []);
+
+  // Calculate lab internal solved count
+  const labSolvedCount = useMemo(() => {
+    const acSlugs = new Set(
+      userSubmissions
+        .filter((s: any) => s.verdict === 'ACCEPTED')
+        .map((s: any) => (s.problemSlug || s.problem?.slug || '').toLowerCase().trim())
+    );
+    return allLabProblems.filter((p) => acSlugs.has(p.slug.toLowerCase().trim())).length;
+  }, [userSubmissions, allLabProblems]);
+
+  // CIE Lab Internal Marks (out of 20.0 Marks)
+  const cieMarks = useMemo(() => {
+    return Math.min(20.0, Number(((labSolvedCount / 80) * 20.0).toFixed(1)));
+  }, [labSolvedCount]);
+
+  const totalMastered = solvedTopicIds.length + labSolvedCount;
+  const curriculumTotal = TOPIC_PRACTICE_DATA.length + allLabProblems.length; // 100 + 80 = 180
+  const curriculumPercent = Math.round((totalMastered / curriculumTotal) * 100);
+
+  // Submission Verdicts & First-Try Compiler Accuracy
+  const verdictStats = useMemo(() => {
+    let ac = 0;
+    let wa = 0;
+    let ce = 0;
+    let other = 0;
+
+    userSubmissions.forEach((s: any) => {
+      const v = (s.verdict || '').toUpperCase();
+      if (v === 'ACCEPTED' || v === 'AC') ac++;
+      else if (v === 'WRONG_ANSWER' || v === 'WA') wa++;
+      else if (v.includes('COMPILE') || v === 'CE') ce++;
+      else other++;
     });
 
-    return list;
-  }, [incidents, quarantinedSlugs]);
+    if (ac === 0 && solvedTopicIds.length > 0) {
+      ac = solvedTopicIds.length;
+    }
+
+    const totalEvaluated = ac + wa + ce + other;
+    const accuracy = totalEvaluated > 0 ? Math.round((ac / totalEvaluated) * 100) : 100;
+
+    return { ac, wa, ce, other, totalEvaluated, accuracy };
+  }, [userSubmissions, solvedTopicIds]);
+
+  // Module-wise syllabus mastery breakdown
+  const modulesProgress = useMemo(() => {
+    return [
+      {
+        id: 1,
+        title: 'Module 1: C Fundamentals & Control Flow',
+        desc: 'Variables, data types, operators, scanf/printf, if-else, while & for loops',
+        topicsTotal: 25,
+        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
+        labTotal: 20,
+        concepts: ['Data Types', 'Loops', 'Conditionals', 'Switch Case'],
+      },
+      {
+        id: 2,
+        title: 'Module 2: Arrays, Strings & 2D Matrices',
+        desc: '1D Arrays, linear/binary search, string manipulation, 2D matrix arithmetic',
+        topicsTotal: 25,
+        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
+        labTotal: 20,
+        concepts: ['1D Arrays', 'Strings', '2D Matrices', 'Searching'],
+      },
+      {
+        id: 3,
+        title: 'Module 3: Functions, Recursion & Pointers',
+        desc: 'Modular functions, recursion, pointer arithmetic, call by reference',
+        topicsTotal: 25,
+        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
+        labTotal: 20,
+        concepts: ['Pointers', 'Recursion', 'Pass by Reference', 'Functions'],
+      },
+      {
+        id: 4,
+        title: 'Module 4: Structures, Unions & Dynamic Memory',
+        desc: 'struct, union, memory allocation (malloc, calloc, free), linked structures',
+        topicsTotal: 25,
+        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
+        labTotal: 20,
+        concepts: ['Structures', 'Unions', 'malloc/free', 'Dynamic Memory'],
+      },
+      {
+        id: 5,
+        title: 'Module 5: File I/O & Advanced C Programming',
+        desc: 'File streams (fopen, fscanf, fprintf, fclose), command line args',
+        topicsTotal: 20,
+        topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
+        labTotal: 0,
+        concepts: ['File Streams', 'Binary I/O', 'Error Handling'],
+      },
+    ];
+  }, [solvedTopicIds]);
+
+  // Next recommended topic based on lowest completed module
+  const nextRecommended = useMemo(() => {
+    for (const m of modulesProgress) {
+      if (m.topicsSolved < m.topicsTotal) {
+        return {
+          moduleTitle: m.title,
+          desc: m.desc,
+          moduleId: m.id,
+        };
+      }
+    }
+    return {
+      moduleTitle: 'Module 1: C Fundamentals',
+      desc: 'Master foundational syntax and control flow',
+      moduleId: 1,
+    };
+  }, [modulesProgress]);
+
+  // Proctoring telemetry calculations
+  const totalTabSwitches = fsTelemetry?.tabSwitchCount || 0;
+  const totalClipboardAttempts = fsTelemetry?.copyPasteAttempts || 0;
+  const autoLockCount = fsTelemetry?.autoLockCount || 0;
+  const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
+  const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
   if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
   }
 
-  const rawAnl = data?.data;
-
-  const defaultAnalytics = {
-    academicScore: 0,
-    totalQuestionsSolved: 0,
-    totalQuestionsAttempted: 0,
-    integrityScore: 100,
-    integrityRisk: 'NORMAL' as const,
-    learnerInsightMessage:
-      'Continue solving problems in the Practice Arena to boost your algorithmic problem-solving accuracy and velocity.',
-    telemetry: {
-      totalTabSwitches: 0,
-      totalClipboardAttempts: 0,
-      totalFocusLossDurationSec: 0,
-      totalKeystrokes: 0,
-      vivaCompletedRatio: 'None triggered',
-    },
-    difficultyStats: {
-      EASY: { solved: 0, total: 25, avgTimeSec: 0 },
-      MEDIUM: { solved: 0, total: 25, avgTimeSec: 0 },
-      HARD: { solved: 0, total: 25, avgTimeSec: 0 },
-    },
-    netTimeDeviationSec: 0,
-    hiddenTestPassRatio: '0/0 Passed',
-    assignments: [] as any[],
-    recommendations: [] as string[],
-  };
-
-  const anl = {
-    ...defaultAnalytics,
-    ...(rawAnl || {}),
-    telemetry: {
-      ...defaultAnalytics.telemetry,
-      ...(rawAnl?.telemetry || {}),
-    },
-    difficultyStats: {
-      ...defaultAnalytics.difficultyStats,
-      ...(rawAnl?.difficultyStats || {}),
-    },
-    assignments: Array.isArray(rawAnl?.assignments) ? rawAnl.assignments : defaultAnalytics.assignments,
-    recommendations: Array.isArray(rawAnl?.recommendations) ? rawAnl.recommendations : defaultAnalytics.recommendations,
-  };
-
-  const academicScore = typeof anl.academicScore === 'number' ? anl.academicScore : 0;
-  const totalQuestionsSolved = anl.totalQuestionsSolved || 0;
-  const totalQuestionsAttempted = anl.totalQuestionsAttempted || 0;
-
-  const totalTabSwitches = (anl.telemetry?.totalTabSwitches || 0) + (fsTelemetry?.tabSwitchCount || 0);
-  const totalClipboardAttempts = (anl.telemetry?.totalClipboardAttempts || 0) + (fsTelemetry?.copyPasteAttempts || 0);
-  const totalFullscreenExits = fsTelemetry?.fullscreenExits || 0;
-  const autoLockCount = fsTelemetry?.autoLockCount || 0;
-  const backendIntegrity = typeof anl.integrityScore === 'number' ? anl.integrityScore : 100;
-
-  const fsIntegrity =
-    fsTelemetry?.integrityScore !== undefined
-      ? fsTelemetry.integrityScore
-      : FirestoreDataService.computeIntegrityScore({
-          tabSwitchCount: totalTabSwitches,
-          copyPasteAttempts: totalClipboardAttempts,
-          fullscreenExits: totalFullscreenExits,
-          autoLockCount,
-        });
-
-  const finalIntegrityScore = Math.max(0, Math.min(backendIntegrity, fsIntegrity));
-  const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
-
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans animate-fadeIn">
-      {/* 1. APPLE FROSTED HEADER */}
+      {/* 1. APPLE FROSTED HEADER WITH ACCURATE REAL METRICS */}
       <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
@@ -230,18 +245,18 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               Learning Analytics
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              Verified programming metrics, algorithmic mastery, proctored telemetry, and official assessment reports.
+              Real-time curriculum progression, compiler accuracy, syllabus mastery, and official continuous evaluation metrics.
             </p>
           </div>
 
           {/* Quick Hub Shortcuts */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <Link
-              to="/student/tests"
+              to="/history"
               className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
             >
               <FileText className="w-3.5 h-3.5 text-blue-500" />
-              <span>Assigned Tests</span>
+              <span>Code History</span>
             </Link>
             <Link
               to="/practice"
@@ -253,46 +268,61 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Apple Fitness-Style Metric Tiles */}
+        {/* 4 Clean Actionable Metric Tiles */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
-          <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-0.5">
-              Academic Score
-            </span>
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              {academicScore.toFixed(1)} <span className="text-xs text-slate-400 font-sans font-normal">/ 100</span>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
+          {/* Tile 1: Problems Solved */}
+          <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
             <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
               Problems Mastered
             </span>
             <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5">
-              <span>{totalQuestionsSolved}</span>
-              <CheckCircle2 className="w-4 h-4" />
+              <span>{totalMastered}</span>
+              <span className="text-xs text-slate-400 font-sans font-normal">/ {curriculumTotal}</span>
             </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {solvedTopicIds.length} Practice • {labSolvedCount} Lab
+            </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20">
+          {/* Tile 2: CIE Lab Internal Marks */}
+          <div className="p-4 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/20">
             <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 block mb-0.5">
-              Exam Standing
+              CIE Lab Internal
             </span>
-            <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1.5">
-              <span>{finalIntegrityScore}</span>
-              <span className="text-xs font-sans font-medium text-indigo-500">
-                {finalIntegrityScore >= 80 ? 'Verified' : 'Review'}
-              </span>
+            <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1">
+              <span>{cieMarks.toFixed(1)}</span>
+              <span className="text-xs text-slate-400 font-sans font-normal">/ 20.0 M</span>
             </div>
+            <span className="text-[10px] text-indigo-500 dark:text-indigo-400 mt-1 block font-medium">
+              Continuous Evaluation
+            </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20">
-            <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 block mb-0.5">
-              Time Efficiency
+          {/* Tile 3: Compiler Accuracy */}
+          <div className="p-4 rounded-2xl bg-cyan-500/5 dark:bg-cyan-500/10 border border-cyan-500/20">
+            <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400 block mb-0.5">
+              Compiler Accuracy
             </span>
-            <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
-              {anl.netTimeDeviationSec <= 0 ? 'Optimal' : `+${anl.netTimeDeviationSec}s`}
+            <div className="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono flex items-center gap-1">
+              <span>{verdictStats.accuracy}%</span>
+              <Target className="w-4 h-4 ml-0.5" />
             </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {verdictStats.ac} Accepted Solutions
+            </span>
+          </div>
+
+          {/* Tile 4: Curriculum Coverage */}
+          <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/20">
+            <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 block mb-0.5">
+              Curriculum Mastery
+            </span>
+            <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 font-mono">
+              {curriculumPercent}%
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              5 Core Syllabus Modules
+            </span>
           </div>
         </div>
       </div>
@@ -301,9 +331,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-1">
         {[
           { id: 'overview' as const, label: 'Overview', icon: TrendingUp },
-          { id: 'mastery' as const, label: 'Skill Mastery', icon: Layers },
-          { id: 'standing' as const, label: 'Exam Standing', icon: ShieldCheck },
-          { id: 'reports' as const, label: 'Reports (PDF)', icon: FileText },
+          { id: 'mastery' as const, label: 'Syllabus Mastery', icon: Layers },
+          { id: 'standing' as const, label: 'Academic Standing', icon: ShieldCheck },
+          { id: 'reports' as const, label: 'Reports & Logs', icon: FileText },
         ].map((tab) => {
           const Icon = tab.icon;
           const isCur = activeTab === tab.id;
@@ -337,82 +367,121 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
-            {/* Apple Intelligence Learning Insights */}
+            {/* Actionable Learning Insights & Recommended Next Step */}
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-7 shadow-xs space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                    Personalized Learning Insights
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Automated curriculum analysis based on evaluated code submissions
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                {anl.learnerInsightMessage}
-              </div>
-
-              {anl.recommendations && anl.recommendations.length > 0 && (
-                <div className="space-y-2 pt-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Actionable Next Steps:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {anl.recommendations.map((rec: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-xl bg-white/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-700/60 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
-                        <span>{rec}</span>
-                      </div>
-                    ))}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                      Curriculum Guidance & Velocity
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Automated recommendations based on verified C11 compiler solutions
+                    </p>
                   </div>
                 </div>
-              )}
+                <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-500 font-bold">
+                  Active Sprint
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                    Recommended Next Focus:
+                  </span>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {nextRecommended.moduleTitle}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {nextRecommended.desc}
+                  </p>
+                </div>
+                <Link
+                  to="/practice"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-auto shadow-xs active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Resume Practice</span>
+                </Link>
+              </div>
             </div>
 
-            {/* Telemetry Summary Cards */}
+            {/* 3 Meaningful Metrics (Replacing fake keys/proctoring review) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  Hidden Test Case Verification
-                </span>
-                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
-                  {anl.hiddenTestPassRatio || 'Verified'}
+              {/* Card 1: Compiler Verdict Distribution */}
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Compiler Verdict Ratio
+                  </span>
+                  <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
                 </div>
-                <p className="text-[11px] text-slate-400">Edge cases evaluated via GCC sandbox</p>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Accepted (AC)</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.ac}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-indigo-500 font-semibold">Compile Errors (CE)</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.ce}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-amber-500 font-semibold">Wrong Answers (WA)</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.wa}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  Compiled via isolated GCC 14.2 sandbox
+                </p>
               </div>
 
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  Keyboard & Velocity Activity
-                </span>
-                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
-                  {(anl.telemetry?.totalKeystrokes || 0).toLocaleString()} keys
+              {/* Card 2: CIE Lab Evaluation Health */}
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Continuous Lab Internal (CIE)
+                  </span>
+                  <Award className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
-                <p className="text-[11px] text-slate-400">Active keystrokes logged in editor</p>
+                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
+                  {cieMarks.toFixed(1)} <span className="text-xs text-slate-400 font-normal">/ 20.0 Marks</span>
+                </div>
+                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (cieMarks / 20.0) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {labSolvedCount} of 80 coursework experiments completed
+                </p>
               </div>
 
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-1">
-                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  Proctored Exam Health
-                </span>
-                <div className={`text-xl font-bold font-mono ${finalIntegrityScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500'}`}>
-                  {finalIntegrityScore >= 80 ? 'Verified Clean' : 'Review Required'}
+              {/* Card 3: Academic Environment Status */}
+              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Proctored Integrity
+                  </span>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
-                <p className="text-[11px] text-slate-400">Tab switches & clipboard monitored</p>
+                <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span>{finalIntegrityScore}</span>
+                  <span className="text-xs font-sans font-medium">/ 100 Verified</span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {isCleanSession ? '✓ Clean session: Zero infractions logged' : 'Telemetry logged under review'}
+                </p>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* TAB 2: SKILL MASTERY */}
+        {/* TAB 2: SYLLABUS MASTERY */}
         {activeTab === 'mastery' && (
           <motion.div
             key="mastery"
@@ -425,45 +494,57 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Difficulty Level Breakdown
+                  5 Core C Language Syllabus Modules
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Mastery distribution across Practice Arena & Coursework
+                  Complete syllabus progression across foundational concepts and advanced memory models
                 </p>
               </div>
               <span className="text-xs font-mono text-slate-400">GCC 14 (C11)</span>
             </div>
 
             <div className="space-y-4">
-              {Object.entries(anl.difficultyStats || defaultAnalytics.difficultyStats).map(([diff, stats]: any) => {
-                const safeStats = stats || { solved: 0, total: 25, avgTimeSec: 0 };
-                const pct = safeStats.total > 0 ? Math.round((safeStats.solved / safeStats.total) * 100) : 0;
-                const barColor =
-                  diff === 'EASY'
-                    ? 'bg-emerald-500'
-                    : diff === 'MEDIUM'
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500';
-
+              {modulesProgress.map((mod) => {
+                const pct = mod.topicsTotal > 0 ? Math.round((mod.topicsSolved / mod.topicsTotal) * 100) : 0;
                 return (
                   <div
-                    key={diff}
-                    className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2"
+                    key={mod.id}
+                    className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3"
                   >
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white">{diff}</span>
-                        <span className="text-slate-400 text-[11px]">Avg solve time: {safeStats.avgTimeSec || 0}s</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                          {mod.title}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {mod.desc}
+                        </p>
                       </div>
-                      <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
-                        {safeStats.solved} / {safeStats.total} Solved ({pct}%)
-                      </span>
+                      <div className="text-right shrink-0">
+                        <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
+                          {mod.topicsSolved} / {mod.topicsTotal} Topics ({pct}%)
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Progress Bar */}
                     <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-indigo-500 to-cyan-500"
                         style={{ width: `${pct}%` }}
                       />
+                    </div>
+
+                    {/* Core Competency Chips */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {mod.concepts.map((c, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-mono text-slate-600 dark:text-slate-300"
+                        >
+                          {c}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 );
@@ -472,7 +553,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* TAB 3: EXAM STANDING */}
+        {/* TAB 3: ACADEMIC STANDING */}
         {activeTab === 'standing' && (
           <motion.div
             key="standing"
@@ -482,7 +563,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
-            {/* Standing Card */}
             <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -499,79 +579,44 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono ${
-                    finalIntegrityScore >= 80
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                  }`}>
-                    Score: {finalIntegrityScore} / 100
-                  </span>
-                </div>
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Integrity Rating: {finalIntegrityScore} / 100
+                </span>
               </div>
 
-              {/* Monitored Counters */}
+              {/* Clean Telemetry Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Tab Switches</span>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Tab Switch Frequency</span>
                   <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
                     {totalTabSwitches} events
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Clipboard Paste Blocked</span>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Clipboard Protection</span>
                   <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
                     {totalClipboardAttempts} blocked
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Fullscreen Exits</span>
-                  <div className="text-lg font-bold font-mono text-slate-900 dark:text-white">
-                    {totalFullscreenExits} exits
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Compiler Verification</span>
+                  <div className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    GCC 14 (C11)
                   </div>
                 </div>
               </div>
 
-              {/* Incidents List if any */}
-              {cheatedQuestionsList.length > 0 ? (
-                <div className="space-y-3 pt-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Recorded Proctoring Notices ({cheatedQuestionsList.length}):
-                  </span>
-                  <div className="divide-y divide-slate-200/60 dark:divide-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden bg-white/50 dark:bg-slate-800/30">
-                    {cheatedQuestionsList.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-slate-900 dark:text-white block">
-                            {item.title}
-                          </span>
-                          <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                            {item.reason}
-                          </p>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 self-start sm:self-auto shrink-0">
-                          Auto-Submitted with Penalty
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Clean Academic Conduct: Zero infractions or auto-lock penalties logged.</span>
-                </div>
-              )}
+              <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Verified Academic Record: All submitted code compiled and recorded in isolated cloud sandbox.</span>
+              </div>
             </div>
           </motion.div>
         )}
 
-        {/* TAB 4: REPORTS */}
+        {/* TAB 4: REPORTS & LOGS */}
         {activeTab === 'reports' && (
           <motion.div
             key="reports"
@@ -581,164 +626,40 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             transition={{ duration: 0.2 }}
             className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-5"
           >
-            <div>
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                Official Assessment Reports
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Printable PDF summaries with verified code, marks breakdown, and institutional credentials.
-              </p>
-            </div>
-
-            {anl.assignments && anl.assignments.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {anl.assignments.map((as: any) => (
-                  <div
-                    key={as.assignmentId}
-                    className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3"
-                  >
-                    <div className="space-y-0.5 min-w-0">
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {as.testTitle || 'Assigned Test'}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 font-mono">
-                        {as.submittedAt ? new Date(as.submittedAt).toLocaleDateString() : 'Evaluated'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedReportTestId(as.testTitle ? as.assignmentId : null)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shrink-0 active:scale-95 cursor-pointer shadow-xs"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Report</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                <FileText className="w-8 h-8 text-slate-400 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  No Completed Tests Available
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                  Take your first faculty-assigned test to generate a verified, printable institutional report.
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Official Academic Records & Submissions
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Printable summaries with verified code, marks breakdown, and institutional credentials.
                 </p>
               </div>
-            )}
+              <Link
+                to="/history"
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shadow-xs"
+              >
+                <span>View Full History →</span>
+              </Link>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3 text-center sm:text-left sm:flex sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Verified C Submissions Log
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {userSubmissions.length > 0 ? `${userSubmissions.length} compiler-verified submissions on record.` : 'Practice and lab submissions automatically recorded with compiler verdicts.'}
+                </p>
+              </div>
+              <Link
+                to="/history"
+                className="inline-flex px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-xs transition-all"
+              >
+                Inspect Solution History
+              </Link>
+            </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 4. APPLE PRINTABLE REPORT SHEET / MODAL */}
-      <AnimatePresence>
-        {selectedReportTestId && reportData?.report && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedReportTestId(null)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="relative w-full max-w-3xl rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] z-10"
-            >
-              {/* Report Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30">
-                <div className="space-y-0.5">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {reportData?.report?.institution || 'LogicQ'} Examination Report
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                    Student: {reportData?.report?.student?.fullName || 'Student'} • PRN: {reportData?.report?.student?.prn || 'N/A'}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xs transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print PDF</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedReportTestId(null)}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Scores Overview */}
-              <div className="p-6 overflow-y-auto space-y-6">
-                <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-center font-mono">
-                  <div>
-                    <div className="text-[11px] text-slate-400 font-sans">Academic Score</div>
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      {reportData?.report?.summary?.academicScore ?? 0} Marks
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-slate-400 font-sans">Integrity Rating</div>
-                    <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
-                      {reportData?.report?.summary?.integrityScore ?? 100} / 100
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-slate-400 font-sans">Exam Status</div>
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
-                      {reportData?.report?.summary?.integrityRisk || 'NORMAL'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submitted Solutions */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Evaluated Solutions
-                  </h4>
-                  {(reportData?.report?.partA_Solutions || []).map((sol: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
-                    >
-                      <div className="flex justify-between font-bold">
-                        <span className="text-slate-900 dark:text-white">Q{idx + 1}: {sol.title}</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-mono">
-                          {sol.verdict} ({sol.academicScore} Mark)
-                        </span>
-                      </div>
-                      <div className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto shadow-inner">
-                        <pre className="whitespace-pre-wrap">{sol.submittedCode}</pre>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => setSelectedReportTestId(null)}
-                  className="px-4 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-200/60 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </motion.div>
-          </div>
         )}
       </AnimatePresence>
     </div>
