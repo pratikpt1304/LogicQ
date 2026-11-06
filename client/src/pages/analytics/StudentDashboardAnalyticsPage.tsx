@@ -48,6 +48,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
+  const [masteryViewFilter, setMasteryViewFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
   const [auditTrackFilter, setAuditTrackFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
   const [auditModuleFilter, setAuditModuleFilter] = useState<'ALL' | 1 | 2 | 3 | 4 | 5>('ALL');
   const [expandedTimelineSlugs, setExpandedTimelineSlugs] = useState<Set<string>>(new Set());
@@ -161,8 +162,19 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     return { ac, wa, ce, other, totalEvaluated, accuracy };
   }, [userSubmissions, solvedTopicIds]);
 
-  // Module-wise syllabus mastery breakdown
+  // Module-wise syllabus mastery breakdown (Practice Arena + Lab Internal CIE)
   const modulesProgress = useMemo(() => {
+    const acSlugs = new Set(
+      userSubmissions
+        .filter((s: any) => s.verdict === 'ACCEPTED')
+        .map((s: any) => (s.problemSlug || s.problem?.slug || '').toLowerCase().trim())
+    );
+
+    const m1Lab = PRACTICE_MODULE_1_PROBLEMS.filter((p) => acSlugs.has(p.slug.toLowerCase().trim())).length;
+    const m2Lab = PRACTICE_MODULE_2_PROBLEMS.filter((p) => acSlugs.has(p.slug.toLowerCase().trim())).length;
+    const m3Lab = PRACTICE_MODULE_3_PROBLEMS.filter((p) => acSlugs.has(p.slug.toLowerCase().trim())).length;
+    const m4Lab = PRACTICE_MODULE_4_PROBLEMS.filter((p) => acSlugs.has(p.slug.toLowerCase().trim())).length;
+
     return [
       {
         id: 1,
@@ -171,6 +183,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         topicsTotal: 25,
         topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length,
         labTotal: 20,
+        labSolved: m1Lab,
         concepts: ['Data Types', 'Loops', 'Conditionals', 'Switch Case'],
       },
       {
@@ -180,6 +193,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         topicsTotal: 25,
         topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 2 && solvedTopicIds.includes(t.id)).length,
         labTotal: 20,
+        labSolved: m2Lab,
         concepts: ['1D Arrays', 'Strings', '2D Matrices', 'Searching'],
       },
       {
@@ -189,6 +203,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         topicsTotal: 25,
         topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 3 && solvedTopicIds.includes(t.id)).length,
         labTotal: 20,
+        labSolved: m3Lab,
         concepts: ['Pointers', 'Recursion', 'Pass by Reference', 'Functions'],
       },
       {
@@ -198,6 +213,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         topicsTotal: 25,
         topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 4 && solvedTopicIds.includes(t.id)).length,
         labTotal: 20,
+        labSolved: m4Lab,
         concepts: ['Structures', 'Unions', 'malloc/free', 'Dynamic Memory'],
       },
       {
@@ -207,10 +223,11 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         topicsTotal: 20,
         topicsSolved: TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 5 && solvedTopicIds.includes(t.id)).length,
         labTotal: 0,
+        labSolved: 0,
         concepts: ['File Streams', 'Binary I/O', 'Error Handling'],
       },
     ];
-  }, [solvedTopicIds]);
+  }, [solvedTopicIds, userSubmissions]);
 
   // Next recommended topic based on lowest completed module
   const nextRecommended = useMemo(() => {
@@ -707,28 +724,90 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             transition={{ duration: 0.2 }}
             className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-8 shadow-xs space-y-6"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
                   5 Core C Language Syllabus Modules
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Complete syllabus progression across foundational concepts and advanced memory models
+                  Complete syllabus progression across both Practice Arena (100 Topics) and Lab Internal CIE (80 Coursework Experiments).
                 </p>
               </div>
-              <span className="text-xs font-mono text-slate-400">GCC 14 (C11)</span>
+
+              {/* Track View Filter Tabs */}
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 w-fit text-xs font-semibold shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMasteryViewFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                    masteryViewFilter === 'ALL'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  All (Practice + Lab)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMasteryViewFilter('PRACTICE')}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                    masteryViewFilter === 'PRACTICE'
+                      ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span>💻 Practice</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMasteryViewFilter('LAB_INTERNAL')}
+                  className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                    masteryViewFilter === 'LAB_INTERNAL'
+                      ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <span>🔬 Lab Internal</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
               {modulesProgress.map((mod) => {
-                const pct = mod.topicsTotal > 0 ? Math.round((mod.topicsSolved / mod.topicsTotal) * 100) : 0;
+                const combinedTotal = mod.topicsTotal + mod.labTotal;
+                const combinedSolved = mod.topicsSolved + mod.labSolved;
+                const combinedPct = combinedTotal > 0 ? Math.round((combinedSolved / combinedTotal) * 100) : 0;
+                const practicePct = mod.topicsTotal > 0 ? Math.round((mod.topicsSolved / mod.topicsTotal) * 100) : 0;
+                const labPct = mod.labTotal > 0 ? Math.round((mod.labSolved / mod.labTotal) * 100) : 0;
+
+                const displayTotal =
+                  masteryViewFilter === 'PRACTICE'
+                    ? mod.topicsTotal
+                    : masteryViewFilter === 'LAB_INTERNAL'
+                    ? mod.labTotal
+                    : combinedTotal;
+
+                const displaySolved =
+                  masteryViewFilter === 'PRACTICE'
+                    ? mod.topicsSolved
+                    : masteryViewFilter === 'LAB_INTERNAL'
+                    ? mod.labSolved
+                    : combinedSolved;
+
+                const displayPct =
+                  masteryViewFilter === 'PRACTICE'
+                    ? practicePct
+                    : masteryViewFilter === 'LAB_INTERNAL'
+                    ? labPct
+                    : combinedPct;
+
                 return (
                   <div
                     key={mod.id}
-                    className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3"
+                    className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3.5"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="space-y-0.5">
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white">
                           {mod.title}
                         </h4>
@@ -736,18 +815,30 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                           {mod.desc}
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-left sm:text-right shrink-0">
                         <span className="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400">
-                          {mod.topicsSolved} / {mod.topicsTotal} Topics ({pct}%)
+                          {displaySolved} / {displayTotal} Completed ({displayPct}%)
                         </span>
                       </div>
+                    </div>
+
+                    {/* Track Sub-Breakdown Badges (Showing both Practice & Lab Internal) */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-mono font-bold">
+                        💻 Practice: {mod.topicsSolved} / {mod.topicsTotal} Topics
+                      </span>
+                      {mod.labTotal > 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-xs font-mono font-bold">
+                          🔬 Lab Internal: {mod.labSolved} / {mod.labTotal} Problems
+                        </span>
+                      )}
                     </div>
 
                     {/* Progress Bar */}
                     <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-indigo-500 to-cyan-500"
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${displayPct}%` }}
                       />
                     </div>
 
