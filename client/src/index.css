@@ -596,6 +596,19 @@ html[data-theme='light'] #dashboard-online-compiler-section {
   color: #4ade80 !important;
 }
 
+/* Submission Code Viewer Modal: Explicit Contrast Protection */
+.code-viewer-container,
+.code-viewer-container pre,
+.code-viewer-container code {
+  color: #f8fafc !important;
+  background-color: #0c101a !important;
+}
+
+.code-viewer-container .select-none {
+  color: #64748b !important;
+  background-color: transparent !important;
+}
+
 html.light table th,
 html[data-theme='light'] table th {
   color: var(--text-muted) !important;

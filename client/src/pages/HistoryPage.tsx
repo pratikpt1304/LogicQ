@@ -760,16 +760,36 @@ export const HistoryPage: React.FC = () => {
 
               {/* Code Snippet */}
               <div className="flex-1 overflow-y-auto p-6 font-mono text-xs">
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-200 p-4 overflow-x-auto shadow-inner">
-                  <pre className="whitespace-pre-wrap leading-relaxed select-text font-mono">
-                    {selectedSubmission.code || '// No code recorded'}
-                  </pre>
+                <div className="rounded-2xl border border-slate-700/80 overflow-hidden bg-[#0c101a] shadow-xl code-viewer-container">
+                  <div className="px-4 py-2.5 border-b border-slate-800 bg-[#070a12] flex items-center justify-between text-[11px] font-mono text-slate-400 select-none">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
+                      <span className="ml-1.5 font-semibold text-slate-300">solution.c</span>
+                    </div>
+                    <span className="text-slate-400 font-mono">
+                      {(selectedSubmission.code || '').split('\n').length} lines • C11 GCC 14
+                    </span>
+                  </div>
+                  <div className="p-4 overflow-x-auto text-xs font-mono leading-relaxed flex gap-3 bg-[#0c101a]">
+                    <div className="select-none text-right text-slate-500 pr-3 border-r border-slate-800/80 shrink-0 font-mono text-xs opacity-75">
+                      {(selectedSubmission.code || '// No code recorded').split('\n').map((_: string, idx: number) => (
+                        <div key={idx} className="leading-relaxed">{idx + 1}</div>
+                      ))}
+                    </div>
+                    <pre className="flex-1 overflow-x-auto whitespace-pre font-mono m-0 p-0 text-slate-100 select-text leading-relaxed">
+                      <code className="text-slate-100 font-mono text-xs" style={{ color: '#f8fafc' }}>
+                        {selectedSubmission.code || '// No code recorded'}
+                      </code>
+                    </pre>
+                  </div>
                 </div>
 
                 {selectedSubmission.compileOutput && (
-                  <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-mono">
-                    <span className="font-bold block mb-1">Compiler Output:</span>
-                    <pre className="whitespace-pre-wrap">{selectedSubmission.compileOutput}</pre>
+                  <div className="mt-4 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 font-mono">
+                    <span className="font-bold block mb-1 text-rose-400">Compiler Output:</span>
+                    <pre className="whitespace-pre-wrap text-rose-200">{selectedSubmission.compileOutput}</pre>
                   </div>
                 )}
               </div>
