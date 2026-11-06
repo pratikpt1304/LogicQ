@@ -22,9 +22,21 @@ import {
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { login, sendLoginOtp, loginWithOtp } = useAuth();
+  const { user, login, sendLoginOtp, loginWithOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const fromLocation = (location.state as any)?.from;
+  const from = fromLocation
+    ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
+    : '/dashboard';
+
+  // If already authenticated, redirect immediately away from login
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
 
   // Mode: 'prn' (Direct Student PRN Login) | 'otp' (Institutional Email OTP)
   const [authMode, setAuthMode] = useState<'prn' | 'otp'>('prn');
@@ -53,11 +65,6 @@ export const LoginPage: React.FC = () => {
   const [isVerifiedSuccess, setIsVerifiedSuccess] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const fromLocation = (location.state as any)?.from;
-  const from = fromLocation
-    ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
-    : '/dashboard';
 
   // Resend cooldown timer
   useEffect(() => {

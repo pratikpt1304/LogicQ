@@ -205,8 +205,11 @@ const getCachedUser = (): User | null => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authState, setAuthState] = useState<AuthState>('loading');
-  const [user, setUser] = useState<User | null>(getCachedUser);
+  const cachedInitial = getCachedUser();
+  const isExpired = cachedInitial ? isSessionExpiredByInactivity(cachedInitial) : true;
+  const initialUser = (!isExpired && cachedInitial) ? cachedInitial : null;
+  const [authState, setAuthState] = useState<AuthState>(initialUser ? 'signedIn' : 'loading');
+  const [user, setUser] = useState<User | null>(initialUser);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
 
@@ -811,6 +814,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       // Populate user immediately so there is zero UI flash
       setUser(cached);
+      setAuthState('signedIn');
+      if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${cached.id || cached.prn}_${Date.now()}`);
+      }
     }
 
     // 2. Process redirect credentials if returning from signInWithRedirect (e.g. popup-blocked browsers)
@@ -936,29 +943,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // No Firebase user; check if user is logged in via credentials/password session
         const credentialUser = getCachedUser();
-        const hasToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
-        if (credentialUser && (hasToken || document.cookie.includes('__session'))) {
-          if (!isSessionExpiredByInactivity(credentialUser)) {
-            recordUserActivity();
-            if (isMountedRef.current) {
-              setUser(credentialUser);
+        if (credentialUser && !isSessionExpiredByInactivity(credentialUser)) {
+          recordUserActivity();
+          if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
+            localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${credentialUser.id || credentialUser.prn}_${Date.now()}`);
+          }
+          if (isMountedRef.current) {
+            setUser(credentialUser);
+            setAuthState('signedIn');
+          }
+          try {
+            const synced = await syncWithServer(null);
+            if (synced && isMountedRef.current) {
+              setUser(synced);
               setAuthState('signedIn');
             }
-            try {
-              const synced = await syncWithServer(null);
-              if (synced && isMountedRef.current) {
-                setUser(synced);
-                setAuthState('signedIn');
-              }
-            } catch {
-              // Retain active credential session during transient network / server spinup
-            }
-            return;
+          } catch {
+            // Retain active credential session during transient network / server spinup
           }
+          return;
         }
 
-        // Definitively signed out
+        // Definitively signed out only if there is no active credentialUser
         if (isMountedRef.current) {
           queryClient.cancelQueries();
           queryClient.clear();
@@ -1197,6 +1204,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     if (authUser.role === 'STUDENT' && authUser.prn) {
       await DeviceSessionService.registerDeviceSession(authUser.prn);
+    }
+
+    if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${authUser.id || authUser.prn}_${Date.now()}`);
     }
 
     recordUserActivity();

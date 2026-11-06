@@ -1,7 +1,7 @@
 {
   "name": "LogicQ",
   "short_name": "LogicQ",
-  "description": "Daily C11 programming challenges and daily competitive leaderboard for university students.",
+  "description": "Smart C programming practice and assessment platform for university students.",
   "lang": "en-IN",
   "id": "/dashboard",
   "start_url": "/dashboard",
