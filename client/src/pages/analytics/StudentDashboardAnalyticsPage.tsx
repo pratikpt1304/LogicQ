@@ -48,6 +48,18 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
+  const [auditTrackFilter, setAuditTrackFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
+  const [auditModuleFilter, setAuditModuleFilter] = useState<'ALL' | 1 | 2 | 3 | 4 | 5>('ALL');
+  const [expandedTimelineSlugs, setExpandedTimelineSlugs] = useState<Set<string>>(new Set());
+
+  const toggleTimeline = (slug: string) => {
+    setExpandedTimelineSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  };
 
   // Real-time synchronization
   useEffect(() => {
@@ -225,7 +237,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const finalIntegrityScore = fsTelemetry?.integrityScore !== undefined ? fsTelemetry.integrityScore : 100;
   const isCleanSession = finalIntegrityScore >= 80 && autoLockCount === 0;
 
-  // Process question-by-question proctoring audit log with exact timestamps
+  // Process question-by-question proctoring audit log with exact timestamps, track, and module classification
   const questionIncidentsList = useMemo(() => {
     interface QuestionAuditEvent {
       type: string;
@@ -236,6 +248,10 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     interface QuestionAuditItem {
       problemTitle: string;
       problemSlug: string;
+      track: 'PRACTICE' | 'LAB_INTERNAL';
+      trackLabel: string;
+      moduleIndex: number;
+      moduleTitle: string;
       tabSwitches: number;
       pasteAttempts: number;
       fullscreenExits: number;
@@ -243,6 +259,63 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       lastTimestamp: string;
       events: QuestionAuditEvent[];
     }
+
+    const resolveMeta = (slug: string, title: string): { track: 'PRACTICE' | 'LAB_INTERNAL'; trackLabel: string; moduleIndex: number; moduleTitle: string } => {
+      const cleanSlug = slug.toLowerCase().trim();
+      const cleanTitle = title.toLowerCase().trim();
+
+      // Check Practice Topics (m1-t1... m5-t20)
+      const practiceTopic = TOPIC_PRACTICE_DATA.find(
+        (t) => t.id.toLowerCase() === cleanSlug || t.problem.title.toLowerCase() === cleanTitle
+      );
+      if (practiceTopic) {
+        return {
+          track: 'PRACTICE',
+          trackLabel: 'Practice Arena',
+          moduleIndex: practiceTopic.moduleIndex,
+          moduleTitle: `Module ${practiceTopic.moduleIndex}`,
+        };
+      }
+
+      // Check Lab Internal Modules 1 to 4
+      const m1Lab = PRACTICE_MODULE_1_PROBLEMS.find((p) => p.slug.toLowerCase() === cleanSlug || p.title.toLowerCase() === cleanTitle);
+      if (m1Lab || cleanSlug.includes('practice-c1') || cleanSlug.includes('module1')) {
+        return { track: 'LAB_INTERNAL', trackLabel: 'Lab Internal CIE', moduleIndex: 1, moduleTitle: 'Module 1: C Fundamentals' };
+      }
+      const m2Lab = PRACTICE_MODULE_2_PROBLEMS.find((p) => p.slug.toLowerCase() === cleanSlug || p.title.toLowerCase() === cleanTitle);
+      if (m2Lab || cleanSlug.includes('practice-c2') || cleanSlug.includes('module2')) {
+        return { track: 'LAB_INTERNAL', trackLabel: 'Lab Internal CIE', moduleIndex: 2, moduleTitle: 'Module 2: Arrays & Strings' };
+      }
+      const m3Lab = PRACTICE_MODULE_3_PROBLEMS.find((p) => p.slug.toLowerCase() === cleanSlug || p.title.toLowerCase() === cleanTitle);
+      if (m3Lab || cleanSlug.includes('practice-c3') || cleanSlug.includes('module3')) {
+        return { track: 'LAB_INTERNAL', trackLabel: 'Lab Internal CIE', moduleIndex: 3, moduleTitle: 'Module 3: Functions & Pointers' };
+      }
+      const m4Lab = PRACTICE_MODULE_4_PROBLEMS.find((p) => p.slug.toLowerCase() === cleanSlug || p.title.toLowerCase() === cleanTitle);
+      if (m4Lab || cleanSlug.includes('practice-c4') || cleanSlug.includes('module4')) {
+        return { track: 'LAB_INTERNAL', trackLabel: 'Lab Internal CIE', moduleIndex: 4, moduleTitle: 'Module 4: Structures & Memory' };
+      }
+
+      // Daily Challenge or generic C loop problems (e.g. Collatz)
+      if (cleanSlug.includes('collatz') || cleanTitle.includes('collatz') || cleanSlug.includes('daily') || cleanTitle.includes('daily')) {
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 1, moduleTitle: 'Module 1: C Fundamentals' };
+      }
+
+      // Fallback based on slug prefix
+      if (cleanSlug.startsWith('m2') || cleanSlug.includes('array') || cleanSlug.includes('string')) {
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 2, moduleTitle: 'Module 2: Arrays & Strings' };
+      }
+      if (cleanSlug.startsWith('m3') || cleanSlug.includes('pointer') || cleanSlug.includes('function')) {
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 3, moduleTitle: 'Module 3: Functions & Pointers' };
+      }
+      if (cleanSlug.startsWith('m4') || cleanSlug.includes('struct') || cleanSlug.includes('memory') || cleanSlug.includes('malloc')) {
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 4, moduleTitle: 'Module 4: Structures & Memory' };
+      }
+      if (cleanSlug.startsWith('m5') || cleanSlug.includes('file')) {
+        return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 5, moduleTitle: 'Module 5: File I/O' };
+      }
+
+      return { track: 'PRACTICE', trackLabel: 'Practice Arena', moduleIndex: 1, moduleTitle: 'Module 1: C Fundamentals' };
+    };
 
     const rawIncidents = fsTelemetry?.incidents || [];
     const map = new Map<string, QuestionAuditItem>();
@@ -258,9 +331,14 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
               const cleanSlug = String(slug).toLowerCase().trim();
               if (!map.has(cleanSlug)) {
                 const title = cleanSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                const meta = resolveMeta(cleanSlug, title);
                 map.set(cleanSlug, {
                   problemTitle: title,
                   problemSlug: cleanSlug,
+                  track: meta.track,
+                  trackLabel: meta.trackLabel,
+                  moduleIndex: meta.moduleIndex,
+                  moduleTitle: meta.moduleTitle,
                   tabSwitches: 3,
                   pasteAttempts: 0,
                   fullscreenExits: 0,
@@ -284,9 +362,15 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     rawIncidents.forEach((inc: any) => {
       const slug = (inc.problemSlug || inc.problemTitle || 'general-practice').toLowerCase().trim();
       const title = inc.problemTitle || inc.problemSlug || 'Practice Question';
+      const meta = resolveMeta(slug, title);
+
       const existing: QuestionAuditItem = map.get(slug) || {
         problemTitle: title,
         problemSlug: slug,
+        track: meta.track,
+        trackLabel: meta.trackLabel,
+        moduleIndex: meta.moduleIndex,
+        moduleTitle: meta.moduleTitle,
         tabSwitches: 0,
         pasteAttempts: 0,
         fullscreenExits: 0,
@@ -325,6 +409,32 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
     );
   }, [fsTelemetry?.incidents]);
+
+  const practiceIncidentsCount = useMemo(() => {
+    return questionIncidentsList.filter((i) => i.track === 'PRACTICE').length;
+  }, [questionIncidentsList]);
+
+  const labIncidentsCount = useMemo(() => {
+    return questionIncidentsList.filter((i) => i.track === 'LAB_INTERNAL').length;
+  }, [questionIncidentsList]);
+
+  const filteredQuestionIncidents = useMemo(() => {
+    return questionIncidentsList.filter((item) => {
+      if (auditTrackFilter !== 'ALL' && item.track !== auditTrackFilter) return false;
+      if (auditModuleFilter !== 'ALL' && item.moduleIndex !== auditModuleFilter) return false;
+      return true;
+    });
+  }, [questionIncidentsList, auditTrackFilter, auditModuleFilter]);
+
+  const incidentsByModule = useMemo(() => {
+    const groups: { [key: number]: typeof filteredQuestionIncidents } = {};
+    filteredQuestionIncidents.forEach((item) => {
+      const mod = item.moduleIndex || 1;
+      if (!groups[mod]) groups[mod] = [];
+      groups[mod].push(item);
+    });
+    return groups;
+  }, [filteredQuestionIncidents]);
 
   if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
@@ -709,101 +819,230 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Question-by-Question Proctoring Audit Section */}
+              {/* Question-by-Question Proctoring Audit Section - Track & Module Sorted */}
               <div className="space-y-4 pt-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
                   <div>
                     <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-500" />
                       <span>Question-Level Proctoring & Anti-Cheat Audit</span>
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Question-by-question log of tab switches, copy-paste attempts, and proctoring events with exact timestamps.
+                      Sorted by Track (Practice Arena vs Lab Internal) and Academic Module with exact timestamps.
                     </p>
                   </div>
                   <span className="text-[11px] font-mono text-slate-400">
-                    {questionIncidentsList.length} Flagged Questions
+                    {filteredQuestionIncidents.length} of {questionIncidentsList.length} Questions
                   </span>
                 </div>
 
-                {questionIncidentsList.length > 0 ? (
-                  <div className="space-y-3">
-                    {questionIncidentsList.map((q, idx) => (
-                      <div
-                        key={idx}
-                        className="p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3.5"
+                {/* Filter Controls: Track and Module Filter Switchers */}
+                {questionIncidentsList.length > 0 && (
+                  <div className="space-y-2.5">
+                    {/* Track Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 w-fit text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setAuditTrackFilter('ALL')}
+                        className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                          auditTrackFilter === 'ALL'
+                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="space-y-1">
+                        All Tracks ({questionIncidentsList.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuditTrackFilter('PRACTICE')}
+                        className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                          auditTrackFilter === 'PRACTICE'
+                            ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span>💻 Practice Arena</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{practiceIncidentsCount}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuditTrackFilter('LAB_INTERNAL')}
+                        className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                          auditTrackFilter === 'LAB_INTERNAL'
+                            ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span>🔬 Lab Internal CIE</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{labIncidentsCount}</span>
+                      </button>
+                    </div>
+
+                    {/* Module Filter Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                      <span className="text-slate-400 font-sans font-medium mr-1">Module:</span>
+                      <button
+                        type="button"
+                        onClick={() => setAuditModuleFilter('ALL')}
+                        className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                          auditModuleFilter === 'ALL'
+                            ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100 font-bold'
+                            : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400'
+                        }`}
+                      >
+                        All
+                      </button>
+                      {[1, 2, 3, 4, 5].map((mNum) => (
+                        <button
+                          key={mNum}
+                          type="button"
+                          onClick={() => setAuditModuleFilter(mNum as any)}
+                          className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                            auditModuleFilter === mNum
+                              ? 'bg-indigo-600 text-white border-indigo-600 font-bold shadow-xs'
+                              : 'bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400'
+                          }`}
+                        >
+                          Module {mNum}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Question List Grouped by Module */}
+                {filteredQuestionIncidents.length > 0 ? (
+                  <div className="space-y-6 pt-2">
+                    {Object.entries(incidentsByModule).map(([modNumStr, questions]) => {
+                      const modNum = Number(modNumStr);
+                      const modTitle =
+                        modNum === 1
+                          ? 'Module 1: C Fundamentals & Control Flow'
+                          : modNum === 2
+                          ? 'Module 2: Arrays, Strings & 2D Matrices'
+                          : modNum === 3
+                          ? 'Module 3: Functions, Recursion & Pointers'
+                          : modNum === 4
+                          ? 'Module 4: Structures, Unions & Dynamic Memory'
+                          : 'Module 5: File I/O & Advanced C';
+
+                      return (
+                        <div key={modNum} className="space-y-3">
+                          {/* Module Header Bar */}
+                          <div className="p-3 px-4 rounded-xl bg-slate-100/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <h5 className="font-bold text-sm text-slate-900 dark:text-white">
-                                {q.problemTitle}
+                              <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                              <h5 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                                {modTitle}
                               </h5>
-                              {q.isAutoLocked && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                  Auto-Locked / Quarantined
-                                </span>
-                              )}
                             </div>
-                            <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Latest Activity: {new Date(q.lastTimestamp).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(q.lastTimestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                              {questions.length} Question{questions.length > 1 ? 's' : ''} Logged
                             </span>
                           </div>
 
-                          {/* Violations Count Badges */}
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            {q.tabSwitches > 0 && (
-                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                🔄 {q.tabSwitches} Tab Switch{q.tabSwitches > 1 ? 'es' : ''}
-                              </span>
-                            )}
-                            {q.pasteAttempts > 0 && (
-                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                📋 {q.pasteAttempts} Paste Blocked
-                              </span>
-                            )}
-                            {q.fullscreenExits > 0 && (
-                              <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                                ⛶ {q.fullscreenExits} Fullscreen Exits
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                          {/* Problem Cards in this Module */}
+                          <div className="space-y-3 pl-1 sm:pl-3">
+                            {questions.map((q, idx) => {
+                              const isExpanded = expandedTimelineSlugs.has(q.problemSlug);
+                              return (
+                                <div
+                                  key={idx}
+                                  className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 space-y-3"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <h6 className="font-bold text-sm text-slate-900 dark:text-white">
+                                          {q.problemTitle}
+                                        </h6>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                                          q.track === 'LAB_INTERNAL'
+                                            ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
+                                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                                        }`}>
+                                          {q.trackLabel}
+                                        </span>
+                                        {q.isAutoLocked && (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                            Auto-Locked / Quarantined
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>Latest Event: {new Date(q.lastTimestamp).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(q.lastTimestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                      </span>
+                                    </div>
 
-                        {/* Detailed Timeline Events for this Question */}
-                        <div className="p-3.5 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 space-y-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Event Timeline:
-                          </span>
-                          <div className="space-y-1.5">
-                            {q.events.map((ev, eIdx) => (
-                              <div
-                                key={eIdx}
-                                className="flex items-start justify-between gap-3 text-xs text-slate-600 dark:text-slate-300 font-mono"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
-                                  <span>{ev.reason}</span>
+                                    {/* Violations Count Badges */}
+                                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                      {q.tabSwitches > 0 && (
+                                        <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                          🔄 {q.tabSwitches} Tab Switch{q.tabSwitches > 1 ? 'es' : ''}
+                                        </span>
+                                      )}
+                                      {q.pasteAttempts > 0 && (
+                                        <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                          📋 {q.pasteAttempts} Paste Blocked
+                                        </span>
+                                      )}
+                                      {q.fullscreenExits > 0 && (
+                                        <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                          ⛶ {q.fullscreenExits} Fullscreen Exits
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Collapsible Timeline Events */}
+                                  <div className="pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleTimeline(q.problemSlug)}
+                                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <span>{isExpanded ? 'Hide Event Timeline' : `View Event Timeline (${q.events.length} logs)`}</span>
+                                      <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                    </button>
+
+                                    {isExpanded && (
+                                      <div className="mt-2.5 p-3.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 space-y-2 animate-fadeIn">
+                                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                          {q.events.map((ev, eIdx) => (
+                                            <div
+                                              key={eIdx}
+                                              className="flex items-start justify-between gap-3 text-xs text-slate-600 dark:text-slate-300 font-mono"
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                                                <span>{ev.reason}</span>
+                                              </div>
+                                              <span className="text-[11px] text-slate-400 shrink-0">
+                                                {new Date(ev.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="text-[11px] text-slate-400 shrink-0">
-                                  {new Date(ev.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-6 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 text-center space-y-1.5">
                     <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
                     <h5 className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                      Perfect Academic Integrity: 0 Violations Logged
+                      Clean Record in Selected Track / Module
                     </h5>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                      No tab switches or copy-paste attempts were detected across any question. All code was written and verified with 100% compliance.
+                      No infractions were detected under this filter. All questions were coded with 100% academic integrity.
                     </p>
                   </div>
                 )}
