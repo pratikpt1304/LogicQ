@@ -1105,20 +1105,29 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                                     {isExpanded && (
                                       <div className="mt-2.5 p-3.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 space-y-2 animate-fadeIn">
                                         <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                                          {q.events.map((ev, eIdx) => (
-                                            <div
-                                              key={eIdx}
-                                              className="flex items-start justify-between gap-3 text-xs text-slate-600 dark:text-slate-300 font-mono"
-                                            >
-                                              <div className="flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
-                                                <span>{ev.reason}</span>
+                                          {q.events.map((ev, eIdx) => {
+                                            // Format sequential numbering if duplicate Exit #1 exists
+                                            let displayReason = ev.reason;
+                                            if (ev.type === 'FULLSCREEN_EXIT' || displayReason.includes('Fullscreen exited')) {
+                                              const exitNum = q.events.length - eIdx;
+                                              displayReason = `Fullscreen exited (Exit #${exitNum})`;
+                                            }
+
+                                            return (
+                                              <div
+                                                key={eIdx}
+                                                className="flex items-start justify-between gap-3 text-xs text-slate-600 dark:text-slate-300 font-mono"
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                                                  <span>{displayReason}</span>
+                                                </div>
+                                                <span className="text-[11px] text-slate-400 shrink-0">
+                                                  {new Date(ev.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                </span>
                                               </div>
-                                              <span className="text-[11px] text-slate-400 shrink-0">
-                                                {new Date(ev.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                              </span>
-                                            </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     )}
