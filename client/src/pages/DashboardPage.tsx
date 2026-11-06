@@ -18,6 +18,7 @@ import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
+import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
 import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
@@ -896,12 +897,24 @@ export const DashboardPage: React.FC = () => {
   const practiceOverallPercent = practiceTopicsTotal > 0 ? Math.round((practiceTotalSolved / practiceTopicsTotal) * 100) : 0;
 
   // Lab Internal distinct metrics (Evaluation Problems across 5 Modules)
-  const labTotal = studentModulesList.reduce((acc: number, m: any) => acc + (m.totalQuestions || 20), 0) || 100;
-  const labTotalSolved = studentModulesList.reduce((acc: number, m: any) => acc + (m.solvedCount || 0), 0);
+  const allLabProblems = React.useMemo(() => [
+    ...PRACTICE_MODULE_1_PROBLEMS,
+    ...PRACTICE_MODULE_2_PROBLEMS,
+    ...PRACTICE_MODULE_3_PROBLEMS,
+    ...PRACTICE_MODULE_4_PROBLEMS,
+    ...PRACTICE_MODULE_5_PROBLEMS,
+  ], []);
+
+  const labEasyTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'EASY').length || 37;
+  const labMedTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'MEDIUM').length || 42;
+  const labHardTotal = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'HARD').length || 22;
+
+  const labEasySolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'EASY' && solvedTopicIds.includes(p.slug)).length;
+  const labMedSolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'MEDIUM' && solvedTopicIds.includes(p.slug)).length;
+  const labHardSolved = allLabProblems.filter((p) => p.difficulty?.toUpperCase() === 'HARD' && solvedTopicIds.includes(p.slug)).length;
+  const labTotalSolved = labEasySolved + labMedSolved + labHardSolved;
+  const labTotal = allLabProblems.length || 101;
   const labOverallPercent = Math.min(100, Math.round((labTotalSolved / labTotal) * 100));
-  const labEasySolved = Math.min(40, Math.round(labTotalSolved * 0.4));
-  const labMedSolved = Math.min(40, Math.round(labTotalSolved * 0.4));
-  const labHardSolved = Math.max(0, labTotalSolved - labEasySolved - labMedSolved);
 
   const totalProblemsSolved = Math.max(
     stats?.problemsSolved ?? (user as any)?.problemsSolved ?? 0,
@@ -2208,10 +2221,9 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
-                <span>Continuous Assessment</span>
-                <Link to="/lab-internal" className="text-cyan-600 dark:text-cyan-400 hover:underline font-semibold">
-                  Open Labs →
-                </Link>
+                <span>Easy {labEasySolved}/{labEasyTotal}</span>
+                <span>Med {labMedSolved}/{labMedTotal}</span>
+                <span>Hard {labHardSolved}/{labHardTotal}</span>
               </div>
             </div>
 
