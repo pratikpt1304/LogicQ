@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lightbulb, ChevronRight } from 'lucide-react';
+import { Lightbulb, Code2, Sparkles, Timer } from 'lucide-react';
 
 const C_TIPS: { title: string; tip: string; code?: string }[] = [
   {
@@ -163,86 +163,142 @@ function getTodaysTip(): { title: string; tip: string; code?: string } {
 
 function getTipDismissKey(): string {
   const today = new Date().toISOString().slice(0, 10);
-  return `logicq_daily_tip_dismissed_${today}`;
+  return `logicq_mandatory_daily_tip_${today}`;
 }
+
+const TOTAL_COUNTDOWN_SECONDS = 10;
 
 export const DailyCTipPopup: React.FC = () => {
   const [visible, setVisible] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(TOTAL_COUNTDOWN_SECONDS);
   const todaysTip = getTodaysTip();
 
   useEffect(() => {
     const key = getTipDismissKey();
     const dismissed = localStorage.getItem(key) === 'true';
     if (!dismissed) {
-      // Show after 1.5 seconds to not be jarring
-      const timer = setTimeout(() => setVisible(true), 1500);
+      // Short delay of 600ms so the dashboard renders smoothly first
+      const timer = setTimeout(() => {
+        setVisible(true);
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, []);
 
-  const handleDismiss = () => {
-    localStorage.setItem(getTipDismissKey(), 'true');
-    setVisible(false);
-  };
+  useEffect(() => {
+    if (!visible) return;
+
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          localStorage.setItem(getTipDismissKey(), 'true');
+          setVisible(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [visible]);
 
   if (!visible) return null;
 
+  const progressPercent = (secondsLeft / TOTAL_COUNTDOWN_SECONDS) * 100;
+
   return (
     <div
-      className="fixed bottom-6 right-6 z-50 max-w-sm w-full animate-in slide-in-from-bottom-4 fade-in duration-300"
-      style={{ filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.4))' }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-in fade-in duration-300 select-none"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        // Prevent dismissal by clicking outside
+        e.stopPropagation();
+      }}
     >
-      <div className="glass-card border border-cyan-500/30 rounded-2xl overflow-hidden bg-[var(--bg-panel)]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-cyan-600/20 to-emerald-600/10 border-b border-cyan-500/20">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
-              <Lightbulb className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div>
-              <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                Daily C Tip
-              </span>
-              <span className="ml-2 text-[9px] font-mono text-[var(--text-muted)]">
-                {new Date().toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="p-1.5 rounded-lg hover:bg-[var(--bg-surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-            title="Dismiss tip for today"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+      <div
+        className="relative max-w-2xl w-full bg-[#0a0e17] border border-cyan-500/40 rounded-3xl shadow-2xl shadow-cyan-500/20 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col text-slate-100"
+        style={{
+          boxShadow: '0 25px 60px -15px rgba(6, 182, 212, 0.25), 0 0 40px rgba(6, 182, 212, 0.15)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Animated 10-Second Progress Line at Top */}
+        <div className="w-full bg-slate-800/80 h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 transition-all duration-1000 ease-linear shadow-[0_0_12px_rgba(6,182,212,0.8)]"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
 
-        {/* Content */}
-        <div className="px-4 py-3 space-y-2.5">
-          <h3 className="font-bold text-sm text-[var(--text-main)] flex items-start gap-1.5">
-            <ChevronRight className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-            {todaysTip.title}
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed pl-5">
+        {/* Modal Header */}
+        <div className="p-6 sm:p-7 pb-4 flex items-start justify-between gap-4 border-b border-slate-800/80 bg-gradient-to-b from-cyan-950/20 to-transparent">
+          <div className="flex items-center gap-4">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 shadow-inner">
+              <Lightbulb className="w-7 h-7 text-cyan-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[11px] font-mono font-bold text-cyan-300 uppercase tracking-widest">
+                  <Sparkles className="w-3 h-3 text-cyan-400" />
+                  Daily C Master Tip
+                </span>
+                <span className="text-[11px] font-mono text-slate-400">
+                  {new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">
+                {todaysTip.title}
+              </h2>
+            </div>
+          </div>
+
+          {/* Mandatory Timer Badge */}
+          <div className="shrink-0 flex flex-col items-end">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-mono text-xs font-bold shadow-sm">
+              <Timer className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
+              <span className="text-sm font-black text-cyan-400">{secondsLeft}s</span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono mt-1">Mandatory Focus</span>
+          </div>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-6 sm:p-7 space-y-4">
+          <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-medium">
             {todaysTip.tip}
           </p>
+
           {todaysTip.code && (
-            <pre className="pl-5 text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-lg p-3 text-emerald-400 overflow-x-auto leading-relaxed whitespace-pre-wrap">
-              {todaysTip.code}
-            </pre>
+            <div className="relative rounded-2xl bg-[#030712] border border-cyan-500/20 overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800/80 bg-slate-900/40 text-[11px] font-mono text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>C11 Reference Code</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500/50" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
+                </div>
+              </div>
+              <pre className="p-4 sm:p-5 text-xs sm:text-sm font-mono text-cyan-300 overflow-x-auto leading-relaxed whitespace-pre-wrap selection:bg-cyan-900">
+                {todaysTip.code}
+              </pre>
+            </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 pb-3 pt-1">
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="w-full py-2 rounded-xl text-[11px] font-mono font-bold bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
-          >
-            Got it! 👍
-          </button>
+        {/* Modal Footer with No-Skip Notice & Countdown Progress */}
+        <div className="px-6 sm:px-7 py-4 border-t border-slate-800/80 bg-slate-950/60 flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center gap-2 font-mono text-[11px]">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <span>Active learning lock: Auto-closing in <strong className="text-cyan-400 font-bold">{secondsLeft}s</strong></span>
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 hidden sm:inline">
+            No Skip • Daily Curriculum Requirement
+          </span>
         </div>
       </div>
     </div>
