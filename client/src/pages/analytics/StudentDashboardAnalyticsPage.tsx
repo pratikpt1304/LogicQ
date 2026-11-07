@@ -64,17 +64,21 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     });
   };
 
-  // Automatic one-time entire account data reset for Pratik's test account (Start as clean new user)
+  // Automatic one-time entire account data reset for Pratik & Samruddhi test accounts (Start as clean new user)
   useEffect(() => {
-    const isPratik = user?.prn === '2126PMIM1039' || user?.email === 'thoratpratik2323@gmail.com';
-    const hasFullReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
-    if (isPratik && !hasFullReset) {
-      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
+    const isTarget =
+      user?.prn === '2126PMIM1039' ||
+      user?.email === 'thoratpratik2323@gmail.com' ||
+      user?.prn === '2126PMIF1057' ||
+      user?.email === 'samugangad@gmail.com';
+    const key = `logicq_clean_student_${user?.prn || user?.id}_v9`;
+    const hasFullReset = localStorage.getItem(key);
+    if (isTarget && !hasFullReset) {
+      localStorage.setItem(key, 'true');
       FirestoreDataService.resetEntireStudentData(targetUid, user?.prn || undefined, user?.email || undefined).then(() => {
         queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
         queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
         queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
-        toast.success('Account reset complete! Pratik Thorat is now a fresh student account (0 solved, 100% integrity).');
       });
     }
   }, [user, targetUid, queryClient]);

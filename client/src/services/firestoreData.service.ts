@@ -3825,6 +3825,8 @@ export class FirestoreDataService {
       }
       localStorage.setItem('logicq_proctoring_telemetry_2126PMIM1039', JSON.stringify(cleanPayload));
       localStorage.setItem('logicq_proctoring_telemetry_cohort-2126pmim1039', JSON.stringify(cleanPayload));
+      localStorage.setItem('logicq_proctoring_telemetry_2126PMIF1057', JSON.stringify(cleanPayload));
+      localStorage.setItem('logicq_proctoring_telemetry_cohort-2126pmif1057', JSON.stringify(cleanPayload));
       
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -3842,6 +3844,8 @@ export class FirestoreDataService {
       userId && userId !== 'current' ? userId : null,
       '2126PMIM1039',
       'cohort-2126pmim1039',
+      '2126PMIF1057',
+      'cohort-2126pmif1057',
     ])).filter(Boolean) as string[];
 
     for (const u of uidsToClear) {
@@ -3930,10 +3934,12 @@ export class FirestoreDataService {
       targetPrn,
       '2126PMIM1039',
       'cohort-2126pmim1039',
+      '2126PMIF1057',
+      'cohort-2126pmif1057',
     ])).filter(Boolean) as string[];
 
     // 3a. Delete cohort_progress from Cloud Firestore
-    const prnsToClear = Array.from(new Set([targetPrn, '2126PMIM1039', '2126pmim1039'])).filter(Boolean);
+    const prnsToClear = Array.from(new Set([targetPrn, '2126PMIM1039', '2126pmim1039', '2126PMIF1057', '2126pmif1057'])).filter(Boolean);
     for (const p of prnsToClear) {
       try {
         await deleteDoc(doc(db, 'cohort_progress', p)).catch(() => {});

@@ -189,13 +189,18 @@ export const App: React.FC = () => {
     }
   }, [user, location.pathname]);
 
-  // One-time automatic clean reset for Pratik Thorat test account on root App mount
+  // One-time automatic clean reset for Pratik Thorat & Samruddhi Gangad test accounts on root App mount
   useEffect(() => {
     if (!user) return;
-    const isPratik = user.prn === '2126PMIM1039' || user.email === 'thoratpratik2323@gmail.com';
-    const hasReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
-    if (isPratik && !hasReset) {
-      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
+    const isTarget =
+      user.prn === '2126PMIM1039' ||
+      user.email === 'thoratpratik2323@gmail.com' ||
+      user.prn === '2126PMIF1057' ||
+      user.email === 'samugangad@gmail.com';
+    const key = `logicq_clean_student_${user.prn || user.id}_v9`;
+    const hasReset = localStorage.getItem(key);
+    if (isTarget && !hasReset) {
+      localStorage.setItem(key, 'true');
       FirestoreDataService.resetEntireStudentData(user.id, user.prn, user.email);
     }
   }, [user]);

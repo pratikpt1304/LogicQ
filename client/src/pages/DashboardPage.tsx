@@ -594,14 +594,18 @@ export const DashboardPage: React.FC = () => {
   // One-time complete student data wipe for Pratik Thorat test account on Dashboard
   React.useEffect(() => {
     if (!user) return;
-    const isPratik = user.prn === '2126PMIM1039' || user.email === 'thoratpratik2323@gmail.com';
-    const hasReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
-    if (isPratik && !hasReset) {
-      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
+    const isTarget =
+      user.prn === '2126PMIM1039' ||
+      user.email === 'thoratpratik2323@gmail.com' ||
+      user.prn === '2126PMIF1057' ||
+      user.email === 'samugangad@gmail.com';
+    const key = `logicq_clean_student_${user.prn || user.id}_v9`;
+    const hasReset = localStorage.getItem(key);
+    if (isTarget && !hasReset) {
+      localStorage.setItem(key, 'true');
       FirestoreDataService.resetEntireStudentData(user.id || auth.currentUser?.uid, user.prn, user.email).then(() => {
         setSolvedTopicIds([]);
         queryClient.invalidateQueries();
-        toast.success('Account reset! Pratik Thorat is now a fresh new student (0 solved, 0 submissions).');
       });
     }
   }, [user, queryClient]);
