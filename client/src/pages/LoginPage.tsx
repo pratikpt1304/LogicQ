@@ -107,7 +107,7 @@ export const LoginPage: React.FC = () => {
   const handlePrnLogin = async (e?: React.FormEvent | React.KeyboardEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
     const rawPrn = prn.trim();
-    const cleanPrn = rawPrn.toLowerCase() === 'dummy' ? 'dummy' : rawPrn.toUpperCase();
+    const cleanPrn = (rawPrn.toLowerCase() === 'dummy' || rawPrn.toLowerCase() === 'demo1') ? rawPrn.toLowerCase() : rawPrn.toUpperCase();
     const cleanPwd = password.trim();
 
     if (!cleanPrn) {

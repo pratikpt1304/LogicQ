@@ -1007,18 +1007,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = String(identifier || '').trim();
     const cleanPwd = String(password || cleanId).trim();
 
-    // Built-in Instant Demo Student: PRN="dummy", Password="dummy"
-    if (cleanId.toLowerCase() === 'dummy') {
-      if (cleanPwd && cleanPwd.toLowerCase() !== 'dummy' && cleanPwd.toLowerCase() !== 'password123') {
-        throw new Error('Invalid password. For demo student, use password: dummy');
+    // Built-in Instant Demo Students: PRN="dummy" | "demo1"
+    if (cleanId.toLowerCase() === 'dummy' || cleanId.toLowerCase() === 'demo1') {
+      const isDemo1 = cleanId.toLowerCase() === 'demo1';
+      const expectedPw = isDemo1 ? 'demo1' : 'dummy';
+      if (cleanPwd && cleanPwd.toLowerCase() !== expectedPw && cleanPwd.toLowerCase() !== 'password123') {
+        throw new Error(`Invalid password. For ${cleanId}, use password: ${expectedPw}`);
       }
-      const dummyStudent: User = {
-        id: 'std_dummy',
-        username: 'dummy',
-        email: 'dummy@logicq.io',
-        prn: 'DUMMY',
-        fullName: 'Dummy',
-        displayName: 'Dummy',
+      const demoStudent: User = {
+        id: isDemo1 ? 'std_demo1' : 'std_dummy',
+        username: isDemo1 ? 'demo1' : 'dummy',
+        email: isDemo1 ? 'demo1@logicq.io' : 'dummy@logicq.io',
+        prn: isDemo1 ? 'DEMO1' : 'DUMMY',
+        fullName: isDemo1 ? 'Demo 1' : 'Dummy',
+        displayName: isDemo1 ? 'Demo 1' : 'Dummy',
         role: 'STUDENT',
         department: 'Integrated M.Tech',
         year: 'First Year (FY)',
@@ -1036,12 +1038,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalSolved: 0,
       };
       if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_dummy_${Date.now()}`);
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${isDemo1 ? 'demo1' : 'dummy'}_${Date.now()}`);
       }
       recordUserActivity();
-      persistUser(dummyStudent);
+      persistUser(demoStudent);
       setAuthState('signedIn');
-      return dummyStudent;
+      return demoStudent;
     }
 
     // Check device registration and single instance for cohort students

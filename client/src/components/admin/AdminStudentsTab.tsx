@@ -53,7 +53,8 @@ export const AdminStudentsTab: React.FC = () => {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
-              setStudents(parsed);
+              const cleaned = parsed.filter((s: any) => !FirestoreDataService.isPurgedStudent(s));
+              setStudents(cleaned);
             }
           }
         } catch {}
@@ -62,7 +63,7 @@ export const AdminStudentsTab: React.FC = () => {
         const users = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
         if (isMounted && Array.isArray(users)) {
           const studentUsers: AdminStudentRecord[] = users
-            .filter((u) => u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com'))
+            .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
             .map((u) => {
               const anyUser = u as any;
               const isBound = Boolean(
@@ -76,7 +77,7 @@ export const AdminStudentsTab: React.FC = () => {
                 name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student Candidate',
                 prn: (anyUser.prn || '').toUpperCase() || '—',
                 email: anyUser.email || '—',
-                section: anyUser.division ? `Division ${anyUser.division}` : (anyUser.sectionName || anyUser.section || 'General'),
+                section: anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'),
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
                 integrityScore: anyUser.integrityScore || 0,

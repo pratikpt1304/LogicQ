@@ -2341,7 +2341,7 @@ export class FirestoreDataService {
     if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
 
     // Never purge demo or dummy students
-    if (email === 'dummy@logicq.io' || prn === 'DUMMY' || id === 'std_dummy' || id === 'dummy') return false;
+    if (email === 'dummy@logicq.io' || email === 'demo1@logicq.io' || prn === 'DUMMY' || prn === 'DEMO1' || id === 'std_dummy' || id === 'std_demo1' || id === 'dummy' || id === 'demo1') return false;
 
     const targetEmails = [
       'hariprasathset@sanjivani.edu.in',
@@ -2350,11 +2350,14 @@ export class FirestoreDataService {
       'rohan_1390@test.edu',
       'join_1390@sanjivani.edu.in',
       'student_2026sim7208@sanjivani.edu.in',
+      'rohan.sharma2026@gmail.com',
+      'rohan_sharma2026@gmail.com',
       'prnchange.test1@sanjivani.org.in',
       'prnchange.test2@sanjivani.org.in',
       'prn_format_test_1@sanjivani.org.in',
     ];
     const targetPrns = [
+      '2199IMTE1001',
       '2026IMTM0001',
       '2024BCSE0001',
       '2026VAL1390',
@@ -2394,12 +2397,15 @@ export class FirestoreDataService {
         'ipworker1908@gmail.com',
         'logicq1304@gmail.com',
         'student_2026sim7208@sanjivani.edu.in',
-        'prnchange.test1@sanjivani.org.in',
+        'rohan.sharma2026@gmail.com',
+      'rohan_sharma2026@gmail.com',
+      'prnchange.test1@sanjivani.org.in',
         'prnchange.test2@sanjivani.org.in',
         'prn_format_test_1@sanjivani.org.in',
       ];
       const targetPrns = [
-        '2026IMTM0001',
+        '2199IMTE1001',
+      '2026IMTM0001',
         '2024BCSE0001',
         '2026VAL1390',
         '2026JON1390',
@@ -2420,7 +2426,8 @@ export class FirestoreDataService {
         'admin_hariprasath',
         'hariprasathset_sanjivani_edu_in',
         'admin_logicq_io',
-        '2026IMTM0001',
+        '2199IMTE1001',
+      '2026IMTM0001',
         '2024BCSE0001',
         'rohan_1390_test_edu',
         'join_1390_sanjivani_edu_in',
