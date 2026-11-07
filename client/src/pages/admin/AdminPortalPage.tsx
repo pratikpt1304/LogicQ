@@ -82,7 +82,7 @@ const DEFAULT_SECTIONS = [
     course: 'B.Tech Computer Engineering',
     academicYear: '2026-2027',
     semester: 'Semester III',
-    joinCode: 'SANJIVANI-CS-DIV-A',
+    joinCode: 'LQ-CS-DIV-A',
     studentsCount: 58,
     createdAt: new Date().toISOString(),
   },
@@ -93,7 +93,7 @@ const DEFAULT_SECTIONS = [
     course: 'B.Tech Computer Engineering',
     academicYear: '2026-2027',
     semester: 'Semester III',
-    joinCode: 'SANJIVANI-CS-DIV-B',
+    joinCode: 'LQ-CS-DIV-B',
     studentsCount: 58,
     createdAt: new Date().toISOString(),
   },
@@ -158,7 +158,7 @@ export const AdminPortalPage: React.FC = () => {
       course: data.course || 'B.Tech Computer Engineering',
       academicYear: data.academicYear || '2026-2027',
       semester: data.semester || 'Semester III',
-      joinCode: `SANJIVANI-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      joinCode: `LQ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       studentsCount: 0,
       createdAt: new Date().toISOString(),
     };
@@ -224,7 +224,7 @@ export const AdminPortalPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                Sanjivani College of Engineering • Dept. of Computer Engineering
+                Continuous Evaluation & Examination Platform
               </p>
             </div>
           </div>

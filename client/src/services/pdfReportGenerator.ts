@@ -50,7 +50,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('LOGICQ · SANJIVANI UNIVERSITY', margin, 12);
+  doc.text('LOGICQ · ACADEMIC EXAMINATION BOARD', margin, 12);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -296,7 +296,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
   doc.text('This document is electronically verified and tamper-evident. Scan the QR code with any camera', margin + 28, y + 12);
-  doc.text('to validate academic continuous evaluation marks and proctored telemetry on the Sanjivani portal.', margin + 28, y + 16);
+  doc.text('to validate academic continuous evaluation marks and proctored telemetry on the LogicQ portal.', margin + 28, y + 16);
 
   doc.setFontSize(7);
   doc.setFont('courier', 'bold');
@@ -314,7 +314,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.setFontSize(7);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(148, 163, 184);
-  doc.text('LogicQ Academic Platform · Sanjivani University · Confidential Student Examination Record · ISO/IEC 27001 Compliant', margin, 290);
+  doc.text('LogicQ Academic Platform · Confidential Student Examination Record · ISO/IEC 27001 Compliant', margin, 290);
 
   // Trigger browser download
   const cleanPrn = (opts.prn || 'Student').replace(/[^a-zA-Z0-9_-]/g, '');
