@@ -52,28 +52,13 @@ export const MobileBottomNav: React.FC = () => {
     return location.pathname === path;
   };
 
-  const navItems = isStudent
-    ? [
-        { label: 'Home', path: '/dashboard', icon: Home },
-                { label: 'Practice', path: '/practice', icon: Code2 },
-        { label: 'Lab', path: '/lab-internal', icon: BookOpen },
-        { label: 'Submissions', path: '/history', icon: FileCode2 },
-        { label: 'Analytics', path: '/analytics', icon: Brain },
-      ]
-    : isAdmin
-    ? [
-        { label: 'Home', path: '/dashboard', icon: Home },
-        { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
-        { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
-        { label: 'Profile', path: '/profile', icon: UserIcon },
-      ]
-    : [
-        { label: 'Home', path: '/dashboard', icon: Home },
-        { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
-        { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
-        { label: 'Analytics', path: '/faculty/analytics', icon: Brain },
-        { label: 'Profile', path: '/profile', icon: UserIcon },
-      ];
+  const navItems = [
+    { label: 'Home', path: '/dashboard', icon: Home },
+    { label: 'Practice', path: '/practice', icon: Code2 },
+    { label: 'Lab', path: '/lab-internal', icon: BookOpen },
+    { label: 'Submissions', path: '/history', icon: FileCode2 },
+    { label: 'Analytics', path: '/analytics', icon: Brain },
+  ];
 
   return (
     <nav

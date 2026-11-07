@@ -97,21 +97,13 @@ export const Navbar: React.FC = () => {
   };
 
   // Signed-in navbar items: Students see learning modules, Admin/Faculty see instructor/management links
-  const appNavLinks = isStudent
-    ? [
-        { label: 'Home', path: '/dashboard', icon: Home },
-                { label: 'Practice', path: '/practice', icon: Code2 },
-        { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
-        { label: 'Submissions', path: '/history', icon: FileCode2 },
-        { label: 'Analytics', path: '/analytics', icon: Brain },
-      ]
-    : [
-        { label: 'Dashboard', path: '/dashboard', icon: Home },
-        { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
-        { label: 'Question Bank', path: '/faculty/questions', icon: Sparkles },
-        { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
-        { label: 'Analytics', path: '/faculty/analytics', icon: Brain },
-      ];
+  const appNavLinks = [
+    { label: 'Home', path: '/dashboard', icon: Home },
+    { label: 'Practice', path: '/practice', icon: Code2 },
+    { label: 'Lab Internal', path: '/lab-internal', icon: BookOpen },
+    { label: 'Submissions', path: '/history', icon: FileCode2 },
+    { label: 'Analytics', path: '/analytics', icon: Brain },
+  ];
 
   const handleLogout = async () => {
     await clearPwaUserCachesAndDrafts();
@@ -223,7 +215,7 @@ export const Navbar: React.FC = () => {
                               {user?.prn === '2126PMIM1039' ? 'Pratik Thorat' : (user.displayName || user.fullName || user.username)}
                             </p>
                             <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 uppercase tracking-wider shrink-0">
-                              {isAdmin ? 'Admin' : isFaculty ? 'Faculty' : isChecker ? 'Evaluator' : 'Student'}
+                              'Student'
                             </span>
                           </div>
                           <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] truncate mt-0.5">

@@ -230,13 +230,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return;
       }
-      if (isExplicitAdminEmail(finalUser.email)) {
-        finalUser = {
-          ...finalUser,
-          role: 'ADMIN',
-          profileComplete: true,
-        };
-      }
+      finalUser = {
+        ...finalUser,
+        role: 'STUDENT',
+        displayName: 'LogicQ Arena',
+        fullName: 'LogicQ Arena',
+        profileComplete: true,
+      };
 
       // MONOTONIC RETENTION: Never allow points, streak, or solved count to downgrade to 0!
       const active = user || getCachedUser();
