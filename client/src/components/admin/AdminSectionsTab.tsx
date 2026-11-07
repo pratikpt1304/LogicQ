@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   Copy,
@@ -47,11 +47,6 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   onDeleteSection,
   onImportExcelStudents,
 }) => {
-  // Inline quick create state (1-Click, Zero Modal)
-  const [quickSectionName, setQuickSectionName] = useState('');
-  const [isCreatingQuick, setIsCreatingQuick] = useState(false);
-  const quickInputRef = useRef<HTMLInputElement>(null);
-
   // Modal create state (for admins who click "+ New Section" header button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [modalSectionName, setModalSectionName] = useState('');
@@ -83,37 +78,6 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
     setCopiedId(sec.id);
     toast.success(`1-Click Join Link copied! Share with ${sec.sectionName} students.`);
     setTimeout(() => setCopiedId(null), 2200);
-  };
-
-  // 1-Click Quick Section Creator
-  const handleQuickCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = quickSectionName.trim();
-    if (!name) {
-      // If admin clicks button without typing, open the modal and focus
-      setIsCreateModalOpen(true);
-      return;
-    }
-
-    setIsCreatingQuick(true);
-    try {
-      const codeSuffix = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'SEC';
-      const cleanJoinCode = `LQ-${codeSuffix}${Math.floor(10 + Math.random() * 89)}`;
-
-      await onCreateSection({
-        sectionName: name,
-        subject: 'C Programming',
-        course: 'Computer Science & Engineering',
-        academicYear: '2026-2027',
-        semester: 'Semester 1',
-        joinCode: cleanJoinCode,
-      });
-
-      setQuickSectionName('');
-      toast.success(`Section "${name}" created! Join Code: ${cleanJoinCode}`);
-    } finally {
-      setIsCreatingQuick(false);
-    }
   };
 
   // Modal Section Creator
@@ -263,39 +227,12 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer shrink-0"
+            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>New Section</span>
           </button>
         </div>
-
-        {/* 1-CLICK INLINE QUICK CREATOR (Admin Sir Request: Less Clicks & Simple) */}
-        <form
-          onSubmit={handleQuickCreate}
-          className="flex flex-col sm:flex-row items-center gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5"
-        >
-          <div className="relative flex-1 w-full">
-            <input
-              ref={quickInputRef}
-              type="text"
-              value={quickSectionName}
-              onChange={(e) => setQuickSectionName(e.target.value)}
-              placeholder="Quick Add: Type section name (e.g. Division A, Batch 1) & press Enter or click Create..."
-              className="w-full pl-3.5 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition placeholder:text-slate-400"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isCreatingQuick}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
-            title="Create Section"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isCreatingQuick ? 'Creating...' : '+ Create Section'}</span>
-          </button>
-        </form>
       </div>
 
       {/* ========================================================================= */}
