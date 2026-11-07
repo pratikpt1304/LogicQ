@@ -68,47 +68,11 @@ const INTEGRITY_FACTORS = [
   },
 ];
 
-const SAMPLE_VIVA_LOGS = [
-  {
-    id: 'viva-101',
-    studentName: 'Aarav Sharma',
-    prn: '2126CS101',
-    problemTitle: 'Bitwise Parity Validator',
-    triggerReason: 'Rule 29: 2nd Successive Correct Answer',
-    vivaQuestion: 'Explain how `n & (n - 1)` clears the lowest set bit in your C solution.',
-    studentAnswer: 'In two’s complement, subtracting 1 flips all bits after the least significant set bit including that bit itself. ANDing it with n clears it.',
-    vivaScore: 95,
-    status: 'VERIFIED',
-    timestamp: '15m ago',
-  },
-  {
-    id: 'viva-102',
-    studentName: 'Diya Patel',
-    prn: '2126CS102',
-    problemTitle: 'Dynamic Array Deduplication',
-    triggerReason: 'Rule 29: 2nd Successive Correct Answer',
-    vivaQuestion: 'Why did you use pointer arithmetic instead of array indexing in line 14?',
-    studentAnswer: 'To avoid repetitive base address addition overhead during the in-place compaction pass.',
-    vivaScore: 90,
-    status: 'VERIFIED',
-    timestamp: '42m ago',
-  },
-  {
-    id: 'viva-103',
-    studentName: 'Sneha Kulkarni',
-    prn: '2126CS104',
-    problemTitle: 'Binary Packet Serialization',
-    triggerReason: 'Rule 29: 2nd Successive Correct Answer',
-    vivaQuestion: 'Explain the function of `__attribute__((packed))` in your struct definition.',
-    studentAnswer: 'It makes the struct work without errors on files.',
-    vivaScore: 35,
-    status: 'FLAGGED',
-    timestamp: '2h ago',
-  },
-];
+const SAMPLE_VIVA_LOGS: any[] = [];
 
 export const AdminIntegrityTab: React.FC = () => {
   const [selectedViva, setSelectedViva] = useState<any | null>(null);
+  const [vivaLogs] = useState<any[]>(SAMPLE_VIVA_LOGS);
 
   return (
     <div className="space-y-6">
@@ -204,52 +168,60 @@ export const AdminIntegrityTab: React.FC = () => {
           </div>
 
           <span className="text-[11px] font-mono text-slate-400">
-            Active Defenses: {SAMPLE_VIVA_LOGS.length}
+            Active Defenses: {vivaLogs.length}
           </span>
         </div>
 
-        <div className="space-y-3">
-          {SAMPLE_VIVA_LOGS.map((vl) => (
-            <div
-              key={vl.id}
-              onClick={() => setSelectedViva(vl)}
-              className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 hover:border-purple-500/40 transition-all cursor-pointer space-y-2"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {vl.studentName} ({vl.prn})
-                  </span>
-                  <span className="text-slate-400">•</span>
-                  <span className="text-slate-500">{vl.problemTitle}</span>
+        {vivaLogs.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 space-y-2">
+            <ShieldCheck className="w-8 h-8 mx-auto text-emerald-500 opacity-80" />
+            <p className="font-bold text-xs text-slate-800 dark:text-slate-200">Zero Integrity Flags Recorded</p>
+            <p className="text-[11px] text-slate-500">All student assessment sessions are currently operating with clean telemetry.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {vivaLogs.map((vl) => (
+              <div
+                key={vl.id}
+                onClick={() => setSelectedViva(vl)}
+                className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 hover:border-purple-500/40 transition-all cursor-pointer space-y-2"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {vl.studentName} ({vl.prn})
+                    </span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-500">{vl.problemTitle}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        vl.status === 'VERIFIED'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      }`}
+                    >
+                      Viva Score: {vl.vivaScore}% ({vl.status})
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">{vl.timestamp}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      vl.status === 'VERIFIED'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    }`}
-                  >
-                    Viva Score: {vl.vivaScore}% ({vl.status})
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">{vl.timestamp}</span>
+                <div className="text-xs text-slate-600 dark:text-slate-300">
+                  <span className="font-bold text-purple-600 dark:text-purple-400">Q: </span>
+                  {vl.vivaQuestion}
+                </div>
+
+                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 not-italic">A: </span>
+                  "{vl.studentAnswer}"
                 </div>
               </div>
-
-              <div className="text-xs text-slate-600 dark:text-slate-300">
-                <span className="font-bold text-purple-600 dark:text-purple-400">Q: </span>
-                {vl.vivaQuestion}
-              </div>
-
-              <div className="text-xs text-slate-500 dark:text-slate-400 italic">
-                <span className="font-bold text-slate-700 dark:text-slate-300 not-italic">A: </span>
-                "{vl.studentAnswer}"
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import {
   Info,
 } from 'lucide-react';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { toast } from 'sonner';
 
 export interface AdminStudentRecord {
@@ -37,92 +38,48 @@ export interface AdminStudentRecord {
   lastActive: string;
 }
 
-const SAMPLE_STUDENTS: AdminStudentRecord[] = [
-  {
-    id: 'st-1',
-    name: 'LogicQ Admin Student',
-    prn: 'LOGICQARENA',
-    email: 'logicqarena@gmail.com',
-    section: 'Division A (C Programming)',
-    identityStatus: 'BOUND',
-    academicScore: 94,
-    integrityScore: 6,
-    miniProjectUnlocked: true,
-    activeWorkRatio: 0.91,
-    codeBurstRatio: 0.08,
-    solutionEmergence: 'NATURAL',
-    lastActive: 'Just now',
-  },
-  {
-    id: 'st-2',
-    name: 'Aarav Sharma',
-    prn: '2126CS101',
-    email: 'aarav.sharma@sanjivani.edu.in',
-    section: 'Division A (C Programming)',
-    identityStatus: 'BOUND',
-    academicScore: 88,
-    integrityScore: 12,
-    miniProjectUnlocked: false,
-    activeWorkRatio: 0.84,
-    codeBurstRatio: 0.14,
-    solutionEmergence: 'NATURAL',
-    lastActive: '12m ago',
-  },
-  {
-    id: 'st-3',
-    name: 'Diya Patel',
-    prn: '2126CS102',
-    email: 'diya.patel@sanjivani.edu.in',
-    section: 'Division A (C Programming)',
-    identityStatus: 'BOUND',
-    academicScore: 92,
-    integrityScore: 9,
-    miniProjectUnlocked: true,
-    activeWorkRatio: 0.89,
-    codeBurstRatio: 0.11,
-    solutionEmergence: 'NATURAL',
-    lastActive: '45m ago',
-  },
-  {
-    id: 'st-4',
-    name: 'Rohan Deshmukh',
-    prn: '2126CS103',
-    email: 'rohan.deshmukh@sanjivani.edu.in',
-    section: 'Division B (C Programming)',
-    identityStatus: 'EMAIL_VERIFIED',
-    academicScore: 62,
-    integrityScore: 38,
-    miniProjectUnlocked: false,
-    activeWorkRatio: 0.65,
-    codeBurstRatio: 0.28,
-    solutionEmergence: 'NATURAL',
-    lastActive: '2h ago',
-  },
-  {
-    id: 'st-5',
-    name: 'Sneha Kulkarni',
-    prn: '2126CS104',
-    email: 'sneha.kulkarni@sanjivani.edu.in',
-    section: 'Division B (C Programming)',
-    identityStatus: 'PENDING',
-    academicScore: 35,
-    integrityScore: 78,
-    miniProjectUnlocked: false,
-    activeWorkRatio: 0.32,
-    codeBurstRatio: 0.74,
-    solutionEmergence: 'SYNTHETIC',
-    lastActive: '1d ago',
-  },
-];
+const SAMPLE_STUDENTS: AdminStudentRecord[] = [];
 
 export const AdminStudentsTab: React.FC = () => {
-  const [students, setStudents] = useState<AdminStudentRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('logicq_admin_students_list');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return SAMPLE_STUDENTS;
-  });
+  const [students, setStudents] = useState<AdminStudentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch real students from Firestore
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchRealStudents = async () => {
+      try {
+        setIsLoading(true);
+        const users = await FirestoreDataService.getAllFirestoreUsers();
+        if (isMounted && Array.isArray(users)) {
+          const studentUsers = users
+            .filter((u) => u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com'))
+            .map((u) => {
+              const anyUser = u as any;
+              return {
+                id: anyUser.id || anyUser.uid || Math.random().toString(),
+                name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student',
+                prn: (anyUser.prn || '').toUpperCase() || '—',
+                email: anyUser.email || '—',
+                section: anyUser.division ? `Division ${anyUser.division}` : 'Unassigned',
+                identityStatus: (anyUser.isEmailBoundV2 || anyUser.emailVerified || (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in'))) ? 'BOUND' : 'PENDING',
+                academicScore: Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
+                integrityScore: 0,
+                miniProjectUnlocked: Boolean(anyUser.miniProjectUnlocked),
+                lastActive: anyUser.lastLoginAt ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+              };
+            });
+          setStudents(studentUsers as AdminStudentRecord[]);
+        }
+      } catch (err) {
+        console.error('Failed to load real students from Firestore:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    fetchRealStudents();
+    return () => { isMounted = false; };
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'BOUND' | 'UNLOCKED' | 'FLAGGED' | 'SUPPORT'>('ALL');
@@ -282,10 +239,16 @@ export const AdminStudentsTab: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs text-slate-700 dark:text-slate-300">
-              {filteredStudents.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-mono text-xs animate-pulse">
+                    Loading student directory from database...
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    No students match the current criteria.
+                    No enrolled students found in directory.
                   </td>
                 </tr>
               ) : (

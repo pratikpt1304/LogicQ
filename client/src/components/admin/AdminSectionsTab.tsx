@@ -189,7 +189,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         <div className="space-y-1">
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-indigo-500" />
-            <span>Academic Sections &amp; Rosters (Items 11–13)</span>
+            <span>Academic Sections &amp; Rosters</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Create academic divisions, generate Instant Join Links &amp; WhatsApp invitations, or upload student rosters via Excel.
@@ -202,7 +202,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold transition shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Create New Section (Workflow 1)</span>
+          <span>Create New Section</span>
         </button>
       </div>
 

@@ -34,6 +34,7 @@ import { AdminTestOrchestratorTab } from '../../components/admin/AdminTestOrches
 import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export type AdminTabKey =
   | 'command-center'
@@ -54,77 +55,28 @@ interface TabItem {
 const TABS: TabItem[] = [
   { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
   { id: 'sections', label: 'Sections', icon: Layers },
-  { id: 'students', label: 'Students', badge: '116', icon: Users },
+  { id: 'students', label: 'Students', icon: Users },
   { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
   { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
-  { id: 'integrity', label: 'Integrity & AI Viva', badge: '2', icon: ShieldAlert },
+  { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
 ];
 
 const DEFAULT_STATS = {
-  activeTests: 1,
-  upcomingTests: 1,
-  completedTests: 1,
-  totalSections: 2,
-  totalStudents: 116,
-  avgAcademicScore: 84.6,
-  overallIntegrityScore: 92.4,
-  studentsNeedingSupport: 5,
-  advancedLearners: 42,
-  flaggedSessions: 2,
+  activeTests: 0,
+  upcomingTests: 0,
+  completedTests: 0,
+  totalSections: 0,
+  totalStudents: 0,
+  avgAcademicScore: 0,
+  overallIntegrityScore: 100,
+  studentsNeedingSupport: 0,
+  advancedLearners: 0,
+  flaggedSessions: 0,
 };
 
-const DEFAULT_SECTIONS = [
-  {
-    id: 'sec-div-a',
-    sectionName: 'Division A',
-    subject: 'C Programming & Algorithms',
-    course: 'B.Tech Computer Engineering',
-    academicYear: '2026-2027',
-    semester: 'Semester III',
-    joinCode: 'LQ-CS-DIV-A',
-    studentsCount: 58,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'sec-div-b',
-    sectionName: 'Division B',
-    subject: 'C Programming & Algorithms',
-    course: 'B.Tech Computer Engineering',
-    academicYear: '2026-2027',
-    semester: 'Semester III',
-    joinCode: 'LQ-CS-DIV-B',
-    studentsCount: 58,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const DEFAULT_LIVE_EVENTS = [
-  {
-    id: 'evt-1',
-    studentName: 'Aarav Sharma',
-    prn: '2126CS101',
-    problemTitle: 'Bitwise Parity Validator',
-    type: 'SUBMISSION_ACCEPTED',
-    time: '2m ago',
-  },
-  {
-    id: 'evt-2',
-    studentName: 'Diya Patel',
-    prn: '2126CS102',
-    problemTitle: 'Dynamic Array Deduplication',
-    type: 'VIVA_VERIFIED',
-    time: '5m ago',
-  },
-  {
-    id: 'evt-3',
-    studentName: 'Sneha Kulkarni',
-    prn: '2126CS104',
-    problemTitle: 'Binary Packet Serialization',
-    type: 'INTEGRITY_FLAG',
-    time: '12m ago',
-  },
-];
+const DEFAULT_SECTIONS: any[] = [];
+const DEFAULT_LIVE_EVENTS: any[] = [];
 
 export const AdminPortalPage: React.FC = () => {
   const { user, isAdmin, isFaculty, logout } = useAuth();
@@ -133,15 +85,43 @@ export const AdminPortalPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<AdminTabKey>('command-center');
   const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
+  const [stats, setStats] = useState(DEFAULT_STATS);
 
   // Sections management state
-  const [sections, setSections] = useState<any[]>(() => {
+  const [sections, setSections] = useState<any[]>([]);
+
+  // Real-time synchronization & fake cache purge
+  React.useEffect(() => {
     try {
-      const saved = localStorage.getItem('logicq_admin_sections');
-      if (saved) return JSON.parse(saved);
+      localStorage.removeItem('logicq_admin_sections');
+      localStorage.removeItem('logicq_admin_students_list');
+      localStorage.removeItem('logicq_admin_tests');
     } catch {}
-    return DEFAULT_SECTIONS;
-  });
+
+    const loadRealData = async () => {
+      try {
+        const [realSections, realUsers] = await Promise.all([
+          FirestoreDataService.getSectionsFromFirestore().catch(() => []),
+          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+        ]);
+
+        const validSections = Array.isArray(realSections) ? realSections : [];
+        const studentUsers = Array.isArray(realUsers)
+          ? realUsers.filter((u) => u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com'))
+          : [];
+
+        setSections(validSections);
+        setStats((prev) => ({
+          ...prev,
+          totalSections: validSections.length,
+          totalStudents: studentUsers.length,
+        }));
+      } catch (err) {
+        console.error('Error fetching admin data:', err);
+      }
+    };
+    loadRealData();
+  }, []);
 
   const saveSections = (updated: any[]) => {
     setSections(updated);
@@ -235,10 +215,10 @@ export const AdminPortalPage: React.FC = () => {
             <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.08] text-xs font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-semibold text-slate-700 dark:text-slate-300">
-                116 Students Online
+                {stats.totalStudents} Students Enrolled
               </span>
               <span className="text-slate-400">•</span>
-              <span className="text-emerald-500 font-semibold">Proctoring Active</span>
+              <span className="text-emerald-500 font-semibold">System Online</span>
             </div>
 
             {/* Dark / Light Mode */}
@@ -314,7 +294,7 @@ export const AdminPortalPage: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {activeTab === 'command-center' && (
           <AdminCommandCenterTab
-            stats={DEFAULT_STATS}
+            stats={stats}
             liveEvents={DEFAULT_LIVE_EVENTS}
             onSelectTab={handleTabSelect}
             onInspectStudent={(candidate) => setSelectedCandidateForDeepDive(candidate)}

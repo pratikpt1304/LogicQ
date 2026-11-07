@@ -109,9 +109,11 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
             <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
               Assessments
             </span>
-            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              1 LIVE
+            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              stats.activeTests > 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-white/5 text-slate-400'
+            }`}>
+              {stats.activeTests > 0 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+              {stats.activeTests > 0 ? `${stats.activeTests} LIVE` : 'STANDBY'}
             </span>
           </div>
           <div className="my-3">
@@ -238,71 +240,83 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {liveEvents.map((ev, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-xl border border-slate-100 dark:border-white/[0.05] bg-slate-50/60 dark:bg-white/[0.02] flex items-center justify-between text-xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
-                    {ev.studentName?.charAt(0) || 'S'}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
-                      <span>{ev.studentName}</span>
-                      <span className="text-[11px] font-mono text-slate-400">({ev.prn})</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 truncate">
-                      {ev.problemTitle || 'C Programming Assessment'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="text-right font-mono">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        ev.type === 'SUBMISSION_ACCEPTED'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : ev.type === 'VIVA_VERIFIED'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                      }`}
-                    >
-                      {ev.type === 'SUBMISSION_ACCEPTED'
-                        ? 'PASS (LOCKED)'
-                        : ev.type === 'VIVA_VERIFIED'
-                        ? 'VIVA PASS'
-                        : 'TELEMETRY FLAG'}
-                    </span>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{ev.time}</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onInspectStudent) {
-                        onInspectStudent({
-                          name: ev.studentName,
-                          prn: ev.prn,
-                          email: `${ev.prn.toLowerCase()}@sanjivani.edu.in`,
-                          section: 'Division A',
-                          academicScore: 92,
-                          integrityScore: 8,
-                          miniProjectUnlocked: true,
-                        });
-                      } else {
-                        onSelectTab('students');
-                      }
-                    }}
-                    className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 transition cursor-pointer"
-                    title="1-Click Telemetry Inspection"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+            {liveEvents.length === 0 ? (
+              <div className="py-14 text-center text-slate-400 space-y-2">
+                <ShieldCheck className="w-8 h-8 mx-auto text-emerald-500 opacity-80" />
+                <p className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  No Active Assessment Stream
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Real-time telemetry, student submissions, and AI viva defenses will stream here once an examination commences.
+                </p>
               </div>
-            ))}
+            ) : (
+              liveEvents.map((ev, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-xl border border-slate-100 dark:border-white/[0.05] bg-slate-50/60 dark:bg-white/[0.02] flex items-center justify-between text-xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+                      {ev.studentName?.charAt(0) || 'S'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
+                        <span>{ev.studentName}</span>
+                        <span className="text-[11px] font-mono text-slate-400">({ev.prn})</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate">
+                        {ev.problemTitle || 'C Programming Assessment'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right font-mono">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          ev.type === 'SUBMISSION_ACCEPTED'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : ev.type === 'VIVA_VERIFIED'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                        }`}
+                      >
+                        {ev.type === 'SUBMISSION_ACCEPTED'
+                          ? 'PASS (LOCKED)'
+                          : ev.type === 'VIVA_VERIFIED'
+                          ? 'VIVA PASS'
+                          : 'TELEMETRY FLAG'}
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{ev.time}</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onInspectStudent) {
+                          onInspectStudent({
+                            name: ev.studentName,
+                            prn: ev.prn,
+                            email: `${ev.prn.toLowerCase()}@college.edu`,
+                            section: 'Division A',
+                            academicScore: 92,
+                            integrityScore: 8,
+                            miniProjectUnlocked: true,
+                          });
+                        } else {
+                          onSelectTab('students');
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 text-slate-500 dark:text-slate-300 transition cursor-pointer"
+                      title="1-Click Telemetry Inspection"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -317,46 +331,41 @@ export const AdminCommandCenterTab: React.FC<AdminCommandCenterTabProps> = ({
                   Review Queue
                 </h3>
               </div>
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                2 Pending
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                {stats.flaggedSessions} Pending
               </span>
             </div>
 
-            <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white">Sneha Kulkarni</span>
-                  <span className="text-[10px] font-mono text-amber-500">Burst Flag</span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Clipboard burst detected (64 chars in 18ms). AI Viva recommended.
+            {stats.flaggedSessions === 0 ? (
+              <div className="py-6 text-center text-slate-400 space-y-1.5">
+                <ShieldCheck className="w-6 h-6 mx-auto text-emerald-500 opacity-90" />
+                <p className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  Clean Proctoring Ledger
                 </p>
-                <button
-                  type="button"
-                  onClick={() => onSelectTab('integrity')}
-                  className="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition cursor-pointer"
-                >
-                  Trigger AI Viva
-                </button>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white">Rohan Deshmukh</span>
-                  <span className="text-[10px] font-mono text-blue-500">Ready</span>
-                </div>
                 <p className="text-[11px] text-slate-500">
-                  Mini-Project threshold met (Score 88%). Requires faculty unlock.
+                  Zero flagged sessions requiring supervisor intervention.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => onSelectTab('students')}
-                  className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] transition cursor-pointer"
-                >
-                  Review & Unlock
-                </button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2 text-xs">
+                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white">Flagged Candidate</span>
+                    <span className="text-[10px] font-mono text-amber-500">Review</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Cadence anomaly detected. AI Viva recommended.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab('integrity')}
+                    className="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] transition cursor-pointer"
+                  >
+                    Inspect in Integrity Radar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Institutional Model Summary */}

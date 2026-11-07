@@ -34,53 +34,7 @@ export interface AdminTestDefinition {
   suspiciousEvents: number;
 }
 
-const SAMPLE_TESTS: AdminTestDefinition[] = [
-  {
-    id: 'test-midterm-01',
-    title: 'Midterm Practical: Pointer Arithmetic & Control Flow',
-    sectionTarget: 'Division A & Division B',
-    durationMinutes: 60,
-    totalMarks: 40,
-    easyPct: 40,
-    mediumPct: 40,
-    hardPct: 20,
-    lockOnSubmit: true,
-    status: 'ACTIVE',
-    activeStudents: 24,
-    totalEnrolled: 116,
-    suspiciousEvents: 2,
-  },
-  {
-    id: 'test-lab-eval-02',
-    title: 'Continuous Evaluation 3: Dynamic Data Structures',
-    sectionTarget: 'Division A',
-    durationMinutes: 45,
-    totalMarks: 20,
-    easyPct: 40,
-    mediumPct: 40,
-    hardPct: 20,
-    lockOnSubmit: true,
-    status: 'UPCOMING',
-    activeStudents: 0,
-    totalEnrolled: 62,
-    suspiciousEvents: 0,
-  },
-  {
-    id: 'test-diagnostic-03',
-    title: 'Baseline Diagnostic: C Syntax & Operator Precedence',
-    sectionTarget: 'All Divisions',
-    durationMinutes: 30,
-    totalMarks: 20,
-    easyPct: 50,
-    mediumPct: 30,
-    hardPct: 20,
-    lockOnSubmit: true,
-    status: 'COMPLETED',
-    activeStudents: 0,
-    totalEnrolled: 116,
-    suspiciousEvents: 5,
-  },
-];
+const SAMPLE_TESTS: AdminTestDefinition[] = [];
 
 export const AdminTestOrchestratorTab: React.FC = () => {
   const [tests, setTests] = useState<AdminTestDefinition[]>(() => {
@@ -174,8 +128,24 @@ export const AdminTestOrchestratorTab: React.FC = () => {
       </div>
 
       {/* Tests Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {tests.map((t) => (
+      {tests.length === 0 ? (
+        <div className="py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-slate-900/40 p-8 space-y-4">
+          <Sliders className="w-12 h-12 mx-auto text-slate-400" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Assessment Tests Created Yet</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Click <strong>&quot;Create &amp; Schedule Test&quot;</strong> to initialize an examination with 40/40/20 difficulty ratio and locked reattempt rules.
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-mono font-bold hover:bg-indigo-500"
+          >
+            Create Test Now
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {tests.map((t) => (
           <div
             key={t.id}
             className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl p-5 shadow-sm space-y-4 flex flex-col justify-between"
@@ -273,6 +243,7 @@ export const AdminTestOrchestratorTab: React.FC = () => {
           </div>
         ))}
       </div>
+      )}
 
       {/* Create Test Modal with 40/40/20 Ratio Calculator */}
       {isCreateModalOpen && (
