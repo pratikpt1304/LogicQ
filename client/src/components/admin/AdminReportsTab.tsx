@@ -280,7 +280,7 @@ export const AdminReportsTab: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ========================================================================= */}
-      {/* 1. APPLE MINIMALIST HEADER & 1-CLICK EXPORT BAR                           */}
+      {/* 1. APPLE MINIMALIST HEADER                                                */}
       {/* ========================================================================= */}
       <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -300,37 +300,6 @@ export const AdminReportsTab: React.FC = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Download certified assessment transcripts, student marks rosters, and institutional accreditation spreadsheets.
             </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsPreviewModalOpen(true)}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-            >
-              <Eye className="w-4 h-4 text-slate-400" />
-              <span>Preview Report</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadOfficialPdf}
-              disabled={isExportingPdf}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>{isExportingPdf ? 'Compiling PDF...' : 'Download PDF'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadExcelDataset}
-              disabled={isExportingExcel}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel'}</span>
-            </button>
           </div>
         </div>
 
