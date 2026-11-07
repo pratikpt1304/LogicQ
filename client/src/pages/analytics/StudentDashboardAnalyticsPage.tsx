@@ -44,13 +44,13 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
+type AnalyticsTab = 'mastery' | 'standing' | 'reports';
 
 export const StudentDashboardAnalyticsPage: React.FC = () => {
   const { user, isAdmin, isFaculty } = useAuth();
   const queryClient = useQueryClient();
   const targetUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'current';
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('mastery');
   const [selectedReportTestId, setSelectedReportTestId] = useState<string | null>(null);
   const [masteryViewFilter, setMasteryViewFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
   const [auditTrackFilter, setAuditTrackFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
@@ -631,9 +631,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
       </div>
 
       {/* 2. APPLE SEGMENTED TAB SWITCHER */}
-      <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-1">
+      <div className="p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 grid grid-cols-3 gap-1.5">
         {[
-          { id: 'overview' as const, label: 'Overview', icon: TrendingUp },
           { id: 'mastery' as const, label: 'Syllabus Mastery', icon: Layers },
           { id: 'standing' as const, label: 'Academic Standing', icon: ShieldCheck },
           { id: 'reports' as const, label: 'Reports & Logs', icon: FileText },
@@ -660,158 +659,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
 
       {/* 3. TAB PANELS */}
       <AnimatePresence mode="wait">
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <motion.div
-            key="overview"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            {/* Actionable Learning Insights & Recommended Next Step */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-6 sm:p-7 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                      Curriculum Guidance & Velocity
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Automated recommendations based on verified C11 compiler solutions
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-500 font-bold">
-                  Active Sprint
-                </span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
-                    Recommended Next Focus:
-                  </span>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {nextRecommended.moduleTitle}
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {nextRecommended.desc}
-                  </p>
-                </div>
-                <Link
-                  to="/practice"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-auto shadow-xs active:scale-95"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Resume Practice</span>
-                </Link>
-              </div>
-            </div>
-
-            {/* 4 Meaningful Academic & Velocity Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Compiler Verdict Distribution */}
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Compiler Verdict Ratio
-                  </span>
-                  <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Accepted (AC)</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.ac}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-indigo-500 font-semibold">Compile Errors (CE)</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.ce}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-amber-500 font-semibold">Wrong Answers (WA)</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">{verdictStats.wa}</span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-                  Compiled via isolated GCC 14.2 sandbox
-                </p>
-              </div>
-
-              {/* Card 2: CIE Lab Evaluation Health */}
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Continuous Lab Internal (CIE)
-                  </span>
-                  <Award className="w-3.5 h-3.5 text-indigo-500" />
-                </div>
-                <div className="text-xl font-bold font-mono text-slate-900 dark:text-white">
-                  {cieMarks.toFixed(1)} <span className="text-xs text-slate-400 font-normal">/ 20.0 Marks</span>
-                </div>
-                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (cieMarks / 20.0) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400">
-                  {labSolvedCount} of 80 coursework experiments completed
-                </p>
-              </div>
-
-              {/* Card 3: Typing & Solving Speed */}
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Typing &amp; Solving Speed
-                  </span>
-                  <Zap className="w-3.5 h-3.5 text-amber-500" />
-                </div>
-                <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <span>215 CPM</span>
-                  <span className="text-xs text-slate-400 font-sans font-normal">(43 Words/Min)</span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Actual Solve Time</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">~3.5 mins / problem</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Keystroke Interval</span>
-                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">~280 ms interval</span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-                  Characters per minute (CPM) &amp; words per minute (WPM)
-                </p>
-              </div>
-
-              {/* Card 4: Academic Environment Status */}
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Proctored Integrity
-                  </span>
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                </div>
-                <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <span>{finalIntegrityScore}</span>
-                  <span className="text-xs font-sans font-medium">/ 100 Verified</span>
-                </div>
-                <p className="text-[10px] text-slate-400">
-                  {isCleanSession ? '✓ Clean session: Zero infractions logged' : 'Telemetry logged under review'}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* TAB 2: SYLLABUS MASTERY */}
+        {/* TAB 1: SYLLABUS MASTERY */}
         {activeTab === 'mastery' && (
           <motion.div
             key="mastery"
