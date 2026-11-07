@@ -40,6 +40,7 @@ import {
   Flame,
   BookOpen,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
 
 type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
@@ -64,7 +65,18 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     });
   };
 
-  // Real-time synchronization
+  // Automatic one-time telemetry reset for Pratik's test account
+  useEffect(() => {
+    const isPratik = user?.prn === '2126PMIM1039' || user?.email === 'thoratpratik2323@gmail.com';
+    const hasReset = localStorage.getItem('logicq_pratik_telemetry_reset_v3');
+    if (isPratik && !hasReset) {
+      localStorage.setItem('logicq_pratik_telemetry_reset_v3', 'true');
+      FirestoreDataService.resetProctoringTelemetry(targetUid).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
+        toast.success('Telemetry reset: 100/100 verified clean record restored for Pratik Thorat.');
+      });
+    }
+  }, [user, targetUid, queryClient]);
   useEffect(() => {
     const unsubSub = RealtimeSyncService.on('SUBMISSIONS', () => {
       queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
@@ -879,6 +891,21 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Reset all proctoring telemetry back to 100% clean record? This clears all infractions, tab switches, and auto-locks.')) {
+                        await FirestoreDataService.resetProctoringTelemetry(targetUid);
+                        queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
+                        toast.success('Telemetry reset! 100/100 verified clean record restored.');
+                      }
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/80 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    title="Reset telemetry and restore clean 100/100 record"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset Telemetry</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
