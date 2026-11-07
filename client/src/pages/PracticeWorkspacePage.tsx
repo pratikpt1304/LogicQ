@@ -87,11 +87,6 @@ export const PracticeWorkspacePage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const isPratikReviewer = Boolean(
-    user?.prn === '2126PMIM1039' ||
-    (user as any)?.prn?.includes('1039') ||
-    user?.email === 'thoratpratik2323@gmail.com'
-  );
 
   const [activeMobileTab, setActiveMobileTab] = useState<'statement' | 'editor' | 'results'>('statement');
   const [isPaletteDrawerOpen, setIsPaletteDrawerOpen] = useState(false);
@@ -439,7 +434,6 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   useEffect(() => {
     const recordTabViolation = (isProlonged: boolean) => {
-      if (isPratikReviewer) return;
       const now = Date.now();
       if (now - lastTabSwitchRecordedRef.current < 2000) return;
       lastTabSwitchRecordedRef.current = now;
@@ -699,11 +693,7 @@ export const PracticeWorkspacePage: React.FC = () => {
 
   // Practice completion guard: Student must complete practice questions for this module before attempting the Lab Internal Test
   useEffect(() => {
-    const isPratikReviewer =
-      user?.prn === '2126PMIM1039' ||
-      (user as any)?.prn?.includes('1039') ||
-      user?.email === 'thoratpratik2323@gmail.com';
-    if (user?.role === 'ADMIN' || isPratikReviewer || !moduleSlug) return;
+    if (user?.role === 'ADMIN' || !moduleSlug) return;
     const currentModuleTopics = TOPIC_PRACTICE_DATA.filter(
       (t) => t.moduleSlug === moduleSlug || t.moduleIndex === moduleConfig.order
     );
@@ -920,11 +910,6 @@ export const PracticeWorkspacePage: React.FC = () => {
   // Progressive sequential unlocking helper: Question N requires Question N-1 to be solved OR quarantined
   const isProblemUnlocked = (idx: number): boolean => {
     if (user?.role === 'ADMIN') return true;
-    const isPratikReviewer =
-      user?.prn === '2126PMIM1039' ||
-      (user as any)?.prn?.includes('1039') ||
-      user?.email === 'thoratpratik2323@gmail.com';
-    if (isPratikReviewer) return true;
     if (idx <= 0) return true;
     for (let i = 0; i < idx; i++) {
       const p = moduleProblems[i];

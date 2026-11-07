@@ -238,11 +238,6 @@ export const TopicPracticeHubPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const isPratikReviewer = Boolean(
-    user?.prn === '2126PMIM1039' ||
-    (user as any)?.prn?.includes('1039') ||
-    user?.email === 'thoratpratik2323@gmail.com'
-  );
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<number>(() => {
@@ -610,14 +605,14 @@ export const TopicPracticeHubPage: React.FC = () => {
     return getPracticeModuleUnlockInfo(
       moduleIndex,
       solvedTopics,
-      Boolean(user?.role === 'ADMIN' || user?.role === 'FACULTY' || isPratikReviewer)
+      Boolean(user?.role === 'ADMIN' || user?.role === 'FACULTY')
     );
   };
 
   // Sequential progression: Each question is locked until previous question is solved
   const isTopicLocked = (topic: TopicPracticeItem): boolean => {
-    // Admin, Faculty, or Pratik Thorat (PRN 1039 developer/curriculum author) can preview without restriction
-    if (user?.role === 'ADMIN' || user?.role === 'FACULTY' || isPratikReviewer) return false;
+    // Only Admin or Faculty can preview without restriction
+    if (user?.role === 'ADMIN' || user?.role === 'FACULTY') return false;
 
     // If module itself is locked, all topics inside are locked
     const moduleInfo = getModuleUnlockInfo(topic.moduleIndex);

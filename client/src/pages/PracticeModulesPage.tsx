@@ -105,11 +105,7 @@ export const PracticeModulesPage: React.FC = () => {
 
   const { user, isFaculty } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
-  const isPratikReviewer =
-    user?.prn === '2126PMIM1039' ||
-    (user as any)?.prn?.includes('1039') ||
-    user?.email === 'thoratpratik2323@gmail.com';
-  const isPrivileged = Boolean(isAdmin || isFaculty || isPratikReviewer);
+  const isPrivileged = Boolean(isAdmin || isFaculty);
 
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
   const [solvedTopics, setSolvedTopics] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
@@ -612,17 +608,12 @@ export const PracticeModulesPage: React.FC = () => {
                 displayedProblems.map((prob) => {
                   const sorted = activeProblems;
                   const probIdx = prob.index - 1;
-                  const isPratikReviewer =
-                    user?.prn === '2126PMIM1039' ||
-                    (user as any)?.prn?.includes('1039') ||
-                    user?.email === 'thoratpratik2323@gmail.com';
-                  // Sequential unlock: question 1 is unlocked, question N requires question N-1 solved unless admin or Pratik reviewing Module 1
+                  // Sequential unlock: question 1 is unlocked, question N requires question N-1 solved unless admin
                   const isProbLocked =
                     probIdx > 0 &&
                     !sorted[probIdx - 1]?.isSolved &&
                     !prob.isSolved &&
-                    !isAdmin &&
-                    !(isPratikReviewer && activeModule.order === 1);
+                    !isAdmin;
                   const isNextUp = nextProblem?.slug === prob.slug;
 
                   if (isProbLocked) {

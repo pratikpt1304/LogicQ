@@ -70,11 +70,7 @@ export const DashboardPage: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, refreshUser } = useAuth();
   const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039';
   const isStudent = !isFacultyUser && !isAdmin;
-  const isPratikReviewer =
-    user?.prn === '2126PMIM1039' ||
-    (user as any)?.prn?.includes('1039') ||
-    user?.email === 'thoratpratik2323@gmail.com';
-  const isPrivilegedProgression = Boolean(isAdmin || isFaculty || isPratikReviewer);
+  const isPrivilegedProgression = Boolean(isAdmin || isFaculty);
   const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests'>('practice');
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
