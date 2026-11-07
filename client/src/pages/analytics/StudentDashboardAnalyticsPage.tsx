@@ -10,6 +10,7 @@ import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
 import { getSolvedPracticeTopicIds } from '../TopicPracticeHubPage.js';
+import { generateStudentPDFReport } from '../../services/pdfReportGenerator.js';
 import { PRACTICE_MODULE_1_PROBLEMS } from '../../data/practice-module1.data.js';
 import { PRACTICE_MODULE_2_PROBLEMS } from '../../data/practice-module2.data.js';
 import { PRACTICE_MODULE_3_PROBLEMS } from '../../data/practice-module3.data.js';
@@ -54,6 +55,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   const [auditTrackFilter, setAuditTrackFilter] = useState<'ALL' | 'PRACTICE' | 'LAB_INTERNAL'>('ALL');
   const [auditModuleFilter, setAuditModuleFilter] = useState<'ALL' | 1 | 2 | 3 | 4 | 5>('ALL');
   const [expandedTimelineSlugs, setExpandedTimelineSlugs] = useState<Set<string>>(new Set());
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const toggleTimeline = (slug: string) => {
     setExpandedTimelineSlugs((prev) => {
@@ -466,6 +468,38 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     });
     return groups;
   }, [filteredQuestionIncidents]);
+
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      await generateStudentPDFReport({
+        studentName: user?.fullName || user?.displayName || user?.email || 'Registered Candidate',
+        prn: user?.prn || '2126PMIM1039',
+        email: user?.email || '',
+        department: user?.department || 'Integrated M.Tech (CSE)',
+        college: user?.college || 'Sanjivani University',
+        cieMarks,
+        labSolvedCount,
+        practiceSolvedCount: solvedTopicIds.length,
+        compilerAccuracy: verdictStats.accuracy,
+        acceptedCount: verdictStats.ac,
+        compileErrorCount: verdictStats.ce,
+        wrongAnswerCount: verdictStats.wa,
+        integrityScore: finalIntegrityScore,
+        tabSwitches: totalTabSwitches,
+        fullscreenExits: totalFullscreenExits,
+        clipboardBlocked: totalClipboardAttempts,
+        autoLockCount,
+      });
+      toast.success('Official PDF Report downloaded successfully!');
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      toast.error('Failed to generate PDF. Opening print dialog as fallback.');
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   if (isAdmin || isFaculty || user?.role === 'FACULTY' || user?.role === 'ADMIN') {
     return <Navigate to="/faculty/analytics" replace />;
@@ -1214,11 +1248,12 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => window.print()}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPdf}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
-                    <FileText className="w-4 h-4" />
-                    <span>Print / Save PDF Report</span>
+                    <Download className="w-4 h-4" />
+                    <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF Report'}</span>
                   </button>
                   <Link
                     to="/history"
