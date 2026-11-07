@@ -309,10 +309,10 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] font-sans">
-                    Link Your Active Email
+                    Mandatory Email Binding
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-mono font-bold border border-indigo-500/20">
-                    Optional
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[10px] font-mono font-bold border border-rose-500/30">
+                    Required
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
@@ -321,18 +321,9 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem('logicq_dismiss_bind_modal', 'true');
-                sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
-                onClose();
-              }}
-              className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
-              title="Skip and continue"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="p-2 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20" title="Compulsory Verification Required">
+              <KeyRound className="w-4 h-4" />
+            </div>
           </div>
 
           <p className="text-xs text-[var(--text-muted)] font-sans mt-3 leading-relaxed">
@@ -421,17 +412,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem('logicq_dismiss_bind_modal', 'true');
-                    sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
-                    onClose();
-                  }}
-                  className="w-full py-2.5 rounded-xl border border-[var(--border-line)] hover:bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs font-mono transition cursor-pointer"
-                >
-                  Skip for Now (Do it Later)
-                </button>
+                
               </div>
             </form>
           ) : (

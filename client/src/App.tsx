@@ -160,11 +160,8 @@ export const App: React.FC = () => {
         (prnUpper && localStorage.getItem(`logicq_bound_status_${prnUpper}`) === 'true')
       );
 
-      const isDismissed =
-        sessionStorage.getItem('logicq_dismiss_bind_modal') === 'true' ||
-        localStorage.getItem('logicq_dismiss_bind_modal') === 'true';
-
-      if (hasBoundEmail || isDismissed) {
+      // Strictly compulsory: no dismissal without actual verified binding
+      if (hasBoundEmail) {
         setIsAutoBindEmailOpen(false);
         return;
       }
