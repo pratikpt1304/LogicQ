@@ -24,9 +24,9 @@ async function run() {
   console.log("Writing enrolled_students/dummy...");
   await setDoc(doc(db, "enrolled_students", "dummy"), {
     prn: "DUMMY",
-    name: "Rohan Sharma",
-    fullName: "Rohan Sharma",
-    displayName: "Rohan Sharma",
+    name: "Dummy",
+    fullName: "Dummy",
+    displayName: "Dummy",
     email: "dummy@logicq.io",
     sectionId: "sec-mw6l4r2s",
     department: "Integrated M.Tech",
@@ -61,9 +61,9 @@ async function run() {
   await setDoc(doc(db, "sections", "sec-mw6l4r2s", "students", "dummy"), {
     id: "dummy",
     prn: "DUMMY",
-    name: "Rohan Sharma",
-    fullName: "Rohan Sharma",
-    displayName: "Rohan Sharma",
+    name: "Dummy",
+    fullName: "Dummy",
+    displayName: "Dummy",
     email: "dummy@logicq.io",
     status: "ENROLLED",
     joinedVia: "INSTANT_JOIN_LINK",
