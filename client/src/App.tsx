@@ -19,7 +19,6 @@ import { DashboardPage } from './pages/DashboardPage.js';
 import { LeaderboardPage } from './pages/LeaderboardPage.js';
 import { HistoryPage } from './pages/HistoryPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
-import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.js';
 import { CheckerReviewsPage } from './pages/checker/CheckerReviewsPage.js';
 import { PracticeModulesPage } from './pages/PracticeModulesPage.js';
 import { PracticeModuleProblemsPage } from './pages/PracticeModuleProblemsPage.js';
@@ -77,25 +76,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     location.pathname !== '/complete-profile'
   ) {
     return <Navigate to="/complete-profile" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAdmin, authState } = useAuth();
-  const location = useLocation();
-
-  if (authState === 'loading') {
-    return <AuthLoadingScreen message="Verifying administrator privileges..." />;
-  }
-
-  if (authState === 'signedOut' || !user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -241,7 +221,6 @@ export const App: React.FC = () => {
     location.pathname === '/analytics' ||
     location.pathname === '/student/analytics' ||
     location.pathname.startsWith('/profile') ||
-    location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/checker') ||
     location.pathname.startsWith('/faculty');
 
@@ -414,15 +393,8 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Admin Protected Portal */}
-          <Route
-            path="/admin/*"
-            element={
-              <AdminRoute>
-                <AdminDashboardPage />
-              </AdminRoute>
-            }
-          />
+          {/* Admin Portal Removed - Redirect to Dashboard */}
+          <Route path="/admin/*" element={<Navigate to="/dashboard" replace />} />
 
           {/* Checker Protected Review Portal */}
           <Route

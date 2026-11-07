@@ -1324,16 +1324,7 @@ export const DashboardPage: React.FC = () => {
                   <span>New Section</span>
                 </Link>
 
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Admin Console</span>
-                    <span className="sm:hidden">Admin</span>
-                  </Link>
-                )}
+                
 
                 <button
                   type="button"

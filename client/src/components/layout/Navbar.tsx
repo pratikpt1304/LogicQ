@@ -110,7 +110,6 @@ export const Navbar: React.FC = () => {
         { label: 'Sections', path: '/faculty/sections', icon: BookOpen },
         { label: 'Question Bank', path: '/faculty/questions', icon: Sparkles },
         { label: 'Tests', path: '/faculty/tests', icon: FileCode2 },
-        ...(isAdmin ? [{ label: 'Admin Console', path: '/admin', icon: ShieldCheck }] : []),
         { label: 'Analytics', path: '/faculty/analytics', icon: Brain },
       ];
 
@@ -323,17 +322,7 @@ export const Navbar: React.FC = () => {
                         </>
                       )}
 
-                      {/* Admin Items */}
-                      {isAdmin && (
-                        <Link
-                          to="/admin"
-                          onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
-                        >
-                          <ShieldCheck className="w-4 h-4 text-amber-500" />
-                          <span>Admin Dashboard</span>
-                        </Link>
-                      )}
+                      
 
                       {/* Preferences Section */}
                       <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 space-y-0.5">
@@ -513,15 +502,7 @@ export const Navbar: React.FC = () => {
                     </Link>
                   </>
                 )}
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center min-h-[44px] px-3 py-2 rounded-lg text-sm text-[var(--color-accent)] hover:bg-[var(--bg-surface)]"
-                  >
-                    Admin Portal
-                  </Link>
-                )}
+                
                 {isFaculty && (
                   <>
                     <Link
