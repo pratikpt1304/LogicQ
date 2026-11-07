@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -19,6 +19,9 @@ import {
   Sparkles,
   BookOpen,
   Calendar,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../config/academic.config.js';
 
@@ -55,6 +58,8 @@ export const InstantJoinPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [department, setDepartment] = useState('');
   const [year, setYear] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Email OTP state
   const [emailOtp, setEmailOtp] = useState('');
@@ -390,6 +395,15 @@ export const InstantJoinPage: React.FC = () => {
       toast.error('Please select your academic year.');
       return;
     }
+    const cleanPwd = password.trim();
+    if (!cleanPwd) {
+      toast.error('Please set an account password for PRN login.');
+      return;
+    }
+    if (cleanPwd.length < 4) {
+      toast.error('Password must be at least 4 characters long.');
+      return;
+    }
     if (!emailOtpVerified) {
       toast.error('Please complete Email verification first.');
       return;
@@ -397,13 +411,91 @@ export const InstantJoinPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      const cleanPrn = prn.trim().toUpperCase();
+      const cleanEmail = email.trim().toLowerCase();
+      const targetSecId = section?.id || section?.joinCode || effectiveToken || 'instant';
+
       const studentData = {
         name: name.trim(),
-        prn: prn.trim().toUpperCase(),
-        email: email.trim().toLowerCase(),
+        prn: cleanPrn,
+        email: cleanEmail,
         department: department.trim(),
         year: year.trim(),
+        password: cleanPwd,
       };
+
+      // 1. Save password to local custom password store
+      try {
+        localStorage.setItem(`logicq_custom_password_${cleanPrn}`, cleanPwd);
+      } catch {}
+
+      // 2. Persist account security credentials to Firestore (cross-device PRN login)
+      try {
+        await setDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security'), {
+          code: cleanPwd,
+          prn: cleanPrn,
+          email: cleanEmail,
+          fullName: name.trim(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (secErr) {
+        console.warn('Notice: Firestore account security sync backgrounded:', secErr);
+      }
+
+      // 3. Persist user document to Firestore users collection
+      try {
+        const userDocRef = doc(db, 'users', `std_${cleanPrn.toLowerCase()}`);
+        await setDoc(userDocRef, {
+          id: `std_${cleanPrn.toLowerCase()}`,
+          prn: cleanPrn,
+          fullName: name.trim(),
+          displayName: name.trim(),
+          email: cleanEmail,
+          role: 'STUDENT',
+          department: department.trim(),
+          year: year.trim(),
+          sectionId: targetSecId,
+          sectionName: section?.sectionName || 'C Programming',
+          password: cleanPwd,
+          profileComplete: true,
+          enrolledAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch {}
+
+      // 4. Update stored users cache for immediate PRN login
+      try {
+        const rawUsers = localStorage.getItem('logicq_stored_users_v1');
+        let list = rawUsers ? JSON.parse(rawUsers) : [];
+        const existingIdx = list.findIndex(
+          (u: any) =>
+            (u.prn && u.prn.toUpperCase() === cleanPrn) ||
+            u.email?.toLowerCase() === cleanEmail
+        );
+        const newUserObj = {
+          id: `std_${cleanPrn.toLowerCase()}`,
+          username: cleanPrn.toLowerCase(),
+          email: cleanEmail,
+          prn: cleanPrn,
+          fullName: name.trim(),
+          displayName: name.trim(),
+          role: 'STUDENT',
+          department: department.trim(),
+          year: year.trim(),
+          sectionId: targetSecId,
+          sectionName: section?.sectionName || 'C Programming',
+          password: cleanPwd,
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+        };
+        if (existingIdx >= 0) {
+          list[existingIdx] = { ...list[existingIdx], ...newUserObj };
+        } else {
+          list.push(newUserObj);
+        }
+        localStorage.setItem('logicq_stored_users_v1', JSON.stringify(list));
+      } catch {}
 
       let enrolled = false;
       try {
@@ -417,7 +509,6 @@ export const InstantJoinPage: React.FC = () => {
       }
 
       // Always save to Firestore roster so faculty see student immediately
-      const targetSecId = section?.id || section?.joinCode || effectiveToken || 'instant';
       await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [studentData]);
       if (section?.joinCode && section.joinCode !== targetSecId) {
         await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [studentData]);
@@ -502,6 +593,13 @@ export const InstantJoinPage: React.FC = () => {
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
               <span className="text-[var(--muted-foreground)]">Student PRN</span>
               <span className="font-mono font-bold text-indigo-400">{prn.toUpperCase()}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
+              <span className="text-[var(--muted-foreground)]">PRN Login Password</span>
+              <span className="font-mono text-emerald-400 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Password Set (Ready for Login)
+              </span>
             </div>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
               <span className="text-[var(--muted-foreground)]">Department & Year</span>
@@ -666,7 +764,38 @@ export const InstantJoinPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. Email Address & Email OTP */}
+            {/* 4. Set Account Password */}
+            <div>
+              <label className="block text-xs font-medium text-[var(--muted-foreground)] mb-1.5 flex items-center justify-between">
+                <span>Set Account Password <span className="text-red-400">*</span></span>
+                <span className="text-[10px] text-indigo-400 font-mono">For PRN &amp; Password Login</span>
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Set your password (e.g. Pass@123)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-9 pr-10 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer"
+                  tabIndex={-1}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                Aap baad me apne <strong>PRN</strong> aur is <strong>Password</strong> se directly sign in kar sakenge.
+              </p>
+            </div>
+
+            {/* 5. Email Address & Email OTP */}
             <div className="space-y-2 p-4 rounded-2xl bg-[var(--background)]/60 border border-[var(--border)]">
               <label className="block text-xs font-medium text-[var(--foreground)] flex items-center justify-between">
                 <span>Academic Email Address</span>

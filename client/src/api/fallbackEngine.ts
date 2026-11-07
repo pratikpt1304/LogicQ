@@ -3649,7 +3649,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   }
 
   if (path === '/sections/instant-join' && method === 'POST') {
-    const { joinToken, name, prn, email, department, year } = body || {};
+    const { joinToken, name, prn, email, department, year, password } = body || {};
     const cleanToken = String(joinToken || '').trim();
     const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
     let localSections: any[] = [];
@@ -3681,16 +3681,60 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     }
 
     if (!Array.isArray(sec.students)) sec.students = [];
+    const cleanPrnUpper = String(prn || '').trim().toUpperCase();
+    const cleanEmailLower = String(email || '').trim().toLowerCase();
+    const cleanPassword = String(password || cleanPrnUpper).trim();
+
     const studentRecord = {
       id: `std_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: (name || 'Student').trim(),
-      prn: String(prn || '').trim().toUpperCase(),
-      email: String(email || '').trim().toLowerCase(),
+      prn: cleanPrnUpper,
+      email: cleanEmailLower,
       department: String(department || '').trim() || undefined,
       year: String(year || '').trim() || undefined,
+      password: cleanPassword,
       joinedVia: 'INSTANT_JOIN',
       enrolledAt: new Date().toISOString(),
     };
+
+    // Save custom password locally
+    try {
+      localStorage.setItem(`logicq_custom_password_${cleanPrnUpper}`, cleanPassword);
+    } catch {}
+
+    // Sync to stored users for instant PRN/Password login
+    try {
+      const users = getStoredUsers();
+      let match = users.find(
+        (u) =>
+          (u.prn && u.prn.toUpperCase() === cleanPrnUpper) ||
+          u.email.toLowerCase() === cleanEmailLower
+      );
+      if (!match) {
+        users.push({
+          id: studentRecord.id,
+          username: cleanPrnUpper.toLowerCase(),
+          email: cleanEmailLower,
+          prn: cleanPrnUpper,
+          fullName: studentRecord.name,
+          displayName: studentRecord.name,
+          role: 'STUDENT',
+          department: studentRecord.department || 'General',
+          year: studentRecord.year || 'FY',
+          sectionId: sec.id,
+          sectionName: sec.sectionName,
+          password: cleanPassword,
+          profileComplete: true,
+          totalPoints: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+        } as any);
+      } else {
+        match.password = cleanPassword;
+        if (!match.sectionId) match.sectionId = sec.id;
+      }
+      saveStoredUsers(users);
+    } catch {}
 
     const exists = sec.students.some(
       (st: any) =>
