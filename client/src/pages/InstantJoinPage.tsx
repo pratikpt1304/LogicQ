@@ -692,7 +692,7 @@ export const InstantJoinPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Divya Sonawane"
+                  placeholder="e.g. Rohan Sharma"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
@@ -790,9 +790,7 @@ export const InstantJoinPage: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                Aap baad me apne <strong>PRN</strong> aur is <strong>Password</strong> se directly sign in kar sakenge.
-              </p>
+
             </div>
 
             {/* 5. Email Address & Email OTP */}
