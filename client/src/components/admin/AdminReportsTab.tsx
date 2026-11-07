@@ -24,6 +24,7 @@ export const AdminReportsTab: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [selectedSection, setSelectedSection] = useState<string>('ALL');
 
   // Fetch real students & sections from storage
   const getRosterData = () => {
@@ -50,6 +51,12 @@ export const AdminReportsTab: React.FC = () => {
 
   const students = getRosterData();
   const sections = getSectionsData();
+
+  const activeStudents = selectedSection === 'ALL'
+    ? students
+    : students.filter((s: any) =>
+        (s.section || s.sectionName || '').toLowerCase() === selectedSection.toLowerCase()
+      );
 
   const handleDownloadOfficialPdf = () => {
     setIsExportingPdf(true);
@@ -88,7 +95,11 @@ export const AdminReportsTab: React.FC = () => {
         doc.setFontSize(9);
         doc.setTextColor(70, 70, 80);
         doc.text('Course: CS201 - Smart C Programming & Algorithms', 14, 48);
-        doc.text(`Total Enrolled Students: ${students.length} • Registered Class Sections: ${sections.length || 1}`, 14, 53);
+        doc.text(
+          `Scope: ${selectedSection === 'ALL' ? 'All Sections (Full Cohort)' : `Section: ${selectedSection}`} • Enrolled Students: ${activeStudents.length}`,
+          14,
+          53
+        );
         doc.text(`Generated Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 14, 58);
 
         // PART A: Academic Performance
@@ -140,13 +151,13 @@ export const AdminReportsTab: React.FC = () => {
         });
 
         // Student Roster Sample Table in PDF if students exist
-        if (students.length > 0) {
+        if (activeStudents.length > 0) {
           doc.setFillColor(245, 247, 252);
           doc.roundedRect(14, 162, 182, 10, 2, 2, 'F');
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(10);
           doc.setTextColor(15, 23, 42);
-          doc.text(`CANDIDATE ROSTER BREAKDOWN (${students.length} ENROLLED)`, 18, 168.5);
+          doc.text(`CANDIDATE ROSTER BREAKDOWN (${activeStudents.length} ENROLLED)`, 18, 168.5);
 
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8);
@@ -159,18 +170,18 @@ export const AdminReportsTab: React.FC = () => {
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(30, 41, 59);
           let rowY = 184;
-          students.slice(0, 8).forEach((st: any) => {
+          activeStudents.slice(0, 8).forEach((st: any) => {
             doc.text(String(st.prn || st.id || '-'), 16, rowY);
             doc.text(String(st.name || st.fullName || 'Student').slice(0, 25), 55, rowY);
             doc.text(String(st.section || 'General'), 115, rowY);
             doc.text(`${st.score || 0} / 100`, 155, rowY);
             rowY += 5;
           });
-          if (students.length > 8) {
+          if (activeStudents.length > 8) {
             doc.setFont('helvetica', 'italic');
             doc.setFontSize(7.5);
             doc.setTextColor(140, 140, 150);
-            doc.text(`+ ${students.length - 8} additional students exported in attached spreadsheet dataset.`, 16, rowY + 2);
+            doc.text(`+ ${activeStudents.length - 8} additional students exported in attached spreadsheet dataset.`, 16, rowY + 2);
           }
         }
 
@@ -209,12 +220,12 @@ export const AdminReportsTab: React.FC = () => {
     setTimeout(() => {
       try {
         let studentRows: any[] = [];
-        if (students.length > 0) {
-          studentRows = students.map((u: any) => ({
+        if (activeStudents.length > 0) {
+          studentRows = activeStudents.map((u: any) => ({
             'PRN': u.prn || u.id || 'N/A',
             'Full Name': u.name || u.displayName || u.fullName || 'Candidate',
             'Email': u.email || 'N/A',
-            'Division': u.section || 'General',
+            'Division': u.section || selectedSection || 'General',
             'Identity Verified': u.isEmailBoundV2 || u.emailVerified ? 'YES' : 'PENDING',
             'Academic Score (0-100)': u.score || 0,
             'Mini-Project Unlocked': u.miniProjectUnlocked ? 'YES' : 'NO',
@@ -226,7 +237,7 @@ export const AdminReportsTab: React.FC = () => {
               'PRN': 'SAMPLE-101',
               'Full Name': 'Enrolled Student',
               'Email': 'student@university.edu',
-              'Division': sections[0]?.sectionName || 'C Programming',
+              'Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'C Programming') : selectedSection,
               'Identity Verified': 'YES',
               'Academic Score (0-100)': 85,
               'Mini-Project Unlocked': 'YES',
@@ -239,11 +250,12 @@ export const AdminReportsTab: React.FC = () => {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Assessment Roster');
 
+        const cleanSecName = selectedSection === 'ALL' ? 'FullCohort' : selectedSection.replace(/[^A-Za-z0-9]/g, '_');
         XLSX.writeFile(
           workbook,
-          `LogicQ_Cohort_Dataset_${new Date().toISOString().split('T')[0]}.xlsx`
+          `LogicQ_${cleanSecName}_Dataset_${new Date().toISOString().split('T')[0]}.xlsx`
         );
-        toast.success('Excel dataset exported successfully!');
+        toast.success(`Excel dataset (${selectedSection === 'ALL' ? 'All Students' : selectedSection}) exported!`);
       } catch (err: any) {
         toast.error('Failed to export Excel: ' + err.message);
       } finally {
@@ -316,8 +328,10 @@ export const AdminReportsTab: React.FC = () => {
               <GraduationCap className="w-4 h-4" />
             </span>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-sans">Enrolled Candidates</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">{students.length} Students</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">
+                {selectedSection === 'ALL' ? 'Total Enrolled (Cohort)' : `Enrolled (${selectedSection})`}
+              </span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm">{activeStudents.length} Students</span>
             </div>
           </div>
 
@@ -326,8 +340,10 @@ export const AdminReportsTab: React.FC = () => {
               <Building className="w-4 h-4" />
             </span>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-sans">Class Divisions</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">{sections.length || 1} Active</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">Class Scope</span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm">
+                {selectedSection === 'ALL' ? `${sections.length || 1} Divisions` : selectedSection}
+              </span>
             </div>
           </div>
 
@@ -339,6 +355,52 @@ export const AdminReportsTab: React.FC = () => {
               <span className="text-[10px] text-slate-400 block uppercase font-sans">Accreditation Standard</span>
               <span className="font-bold text-slate-900 dark:text-white text-sm">NBA / NAAC Audit</span>
             </div>
+          </div>
+        </div>
+
+        {/* Apple Scope Selector Bar: All Students vs Specific Division */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-white/5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Report Scope:
+            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedSection('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                  selectedSection === 'ALL'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                All Students ({students.length})
+              </button>
+              {sections.map((sec: any) => {
+                const secName = sec.sectionName || sec.name || 'C Programming';
+                const count = students.filter(
+                  (s: any) => (s.section || s.sectionName || '').toLowerCase() === secName.toLowerCase()
+                ).length;
+                return (
+                  <button
+                    key={sec.id || secName}
+                    type="button"
+                    onClick={() => setSelectedSection(secName)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      selectedSection === secName
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {secName} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="text-[11px] font-mono text-slate-400">
+            Exporting: <strong className="text-slate-700 dark:text-slate-200">{selectedSection === 'ALL' ? 'All Sections Combined' : selectedSection}</strong>
           </div>
         </div>
       </div>
