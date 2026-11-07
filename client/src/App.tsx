@@ -57,7 +57,7 @@ const AuthLoadingScreen: React.FC<{ message?: string }> = ({
 
 // Route Guards
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, authState } = useAuth();
+  const { user, isAdmin, authState } = useAuth();
   const location = useLocation();
 
   // Render branded loading state until session state is known (zero flash of login)
@@ -131,7 +131,7 @@ const CheckerRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 export const App: React.FC = () => {
-  const { user, authState } = useAuth();
+  const { user, isAdmin, authState } = useAuth();
   const location = useLocation();
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
 
@@ -269,14 +269,16 @@ export const App: React.FC = () => {
 
       <main className={`flex-1 w-full overflow-x-hidden ${isWorkspaceRoute ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         <Routes>
-          {/* Root: if loading show splash, if authenticated go to dashboard, else landing */}
+          {/* Root: if loading show splash, if authenticated go to admin or dashboard, else landing */}
           <Route
             path="/"
             element={
               authState === 'loading' ? (
                 <AuthLoadingScreen message="Restoring LogicQ session..." />
               ) : user ? (
-                user.role === 'STUDENT' && user.profileComplete === false ? (
+                user.role === 'ADMIN' || user.email?.toLowerCase() === 'logicqarena@gmail.com' || user.prn === 'LOGICQARENA' ? (
+                  <Navigate to="/admin" replace />
+                ) : user.role === 'STUDENT' && user.profileComplete === false ? (
                   <Navigate to="/complete-profile" replace />
                 ) : (
                   <Navigate to="/dashboard" replace />
@@ -298,12 +300,16 @@ export const App: React.FC = () => {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Daily Challenge Workspace & Dashboard */}
+          {/* Daily Challenge Workspace & Dashboard: Admin is strictly locked into /admin */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                {isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA' ? (
+                  <Navigate to="/admin" replace />
+                ) : (
+                  <DashboardPage />
+                )}
               </ProtectedRoute>
             }
           />

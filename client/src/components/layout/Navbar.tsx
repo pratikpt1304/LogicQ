@@ -129,7 +129,7 @@ export const Navbar: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Brand (links to /dashboard when signed in, / when signed out) */}
-        <Logo size="md" to={user ? '/dashboard' : '/'} />
+        <Logo size="md" to={user ? (isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' ? '/admin' : '/dashboard') : '/'} />
 
         {/* Desktop Navigation (Home, Daily Challenge, Practice, Leaderboard) - only for signed-in students */}
         {user && (

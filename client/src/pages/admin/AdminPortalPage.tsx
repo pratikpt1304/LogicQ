@@ -207,14 +207,10 @@ export const AdminPortalPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Quick 1-Click Toggle to Student Experience */}
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200/80 dark:border-white/10 shadow-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Switch to Student View</span>
-            </button>
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Administrator Mode (Dedicated Console)</span>
+            </span>
           </div>
         </div>
 
