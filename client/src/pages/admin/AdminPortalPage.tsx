@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.js';
 import { useTheme } from '../../context/ThemeContext.js';
@@ -10,19 +10,19 @@ import {
   Sliders,
   ShieldAlert,
   FileText,
-  Sparkles,
-  Command,
   Sun,
   Moon,
   LogOut,
-  Search,
   Plus,
-  ChevronRight,
   ShieldCheck,
   Activity,
-  Menu,
-  X,
-  Zap,
+  Sparkles,
+  Clock,
+  ArrowRight,
+  Eye,
+  CheckCircle2,
+  AlertTriangle,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,7 +35,7 @@ import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 
-type AdminTabKey =
+export type AdminTabKey =
   | 'command-center'
   | 'sections'
   | 'students'
@@ -44,21 +44,21 @@ type AdminTabKey =
   | 'integrity'
   | 'reports';
 
-const NAV_ITEMS: {
+interface TabItem {
   id: AdminTabKey;
   label: string;
   badge?: string;
-  shortcut: string;
   icon: React.FC<{ className?: string }>;
-  group: 'CORE' | 'ASSESSMENT' | 'GOVERNANCE';
-}[] = [
-  { id: 'command-center', label: 'Executive Bento', shortcut: '⌘1', icon: LayoutDashboard, group: 'CORE' },
-  { id: 'sections', label: 'Class Sections', shortcut: '⌘2', icon: Layers, group: 'CORE' },
-  { id: 'students', label: 'Candidate Roster', badge: '116', shortcut: '⌘3', icon: Users, group: 'CORE' },
-  { id: 'question-bank', label: 'Question Bank (AI)', badge: '80M', shortcut: '⌘4', icon: BookOpen, group: 'ASSESSMENT' },
-  { id: 'test-orchestrator', label: 'Test Orchestrator', badge: '40/40/20', shortcut: '⌘5', icon: Sliders, group: 'ASSESSMENT' },
-  { id: 'integrity', label: 'Integrity & AI Viva', badge: 'Rule 29', shortcut: '⌘6', icon: ShieldAlert, group: 'GOVERNANCE' },
-  { id: 'reports', label: 'Accreditation Reports', badge: 'PDF', shortcut: '⌘7', icon: FileText, group: 'GOVERNANCE' },
+}
+
+const TABS: TabItem[] = [
+  { id: 'command-center', label: 'Overview', icon: LayoutDashboard },
+  { id: 'sections', label: 'Sections', icon: Layers },
+  { id: 'students', label: 'Students', badge: '116', icon: Users },
+  { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
+  { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
+  { id: 'integrity', label: 'Integrity & AI Viva', badge: '2', icon: ShieldAlert },
+  { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
 ];
 
 const DEFAULT_STATS = {
@@ -132,9 +132,6 @@ export const AdminPortalPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTabKey>('command-center');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
 
   // Sections management state
@@ -184,393 +181,176 @@ export const AdminPortalPage: React.FC = () => {
     toast.success(`Imported ${imported.length} student records into section!`);
   };
 
-  // Keyboard shortcut listener (⌘1 - ⌘7)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        if (e.key === '1') { e.preventDefault(); setActiveTab('command-center'); }
-        if (e.key === '2') { e.preventDefault(); setActiveTab('sections'); }
-        if (e.key === '3') { e.preventDefault(); setActiveTab('students'); }
-        if (e.key === '4') { e.preventDefault(); setActiveTab('question-bank'); }
-        if (e.key === '5') { e.preventDefault(); setActiveTab('test-orchestrator'); }
-        if (e.key === '6') { e.preventDefault(); setActiveTab('integrity'); }
-        if (e.key === '7') { e.preventDefault(); setActiveTab('reports'); }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Normalize legacy tab selection
   const handleTabSelect = (rawTab: string) => {
     if (rawTab === 'tests') setActiveTab('test-orchestrator');
     else if (rawTab === 'roster') setActiveTab('students');
     else if (rawTab === 'questions') setActiveTab('question-bank');
     else if (rawTab === 'analytics') setActiveTab('integrity');
-    else if (['command-center', 'sections', 'students', 'question-bank', 'test-orchestrator', 'integrity', 'reports'].includes(rawTab)) {
+    else if (
+      [
+        'command-center',
+        'sections',
+        'students',
+        'question-bank',
+        'test-orchestrator',
+        'integrity',
+        'reports',
+      ].includes(rawTab)
+    ) {
       setActiveTab(rawTab as AdminTabKey);
     }
   };
 
-  const activeMeta = NAV_ITEMS.find((n) => n.id === activeTab)!;
-
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[#07090e] text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#090b0e] text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-blue-500 selection:text-white flex flex-col">
       {/* ========================================================================= */}
-      {/* 1. macOS SEQUOIA FROSTED GLASS SIDEBAR                                   */}
+      {/* 1. APPLE EXECUTIVE TOPBAR & HORIZONTAL NAVIGATION (Spacious & Clean)      */}
       {/* ========================================================================= */}
-      <aside
-        className={`${
-          sidebarCollapsed ? 'w-20' : 'w-72'
-        } shrink-0 h-full border-r border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#0c1017]/85 backdrop-blur-3xl flex flex-col justify-between transition-all duration-300 ease-in-out z-40 select-none`}
-      >
-        {/* Sidebar Header with macOS Traffic Lights & Brand */}
-        <div className="p-4 sm:p-5 border-b border-slate-200/60 dark:border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
-            {/* Traffic Lights */}
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-rose-500/90 hover:opacity-80 transition cursor-pointer" />
-              <span className="w-3 h-3 rounded-full bg-amber-500/90 hover:opacity-80 transition cursor-pointer" />
-              <span className="w-3 h-3 rounded-full bg-emerald-500/90 hover:opacity-80 transition cursor-pointer" />
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#0c0f14]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/[0.08] shadow-xs select-none">
+        {/* Top Branding & Quick Actions */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-sm">
+              LQ
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
+                  LogicQ
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  ADMIN CONSOLE
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 hidden sm:block">
+                Sanjivani College of Engineering • Dept. of Computer Engineering
+              </p>
+            </div>
+          </div>
+
+          {/* Right Status & Profile Cluster */}
+          <div className="flex items-center gap-3">
+            {/* Live Proctoring Status Pill */}
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.08] text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                116 Students Online
+              </span>
+              <span className="text-slate-400">•</span>
+              <span className="text-emerald-500 font-semibold">Proctoring Active</span>
             </div>
 
+            {/* Dark / Light Mode */}
             <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-slate-700 dark:hover:text-white transition"
-              title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              onClick={toggleTheme}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition"
+              title="Toggle Theme"
             >
-              <Menu className="w-4 h-4" />
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-          </div>
 
-          {!sidebarCollapsed && (
-            <div className="animate-in fade-in duration-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-md shadow-blue-500/20">
-                  LQ
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">
-                      LogicQ Pro
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                      ADMIN
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-mono truncate">
-                    Executive Master Console v2.0
-                  </p>
-                </div>
+            {/* Admin User Info */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-white/10">
+              <div className="w-7 h-7 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center font-mono">
+                A
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar Navigation Groups */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 no-scrollbar">
-          {/* CORE GROUP */}
-          <div className="space-y-1">
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Core Operations
-              </div>
-            )}
-            {NAV_ITEMS.filter((n) => n.group === 'CORE').map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  title={item.label}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all group ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white'}`} />
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </div>
-                  {!sidebarCollapsed && (
-                    <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
-                      {item.badge && (
-                        <span className={`px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
-                          {item.badge}
-                        </span>
-                      )}
-                      <span className={`opacity-40 group-hover:opacity-100 ${isActive ? 'text-white' : 'text-slate-400'}`}>
-                        {item.shortcut}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ASSESSMENT GROUP */}
-          <div className="space-y-1">
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Assessment Architecture
-              </div>
-            )}
-            {NAV_ITEMS.filter((n) => n.group === 'ASSESSMENT').map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  title={item.label}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all group ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white'}`} />
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </div>
-                  {!sidebarCollapsed && (
-                    <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
-                      {item.badge && (
-                        <span className={`px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
-                          {item.badge}
-                        </span>
-                      )}
-                      <span className={`opacity-40 group-hover:opacity-100 ${isActive ? 'text-white' : 'text-slate-400'}`}>
-                        {item.shortcut}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* GOVERNANCE GROUP */}
-          <div className="space-y-1">
-            {!sidebarCollapsed && (
-              <div className="px-3 pb-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Integrity & Governance
-              </div>
-            )}
-            {NAV_ITEMS.filter((n) => n.group === 'GOVERNANCE').map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  title={item.label}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition-all group ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700 dark:group-hover:text-white'}`} />
-                    {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                  </div>
-                  {!sidebarCollapsed && (
-                    <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
-                      {item.badge && (
-                        <span className={`px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-500'}`}>
-                          {item.badge}
-                        </span>
-                      )}
-                      <span className={`opacity-40 group-hover:opacity-100 ${isActive ? 'text-white' : 'text-slate-400'}`}>
-                        {item.shortcut}
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sidebar Footer: Admin Profile, Dark/Light Mode, Sign Out */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-white/5 space-y-2">
-          {!sidebarCollapsed ? (
-            <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                  A
-                </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                    LogicQ Arena
-                  </p>
-                  <p className="text-[10px] font-mono text-emerald-500 truncate flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Administrator</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={toggleTheme}
-                  className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 transition"
-                  title="Toggle Dark/Light Mode"
-                >
-                  {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={async () => {
-                    await logout();
-                    navigate('/login');
-                  }}
-                  className="p-1.5 rounded-xl hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 py-1">
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 transition"
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
+                Administrator
+              </span>
               <button
                 onClick={async () => {
                   await logout();
                   navigate('/login');
                 }}
-                className="p-2 rounded-xl hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition ml-1"
+                title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ========================================================================= */}
-      {/* 2. macOS TOP EXECUTIVE TITLEBAR & STAGE                                  */}
-      {/* ========================================================================= */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* macOS Titlebar */}
-        <header className="h-16 px-6 border-b border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#07090e]/80 backdrop-blur-2xl flex items-center justify-between gap-4 shrink-0 z-30 select-none">
-          {/* Breadcrumb Navigation */}
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-mono text-slate-400">Admin Console</span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="text-xs font-bold font-sans text-slate-900 dark:text-white truncate">
-              {activeMeta.label}
-            </span>
-          </div>
-
-          {/* Center Telemetry Pill */}
-          <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-[11px] font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-slate-600 dark:text-slate-300 font-semibold">116 Candidates Online</span>
-            <span className="text-slate-400">•</span>
-            <span className="text-slate-500">Live Multi-Signal Proctoring Active</span>
-          </div>
-
-          {/* Right Action Cluster */}
-          <div className="flex items-center gap-2.5">
-            {/* Quick Action Button */}
-            <div className="relative">
-              <button
-                onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm transition"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Quick Action</span>
-              </button>
-
-              {isQuickActionOpen && (
-                <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs space-y-1">
-                  <button
-                    onClick={() => {
-                      setIsQuickActionOpen(false);
-                      setActiveTab('sections');
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-slate-800 dark:text-slate-200"
-                  >
-                    + Create New Section
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsQuickActionOpen(false);
-                      setActiveTab('test-orchestrator');
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-slate-800 dark:text-slate-200"
-                  >
-                    + Schedule Assessment Test
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsQuickActionOpen(false);
-                      setActiveTab('question-bank');
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-slate-800 dark:text-slate-200"
-                  >
-                    + Generate AI Question
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Stage Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
-          <div className="max-w-7xl mx-auto">
-            {activeTab === 'command-center' && (
-              <AdminCommandCenterTab
-                stats={DEFAULT_STATS}
-                liveEvents={DEFAULT_LIVE_EVENTS}
-                onSelectTab={handleTabSelect}
-                onInspectStudent={(candidate) => setSelectedCandidateForDeepDive(candidate)}
-              />
-            )}
-            {activeTab === 'sections' && (
-              <AdminSectionsTab
-                sections={sections}
-                onCreateSection={handleCreateSection}
-                onDeleteSection={handleDeleteSection}
-                onImportExcelStudents={handleImportExcelStudents}
-              />
-            )}
-            {activeTab === 'students' && <AdminStudentsTab />}
-            {activeTab === 'question-bank' && <AdminQuestionBankTab />}
-            {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab />}
-            {activeTab === 'integrity' && <AdminIntegrityTab />}
-            {activeTab === 'reports' && <AdminReportsTab />}
           </div>
         </div>
 
-        {/* 1-Click Candidate Deep-Dive Modal */}
-        {selectedCandidateForDeepDive && (
-          <StudentDeepDiveModal
-            student={selectedCandidateForDeepDive}
-            onClose={() => setSelectedCandidateForDeepDive(null)}
-            onToggleMiniProject={(studentId, currentStatus) => {
-              setSelectedCandidateForDeepDive({
-                ...selectedCandidateForDeepDive,
-                miniProjectUnlocked: !currentStatus,
-              });
-              toast.success(
-                `Mini-Project status updated for ${selectedCandidateForDeepDive.name}`
+        {/* Horizontal Navigation Tabs (Apple Segmented Style: 100% visible, never cramped) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-100 dark:border-white/[0.05]">
+          <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1.5">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                        isActive
+                          ? 'bg-white/20 text-white font-bold'
+                          : 'bg-slate-200/80 dark:bg-white/10 text-slate-500'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
               );
-            }}
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {/* ========================================================================= */}
+      {/* 2. MAIN WORKSPACE CONTENT (Full Width, Perfectly Responsive)              */}
+      {/* ========================================================================= */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {activeTab === 'command-center' && (
+          <AdminCommandCenterTab
+            stats={DEFAULT_STATS}
+            liveEvents={DEFAULT_LIVE_EVENTS}
+            onSelectTab={handleTabSelect}
+            onInspectStudent={(candidate) => setSelectedCandidateForDeepDive(candidate)}
           />
         )}
+        {activeTab === 'sections' && (
+          <AdminSectionsTab
+            sections={sections}
+            onCreateSection={handleCreateSection}
+            onDeleteSection={handleDeleteSection}
+            onImportExcelStudents={handleImportExcelStudents}
+          />
+        )}
+        {activeTab === 'students' && <AdminStudentsTab />}
+        {activeTab === 'question-bank' && <AdminQuestionBankTab />}
+        {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab />}
+        {activeTab === 'integrity' && <AdminIntegrityTab />}
+        {activeTab === 'reports' && <AdminReportsTab />}
       </main>
+
+      {/* Candidate Deep-Dive Modal (1-Click Inspection) */}
+      {selectedCandidateForDeepDive && (
+        <StudentDeepDiveModal
+          student={selectedCandidateForDeepDive}
+          onClose={() => setSelectedCandidateForDeepDive(null)}
+          onToggleMiniProject={(studentId, currentStatus) => {
+            setSelectedCandidateForDeepDive({
+              ...selectedCandidateForDeepDive,
+              miniProjectUnlocked: !currentStatus,
+            });
+            toast.success(
+              `Mini-Project status updated for ${selectedCandidateForDeepDive.name}`
+            );
+          }}
+        />
+      )}
     </div>
   );
 };
