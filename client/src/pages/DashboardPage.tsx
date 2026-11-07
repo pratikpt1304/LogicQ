@@ -20,7 +20,7 @@ import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
-import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
+import { DEMO_SECTION_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { getPracticeModuleUnlockInfo, getLabModuleUnlockInfo } from '../utils/progression.js';
 import {
@@ -802,131 +802,6 @@ export const DashboardPage: React.FC = () => {
   const sectionDisplayName = (!isLegacyDemoName(cleanSec) && cleanSec)
     ? cleanSec
     : (matchedStudentSection?.subject || detectedSection?.subject || 'C Programming Masterclass');
-
-  // Unified Roster: Merging Live Sections & Firestore Users with Official Cohort Roster for Zero-Click Search
-  const allStudentsList = React.useMemo(() => {
-    const map = new Map<string, any>();
-
-    // 1. Map registered Firestore users and live enrolled_students (authentic source of truth)
-    const directoryMapByPrn = new Map<string, any>();
-    (realDirectoryUsers || []).forEach((u: any) => {
-      const prn = (u.prn || '').toUpperCase().trim();
-      if (prn) directoryMapByPrn.set(prn, u);
-    });
-
-    // Overlay live onSnapshot enrolled_students (0ms real-time updates when student binds email or updates profile)
-    liveEnrolledStudentsMap.forEach((enr: any, prn: string) => {
-      const existing = directoryMapByPrn.get(prn);
-      directoryMapByPrn.set(prn, {
-        ...(existing || {}),
-        ...enr,
-        email: enr.email || existing?.email,
-        name: enr.name || enr.fullName || existing?.name || existing?.fullName,
-        fullName: enr.fullName || enr.name || existing?.fullName || existing?.name,
-      });
-    });
-
-    // 2. Add from loaded sections
-    sectionsList.forEach((sec: any) => {
-      const sName = sec?.sectionName || sec?.subject || 'C Programming';
-      const sCode = sec?.joinCode || 'LQ-C31A';
-      const studs = Array.isArray(sec?.students) ? sec.students : [];
-      studs.forEach((st: any) => {
-        const prn = (st.prn || st.student?.prn || '').toUpperCase().trim();
-        const dirUser = prn ? directoryMapByPrn.get(prn) : null;
-        const boundEmail = typeof window !== 'undefined' && prn ? localStorage.getItem(`logicq_bound_email_${prn}`) : null;
-        const candidateEmail = dirUser?.email || boundEmail || st.email || st.student?.email || (prn ? `${prn.toLowerCase()}@sanjivani.edu.in` : '');
-        const email = candidateEmail || '';
-        const isCustomBound = Boolean(email && !email.endsWith('@sanjivani.edu.in'));
-        const name = dirUser?.fullName || dirUser?.displayName || dirUser?.name || st.fullName || st.name || st.student?.fullName || st.student?.displayName || 'Student';
-        const key = prn || (email ? email.toLowerCase().trim() : st.id);
-        if (key && !map.has(key)) {
-          map.set(key, {
-            ...st,
-            id: st.id || st.student?.id || dirUser?.id || key,
-            prn: prn || 'N/A',
-            name,
-            email,
-            isCustomBound,
-            isRegistered: true,
-            sectionName: sName,
-            sectionJoinCode: sCode,
-            status: st.status || 'ENROLLED',
-            codingProgress: st.codingProgress ?? st.points ?? 0,
-          });
-        }
-      });
-    });
-
-    // 3. Fallback / merge with official cohort students so all 116 are instantly searchable
-    C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
-      const key = st.prn.toUpperCase().trim();
-      const dirUser = directoryMapByPrn.get(key);
-      const boundEmail = typeof window !== 'undefined' ? localStorage.getItem(`logicq_bound_email_${key}`) : null;
-      const candidateEmail = dirUser?.email || boundEmail || st.email || `${key.toLowerCase()}@sanjivani.edu.in`;
-      const validEmail = candidateEmail || '';
-      const isCustomBound = Boolean(validEmail && !validEmail.endsWith('@sanjivani.edu.in'));
-      const validName = dirUser?.fullName || dirUser?.displayName || dirUser?.name || st.fullName;
-
-      if (!map.has(key)) {
-        map.set(key, {
-          id: dirUser?.id || `cohort-${st.prn}`,
-          prn: st.prn,
-          name: validName,
-          email: validEmail,
-          isCustomBound,
-          isRegistered: true,
-          sectionName: st.sectionName || 'C Programming',
-          sectionJoinCode: st.joinCode || 'LQ-C31A',
-          status: 'ENROLLED',
-          codingProgress: 0,
-        });
-      } else {
-        const existing = map.get(key);
-        map.set(key, {
-          ...existing,
-          email: validEmail,
-          name: validName,
-          isCustomBound,
-          isRegistered: true,
-        });
-      }
-    });
-
-    // Sort strictly in ascending order by student PRN / Roll Number (last 4 digits sequence: 1001, 1002, 1003...)
-    return Array.from(map.values()).sort((a, b) => {
-      const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
-      const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
-      if (!prnA) return 1;
-      if (!prnB) return -1;
-      const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
-      const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
-      if (numA !== numB) return numA - numB;
-      return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
-    });
-  }, [sectionsList, realDirectoryUsers, liveEnrolledStudentsMap]);
-
-  // Filtered Students for Zero-Click Search
-  const filteredStudentsList = React.useMemo(() => {
-    const q = adminSearchQuery.trim().toLowerCase();
-    if (!q) return allStudentsList;
-    return allStudentsList.filter((s: any) => {
-      const name = (s.name || '').toLowerCase();
-      const prn = (s.prn || '').toLowerCase();
-      const email = (s.email || '').toLowerCase();
-      const sec = (s.sectionName || '').toLowerCase();
-      const code = (s.sectionJoinCode || '').toLowerCase();
-      return name.includes(q) || prn.includes(q) || email.includes(q) || sec.includes(q) || code.includes(q);
-    });
-  }, [allStudentsList, adminSearchQuery]);
-
-  const totalEnrolledAcrossSections = sectionsList.reduce((acc: number, s: any) => {
-    return acc + (s?._count?.students ?? s?.students?.length ?? 0);
-  }, 0);
-  const displayTotalStudents = Math.max(globalStats?.totalUsers || 0, allStudentsList.length || 0, 116);
-  const activeSectionsCount = Math.max(sectionsList.length, 1);
-  const activeTestsCount = testsList.length;
-  const totalSubmissionsCount = globalStats?.totalSubmissions || submissionsList.length || 0;
 
   const stats = statsData?.data?.stats;
   const yesterdaySummary = stats?.yesterdaySummary || statsData?.data?.yesterdaySummary || null;
