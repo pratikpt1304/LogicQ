@@ -6,6 +6,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
   onAuthStateChanged,
+  signOut,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider, db } from '../config/firebase.js';
@@ -187,16 +188,17 @@ const getCachedUser = (): User | null => {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    const prnUpper = (parsed?.prn || '').toUpperCase();
-    if (prnUpper === '2126PMIM1039') {
-      parsed.fullName = 'Pratik Balasaheb Thorat';
-      parsed.displayName = 'Pratik Thorat';
-      parsed.role = 'STUDENT';
-      parsed.prn = '2126PMIM1039';
-      if (parsed.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
-        parsed.email = 'thoratpratik2323@gmail.com';
-      }
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(parsed));
+    const email = (parsed?.email || '').toLowerCase().trim();
+    if (email !== 'logicqarena@gmail.com') {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+        localStorage.removeItem('logicq_refresh_token');
+        localStorage.removeItem('logicq_current_user_id');
+        localStorage.removeItem('logicq_dev_users');
+        sessionStorage.clear();
+      } catch {}
+      return null;
     }
     return parsed;
   } catch {
@@ -220,6 +222,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const persistUser = (userData: User | null) => {
     let finalUser = userData;
     if (finalUser) {
+      if ((finalUser.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
+        clearSessionStorage();
+        if (isMountedRef.current) {
+          setUser(null);
+          setAuthState('signedOut');
+        }
+        return;
+      }
       if (isExplicitAdminEmail(finalUser.email)) {
         finalUser = {
           ...finalUser,
@@ -863,6 +873,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 3. Listen to Firebase Auth state change (authoritative session restored from IndexedDB)
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser) {
+        if ((fbUser.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
+          try {
+            await signOut(firebaseAuth);
+          } catch {}
+          clearSessionStorage();
+          if (isMountedRef.current) {
+            setUser(null);
+            setAuthState('signedOut');
+          }
+          return;
+        }
         // Firebase Auth restored active session
         recordUserActivity();
 

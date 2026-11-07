@@ -331,253 +331,37 @@ export function isExplicitAdminEmail(email?: string | null): boolean {
 }
 
 function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (raw) {
-      const parsed: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = JSON.parse(raw);
-      let migrated = false;
-      const filtered = parsed.filter((u) => {
-        if (!u) return false;
-        if (isExplicitlyPurgedUser(u) || FirestoreDataService.isPurgedStudent(u)) {
-          migrated = true;
-          return false;
-        }
-        if (u.email && (u.email.includes('ipworker') || u.email.includes('ipverse'))) {
-          migrated = true;
-          return false;
-        }
-        return true;
-      });
-      let sanitized = filtered.map((u) => {
-        let updated = false;
-        let college = u.college;
-        if (!college || college === 'Sanjivani College of Engineering') {
-          college = 'Sanjivani University';
-          updated = true;
-        }
-        let shortId = u.shortId;
-        if (!shortId) {
-          shortId = generateShortId(u.id);
-          updated = true;
-        }
-        if (isExplicitAdminEmail(u.email) && u.role !== 'ADMIN') {
-          u.role = 'ADMIN';
-          u.profileComplete = true;
-          updated = true;
-        }
-        if (u.role === 'ADMIN' && ((u.totalPoints || 0) > 0 || (u.currentStreak || 0) > 0)) {
-          updated = true;
-          return { ...u, college, shortId, totalPoints: 0, currentStreak: 0, longestStreak: 0 };
-        }
-        if (updated) {
-          migrated = true;
-          return { ...u, college, shortId };
-        }
-        return u;
-      });
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'logicqarena@gmail.com')) {
-        sanitized.push({
-          id: 'admin-super-1',
-          username: 'logicqarena',
-          email: 'logicqarena@gmail.com',
-          fullName: 'LogicQ Arena Admin',
-          displayName: 'LogicQ Admin',
-          role: 'ADMIN',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'ARENA',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'logicqarena@gmail.com')) {
-        sanitized.push({
-          id: 'admin-super-1',
-          username: 'logicqarena',
-          email: 'logicqarena@gmail.com',
-          fullName: 'LogicQ Arena Admin',
-          displayName: 'LogicQ Admin',
-          role: 'ADMIN',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'ARENA',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-
-      // Ensure all cohort students are registered with password = prn
-      C_PROGRAMMING_COHORT_STUDENTS.forEach((st) => {
-        const validEmail = st.email || `${st.prn.toLowerCase()}@sanjivani.edu.in`;
-        const existing = sanitized.find(
-          (u) =>
-            (u.prn && u.prn.toUpperCase() === st.prn.toUpperCase()) ||
-            (validEmail && u.email && u.email.toLowerCase() === validEmail.toLowerCase())
-        );
-        if (!existing) {
-          sanitized.push({
-            id: `cohort-${st.prn.toLowerCase()}`,
-            username: st.prn.toLowerCase(),
-            email: validEmail,
-            prn: st.prn,
-            fullName: st.fullName,
-            displayName: st.fullName,
-            role: 'STUDENT',
-            college: st.college,
-            department: st.department,
-            year: st.year,
-            sectionId: st.sectionId,
-            profileComplete: true,
-            totalPoints: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            password: st.prn,
-            isBanned: false,
-            shortId: st.prn.slice(-4),
-            createdAt: '2026-11-01T00:00:00.000Z',
-          } as any);
-          migrated = true;
-        } else {
-          if (!existing.password || existing.password === 'password123') {
-            existing.password = st.prn;
-            migrated = true;
-          }
-          if (existing.role !== 'STUDENT') {
-            existing.role = 'STUDENT';
-            migrated = true;
-          }
-          if (!existing.sectionId || existing.sectionId !== 'LQ-C31A') {
-            existing.sectionId = 'LQ-C31A';
-            migrated = true;
-          }
-          if (existing.department !== st.department || existing.year !== st.year) {
-            existing.department = st.department;
-            existing.year = st.year;
-            migrated = true;
-          }
-        }
-      });
-
-      // Seed Dummy Test Student account (Requested by Faculty/Sir)
-      if (!sanitized.some((u) => u.username.toLowerCase() === 'dummy' || (u.prn && u.prn.toLowerCase() === 'dummy'))) {
-        sanitized.push({
-          id: 'student-dummy-test',
-          username: 'dummy',
-          email: 'dummy@sanjivani.edu.in',
-          prn: 'DUMMY',
-          fullName: 'Dummy Test Student',
-          displayName: 'Dummy Student',
-          role: 'STUDENT',
-          college: 'Sanjivani University',
-          department: 'Integrated M.Tech',
-          year: 'FY',
-          sectionId: 'LQ-C31A',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'dummy',
-          isBanned: false,
-          shortId: 'DUMMY',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-
-      if (migrated) {
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sanitized));
-      }
-      return sanitized;
-    }
-  } catch {
-    // ignore
-  }
-  const seeded: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }> = [
-    {
-      id: 'admin-super-1',
-      username: 'logicqarena',
-      email: 'logicqarena@gmail.com',
-      fullName: 'LogicQ Arena Admin',
-      displayName: 'LogicQ Admin',
-      role: 'ADMIN',
-      college: 'Sanjivani University',
-      department: 'CSE',
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: 'ARENA',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  ALL_COHORT_STUDENTS.forEach((st) => {
-    const validEmail = st.email || `${st.prn.toLowerCase()}@sanjivani.edu.in`;
-    seeded.push({
-      id: `cohort-${st.prn.toLowerCase()}`,
-      username: st.prn.toLowerCase(),
-      email: validEmail,
-      prn: st.prn,
-      fullName: st.fullName,
-      displayName: st.fullName,
-      role: 'STUDENT',
-      college: st.college,
-      department: st.department,
-      year: st.year,
-      sectionId: st.sectionId,
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: st.prn,
-      isBanned: false,
-      shortId: st.prn.slice(-4),
-      createdAt: '2026-11-01T00:00:00.000Z',
-    } as any);
-  });
-
-  seeded.push({
-    id: 'student-dummy-test',
-    username: 'dummy',
-    email: 'dummy@sanjivani.edu.in',
-    prn: 'DUMMY',
-    fullName: 'Dummy Test Student',
-    displayName: 'Dummy Student',
-    role: 'STUDENT',
+  const arenaAdmin: User & { password?: string; isBanned?: boolean; createdAt?: string } = {
+    id: 'admin-super-1',
+    username: 'logicqarena',
+    email: 'logicqarena@gmail.com',
+    fullName: 'LogicQ Arena Admin',
+    displayName: 'LogicQ Admin',
+    role: 'ADMIN',
     college: 'Sanjivani University',
-    department: 'Integrated M.Tech',
-    year: 'FY',
-    sectionId: 'LQ-C31A',
+    department: 'CSE',
     profileComplete: true,
     totalPoints: 0,
     currentStreak: 0,
     longestStreak: 0,
-    password: 'dummy',
+    password: 'password123',
     isBanned: false,
-    shortId: 'DUMMY',
+    shortId: 'ARENA',
     createdAt: new Date().toISOString(),
-  } as any);
+  };
 
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(seeded));
-  return seeded;
+  try {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([arenaAdmin]));
+  } catch {}
+
+  return [arenaAdmin];
 }
 
 function saveStoredUsers(users: Array<User & { password?: string; isBanned?: boolean; createdAt?: string }>) {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  const filtered = (users || []).filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
+  try {
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
+  } catch {}
 }
 
 function getCurrentUser(): User | null {
@@ -585,20 +369,16 @@ function getCurrentUser(): User | null {
     const activeRaw = localStorage.getItem('logicq_active_user');
     if (activeRaw) {
       const active = JSON.parse(activeRaw);
-      if (active && typeof active === 'object' && active.id) {
-        if (isExplicitAdminEmail(active.email) && active.role !== 'ADMIN') {
-          active.role = 'ADMIN';
-          active.profileComplete = true;
-          try {
-            localStorage.setItem('logicq_active_user', JSON.stringify(active));
-          } catch {}
+      if (active && typeof active === 'object') {
+        if ((active.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
+          localStorage.removeItem('logicq_active_user');
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+          return null;
         }
         return active;
       }
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   const id = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
   if (!id) return null;
@@ -609,133 +389,34 @@ function getCurrentUser(): User | null {
   return safeUser;
 }
 
-const INITIAL_FALLBACK_SUBMISSIONS: any[] = [
-  {
-    id: 'sub_arch_001',
-    problemId: 'kanetkar-ch02-rotate-array',
-    userId: 'user_demo_1034',
-    user: {
-      id: 'user_demo_1034',
-      fullName: 'Avinash Mapari',
-      displayName: 'Avinash Mapari',
-      prn: '2126PMIM1034',
-      email: '2126pmim1034@sanjivani.edu.in',
-      department: 'Integrated M.Tech',
-      year: 'FY',
-    },
-    problem: {
-      id: 'kanetkar-ch02-rotate-array',
-      title: 'Cyclic Array Rotation & Memory Barrier',
-      slug: 'kanetkar-ch02-rotate-array',
-      difficulty: 'MEDIUM',
-      category: 'Arrays & Pointers',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 14,
-    memoryKb: 2048,
-    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Cyclic array rotation\nvoid reverse(int* arr, int start, int end) {\n    while (start < end) {\n        int temp = arr[start];\n        arr[start] = arr[end];\n        arr[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nvoid rotate(int* nums, int numsSize, int k) {\n    if (numsSize <= 1) return;\n    k = k % numsSize;\n    reverse(nums, 0, numsSize - 1);\n    reverse(nums, 0, k - 1);\n    reverse(nums, k, numsSize - 1);\n}\n\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int* arr = (int*)malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) {\n        scanf("%d", &arr[i]);\n    }\n    rotate(arr, n, k);\n    for (int i = 0; i < n; i++) {\n        printf("%d%c", arr[i], (i == n - 1 ? '\\n' : ' '));\n    }\n    free(arr);\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
-  },
-  {
-    id: 'sub_arch_002',
-    problemId: 'kanetkar-ch02-rotate-array',
-    userId: 'user_demo_student',
-    user: {
-      id: 'user_demo_student',
-      fullName: 'Demo Student',
-      displayName: 'Demo Student',
-      prn: '2026VAL1001',
-      email: 'student@sanjivani.edu.in',
-      department: 'CSE',
-      year: 'FY',
-    },
-    problem: {
-      id: 'kanetkar-ch02-rotate-array',
-      title: 'Cyclic Array Rotation & Memory Barrier',
-      slug: 'kanetkar-ch02-rotate-array',
-      difficulty: 'MEDIUM',
-      category: 'Arrays & Pointers',
-    },
-    verdict: 'WRONG_ANSWER',
-    runtimeMs: 18,
-    memoryKb: 2180,
-    code: `#include <stdio.h>\n\n// Attempt by Demo Student (Failed boundary check for k > n)\nint main() {\n    int n, k;\n    if (scanf("%d %d", &n, &k) != 2) return 0;\n    int arr[1000];\n    for(int i = 0; i < n; i++) scanf("%d", &arr[i]);\n    // Bug: did not apply modulo k % n\n    for(int i = k; i < n; i++) printf("%d ", arr[i]);\n    for(int i = 0; i < k; i++) printf("%d ", arr[i]);\n    printf("\\n");\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 26).toISOString(),
-  },
-  {
-    id: 'sub_arch_003',
-    problemId: 'kanetkar-ch04-string-compression',
-    userId: 'user_rohan_1042',
-    user: {
-      id: 'user_rohan_1042',
-      fullName: 'Rohan Deshmukh',
-      displayName: 'Rohan Deshmukh',
-      prn: '2026VAL1042',
-      email: 'rohan.deshmukh@sanjivani.edu.in',
-      department: 'IT',
-      year: 'SY',
-    },
-    problem: {
-      id: 'kanetkar-ch04-string-compression',
-      title: 'Run-Length Encoded Buffer Packer',
-      slug: 'kanetkar-ch04-string-compression',
-      difficulty: 'HARD',
-      category: 'Strings & Buffers',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 22,
-    memoryKb: 2310,
-    code: `#include <stdio.h>\n#include <string.h>\n\n// Run-length compression in C\nint main() {\n    char s[1024];\n    if (scanf("%s", s) != 1) return 0;\n    int len = strlen(s);\n    for (int i = 0; i < len; i++) {\n        int count = 1;\n        while (i + 1 < len && s[i] == s[i + 1]) {\n            count++;\n            i++;\n        }\n        printf("%c%d", s[i], count);\n    }\n    printf("\\n");\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
-  },
-  {
-    id: 'sub_arch_004',
-    problemId: 'kanetkar-ch16-dynamic-array-growth',
-    userId: 'user_demo_1034',
-    user: {
-      id: 'user_demo_1034',
-      fullName: 'Avinash Mapari',
-      displayName: 'Avinash Mapari',
-      prn: '2126PMIM1034',
-      email: '2126pmim1034@sanjivani.edu.in',
-      department: 'Integrated M.Tech',
-      year: 'FY',
-    },
-    problem: {
-      id: 'kanetkar-ch16-dynamic-array-growth',
-      title: 'Geometric Vector Growth & Reallocation Simulator',
-      slug: 'kanetkar-ch16-dynamic-array-growth',
-      difficulty: 'MEDIUM',
-      category: 'Memory Models',
-    },
-    verdict: 'ACCEPTED',
-    runtimeMs: 12,
-    memoryKb: 1980,
-    code: `#include <stdio.h>\n#include <stdlib.h>\n\n// Geometric capacity doubler\nint main() {\n    int n;\n    if (scanf("%d", &n) != 1) return 0;\n    int capacity = 2;\n    int reallocCount = 0;\n    for (int i = 1; i <= n; i++) {\n        if (i > capacity) {\n            capacity *= 2;\n            reallocCount++;\n        }\n    }\n    printf("Final Capacity: %d, Reallocations: %d\\n", capacity, reallocCount);\n    return 0;\n}`,
-    createdAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
-  }
-];
+const INITIAL_FALLBACK_SUBMISSIONS: any[] = [];
 
 function getStoredSubmissions(): any[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const map = new Map<string, any>();
-        INITIAL_FALLBACK_SUBMISSIONS.forEach((s) => map.set(s.id, s));
-        parsed.forEach((s: any) => map.set(s.id, s));
-        return Array.from(map.values());
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (s) =>
+            s?.user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
+            s?.userId === 'admin-super-1'
+        );
       }
     }
-  } catch {
-    // ignore
-  }
-  return INITIAL_FALLBACK_SUBMISSIONS;
+  } catch {}
+  return [];
 }
 
 function saveStoredSubmissions(subs: any[]) {
-  localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+  const filtered = (subs || []).filter(
+    (s) =>
+      s?.user?.email?.toLowerCase() === 'logicqarena@gmail.com' ||
+      s?.userId === 'admin-super-1'
+  );
+  try {
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(filtered));
+  } catch {}
 }
 
 function getStoredUploads(): any[] {

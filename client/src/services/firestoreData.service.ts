@@ -1741,7 +1741,7 @@ export class FirestoreDataService {
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+    return list.filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
   }
 
   /**
@@ -2361,23 +2361,10 @@ export class FirestoreDataService {
    * Checks whether a student account/email/PRN has been explicitly deleted/purged.
    */
   public static isPurgedStudent(student: any): boolean {
-    if (!student) return false;
+    if (!student) return true;
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
-    const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
-    return (
-      prn === '2026IMTM0001' ||
-      prn === '2024BCSE0001' ||
-      email === 'hariprasathset@sanjivani.edu.in' ||
-      email === 'admin@logicq.io' ||
-      email === 'rohan_1390@test.edu' ||
-      email === 'join_1390@sanjivani.edu.in' ||
-      email === 'ipverse1918@gmail.com' ||
-      email === 'ipworker1908@gmail.com' ||
-      email === 'logicq1304@gmail.com' ||
-      email.includes('catchup_admin') ||
-      prn === '2026VAL1390' ||
-      prn === '2026JON1390'
-    );
+    if (email === 'logicqarena@gmail.com') return false;
+    return true; // All non-admin accounts are purged per administrator wipe
   }
 
   /**
@@ -3112,7 +3099,7 @@ export class FirestoreDataService {
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    return list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+    return list.filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
   }
 
   /**
