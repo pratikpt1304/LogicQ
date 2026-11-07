@@ -2221,6 +2221,20 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     };
   }
 
+  if ((path === '/users/me/export' || path === '/export/user-data') && method === 'GET') {
+    const user = getCurrentUser();
+    const storedSubs = getStoredSubmissions();
+    const userSubs = user ? storedSubs.filter((s: any) => s.userId === user.id || (user.prn && s.prn === user.prn)) : [];
+    return {
+      success: true,
+      data: {
+        user,
+        submissions: userSubs,
+        exportedAt: new Date().toISOString(),
+      },
+    };
+  }
+
   if (path === '/users/profile' && (method === 'PUT' || method === 'PATCH')) {
     const current = getCurrentUser();
     if (!current) throw new Error('Authentication required');

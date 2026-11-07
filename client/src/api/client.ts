@@ -36,6 +36,10 @@ async function refreshAuthSession(): Promise<string | null> {
   activeRefreshPromise = (async () => {
     try {
       const storedRefreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+      if (storedRefreshToken && storedRefreshToken.startsWith('fallback-jwt-')) {
+        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        return null;
+      }
 
       // 1. Try backend refresh endpoint
       if (storedRefreshToken) {
@@ -126,6 +130,9 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   }
 
   let savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (savedToken && savedToken.startsWith('fallback-jwt-')) {
+    savedToken = null;
+  }
   if (!savedToken && typeof window !== 'undefined' && auth.currentUser) {
     try {
       const idToken = await auth.currentUser.getIdToken();
@@ -251,10 +258,15 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const data = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
-    if (cleanEndpoint.includes('-otp')) {
+    if (response.status === 401) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    }
+
+    if (!cleanEndpoint.startsWith('/submissions')) {
       try {
         const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
-        if (fallbackRes && typeof fallbackRes === 'object') {
+        if (fallbackRes !== null && fallbackRes !== undefined) {
           return fallbackRes as T;
         }
       } catch (fallbackErr: any) {
@@ -278,9 +290,12 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       if (cleanEndpoint.includes('/auth/login') || cleanEndpoint.includes('/auth/prn-login') || cleanEndpoint.includes('/auth/verify-login-otp') || cleanEndpoint.includes('/auth/send-login-otp')) {
         errorMsg = data?.message || 'Invalid PRN or password. Please verify your credentials.';
         errorCode = 'INVALID_CREDENTIALS';
-      } else {
+      } else if (cleanEndpoint.startsWith('/submissions')) {
         errorMsg = 'Your session has expired. Please log in again to run or submit code.';
         errorCode = 'SESSION_EXPIRED';
+      } else {
+        errorMsg = data?.message || 'Authentication required.';
+        errorCode = 'UNAUTHORIZED';
       }
       canRetry = false;
     } else if (response.status === 429) {

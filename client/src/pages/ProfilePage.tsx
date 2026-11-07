@@ -928,7 +928,17 @@ export const ProfilePage: React.FC = () => {
 
   const handleExportData = async () => {
     try {
-      const res = await api.get('/users/me/export');
+      let exportPayload: any = null;
+      try {
+        const res = await api.get('/users/me/export');
+        exportPayload = res?.data || res;
+      } catch {
+        exportPayload = {
+          user: profile || currentUser,
+          submissions: profile?.recentSubmissions || [],
+          exportedAt: new Date().toISOString(),
+        };
+      }
       const studentName =
         currentUser?.displayName || currentUser?.fullName || currentUser?.username || 'Student';
       const safeName = studentName.replace(/[\\/:*?"<>|]/g, '').trim() || 'Student';
@@ -940,7 +950,7 @@ export const ProfilePage: React.FC = () => {
         day: '2-digit',
       }).format(now);
 
-      const blob = new Blob([JSON.stringify(res.data, null, 2)], {
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
