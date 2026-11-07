@@ -1038,6 +1038,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = String(identifier || '').trim();
     const cleanPwd = String(password || cleanId).trim();
 
+    // Built-in Instant Demo Student: PRN="dummy", Password="dummy"
+    if (cleanId.toLowerCase() === 'dummy') {
+      if (cleanPwd && cleanPwd.toLowerCase() !== 'dummy' && cleanPwd.toLowerCase() !== 'password123') {
+        throw new Error('Invalid password. For demo student, use password: dummy');
+      }
+      const dummyStudent: User = {
+        id: 'std_dummy',
+        username: 'dummy',
+        email: 'dummy@logicq.io',
+        prn: 'DUMMY',
+        fullName: 'Rohan Sharma',
+        displayName: 'Rohan Sharma',
+        role: 'STUDENT',
+        department: 'Integrated M.Tech',
+        year: 'First Year (FY)',
+        division: 'A',
+        sectionId: 'sec-mw6l4r2s',
+        sectionName: 'Integrated Mtech',
+        joinCode: 'LQ-INTE34',
+        profileComplete: true,
+        isEmailBound: true,
+        isEmailBoundV2: true,
+        emailVerified: true,
+        totalPoints: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        totalSolved: 0,
+      };
+      if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_dummy_${Date.now()}`);
+      }
+      recordUserActivity();
+      persistUser(dummyStudent);
+      setAuthState('signedIn');
+      return dummyStudent;
+    }
+
     // Check device registration and single instance for cohort students
     const cohortStudent = findCohortStudent(cleanId);
 
