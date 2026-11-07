@@ -478,41 +478,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     return 'Integrated M.Tech';
   }, [user]);
 
-  // 14-day Activity & Solving Velocity
-  const activityDays = useMemo(() => {
-    return Array.from({ length: 14 }).map((_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (13 - i));
-      const dateStr = d.toISOString().split('T')[0];
-      const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const dayNumber = d.getDate();
-      const isToday = i === 13;
-
-      let count = (userSubmissions || []).filter((sub: any) => {
-        if (!sub?.createdAt) return false;
-        try {
-          const subDate =
-            typeof sub.createdAt === 'object' && sub.createdAt?.toDate
-              ? sub.createdAt.toDate()
-              : new Date(sub.createdAt);
-          return subDate.toISOString().split('T')[0] === dateStr;
-        } catch {
-          return false;
-        }
-      }).length;
-
-      // Anchor today's activity if local solutions exist
-      if (isToday && count === 0 && totalMastered > 0) {
-        count = Math.min(totalMastered, Math.max(1, count));
-      }
-
-      return { dateStr, dayLabel, dayNumber, count, isToday };
-    });
-  }, [userSubmissions, totalMastered]);
-
-  const maxActivity = useMemo(() => Math.max(1, ...activityDays.map((a) => a.count), 4), [activityDays]);
-  const activeDaysCount = useMemo(() => activityDays.filter((a) => a.count > 0).length, [activityDays]);
-
   const handleDownloadPDF = async () => {
     setIsGeneratingPdf(true);
     try {
@@ -841,85 +806,6 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 <p className="text-[10px] text-slate-400">
                   {isCleanSession ? '✓ Clean session: Zero infractions logged' : 'Telemetry logged under review'}
                 </p>
-              </div>
-            </div>
-
-            {/* Visual Solving Velocity & 14-Day Activity Pulse */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                    <Activity className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>14-Day Solving Activity &amp; Velocity</span>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                        Live Pulse
-                      </span>
-                    </h3>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Daily problem submissions and verified solving velocity
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
-                    <strong className="text-emerald-500">{activeDaysCount}</strong> / 14 Days Active
-                  </span>
-                  <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
-                    Peak: <strong className="text-indigo-500">{maxActivity}</strong> / day
-                  </span>
-                </div>
-              </div>
-
-              {/* 14-Day Bars Track */}
-              <div className="pt-2">
-                <div className="flex items-end justify-between gap-1.5 sm:gap-3 h-28 sm:h-32 px-1 sm:px-2">
-                  {activityDays.map((day, idx) => {
-                    const pct = day.count > 0 ? Math.max(16, Math.min(100, Math.round((day.count / maxActivity) * 100))) : 8;
-                    return (
-                      <div
-                        key={day.dateStr || idx}
-                        className="flex-1 flex flex-col items-center h-full justify-end group relative"
-                      >
-                        {/* Tooltip on Hover */}
-                        <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 px-2 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-mono whitespace-nowrap shadow-md">
-                          {day.count} {day.count === 1 ? 'solved' : 'solves'} • {day.dayLabel} {day.dayNumber}
-                        </div>
-
-                        {/* Bar Pillar */}
-                        <div className="w-full max-w-[28px] h-full flex items-end">
-                          <div
-                            className={`w-full rounded-full transition-all duration-500 group-hover:brightness-110 ${
-                              day.count > 0
-                                ? day.isToday
-                                  ? 'bg-gradient-to-t from-emerald-500 via-teal-400 to-cyan-400 shadow-sm shadow-emerald-500/25 ring-2 ring-emerald-400/40'
-                                  : 'bg-gradient-to-t from-emerald-500 to-teal-400 shadow-xs'
-                                : 'bg-slate-200/70 dark:bg-slate-800/70'
-                            }`}
-                            style={{ height: `${pct}%` }}
-                          />
-                        </div>
-
-                        {/* Day Label */}
-                        <div className="mt-2 text-center">
-                          <span className="text-[10px] font-mono text-slate-400 block leading-tight">
-                            {day.dayLabel[0]}
-                          </span>
-                          <span
-                            className={`text-[10px] font-mono font-semibold block leading-tight ${
-                              day.isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            {day.dayNumber}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             </div>
           </motion.div>
