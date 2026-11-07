@@ -137,7 +137,7 @@ export const AdminPortalPage: React.FC = () => {
       id: `sec-${Date.now().toString(36)}`,
       sectionName: data.sectionName,
       subject: data.subject || 'C Programming',
-      course: data.course || 'Computer Science & Engineering',
+      course: data.course || '',
       academicYear: data.academicYear || '2026-2027',
       semester: data.semester || 'Semester 1',
       joinCode: cleanJoinCode,

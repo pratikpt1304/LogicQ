@@ -94,8 +94,8 @@ export const InstantJoinPage: React.FC = () => {
         if (candidate && (candidate.sectionName || candidate.name || candidate.subject) && isMounted) {
           setSection({
             id: candidate.id || cleanToken,
-            institution: candidate.institution || 'Sanjivani University',
-            course: candidate.course || 'B.Tech Computer Science & Engineering',
+            institution: candidate.institution || '',
+            course: candidate.course || '',
             subject: candidate.subject || candidate.name || 'C Programming',
             academicYear: candidate.academicYear || '2026-2027',
             semester: candidate.semester || 'Semester 1',
@@ -125,8 +125,8 @@ export const InstantJoinPage: React.FC = () => {
           if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
             setSection({
               id: docSnap.id,
-              institution: raw.institution || 'Sanjivani University',
-              course: raw.course || 'B.Tech Computer Science & Engineering',
+              institution: raw.institution || '',
+              course: raw.course || '',
               subject: raw.subject || raw.name || 'C Programming',
               academicYear: raw.academicYear || '2026-2027',
               semester: raw.semester || 'Semester 1',
@@ -153,8 +153,8 @@ export const InstantJoinPage: React.FC = () => {
           if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
             setSection({
               id: firstDoc.id,
-              institution: raw.institution || 'Sanjivani University',
-              course: raw.course || 'B.Tech Computer Science & Engineering',
+              institution: raw.institution || '',
+              course: raw.course || '',
               subject: raw.subject || raw.name || 'C Programming',
               academicYear: raw.academicYear || '2026-2027',
               semester: raw.semester || 'Semester 1',
@@ -181,8 +181,8 @@ export const InstantJoinPage: React.FC = () => {
           if (raw && !FirestoreDataService.isLegacyDemoSection(raw) && !FirestoreDataService.isSectionDeleted(raw.id, raw.joinCode)) {
             setSection({
               id: firstDoc.id,
-              institution: raw.institution || 'Sanjivani University',
-              course: raw.course || 'B.Tech Computer Science & Engineering',
+              institution: raw.institution || '',
+              course: raw.course || '',
               subject: raw.subject || raw.name || 'C Programming',
               academicYear: raw.academicYear || '2026-2027',
               semester: raw.semester || 'Semester 1',
@@ -216,8 +216,8 @@ export const InstantJoinPage: React.FC = () => {
         if (found && isMounted) {
           setSection({
             id: found.id || cleanToken,
-            institution: found.institution || 'Sanjivani University',
-            course: found.course || 'B.Tech Computer Science & Engineering',
+            institution: found.institution || '',
+            course: found.course || '',
             subject: found.subject || found.name || 'C Programming',
             academicYear: found.academicYear || '2026-2027',
             semester: found.semester || 'Semester 1',
@@ -250,8 +250,8 @@ export const InstantJoinPage: React.FC = () => {
         if (foundLocal && isMounted) {
           setSection({
             id: foundLocal.id || cleanToken,
-            institution: foundLocal.institution || 'Sanjivani University',
-            course: foundLocal.course || 'B.Tech Computer Science & Engineering',
+            institution: foundLocal.institution || '',
+            course: foundLocal.course || '',
             subject: foundLocal.subject || foundLocal.name || 'C Programming',
             academicYear: foundLocal.academicYear || '2026-2027',
             semester: foundLocal.semester || 'Semester 1',
@@ -494,9 +494,9 @@ export const InstantJoinPage: React.FC = () => {
               <span className="font-bold text-[var(--foreground)]">{section.sectionName}</span>
             </div>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
-              <span className="text-[var(--muted-foreground)]">Course & Subject</span>
+              <span className="text-[var(--muted-foreground)]">Subject</span>
               <span className="font-semibold text-[var(--foreground)] text-right">
-                {section.subject} ({section.course})
+                {section.subject}
               </span>
             </div>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 text-xs">
@@ -551,22 +551,17 @@ export const InstantJoinPage: React.FC = () => {
               <h1 className="text-2xl font-bold text-[var(--foreground)] mt-3">
                 {section.subject}
               </h1>
-              <p className="text-sm text-[var(--muted-foreground)]">{section.course}</p>
             </div>
             <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               <GraduationCap className="w-8 h-8" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-[var(--border)] text-xs">
-            <div>
-              <span className="text-[var(--muted-foreground)] block">Institution</span>
-              <span className="font-medium text-[var(--foreground)]">{section.institution}</span>
-            </div>
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)] text-xs">
             <div>
               <span className="text-[var(--muted-foreground)] block">Academic Term</span>
               <span className="font-medium text-[var(--foreground)]">
-                {section.academicYear} • {section.semester}
+                {section.academicYear || '2026-2027'} • {section.semester || 'Semester 1'}
               </span>
             </div>
             <div>
@@ -690,7 +685,7 @@ export const InstantJoinPage: React.FC = () => {
                     type="email"
                     required
                     disabled={emailOtpVerified}
-                    placeholder="student@sanjivani.edu.in"
+                    placeholder="student@university.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500 disabled:opacity-60"
