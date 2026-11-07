@@ -34,9 +34,13 @@ export interface AdminTestDefinition {
   createdAt?: string;
 }
 
+interface AdminTestOrchestratorTabProps {
+  sections?: any[];
+}
+
 const SAMPLE_TESTS: AdminTestDefinition[] = [];
 
-export const AdminTestOrchestratorTab: React.FC = () => {
+export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> = ({ sections = [] }) => {
   const [tests, setTests] = useState<AdminTestDefinition[]>(() => {
     try {
       const saved = localStorage.getItem('logicq_admin_tests');
@@ -48,33 +52,38 @@ export const AdminTestOrchestratorTab: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  // Compute actual sections from props or localStorage
+  const actualSections = sections.length > 0
+    ? sections
+    : (() => {
+        try {
+          const raw = localStorage.getItem('logicq_admin_sections');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
+
+  const rawNames = actualSections
+    .map((s: any) => s.sectionName || s.name || s.subject)
+    .filter(Boolean);
+  const availableSections = Array.from(new Set(rawNames)) as string[];
+  const effectiveSections = availableSections.length > 0 ? availableSections : ['C Programming'];
+
   // Form State
   const [newTitle, setNewTitle] = useState('');
-  const [newSection, setNewSection] = useState('Division A');
+  const [newSection, setNewSection] = useState(effectiveSections[0]);
   const [newDuration, setNewDuration] = useState(60);
   const [newMarks, setNewMarks] = useState(20);
   const [difficultyProfile, setDifficultyProfile] = useState<'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS'>('BALANCED');
   const [lockPolicy, setLockPolicy] = useState(true);
 
-  // Dynamic Sections List from actual created sections
-  const [availableSections, setAvailableSections] = useState<string[]>(['Division A', 'Division B']);
-
+  // Sync newSection if sections change
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('logicq_admin_sections');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const names = parsed.map((s: any) => s.sectionName || s.name).filter(Boolean);
-          if (names.length > 0) {
-            const unique = Array.from(new Set(names));
-            setAvailableSections(unique);
-            setNewSection(unique[0]);
-          }
-        }
-      }
-    } catch {}
-  }, []);
+    if (effectiveSections.length > 0 && !effectiveSections.includes(newSection)) {
+      setNewSection(effectiveSections[0]);
+    }
+  }, [effectiveSections, newSection]);
 
   const saveTests = (updated: AdminTestDefinition[]) => {
     setTests(updated);
@@ -404,12 +413,14 @@ export const AdminTestOrchestratorTab: React.FC = () => {
                     onChange={(e) => setNewSection(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs focus:outline-hidden"
                   >
-                    {availableSections.map((sec) => (
+                    {effectiveSections.map((sec) => (
                       <option key={sec} value={sec}>
                         {sec}
                       </option>
                     ))}
-                    <option value="All Divisions">All Divisions (Cohort)</option>
+                    {effectiveSections.length > 1 && (
+                      <option value="All Sections">All Sections (Cohort)</option>
+                    )}
                   </select>
                 </div>
 

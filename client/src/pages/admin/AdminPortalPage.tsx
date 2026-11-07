@@ -327,7 +327,7 @@ export const AdminPortalPage: React.FC = () => {
         )}
         {activeTab === 'students' && <AdminStudentsTab />}
         {activeTab === 'question-bank' && <AdminQuestionBankTab />}
-        {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab />}
+        {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab sections={sections} />}
         {activeTab === 'integrity' && <AdminIntegrityTab />}
         {activeTab === 'reports' && <AdminReportsTab />}
       </main>
