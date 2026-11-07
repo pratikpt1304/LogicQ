@@ -49,6 +49,52 @@ export interface StudentStatsBackup {
 
 export class FirestoreDataService {
   /**
+   * Updates and persists Mini-Project unlock status across Firestore cohort_progress and localStorage.
+   */
+  public static async setMiniProjectStatus(prn: string, isUnlocked: boolean): Promise<void> {
+    const cleanPrn = (prn || '').trim().toUpperCase();
+    if (!cleanPrn) return;
+    try {
+      localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, isUnlocked ? 'true' : 'false');
+      const cohortRef = doc(db, 'cohort_progress', cleanPrn);
+      await setDoc(cohortRef, {
+        prn: cleanPrn,
+        moduleProgress: {
+          miniProjectUnlocked: isUnlocked,
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(() => {});
+    } catch (err) {
+      console.warn('setMiniProjectStatus notice:', err);
+    }
+  }
+
+  /**
+   * Retrieves Mini-Project unlock status from localStorage or Firestore cohort_progress.
+   */
+  public static async getMiniProjectStatus(prn: string): Promise<boolean> {
+    const cleanPrn = (prn || '').trim().toUpperCase();
+    if (!cleanPrn) return false;
+    const cached = localStorage.getItem(`logicq_mini_project_unlocked_${cleanPrn}`);
+    if (cached !== null) return cached === 'true';
+
+    try {
+      const cohortRef = doc(db, 'cohort_progress', cleanPrn);
+      const snap = await getDoc(cohortRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.moduleProgress?.miniProjectUnlocked !== undefined) {
+          const val = Boolean(data.moduleProgress.miniProjectUnlocked);
+          localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, val ? 'true' : 'false');
+          return val;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
+  /**
    * Completes initial profile onboarding for a student atomically in Firestore:
    * 1. Checks prnIndex/{prn} to ensure PRN is unique
    * 2. Writes users/{uid} document with profile fields, role: 'STUDENT', profileComplete: true

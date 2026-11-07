@@ -148,6 +148,11 @@ export const AdminStudentsTab: React.FC = () => {
       localStorage.setItem('logicq_admin_students', JSON.stringify(updated));
     } catch {}
 
+    // Persist to Cloud Firestore & cross-browser cache
+    if (student.prn && student.prn !== '—') {
+      FirestoreDataService.setMiniProjectStatus(student.prn, nextStatus);
+    }
+
     toast.success(
       nextStatus
         ? `Mini-Project unlocked for ${student.name}!`
