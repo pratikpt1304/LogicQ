@@ -1941,22 +1941,9 @@ export class FirestoreDataService {
 
   /**
    * Clears any stale or poisoned section tombstone keys in localStorage while preserving user-deleted sections.
-   * Ensures the active primary classroom section (LQ-C31A) is never accidentally hidden.
    */
   public static clearStaleSectionTombstones(): void {
     try {
-      const raw = localStorage.getItem(FirestoreDataService.DELETED_SECTIONS_KEY);
-      if (raw) {
-        const list: string[] = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          // Keep user-deleted sections but ensure LQ-C31A is never blocked
-          const sanitized = list.filter((id) => {
-            const clean = String(id).toUpperCase().trim();
-            return clean !== 'LQ-C31A';
-          });
-          localStorage.setItem(FirestoreDataService.DELETED_SECTIONS_KEY, JSON.stringify(sanitized));
-        }
-      }
       localStorage.removeItem('logicq_deleted_sections_tombstones');
       localStorage.removeItem('logicq_purge_all_sections_flag_v4');
     } catch {}
@@ -2071,18 +2058,12 @@ export class FirestoreDataService {
 
   /**
    * Checks if a section has been deleted locally or marked as tombstoned.
-   * Accurately checks permanent deleted tombstone registry while guaranteeing
-   * the active classroom cohort (LQ-C31A) is never hidden.
    */
-  public static isSectionDeleted(sectionId?: string, joinCode?: string): boolean {
-    if (!sectionId && !joinCode) return false;
+  public static isSectionDeleted(sectionId?: string, joinCode?: string, sectionName?: string): boolean {
+    if (!sectionId && !joinCode && !sectionName) return false;
     const cleanId = sectionId ? String(sectionId).trim().toUpperCase() : '';
     const cleanCode = joinCode ? String(joinCode).trim().toUpperCase() : '';
-
-    // Safety: The active primary cohort must always remain visible
-    if (cleanCode === 'LQ-C31A' || cleanId === 'LQ-C31A') {
-      return false;
-    }
+    const cleanName = sectionName ? String(sectionName).trim().toUpperCase() : '';
 
     if (FirestoreDataService.isLegacyDemoSection(sectionId, joinCode)) {
       return true;
@@ -2095,7 +2076,11 @@ export class FirestoreDataService {
       if (Array.isArray(list) && list.length > 0) {
         return list.some((item) => {
           const cleanItem = String(item).trim().toUpperCase();
-          return (cleanId && cleanItem === cleanId) || (cleanCode && cleanItem === cleanCode);
+          return (
+            (cleanId && cleanItem === cleanId) ||
+            (cleanCode && cleanItem === cleanCode) ||
+            (cleanName && cleanItem === cleanName)
+          );
         });
       }
     } catch {}
@@ -2188,10 +2173,11 @@ export class FirestoreDataService {
    * Permanently deletes a section from Firestore, removes it from local backup,
    * cleans up its roster, and records it in the deleted tombstones so it is never auto-restored.
    */
-  public static async deleteSectionFromFirestore(sectionId: string, joinCode?: string): Promise<void> {
-    if (!sectionId && !joinCode) return;
+  public static async deleteSectionFromFirestore(sectionId: string, joinCode?: string, sectionName?: string): Promise<void> {
+    if (!sectionId && !joinCode && !sectionName) return;
     const cleanId = sectionId ? String(sectionId).trim() : '';
     const cleanCode = joinCode ? String(joinCode).trim() : '';
+    const cleanName = sectionName ? String(sectionName).trim() : '';
 
     // 1. Mark in permanent deleted tombstones immediately (both upper, lower, and exact)
     try {
@@ -2204,6 +2190,9 @@ export class FirestoreDataService {
         cleanCode,
         cleanCode.toUpperCase(),
         cleanCode.toLowerCase(),
+        cleanName,
+        cleanName.toUpperCase(),
+        cleanName.toLowerCase(),
       ].filter(Boolean);
       toAdd.forEach((k) => {
         if (!list.includes(k)) list.push(k);
@@ -2219,14 +2208,18 @@ export class FirestoreDataService {
         const filtered = existing.filter((s: any) => {
           const sId = String(s.id || s.sectionId || '').toUpperCase().trim();
           const sCode = String(s.joinCode || '').toUpperCase().trim();
+          const sName = String(s.sectionName || s.name || '').toUpperCase().trim();
           const targetId = cleanId ? cleanId.toUpperCase() : '';
           const targetCode = cleanCode ? cleanCode.toUpperCase() : '';
+          const targetName = cleanName ? cleanName.toUpperCase() : '';
           if (targetId && (sId === targetId || sCode === targetId)) return false;
           if (targetCode && (sCode === targetCode || sId === targetCode)) return false;
+          if (targetName && sName === targetName) return false;
           return true;
         });
         localStorage.setItem(LOCAL_KEY, JSON.stringify(filtered));
       }
+      localStorage.removeItem('logicq_admin_sections');
     } catch {}
 
     // 3. Remove local roster cache for this section
@@ -2240,6 +2233,11 @@ export class FirestoreDataService {
         localStorage.removeItem(`logicq_section_students_${cleanCode}`);
         localStorage.removeItem(`logicq_section_students_${cleanCode.toUpperCase()}`);
         localStorage.removeItem(`logicq_section_students_${cleanCode.toLowerCase()}`);
+      }
+      if (cleanName) {
+        localStorage.removeItem(`logicq_section_students_${cleanName}`);
+        localStorage.removeItem(`logicq_section_students_${cleanName.toUpperCase()}`);
+        localStorage.removeItem(`logicq_section_students_${cleanName.toLowerCase()}`);
       }
     } catch {}
 
@@ -2257,19 +2255,22 @@ export class FirestoreDataService {
         await deleteDoc(doc(db, 'sections', cleanCode.toLowerCase())).catch(() => {});
       }
 
-      // 4b. Scan all documents in sections collection to purge any doc with matching ID or joinCode
+      // 4b. Scan all documents in sections collection to purge any doc with matching ID, joinCode, or sectionName
       const snap = await getDocs(collection(db, 'sections'));
       for (const d of snap.docs) {
         const data = d.data() || {};
         const dId = String(d.id).toUpperCase().trim();
         const dataId = String(data.id || '').toUpperCase().trim();
         const dataCode = String(data.joinCode || '').toUpperCase().trim();
+        const dataName = String(data.sectionName || data.name || '').toUpperCase().trim();
         const targetId = cleanId ? cleanId.toUpperCase() : '';
         const targetCode = cleanCode ? cleanCode.toUpperCase() : '';
+        const targetName = cleanName ? cleanName.toUpperCase() : '';
 
         const isMatch =
           (targetId && (dId === targetId || dataId === targetId || dataCode === targetId)) ||
-          (targetCode && (dId === targetCode || dataId === targetCode || dataCode === targetCode));
+          (targetCode && (dId === targetCode || dataId === targetCode || dataCode === targetCode)) ||
+          (targetName && (dataName === targetName || dId === targetName));
 
         if (isMatch) {
           await deleteDoc(d.ref).catch(() => {});
@@ -2711,7 +2712,7 @@ export class FirestoreDataService {
     sectionMap.delete('LQ-IMTC');
     sectionMap.delete('4a8812a1-41eb-4bfb-b50a-ca9f8702ed57');
 
-    const result = Array.from(sectionMap.values())
+    let result = Array.from(sectionMap.values())
       .filter((s: any) => !FirestoreDataService.isSectionDeleted(s.id, s.joinCode) && !FirestoreDataService.isLegacyDemoSection(s))
       .map((s: any) => {
         let studentsList = Array.isArray(s.students) ? s.students : [];
@@ -2742,86 +2743,82 @@ export class FirestoreDataService {
         };
       });
 
-    // Authoritative Cohort Injection: Ensure LQ-C31A (C Programming) has full 115 students
-    let cProgSec = result.find(
-      (s: any) =>
-        s.joinCode === 'LQ-C31A' ||
-        s.id === 'LQ-C31A' ||
-        s.sectionName === 'C Programming'
-    );
+    // Authoritative Cohort Injection: Check if C Programming was explicitly deleted by admin
+    const isCProgDeleted =
+      FirestoreDataService.isSectionDeleted('LQ-C31A', 'LQ-C31A', 'C Programming') ||
+      FirestoreDataService.isSectionDeleted('C Programming');
 
-    if (!cProgSec) {
-      cProgSec = {
-        id: 'LQ-C31A',
-        joinCode: 'LQ-C31A',
-        sectionName: 'C Programming',
-        subject: 'C Programming',
-        department: 'Integrated M.Tech',
-        year: 'FY',
-        college: 'Sanjivani University',
-        students: [],
-        studentsCount: C_PROGRAMMING_COHORT_STUDENTS.length,
-        _count: { students: C_PROGRAMMING_COHORT_STUDENTS.length },
-        createdAt: 1730000000000,
-      };
-      result.unshift(cProgSec);
-    }
+    if (isCProgDeleted) {
+      result = result.filter(
+        (s: any) =>
+          String(s.joinCode || '').toUpperCase() !== 'LQ-C31A' &&
+          String(s.id || '').toUpperCase() !== 'LQ-C31A' &&
+          String(s.sectionName || '').toUpperCase() !== 'C PROGRAMMING'
+      );
+    } else {
+      let cProgSec = result.find(
+        (s: any) =>
+          s.joinCode === 'LQ-C31A' ||
+          s.id === 'LQ-C31A' ||
+          s.sectionName === 'C Programming'
+      );
 
-    if (cProgSec) {
-      const existingStudents = Array.isArray(cProgSec.students) ? [...cProgSec.students] : [];
-      const seenPrns = new Set(existingStudents.map((s: any) => (s.prn || '').toUpperCase()));
+      if (cProgSec) {
+        const existingStudents = Array.isArray(cProgSec.students) ? [...cProgSec.students] : [];
+        const seenPrns = new Set(existingStudents.map((s: any) => (s.prn || '').toUpperCase()));
 
-      C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
-        const prnUpper = cs.prn.toUpperCase();
-        const validCohortEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
-        const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
-        if (existing) {
-          if (validCohortEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
-            existing.email = validCohortEmail;
-            if (existing.student) existing.student.email = validCohortEmail;
-          }
-          if (cs.fullName && (!existing.name || existing.name === 'Student')) {
-            existing.name = cs.fullName;
-            existing.fullName = cs.fullName;
-            if (existing.student) {
-              existing.student.fullName = cs.fullName;
-              existing.student.displayName = cs.fullName;
+        C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+          const prnUpper = cs.prn.toUpperCase();
+          const validCohortEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
+          const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
+          if (existing) {
+            if (validCohortEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
+              existing.email = validCohortEmail;
+              if (existing.student) existing.student.email = validCohortEmail;
             }
+            if (cs.fullName && (!existing.name || existing.name === 'Student')) {
+              existing.name = cs.fullName;
+              existing.fullName = cs.fullName;
+              if (existing.student) {
+                existing.student.fullName = cs.fullName;
+                existing.student.displayName = cs.fullName;
+              }
+            }
+          } else {
+            existingStudents.push({
+              id: cs.prn,
+              uid: cs.prn,
+              ...cs,
+              email: validCohortEmail,
+              name: cs.fullName,
+              sectionId: cProgSec.id || 'LQ-C31A',
+              enrolledAt: 1730000000000,
+              status: 'ACTIVE',
+            });
+            seenPrns.add(prnUpper);
           }
-        } else {
-          existingStudents.push({
-            id: cs.prn,
-            uid: cs.prn,
-            ...cs,
-            email: validCohortEmail,
-            name: cs.fullName,
-            sectionId: cProgSec.id || 'LQ-C31A',
-            enrolledAt: 1730000000000,
-            status: 'ACTIVE',
-          });
-          seenPrns.add(prnUpper);
-        }
-      });
+        });
 
-      cProgSec.students = existingStudents.sort((a: any, b: any) => {
-        const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
-        const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
-        if (!prnA) return 1;
-        if (!prnB) return -1;
-        const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
-        const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
-        if (numA !== numB) return numA - numB;
-        return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
-      });
-      cProgSec.studentsCount = Math.max(existingStudents.length, C_PROGRAMMING_COHORT_STUDENTS.length);
-      cProgSec._count = { students: cProgSec.studentsCount };
+        cProgSec.students = existingStudents.sort((a: any, b: any) => {
+          const prnA = (a.prn || a.student?.prn || '').trim().toUpperCase();
+          const prnB = (b.prn || b.student?.prn || '').trim().toUpperCase();
+          if (!prnA) return 1;
+          if (!prnB) return -1;
+          const numA = parseInt(prnA.replace(/\D/g, '').slice(-4), 10) || 999999;
+          const numB = parseInt(prnB.replace(/\D/g, '').slice(-4), 10) || 999999;
+          if (numA !== numB) return numA - numB;
+          return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        cProgSec.studentsCount = Math.max(existingStudents.length, C_PROGRAMMING_COHORT_STUDENTS.length);
+        cProgSec._count = { students: cProgSec.studentsCount };
 
-      try {
-        localStorage.setItem(`logicq_section_students_${cProgSec.id}`, JSON.stringify(existingStudents));
-        if (cProgSec.joinCode) {
-          localStorage.setItem(`logicq_section_students_${cProgSec.joinCode}`, JSON.stringify(existingStudents));
-        }
-      } catch {}
+        try {
+          localStorage.setItem(`logicq_section_students_${cProgSec.id}`, JSON.stringify(existingStudents));
+          if (cProgSec.joinCode) {
+            localStorage.setItem(`logicq_section_students_${cProgSec.joinCode}`, JSON.stringify(existingStudents));
+          }
+        } catch {}
+      }
     }
 
     // Update persistent local backup so fallback always has current valid sections

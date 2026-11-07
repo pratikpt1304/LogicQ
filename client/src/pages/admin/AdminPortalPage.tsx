@@ -160,9 +160,14 @@ export const AdminPortalPage: React.FC = () => {
     const secToDelete = sections.find((s) => s.id === sectionId);
     const updated = sections.filter((s) => s.id !== sectionId);
     saveSections(updated);
+    setStats((prev) => ({ ...prev, totalSections: updated.length }));
 
     try {
-      await FirestoreDataService.deleteSectionFromFirestore(sectionId, secToDelete?.joinCode);
+      await FirestoreDataService.deleteSectionFromFirestore(
+        sectionId,
+        secToDelete?.joinCode,
+        secToDelete?.sectionName
+      );
     } catch (err) {
       console.warn('Notice: section removed from local cache, Firestore delete backgrounded:', err);
     }
