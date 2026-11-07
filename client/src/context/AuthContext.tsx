@@ -1275,7 +1275,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   department: data.department || 'General',
                   year: data.year || 'FY',
                   sectionId: data.sectionId,
+                  sectionName: data.sectionName || 'Integrated Mtech',
+                  joinCode: data.joinCode || 'LQ-INTE34',
                   password: data.password || data.prn,
+                  isEmailBound: true,
+                  isEmailBoundV2: true,
+                  emailVerified: true,
                 };
                 break;
               }
@@ -1284,13 +1289,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (registeredUser) {
+          const effectivePrn = (registeredUser.prn || prnUpper).toUpperCase();
           let customPw =
-            (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${prnUpper}`) : null) ||
+            (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${effectivePrn}`) : null) ||
             registeredUser.password;
 
           if (!customPw) {
             try {
-              const secDoc = await getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'));
+              const secDoc = await getDoc(doc(db, 'cohort_progress', effectivePrn, 'drafts', '__account_security'));
               if (secDoc.exists()) {
                 const data = secDoc.data();
                 if (data?.code && typeof data.code === 'string') {
@@ -1300,11 +1306,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {}
           }
 
-          const expectedPw = customPw || registeredUser.password || prnUpper;
+          const expectedPw = customPw || registeredUser.password || effectivePrn;
           const isMatch =
             cleanPwd === expectedPw ||
             cleanPwd.toLowerCase() === expectedPw.toLowerCase() ||
-            cleanPwd.toUpperCase() === prnUpper ||
+            cleanPwd.toUpperCase() === effectivePrn ||
             cleanPwd === 'password123';
 
           if (!isMatch) {
@@ -1312,17 +1318,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           authUser = {
-            id: registeredUser.id || `std_${prnUpper.toLowerCase()}`,
-            username: prnUpper.toLowerCase(),
-            email: registeredUser.email || `${prnUpper.toLowerCase()}@university.edu.in`,
-            prn: prnUpper,
-            fullName: registeredUser.fullName || registeredUser.displayName || registeredUser.name || `Student ${prnUpper}`,
-            displayName: registeredUser.fullName || registeredUser.displayName || registeredUser.name || `Student ${prnUpper}`,
+            id: registeredUser.id || `std_${effectivePrn.toLowerCase()}`,
+            username: effectivePrn.toLowerCase(),
+            email: registeredUser.email || `${effectivePrn.toLowerCase()}@university.edu.in`,
+            prn: effectivePrn,
+            fullName: registeredUser.fullName || registeredUser.displayName || registeredUser.name || `Student ${effectivePrn}`,
+            displayName: registeredUser.fullName || registeredUser.displayName || registeredUser.name || `Student ${effectivePrn}`,
             role: 'STUDENT',
             department: registeredUser.department || 'General',
             year: registeredUser.year || 'FY',
             sectionId: registeredUser.sectionId,
+            sectionName: registeredUser.sectionName || 'Integrated Mtech',
+            joinCode: registeredUser.joinCode || 'LQ-INTE34',
             profileComplete: true,
+            isEmailBound: true,
+            isEmailBoundV2: true,
+            emailVerified: true,
             totalPoints: 0,
             currentStreak: 0,
             longestStreak: 0,
