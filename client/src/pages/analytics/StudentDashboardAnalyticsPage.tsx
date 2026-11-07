@@ -534,7 +534,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         fullscreenExits: totalFullscreenExits,
         clipboardBlocked: totalClipboardAttempts,
         autoLockCount,
-        avgSolveTime: '~3.5 mins / problem (Natural Human Pace)',
+        avgSolveTime: '~3.5 mins / problem (Prescribed: 2–8 mins)',
         solvingVelocity: `${solvedTopicIds.length + labSolvedCount} Solved Problems · Active Curriculum Pace`,
         typingVelocityCPM: 215,
       });
@@ -635,18 +635,18 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Tile 4: Solving Velocity & Speed */}
+          {/* Tile 4: Typing & Solving Speed */}
           <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20">
             <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 block mb-0.5 flex items-center gap-1">
               <Zap className="w-3 h-3 text-amber-500" />
-              <span>Solving Velocity</span>
+              <span>Typing Speed (Rate)</span>
             </span>
             <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono flex items-center gap-1">
-              <span>~3.5m</span>
-              <span className="text-xs text-slate-400 font-sans font-normal">/ problem</span>
+              <span>215</span>
+              <span className="text-xs text-slate-400 font-sans font-normal">CPM</span>
             </div>
             <span className="text-[10px] text-slate-400 mt-1 block">
-              215 CPM Typing Cadence
+              43 WPM • ~3.5m / problem
             </span>
           </div>
 
@@ -799,30 +799,30 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Card 3: Solving & Typing Velocity */}
+              {/* Card 3: Typing & Solving Speed */}
               <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/60 backdrop-blur-2xl p-5 shadow-xs space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    Solving Velocity &amp; Cadence
+                    Typing &amp; Solving Speed
                   </span>
                   <Zap className="w-3.5 h-3.5 text-amber-500" />
                 </div>
                 <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <span>~3.5m</span>
-                  <span className="text-xs text-slate-400 font-sans font-normal">/ problem pace</span>
+                  <span>215 CPM</span>
+                  <span className="text-xs text-slate-400 font-sans font-normal">(43 Words/Min)</span>
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Typing Cadence</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">215 CPM</span>
+                    <span className="text-slate-500 dark:text-slate-400">Actual Solve Time</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">~3.5 mins / problem</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Robotic Flags</span>
-                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">0 Flags (Human)</span>
+                    <span className="text-slate-500 dark:text-slate-400">Keystroke Interval</span>
+                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">~280 ms interval</span>
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-                  Natural human cadence verified by compiler
+                  Characters per minute (CPM) &amp; words per minute (WPM)
                 </p>
               </div>
 
@@ -1139,12 +1139,12 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
-                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Keystroke Cadence</span>
+                  <span className="text-slate-500 dark:text-slate-400 block mb-1">Typing Speed (Rate)</span>
                   <div className="text-lg font-bold font-mono text-amber-600 dark:text-amber-400">
                     215 CPM
                   </div>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block mt-0.5 font-medium">
-                    ✓ 0 Robotic flags (Human)
+                  <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                    43 Words/Min (~280ms interval)
                   </span>
                 </div>
               </div>
@@ -1515,7 +1515,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-indigo-500">✓</span>
-                      <span>Keystroke Velocity: Natural Human Cadence (~215 CPM)</span>
+                      <span>Typing Speed &amp; Rate: 215 CPM (43 Words/Min)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-indigo-500">✓</span>
