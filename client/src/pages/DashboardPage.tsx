@@ -78,24 +78,7 @@ export const DashboardPage: React.FC = () => {
   const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039';
   const isStudent = !isFacultyUser && !isAdmin;
   const isPrivilegedProgression = Boolean(isAdmin || isFaculty);
-  const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests' | 'project'>('practice');
-  const [isMiniProjectUnlocked, setIsMiniProjectUnlocked] = useState<boolean>(false);
-
-  // Sync Mini-Project unlock status dynamically from Firestore & localStorage
-  useEffect(() => {
-    if (!user?.prn) return;
-    let isMounted = true;
-    const checkStatus = async () => {
-      const unlocked = await FirestoreDataService.getMiniProjectStatus(user.prn || '');
-      if (isMounted) {
-        setIsMiniProjectUnlocked(unlocked || Boolean((user as any)?.miniProjectUnlocked));
-      }
-    };
-    checkStatus();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.prn, (user as any)?.miniProjectUnlocked]);
+  const [studentTab, setStudentTab] = useState<'practice' | 'lab' | 'tests'>('practice');
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);
   const [isDriveCardDismissed, setIsDriveCardDismissed] = useState<boolean>(() => {
@@ -1536,27 +1519,6 @@ export const DashboardPage: React.FC = () => {
                     </span>
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setStudentTab('project')}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
-                    studentTab === 'project'
-                      ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-purple-500" />
-                  <span>Mini-Project</span>
-                  {isMiniProjectUnlocked ? (
-                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold">
-                      Active
-                    </span>
-                  ) : (
-                    <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold flex items-center gap-0.5">
-                      <Lock className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </button>
               </div>
             </div>
 
@@ -1807,81 +1769,6 @@ export const DashboardPage: React.FC = () => {
                     })}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* TAB 4: INDUSTRY CAPSTONE MINI-PROJECT */}
-            {studentTab === 'project' && (
-              <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-200">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                        Module 05 • Capstone
-                      </span>
-                      {isMiniProjectUnlocked ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" /> UNLOCKED &amp; ACTIVE
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center gap-1">
-                          <Lock className="w-3 h-3 text-amber-500" /> LOCKED (Awaiting Faculty Unlock)
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                      Hospital Patient Triage &amp; Vitals Monitoring System
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-                      Embedded C11 emergency medical triage and telemetry console. Ingests vitals (Heart Rate, SpO2, Systolic BP) and maintains an active priority queue sorted by severity urgency.
-                    </p>
-                  </div>
-
-                  <div className="shrink-0">
-                    {isMiniProjectUnlocked ? (
-                      <Link
-                        to="/mini-project/capstone-mini-project-c11"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-purple-500/20 transition-all cursor-pointer"
-                      >
-                        <span>Open Project Workspace</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => toast.warning('🔒 This capstone mini-project is currently locked. Ask your course faculty/admin to unlock it from the Admin Console.')}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed"
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Project Locked</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Competencies Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-1">
-                    <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-bold uppercase">Competency 1 (5M)</span>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Syntax &amp; Triage Logic</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">SpO2, HR, BP severity classification function.</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-1">
-                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold uppercase">Competency 2 (5M)</span>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Arrays &amp; Structures</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Vitals struct, Patient records array &amp; sorting.</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-1">
-                    <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 font-bold uppercase">Competency 3 (5M)</span>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Pointers &amp; Functions</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Pass-by-reference mutators and dynamic ID search.</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-1">
-                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold uppercase">Competency 4 (5M)</span>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">System Integration</h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">Interactive menu dispatcher and memory hygiene.</p>
-                  </div>
-                </div>
               </div>
             )}
           </div>
