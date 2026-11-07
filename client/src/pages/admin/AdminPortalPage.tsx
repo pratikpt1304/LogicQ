@@ -127,29 +127,46 @@ export const AdminPortalPage: React.FC = () => {
     setSections(updated);
     try {
       localStorage.setItem('logicq_admin_sections', JSON.stringify(updated));
+      localStorage.setItem('logicq_faculty_sections_backup_v2', JSON.stringify(updated));
     } catch {}
   };
 
   const handleCreateSection = async (data: any) => {
+    const cleanJoinCode = data.joinCode || `LQ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const newSection = {
       id: `sec-${Date.now().toString(36)}`,
       sectionName: data.sectionName,
       subject: data.subject || 'C Programming',
-      course: data.course || 'B.Tech Computer Engineering',
+      course: data.course || 'Computer Science & Engineering',
       academicYear: data.academicYear || '2026-2027',
-      semester: data.semester || 'Semester III',
-      joinCode: `LQ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      semester: data.semester || 'Semester 1',
+      joinCode: cleanJoinCode,
       studentsCount: 0,
       createdAt: new Date().toISOString(),
     };
     const updated = [newSection, ...sections];
     saveSections(updated);
+
+    try {
+      await FirestoreDataService.saveSectionToFirestore(newSection);
+    } catch (err) {
+      console.warn('Notice: section saved to local cache, Firestore sync backgrounded:', err);
+    }
+
     toast.success(`Class section "${newSection.sectionName}" created successfully!`);
   };
 
   const handleDeleteSection = async (sectionId: string) => {
+    const secToDelete = sections.find((s) => s.id === sectionId);
     const updated = sections.filter((s) => s.id !== sectionId);
     saveSections(updated);
+
+    try {
+      await FirestoreDataService.deleteSectionFromFirestore(sectionId, secToDelete?.joinCode);
+    } catch (err) {
+      console.warn('Notice: section removed from local cache, Firestore delete backgrounded:', err);
+    }
+
     toast.info('Section deleted.');
   };
 

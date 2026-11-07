@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Plus,
   Copy,
@@ -50,6 +50,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   // Inline quick create state (1-Click, Zero Modal)
   const [quickSectionName, setQuickSectionName] = useState('');
   const [isCreatingQuick, setIsCreatingQuick] = useState(false);
+  const quickInputRef = useRef<HTMLInputElement>(null);
 
   // Modal create state (for admins who click "+ New Section" header button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -89,7 +90,8 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
     e.preventDefault();
     const name = quickSectionName.trim();
     if (!name) {
-      toast.error('Please enter a section name (e.g. Division A)');
+      // If admin clicks button without typing, open the modal and focus
+      setIsCreateModalOpen(true);
       return;
     }
 
@@ -261,7 +263,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="sm:hidden px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>New Section</span>
@@ -275,21 +277,23 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         >
           <div className="relative flex-1 w-full">
             <input
+              ref={quickInputRef}
               type="text"
               value={quickSectionName}
               onChange={(e) => setQuickSectionName(e.target.value)}
-              placeholder="Quick Add: Type section name (e.g. Division A, Batch 1) & press Enter..."
+              placeholder="Quick Add: Type section name (e.g. Division A, Batch 1) & press Enter or click Create..."
               className="w-full pl-3.5 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition placeholder:text-slate-400"
             />
           </div>
 
           <button
             type="submit"
-            disabled={isCreatingQuick || !quickSectionName.trim()}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+            disabled={isCreatingQuick}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+            title="Create Section"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Section</span>
+            <span>{isCreatingQuick ? 'Creating...' : '+ Create Section'}</span>
           </button>
         </form>
       </div>
@@ -298,7 +302,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
       {/* 2. APPLE-GRADE SECTION CARDS GRID                                         */}
       {/* ========================================================================= */}
       {sections.length === 0 ? (
-        <div className="py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-3">
+        <div className="py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-4">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
             <GraduationCap className="w-6 h-6" />
           </div>
@@ -306,8 +310,16 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
             No Class Sections Yet
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Type a section name in the quick bar above to initialize your first class division and issue student join links.
+            Type a section name in the quick bar above or click below to initialize your first class division and issue student join links.
           </p>
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create First Section</span>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
