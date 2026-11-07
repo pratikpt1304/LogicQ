@@ -1697,38 +1697,7 @@ export class FirestoreDataService {
       }
     }
 
-    // Merge authoritative C Programming Cohort (all 116 registered students)
-    C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
-      const pKey = cs.prn.toUpperCase();
-      const validEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
-      const eKey = validEmail.toLowerCase();
-      if (!seenPrns.has(pKey) && (!eKey || !seenEmails.has(eKey))) {
-        list.push({
-          id: cs.prn,
-          uid: cs.prn,
-          email: validEmail,
-          fullName: cs.fullName,
-          displayName: cs.fullName,
-          role: 'STUDENT',
-          department: cs.department,
-          year: cs.year,
-          college: cs.college,
-          prn: cs.prn,
-          profileComplete: true,
-          sectionId: 'LQ-C31A',
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          totalSolved: 0,
-          solvedProblems: [],
-          submissionsCount: 0,
-          createdAt: '2026-11-01T00:00:00.000Z',
-          updatedAt: '2026-11-01T00:00:00.000Z',
-        } as any);
-        seenPrns.add(pKey);
-        if (eKey) seenEmails.add(eKey);
-      }
-    });
+    // Do not inject hardcoded cohort students; only authoritative Firestore enrolled_students & sections are returned.
 
     list.sort((a: any, b: any) => {
       const prnA = (a.prn || '').trim().toUpperCase();
@@ -1741,7 +1710,8 @@ export class FirestoreDataService {
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    return list.filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
+    const filtered = list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+    return filtered;
   }
 
   /**
@@ -2362,10 +2332,41 @@ export class FirestoreDataService {
    * Checks whether a student account/email/PRN has been explicitly deleted/purged.
    */
   public static isPurgedStudent(student: any): boolean {
-    if (!student) return true;
+    if (!student) return false;
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
-    if (email === 'logicqarena@gmail.com') return false;
-    return true; // All non-admin accounts are purged per administrator wipe
+    const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
+    const id = String(student.id || student.uid || '').trim();
+
+    // Never purge admin
+    if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
+
+    // Never purge demo or dummy students
+    if (email === 'dummy@logicq.io' || prn === 'DUMMY' || id === 'std_dummy' || id === 'dummy') return false;
+
+    const targetEmails = [
+      'hariprasathset@sanjivani.edu.in',
+      'faculty@logicq.io',
+      'student@logicq.io',
+      'rohan_1390@test.edu',
+      'join_1390@sanjivani.edu.in',
+      'student_2026sim7208@sanjivani.edu.in',
+      'prnchange.test1@sanjivani.org.in',
+      'prnchange.test2@sanjivani.org.in',
+      'prn_format_test_1@sanjivani.org.in',
+    ];
+    const targetPrns = [
+      '2026IMTM0001',
+      '2024BCSE0001',
+      '2026VAL1390',
+      '2026JON1390',
+      '2026STUD0001',
+      '2026SIM7208',
+      '2199TESM0003',
+      '2199TESF0099',
+      '2199TESF0002',
+    ];
+
+    return targetEmails.includes(email) || targetPrns.includes(prn);
   }
 
   /**
@@ -3096,7 +3097,8 @@ export class FirestoreDataService {
       return prnA.localeCompare(prnB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    return list.filter((u) => (u.email || '').toLowerCase().trim() === 'logicqarena@gmail.com');
+    const filtered = list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
+    return filtered;
   }
 
   /**

@@ -94,6 +94,7 @@ export const AdminPortalPage: React.FC = () => {
   React.useEffect(() => {
     try {
       localStorage.removeItem('logicq_admin_sections');
+      localStorage.removeItem('logicq_admin_students');
       localStorage.removeItem('logicq_admin_students_list');
       localStorage.removeItem('logicq_admin_tests');
     } catch {}

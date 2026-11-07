@@ -370,11 +370,6 @@ function getCurrentUser(): User | null {
     if (activeRaw) {
       const active = JSON.parse(activeRaw);
       if (active && typeof active === 'object') {
-        if ((active.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
-          localStorage.removeItem('logicq_active_user');
-          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
-          return null;
-        }
         return active;
       }
     }

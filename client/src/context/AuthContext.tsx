@@ -188,18 +188,6 @@ const getCachedUser = (): User | null => {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    const email = (parsed?.email || '').toLowerCase().trim();
-    if (email !== 'logicqarena@gmail.com') {
-      try {
-        localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
-        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-        localStorage.removeItem('logicq_refresh_token');
-        localStorage.removeItem('logicq_current_user_id');
-        localStorage.removeItem('logicq_dev_users');
-        sessionStorage.clear();
-      } catch {}
-      return null;
-    }
     return parsed;
   } catch {
     return null;
@@ -222,14 +210,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const persistUser = (userData: User | null) => {
     let finalUser = userData;
     if (finalUser) {
-      if ((finalUser.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
-        clearSessionStorage();
-        if (isMountedRef.current) {
-          setUser(null);
-          setAuthState('signedOut');
-        }
-        return;
-      }
       const isMasterAdmin =
         (finalUser.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
         (finalUser.prn || '').toUpperCase().trim() === 'LOGICQARENA' ||
@@ -883,17 +863,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 3. Listen to Firebase Auth state change (authoritative session restored from IndexedDB)
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
       if (fbUser) {
-        if ((fbUser.email || '').toLowerCase().trim() !== 'logicqarena@gmail.com') {
-          try {
-            await signOut(firebaseAuth);
-          } catch {}
-          clearSessionStorage();
-          if (isMountedRef.current) {
-            setUser(null);
-            setAuthState('signedOut');
-          }
-          return;
-        }
         // Firebase Auth restored active session
         recordUserActivity();
 
