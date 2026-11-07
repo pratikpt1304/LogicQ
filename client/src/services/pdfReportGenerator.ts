@@ -83,7 +83,7 @@ export async function generateStudentPDFReport(opts: StudentReportPDFOptions): P
   doc.setTextColor(15, 23, 42); // slate-900
   doc.text(opts.studentName || 'Registered Student', margin + 5, y + 13);
   doc.text(opts.prn || 'N/A', margin + 65, y + 13);
-  doc.text(opts.department || 'Integrated M.Tech / CSE', margin + 115, y + 13);
+  doc.text(opts.department || 'Integrated M.Tech', margin + 115, y + 13);
 
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');

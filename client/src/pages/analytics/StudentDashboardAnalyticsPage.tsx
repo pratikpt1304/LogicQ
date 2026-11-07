@@ -476,7 +476,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
         studentName: user?.fullName || user?.displayName || user?.email || 'Registered Candidate',
         prn: user?.prn || '2126PMIM1039',
         email: user?.email || '',
-        department: user?.department || 'Integrated M.Tech (CSE)',
+        department: user?.department || 'Integrated M.Tech',
         college: user?.college || 'Sanjivani University',
         cieMarks,
         labSolvedCount,
@@ -1348,7 +1348,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px] block uppercase">Institution</span>
-                  <span>Sanjivani University • Dept. of CSE</span>
+                  <span>{user?.college || 'Sanjivani University'} • {user?.department || 'Integrated M.Tech'}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 text-[10px] block uppercase">Generated On</span>

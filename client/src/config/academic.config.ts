@@ -123,7 +123,8 @@ export function normalizeDepartment(raw: unknown): AllowedDepartment | null {
 export function deriveDepartmentFromPrn(prn?: string | null): AllowedDepartment | null {
   if (!prn || typeof prn !== 'string') return null;
   const upper = prn.toUpperCase().trim();
-  // Check program / branch codes in PRN (e.g., 2126PMIF1057 -> IF -> IT)
+  // Check program / branch codes in PRN (e.g. 2126PMIM1039, 2126PMIF1057 -> Integrated M.Tech)
+  if (upper.includes('PMI') || upper.includes('IMT') || upper.includes('MTECH') || upper.includes('2126PM')) return 'Integrated M.Tech';
   if (upper.includes('IF') || upper.includes('IT')) return 'IT';
   if (upper.includes('AIML') || upper.includes('AIM')) return 'AIML';
   if (upper.includes('AIDS') || upper.includes('AID')) return 'AIDS';
