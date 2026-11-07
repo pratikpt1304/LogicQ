@@ -189,6 +189,17 @@ export const App: React.FC = () => {
     }
   }, [user, location.pathname]);
 
+  // One-time automatic clean reset for Pratik Thorat test account on root App mount
+  useEffect(() => {
+    if (!user) return;
+    const isPratik = user.prn === '2126PMIM1039' || user.email === 'thoratpratik2323@gmail.com';
+    const hasReset = localStorage.getItem('logicq_pratik_app_full_reset_v5');
+    if (isPratik && !hasReset) {
+      localStorage.setItem('logicq_pratik_app_full_reset_v5', 'true');
+      FirestoreDataService.resetEntireStudentData(user.id, user.prn, user.email);
+    }
+  }, [user]);
+
   // Background Pre-Warm & Keep-Alive for Render Backend
   useEffect(() => {
     const rawApiUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');

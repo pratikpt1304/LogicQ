@@ -3918,6 +3918,9 @@ export class FirestoreDataService {
       localStorage.setItem('logicq_solved_practice_topics', '[]');
       localStorage.setItem('logicq_fallback_submissions_v1', '[]');
       localStorage.setItem('logicq_fallback_practice_progress_v1', '{}');
+      localStorage.setItem('logicq_submissions', '[]');
+      localStorage.removeItem('logicq_submissions');
+      localStorage.removeItem('logicq_recent_submissions');
     } catch {}
 
     // 3. Delete all submissions from Cloud Firestore
@@ -3928,6 +3931,16 @@ export class FirestoreDataService {
       '2126PMIM1039',
       'cohort-2126pmim1039',
     ])).filter(Boolean) as string[];
+
+    // 3a. Delete cohort_progress from Cloud Firestore
+    const prnsToClear = Array.from(new Set([targetPrn, '2126PMIM1039', '2126pmim1039'])).filter(Boolean);
+    for (const p of prnsToClear) {
+      try {
+        await deleteDoc(doc(db, 'cohort_progress', p)).catch(() => {});
+        await deleteDoc(doc(db, 'cohort_progress', p.toUpperCase())).catch(() => {});
+        await deleteDoc(doc(db, 'cohort_progress', p.toLowerCase())).catch(() => {});
+      } catch {}
+    }
 
     for (const uidVal of uidsToCheck) {
       try {
