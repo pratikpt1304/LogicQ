@@ -36,7 +36,7 @@ export const AdminReportsTab: React.FC = () => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
         doc.setTextColor(20, 30, 60);
-        doc.text('SANJIVANI COLLEGE OF ENGINEERING, KOPARGAON', 105, 18, { align: 'center' });
+        doc.text('CONTINUOUS EVALUATION & EXAMINATION PLATFORM', 105, 18, { align: 'center' });
 
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
@@ -122,7 +122,7 @@ export const AdminReportsTab: React.FC = () => {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(120, 120, 130);
-        doc.text('Sanjivani COE Kopargaon', 35, 257, { align: 'center' });
+        doc.text('Academic Department Head', 35, 257, { align: 'center' });
         doc.text('LogicQ Platform Faculty', 105, 257, { align: 'center' });
         doc.text('Autonomous Examination Cell', 170, 257, { align: 'center' });
 
@@ -142,88 +142,41 @@ export const AdminReportsTab: React.FC = () => {
 
     setTimeout(() => {
       try {
-        const studentRows = [
-          {
-            'PRN': 'LOGICQARENA',
-            'Full Name': 'LogicQ Admin Student',
-            'Institutional Email': 'logicqarena@gmail.com',
-            'Division': 'Division A',
-            'Identity Bound': 'YES (OTP)',
-            'Academic Score (0-100)': 94,
-            'Section 1 (20)': 20,
-            'Section 2 (20)': 19,
-            'Section 3 (20)': 18,
-            'Section 4 (20)': 19,
-            'Mini-Project Unlocked': 'YES',
-            'Integrity Risk Index (0-100)': 6,
-            'Risk Tier': 'Normal',
-            'AI Viva Status': 'VERIFIED',
-          },
-          {
-            'PRN': '2126CS101',
-            'Full Name': 'Aarav Sharma',
-            'Institutional Email': 'aarav.sharma@sanjivani.edu.in',
-            'Division': 'Division A',
-            'Identity Bound': 'YES (OTP)',
-            'Academic Score (0-100)': 88,
-            'Section 1 (20)': 19,
-            'Section 2 (20)': 18,
-            'Section 3 (20)': 17,
-            'Section 4 (20)': 16,
-            'Mini-Project Unlocked': 'NO',
-            'Integrity Risk Index (0-100)': 12,
-            'Risk Tier': 'Normal',
-            'AI Viva Status': 'VERIFIED',
-          },
-          {
-            'PRN': '2126CS102',
-            'Full Name': 'Diya Patel',
-            'Institutional Email': 'diya.patel@sanjivani.edu.in',
-            'Division': 'Division A',
-            'Identity Bound': 'YES (OTP)',
-            'Academic Score (0-100)': 92,
-            'Section 1 (20)': 20,
-            'Section 2 (20)': 19,
-            'Section 3 (20)': 19,
-            'Section 4 (20)': 16,
-            'Mini-Project Unlocked': 'YES',
-            'Integrity Risk Index (0-100)': 9,
-            'Risk Tier': 'Normal',
-            'AI Viva Status': 'VERIFIED',
-          },
-          {
-            'PRN': '2126CS103',
-            'Full Name': 'Rohan Deshmukh',
-            'Institutional Email': 'rohan.deshmukh@sanjivani.edu.in',
-            'Division': 'Division B',
-            'Identity Bound': 'EMAIL ONLY',
-            'Academic Score (0-100)': 62,
-            'Section 1 (20)': 15,
-            'Section 2 (20)': 13,
-            'Section 3 (20)': 12,
-            'Section 4 (20)': 10,
-            'Mini-Project Unlocked': 'NO',
-            'Integrity Risk Index (0-100)': 38,
-            'Risk Tier': 'Low Risk',
-            'AI Viva Status': 'PENDING',
-          },
-          {
-            'PRN': '2126CS104',
-            'Full Name': 'Sneha Kulkarni',
-            'Institutional Email': 'sneha.kulkarni@sanjivani.edu.in',
-            'Division': 'Division B',
-            'Identity Bound': 'PENDING',
-            'Academic Score (0-100)': 35,
-            'Section 1 (20)': 10,
-            'Section 2 (20)': 8,
-            'Section 3 (20)': 7,
-            'Section 4 (20)': 6,
-            'Mini-Project Unlocked': 'NO',
-            'Integrity Risk Index (0-100)': 78,
-            'Risk Tier': 'High Risk (Flagged)',
-            'AI Viva Status': 'FLAGGED',
-          },
-        ];
+        // Export verified students from localStorage or active roster
+        let studentRows: any[] = [];
+        try {
+          const cachedUsers = localStorage.getItem('logicq_admin_students');
+          if (cachedUsers) {
+            const parsed = JSON.parse(cachedUsers);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              studentRows = parsed.map((u: any) => ({
+                'PRN': u.prn || u.id || 'N/A',
+                'Full Name': u.name || u.displayName || 'Candidate',
+                'Email': u.email || 'N/A',
+                'Division': u.section || 'General',
+                'Identity Bound': u.isEmailBoundV2 || u.emailVerified ? 'YES (OTP)' : 'PENDING',
+                'Academic Score (0-100)': u.score || 0,
+                'Mini-Project Unlocked': u.miniProjectUnlocked ? 'YES' : 'NO',
+                'AI Viva Status': u.vivaStatus || 'PENDING',
+              }));
+            }
+          }
+        } catch {}
+
+        if (studentRows.length === 0) {
+          studentRows = [
+            {
+              'PRN': 'ROSTER-EMPTY',
+              'Full Name': 'No Enrolled Students Yet',
+              'Email': 'Enroll students via Sections tab',
+              'Division': '-',
+              'Identity Bound': '-',
+              'Academic Score (0-100)': 0,
+              'Mini-Project Unlocked': 'NO',
+              'AI Viva Status': 'N/A',
+            }
+          ];
+        }
 
         const worksheet = XLSX.utils.json_to_sheet(studentRows);
         const workbook = XLSX.utils.book_new();

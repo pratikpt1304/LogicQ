@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import {
-  BookOpen,
-  Check,
-  Copy,
-  ExternalLink,
-  GraduationCap,
   Plus,
+  Copy,
+  Check,
   QrCode,
-  Share2,
-  Trash2,
-  UploadCloud,
-  Users,
-  X,
-  FileSpreadsheet,
-  AlertCircle,
-  AlertTriangle,
   Send,
+  FileSpreadsheet,
+  Trash2,
+  Users,
+  GraduationCap,
+  Download,
+  X,
+  UploadCloud,
+  AlertCircle,
+  Sparkles,
+  Link as LinkIcon,
+  BookOpen,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
-interface SectionItem {
+export interface SectionItem {
   id: string;
   sectionName: string;
   subject: string;
@@ -47,13 +47,24 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   onDeleteSection,
   onImportExcelStudents,
 }) => {
+  // Inline quick create state (1-Click, Zero Modal)
+  const [quickSectionName, setQuickSectionName] = useState('');
+  const [isCreatingQuick, setIsCreatingQuick] = useState(false);
+
+  // Modal create state (for admins who click "+ New Section" header button)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [modalSectionName, setModalSectionName] = useState('');
+  const [modalSubject, setModalSubject] = useState('C Programming');
+
+  // QR Modal State
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [activeSectionForQr, setActiveSectionForQr] = useState<SectionItem | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Excel Import state
+  // Copy Feedback State
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Excel Modal State
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [targetSectionForExcel, setTargetSectionForExcel] = useState<SectionItem | null>(null);
   const [excelPreview, setExcelPreview] = useState<{
@@ -64,31 +75,78 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    institution: 'Sanjivani University',
-    course: 'Integrated M.Tech (CSE)',
-    subject: 'C Programming',
-    academicYear: '2026-2027',
-    semester: 'Semester 1 (FY)',
-    sectionName: '',
-    faculty: 'Faculty Instructor',
-    description: 'AI-Resistant Smart Assessment & Practice',
-  });
-
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedCode(text);
-    toast.success(`${label} copied to clipboard!`);
-    setTimeout(() => setCopiedCode(null), 2000);
+  // 1-Click Copy Link Handler
+  const handleCopyLink = (sec: SectionItem) => {
+    const url = `${window.location.origin}/join?code=${sec.joinCode}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(sec.id);
+    toast.success(`1-Click Join Link copied! Share with ${sec.sectionName} students.`);
+    setTimeout(() => setCopiedId(null), 2200);
   };
 
+  // 1-Click Quick Section Creator
+  const handleQuickCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = quickSectionName.trim();
+    if (!name) {
+      toast.error('Please enter a section name (e.g. Division A)');
+      return;
+    }
+
+    setIsCreatingQuick(true);
+    try {
+      const codeSuffix = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'SEC';
+      const cleanJoinCode = `LQ-${codeSuffix}${Math.floor(10 + Math.random() * 89)}`;
+
+      await onCreateSection({
+        sectionName: name,
+        subject: 'C Programming',
+        course: 'Computer Science & Engineering',
+        academicYear: '2026-2027',
+        semester: 'Semester 1',
+        joinCode: cleanJoinCode,
+      });
+
+      setQuickSectionName('');
+      toast.success(`Section "${name}" created! Join Code: ${cleanJoinCode}`);
+    } finally {
+      setIsCreatingQuick(false);
+    }
+  };
+
+  // Modal Section Creator
+  const handleModalCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = modalSectionName.trim();
+    if (!name) {
+      toast.error('Please enter a section name');
+      return;
+    }
+
+    const codeSuffix = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'SEC';
+    const cleanJoinCode = `LQ-${codeSuffix}${Math.floor(10 + Math.random() * 89)}`;
+
+    await onCreateSection({
+      sectionName: name,
+      subject: modalSubject || 'C Programming',
+      course: 'Computer Science & Engineering',
+      academicYear: '2026-2027',
+      semester: 'Semester 1',
+      joinCode: cleanJoinCode,
+    });
+
+    setIsCreateModalOpen(false);
+    setModalSectionName('');
+    toast.success(`Section "${name}" created! Join Code: ${cleanJoinCode}`);
+  };
+
+  // Open QR Code Viewer
   const handleOpenQr = async (sec: SectionItem) => {
     setActiveSectionForQr(sec);
     const joinUrl = `${window.location.origin}/join?code=${sec.joinCode}`;
     try {
       const url = await QRCode.toDataURL(joinUrl, {
-        width: 280,
+        width: 320,
         margin: 2,
         color: { dark: '#0C0F1F', light: '#FFFFFF' },
       });
@@ -99,22 +157,17 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.sectionName.trim()) {
-      toast.error('Please enter a section name (e.g. Div A)');
-      return;
-    }
-    const cleanJoinCode = `LQ-${formData.sectionName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'SEC'}${Math.floor(10 + Math.random() * 89)}`;
-    await onCreateSection({
-      ...formData,
-      joinCode: cleanJoinCode,
-    });
-    setIsCreateModalOpen(false);
-    setFormData({ ...formData, sectionName: '' });
+  // Download QR as PNG
+  const handleDownloadQr = () => {
+    if (!qrDataUrl || !activeSectionForQr) return;
+    const a = document.createElement('a');
+    a.href = qrDataUrl;
+    a.download = `LogicQ_JoinQR_${activeSectionForQr.sectionName.replace(/\s+/g, '_')}.png`;
+    a.click();
+    toast.success('QR Code image downloaded!');
   };
 
-  // Excel File Parser (Item 12 Specification)
+  // Excel Roster Parser
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -134,7 +187,6 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         const seenPrns = new Set<string>();
 
         rows.forEach((r, idx) => {
-          // Normalize column headers
           const name = r.Name || r['Full Name'] || r.StudentName || r['Student Name'] || '';
           const prn = String(r.PRN || r['PRN/Roll No'] || r.RollNo || r['Roll No'] || '').trim().toUpperCase();
           const email = String(r.Email || r['Valid Email'] || r['Email Address'] || '').trim().toLowerCase();
@@ -183,241 +235,279 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
-      {/* Header Bar with 1-Click Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-white/70 dark:bg-[#0e131d]/75 border border-slate-200/80 dark:border-slate-800/80 backdrop-blur-xl">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-indigo-500" />
-            <span>Academic Sections &amp; Rosters</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Create academic divisions, generate Instant Join Links &amp; WhatsApp invitations, or upload student rosters via Excel.
-          </p>
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-200">
+      {/* ========================================================================= */}
+      {/* 1. APPLE MINIMALIST HEADER & 1-CLICK INLINE CREATOR                       */}
+      {/* ========================================================================= */}
+      <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <GraduationCap className="w-5 h-5" />
+              </span>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Class Sections
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                {sections.length} {sections.length === 1 ? 'Section' : 'Sections'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Create academic divisions, share 1-click student invite links, or upload student rosters.
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold transition shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create New Section</span>
-        </button>
-      </div>
-
-      {/* Sections Grid */}
-      {sections.length === 0 ? (
-        <div className="py-20 text-center rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-[#0e131d]/40 p-8 space-y-4">
-          <GraduationCap className="w-12 h-12 mx-auto text-slate-400" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Academic Sections Created Yet</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Click <strong>&quot;Create New Section&quot;</strong> to initialize your first class division and issue unique join codes to students.
-          </p>
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-mono font-bold hover:bg-indigo-500"
+            className="sm:hidden px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm"
           >
-            Create Section Now
+            <Plus className="w-4 h-4" />
+            <span>New Section</span>
           </button>
         </div>
+
+        {/* 1-CLICK INLINE QUICK CREATOR (Admin Sir Request: Less Clicks & Simple) */}
+        <form
+          onSubmit={handleQuickCreate}
+          className="flex flex-col sm:flex-row items-center gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5"
+        >
+          <div className="relative flex-1 w-full">
+            <input
+              type="text"
+              value={quickSectionName}
+              onChange={(e) => setQuickSectionName(e.target.value)}
+              placeholder="Quick Add: Type section name (e.g. Division A, Batch 1) & press Enter..."
+              className="w-full pl-3.5 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition placeholder:text-slate-400"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isCreatingQuick || !quickSectionName.trim()}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Section</span>
+          </button>
+        </form>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. APPLE-GRADE SECTION CARDS GRID                                         */}
+      {/* ========================================================================= */}
+      {sections.length === 0 ? (
+        <div className="py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/[0.02] p-8 space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+            <GraduationCap className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+            No Class Sections Yet
+          </h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Type a section name in the quick bar above to initialize your first class division and issue student join links.
+          </p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {sections.map((sec) => (
-            <div
-              key={sec.id}
-              className="p-6 rounded-3xl bg-white/70 dark:bg-[#0e131d]/75 border border-slate-200/80 dark:border-slate-800/80 backdrop-blur-xl flex flex-col justify-between space-y-5 hover:border-indigo-500/40 transition shadow-xs"
-            >
-              <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {sections.map((sec) => {
+            const isJustCopied = copiedId === sec.id;
+            const studentCount = sec.studentsCount || sec.students?.length || 0;
+
+            return (
+              <div
+                key={sec.id}
+                className="group relative rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121620] p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-500/40 transition-all duration-200 flex flex-col justify-between space-y-4"
+              >
+                {/* Header Row */}
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold border border-indigo-500/20">
-                      {sec.course || 'C Programming'}
-                    </span>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1.5 leading-snug">
-                      {sec.sectionName}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                      {sec.subject} • {sec.semester || 'FY'}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
+                      {sec.sectionName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                        {sec.sectionName}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {sec.subject || 'C Programming'}
+                      </p>
+                    </div>
                   </div>
 
+                  {/* Delete Button */}
                   <button
                     type="button"
-                    onClick={() => onDeleteSection(sec.id)}
-                    className="p-2 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-500/10 transition cursor-pointer"
-                    title="Delete section"
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete section "${sec.sectionName}"?`)) {
+                        onDeleteSection(sec.id);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition opacity-60 group-hover:opacity-100 cursor-pointer"
+                    title="Delete Section"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Join Code Display Bar */}
-                <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between font-mono">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Classroom Join Code</span>
-                    <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 tracking-wider">
-                      {sec.joinCode}
+                {/* 1-Click Join Code Centerpiece (Apple Style) */}
+                <div className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.04] p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-slate-400">
+                      Classroom Join Code
+                    </span>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{studentCount} Enrolled</span>
                     </span>
                   </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-mono text-xl sm:text-2xl font-black tracking-wider text-blue-600 dark:text-blue-400">
+                      {sec.joinCode}
+                    </div>
+
+                    {/* 1-Click Copy Link Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleCopyLink(sec)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+                        isJustCopied
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-xs'
+                      }`}
+                      title="Copy Student Join Link"
+                    >
+                      {isJustCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="w-3.5 h-3.5" />
+                          <span>Copy Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3 Direct 1-Click Operations (Apple Pill Grid) */}
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100 dark:border-white/5">
+                  {/* QR Code */}
                   <button
                     type="button"
-                    onClick={() => handleCopy(sec.joinCode, 'Join Code')}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
-                    title="Copy Join Code"
+                    onClick={() => handleOpenQr(sec)}
+                    className="py-2 px-2 rounded-xl border border-slate-200/70 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    title="View QR Code"
                   >
-                    {copiedCode === sec.joinCode ? (
-                      <Check className="w-4 h-4 text-emerald-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
+                    <QrCode className="w-3.5 h-3.5 text-blue-500" />
+                    <span>QR</span>
+                  </button>
+
+                  {/* WhatsApp */}
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      `Join our C Programming classroom on LogicQ!\n\nJoin Code: ${sec.joinCode}\nDirect Link: ${window.location.origin}/join?code=${sec.joinCode}`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2 px-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium flex items-center justify-center gap-1.5 transition text-center"
+                    title="Share to WhatsApp"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Share</span>
+                  </a>
+
+                  {/* Excel Import */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetSectionForExcel(sec);
+                      setExcelPreview(null);
+                      setIsExcelModalOpen(true);
+                    }}
+                    className="py-2 px-2 rounded-xl border border-slate-200/70 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    title="Import Roster from Excel"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-purple-500" />
+                    <span>Excel</span>
                   </button>
                 </div>
-
-                {/* Enrolled Students Count */}
-                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-sans">
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <span>
-                    <strong>{sec.studentsCount || sec.students?.length || 0}</strong> students enrolled
-                  </span>
-                </div>
               </div>
-
-              {/* 1-Click Action Buttons: QR, WhatsApp, Excel */}
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200/60 dark:border-slate-800/60">
-                <button
-                  type="button"
-                  onClick={() => handleOpenQr(sec)}
-                  className="py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  title="Generate QR code"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>QR Code</span>
-                </button>
-
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Join our C Programming classroom on LogicQ!\nJoin Code: ${sec.joinCode}\nDirect Link: ${window.location.origin}/join?code=${sec.joinCode}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="py-2 px-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5 transition cursor-pointer text-center"
-                  title="Share via WhatsApp"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTargetSectionForExcel(sec);
-                    setExcelPreview(null);
-                    setIsExcelModalOpen(true);
-                  }}
-                  className="py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  title="Import students from Excel"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-purple-500" />
-                  <span>Excel</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* CREATE SECTION MODAL (Item 11 Specification) */}
+      {/* ========================================================================= */}
+      {/* 3. APPLE MINIMALIST MODAL: CREATE SECTION (Simplified, 2 Fields Only)     */}
+      {/* ========================================================================= */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-[#0c1017] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-indigo-500" />
-                <span>Create Section (Workflow 1)</span>
-              </h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <GraduationCap className="w-5 h-5" />
+                </span>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Create Class Section
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="space-y-4 text-xs font-sans">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Institution</label>
-                  <input
-                    type="text"
-                    value={formData.institution}
-                    onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Course</label>
-                  <input
-                    type="text"
-                    value={formData.course}
-                    onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Subject</label>
-                  <input
-                    type="text"
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Academic Year</label>
-                  <input
-                    type="text"
-                    value={formData.academicYear}
-                    onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
+            <form onSubmit={handleModalCreate} className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Section Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Division A or Batch 2026-FY"
-                  value={formData.sectionName}
-                  onChange={(e) => setFormData({ ...formData, sectionName: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
+                  placeholder="e.g. Division A or Batch 1"
+                  value={modalSectionName}
+                  onChange={(e) => setModalSectionName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                  autoFocus
                   required
                 />
               </div>
 
-              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={modalSubject}
+                  onChange={(e) => setModalSubject(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-white font-mono text-xs"
+                  className="px-4 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-medium text-xs transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold transition shadow-md shadow-indigo-500/25 cursor-pointer"
+                  disabled={!modalSectionName.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs"
                 >
-                  Create Section &amp; Issue Join Code
+                  Create &amp; Issue Join Code
                 </button>
               </div>
             </form>
@@ -425,156 +515,165 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         </div>
       )}
 
-      {/* QR CODE & INSTANT JOIN MODAL (Item 13 Specification) */}
+      {/* ========================================================================= */}
+      {/* 4. APPLE MINIMALIST MODAL: QR CODE VIEWER                                 */}
+      {/* ========================================================================= */}
       {isQrModalOpen && activeSectionForQr && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-[#0c1017] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-indigo-500">Instant Student Join Form</span>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                Classroom QR Code
+              </span>
               <button
                 type="button"
                 onClick={() => setIsQrModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">{activeSectionForQr.sectionName}</h3>
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {activeSectionForQr.sectionName}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Scan with any phone camera to join
+              </p>
+            </div>
 
             {qrDataUrl && (
               <div className="p-4 bg-white rounded-2xl shadow-inner inline-block border border-slate-200">
-                <img src={qrDataUrl} alt="Join QR Code" className="w-56 h-56 mx-auto" />
+                <img src={qrDataUrl} alt="Join QR Code" className="w-52 h-52 mx-auto" />
               </div>
             )}
 
-            <div className="space-y-1">
-              <span className="text-[11px] font-mono text-slate-400">Classroom Join Code</span>
-              <div className="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400 tracking-wider">
+            <div className="space-y-0.5 font-mono">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Join Code</span>
+              <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-wider">
                 {activeSectionForQr.joinCode}
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Scan with phone camera to open student instant join form. Students complete 6-digit Email OTP verification to bind their PRN.
-            </p>
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleCopyLink(activeSectionForQr)}
+                className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <LinkIcon className="w-3.5 h-3.5" />
+                <span>Copy Link</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleCopy(`${window.location.origin}/join?code=${activeSectionForQr.joinCode}`, 'Join Link')}
-              className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 transition flex items-center justify-center gap-2"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Copy Direct Link</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleDownloadQr}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* EXCEL IMPORT MODAL (Item 12 Specification: preview, validate, no silent discard) */}
+      {/* ========================================================================= */}
+      {/* 5. APPLE MINIMALIST MODAL: EXCEL ROSTER IMPORT                           */}
+      {/* ========================================================================= */}
       {isExcelModalOpen && targetSectionForExcel && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#0c1017] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-xl bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <div>
                 <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
                   <FileSpreadsheet className="w-5 h-5 text-purple-500" />
-                  <span>Import Students via Excel (Item 12)</span>
+                  <span>Import Students via Excel</span>
                 </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">Section: {targetSectionForExcel.sectionName}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Enrolling to: <span className="font-semibold text-slate-700 dark:text-slate-300">{targetSectionForExcel.sectionName}</span>
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsExcelModalOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Upload Area */}
-            <div className="p-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 text-center space-y-2 cursor-pointer transition">
-              <UploadCloud className="w-8 h-8 mx-auto text-indigo-500" />
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose .xlsx or .csv roster file</p>
-              <p className="text-[11px] text-slate-400">Accepted columns: Name, PRN/Roll No, Valid Email</p>
+            {/* Dropzone */}
+            <div className="p-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-blue-500 text-center space-y-2 cursor-pointer transition">
+              <UploadCloud className="w-8 h-8 mx-auto text-blue-500" />
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Choose .xlsx or .csv roster file
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Required columns: <strong>Name</strong>, <strong>PRN</strong>, <strong>Email</strong>
+              </p>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={handleExcelUpload}
-                className="mt-2 block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/10 file:text-indigo-600 cursor-pointer"
+                className="mt-2 block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-500/10 file:text-blue-600 cursor-pointer"
               />
             </div>
 
-            {/* Validation Breakdown Preview (Rule: do not silently discard invalid rows) */}
+            {/* Preview Breakdown */}
             {excelPreview && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 gap-2 text-center font-mono text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div className="space-y-3 pt-2">
+                <div className="grid grid-cols-3 gap-2 text-center font-mono text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                     <span className="text-[10px] text-slate-400 block">Total</span>
                     <span className="font-bold text-slate-800 dark:text-white">{excelPreview.total}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                     <span className="text-[10px] block font-bold">Valid</span>
                     <span className="font-black">{excelPreview.validRows.length}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500">
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
                     <span className="text-[10px] block font-bold">Invalid</span>
                     <span className="font-black">{excelPreview.invalidRows.length}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                    <span className="text-[10px] block font-bold">Duplicate</span>
-                    <span className="font-black">{excelPreview.duplicateRows.length}</span>
-                  </div>
                 </div>
 
-                {/* Invalid rows warning */}
-                {excelPreview.invalidRows.length > 0 && (
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs space-y-1">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <span>{excelPreview.invalidRows.length} Invalid Row(s) Detected (Will not be imported):</span>
-                    </div>
-                    <ul className="list-disc pl-5 text-[11px] max-h-24 overflow-y-auto space-y-0.5 font-mono">
-                      {excelPreview.invalidRows.map((r, i) => (
-                        <li key={i}>Row {r.row} ({r.name || 'Unknown'}): {r.reason}</li>
-                      ))}
-                    </ul>
+                {/* Valid rows preview table */}
+                {excelPreview.validRows.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto border border-slate-200 dark:border-white/10 rounded-xl">
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-[10px] text-slate-400 uppercase">
+                        <tr>
+                          <th className="p-2">Name</th>
+                          <th className="p-2">PRN</th>
+                          <th className="p-2">Email</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                        {excelPreview.validRows.slice(0, 10).map((r, i) => (
+                          <tr key={i}>
+                            <td className="p-2 font-semibold text-slate-800 dark:text-slate-200">{r.name}</td>
+                            <td className="p-2 text-blue-500">{r.prn}</td>
+                            <td className="p-2 text-slate-500">{r.email}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
 
-                {/* Valid rows table preview */}
-                <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-                  <table className="w-full text-left text-xs font-mono">
-                    <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 uppercase">
-                      <tr>
-                        <th className="p-2">Name</th>
-                        <th className="p-2">PRN</th>
-                        <th className="p-2">Email</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {excelPreview.validRows.slice(0, 10).map((r, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
-                          <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{r.name}</td>
-                          <td className="p-2 text-indigo-500">{r.prn}</td>
-                          <td className="p-2 text-slate-500">{r.email}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
-                  <span className="text-[11px] text-slate-400">
-                    Ready to enroll {excelPreview.validRows.length} verified student records.
+                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+                  <span className="text-xs text-slate-500">
+                    {excelPreview.validRows.length} students ready to enroll.
                   </span>
                   <button
                     type="button"
                     onClick={handleCommitExcelImport}
                     disabled={isImporting || excelPreview.validRows.length === 0}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-md shadow-emerald-600/20"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition disabled:opacity-50 cursor-pointer shadow-xs"
                   >
-                    {isImporting ? 'Enrolling...' : `Confirm Import (${excelPreview.validRows.length})`}
+                    {isImporting ? 'Enrolling...' : `Confirm & Enroll (${excelPreview.validRows.length})`}
                   </button>
                 </div>
               </div>
