@@ -1616,22 +1616,6 @@ export const AdminDashboardPage: React.FC = () => {
         longestStreak: 0,
         sections: [],
       },
-      {
-        id: 'faculty_default',
-        email: 'faculty@logicq.io',
-        username: 'faculty_instructor',
-        fullName: 'Prof. Faculty Instructor',
-        displayName: 'Prof. Faculty Instructor',
-        role: 'FACULTY',
-        department: 'Integrated M.Tech',
-        college: 'Sanjivani University',
-        profileComplete: true,
-        accountState: 'ACTIVE',
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        sections: [],
-      },
     ];
 
     const all = [...rawAll];

@@ -290,6 +290,8 @@ export const ADMIN_EMAILS = [
 ];
 
 export const PURGED_EMAILS = [
+  'faculty@logicq.io',
+  'student@logicq.io',
   'hariprasathset@sanjivani.edu.in',
   'admin@logicq.io',
   'rohan_1390@test.edu',
@@ -390,51 +392,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
           password: 'password123',
           isBanned: false,
           shortId: 'ARENA',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
-        sanitized.push({
-          id: 'faculty-walkthrough-1',
-          username: 'faculty_instructor',
-          email: 'faculty@logicq.io',
-          fullName: 'Course Instructor',
-          displayName: 'Course Instructor',
-          role: 'FACULTY',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'FAC1',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'student@logicq.io')) {
-        sanitized.push({
-          id: 'student-walkthrough-1',
-          username: 'student_demo',
-          email: 'student@logicq.io',
-          prn: '2026STUD0001',
-          fullName: 'Demo Student (Walkthrough)',
-          displayName: 'Demo Student',
-          role: 'STUDENT',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          year: 'SY',
-          division: 'A',
-          profileComplete: true,
-          totalPoints: 120,
-          currentStreak: 2,
-          longestStreak: 4,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'STU1',
           createdAt: new Date().toISOString(),
         } as any);
         migrated = true;
@@ -564,24 +521,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: 'ARENA',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'faculty-walkthrough-1',
-      username: 'faculty_instructor',
-      email: 'faculty@logicq.io',
-      fullName: 'Course Instructor',
-      displayName: 'Course Instructor',
-      role: 'FACULTY',
-      college: 'Sanjivani University',
-      department: 'CSE',
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: 'FAC1',
       createdAt: new Date().toISOString(),
     },
   ];
@@ -898,48 +837,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (!user && (cleanId.toLowerCase() === 'faculty@logicq.io' || cleanId.toLowerCase() === 'faculty')) {
-      user = {
-        id: 'faculty-walkthrough-1',
-        username: 'faculty_instructor',
-        email: 'faculty@logicq.io',
-        fullName: 'Faculty Instructor',
-        displayName: 'Faculty',
-        role: 'FACULTY',
-        college: 'Sanjivani University',
-        department: 'Integrated M.Tech',
-        profileComplete: true,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        isBanned: false,
-      } as any;
-      if (user) users.push(user as any);
-      saveStoredUsers(users);
-    }
+    // Demo faculty synthetic login removed
 
-    if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
-      user = {
-        id: 'student-walkthrough-1',
-        username: 'student_demo',
-        email: 'student@logicq.io',
-        prn: '2026STUD0001',
-        role: 'STUDENT',
-        fullName: 'Demo Student (Walkthrough)',
-        displayName: 'Demo Student',
-        college: 'Sanjivani University',
-        department: 'CSE',
-        year: 'SY',
-        division: 'A',
-        profileComplete: true,
-        totalPoints: 120,
-        currentStreak: 2,
-        longestStreak: 4,
-        isBanned: false,
-      } as any;
-      if (user) users.push(user as any);
-      saveStoredUsers(users);
-    }
+    // Demo student synthetic login removed
 
     if (!user && isExplicitAdminEmail(cleanId)) {
       user = {
@@ -947,8 +847,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'ADMIN',
-        fullName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
-        displayName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
+        fullName: 'LogicQ Arena Admin',
+        displayName: 'LogicQ Arena Admin',
         college: 'Sanjivani University',
         profileComplete: true,
         totalPoints: 0,
@@ -1066,48 +966,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (!user && (cleanId.toLowerCase() === 'faculty@logicq.io' || cleanId.toLowerCase() === 'faculty')) {
-      user = {
-        id: 'faculty-walkthrough-1',
-        username: 'faculty_instructor',
-        email: 'faculty@logicq.io',
-        fullName: 'Faculty Instructor',
-        displayName: 'Faculty',
-        role: 'FACULTY',
-        college: 'Sanjivani University',
-        department: 'Integrated M.Tech',
-        profileComplete: true,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        isBanned: false,
-      } as any;
-      if (user) users.push(user as any);
-      saveStoredUsers(users);
-    }
+    // Demo faculty synthetic login removed
 
-    if (!user && (cleanId.toLowerCase() === 'student@logicq.io' || cleanId.toUpperCase() === '2026STUD0001')) {
-      user = {
-        id: 'student-walkthrough-1',
-        username: 'student_demo',
-        email: 'student@logicq.io',
-        prn: '2026STUD0001',
-        role: 'STUDENT',
-        fullName: 'Demo Student (Walkthrough)',
-        displayName: 'Demo Student',
-        college: 'Sanjivani University',
-        department: 'CSE',
-        year: 'SY',
-        division: 'A',
-        profileComplete: true,
-        totalPoints: 120,
-        currentStreak: 2,
-        longestStreak: 4,
-        isBanned: false,
-      } as any;
-      if (user) users.push(user as any);
-      saveStoredUsers(users);
-    }
+    // Demo student synthetic login removed
 
     if (!user && isExplicitAdminEmail(cleanId)) {
       user = {
@@ -1115,8 +976,8 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         username: cleanId.split('@')[0],
         email: cleanId.toLowerCase(),
         role: 'ADMIN',
-        fullName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
-        displayName: cleanId.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
+        fullName: 'LogicQ Arena Admin',
+        displayName: 'LogicQ Arena Admin',
         college: 'Sanjivani University',
         profileComplete: true,
         totalPoints: 0,
@@ -1162,8 +1023,6 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     // Whitelist check: faculty@logicq.io, student@logicq.io, logicqarena@gmail.com & admin@logicq.io can authenticate using OTP 123456
     const cleanUserEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
-      cleanUserEmail === 'faculty@logicq.io' ||
-      cleanUserEmail === 'student@logicq.io' ||
       cleanUserEmail === 'logicqarena@gmail.com'
     );
     let isValid = isWalkthroughOtp;

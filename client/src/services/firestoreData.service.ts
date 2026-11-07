@@ -2397,15 +2397,33 @@ export class FirestoreDataService {
       const targetEmails = [
         'hariprasathset@sanjivani.edu.in',
         'admin@logicq.io',
+        'faculty@logicq.io',
         'student@logicq.io',
         'rohan_1390@test.edu',
         'join_1390@sanjivani.edu.in',
         'ipverse1918@gmail.com',
         'ipworker1908@gmail.com',
         'logicq1304@gmail.com',
+        'student_2026sim7208@sanjivani.edu.in',
+        'prnchange.test1@sanjivani.org.in',
+        'prnchange.test2@sanjivani.org.in',
+        'prn_format_test_1@sanjivani.org.in',
       ];
-      const targetPrns = ['2026IMTM0001', '2024BCSE0001', '2026VAL1390', '2026JON1390'];
+      const targetPrns = [
+        '2026IMTM0001',
+        '2024BCSE0001',
+        '2026VAL1390',
+        '2026JON1390',
+        '2026STUD0001',
+        '2026SIM7208',
+        '2199TESM0003',
+        '2199TESF0099',
+        '2199TESF0002',
+      ];
       const directKeys = [
+        'faculty-walkthrough-1',
+        'faculty_instructor',
+        'faculty_logicq_io',
         'student-walkthrough-1',
         'student_demo',
         'student_logicq_io',
@@ -2422,6 +2440,11 @@ export class FirestoreDataService {
         'logicq1304_gmail_com',
         '2026VAL1390',
         '2026JON1390',
+        '2026STUD0001',
+        '2026SIM7208',
+        '2199TESM0003',
+        '2199TESF0099',
+        '2199TESF0002',
       ];
 
       for (const k of directKeys) {
