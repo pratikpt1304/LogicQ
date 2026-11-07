@@ -331,11 +331,11 @@ export const AdminReportsTab: React.FC = () => {
 
           <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
             <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
-              <ShieldCheck className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4" />
             </span>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-sans">Accreditation Standard</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">NBA / NAAC Audit</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">Evaluation Status</span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm">100% Verified</span>
             </div>
           </div>
         </div>
