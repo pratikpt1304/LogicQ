@@ -56,6 +56,15 @@ export const AdminStudentsTab: React.FC = () => {
   // Fetch real students from Firestore and local storage cache
   useEffect(() => {
     let isMounted = true;
+
+    const isRohanRecord = (s: any) => {
+      const n = String(s.name || s.fullName || '').toLowerCase();
+      const e = String(s.email || '').toLowerCase();
+      const p = String(s.prn || '').toUpperCase();
+      const id = String(s.id || s.uid || '').toLowerCase();
+      return n.includes('rohan') || e.includes('rohan') || p.includes('2199IMTE') || id.includes('2199imte');
+    };
+
     const loadStudents = async () => {
       try {
         setIsLoading(true);
@@ -66,7 +75,7 @@ export const AdminStudentsTab: React.FC = () => {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
-              const cleaned = parsed.filter((s: any) => !FirestoreDataService.isPurgedStudent(s));
+              const cleaned = parsed.filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s));
               setStudents(cleaned);
             }
           }
@@ -76,7 +85,7 @@ export const AdminStudentsTab: React.FC = () => {
         const users = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
         if (isMounted && Array.isArray(users)) {
           const studentUsers: AdminStudentRecord[] = users
-            .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+            .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
             .map((u) => {
               const anyUser = u as any;
               const isBound = Boolean(

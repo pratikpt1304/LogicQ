@@ -295,18 +295,30 @@ export const PURGED_EMAILS = [
   'hariprasathset@sanjivani.edu.in',
   'admin@logicq.io',
   'rohan_1390@test.edu',
+  'rohan.sharma2026@gmail.com',
+  'rohan_sharma2026@gmail.com',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
   'ipworker1908@gmail.com',
   'logicq1304@gmail.com',
 ];
 
-export const PURGED_PRNS = ['2024BCSE0001', '2026IMTM0001', '2026VAL1390', '2026JON1390'];
+export const PURGED_PRNS = ['2199IMTE1001', '2024BCSE0001', '2026IMTM0001', '2026VAL1390', '2026JON1390'];
 
 export function isExplicitlyPurgedUser(identifier?: any): boolean {
   if (!identifier) return false;
   const email = (typeof identifier === 'string' ? identifier : identifier.email || '').toLowerCase().trim();
   const prn = (typeof identifier === 'string' ? identifier : identifier.prn || '').toUpperCase().trim();
+  const name = (typeof identifier === 'object' ? (identifier.fullName || identifier.name || identifier.displayName || '') : '').toLowerCase().trim();
+
+  if (email === 'dummy@logicq.io' || email === 'demo1@logicq.io' || prn === 'DUMMY' || prn === 'DEMO1') {
+    return false;
+  }
+
+  if (name.includes('rohan') || email.includes('rohan') || prn.includes('2199IMTE')) {
+    return true;
+  }
+
   if (
     PURGED_EMAILS.includes(email) ||
     PURGED_PRNS.includes(prn)

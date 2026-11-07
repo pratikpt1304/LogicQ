@@ -2335,13 +2335,40 @@ export class FirestoreDataService {
     if (!student) return false;
     const email = String(student.email || student.student?.email || '').toLowerCase().trim();
     const prn = String(student.prn || student.student?.prn || '').toUpperCase().trim();
-    const id = String(student.id || student.uid || '').trim();
+    const id = String(student.id || student.uid || '').toLowerCase().trim();
+    const name = String(student.name || student.fullName || student.displayName || student.student?.fullName || student.student?.name || '').toLowerCase().trim();
 
     // Never purge admin
     if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
 
     // Never purge demo or dummy students
-    if (email === 'dummy@logicq.io' || email === 'demo1@logicq.io' || prn === 'DUMMY' || prn === 'DEMO1' || id === 'std_dummy' || id === 'std_demo1' || id === 'dummy' || id === 'demo1') return false;
+    if (
+      email === 'dummy@logicq.io' ||
+      email === 'demo1@logicq.io' ||
+      prn === 'DUMMY' ||
+      prn === 'DEMO1' ||
+      id === 'std_dummy' ||
+      id === 'std_demo1' ||
+      id === 'dummy' ||
+      id === 'demo1' ||
+      name === 'dummy' ||
+      name === 'demo 1' ||
+      name === 'demo1'
+    ) return false;
+
+    // Nuclear purge for Rohan Sharma and all variants
+    if (
+      name.includes('rohan') ||
+      email.includes('rohan') ||
+      email === 'rohan.sharma2026@gmail.com' ||
+      email === 'rohan_sharma2026@gmail.com' ||
+      prn === '2199IMTE1001' ||
+      prn.includes('2199IMTE') ||
+      id.includes('2199imte') ||
+      id.includes('rohan')
+    ) {
+      return true;
+    }
 
     const targetEmails = [
       'hariprasathset@sanjivani.edu.in',
