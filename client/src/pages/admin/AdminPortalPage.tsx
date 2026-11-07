@@ -33,6 +33,7 @@ import { AdminQuestionBankTab } from '../../components/admin/AdminQuestionBankTa
 import { AdminTestOrchestratorTab } from '../../components/admin/AdminTestOrchestratorTab.js';
 import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
+import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 
 type AdminTabKey =
   | 'command-center'
@@ -134,6 +135,7 @@ export const AdminPortalPage: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
 
   // Sections management state
   const [sections, setSections] = useState<any[]>(() => {
@@ -533,6 +535,7 @@ export const AdminPortalPage: React.FC = () => {
                 stats={DEFAULT_STATS}
                 liveEvents={DEFAULT_LIVE_EVENTS}
                 onSelectTab={handleTabSelect}
+                onInspectStudent={(candidate) => setSelectedCandidateForDeepDive(candidate)}
               />
             )}
             {activeTab === 'sections' && (
@@ -550,6 +553,23 @@ export const AdminPortalPage: React.FC = () => {
             {activeTab === 'reports' && <AdminReportsTab />}
           </div>
         </div>
+
+        {/* 1-Click Candidate Deep-Dive Modal */}
+        {selectedCandidateForDeepDive && (
+          <StudentDeepDiveModal
+            student={selectedCandidateForDeepDive}
+            onClose={() => setSelectedCandidateForDeepDive(null)}
+            onToggleMiniProject={(studentId, currentStatus) => {
+              setSelectedCandidateForDeepDive({
+                ...selectedCandidateForDeepDive,
+                miniProjectUnlocked: !currentStatus,
+              });
+              toast.success(
+                `Mini-Project status updated for ${selectedCandidateForDeepDive.name}`
+              );
+            }}
+          />
+        )}
       </main>
     </div>
   );

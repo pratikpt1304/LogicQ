@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Sparkles,
-  Smartphone,
   Mail,
   GraduationCap,
   Download,
@@ -27,7 +26,6 @@ export interface AdminStudentRecord {
   name: string;
   prn: string;
   email: string;
-  mobile?: string;
   section: string;
   identityStatus: 'BOUND' | 'EMAIL_VERIFIED' | 'PENDING';
   academicScore: number; // 0-100
@@ -45,7 +43,6 @@ const SAMPLE_STUDENTS: AdminStudentRecord[] = [
     name: 'LogicQ Admin Student',
     prn: 'LOGICQARENA',
     email: 'logicqarena@gmail.com',
-    mobile: '+91 98765 43210',
     section: 'Division A (C Programming)',
     identityStatus: 'BOUND',
     academicScore: 94,
@@ -61,7 +58,6 @@ const SAMPLE_STUDENTS: AdminStudentRecord[] = [
     name: 'Aarav Sharma',
     prn: '2126CS101',
     email: 'aarav.sharma@sanjivani.edu.in',
-    mobile: '+91 98231 11223',
     section: 'Division A (C Programming)',
     identityStatus: 'BOUND',
     academicScore: 88,
@@ -77,7 +73,6 @@ const SAMPLE_STUDENTS: AdminStudentRecord[] = [
     name: 'Diya Patel',
     prn: '2126CS102',
     email: 'diya.patel@sanjivani.edu.in',
-    mobile: '+91 97321 44556',
     section: 'Division A (C Programming)',
     identityStatus: 'BOUND',
     academicScore: 92,
@@ -93,7 +88,6 @@ const SAMPLE_STUDENTS: AdminStudentRecord[] = [
     name: 'Rohan Deshmukh',
     prn: '2126CS103',
     email: 'rohan.deshmukh@sanjivani.edu.in',
-    mobile: '+91 99881 22334',
     section: 'Division B (C Programming)',
     identityStatus: 'EMAIL_VERIFIED',
     academicScore: 62,
@@ -109,7 +103,6 @@ const SAMPLE_STUDENTS: AdminStudentRecord[] = [
     name: 'Sneha Kulkarni',
     prn: '2126CS104',
     email: 'sneha.kulkarni@sanjivani.edu.in',
-    mobile: '+91 98451 99887',
     section: 'Division B (C Programming)',
     identityStatus: 'PENDING',
     academicScore: 35,
@@ -238,7 +231,7 @@ export const AdminStudentsTab: React.FC = () => {
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            Identity Bound ({students.filter((s) => s.identityStatus === 'BOUND').length})
+            Email Bound ({students.filter((s) => s.identityStatus === 'BOUND').length})
           </button>
           <button
             onClick={() => setActiveFilter('UNLOCKED')}
@@ -328,12 +321,12 @@ export const AdminStudentsTab: React.FC = () => {
                       {st.identityStatus === 'BOUND' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                           <ShieldCheck className="w-3 h-3" />
-                          Bound (OTP)
+                          Email Bound (OTP)
                         </span>
                       ) : st.identityStatus === 'EMAIL_VERIFIED' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                           <Mail className="w-3 h-3" />
-                          Email Only
+                          Email Verified
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">

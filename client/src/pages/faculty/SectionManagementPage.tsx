@@ -2262,19 +2262,6 @@ export const SectionManagementPage: React.FC = () => {
                   className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:border-indigo-500"
                 />
               </div>
-
-              <div>
-                <label className="block text-[var(--muted-foreground)] font-medium mb-1">
-                  Mobile Number (Optional)
-                </label>
-                <input
-                  type="tel"
-                  value={singleStudent.mobile}
-                  onChange={(e) => setSingleStudent({ ...singleStudent, mobile: e.target.value })}
-                  placeholder="e.g. 9876543210"
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono focus:outline-none focus:border-indigo-500"
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border)]">
@@ -2313,7 +2300,7 @@ export const SectionManagementPage: React.FC = () => {
                   Import Students via Excel: {selectedSection.sectionName}
                 </h3>
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  Expected Excel columns: <code>Name</code>, <code>PRN</code>, <code>Email</code>, <code>Mobile</code>.
+                  Expected Excel columns: <code>Name</code>, <code>PRN</code>, <code>Email</code>.
                 </p>
               </div>
               <button
@@ -2342,7 +2329,7 @@ export const SectionManagementPage: React.FC = () => {
                   />
                 </label>
                 <p className="text-[11px] text-[var(--muted-foreground)] mt-2">
-                  Sample headers: <code>Name</code> | <code>PRN</code> | <code>Email</code> | <code>Mobile</code>
+                  Sample headers: <code>Name</code> | <code>PRN</code> | <code>Email</code>
                 </p>
               </div>
               {isParsingExcel && (
@@ -2395,7 +2382,6 @@ export const SectionManagementPage: React.FC = () => {
                           <th className="py-2 px-3">Name</th>
                           <th className="py-2 px-3">PRN</th>
                           <th className="py-2 px-3">Email</th>
-                          <th className="py-2 px-3">Mobile</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border)]/60">
@@ -2405,7 +2391,6 @@ export const SectionManagementPage: React.FC = () => {
                             <td className="py-2 px-3 font-medium text-[var(--foreground)]">{val.name}</td>
                             <td className="py-2 px-3 font-mono text-indigo-400">{val.prn}</td>
                             <td className="py-2 px-3 text-[var(--muted-foreground)]">{val.email}</td>
-                            <td className="py-2 px-3 font-mono text-[var(--muted-foreground)]">{val.mobile}</td>
                           </tr>
                         ))}
                       </tbody>

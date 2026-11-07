@@ -138,24 +138,22 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           const name = r.Name || r['Full Name'] || r.StudentName || r['Student Name'] || '';
           const prn = String(r.PRN || r['PRN/Roll No'] || r.RollNo || r['Roll No'] || '').trim().toUpperCase();
           const email = String(r.Email || r['Valid Email'] || r['Email Address'] || '').trim().toLowerCase();
-          const mobile = String(r.Mobile || r['Mobile Number'] || r.Phone || '').trim();
 
           const issues: string[] = [];
           if (!name) issues.push('Missing Name');
           if (!prn) issues.push('Missing PRN');
           if (!email || !email.includes('@')) issues.push('Invalid Email');
-          if (mobile && mobile.replace(/\D/g, '').length < 10) issues.push('Invalid Mobile (min 10 digits)');
 
           if (seenPrns.has(prn)) {
-            duplicateRows.push({ row: idx + 2, name, prn, email, mobile, reason: 'Duplicate PRN in sheet' });
+            duplicateRows.push({ row: idx + 2, name, prn, email, reason: 'Duplicate PRN in sheet' });
             return;
           }
           if (prn) seenPrns.add(prn);
 
           if (issues.length > 0) {
-            invalidRows.push({ row: idx + 2, name, prn, email, mobile, reason: issues.join(', ') });
+            invalidRows.push({ row: idx + 2, name, prn, email, reason: issues.join(', ') });
           } else {
-            validRows.push({ name, prn, email, mobile });
+            validRows.push({ name, prn, email });
           }
         });
 
@@ -458,7 +456,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Scan with phone camera to open student instant join form. Students complete Email OTP + Mobile OTP before validation.
+              Scan with phone camera to open student instant join form. Students complete 6-digit Email OTP verification to bind their PRN.
             </p>
 
             <button
@@ -498,7 +496,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
             <div className="p-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-indigo-500 text-center space-y-2 cursor-pointer transition">
               <UploadCloud className="w-8 h-8 mx-auto text-indigo-500" />
               <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose .xlsx or .csv roster file</p>
-              <p className="text-[11px] text-slate-400">Accepted columns: Name, PRN/Roll No, Valid Email, Mobile</p>
+              <p className="text-[11px] text-slate-400">Accepted columns: Name, PRN/Roll No, Valid Email</p>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -552,7 +550,6 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                         <th className="p-2">Name</th>
                         <th className="p-2">PRN</th>
                         <th className="p-2">Email</th>
-                        <th className="p-2">Mobile</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -561,7 +558,6 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                           <td className="p-2 font-bold text-slate-800 dark:text-slate-200">{r.name}</td>
                           <td className="p-2 text-indigo-500">{r.prn}</td>
                           <td className="p-2 text-slate-500">{r.email}</td>
-                          <td className="p-2 text-slate-500">{r.mobile || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
