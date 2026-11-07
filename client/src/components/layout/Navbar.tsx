@@ -180,6 +180,21 @@ export const Navbar: React.FC = () => {
                 </button>
               )}
 
+              {/* Admin & Faculty Console Pill Button */}
+              {(isAdmin || isFaculty || user?.email?.toLowerCase() === 'logicqarena@gmail.com') && (
+                <Link
+                  to="/admin"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    location.pathname.startsWith('/admin')
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Admin Console</span>
+                </Link>
+              )}
+
               {/* User Dropdown */}
               <div className="relative" ref={profileDropdownRef}>
                 <button

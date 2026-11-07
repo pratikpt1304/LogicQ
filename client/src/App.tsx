@@ -36,6 +36,7 @@ import { MiniProjectWorkspacePage } from './pages/exam/MiniProjectWorkspacePage.
 import { CompilerPage } from './pages/CompilerPage.js';
 import { StudentDashboardAnalyticsPage } from './pages/analytics/StudentDashboardAnalyticsPage.js';
 import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
+import { AdminPortalPage } from './pages/admin/AdminPortalPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
 import { BindEmailModal } from './components/common/BindEmailModal.js';
 
@@ -82,7 +83,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const FacultyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isFaculty, authState } = useAuth();
+  const { user, isFaculty, isAdmin, authState } = useAuth();
   const location = useLocation();
 
   if (authState === 'loading') {
@@ -93,7 +94,8 @@ const FacultyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!isFaculty) {
+  const isAuthorized = isFaculty || isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com';
+  if (!isAuthorized) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -137,6 +139,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (user && user.role === 'STUDENT') {
       const prnUpper = (user.prn || '').toUpperCase();
+      const userEmail = (user.email || '').toLowerCase();
+      if (userEmail === 'logicqarena@gmail.com' || prnUpper === 'LOGICQARENA') {
+        setIsAutoBindEmailOpen(false);
+        return;
+      }
 
       // Demo accounts or showcase students never get interrupted by email binding
       if (prnUpper.includes('DEMO') || prnUpper === 'DUMMY' || (user.id && user.id.includes('demo'))) {
@@ -410,6 +417,24 @@ export const App: React.FC = () => {
 
           {/* Public Instant Student Join (Section 13) */}
           <Route path="/join/:joinToken" element={<InstantJoinPage />} />
+
+          {/* Master Admin & Faculty Portal (Specification V2.0) */}
+          <Route
+            path="/admin"
+            element={
+              <FacultyRoute>
+                <AdminPortalPage />
+              </FacultyRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
+              <FacultyRoute>
+                <AdminPortalPage />
+              </FacultyRoute>
+            }
+          />
 
           {/* Faculty & Admin Section Management (Section 11-12) */}
           <Route
