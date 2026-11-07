@@ -80,8 +80,8 @@ async function main() {
   console.log('Badges seeded.');
 
   // 2. Create Administrator Account
-  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@logicq.io';
+  const adminUsername = process.env.ADMIN_USERNAME || 'logicqarena';
+  const adminEmail = process.env.ADMIN_EMAIL || 'logicqarena@gmail.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
   const adminHash = await bcrypt.hash(adminPassword, 10);
 
@@ -89,13 +89,13 @@ async function main() {
     where: { email: adminEmail },
     update: {
       role: 'ADMIN',
-      fullName: 'LogicQ Administrator',
+      fullName: 'LogicQ Arena Admin',
       passwordHash: adminHash,
     },
     create: {
       username: adminUsername,
       email: adminEmail,
-      fullName: 'LogicQ Administrator',
+      fullName: 'LogicQ Arena Admin',
       passwordHash: adminHash,
       role: 'ADMIN',
       bio: 'Core Platform Administrator & Judge Maintainer',
@@ -104,41 +104,7 @@ async function main() {
   });
   console.log(`Admin created: ${adminUser.username} (${adminUser.email})`);
 
-  await prisma.user.upsert({
-    where: { email: 'logicq1304@gmail.com' },
-    update: {
-      role: 'ADMIN',
-      fullName: 'LogicQ Admin',
-    },
-    create: {
-      username: 'logicq1304',
-      email: 'logicq1304@gmail.com',
-      fullName: 'LogicQ Admin',
-      passwordHash: adminHash,
-      role: 'ADMIN',
-      bio: 'Platform Owner & Administrator',
-      college: 'Sanjivani University',
-    },
-  });
-  console.log('Primary Admin logicq1304@gmail.com seeded.');
-
-  await prisma.user.upsert({
-    where: { email: 'ipworker1908@gmail.com' },
-    update: {
-      role: 'ADMIN',
-      fullName: 'IP Worker Admin',
-    },
-    create: {
-      username: 'ipworker1908',
-      email: 'ipworker1908@gmail.com',
-      fullName: 'IP Worker Admin',
-      passwordHash: adminHash,
-      role: 'ADMIN',
-      bio: 'Platform Administrator',
-      college: 'Sanjivani University',
-    },
-  });
-  console.log('Admin ipworker1908@gmail.com seeded.');
+  
 
   // 3. Date context for daily challenge scheduling
   const now = new Date();

@@ -2368,7 +2368,7 @@ export async function adminDeleteUser(req: AuthRequest, res: Response): Promise<
       res.status(404).json({ success: false, message: 'User not found' });
       return;
     }
-    const explicitAdmins = ['logicqarena@gmail.com', 'hariprasathset@sanjivani.edu.in'];
+    const explicitAdmins = ['logicqarena@gmail.com'];
     if (target.email && explicitAdmins.includes(target.email.toLowerCase())) {
       res.status(403).json({ success: false, message: 'Superadmin accounts cannot be deleted' });
       return;
@@ -2914,7 +2914,6 @@ export async function syncFirestoreUsers(req: AuthRequest, res: Response): Promi
 
     const explicitAdminEmails = [
       'logicqarena@gmail.com',
-      'hariprasathset@sanjivani.edu.in',
     ];
     const isExplicitAdminEmail = (email: string) => explicitAdminEmails.includes(email?.toLowerCase());
     const crypto = await import('crypto');

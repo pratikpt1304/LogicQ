@@ -1474,11 +1474,6 @@ export class FirestoreDataService {
 
     const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
     const isAdmin = [
-      'admin@logicq.io',
-      'hariprasathset@sanjivani.edu.in',
-      'logicq1304@gmail.com',
-      'ipworker1908@gmail.com',
-      'ipverse1918@gmail.com',
       'logicqarena@gmail.com',
     ].includes(currentEmail);
 
@@ -2372,11 +2367,14 @@ export class FirestoreDataService {
     return (
       prn === '2026IMTM0001' ||
       prn === '2024BCSE0001' ||
+      email === 'hariprasathset@sanjivani.edu.in' ||
+      email === 'admin@logicq.io' ||
       email === 'rohan_1390@test.edu' ||
       email === 'join_1390@sanjivani.edu.in' ||
       email === 'ipverse1918@gmail.com' ||
       email === 'ipworker1908@gmail.com' ||
       email === 'logicq1304@gmail.com' ||
+      email.includes('catchup_admin') ||
       prn === '2026VAL1390' ||
       prn === '2026JON1390'
     );
@@ -2397,6 +2395,8 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
+        'hariprasathset@sanjivani.edu.in',
+        'admin@logicq.io',
         'student@logicq.io',
         'rohan_1390@test.edu',
         'join_1390@sanjivani.edu.in',
@@ -2409,6 +2409,10 @@ export class FirestoreDataService {
         'student-walkthrough-1',
         'student_demo',
         'student_logicq_io',
+        'admin-hari-1',
+        'admin_hariprasath',
+        'hariprasathset_sanjivani_edu_in',
+        'admin_logicq_io',
         '2026IMTM0001',
         '2024BCSE0001',
         'rohan_1390_test_edu',
@@ -3527,11 +3531,6 @@ export class FirestoreDataService {
       // 5. Query users by PRN or email (Admin only)
       const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
       const isAdmin = [
-        'admin@logicq.io',
-        'hariprasathset@sanjivani.edu.in',
-        'logicq1304@gmail.com',
-        'ipworker1908@gmail.com',
-        'ipverse1918@gmail.com',
         'logicqarena@gmail.com',
       ].includes(currentEmail);
 

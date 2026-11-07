@@ -286,12 +286,12 @@ function saveStoredProblems(problems: any[]) {
 }
 
 export const ADMIN_EMAILS = [
-  'admin@logicq.io',
   'logicqarena@gmail.com',
-  'hariprasathset@sanjivani.edu.in',
 ];
 
 export const PURGED_EMAILS = [
+  'hariprasathset@sanjivani.edu.in',
+  'admin@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -315,7 +315,6 @@ export function isExplicitlyPurgedUser(identifier?: any): boolean {
 export const WALKTHROUGH_EMAILS = [
   'student@logicq.io',
   'faculty@logicq.io',
-  'hariprasathset@sanjivani.edu.in',
   'logicqarena@gmail.com',
 ];
 
@@ -395,28 +394,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
         } as any);
         migrated = true;
       }
-      if (!sanitized.some((u) => u.email.toLowerCase() === 'hariprasathset@sanjivani.edu.in')) {
-        sanitized.push({
-          id: 'admin-hari-1',
-          username: 'hariprasath',
-          email: 'hariprasathset@sanjivani.edu.in',
-          fullName: 'Dr. Hari Prasath',
-          displayName: 'Dr. Hari Prasath (Admin)',
-          role: 'ADMIN',
-          college: 'Sanjivani University',
-          department: 'CSE',
-          profileComplete: true,
-          totalPoints: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          password: 'password123',
-          isBanned: false,
-          shortId: 'HARI',
-          createdAt: new Date().toISOString(),
-        } as any);
-        migrated = true;
-      }
-
       if (!sanitized.some((u) => u.email.toLowerCase() === 'faculty@logicq.io')) {
         sanitized.push({
           id: 'faculty-walkthrough-1',
@@ -587,24 +564,6 @@ function getStoredUsers(): Array<User & { password?: string; isBanned?: boolean;
       password: 'password123',
       isBanned: false,
       shortId: 'ARENA',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'admin-hari-1',
-      username: 'hariprasath',
-      email: 'hariprasathset@sanjivani.edu.in',
-      fullName: 'Dr. Hari Prasath',
-      displayName: 'Dr. Hari Prasath (Admin)',
-      role: 'ADMIN',
-      college: 'Sanjivani University',
-      department: 'CSE',
-      profileComplete: true,
-      totalPoints: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      password: 'password123',
-      isBanned: false,
-      shortId: 'HARI',
       createdAt: new Date().toISOString(),
     },
     {
@@ -1205,9 +1164,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     const isWalkthroughOtp = cleanCode === '123456' && (
       cleanUserEmail === 'faculty@logicq.io' ||
       cleanUserEmail === 'student@logicq.io' ||
-      cleanUserEmail === 'admin@logicq.io' ||
-      cleanUserEmail === 'logicqarena@gmail.com' ||
-      cleanUserEmail === 'hariprasathset@sanjivani.edu.in'
+      cleanUserEmail === 'logicqarena@gmail.com'
     );
     let isValid = isWalkthroughOtp;
     try {

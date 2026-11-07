@@ -313,9 +313,18 @@ export async function autoSeedDatabase(): Promise<void> {
     // 6. Ensure Core Admins and Canonical Section Exist in Database
     const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'AdminPassword123!', 10);
 
-    // Purge deprecated template placeholder admin account permanently
+    // Purge deprecated template placeholder admin accounts permanently
     await prisma.user.deleteMany({
-      where: { email: 'admin@logicq.io' },
+      where: {
+        email: {
+          in: [
+            'admin@logicq.io',
+            'hariprasathset@sanjivani.edu.in',
+            'logicq1304@gmail.com',
+            'ipworker1908@gmail.com',
+          ],
+        },
+      },
     }).catch(() => {});
 
     const coreAdmins = [
@@ -324,12 +333,6 @@ export async function autoSeedDatabase(): Promise<void> {
         username: 'logicqarena',
         fullName: 'LogicQ Arena Admin',
         displayName: 'LogicQ Arena (Admin)',
-      },
-      {
-        email: 'hariprasathset@sanjivani.edu.in',
-        username: 'hariprasath',
-        fullName: 'Dr. Hari Prasath',
-        displayName: 'Dr. Hari Prasath (Admin)',
       },
     ];
 

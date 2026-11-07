@@ -198,12 +198,12 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 }
 
 export const ADMIN_EMAILS = [
-  'admin@logicq.io',
   'logicqarena@gmail.com',
-  'hariprasathset@sanjivani.edu.in',
 ];
 
 export const PURGED_EMAILS = [
+  'hariprasathset@sanjivani.edu.in',
+  'admin@logicq.io',
   'rohan_1390@test.edu',
   'join_1390@sanjivani.edu.in',
   'ipverse1918@gmail.com',
@@ -223,7 +223,6 @@ export function isExplicitlyPurgedUser(identifier?: string | { email?: string; p
 
 export const WALKTHROUGH_EMAILS = [
   'faculty@logicq.io',
-  'hariprasathset@sanjivani.edu.in',
   'logicqarena@gmail.com',
 ];
 
@@ -1762,12 +1761,11 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Whitelist check: faculty@logicq.io, student@logicq.io, admin@logicq.io & logicqarena@gmail.com can authenticate using OTP 123456
+    // Whitelist check: faculty@logicq.io, student@logicq.io & logicqarena@gmail.com can authenticate using OTP 123456
     const cleanEmail = user.email.toLowerCase().trim();
     const isWalkthroughOtp = cleanCode === '123456' && (
       cleanEmail === 'faculty@logicq.io' ||
       cleanEmail === 'student@logicq.io' ||
-      cleanEmail === 'admin@logicq.io' ||
       cleanEmail === 'logicqarena@gmail.com' ||
       isExplicitAdminEmail(cleanEmail)
     );

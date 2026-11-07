@@ -280,11 +280,6 @@ class RealtimeSyncManager {
       // Attach admin users collection listener if authorized
       const currentEmail = (user.email || '').toLowerCase().trim();
       const isAdmin = [
-        'admin@logicq.io',
-        'hariprasathset@sanjivani.edu.in',
-        'logicq1304@gmail.com',
-        'ipworker1908@gmail.com',
-        'ipverse1918@gmail.com',
         'logicqarena@gmail.com',
       ].includes(currentEmail);
 
