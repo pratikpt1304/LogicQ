@@ -193,9 +193,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     const isPratik = user.prn === '2126PMIM1039' || user.email === 'thoratpratik2323@gmail.com';
-    const hasReset = localStorage.getItem('logicq_pratik_app_full_reset_v5');
+    const hasReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
     if (isPratik && !hasReset) {
-      localStorage.setItem('logicq_pratik_app_full_reset_v5', 'true');
+      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
       FirestoreDataService.resetEntireStudentData(user.id, user.prn, user.email);
     }
   }, [user]);

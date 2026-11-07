@@ -40,7 +40,6 @@ import {
   Flame,
   BookOpen,
   RefreshCw,
-  RotateCcw,
 } from 'lucide-react';
 
 type AnalyticsTab = 'overview' | 'mastery' | 'standing' | 'reports';
@@ -68,9 +67,9 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
   // Automatic one-time entire account data reset for Pratik's test account (Start as clean new user)
   useEffect(() => {
     const isPratik = user?.prn === '2126PMIM1039' || user?.email === 'thoratpratik2323@gmail.com';
-    const hasFullReset = localStorage.getItem('logicq_pratik_full_clean_user_v1');
+    const hasFullReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
     if (isPratik && !hasFullReset) {
-      localStorage.setItem('logicq_pratik_full_clean_user_v1', 'true');
+      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
       FirestoreDataService.resetEntireStudentData(targetUid, user?.prn || undefined, user?.email || undefined).then(() => {
         queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
         queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
@@ -892,39 +891,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm('Reset ALL data for this account? This will wipe all submissions, solved topics, CIE marks, drafts, and infractions so you start completely fresh as a new user. Your login will remain intact.')) {
-                        await FirestoreDataService.resetEntireStudentData(targetUid, user?.prn || undefined, user?.email || undefined);
-                        queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
-                        queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
-                        queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
-                        toast.success('Account wiped! You are now a clean new student (0 solved, 100% integrity).');
-                      }
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
-                    title="Reset all submissions, progress, and telemetry as a brand-new user"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset All Data (New User)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm('Reset proctoring telemetry back to 100% clean record? This clears all infractions, tab switches, and auto-locks.')) {
-                        await FirestoreDataService.resetProctoringTelemetry(targetUid);
-                        queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
-                        toast.success('Telemetry reset! 100/100 verified clean record restored.');
-                      }
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/80 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                    title="Reset telemetry and restore clean 100/100 record"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Telemetry</span>
-                  </button>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {

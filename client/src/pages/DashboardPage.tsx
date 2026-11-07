@@ -43,7 +43,6 @@ import {
   Download,
   Users,
   Plus,
-  RotateCcw,
   Copy,
   Check,
   ExternalLink,
@@ -600,9 +599,9 @@ export const DashboardPage: React.FC = () => {
   React.useEffect(() => {
     if (!user) return;
     const isPratik = user.prn === '2126PMIM1039' || user.email === 'thoratpratik2323@gmail.com';
-    const hasReset = localStorage.getItem('logicq_pratik_dashboard_full_reset_v5');
+    const hasReset = localStorage.getItem('logicq_pratik_clean_zero_v7');
     if (isPratik && !hasReset) {
-      localStorage.setItem('logicq_pratik_dashboard_full_reset_v5', 'true');
+      localStorage.setItem('logicq_pratik_clean_zero_v7', 'true');
       FirestoreDataService.resetEntireStudentData(user.id || auth.currentUser?.uid, user.prn, user.email).then(() => {
         setSolvedTopicIds([]);
         queryClient.invalidateQueries();
@@ -2139,31 +2138,11 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2 text-xs font-mono">
                 <span className="px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-2 font-medium">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span>{sectionDisplayName}</span>
                 </span>
-
-                {(user?.prn === '2126PMIM1039' || user?.email === 'thoratpratik2323@gmail.com') && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm('Reset ALL data for Pratik Thorat? This will wipe all submissions, solved topics, CIE marks, drafts, and infractions so you start completely fresh as a new user.')) {
-                        await FirestoreDataService.resetEntireStudentData(user?.id || auth.currentUser?.uid, user?.prn, user?.email);
-                        setSolvedTopicIds([]);
-                        queryClient.invalidateQueries();
-                        toast.success('Account reset! Pratik is now a fresh student (0 solved, 0 submissions).');
-                        setTimeout(() => window.location.reload(), 300);
-                      }
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white font-sans font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
-                    title="Wipe account data and start as a fresh student"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Account (Fresh Student)</span>
-                  </button>
-                )}
               </div>
             </div>
 
