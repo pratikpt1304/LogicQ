@@ -16,8 +16,14 @@ import {
   Trash2,
   GraduationCap,
   Award,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -32,13 +38,91 @@ export interface AdminTestDefinition {
   totalEnrolled: number;
   suspiciousEvents: number;
   createdAt?: string;
+  unitTarget?: 'ALL' | 1 | 2 | 3 | 4;
+  questions?: any[];
 }
+
+const UNITS = [
+  { num: 'ALL' as const, label: 'All Units', title: 'Full Syllabus (Comprehensive)' },
+  { num: 1 as const, label: 'Unit 1', title: 'Foundations & Control Flow' },
+  { num: 2 as const, label: 'Unit 2', title: 'Functions & Pointers' },
+  { num: 3 as const, label: 'Unit 3', title: 'Arrays & Strings' },
+  { num: 4 as const, label: 'Unit 4', title: 'Structures & Files' },
+];
+
+const INITIAL_BANK_QUESTIONS = [
+  {
+    id: 'q-s1-01',
+    sectionNumber: 1,
+    title: 'Bitwise Parity & Power of Two Validator',
+    difficulty: 'EASY',
+    timeLimitMinutes: 5,
+    description: 'Determine if an integer N is a non-zero power of two using pure bitwise operations without loops.',
+    visibleTestCase1: { input: '16', output: 'YES' },
+    visibleTestCase2: { input: '18', output: 'NO' },
+    hiddenTestCase: { input: '0', output: 'NO' },
+    starterCode: '#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    // TODO: Bitwise solution\n    return 0;\n}',
+    solutionCode: '#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    return (n > 0) && ((n & (n - 1)) == 0);\n}',
+    verifiedCorrect: true,
+  },
+  {
+    id: 'q-s2-01',
+    sectionNumber: 2,
+    title: 'Safe Pointer Swapper & Address Offset Calculator',
+    difficulty: 'MEDIUM',
+    timeLimitMinutes: 12,
+    description: 'Implement memory address swapping using double pointers and verify byte offset between two contiguous heap blocks.',
+    visibleTestCase1: { input: '10 20', output: '20 10' },
+    visibleTestCase2: { input: '-5 99', output: '99 -5' },
+    hiddenTestCase: { input: '0 0', output: '0 0' },
+    starterCode: '#include <stdio.h>\n\nvoid swapDouble(int **a, int **b) {\n    // TODO\n}',
+    solutionCode: '#include <stdio.h>\n\nvoid swapDouble(int **a, int **b) {\n    int *temp = *a;\n    *a = *b;\n    *b = temp;\n}',
+    verifiedCorrect: true,
+  },
+  {
+    id: 'q-s3-01',
+    sectionNumber: 3,
+    title: 'Dynamic Array Deduplication with In-Place Compaction',
+    difficulty: 'HARD',
+    timeLimitMinutes: 20,
+    description: 'Given dynamically allocated array of N integers, remove duplicates in-place with O(1) auxiliary space and realloc to minimal footprint.',
+    visibleTestCase1: { input: '5\n1 2 2 3 4', output: '1 2 3 4' },
+    visibleTestCase2: { input: '4\n7 7 7 7', output: '7' },
+    hiddenTestCase: { input: '6\n-1 -1 0 2 2 5', output: '-1 0 2 5' },
+    starterCode: '#include <stdio.h>\n#include <stdlib.h>\n\nint* deduplicate(int *arr, int *size) {\n    return arr;\n}',
+    solutionCode: '// Verified correct reference solution',
+    verifiedCorrect: true,
+  },
+  {
+    id: 'q-s4-01',
+    sectionNumber: 4,
+    title: 'Binary Packet Serialization & File Stream Checksum',
+    difficulty: 'HARD',
+    timeLimitMinutes: 22,
+    description: 'Serialize a packed telemetry struct into a binary file format and compute 16-bit CRC checksum.',
+    visibleTestCase1: { input: 'PKT 101 25.4', output: 'CRC: 0x4A12' },
+    visibleTestCase2: { input: 'PKT 102 0.0', output: 'CRC: 0x1120' },
+    hiddenTestCase: { input: 'PKT 999 100.0', output: 'CRC: 0x8F9C' },
+    starterCode: '#include <stdio.h>\n\ntypedef struct __attribute__((packed)) {\n    unsigned short id;\n    float val;\n} Packet;',
+    solutionCode: '// Verified reference',
+    verifiedCorrect: true,
+  },
+];
+
+const getStoredBankQuestions = (): any[] => {
+  try {
+    const saved = localStorage.getItem('logicq_admin_questions');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return INITIAL_BANK_QUESTIONS;
+};
 
 interface AdminTestOrchestratorTabProps {
   sections?: any[];
 }
-
-const SAMPLE_TESTS: AdminTestDefinition[] = [];
 
 export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> = ({ sections = [] }) => {
   const [tests, setTests] = useState<AdminTestDefinition[]>(() => {
@@ -46,11 +130,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       const saved = localStorage.getItem('logicq_admin_tests');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return SAMPLE_TESTS;
+    return [];
   });
 
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
 
   // Compute actual sections from props or localStorage
   const actualSections = sections.length > 0
@@ -75,8 +160,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [newSection, setNewSection] = useState(effectiveSections[0]);
   const [newDuration, setNewDuration] = useState(60);
   const [newMarks, setNewMarks] = useState(20);
+  const [selectedUnit, setSelectedUnit] = useState<'ALL' | 1 | 2 | 3 | 4>('ALL');
   const [difficultyProfile, setDifficultyProfile] = useState<'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS'>('BALANCED');
   const [lockPolicy, setLockPolicy] = useState(true);
+
+  // Question Bank live pool
+  const bankQuestions = getStoredBankQuestions();
+  const availableQuestionsForSelectedUnit = selectedUnit === 'ALL'
+    ? bankQuestions
+    : bankQuestions.filter((q) => q.sectionNumber === selectedUnit);
 
   // Sync newSection if sections change
   useEffect(() => {
@@ -85,11 +177,58 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     }
   }, [effectiveSections, newSection]);
 
+  // Sync to student exam engine
+  const syncToStudentTests = (adminTests: AdminTestDefinition[]) => {
+    try {
+      const studentTests = adminTests.map((t) => {
+        const pool = t.questions && t.questions.length > 0 ? t.questions : bankQuestions;
+        return {
+          id: t.id,
+          title: t.title,
+          sectionId: t.sectionTarget,
+          section: { sectionName: t.sectionTarget },
+          moduleId: t.unitTarget === 'ALL' ? 'All Units - Comprehensive' : `Unit ${t.unitTarget || 1}`,
+          durationMinutes: t.durationMinutes,
+          totalMarks: t.totalMarks,
+          status: t.status === 'ACTIVE' ? 'PUBLISHED' : t.status,
+          questionCount: Math.min(2, pool.length || 1),
+          questions: pool.map((q: any, idx: number) => ({
+            id: `tq_${t.id}_${idx}`,
+            testId: t.id,
+            problemId: q.id,
+            orderIndex: idx,
+            points: Math.round(t.totalMarks / Math.max(1, pool.length)),
+            problem: {
+              id: q.id,
+              title: q.title,
+              difficulty: q.difficulty,
+              description: q.description,
+              starterCode: q.starterCode,
+              solutionCode: q.solutionCode,
+              testCases: [
+                { input: q.visibleTestCase1?.input || '', expectedOutput: q.visibleTestCase1?.output || '', isHidden: false },
+                { input: q.visibleTestCase2?.input || '', expectedOutput: q.visibleTestCase2?.output || '', isHidden: false },
+                { input: q.hiddenTestCase?.input || '', expectedOutput: q.hiddenTestCase?.output || '', isHidden: true },
+              ],
+            },
+          })),
+          _count: { questions: pool.length },
+          lockOnSubmit: t.lockOnSubmit,
+          createdAt: t.createdAt || new Date().toISOString(),
+        };
+      });
+
+      localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(studentTests));
+      RealtimeSyncService.emit('TESTS');
+    } catch {}
+  };
+
   const saveTests = (updated: AdminTestDefinition[]) => {
     setTests(updated);
     try {
       localStorage.setItem('logicq_admin_tests', JSON.stringify(updated));
     } catch {}
+    syncToStudentTests(updated);
   };
 
   const handleCreateTest = (e: React.FormEvent) => {
@@ -99,10 +238,14 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       return;
     }
 
+    const matchedQuestions = selectedUnit === 'ALL'
+      ? bankQuestions
+      : bankQuestions.filter((q) => q.sectionNumber === selectedUnit);
+
     const created: AdminTestDefinition = {
       id: `test-${Date.now().toString(36)}`,
       title: newTitle.trim(),
-      sectionTarget: newSection || 'Division A',
+      sectionTarget: newSection || 'C Programming',
       durationMinutes: Number(newDuration) || 60,
       totalMarks: Number(newMarks) || 20,
       difficultyProfile,
@@ -112,12 +255,14 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       totalEnrolled: 60,
       suspiciousEvents: 0,
       createdAt: new Date().toISOString(),
+      unitTarget: selectedUnit,
+      questions: matchedQuestions,
     };
 
     saveTests([created, ...tests]);
     setIsCreateModalOpen(false);
     setNewTitle('');
-    toast.success(`Test "${created.title}" scheduled for ${created.sectionTarget}!`);
+    toast.success(`Test "${created.title}" scheduled with ${matchedQuestions.length} questions from Question Bank!`);
   };
 
   const handleDeleteTest = (id: string, e: React.MouseEvent) => {
@@ -142,7 +287,11 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         : t
     );
     saveTests(updated);
-    toast.success(`Test status changed to ${nextStatus}!`);
+    toast.success(
+      nextStatus === 'ACTIVE'
+        ? `Test is now LIVE for students in ${test.sectionTarget}!`
+        : `Test status changed to ${nextStatus}!`
+    );
   };
 
   // Filtered List
@@ -302,9 +451,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
                     {t.title}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Target Section: <strong className="text-slate-700 dark:text-slate-200">{t.sectionTarget}</strong>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Target Section: <strong className="text-slate-700 dark:text-slate-200">{t.sectionTarget}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                      <BookOpen className="w-3 h-3" />
+                      <span>{t.unitTarget === 'ALL' || !t.unitTarget ? 'All Units' : `Unit ${t.unitTarget}`}</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Info Bar: Duration & Marks */}
@@ -326,6 +481,56 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   </div>
                 </div>
 
+                {/* Expandable Question Pool Preview */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedTestId(expandedTestId === t.id ? null : t.id)}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 transition"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Questions from Bank ({t.questions?.length || (t.unitTarget === 'ALL' || !t.unitTarget ? 4 : 1)})</span>
+                    </span>
+                    {expandedTestId === t.id ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                  </button>
+
+                  {expandedTestId === t.id && (
+                    <div className="mt-2 space-y-1.5 p-2 rounded-xl bg-slate-50/80 dark:bg-black/30 border border-slate-200/50 dark:border-white/5 text-xs animate-in fade-in">
+                      {(t.questions && t.questions.length > 0 ? t.questions : bankQuestions).map((q: any, idx: number) => (
+                        <div
+                          key={q.id || idx}
+                          className="p-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/5 flex items-start justify-between gap-2"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="font-semibold text-slate-900 dark:text-white text-[11px] truncate">
+                              {idx + 1}. {q.title}
+                            </div>
+                            <div className="text-[10px] text-slate-400 line-clamp-1">
+                              {q.description}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
+                              q.difficulty === 'EASY'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : q.difficulty === 'MEDIUM'
+                                ? 'bg-amber-500/10 text-amber-600'
+                                : 'bg-rose-500/10 text-rose-600'
+                            }`}
+                          >
+                            {q.difficulty}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Security Tag */}
                 {t.lockOnSubmit && (
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
@@ -345,18 +550,32 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   {t.status === 'ACTIVE' ? 'Mark Completed' : t.status === 'UPCOMING' ? 'Start Test Now' : 'Reactivate'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    toast.info(
-                      `Live Proctoring Stream for "${t.title}": Evaluation engine running.`
-                    )
-                  }
-                  className="px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Proctoring</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://logicq-clanguage.web.app/student/tests');
+                      toast.success('Student Test URL copied! Share with your students.');
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg transition"
+                    title="Copy Student Test Link"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.info(
+                        `Live Proctoring Stream for "${t.title}": Evaluation engine running.`
+                      )
+                    }
+                    className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>Proctoring</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -401,6 +620,40 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                   autoFocus
                   required
                 />
+              </div>
+
+              {/* Question Source from Question Bank */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    Question Source (Question Bank)
+                  </label>
+                  <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
+                    {availableQuestionsForSelectedUnit.length} Ready in Bank
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {UNITS.map((u) => (
+                    <button
+                      key={String(u.num)}
+                      type="button"
+                      onClick={() => setSelectedUnit(u.num)}
+                      className={`py-2 rounded-xl text-xs font-semibold border transition ${
+                        selectedUnit === u.num
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="truncate">
+                    Pool: <strong>{UNITS.find((u) => u.num === selectedUnit)?.title}</strong> ({availableQuestionsForSelectedUnit.length} questions attached)
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
