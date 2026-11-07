@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -41,6 +41,8 @@ interface PublicSectionInfo {
 
 export const InstantJoinPage: React.FC = () => {
   const { joinToken } = useParams<{ joinToken: string }>();
+  const [searchParams] = useSearchParams();
+  const effectiveToken = (joinToken || searchParams.get('code') || searchParams.get('token') || '').trim();
   const navigate = useNavigate();
 
   const [section, setSection] = useState<PublicSectionInfo | null>(null);
@@ -68,13 +70,17 @@ export const InstantJoinPage: React.FC = () => {
 
   // Fetch public section info on mount
   useEffect(() => {
-    if (!joinToken) return;
+    if (!effectiveToken) {
+      setLoadingSection(false);
+      setErrorMsg('No classroom join code provided. Please check the link shared by your faculty.');
+      return;
+    }
     let isMounted = true;
     setLoadingSection(true);
     setErrorMsg(null);
 
     const loadSectionData = async () => {
-      const cleanToken = (joinToken || '').trim();
+      const cleanToken = effectiveToken;
       if (!cleanToken) {
         setErrorMsg('Invalid or missing section join link.');
         setLoadingSection(false);
@@ -274,7 +280,7 @@ export const InstantJoinPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [joinToken]);
+  }, [effectiveToken]);
 
   // Pre-fill department and year from section details if available
   useEffect(() => {
@@ -402,7 +408,7 @@ export const InstantJoinPage: React.FC = () => {
       let enrolled = false;
       try {
         const res = await api.post('/sections/instant-join', {
-          joinToken,
+          joinToken: effectiveToken,
           ...studentData,
         });
         if (res.success) enrolled = true;
@@ -411,7 +417,7 @@ export const InstantJoinPage: React.FC = () => {
       }
 
       // Always save to Firestore roster so faculty see student immediately
-      const targetSecId = section?.id || section?.joinCode || joinToken || 'instant';
+      const targetSecId = section?.id || section?.joinCode || effectiveToken || 'instant';
       await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [studentData]);
       if (section?.joinCode && section.joinCode !== targetSecId) {
         await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [studentData]);

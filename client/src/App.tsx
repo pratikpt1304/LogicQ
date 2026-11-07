@@ -433,6 +433,7 @@ export const App: React.FC = () => {
           />
 
           {/* Public Instant Student Join (Section 13) */}
+          <Route path="/join" element={<InstantJoinPage />} />
           <Route path="/join/:joinToken" element={<InstantJoinPage />} />
 
           {/* Master Admin & Faculty Portal (Specification V2.0) */}

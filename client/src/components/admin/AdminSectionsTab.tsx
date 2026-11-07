@@ -73,7 +73,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
 
   // 1-Click Copy Link Handler
   const handleCopyLink = (sec: SectionItem) => {
-    const url = `${window.location.origin}/join?code=${sec.joinCode}`;
+    const url = `${window.location.origin}/join/${sec.joinCode}`;
     navigator.clipboard.writeText(url);
     setCopiedId(sec.id);
     toast.success(`1-Click Join Link copied! Share with ${sec.sectionName} students.`);
@@ -109,7 +109,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
   // Open QR Code Viewer
   const handleOpenQr = async (sec: SectionItem) => {
     setActiveSectionForQr(sec);
-    const joinUrl = `${window.location.origin}/join?code=${sec.joinCode}`;
+    const joinUrl = `${window.location.origin}/join/${sec.joinCode}`;
     try {
       const url = await QRCode.toDataURL(joinUrl, {
         width: 320,
@@ -359,7 +359,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                   {/* WhatsApp */}
                   <a
                     href={`https://wa.me/?text=${encodeURIComponent(
-                      `Join our C Programming classroom on LogicQ!\n\nJoin Code: ${sec.joinCode}\nDirect Link: ${window.location.origin}/join?code=${sec.joinCode}`
+                      `Join our C Programming classroom on LogicQ!\n\nJoin Code: ${sec.joinCode}\nDirect Link: ${window.location.origin}/join/${sec.joinCode}`
                     )}`}
                     target="_blank"
                     rel="noreferrer"
