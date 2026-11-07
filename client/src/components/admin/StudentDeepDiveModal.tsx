@@ -18,7 +18,9 @@ import {
   TrendingUp,
   X,
   Zap,
+  Download,
 } from 'lucide-react';
+import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 
 interface StudentDeepDiveModalProps {
   student: any;
@@ -59,13 +61,24 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => generateIndividualStudentPdf(student)}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              title="Download Individual Student Transcript PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* 1. Academic vs Integrity Score (Strict Separation - Rule 59) */}
