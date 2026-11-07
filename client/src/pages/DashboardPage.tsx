@@ -23,6 +23,12 @@ import { FORMATTED_DAILY_CHALLENGES } from '../api/fallbackEngine.js';
 import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS } from '../data/c-programming-cohort.data.js';
 import { getSolvedPracticeTopicIds, markPracticeTopicSolved } from './TopicPracticeHubPage.js';
 import { getPracticeModuleUnlockInfo, getLabModuleUnlockInfo } from '../utils/progression.js';
+import {
+  exportCompleteStudentBackup,
+  hasDownloadedBackupToday,
+  isBackupReminderDismissedToday,
+  dismissBackupReminderToday,
+} from '../services/backupRestore.service.js';
 import { toast } from 'sonner';
 import {
   Flame,
@@ -81,6 +87,20 @@ export const DashboardPage: React.FC = () => {
       return false;
     }
   });
+
+  const [showBackupReminder, setShowBackupReminder] = useState(
+    () => !hasDownloadedBackupToday() && !isBackupReminderDismissedToday()
+  );
+
+  const handleDownloadBackup = async () => {
+    try {
+      const filename = await exportCompleteStudentBackup(user);
+      toast.success(`Complete LogicQ backup saved: ${filename}`);
+      setShowBackupReminder(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to download backup');
+    }
+  };
 
   const dailyData: any = null; const isDailyLoading = false; const dailyError = null; const refetchDaily = () => {};
 
@@ -2106,6 +2126,51 @@ export const DashboardPage: React.FC = () => {
         /* APPLE-STYLE MINIMALIST & INTUITIVE STUDENT PORTAL (ZERO CLUTTER)         */
         /* ========================================================================= */
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 font-sans">
+          {/* DAILY CODING BACKUP REMINDER BANNER */}
+          {showBackupReminder && !hasDownloadedBackupToday() && !isBackupReminderDismissedToday() && (
+            <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 backdrop-blur-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3.5">
+                <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      Daily Coding Progress Backup
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                      Reminder
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Please download your latest backup file today to safeguard all your solved C programs and CIE continuous evaluation marks.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                <button
+                  type="button"
+                  onClick={handleDownloadBackup}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Backup</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissBackupReminderToday();
+                    setShowBackupReminder(false);
+                  }}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all cursor-pointer"
+                  title="Remind me tomorrow"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 1. APPLE FROSTED HERO CARD (1-CLICK DIRECT TO CODE) */}
           <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/70 backdrop-blur-2xl p-6 sm:p-8 shadow-sm">
             {/* Ambient Background Glows */}

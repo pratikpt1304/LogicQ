@@ -40,6 +40,10 @@ import { PRACTICE_MODULE_3_PROBLEMS } from '../data/practice-module3.data.js';
 import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { getSolvedPracticeTopicIds } from './TopicPracticeHubPage.js';
 import {
+  exportCompleteStudentBackup,
+  restoreCompleteStudentBackup,
+} from '../services/backupRestore.service.js';
+import {
   Flame,
   Building2,
   GraduationCap,
@@ -50,6 +54,7 @@ import {
   X,
   Lock,
   Download,
+  Upload,
   Trash2,
   ShieldCheck,
   AlertCircle, ExternalLink,
@@ -926,42 +931,41 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+
   const handleExportData = async () => {
     try {
-      let exportPayload: any = null;
-      try {
-        const res = await api.get('/users/me/export');
-        exportPayload = res?.data || res;
-      } catch {
-        exportPayload = {
-          user: profile || currentUser,
-          submissions: profile?.recentSubmissions || [],
-          exportedAt: new Date().toISOString(),
-        };
-      }
-      const studentName =
-        currentUser?.displayName || currentUser?.fullName || currentUser?.username || 'Student';
-      const safeName = studentName.replace(/[\\/:*?"<>|]/g, '').trim() || 'Student';
-      const now = new Date();
-      const istDate = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(now);
-
-      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${safeName}_LogicQ_Backup_${istDate}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Personal data backup downloaded (${safeName}_LogicQ_Backup_${istDate}.json)`);
+      const filename = await exportCompleteStudentBackup(currentUser, profile);
+      toast.success(`Complete LogicQ backup saved: ${filename}`);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to export personal data');
+      toast.error(err.message || 'Failed to export backup data');
+    }
+  };
+
+  const handleImportBackup = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsRestoringBackup(true);
+    const toastId = toast.loading('Restoring data from LogicQ backup file...');
+    try {
+      const text = await file.text();
+      const res = await restoreCompleteStudentBackup(text, currentUser, queryClient);
+      if (res.success) {
+        toast.success(res.message, { id: toastId });
+        await refetch();
+      } else {
+        toast.error(res.message, { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to read backup file.', { id: toastId });
+    } finally {
+      setIsRestoringBackup(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -1509,11 +1513,28 @@ export const ProfilePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleExportData}
-                    title="Export Backup Data"
+                    title="Download Complete LogicQ Backup (.json)"
                     className="p-2.5 rounded-full text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5 text-teal-500" />
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleImportBackup}
+                    disabled={isRestoringBackup}
+                    title="Import & Restore LogicQ Backup (.json)"
+                    className="p-2.5 rounded-full text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs disabled:opacity-50"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-indigo-500" />
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".json"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
                 </div>
               )}
             </div>
