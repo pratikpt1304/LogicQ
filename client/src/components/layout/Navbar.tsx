@@ -37,8 +37,9 @@ import {
 
 export const Navbar: React.FC = () => {
   const { user, isAdmin, isFaculty, isChecker, logout } = useAuth();
-  const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039';
-  const isStudent = !isFacultyUser && !isAdmin;
+  const isMasterAdmin = Boolean(isAdmin || user?.role === 'ADMIN' || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA');
+  const isFacultyUser = (isFaculty || user?.role === 'FACULTY') && user?.prn !== '2126PMIM1039' && !isMasterAdmin;
+  const isStudent = !isFacultyUser && !isMasterAdmin;
   const { theme, toggleTheme } = useTheme();
   const isStandalone = useIsStandalonePwa();
   const location = useLocation();
@@ -180,19 +181,12 @@ export const Navbar: React.FC = () => {
                 </button>
               )}
 
-              {/* Admin & Faculty Console Pill Button */}
-              {(isAdmin || isFaculty || user?.email?.toLowerCase() === 'logicqarena@gmail.com') && (
-                <Link
-                  to="/admin"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                    location.pathname.startsWith('/admin')
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
-                      : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Admin Console</span>
-                </Link>
+              {/* Admin Console Indicator Badge */}
+              {isMasterAdmin && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Admin Master Console</span>
+                </span>
               )}
 
               {/* User Dropdown */}
