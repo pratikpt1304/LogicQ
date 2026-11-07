@@ -65,7 +65,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             <button
               type="button"
               onClick={() => generateIndividualStudentPdf(student)}
-              className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
               title="Download Individual Student Transcript PDF"
             >
               <Download className="w-3.5 h-3.5" />
