@@ -556,8 +556,8 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 5 Clean Actionable Metric Tiles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
+        {/* 4 Clean Actionable Metric Tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800/60">
           {/* Tile 1: Problems Solved */}
           <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
             <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 block mb-0.5">
@@ -600,22 +600,7 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Tile 4: Typing & Solving Speed */}
-          <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20">
-            <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 block mb-0.5 flex items-center gap-1">
-              <Zap className="w-3 h-3 text-amber-500" />
-              <span>Typing Speed (Rate)</span>
-            </span>
-            <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 font-mono flex items-center gap-1">
-              <span>215</span>
-              <span className="text-xs text-slate-400 font-sans font-normal">CPM</span>
-            </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              43 WPM • ~3.5m / problem
-            </span>
-          </div>
-
-          {/* Tile 5: Curriculum Coverage */}
+          {/* Tile 4: Curriculum Coverage */}
           <div className="p-4 rounded-2xl bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/20">
             <span className="text-[11px] font-medium text-purple-600 dark:text-purple-400 block mb-0.5">
               Curriculum Mastery
