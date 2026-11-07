@@ -207,35 +207,26 @@ export const AdminPortalPage: React.FC = () => {
         {/* Top Branding & Quick Actions */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-black text-sm flex items-center justify-center shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-black text-xs flex items-center justify-center shadow-sm">
               LQ
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
-                  LogicQ
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  ADMIN CONSOLE
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                Continuous Evaluation & Examination Platform
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
+                LogicQ
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                ADMIN CONSOLE
+              </span>
             </div>
           </div>
 
           {/* Right Status & Profile Cluster */}
           <div className="flex items-center gap-3">
-            {/* Live Proctoring Status Pill */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.08] text-xs font-mono">
+            {/* Live System Status Pill */}
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.08] text-xs font-mono">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-semibold text-slate-700 dark:text-slate-300">
-                {stats.totalStudents} Students Enrolled
-              </span>
-              <span className="text-slate-400">•</span>
-              <span className="text-emerald-500 font-semibold">System Online</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">System Online</span>
             </div>
 
             {/* Dark / Light Mode */}
