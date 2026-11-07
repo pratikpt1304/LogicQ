@@ -3861,6 +3861,147 @@ export class FirestoreDataService {
   }
 
   /**
+   * Completely resets ALL student data back to a brand-new user state:
+   * - Deletes all submissions (Cloud Firestore + local storage fallback)
+   * - Wipes all solved practice topics (0/100) & lab internal experiments (0/80)
+   * - Clears CIE Lab marks (0.0 / 20.0 M)
+   * - Wipes all code editor drafts, saved codes, and terminal histories
+   * - Resets proctoring telemetry back to 100/100 verified clean record
+   * - Clears all quarantined problem locks
+   * - Resets Firestore user document stats (solvedCount: 0, points: 0, cieMarks: 0)
+   * User identity (PRN, Name, Email, password) is preserved for login.
+   */
+  public static async resetEntireStudentData(userId?: string | null, prn?: string | null, email?: string | null): Promise<void> {
+    const targetUid = auth.currentUser?.uid || userId || 'current';
+    const targetPrn = (prn || '2126PMIM1039').trim().toUpperCase();
+    const targetEmail = (email || 'thoratpratik2323@gmail.com').trim().toLowerCase();
+
+    // 1. Reset Proctoring Telemetry first
+    await this.resetProctoringTelemetry(targetUid);
+
+    // 2. Comprehensive LocalStorage purge for student progress, submissions, drafts, code
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        if (
+          key.startsWith('logicq_solved_practice_topics') ||
+          key.startsWith('logicq_practice_progress_') ||
+          key.startsWith('logicq_stats_backup_') ||
+          key.startsWith('logicq_draft_') ||
+          key.startsWith('logicq_practice_draft_') ||
+          key.startsWith('logicq_saved_code_') ||
+          key.startsWith('logicq_practice_code_') ||
+          key.startsWith('logicq_compiler_code_') ||
+          key.startsWith('logicq_lab_progress_') ||
+          key.startsWith('logicq_cie_') ||
+          key.startsWith('logicq_cie_marks_') ||
+          key.startsWith('logicq_user_progress_') ||
+          key.startsWith('logicq_test_attempts_') ||
+          key.startsWith('logicq_student_submissions_') ||
+          key.startsWith('logicq_quarantined_') ||
+          key.startsWith('logicq_history_') ||
+          key === 'logicq_fallback_submissions_v1' ||
+          key === 'logicq_fallback_practice_progress_v1' ||
+          key === 'logicq_solved_practice_topics' ||
+          key === 'logicq_recent_submissions' ||
+          key === 'logicq_quarantined_modules' ||
+          key === 'logicq_quarantined_problems'
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      // Set clean baseline structures
+      localStorage.setItem('logicq_solved_practice_topics', '[]');
+      localStorage.setItem('logicq_fallback_submissions_v1', '[]');
+      localStorage.setItem('logicq_fallback_practice_progress_v1', '{}');
+    } catch {}
+
+    // 3. Delete all submissions from Cloud Firestore
+    const uidsToCheck = Array.from(new Set([
+      auth.currentUser?.uid,
+      userId && userId !== 'current' ? userId : null,
+      targetPrn,
+      '2126PMIM1039',
+      'cohort-2126pmim1039',
+    ])).filter(Boolean) as string[];
+
+    for (const uidVal of uidsToCheck) {
+      try {
+        const qUser = query(collection(db, 'submissions'), where('userId', '==', uidVal));
+        const snap = await getDocs(qUser).catch(() => null);
+        if (snap && !snap.empty) {
+          for (const docSnap of snap.docs) {
+            await deleteDoc(docSnap.ref).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+
+    if (targetPrn) {
+      try {
+        const qPrn = query(collection(db, 'submissions'), where('studentPrn', '==', targetPrn));
+        const snap = await getDocs(qPrn).catch(() => null);
+        if (snap && !snap.empty) {
+          for (const docSnap of snap.docs) {
+            await deleteDoc(docSnap.ref).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+
+    if (targetEmail) {
+      try {
+        const qEmail = query(collection(db, 'submissions'), where('studentEmail', '==', targetEmail));
+        const snap = await getDocs(qEmail).catch(() => null);
+        if (snap && !snap.empty) {
+          for (const docSnap of snap.docs) {
+            await deleteDoc(docSnap.ref).catch(() => {});
+          }
+        }
+      } catch {}
+    }
+
+    // 4. Delete drafts and reset user document progress in Firestore
+    for (const uidVal of uidsToCheck) {
+      try {
+        const draftsSnap = await getDocs(collection(db, 'users', uidVal, 'drafts')).catch(() => null);
+        if (draftsSnap && !draftsSnap.empty) {
+          for (const d of draftsSnap.docs) {
+            if (d.id !== 'proctoring_telemetry') {
+              await deleteDoc(d.ref).catch(() => {});
+            }
+          }
+        }
+
+        await setDoc(doc(db, 'users', uidVal, 'progress', 'current'), {
+          solvedPracticeTopicIds: [],
+          solvedLabProblemSlugs: [],
+          cieMarks: 0,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+
+        await updateDoc(doc(db, 'users', uidVal), {
+          solvedCount: 0,
+          points: 0,
+          cieMarks: 0,
+          totalSubmissions: 0,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    // 5. Broadcast real-time events across all tabs
+    RealtimeSyncService.emit('SUBMISSIONS');
+    RealtimeSyncService.emit('DASHBOARD');
+    RealtimeSyncService.emit('TESTS');
+    RealtimeSyncService.emit('SECTIONS');
+  }
+
+  /**
    * Save student anti-cheat / proctoring telemetry (tab switches, paste attempts, fullscreen exits).
    * Stored under users/{uid}/drafts/proctoring_telemetry and cached in localStorage.
    */

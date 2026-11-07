@@ -65,15 +65,17 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
     });
   };
 
-  // Automatic one-time telemetry reset for Pratik's test account
+  // Automatic one-time entire account data reset for Pratik's test account (Start as clean new user)
   useEffect(() => {
     const isPratik = user?.prn === '2126PMIM1039' || user?.email === 'thoratpratik2323@gmail.com';
-    const hasReset = localStorage.getItem('logicq_pratik_telemetry_reset_v3');
-    if (isPratik && !hasReset) {
-      localStorage.setItem('logicq_pratik_telemetry_reset_v3', 'true');
-      FirestoreDataService.resetProctoringTelemetry(targetUid).then(() => {
+    const hasFullReset = localStorage.getItem('logicq_pratik_full_clean_user_v1');
+    if (isPratik && !hasFullReset) {
+      localStorage.setItem('logicq_pratik_full_clean_user_v1', 'true');
+      FirestoreDataService.resetEntireStudentData(targetUid, user?.prn || undefined, user?.email || undefined).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
+        queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
         queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
-        toast.success('Telemetry reset: 100/100 verified clean record restored for Pratik Thorat.');
+        toast.success('Account reset complete! Pratik Thorat is now a fresh student account (0 solved, 100% integrity).');
       });
     }
   }, [user, targetUid, queryClient]);
@@ -890,11 +892,28 @@ export const StudentDashboardAnalyticsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={async () => {
-                      if (window.confirm('Reset all proctoring telemetry back to 100% clean record? This clears all infractions, tab switches, and auto-locks.')) {
+                      if (window.confirm('Reset ALL data for this account? This will wipe all submissions, solved topics, CIE marks, drafts, and infractions so you start completely fresh as a new user. Your login will remain intact.')) {
+                        await FirestoreDataService.resetEntireStudentData(targetUid, user?.prn || undefined, user?.email || undefined);
+                        queryClient.invalidateQueries({ queryKey: ['student-dashboard-analytics'] });
+                        queryClient.invalidateQueries({ queryKey: ['student-all-submissions', targetUid] });
+                        queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
+                        toast.success('Account wiped! You are now a clean new student (0 solved, 100% integrity).');
+                      }
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Reset all submissions, progress, and telemetry as a brand-new user"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset All Data (New User)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Reset proctoring telemetry back to 100% clean record? This clears all infractions, tab switches, and auto-locks.')) {
                         await FirestoreDataService.resetProctoringTelemetry(targetUid);
                         queryClient.invalidateQueries({ queryKey: ['proctoring-telemetry-student', targetUid] });
                         toast.success('Telemetry reset! 100/100 verified clean record restored.');
