@@ -230,12 +230,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return;
       }
+      const isMasterAdmin =
+        (finalUser.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+        (finalUser.prn || '').toUpperCase().trim() === 'LOGICQARENA' ||
+        finalUser.role === 'ADMIN' ||
+        isExplicitAdminEmail(finalUser.email);
+
       finalUser = {
         ...finalUser,
-        role: 'STUDENT',
-        displayName: 'LogicQ Arena',
-        fullName: 'LogicQ Arena',
+        role: isMasterAdmin ? 'ADMIN' : (finalUser.role || 'STUDENT'),
+        displayName: isMasterAdmin ? 'LogicQ Arena (Admin)' : (finalUser.displayName || 'LogicQ Arena'),
+        fullName: isMasterAdmin ? 'LogicQ Arena (Admin)' : (finalUser.fullName || 'LogicQ Arena'),
         profileComplete: true,
+        email: isMasterAdmin ? 'logicqarena@gmail.com' : (finalUser.email || ''),
+        isEmailBound: isMasterAdmin ? true : Boolean(finalUser.isEmailBound),
+        isEmailBoundV2: isMasterAdmin ? true : Boolean((finalUser as any).isEmailBoundV2),
+        emailVerified: isMasterAdmin ? true : Boolean(finalUser.emailVerified),
       };
 
       // MONOTONIC RETENTION: Never allow points, streak, or solved count to downgrade to 0!
@@ -302,9 +312,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      const retainedIsEmailBound = isBoundV2;
-      const retainedEmailVerified = isBoundV2;
-      const retainedEmail = isBoundV2 ? (boundEmailV2 || finalUser.email || '') : '';
+      const retainedIsEmailBound = isMasterAdmin ? true : isBoundV2;
+      const retainedEmailVerified = isMasterAdmin ? true : isBoundV2;
+      const retainedEmail = isMasterAdmin ? 'logicqarena@gmail.com' : (isBoundV2 ? (boundEmailV2 || finalUser.email || '') : '');
       const cleanSectionName = retainedSectionName ? String(retainedSectionName).replace(/\s*\(Presidential Showcase\)/gi, '').trim() : '';
 
       finalUser = {

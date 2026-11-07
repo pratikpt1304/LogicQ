@@ -27,14 +27,23 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
 
   const fromLocation = (location.state as any)?.from;
+  const isTargetAdmin =
+    user?.role === 'ADMIN' ||
+    user?.prn === 'LOGICQARENA' ||
+    (user?.email && user.email.toLowerCase() === 'logicqarena@gmail.com');
+
+  const defaultDestination = isTargetAdmin ? '/admin' : '/dashboard';
   const from = fromLocation
     ? `${fromLocation.pathname || '/'}${fromLocation.search || ''}${fromLocation.hash || ''}`
-    : '/dashboard';
+    : defaultDestination;
 
   // If already authenticated, redirect immediately away from login
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true });
+      const dest = (user.role === 'ADMIN' || user.prn === 'LOGICQARENA' || user.email?.toLowerCase() === 'logicqarena@gmail.com')
+        ? '/admin'
+        : from;
+      navigate(dest, { replace: true });
     }
   }, [user, navigate, from]);
 
@@ -127,8 +136,9 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success(`Welcome back, ${user.displayName || user.fullName || 'Student'}!`);
+      const dest = (cleanPrn.toUpperCase() === 'LOGICQARENA' || user?.role === 'ADMIN') ? '/admin' : from;
       setTimeout(() => {
-        navigate(from, { replace: true });
+        navigate(dest, { replace: true });
       }, 1000);
     } catch (err: any) {
       setError(
@@ -207,8 +217,9 @@ export const LoginPage: React.FC = () => {
         });
       } catch {}
       toast.success("You're verified! Welcome to LogicQ.");
+      const dest = (identifier.trim().toLowerCase() === 'logicqarena@gmail.com' || user?.role === 'ADMIN') ? '/admin' : from;
       setTimeout(() => {
-        navigate(from, { replace: true });
+        navigate(dest, { replace: true });
       }, 1500);
     } catch (err: any) {
       setError(err?.message || 'Invalid or expired OTP code. Please request a new one.');

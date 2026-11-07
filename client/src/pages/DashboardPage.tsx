@@ -1134,6 +1134,36 @@ export const DashboardPage: React.FC = () => {
       {/* APPLE-STYLE MINIMALIST & INTUITIVE STUDENT PORTAL (ZERO CLUTTER)         */}
       {/* ========================================================================= */}
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 font-sans">
+          {/* ADMIN CONSOLE QUICK SWITCH BANNER */}
+          {(isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' || user?.prn === 'LOGICQARENA') && (
+            <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      Administrator Workspace Active
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                      ADMIN
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    You are previewing the student practice portal. You can switch to the Master Admin Console anytime.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/admin"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition shadow-xs shrink-0"
+              >
+                <span>Open Admin Portal</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
           {/* DAILY CODING BACKUP REMINDER BANNER */}
           {showBackupReminder && !hasDownloadedBackupToday() && !isBackupReminderDismissedToday() && (
             <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 backdrop-blur-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">

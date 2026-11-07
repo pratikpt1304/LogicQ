@@ -137,13 +137,26 @@ export const App: React.FC = () => {
 
   // Mandatory email binding for students who haven't bound their verified personal email yet (Epoch V2)
   useEffect(() => {
-    if (user && user.role === 'STUDENT') {
+    if (!user) {
+      setIsAutoBindEmailOpen(false);
+      return;
+    }
+
+    // STRICT: Platform Administrator or Faculty NEVER get interrupted by student modals!
+    const isAdminAccount =
+      user.role === 'ADMIN' ||
+      user.role === 'FACULTY' ||
+      (user.email || '').toLowerCase().trim() === 'logicqarena@gmail.com' ||
+      (user.prn || '').toUpperCase().trim() === 'LOGICQARENA';
+
+    if (isAdminAccount) {
+      setIsAutoBindEmailOpen(false);
+      return;
+    }
+
+    if (user.role === 'STUDENT') {
       const prnUpper = (user.prn || '').toUpperCase();
       const userEmail = (user.email || '').toLowerCase();
-      if (userEmail === 'logicqarena@gmail.com' || prnUpper === 'LOGICQARENA') {
-        setIsAutoBindEmailOpen(false);
-        return;
-      }
 
       // Demo accounts or showcase students never get interrupted by email binding
       if (prnUpper.includes('DEMO') || prnUpper === 'DUMMY' || (user.id && user.id.includes('demo'))) {
