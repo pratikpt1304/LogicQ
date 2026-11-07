@@ -309,10 +309,10 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] font-sans">
-                    Mandatory Email Binding
+                    Link Your Active Email
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold border border-emerald-500/30">
-                    Required
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-mono font-bold border border-indigo-500/20">
+                    Optional
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] font-mono mt-0.5">
@@ -323,9 +323,13 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                localStorage.setItem('logicq_dismiss_bind_modal', 'true');
+                sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
+                onClose();
+              }}
               className="p-1.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition cursor-pointer"
-              title="Close and continue"
+              title="Skip and continue"
             >
               <X className="w-5 h-5" />
             </button>
@@ -415,6 +419,18 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('logicq_dismiss_bind_modal', 'true');
+                    sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
+                    onClose();
+                  }}
+                  className="w-full py-2.5 rounded-xl border border-[var(--border-line)] hover:bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-xs font-mono transition cursor-pointer"
+                >
+                  Skip for Now (Do it Later)
                 </button>
               </div>
             </form>

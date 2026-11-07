@@ -147,13 +147,15 @@ export const App: React.FC = () => {
       // Check if student has already bound a personal email or completed verification
       const hasBoundEmail = Boolean(
         (user as any).isEmailBoundV2 ||
-        (user.email && !user.email.endsWith('@sanjivani.edu.in') && user.email.includes('@')) ||
+        (user.email && (user.email.toLowerCase() === 'logicqarena@gmail.com' || (!user.email.endsWith('@sanjivani.edu.in') && user.email.includes('@')))) ||
         (prnUpper && localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true') ||
         (user.id && localStorage.getItem(`logicq_bound_v2_${user.id}`) === 'true') ||
         (prnUpper && localStorage.getItem(`logicq_bound_status_${prnUpper}`) === 'true')
       );
 
-      const isDismissed = sessionStorage.getItem('logicq_dismiss_bind_modal') === 'true';
+      const isDismissed =
+        sessionStorage.getItem('logicq_dismiss_bind_modal') === 'true' ||
+        localStorage.getItem('logicq_dismiss_bind_modal') === 'true';
 
       if (hasBoundEmail || isDismissed) {
         setIsAutoBindEmailOpen(false);
@@ -504,6 +506,7 @@ export const App: React.FC = () => {
       <BindEmailModal
         isOpen={isAutoBindEmailOpen}
         onClose={() => {
+          localStorage.setItem('logicq_dismiss_bind_modal', 'true');
           sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
           setIsAutoBindEmailOpen(false);
         }}
