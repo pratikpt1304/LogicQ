@@ -37,7 +37,7 @@ export const AdminStudentsTab: React.FC = () => {
   const [students, setStudents] = useState<AdminStudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'VERIFIED' | 'UNLOCKED' | 'SUPPORT'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'VERIFIED' | 'UNLOCKED'>('ALL');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<AdminStudentRecord | null>(null);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
@@ -176,13 +176,11 @@ export const AdminStudentsTab: React.FC = () => {
 
     if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
     if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
-    if (activeFilter === 'SUPPORT') return s.academicScore < 40;
     return true;
   });
 
   const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
   const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
-  const supportCount = students.filter((s) => s.academicScore < 40).length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -280,19 +278,6 @@ export const AdminStudentsTab: React.FC = () => {
           >
             Mini-Project Active ({unlockedCount})
           </button>
-          {supportCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveFilter('SUPPORT')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-                activeFilter === 'SUPPORT'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Needs Support ({supportCount})
-            </button>
-          )}
 
           {/* Active Section Filter Reset Pill */}
           {selectedSection !== 'ALL' && (
@@ -407,14 +392,6 @@ export const AdminStudentsTab: React.FC = () => {
                       <span>Pending OTP</span>
                     </span>
                   )}
-
-                  {/* Academic Score Pill */}
-                  <div className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-center">
-                    <span className="text-[10px] text-slate-400 uppercase font-mono block">Score</span>
-                    <span className="text-xs font-black font-mono text-slate-900 dark:text-white">
-                      {st.academicScore}%
-                    </span>
-                  </div>
 
                   {/* 1-Click Mini-Project Toggle */}
                   <button
