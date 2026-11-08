@@ -4514,29 +4514,23 @@ export class FirestoreDataService {
   public static async getAssessmentTestsFromFirestore(): Promise<any[]> {
     try {
       const snap = await getDocs(collection(db, 'assessment_tests'));
-      if (snap.empty) {
-        try {
-          const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
-          if (!local) return [];
-          const parsed = JSON.parse(local);
-          return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.tests) ? parsed.tests : []);
-        } catch {
-          return [];
-        }
-      }
       const tests: any[] = [];
       snap.forEach((docSnap) => {
         const d = docSnap.data();
         tests.push({ ...d, id: docSnap.id });
       });
+      // Synchronize local cache with the authoritative Firestore state
+      try {
+        localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(tests));
+      } catch {}
       return tests;
     } catch (err) {
       console.warn('Failed to fetch assessment tests from Firestore, using local fallback:', err);
       try {
-        const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
+        const local = localStorage.getItem('logicq_assessment_tests_backup_v1');
         if (!local) return [];
         const parsed = JSON.parse(local);
-        return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.tests) ? parsed.tests : []);
+        return Array.isArray(parsed) ? parsed : [];
       } catch {
         return [];
       }
@@ -4597,6 +4591,9 @@ export class FirestoreDataService {
           snap.forEach((docSnap) => {
             tests.push({ ...docSnap.data(), id: docSnap.id });
           });
+          try {
+            localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(tests));
+          } catch {}
           callback(tests);
         },
         (err) => {

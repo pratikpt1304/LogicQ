@@ -379,27 +379,19 @@ export const DashboardPage: React.FC = () => {
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
     enabled: Boolean(user && isStudent),
-    staleTime: 10000,
+    staleTime: 3000,
     queryFn: async () => {
       let cloudTests: any[] = [];
+      let firestoreFetched = false;
       try {
         cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        firestoreFetched = true;
       } catch (err) {
         console.warn('Firestore assessment tests fetch notice:', err);
       }
 
-      try {
-        const res = await api.get('/exam/my-tests');
-        const activeList = res?.data?.active || (Array.isArray(res?.data) ? res?.data : []) || res?.tests || [];
-        if (Array.isArray(activeList) && activeList.length > 0) {
-          return res;
-        }
-      } catch (err) {
-        console.warn('API /exam/my-tests fetch notice:', err);
-      }
-
-      const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
-      if (safeCloudTests.length > 0) {
+      if (firestoreFetched) {
+        const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
         return {
           success: true,
           data: {
@@ -410,9 +402,17 @@ export const DashboardPage: React.FC = () => {
           tests: safeCloudTests,
         };
       }
+
+      try {
+        const res = await api.get('/exam/my-tests');
+        if (res) return res;
+      } catch (err) {
+        console.warn('API /exam/my-tests fetch notice:', err);
+      }
+
       return { success: true, data: { active: [], upcoming: [], completed: [] }, tests: [] };
     },
-    refetchInterval: 10000,
+    refetchInterval: 3000,
   });
 
   // 2. Student Practice Modules

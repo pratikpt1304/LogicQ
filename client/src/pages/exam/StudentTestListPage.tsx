@@ -38,32 +38,16 @@ export const StudentTestListPage: React.FC = () => {
     queryKey: ['my-assigned-tests'],
     queryFn: async () => {
       let cloudTests: any[] = [];
+      let firestoreFetched = false;
       try {
         cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-      } catch {}
-
-      try {
-        const res = await api.get('/exam/my-tests');
-        if (res && (res.data || res.assignments || res.tests)) {
-          const hasTests = Array.isArray(res.tests) ? res.tests.length > 0
-            : (res.data && typeof res.data === 'object' && (res.data.active?.length || res.data.upcoming?.length))
-            || (Array.isArray(res.data) && res.data.length > 0);
-          if (hasTests) return res;
-        }
-      } catch (err: any) {
-        console.warn('Backend /exam/my-tests notice, falling back gracefully:', err);
+        firestoreFetched = true;
+      } catch (err) {
+        console.warn('Firestore assessment tests fetch notice:', err);
       }
-      try {
-        const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
-        if (fallback) {
-          const hasFallbackTests = Array.isArray(fallback.tests) ? fallback.tests.length > 0
-            : (fallback.data && typeof fallback.data === 'object' && (fallback.data.active?.length || fallback.data.upcoming?.length));
-          if (hasFallbackTests) return fallback;
-        }
-      } catch {}
 
-      const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
-      if (safeCloudTests.length > 0) {
+      if (firestoreFetched) {
+        const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
         return {
           success: true,
           data: {
@@ -74,15 +58,29 @@ export const StudentTestListPage: React.FC = () => {
           tests: safeCloudTests,
         };
       }
+
+      try {
+        const res = await api.get('/exam/my-tests');
+        if (res && (res.data || res.assignments || res.tests)) {
+          return res;
+        }
+      } catch (err: any) {
+        console.warn('Backend /exam/my-tests notice, falling back gracefully:', err);
+      }
+      try {
+        const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
+        if (fallback) return fallback;
+      } catch {}
+
       return {
         success: true,
         data: { active: [], upcoming: [], completed: [] },
         tests: [],
       };
     },
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-    refetchInterval: 10000,
+    staleTime: 3000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000,
   });
 
   useEffect(() => {

@@ -148,29 +148,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     (async () => {
       try {
         const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        let localTests: AdminTestDefinition[] = [];
-        try {
-          const raw = localStorage.getItem('logicq_admin_tests');
-          if (raw) localTests = JSON.parse(raw);
-        } catch {}
-
-        // If local has tests not yet in Firestore (e.g. previously created UNIT test), push to Firestore
-        if (localTests.length > 0) {
-          for (const lt of localTests) {
-            const existsInCloud = cloudTests.some((ct: any) => ct.id === lt.id);
-            if (!existsInCloud) {
-              await FirestoreDataService.saveAssessmentTestToFirestore(lt);
-            }
-          }
-        }
-
-        const merged = cloudTests.length > 0 ? cloudTests : localTests;
-        if (isMounted && merged.length > 0) {
-          setTests(merged);
+        if (isMounted) {
+          setTests(cloudTests);
           try {
-            localStorage.setItem('logicq_admin_tests', JSON.stringify(merged));
+            localStorage.setItem('logicq_admin_tests', JSON.stringify(cloudTests));
           } catch {}
-          syncToStudentTests(merged);
+          syncToStudentTests(cloudTests);
         }
       } catch (err) {
         console.warn('Failed to sync assessment tests from Firestore:', err);
@@ -178,7 +161,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     })();
 
     const unsub = FirestoreDataService.listenToAssessmentTests((cloudTests) => {
-      if (isMounted && Array.isArray(cloudTests) && cloudTests.length > 0) {
+      if (isMounted && Array.isArray(cloudTests)) {
         setTests(cloudTests);
         try {
           localStorage.setItem('logicq_admin_tests', JSON.stringify(cloudTests));
@@ -635,8 +618,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this test?')) {
       const updated = tests.filter((t) => t.id !== id);
-      saveTests(updated);
+      setTests(updated);
+      try {
+        localStorage.setItem('logicq_admin_tests', JSON.stringify(updated));
+        localStorage.setItem('logicq_assessment_tests_backup_v1', JSON.stringify(updated));
+      } catch {}
+      syncToStudentTests(updated);
       await FirestoreDataService.deleteAssessmentTestFromFirestore(id);
+      RealtimeSyncService.emit('TESTS');
+      RealtimeSyncService.emit('DASHBOARD');
       toast.info('Test removed.');
     }
   };

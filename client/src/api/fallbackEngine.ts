@@ -3590,9 +3590,11 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   if (path === '/exam/my-tests' && method === 'GET') {
     let tests: any[] = [];
+    let firestoreLoaded = false;
     try {
       const firestoreTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-      if (Array.isArray(firestoreTests) && firestoreTests.length > 0) {
+      firestoreLoaded = true;
+      if (Array.isArray(firestoreTests)) {
         tests = firestoreTests.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -3636,7 +3638,7 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
       console.warn('Error loading assessment tests from Firestore fallback:', err);
     }
 
-    if (tests.length === 0) {
+    if (!firestoreLoaded) {
       try {
         const parsed = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
         tests = Array.isArray(parsed) ? parsed : [];
