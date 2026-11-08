@@ -117,17 +117,51 @@ export const AdminPortalPage: React.FC = () => {
 
         // Authoritatively synchronize each section's roster and count directly with the active student directory
         const syncedSections = validSections.map((sec) => {
-          const matchingStudents = studentUsers.filter((u: any) => {
-            const matchesId = u.sectionId && (u.sectionId === sec.id || u.sectionId === sec.joinCode);
-            const matchesCode = u.joinCode && (u.joinCode === sec.joinCode || u.joinCode === sec.id);
-            const matchesName = (u.sectionName && u.sectionName === sec.sectionName) || (u.section && u.section === sec.sectionName);
-            const matchesArray = Array.isArray(u.sections) && u.sections.some((s: any) => s.id === sec.id || s.joinCode === sec.joinCode);
-            return matchesId || matchesCode || matchesName || matchesArray;
+          const combined = new Map<string, any>();
+
+          // 1. Preserve students already resolved in sec.students
+          if (Array.isArray(sec.students)) {
+            sec.students.forEach((s: any) => {
+              const key = (s.prn || s.email || s.id || '').toUpperCase().trim();
+              if (key && !FirestoreDataService.isPurgedStudent(s)) combined.set(key, s);
+            });
+          }
+
+          // 2. Map matching studentUsers
+          studentUsers.forEach((u: any) => {
+            if (FirestoreDataService.isPurgedStudent(u)) return;
+
+            const uSecId = String(u.sectionId || '').toUpperCase().trim();
+            const uJoinCode = String(u.joinCode || '').toUpperCase().trim();
+            const uSecName = String(u.sectionName || u.section || '').toUpperCase().trim();
+            const secId = String(sec.id || '').toUpperCase().trim();
+            const secCode = String(sec.joinCode || '').toUpperCase().trim();
+            const secName = String(sec.sectionName || '').toUpperCase().trim();
+            const secSub = String(sec.subject || '').toUpperCase().trim();
+
+            const isMatch =
+              validSections.length === 1 || // If only 1 section exists, all registered students belong to it
+              (uSecId && (uSecId === secId || uSecId === secCode)) ||
+              (uJoinCode && (uJoinCode === secCode || uJoinCode === secId)) ||
+              (uSecName && (uSecName === secName || uSecName === secSub || secName.includes(uSecName) || uSecName.includes(secName))) ||
+              (Array.isArray(u.sections) && u.sections.some((s: any) => {
+                const sId = String(s.id || '').toUpperCase().trim();
+                const sCode = String(s.joinCode || '').toUpperCase().trim();
+                return sId === secId || sCode === secCode;
+              }));
+
+            if (isMatch) {
+              const key = (u.prn || u.email || u.id || '').toUpperCase().trim();
+              if (key) combined.set(key, u);
+            }
           });
-          const count = matchingStudents.length;
+
+          const finalRoster = Array.from(combined.values());
+          const count = finalRoster.length;
+
           return {
             ...sec,
-            students: matchingStudents,
+            students: finalRoster,
             studentsCount: count,
             _count: { students: count },
           };

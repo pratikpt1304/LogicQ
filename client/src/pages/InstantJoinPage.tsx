@@ -421,11 +421,18 @@ export const InstantJoinPage: React.FC = () => {
 
       const studentData = {
         name: name.trim(),
+        fullName: name.trim(),
+        displayName: name.trim(),
         prn: cleanPrn,
         email: cleanEmail,
         department: department.trim(),
         year: year.trim(),
         password: cleanPwd,
+        sectionId: targetSecId,
+        joinCode: section?.joinCode || effectiveToken,
+        sectionName: section?.sectionName || 'Integrated Mtech',
+        subject: section?.subject || 'C Programming',
+        status: 'ENROLLED',
       };
 
       // 1. Save password to local custom password store
