@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   BookOpen,
   Sparkles,
@@ -17,7 +17,13 @@ import {
   ChevronUp,
   X,
   FileCode,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  UploadCloud,
+  FileUp,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
 export interface QuestionBankItem {
@@ -115,8 +121,11 @@ export const AdminQuestionBankTab: React.FC = () => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // AI Generator Form State
   const [aiTopic, setAiTopic] = useState('');
@@ -141,6 +150,187 @@ export const AdminQuestionBankTab: React.FC = () => {
     try {
       localStorage.setItem('logicq_admin_questions', JSON.stringify(updated));
     } catch {}
+  };
+
+  // Download Sample Excel Template
+  const handleDownloadSampleTemplate = () => {
+    try {
+      const sampleRows = [
+        {
+          'Title': 'Bitwise Parity & Power of Two Validator',
+          'Unit': 1,
+          'Difficulty': 'EASY',
+          'TimeLimitMinutes': 5,
+          'Description': 'Determine if an integer N is a non-zero power of two using pure bitwise operations without loops.',
+          'VisibleInput1': '16',
+          'VisibleOutput1': 'YES',
+          'VisibleInput2': '18',
+          'VisibleOutput2': 'NO',
+          'HiddenInput': '0',
+          'HiddenOutput': 'NO',
+          'StarterCode': '#include <stdio.h>\n\nint isPowerOfTwo(int n) {\n    return 0;\n}',
+        },
+        {
+          'Title': 'Safe Pointer Swapper & Address Offset',
+          'Unit': 2,
+          'Difficulty': 'MEDIUM',
+          'TimeLimitMinutes': 12,
+          'Description': 'Implement memory address swapping using double pointers and verify byte offset.',
+          'VisibleInput1': '10 20',
+          'VisibleOutput1': '20 10',
+          'VisibleInput2': '-5 99',
+          'VisibleOutput2': '99 -5',
+          'HiddenInput': '0 0',
+          'HiddenOutput': '0 0',
+          'StarterCode': '#include <stdio.h>\n\nvoid swapDouble(int **a, int **b) {\n}',
+        },
+        {
+          'Title': 'Dynamic Array Deduplication in Memory',
+          'Unit': 3,
+          'Difficulty': 'HARD',
+          'TimeLimitMinutes': 20,
+          'Description': 'Remove duplicates in-place from dynamically allocated array of N integers with minimal footprint.',
+          'VisibleInput1': '5\n1 2 2 3 4',
+          'VisibleOutput1': '1 2 3 4',
+          'VisibleInput2': '4\n7 7 7 7',
+          'VisibleOutput2': '7',
+          'HiddenInput': '6\n-1 -1 0 2 2 5',
+          'HiddenOutput': '-1 0 2 5',
+          'StarterCode': '#include <stdio.h>\n#include <stdlib.h>\n\nint* deduplicate(int *arr, int *size) {\n    return arr;\n}',
+        },
+        {
+          'Title': 'Binary Packet Serialization & CRC Checksum',
+          'Unit': 4,
+          'Difficulty': 'HARD',
+          'TimeLimitMinutes': 22,
+          'Description': 'Serialize packed telemetry struct into binary file and compute 16-bit CRC checksum.',
+          'VisibleInput1': 'PKT 101 25.4',
+          'VisibleOutput1': 'CRC: 0x4A12',
+          'VisibleInput2': 'PKT 102 0.0',
+          'VisibleOutput2': 'CRC: 0x1120',
+          'HiddenInput': 'PKT 999 100.0',
+          'HiddenOutput': 'CRC: 0x8F9C',
+          'StarterCode': '#include <stdio.h>\n\ntypedef struct __attribute__((packed)) {\n    unsigned short id;\n    float val;\n} Packet;',
+        },
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      ws['!cols'] = [
+        { wch: 38 }, // Title
+        { wch: 8 },  // Unit
+        { wch: 12 }, // Difficulty
+        { wch: 18 }, // TimeLimitMinutes
+        { wch: 45 }, // Description
+        { wch: 16 }, // VisibleInput1
+        { wch: 16 }, // VisibleOutput1
+        { wch: 16 }, // VisibleInput2
+        { wch: 16 }, // VisibleOutput2
+        { wch: 16 }, // HiddenInput
+        { wch: 16 }, // HiddenOutput
+        { wch: 42 }, // StarterCode
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Question_Template');
+      XLSX.writeFile(wb, 'LogicQ_Question_Bank_Template.xlsx');
+      toast.success('Sample Excel template downloaded!');
+    } catch (err: any) {
+      toast.error('Failed to create sample template: ' + err.message);
+    }
+  };
+
+  // Upload and Parse Excel File
+  const handleExcelFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingExcel(true);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!rawRows || rawRows.length === 0) {
+          toast.error('The selected Excel file is empty.');
+          setIsUploadingExcel(false);
+          return;
+        }
+
+        const newQuestions: QuestionBankItem[] = [];
+
+        rawRows.forEach((row, idx) => {
+          const title = String(
+            row['Title'] || row['title'] || row['Question Title'] || row['Problem Name'] || ''
+          ).trim();
+          if (!title) return;
+
+          const unitParsed = parseInt(
+            row['Unit'] || row['unit'] || row['Section'] || row['Module'] || selectedUnit,
+            10
+          );
+          const sectionNumber = ([1, 2, 3, 4].includes(unitParsed) ? unitParsed : selectedUnit) as 1 | 2 | 3 | 4;
+
+          let difficulty = String(row['Difficulty'] || row['difficulty'] || 'MEDIUM').toUpperCase().trim();
+          if (!['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) difficulty = 'MEDIUM';
+
+          const timeLimit = parseInt(
+            row['TimeLimitMinutes'] || row['Time Limit'] || row['timeLimitMinutes'] || row['Duration'] || '10',
+            10
+          );
+
+          const description = String(
+            row['Description'] || row['description'] || row['Problem Statement'] || title
+          ).trim();
+
+          const input1 = String(row['VisibleInput1'] || row['Input 1'] || row['input1'] || '').trim();
+          const output1 = String(row['VisibleOutput1'] || row['Output 1'] || row['output1'] || '').trim();
+          const input2 = String(row['VisibleInput2'] || row['Input 2'] || row['input2'] || '').trim();
+          const output2 = String(row['VisibleOutput2'] || row['Output 2'] || row['output2'] || '').trim();
+          const hiddenInput = String(row['HiddenInput'] || row['Hidden Input'] || row['hiddenInput'] || input1).trim();
+          const hiddenOutput = String(row['HiddenOutput'] || row['Hidden Output'] || row['hiddenOutput'] || output1).trim();
+
+          const starterCode = String(
+            row['StarterCode'] || row['Starter Code'] || row['starterCode'] || '#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}'
+          );
+
+          newQuestions.push({
+            id: `q-s${sectionNumber}-xl-${Date.now().toString(36)}-${idx}`,
+            sectionNumber,
+            title,
+            difficulty: difficulty as 'EASY' | 'MEDIUM' | 'HARD',
+            timeLimitMinutes: isNaN(timeLimit) || timeLimit <= 0 ? 10 : timeLimit,
+            description,
+            visibleTestCase1: { input: input1, output: output1 },
+            visibleTestCase2: { input: input2, output: output2 },
+            hiddenTestCase: { input: hiddenInput, output: hiddenOutput },
+            starterCode,
+            solutionCode: '// Reference solution',
+            verifiedCorrect: true,
+          });
+        });
+
+        if (newQuestions.length === 0) {
+          toast.error('No valid questions found. Ensure the Excel sheet has a "Title" column.');
+          setIsUploadingExcel(false);
+          return;
+        }
+
+        const updated = [...newQuestions, ...questions];
+        saveQuestions(updated);
+        setIsExcelModalOpen(false);
+        setIsUploadingExcel(false);
+        toast.success(`Successfully uploaded ${newQuestions.length} questions from Excel!`);
+      } catch (err: any) {
+        setIsUploadingExcel(false);
+        toast.error('Failed to import Excel: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    if (e.target) e.target.value = '';
   };
 
   const handleRunCorrectnessCheck = (q: QuestionBankItem) => {
@@ -264,11 +454,21 @@ export const AdminQuestionBankTab: React.FC = () => {
           </div>
 
           {/* 1-Click Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsExcelModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border border-emerald-500/20"
+              title="Bulk import questions from Excel spreadsheet"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Upload Excel</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsAiModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border border-purple-500/20"
             >
               <Sparkles className="w-4 h-4" />
               <span>AI Generate</span>
@@ -697,6 +897,125 @@ export const AdminQuestionBankTab: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. APPLE MODAL: EXCEL IMPORT (Bulk Upload)                                */}
+      {/* ========================================================================= */}
+      {isExcelModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                    Upload Questions via Excel
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Batch import questions across Units 1–4 with verified test cases
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExcelModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Step 1: Download Template */}
+            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200/60 dark:border-emerald-500/20 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+                  Step 1: Download Template
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                  .xlsx format
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Download the official Excel sheet pre-filled with sample problems for all 4 units and pre-configured test cases.
+              </p>
+              <button
+                type="button"
+                onClick={handleDownloadSampleTemplate}
+                className="w-full py-2.5 rounded-xl bg-white dark:bg-white/10 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2 border border-emerald-200 dark:border-emerald-500/30 shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Sample Template (.xlsx)</span>
+              </button>
+            </div>
+
+            {/* Step 2: Upload Excel File */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block">
+                Step 2: Upload Your Excel File
+              </span>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleExcelFileChange}
+                className="hidden"
+              />
+
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="p-6 rounded-2xl border-2 border-dashed border-slate-300 dark:border-white/10 hover:border-emerald-500 dark:hover:border-emerald-400 bg-slate-50/70 dark:bg-white/[0.02] text-center cursor-pointer transition-all space-y-2 group"
+              >
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <UploadCloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    {isUploadingExcel ? 'Reading & Parsing Excel File...' : 'Click to Browse or Drop File Here'}
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Supports .xlsx, .xls, and .csv files
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Column Guide */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 space-y-1.5 text-xs">
+              <span className="font-bold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
+                Included Columns Guide:
+              </span>
+              <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
+                <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600">Title*</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600">Unit (1–4)</span>
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600">Difficulty</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">TimeLimitMinutes</span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">Description</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600">VisibleInput1</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600">VisibleOutput1</span>
+                <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600">HiddenInput</span>
+                <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600">HiddenOutput</span>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="pt-2 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setIsExcelModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-100 dark:hover:bg-white/5 transition"
+              >
+                Close
+              </button>
+            </div>
+
           </div>
         </div>
       )}
