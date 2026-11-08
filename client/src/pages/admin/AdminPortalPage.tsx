@@ -64,7 +64,7 @@ const TABS: TabItem[] = [
   { id: 'students', label: 'Students', icon: Users },
   { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
   { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
-  { id: 'answer-bank', label: 'Answer Bank', icon: Archive, badge: 'Vault' },
+  { id: 'answer-bank', label: 'Answer Bank', icon: Archive },
   { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
 ];
