@@ -300,6 +300,20 @@
   color: var(--text-main) !important;
 }
 
+/* Explicit protection: when text is explicitly dark:text-slate-900 or on light backgrounds in dark mode */
+html.dark .dark\:text-slate-900,
+html.dark [class*='dark:text-slate-900'],
+html.dark [class*='bg-white'] .text-slate-900,
+html.dark [class*='dark:bg-white'] .text-slate-900,
+html.dark [class*='bg-slate-100'] .text-slate-900,
+html.dark [class*='dark:bg-slate-100'] .text-slate-900,
+html.dark button[class*='dark:bg-white'],
+html.dark button[class*='dark:bg-slate-100'],
+html.dark button[class*='bg-white'] .text-slate-900,
+html[data-theme='dark'] .dark\:text-slate-900 {
+  color: #0f172a !important;
+}
+
 .text-slate-300,
 .dark\:text-slate-300,
 .text-slate-400,
