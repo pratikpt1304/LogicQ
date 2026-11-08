@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronRight,
+  Archive,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,6 +34,7 @@ import { AdminQuestionBankTab } from '../../components/admin/AdminQuestionBankTa
 import { AdminTestOrchestratorTab } from '../../components/admin/AdminTestOrchestratorTab.js';
 import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
+import { AdminAnswerBankTab } from '../../components/admin/AdminAnswerBankTab.js';
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
@@ -45,6 +47,7 @@ export type AdminTabKey =
   | 'students'
   | 'question-bank'
   | 'test-orchestrator'
+  | 'answer-bank'
   | 'integrity'
   | 'reports';
 
@@ -61,6 +64,7 @@ const TABS: TabItem[] = [
   { id: 'students', label: 'Students', icon: Users },
   { id: 'question-bank', label: 'Question Bank', icon: BookOpen },
   { id: 'test-orchestrator', label: 'Assessments', icon: Sliders },
+  { id: 'answer-bank', label: 'Answer Bank', icon: Archive, badge: 'Vault' },
   { id: 'integrity', label: 'Integrity & AI Viva', icon: ShieldAlert },
   { id: 'reports', label: 'Reports & Accreditation', icon: FileText },
 ];
@@ -360,6 +364,7 @@ export const AdminPortalPage: React.FC = () => {
     else if (rawTab === 'roster') setActiveTab('students');
     else if (rawTab === 'questions') setActiveTab('question-bank');
     else if (rawTab === 'analytics') setActiveTab('integrity');
+    else if (rawTab === 'answers' || rawTab === 'answer-bank') setActiveTab('answer-bank');
     else if (
       [
         'command-center',
@@ -367,6 +372,7 @@ export const AdminPortalPage: React.FC = () => {
         'students',
         'question-bank',
         'test-orchestrator',
+        'answer-bank',
         'integrity',
         'reports',
       ].includes(rawTab)
@@ -496,6 +502,7 @@ export const AdminPortalPage: React.FC = () => {
         {activeTab === 'students' && <AdminStudentsTab />}
         {activeTab === 'question-bank' && <AdminQuestionBankTab />}
         {activeTab === 'test-orchestrator' && <AdminTestOrchestratorTab sections={sections} />}
+        {activeTab === 'answer-bank' && <AdminAnswerBankTab />}
         {activeTab === 'integrity' && <AdminIntegrityTab />}
         {activeTab === 'reports' && <AdminReportsTab />}
       </main>
