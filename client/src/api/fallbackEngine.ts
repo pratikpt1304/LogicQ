@@ -3969,17 +3969,76 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   // ==========================================
   if (path === '/exam/start-question' && method === 'POST') {
     const { assignmentId, problemId } = body || {};
-    const problems = getStoredProblems();
-    const foundProb = problems.find((p: any) => p.id === problemId || p.slug === problemId) || problems[0] || {
-      id: problemId,
-      title: 'Logic Challenge Problem',
-      description: 'Write a C program to solve this problem based on the specifications.',
-      starterCode: '#include <stdio.h>\n\nint main() {\n    // Write your logic here\n    return 0;\n}\n',
-      visibleTestCases: [
-        { input: '5\n', output: '25\n' },
-        { input: '10\n', output: '100\n' }
-      ]
-    };
+
+    let foundProb: any = null;
+
+    // 1. Search in published assessment tests
+    try {
+      const tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+      for (const t of tests) {
+        if (t.questions && Array.isArray(t.questions)) {
+          const matched = t.questions.find(
+            (q: any) =>
+              q.problemId === problemId ||
+              q.id === problemId ||
+              q.problem?.id === problemId ||
+              q.problem?.slug === problemId
+          );
+          if (matched) {
+            foundProb = matched.problem || matched;
+            break;
+          }
+        }
+      }
+    } catch {}
+
+    // 2. Search in Question Bank
+    if (!foundProb) {
+      try {
+        const bank = JSON.parse(localStorage.getItem('logicq_admin_questions') || '[]');
+        const matched = bank.find((q: any) => q.id === problemId || q.slug === problemId);
+        if (matched) {
+          foundProb = {
+            id: matched.id,
+            title: matched.title,
+            description: matched.description,
+            difficulty: matched.difficulty,
+            starterCode: matched.starterCode,
+            solutionCode: matched.solutionCode,
+            testCases: [
+              { input: matched.visibleTestCase1?.input || '', expectedOutput: matched.visibleTestCase1?.output || '', isHidden: false },
+              { input: matched.visibleTestCase2?.input || '', expectedOutput: matched.visibleTestCase2?.output || '', isHidden: false },
+              { input: matched.hiddenTestCase?.input || '', expectedOutput: matched.hiddenTestCase?.output || '', isHidden: true },
+            ],
+            visibleTestCases: [
+              { input: matched.visibleTestCase1?.input || '5', output: matched.visibleTestCase1?.output || '25' },
+              { input: matched.visibleTestCase2?.input || '10', output: matched.visibleTestCase2?.output || '100' },
+            ],
+          };
+        }
+      } catch {}
+    }
+
+    // 3. Search in general stored problems
+    if (!foundProb) {
+      const problems = getStoredProblems();
+      foundProb = problems.find((p: any) => p.id === problemId || p.slug === problemId);
+    }
+
+    // 4. Fallback problem structure if completely missing
+    if (!foundProb) {
+      foundProb = {
+        id: problemId || `prob_${Date.now()}`,
+        title: 'Logic Challenge Problem',
+        description: 'Write a C program to solve this problem based on the specifications.',
+        starterCode: '#include <stdio.h>\n\nint main() {\n    // Write your logic here\n    return 0;\n}\n',
+        visibleTestCases: [
+          { input: '5\n', output: '25\n' },
+          { input: '10\n', output: '100\n' }
+        ]
+      };
+    }
+
     return {
       success: true,
       data: {

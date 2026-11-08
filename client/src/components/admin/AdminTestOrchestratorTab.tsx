@@ -44,6 +44,8 @@ export interface AdminTestDefinition {
   createdAt?: string;
   unitTarget?: 'ALL' | 1 | 2 | 3 | 4;
   questions?: any[];
+  questionCount?: number | 'ALL';
+  antiCheatingRotation?: boolean;
 }
 
 const UNITS = [
@@ -170,6 +172,8 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [questionSearch, setQuestionSearch] = useState('');
   const [difficultyProfile, setDifficultyProfile] = useState<'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS'>('BALANCED');
   const [lockPolicy, setLockPolicy] = useState(true);
+  const [questionsPerStudent, setQuestionsPerStudent] = useState<number | 'ALL'>(2);
+  const [antiCheatingRotation, setAntiCheatingRotation] = useState<boolean>(true);
 
   // Excel Upload State
   const [excelUploadedQuestions, setExcelUploadedQuestions] = useState<any[]>([]);
@@ -404,6 +408,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     try {
       const studentTests = adminTests.map((t) => {
         const pool = t.questions && t.questions.length > 0 ? t.questions : bankQuestions;
+        const rawCount = t.questionCount || 2;
+        const effectivePerStudent =
+          rawCount === 'ALL' || Number(rawCount) >= pool.length
+            ? pool.length
+            : Math.max(1, Number(rawCount) || 1);
+
         return {
           id: t.id,
           title: t.title,
@@ -413,13 +423,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
           durationMinutes: t.durationMinutes,
           totalMarks: t.totalMarks,
           status: t.status === 'ACTIVE' ? 'PUBLISHED' : t.status,
-          questionCount: Math.min(2, pool.length || 1),
+          questionCount: effectivePerStudent,
+          antiCheatingRotation: t.antiCheatingRotation ?? true,
+          randomiseQuestions: t.antiCheatingRotation ?? true,
           questions: pool.map((q: any, idx: number) => ({
             id: `tq_${t.id}_${idx}`,
             testId: t.id,
             problemId: q.id,
             orderIndex: idx,
-            points: Math.round(t.totalMarks / Math.max(1, pool.length)),
+            points: Math.round(t.totalMarks / Math.max(1, effectivePerStudent)),
             problem: {
               id: q.id,
               title: q.title,
@@ -483,6 +495,11 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         ? (selectedUnits.length === 4 ? 'ALL' : selectedUnits.map(u => `Unit ${u}`).join(', ') as any)
         : 'Custom Selection';
 
+    const effectiveQuestionCount =
+      questionsPerStudent === 'ALL'
+        ? matchedQuestions.length
+        : Math.min(Number(questionsPerStudent) || 1, matchedQuestions.length);
+
     const created: AdminTestDefinition = {
       id: `test-${Date.now().toString(36)}`,
       title: newTitle.trim(),
@@ -498,12 +515,16 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       createdAt: new Date().toISOString(),
       unitTarget: unitLabel,
       questions: matchedQuestions,
+      questionCount: effectiveQuestionCount,
+      antiCheatingRotation,
     };
 
     saveTests([created, ...tests]);
     setIsCreateModalOpen(false);
     setNewTitle('');
-    toast.success(`Test "${created.title}" scheduled with ${matchedQuestions.length} questions from Question Bank!`);
+    toast.success(
+      `Test "${created.title}" scheduled! (Pool: ${matchedQuestions.length} Qs, Each student gets ${effectiveQuestionCount} distinct Qs with PRN Rotation)`
+    );
   };
 
   const handleDeleteTest = (id: string, e: React.MouseEvent) => {
@@ -699,6 +720,10 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                       <BookOpen className="w-3 h-3" />
                       <span>{t.unitTarget === 'ALL' || !t.unitTarget ? 'All Units' : `Unit ${t.unitTarget}`}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>{t.questionCount || 2} Qs/Student (PRN Rotated)</span>
                     </span>
                   </div>
                 </div>
@@ -1312,6 +1337,70 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Questions Per Student & Anti-Cheating Allocation */}
+              <div className="space-y-2 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/50 via-slate-50 to-blue-50/30 dark:from-indigo-950/20 dark:via-white/[0.03] dark:to-blue-950/10 border border-indigo-200/60 dark:border-indigo-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <label className="font-semibold text-slate-800 dark:text-slate-200">
+                      Questions Per Student (Anti-Cheating Rotation)
+                    </label>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                    Pool: {activeQuestionsPool.length} Qs
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {([1, 2, 3, 'ALL'] as const).map((opt) => {
+                    const isSelected = questionsPerStudent === opt;
+                    const label = opt === 'ALL' ? 'All Questions' : `${opt} Question${opt > 1 ? 's' : ''}`;
+                    const subLabel =
+                      opt === 1
+                        ? '100% Unique'
+                        : opt === 2
+                        ? 'Standard (2 Qs)'
+                        : opt === 3
+                        ? 'Rigorous (3 Qs)'
+                        : 'Full Pool';
+
+                    return (
+                      <button
+                        key={String(opt)}
+                        type="button"
+                        onClick={() => setQuestionsPerStudent(opt)}
+                        className={`p-2 rounded-xl text-center border transition active:scale-95 cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">{label}</div>
+                        <div
+                          className={`text-[9px] mt-0.5 truncate ${
+                            isSelected ? 'text-indigo-100' : 'text-slate-400'
+                          }`}
+                        >
+                          {subLabel}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Live Explainer Note */}
+                <div className="flex items-start gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>
+                    {questionsPerStudent === 1
+                      ? `Each student gets 1 unique question rotated by PRN hash. If your pool has 120 questions, 120 students get 100% distinct questions!`
+                      : questionsPerStudent === 'ALL'
+                      ? `All ${activeQuestionsPool.length} questions in the pool are assigned to every student.`
+                      : `Each student receives ${questionsPerStudent} questions rotated by PRN/Roll number. Adjacent seats receive different questions to prevent cheating.`}
+                  </span>
                 </div>
               </div>
 
