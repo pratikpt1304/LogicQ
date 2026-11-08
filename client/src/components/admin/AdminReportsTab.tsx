@@ -82,9 +82,12 @@ export const AdminReportsTab: React.FC = () => {
 
     syncReportsData();
 
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), () => {});
-    const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), () => {});
-    const unsubUsers = onSnapshot(collection(db, 'users'), () => syncReportsData(), () => {});
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), (err) => console.warn('Reports enrolled notice:', err));
+    const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), (err) => console.warn('Reports sections notice:', err));
+    let unsubUsers: (() => void) | null = null;
+    try {
+      unsubUsers = onSnapshot(collection(db, 'users'), () => syncReportsData(), () => {});
+    } catch {}
     const unsubMeshUsers = realtimeSync.on('USERS', () => syncReportsData());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => syncReportsData());
 
@@ -92,7 +95,7 @@ export const AdminReportsTab: React.FC = () => {
       isMounted = false;
       unsubEnrolled();
       unsubSections();
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
     };

@@ -68,9 +68,9 @@ export const AdminStudentsTab: React.FC = () => {
       return n.includes('rohan') || e.includes('rohan') || p.includes('2199IMTE') || id.includes('2199imte');
     };
 
-    const loadStudents = async () => {
+    const loadStudents = async (showLoading = true) => {
       try {
-        setIsLoading(true);
+        if (showLoading) setIsLoading(true);
 
         // 1. Check local cache first for instant render
         try {
@@ -118,10 +118,22 @@ export const AdminStudentsTab: React.FC = () => {
               };
             });
 
-          setStudents(studentUsers);
-          try {
-            localStorage.setItem('logicq_admin_students', JSON.stringify(studentUsers));
-          } catch {}
+          setStudents((prev) => {
+            const map = new Map<string, AdminStudentRecord>();
+            prev.forEach((p) => {
+              const k = (p.prn || p.email || p.id).toUpperCase();
+              if (k) map.set(k, p);
+            });
+            studentUsers.forEach((st) => {
+              const k = (st.prn || st.email || st.id).toUpperCase();
+              if (k) map.set(k, st);
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
         }
       } catch (err) {
         console.warn('Notice: loading students from local cache:', err);
@@ -130,24 +142,103 @@ export const AdminStudentsTab: React.FC = () => {
       }
     };
 
-    loadStudents();
+    // Initial load with spinner only if empty
+    loadStudents(true);
 
-    // Live real-time Firestore listeners for 0ms student roster updates
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
-      loadStudents();
+    // Live real-time Firestore listener on 'enrolled_students' (0ms instant updates across all browsers)
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), (snap) => {
+      if (!isMounted) return;
+      const liveList: AdminStudentRecord[] = [];
+      snap.forEach((d) => {
+        const raw = d.data();
+        if (!raw || FirestoreDataService.isPurgedStudent(raw) || isRohanRecord(raw)) return;
+        const prnClean = (raw.prn || '').toUpperCase().trim();
+        const email = (raw.email || '').toLowerCase().trim();
+        const isBound = Boolean(
+          raw.isEmailBoundV2 ||
+          raw.emailVerified ||
+          (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
+        );
+        const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
+        const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
+
+        liveList.push({
+          id: d.id,
+          name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
+          prn: prnClean || '—',
+          email: email || '—',
+          section: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')),
+          identityStatus: isBound ? 'BOUND' : 'PENDING',
+          academicScore: Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
+          integrityScore: raw.integrityScore || 0,
+          miniProjectUnlocked: isUnlocked,
+          lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+        });
+      });
+
+      if (liveList.length > 0) {
+        setStudents((prev) => {
+          const map = new Map<string, AdminStudentRecord>();
+          prev.forEach((p) => {
+            const k = (p.prn || p.email || p.id).toUpperCase();
+            if (k && !FirestoreDataService.isPurgedStudent(p) && !isRohanRecord(p)) map.set(k, p);
+          });
+          liveList.forEach((st) => {
+            const k = (st.prn || st.email || st.id).toUpperCase();
+            if (k) map.set(k, st);
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+        setIsLoading(false);
+      } else {
+        loadStudents(false);
+      }
+    }, (err) => {
+      console.warn('Live enrolled_students onSnapshot notice:', err);
+    });
+
+    // Live real-time listener on cohort_progress for miniProject and points
+    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), (snap) => {
+      if (!isMounted) return;
+      snap.docChanges().forEach((change) => {
+        const prnClean = change.doc.id.toUpperCase().trim();
+        const data = change.doc.data();
+        if (data && prnClean) {
+          setStudents((prev) =>
+            prev.map((s) => {
+              if (s.prn.toUpperCase().trim() === prnClean) {
+                return {
+                  ...s,
+                  academicScore: Math.min(100, Math.round(((data.totalPoints || s.academicScore || 0) / 100) * 100)),
+                  miniProjectUnlocked: Boolean(data.miniProjectUnlocked || data.miniProjectActive || s.miniProjectUnlocked),
+                };
+              }
+              return s;
+            })
+          );
+        }
+      });
     }, () => {});
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), () => {
-      loadStudents();
-    }, () => {});
+    let unsubUsers: (() => void) | null = null;
+    try {
+      unsubUsers = onSnapshot(collection(db, 'users'), () => {
+        loadStudents(false);
+      }, () => {});
+    } catch {}
 
-    const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents());
-    const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents());
+    const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents(false));
+    const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents(false));
 
     return () => {
       isMounted = false;
       unsubEnrolled();
-      unsubUsers();
+      unsubCohort();
+      if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
     };

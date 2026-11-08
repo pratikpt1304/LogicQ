@@ -252,9 +252,12 @@ export const AdminIntegrityTab: React.FC = () => {
     fetchAuthenticStudents();
 
     // Live real-time Firestore synchronization for 0ms student forensics stream
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), () => {});
-    const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), () => {});
-    const unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live enrolled notice:', err));
+    const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live sections notice:', err));
+    let unsubUsers: (() => void) | null = null;
+    try {
+      unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
+    } catch {}
     const unsubMeshUsers = realtimeSync.on('USERS', () => fetchAuthenticStudents());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => fetchAuthenticStudents());
 
@@ -262,7 +265,7 @@ export const AdminIntegrityTab: React.FC = () => {
       isMounted = false;
       unsubEnrolled();
       unsubSections();
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
     };

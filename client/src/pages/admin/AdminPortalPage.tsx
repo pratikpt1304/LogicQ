@@ -189,15 +189,20 @@ export const AdminPortalPage: React.FC = () => {
     // 2. Real-time Firestore Live Listeners (0ms delay)
     const unsubSections = onSnapshot(collection(db, 'sections'), () => {
       loadRealData();
-    }, () => {});
+    }, (err) => console.warn('Live sections onSnapshot notice:', err));
 
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
       loadRealData();
-    }, () => {});
+    }, (err) => console.warn('Live enrolled onSnapshot notice:', err));
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), () => {
-      loadRealData();
-    }, () => {});
+    let unsubUsers: (() => void) | null = null;
+    try {
+      unsubUsers = onSnapshot(collection(db, 'users'), () => {
+        loadRealData();
+      }, () => {
+        // Ignore permission-denied gracefully
+      });
+    } catch {}
 
     // 3. Multi-Tab Realtime Mesh Listeners
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadRealData());
@@ -207,7 +212,7 @@ export const AdminPortalPage: React.FC = () => {
     return () => {
       unsubSections();
       unsubEnrolled();
-      unsubUsers();
+      if (unsubUsers) unsubUsers();
       unsubMeshSections();
       unsubMeshUsers();
       unsubMeshDashboard();
@@ -228,14 +233,14 @@ export const AdminPortalPage: React.FC = () => {
       id: `sec-${Date.now().toString(36)}`,
       sectionName: data.sectionName,
       subject: data.subject || 'C Programming',
-      course: data.course || '',
+      course: data.course || data.subject || 'C Programming',
       academicYear: data.academicYear || '2026-2027',
       semester: data.semester || 'Semester 1',
       joinCode: cleanJoinCode,
       studentsCount: 0,
       createdAt: new Date().toISOString(),
     };
-    const updated = [newSection, ...sections];
+    const updated = [newSection, ...sections.filter(s => s.id !== newSection.id && s.joinCode !== newSection.joinCode)];
     saveSections(updated);
 
     try {
@@ -243,6 +248,11 @@ export const AdminPortalPage: React.FC = () => {
     } catch (err) {
       console.warn('Notice: section saved to local cache, Firestore sync backgrounded:', err);
     }
+
+    try {
+      realtimeSync.emit('SECTIONS');
+      realtimeSync.emit('DASHBOARD');
+    } catch {}
 
     toast.success(`Class section "${newSection.sectionName}" created successfully!`);
   };
@@ -262,6 +272,12 @@ export const AdminPortalPage: React.FC = () => {
     } catch (err) {
       console.warn('Notice: section removed from local cache, Firestore delete backgrounded:', err);
     }
+
+    try {
+      realtimeSync.emit('SECTIONS');
+      realtimeSync.emit('USERS');
+      realtimeSync.emit('DASHBOARD');
+    } catch {}
 
     toast.info('Section deleted.');
   };

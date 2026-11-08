@@ -96,7 +96,7 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
     await onCreateSection({
       sectionName: name,
       subject: modalSubject || 'C Programming',
-      course: '',
+      course: modalSubject || 'C Programming',
       academicYear: '2026-2027',
       semester: 'Semester 1',
       joinCode: cleanJoinCode,

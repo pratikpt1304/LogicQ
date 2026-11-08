@@ -73,6 +73,7 @@ export const InstantJoinPage: React.FC = () => {
 
   // Final submit state
   const { login, user } = useAuth();
+  const verifiedPasswordRef = React.useRef<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [joinedSuccess, setJoinedSuccess] = useState(false);
@@ -440,13 +441,14 @@ export const InstantJoinPage: React.FC = () => {
         localStorage.setItem(`logicq_custom_password_${cleanPrn}`, cleanPwd);
       } catch {}
 
+      verifiedPasswordRef.current = cleanPwd;
+
       // 2. Persist account security credentials to Firestore (cross-device PRN login)
       try {
         await setDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security'), {
           code: cleanPwd,
-          prn: cleanPrn,
-          email: cleanEmail,
-          fullName: name.trim(),
+          problemSlug: '__account_security',
+          deviceLabel: 'student_onboarding',
           updatedAt: new Date().toISOString(),
         }, { merge: true });
       } catch (secErr) {
@@ -560,9 +562,13 @@ export const InstantJoinPage: React.FC = () => {
     try {
       setIsNavigating(true);
       const cleanPrn = prn.trim().toUpperCase();
-      const cleanPwd = password.trim() || cleanPrn;
+      const cleanPwd = verifiedPasswordRef.current || password.trim() || cleanPrn;
       if (!user || user.prn?.toUpperCase() !== cleanPrn) {
-        await login(cleanPrn, cleanPwd).catch(() => {});
+        try {
+          await login(cleanPrn, cleanPwd);
+        } catch (loginErr) {
+          console.warn('Dashboard direct login notice:', loginErr);
+        }
       }
       navigate('/dashboard', { replace: true });
     } catch {

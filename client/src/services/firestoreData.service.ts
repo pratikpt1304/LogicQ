@@ -2341,6 +2341,12 @@ export class FirestoreDataService {
         }
       }
     } catch {}
+
+    try {
+      RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('DASHBOARD');
+    } catch {}
   }
 
   /**
@@ -2381,8 +2387,8 @@ export class FirestoreDataService {
       const cleanPayload: Record<string, any> = {
         id: sectionId,
         institution: section.institution || 'Sanjivani University',
-        course: section.course || section.subject || 'Coursework',
-        subject: section.subject || 'C Programming',
+        course: (section.course && String(section.course).trim().length > 0) ? String(section.course) : (section.subject || 'C Programming'),
+        subject: (section.subject && String(section.subject).trim().length > 0) ? String(section.subject) : 'C Programming',
         sectionName: (section.sectionName && section.sectionName !== 'Academic Section') ? section.sectionName : (section.name || section.subject || 'C Programming'),
         isActive: section.isActive !== false,
         updatedAt: serverTimestamp(),
@@ -2397,6 +2403,11 @@ export class FirestoreDataService {
       if (facultyName && typeof facultyName === 'string') cleanPayload.facultyName = facultyName;
 
       await setDoc(secRef, cleanPayload, { merge: true });
+
+      try {
+        RealtimeSyncService.emit('SECTIONS');
+        RealtimeSyncService.emit('DASHBOARD');
+      } catch {}
     } catch (err) {
       console.warn('saveSectionToFirestore error:', err);
     }
