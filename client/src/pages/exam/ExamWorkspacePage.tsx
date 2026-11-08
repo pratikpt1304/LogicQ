@@ -33,6 +33,7 @@ import {
   Award,
   Layers,
   Cpu,
+  Sparkles,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -521,6 +522,20 @@ export const ExamWorkspacePage: React.FC = () => {
     },
   });
 
+  // Apple-grade Keyboard Shortcut: Ctrl + Enter or Cmd + Enter to Run Tests
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (!isLocked && !runMutation.isPending && !submitMutation.isPending) {
+          e.preventDefault();
+          runMutation.mutate();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLocked, runMutation, submitMutation]);
+
   // Timing metrics calculation
   const expectedMaxSec = (problemData?.expectedTimeMax ?? 8) * 60;
   const isWithinPrescribedTime = elapsedSec <= expectedMaxSec;
@@ -605,66 +620,60 @@ export const ExamWorkspacePage: React.FC = () => {
         </div>
       )}
 
-      {/* Top Proctoring & Institutional Header Bar (Apple Light Clean Style) */}
+      {/* Top Proctoring & Institutional Header Bar (Apple Minimal Clean Style) */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs font-mono text-slate-800 shadow-xs shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => exitExamTo('/student/tests')}
             className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium cursor-pointer"
+            title="Exit proctored test environment"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">All Tests</span>
+            <span>Exit Test</span>
           </button>
           <span className="text-slate-300">|</span>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="font-extrabold text-slate-900 truncate max-w-[200px] sm:max-w-md">
-              {problemData?.title || 'Continuous Practical Assessment'}
+            <span className="font-bold text-slate-900 truncate max-w-[200px] sm:max-w-md font-sans text-sm">
+              {assignmentData?.title || 'Continuous Practical Assessment'}
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[11px] font-bold shrink-0">
+              Question {currentQuestionIndex >= 0 ? currentQuestionIndex + 1 : 1} of {questionSequence.length || 1}
             </span>
           </div>
-          <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
-            {problemData?.difficulty || 'HARD'}
-          </span>
         </div>
 
         {/* Live Proctoring & Time Indicator */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Time Badge */}
+          {/* Subtle Elapsed Timer */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold ${
               isWithinPrescribedTime
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                ? 'bg-slate-50 border-slate-200 text-slate-700'
                 : 'bg-amber-50 border-amber-300 text-amber-800'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 text-indigo-500" />
             <span>{formatTime(elapsedSec)}</span>
-            <span className="hidden lg:inline text-[10px] text-slate-500 font-normal">
+            <span className="hidden lg:inline text-[10px] text-slate-400 font-normal">
               / max {problemData?.expectedTimeMax ?? 8}m
             </span>
           </div>
 
-          {/* Integrity Badge */}
-          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono font-bold">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>100% Integrity</span>
+          {/* Proctored Live Pill */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-sans font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Proctored</span>
           </div>
 
-          {/* Raise Issue Button */}
+          {/* Subtle Issue Flag */}
           <button
             onClick={() => setIsIssueModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition-colors text-xs font-semibold cursor-pointer"
-            title="Flag question issue to faculty"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+            title="Flag question issue to mentor"
           >
             <Flag className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Raise Issue</span>
           </button>
-
-          {/* Question Counter Pill */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-bold">
-            <span>Q{currentQuestionIndex >= 0 ? currentQuestionIndex + 1 : 1} of {questionSequence.length}</span>
-          </div>
         </div>
       </header>
 
@@ -730,56 +739,50 @@ export const ExamWorkspacePage: React.FC = () => {
           activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
         }`}>
           <div className="p-5 sm:p-7 space-y-6">
-            {/* Title & Metadata */}
-            <div className="space-y-3 pb-5 border-b border-slate-100">
+            {/* Title & Metadata (Apple Clean Style) */}
+            <div className="space-y-2.5 pb-4 border-b border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {problemData?.difficulty || 'HARD'}
                 </span>
-                <span className="text-xs text-slate-500 font-mono font-medium">
-                  ⏱️ Max Time: {problemData?.expectedTimeMin || 15}-{problemData?.expectedTimeMax || 25} Mins
-                </span>
-                <span className="text-xs text-slate-300">•</span>
-                <span className="text-xs text-emerald-700 font-mono font-bold">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   20.0 Marks
+                </span>
+                <span className="text-xs text-slate-400 font-mono font-medium">
+                  Expected ~{problemData?.expectedTimeMax || 15}m
                 </span>
               </div>
 
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-sans">
                 {problemData?.title || 'Continuous Practical Assessment'}
               </h1>
             </div>
 
             {problemData?.scenario && (
-              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-xs font-mono text-blue-950 leading-relaxed shadow-xs">
-                <div className="text-[10px] text-blue-700 font-bold mb-1 uppercase tracking-wider">
-                  Engineering Context &amp; Objective
+              <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-xs font-sans text-blue-950 leading-relaxed shadow-xs">
+                <div className="text-[10px] text-blue-700 font-bold mb-1 uppercase tracking-wider font-mono">
+                  Context &amp; Objective
                 </div>
                 {problemData.scenario}
               </div>
             )}
 
-            {/* Description */}
-            <div className="space-y-2">
-              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                Problem Description
-              </div>
-              <div className="text-sm text-slate-800 leading-relaxed font-sans bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-xs">
-                <StatementMarkdown
-                  content={problemData?.description || 'Implement the required algorithm conforming to the specifications.'}
-                  className="!text-slate-800 [&_*]:!text-slate-800 [&_code]:!text-indigo-700 [&_code]:!bg-white [&_code]:!border-slate-300 [&_pre]:!bg-slate-900 [&_pre]:!text-slate-100 [&_pre_*]:!text-slate-100"
-                />
-              </div>
+            {/* Problem Statement */}
+            <div className="text-sm text-slate-800 leading-relaxed font-sans bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <StatementMarkdown
+                content={problemData?.description || 'Implement the required algorithm conforming to the specifications.'}
+                className="!text-slate-800 [&_*]:!text-slate-800 [&_code]:!text-indigo-700 [&_code]:!bg-white [&_code]:!border-slate-300 [&_pre]:!bg-slate-900 [&_pre]:!text-slate-100 [&_pre_*]:!text-slate-100"
+              />
             </div>
 
             {/* Visible Sample Test Cases */}
-            <div className="space-y-4 pt-2">
+            <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600">
-                  Visible Test Cases (2 Sample Tests)
-                </div>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Hidden test executed server-side
+                <h2 className="text-xs font-bold text-slate-900 font-sans uppercase tracking-wider">
+                  Sample Test Cases
+                </h2>
+                <span className="text-[11px] font-mono text-slate-400">
+                  2 visible sample tests
                 </span>
               </div>
 
@@ -787,25 +790,25 @@ export const ExamWorkspacePage: React.FC = () => {
                 {visibleCasesList.map((tc: any, idx: number) => (
                   <div
                     key={tc.id || idx}
-                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 font-mono text-xs space-y-3 shadow-xs"
+                    className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 font-mono text-xs space-y-2.5 shadow-xs"
                   >
                     <div className="flex items-center justify-between text-slate-600">
                       <span className="font-bold text-slate-900">Sample Case #{idx + 1}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                         VISIBLE
                       </span>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">Input:</div>
-                      <pre className="p-3 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono shadow-inner font-semibold overflow-x-auto">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Input:</div>
+                      <pre className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono shadow-inner font-semibold overflow-x-auto">
                         {tc.input}
                       </pre>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-emerald-700">Expected Output:</div>
-                      <pre className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 font-mono font-bold shadow-inner overflow-x-auto">
+                      <div className="text-[10px] uppercase font-bold text-emerald-600">Expected Output:</div>
+                      <pre className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-900 font-mono font-bold shadow-inner overflow-x-auto">
                         {tc.expectedOutput}
                       </pre>
                     </div>
@@ -814,17 +817,13 @@ export const ExamWorkspacePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Institutional Rules */}
-            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-xs font-mono text-slate-600 space-y-1.5 shadow-xs">
-              <div className="text-indigo-800 font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                <span>Compiler &amp; Environment Rules:</span>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
-                <li>Compiled using GCC 14 with standard C11 flag (`-std=c11 -O2`).</li>
-                <li>Standard input/output via stdin and stdout.</li>
-                <li>Code is auto-saved continuously; locking takes place automatically upon final submission.</li>
-              </ul>
+            {/* Subtle Minimal Footer Note */}
+            <div className="pt-3 pb-1 text-[11px] text-slate-400 font-mono text-center border-t border-slate-100 flex items-center justify-center gap-2">
+              <span>GCC 14 (C11)</span>
+              <span>•</span>
+              <span>Standard I/O (stdin/stdout)</span>
+              <span>•</span>
+              <span>Continuous Auto-Save</span>
             </div>
           </div>
         </div>
@@ -833,9 +832,9 @@ export const ExamWorkspacePage: React.FC = () => {
         <div className={`w-full lg:w-[52%] flex flex-col bg-[#0a0f1d] lg:order-2 border-l border-slate-800 ${
           activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
         }`}>
-          {/* Single Clean Editor Header Bar */}
+          {/* Apple Mac-style Editor Titlebar */}
           <div className="bg-[#0f172a] border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-rose-500/90" />
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500/90" />
@@ -843,18 +842,10 @@ export const ExamWorkspacePage: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-blue-500/30 text-blue-200 font-mono text-[11px] font-bold">
                 <span>solution.c</span>
-                <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-400 font-bold">C11</span>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400">
-                • GCC 14 (-std=c11)
-              </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
-                <ShieldCheck className="w-3 h-3" />
-                <span>Proctored</span>
-              </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-300 text-[10px] font-mono">
                 <Cloud className="w-3 h-3 text-cyan-400" />
                 <span>Auto-Saved</span>
@@ -881,70 +872,49 @@ export const ExamWorkspacePage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Execution Dock (Clean High-Contrast White Theme) */}
+          {/* Bottom Execution Dock (Apple Clean Minimal Style - Zero Duplicate Clutter) */}
           <div
             className={`border-t border-slate-200 bg-white text-slate-800 shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
               isDrawerOpen ? 'h-64 sm:h-72 max-h-[48%]' : 'h-12'
             }`}
           >
             {/* Dock Header Bar */}
-            <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-slate-50 border-b border-slate-200 shrink-0 font-mono text-xs">
-              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 border border-slate-300/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveBottomTab('cases');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeBottomTab === 'cases' && isDrawerOpen
-                      ? 'bg-white text-indigo-700 border border-slate-300 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Test Cases ({visibleCasesList.length})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveBottomTab('output');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeBottomTab === 'output' && isDrawerOpen
-                      ? 'bg-white text-indigo-700 border border-slate-300 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Cpu className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Verdict &amp; Output</span>
-                  {testResults.length > 0 && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
-                      {testResults.filter((t: any) => t.passed).length}/{testResults.length}
-                    </span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveBottomTab('telemetry');
-                    setIsDrawerOpen(true);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeBottomTab === 'telemetry' && isDrawerOpen
-                      ? 'bg-white text-indigo-700 border border-slate-300 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Activity className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="hidden sm:inline">Telemetry</span>
-                </button>
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-50/80 border-b border-slate-200 shrink-0 font-sans text-xs">
+              {/* Left Status Indicator */}
+              <div className="flex items-center gap-2 min-w-0">
+                {submitMutation.isPending ? (
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                    <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
+                    <span>All Tests Passed! Submitting &amp; Advancing...</span>
+                  </div>
+                ) : runMutation.isPending ? (
+                  <div className="flex items-center gap-2 text-indigo-700 font-semibold">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                    <span>Compiling &amp; running visible test cases...</span>
+                  </div>
+                ) : testResults.length > 0 ? (
+                  testResults.every((t: any) => t.passed) ? (
+                    <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>All {testResults.length} Visible Tests Passed</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-rose-700 font-bold">
+                      <XCircle className="w-4 h-4 text-rose-600" />
+                      <span>{testResults.filter((t: any) => t.passed).length}/{testResults.length} Tests Passed</span>
+                      <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">• Check output below</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center gap-2 text-slate-500 font-medium">
+                    <Terminal className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Evaluation Console</span>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Right Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   disabled={isLocked || runMutation.isPending || submitMutation.isPending}
@@ -952,23 +922,24 @@ export const ExamWorkspacePage: React.FC = () => {
                     setActiveMobileTab('editor');
                     runMutation.mutate();
                   }}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono font-bold text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                  className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
                   title="Run Visible Tests & Auto-Submit on Pass (Ctrl + Enter)"
                 >
                   {submitMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Auto-Submitting...</span>
+                      <span>Submitting...</span>
                     </>
                   ) : runMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Running Tests...</span>
+                      <span>Running...</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Run Visible Tests</span>
+                      <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">Ctrl+↵</span>
                     </>
                   )}
                 </button>
@@ -977,147 +948,68 @@ export const ExamWorkspacePage: React.FC = () => {
                   type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 border border-slate-300 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title={isDrawerOpen ? 'Collapse drawer' : 'Expand drawer'}
                 >
-                  <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
                 </button>
               </div>
             </div>
 
             {/* Dock Body */}
             {isDrawerOpen && (
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white text-slate-800">
-                {activeBottomTab === 'cases' && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-1">
-                      <div className="flex items-center gap-1.5">
-                        {visibleCasesList.map((_: any, idx: number) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setSelectedCaseIdx(idx)}
-                            className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                              selectedCaseIdx === idx
-                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
-                                : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200'
-                            }`}
-                          >
-                            Case {idx + 1}
-                          </button>
-                        ))}
-                      </div>
-                      <span className="text-[11px] font-mono text-slate-500">
-                        Sample test cases for verification
-                      </span>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 font-mono text-xs bg-white text-slate-800">
+                {testResults.length === 0 ? (
+                  <div className="h-full py-6 flex flex-col items-center justify-center text-center space-y-2 text-slate-400 font-sans">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
+                      <Terminal className="w-5 h-5" />
                     </div>
-
-                    {visibleCasesList[selectedCaseIdx] ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">
-                            INPUT:
-                          </div>
-                          <pre className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-semibold overflow-x-auto min-h-[50px] shadow-inner font-mono">
-                            {visibleCasesList[selectedCaseIdx].input}
-                          </pre>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider mb-1">
-                            EXPECTED OUTPUT:
-                          </div>
-                          <pre className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">
-                            {visibleCasesList[selectedCaseIdx].expectedOutput}
-                          </pre>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-slate-400">Select a case above to inspect</div>
-                    )}
+                    <div className="text-xs font-bold text-slate-700">Ready to Evaluate</div>
+                    <div className="text-[11px] text-slate-400 max-w-sm leading-relaxed">
+                      Write your solution in the editor and click <strong className="text-slate-600 font-mono">Run Visible Tests</strong> (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 font-mono text-[10px]">Ctrl+Enter</kbd>).
+                    </div>
                   </div>
-                )}
-
-                {activeBottomTab === 'output' && (
-                  testResults.length === 0 ? (
-                    <div className="h-full py-8 flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
-                      <Terminal className="w-6 h-6 text-slate-400 mb-1" />
-                      <div>Click <strong>Run Visible Tests</strong> above to evaluate against sample test cases.</div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {testResults.map((tr: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-xl border text-xs space-y-2 bg-slate-50 ${
-                            tr.passed
-                              ? 'border-emerald-300 bg-emerald-50/30'
-                              : 'border-rose-300 bg-rose-50/30'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between font-bold">
-                            <span className="flex items-center gap-1.5">
-                              {tr.passed ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                              )}
-                              <span className={tr.passed ? 'text-emerald-800' : 'text-rose-800'}>
-                                Test Case #{tr.testIndex} {tr.isHidden ? '(Hidden Server-Side Test)' : '(Visible)'}
-                              </span>
+                ) : (
+                  <div className="space-y-3">
+                    {testResults.map((tr: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`p-3.5 rounded-2xl border text-xs space-y-2.5 transition-all ${
+                          tr.passed
+                            ? 'border-emerald-200 bg-emerald-50/40'
+                            : 'border-rose-200 bg-rose-50/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-sans">
+                          <span className="flex items-center gap-1.5 font-bold">
+                            {tr.passed ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-rose-600" />
+                            )}
+                            <span className={tr.passed ? 'text-emerald-900' : 'text-rose-900'}>
+                              Sample Case #{tr.testIndex || (idx + 1)}: {tr.passed ? 'PASSED' : 'FAILED'}
                             </span>
-                            <span className="text-[11px] font-mono text-slate-500">{tr.verdict} ({tr.runtimeMs ?? 0}ms)</span>
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">{tr.runtimeMs ?? 0}ms</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+                          <div>
+                            <span className="text-slate-400 uppercase text-[10px] font-bold font-mono">Expected:</span>
+                            <pre className="bg-white border border-slate-200 text-emerald-800 p-2.5 rounded-xl mt-1 overflow-x-auto font-mono font-bold shadow-inner">
+                              {tr.expectedOutput}
+                            </pre>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                            <div>
-                              <span className="text-slate-500 uppercase text-[10px] font-bold">Expected:</span>
-                              <pre className="bg-white border border-slate-200 text-emerald-800 p-2 rounded-lg mt-0.5 overflow-x-auto font-mono font-bold">{tr.expectedOutput}</pre>
-                            </div>
-                            <div>
-                              <span className="text-slate-500 uppercase text-[10px] font-bold">Actual:</span>
-                              <pre className={`bg-white border border-slate-200 p-2 rounded-lg mt-0.5 overflow-x-auto font-mono ${tr.passed ? 'text-emerald-800' : 'text-rose-700 font-bold'}`}>{tr.actualOutput || '(No output)'}</pre>
-                            </div>
+                          <div>
+                            <span className="text-slate-400 uppercase text-[10px] font-bold font-mono">Your Output:</span>
+                            <pre className={`bg-white border border-slate-200 p-2.5 rounded-xl mt-1 overflow-x-auto font-mono shadow-inner ${tr.passed ? 'text-emerald-800 font-bold' : 'text-rose-700 font-bold'}`}>
+                              {tr.actualOutput || '(No output produced)'}
+                            </pre>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )
-                )}
-
-                {activeBottomTab === 'telemetry' && (
-                  /* Telemetry Panel (Sections 20 - 28) */
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Tab Switches</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{tabSwitchCount}</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Fullscreen Exits</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{fullScreenExitCount}</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Clipboard Blocked</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{copyPasteAttempts + cutAttempts}</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Largest Burst</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{largestBurstChars} chars</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Total Keystrokes</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{totalKeystrokes}</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Active Work Time</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{activeSec}s</div>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <div className="text-slate-500 text-[10px]">Focus Loss Duration</div>
-                      <div className="text-sm font-bold text-slate-900 mt-1">{(totalFocusLossMsRef.current / 1000).toFixed(1)}s</div>
-                    </div>
-                    <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-300">
-                      <div className="text-emerald-700 text-[10px] font-bold">Proctoring Mode</div>
-                      <div className="text-sm font-bold text-emerald-800 mt-1">Active</div>
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
