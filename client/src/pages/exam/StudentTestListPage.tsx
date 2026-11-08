@@ -117,23 +117,49 @@ export const StudentTestListPage: React.FC = () => {
     },
   });
 
-  const assignments: any[] = data?.data || data?.assignments || [];
+  const assignments: any[] = React.useMemo(() => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.tests)) {
+      return data.tests.map((t: any) => ({
+        id: t.id || `assign-${t.id}`,
+        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+        test: t,
+        attempts: t.attempts || [],
+      }));
+    }
+    if (Array.isArray(data.assignments)) return data.assignments;
+    if (data.data && typeof data.data === 'object') {
+      const active = Array.isArray(data.data.active) ? data.data.active : [];
+      const upcoming = Array.isArray(data.data.upcoming) ? data.data.upcoming : [];
+      const completed = Array.isArray(data.data.completed) ? data.data.completed : [];
+      const all = [...active, ...upcoming, ...completed];
+      return all.map((t: any) => ({
+        id: t.id || `assign-${t.id}`,
+        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+        test: t.test || t,
+        attempts: t.attempts || [],
+      }));
+    }
+    return [];
+  }, [data]);
 
   const totalAssigned = assignments.length;
-  const pendingCount = assignments.filter((a: any) => a.status !== 'SUBMITTED').length;
-  const completedCount = assignments.filter((a: any) => a.status === 'SUBMITTED').length;
+  const pendingCount = Array.isArray(assignments) ? assignments.filter((a: any) => a?.status !== 'SUBMITTED').length : 0;
+  const completedCount = Array.isArray(assignments) ? assignments.filter((a: any) => a?.status === 'SUBMITTED').length : 0;
 
   const enrolledSections = Array.from(
     new Set(
       assignments
-        .map((a: any) => a.test?.section?.sectionName)
+        .map((a: any) => a?.test?.section?.sectionName || a?.sectionName)
         .filter(Boolean)
     )
   );
 
   const filteredAssignments = assignments.filter((a: any) => {
-    if (filterTab === 'PENDING') return a.status !== 'SUBMITTED';
-    if (filterTab === 'COMPLETED') return a.status === 'SUBMITTED';
+    if (filterTab === 'PENDING') return a?.status !== 'SUBMITTED';
+    if (filterTab === 'COMPLETED') return a?.status === 'SUBMITTED';
     return true;
   });
 
@@ -336,7 +362,7 @@ export const StudentTestListPage: React.FC = () => {
         {/* ========================================================= */}
         <div className="space-y-4">
           {filteredAssignments.map((assignment: any) => {
-            const test = assignment.test;
+            const test = assignment.test || assignment || {};
             const rawQuestions = test?.questions || [];
             const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
             const questions = getStudentPersonalizedQuestions(
@@ -344,30 +370,32 @@ export const StudentTestListPage: React.FC = () => {
               test?.questionCount || 2,
               studentIdentifier
             );
-            const attempts = assignment.attempts || [];
+            const attempts = Array.isArray(assignment.attempts) ? assignment.attempts : [];
             const isSubmitted = assignment.status === 'SUBMITTED';
             const isInProgress = assignment.status === 'IN_PROGRESS';
 
-            const completedCountOnTest = attempts.filter((a: any) => a.isLocked).length;
+            const completedCountOnTest = attempts.filter((a: any) => a?.isLocked).length;
 
             const nextUnsolvedIndex = questions.findIndex(
-              (q: any) => !attempts.some((a: any) => a.problemId === q.problemId && a.isLocked)
+              (q: any) => !attempts.some((a: any) => a?.problemId === q?.problemId && a?.isLocked)
             );
-            const targetQuestion = nextUnsolvedIndex !== -1 ? questions[nextUnsolvedIndex] : questions[0];
+            const targetQuestion = nextUnsolvedIndex !== -1 ? questions[nextUnsolvedIndex] : (questions[0] || null);
+            const firstProblemId = questions[0]?.problemId || targetQuestion?.problemId || 'q1';
+            const resumeProblemId = targetQuestion?.problemId || firstProblemId;
 
             return (
               <div
-                key={assignment.id}
+                key={assignment.id || `test-${test?.id || Math.random()}`}
                 className="rounded-3xl border border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl hover:border-indigo-500/40 p-6 sm:p-7 transition-all shadow-sm space-y-4"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                   <div className="space-y-2.5 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                        {test.section?.sectionName || 'Assigned Section'}
+                        {test?.section?.sectionName || test?.sectionName || 'Assigned Section'}
                       </span>
 
-                      {test.module && (
+                      {test?.module && (
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                           {test.module}
                         </span>
@@ -391,10 +419,10 @@ export const StudentTestListPage: React.FC = () => {
                     </div>
 
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                      {test.title}
+                      {test?.title || 'Continuous Lab Evaluation'}
                     </h2>
 
-                    {test.instructions && (
+                    {test?.instructions && (
                       <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                         {test.instructions}
                       </p>
@@ -403,7 +431,7 @@ export const StudentTestListPage: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-1">
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
-                        <span>{test.durationMinutes} Minutes</span>
+                        <span>{test?.durationMinutes || 60} Minutes</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
@@ -421,7 +449,7 @@ export const StudentTestListPage: React.FC = () => {
                   <div className="flex flex-col sm:items-end gap-3 shrink-0">
                     {isSubmitted ? (
                       <Link
-                        to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
+                        to={`/exam/${assignment.id}/${firstProblemId}`}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 font-bold text-xs font-mono transition-all"
                       >
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -429,7 +457,7 @@ export const StudentTestListPage: React.FC = () => {
                       </Link>
                     ) : isInProgress ? (
                       <Link
-                        to={`/exam/${assignment.id}/${targetQuestion?.problemId}`}
+                        to={`/exam/${assignment.id}/${resumeProblemId}`}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs font-mono transition-all shadow-md shadow-amber-500/20 active:scale-95"
                       >
                         <span>Resume Test (Q{nextUnsolvedIndex + 1})</span>
@@ -437,7 +465,7 @@ export const StudentTestListPage: React.FC = () => {
                       </Link>
                     ) : (
                       <Link
-                        to={`/exam/${assignment.id}/${questions[0]?.problemId}`}
+                        to={`/exam/${assignment.id}/${firstProblemId}`}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xs font-mono transition-all shadow-md shadow-indigo-600/20 active:scale-95"
                       >
                         <span>Start Proctored Test</span>
@@ -449,14 +477,14 @@ export const StudentTestListPage: React.FC = () => {
                     {questions.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 justify-start sm:justify-end">
                         {questions.map((q: any, idx: number) => {
-                          const attempt = attempts.find((a: any) => a.problemId === q.problemId);
+                          const attempt = attempts.find((a: any) => a?.problemId === q?.problemId);
                           const isLocked = attempt?.isLocked;
                           const score = attempt?.academicScore;
 
                           return (
                             <Link
-                              key={q.id}
-                              to={`/exam/${assignment.id}/${q.problemId}`}
+                              key={q?.id || q?.problemId || idx}
+                              to={`/exam/${assignment.id}/${q?.problemId || 'q' + (idx + 1)}`}
                               className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1 border ${
                                 isLocked
                                   ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
