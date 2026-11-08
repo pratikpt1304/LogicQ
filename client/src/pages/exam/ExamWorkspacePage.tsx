@@ -1345,7 +1345,7 @@ export const ExamWorkspacePage: React.FC = () => {
                 }
                 navigate('/student/tests');
               }}
-              className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-xs transition active:scale-95 cursor-pointer shadow-md"
+              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition active:scale-95 cursor-pointer shadow-md shadow-indigo-500/20"
             >
               Back to Assigned Tests
             </button>

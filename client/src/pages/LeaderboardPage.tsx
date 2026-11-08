@@ -260,10 +260,10 @@ export const LeaderboardPage: React.FC = () => {
 
               <Link
                 to="/practice"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-500/20 active:scale-95 cursor-pointer"
               >
-                <Code2 className="w-4 h-4" />
-                <span>Solve Questions →</span>
+                <Code2 className="w-4 h-4 text-white" />
+                <span className="text-white">Solve Questions →</span>
               </Link>
             </div>
           </div>

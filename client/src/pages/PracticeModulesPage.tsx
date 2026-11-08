@@ -561,7 +561,7 @@ export const PracticeModulesPage: React.FC = () => {
                       onClick={() => setFilterDifficulty(mode)}
                       className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer select-none font-semibold ${
                         filterDifficulty === mode
-                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                          ? 'bg-indigo-600 text-white shadow-xs'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >

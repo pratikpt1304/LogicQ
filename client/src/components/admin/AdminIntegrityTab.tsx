@@ -1412,7 +1412,7 @@ export const AdminIntegrityTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedStudentForTimeline(null)}
-                className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold cursor-pointer active:scale-95 transition"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer active:scale-95 transition"
               >
                 Close Audit View
               </button>
@@ -1482,7 +1482,7 @@ export const AdminIntegrityTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsDemoVivaModalOpen(false)}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-xs transition active:scale-95 cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition active:scale-95 cursor-pointer"
               >
                 Close Preview
               </button>

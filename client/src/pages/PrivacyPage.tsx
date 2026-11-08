@@ -370,10 +370,10 @@ export const PrivacyPage: React.FC = () => {
 
         <Link
           to="/profile"
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 font-semibold text-xs transition-all shadow-md active:scale-95 cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-500/20 active:scale-95 cursor-pointer shrink-0"
         >
-          <span>Manage Profile & Privacy</span>
-          <ArrowRight className="w-4 h-4" />
+          <span className="text-white">Manage Profile & Privacy</span>
+          <ArrowRight className="w-4 h-4 text-white" />
         </Link>
       </div>
     </div>

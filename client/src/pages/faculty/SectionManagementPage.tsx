@@ -1933,7 +1933,7 @@ export const SectionManagementPage: React.FC = () => {
                           onClick={() => setSubmissionsFilter('ALL')}
                           className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
                             submissionsFilter === 'ALL'
-                              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900'
+                              ? 'bg-indigo-600 text-white'
                               : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
