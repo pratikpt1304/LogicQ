@@ -24,6 +24,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../config/academic.config.js';
+import { useAuth } from '../context/AuthContext.js';
 
 interface PublicSectionInfo {
   id: string;
@@ -70,7 +71,9 @@ export const InstantJoinPage: React.FC = () => {
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
 
   // Final submit state
+  const { login, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [joinedSuccess, setJoinedSuccess] = useState(false);
 
   // Fetch public section info on mount
@@ -516,6 +519,13 @@ export const InstantJoinPage: React.FC = () => {
       enrolled = true;
 
       if (enrolled) {
+        // Automatically establish active authenticated student session so student doesn't have to re-login
+        try {
+          await login(cleanPrn, cleanPwd);
+        } catch (loginErr) {
+          console.warn('Auto-login post-enrollment notice:', loginErr);
+        }
+
         setJoinedSuccess(true);
         confetti({
           particleCount: 100,
@@ -528,6 +538,22 @@ export const InstantJoinPage: React.FC = () => {
       toast.error(err.message || 'Failed to join section.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleContinueToDashboard = async () => {
+    try {
+      setIsNavigating(true);
+      const cleanPrn = prn.trim().toUpperCase();
+      const cleanPwd = password.trim() || cleanPrn;
+      if (!user || user.prn?.toUpperCase() !== cleanPrn) {
+        await login(cleanPrn, cleanPwd).catch(() => {});
+      }
+      navigate('/dashboard', { replace: true });
+    } catch {
+      navigate('/dashboard', { replace: true });
+    } finally {
+      setIsNavigating(false);
     }
   };
 
@@ -615,13 +641,24 @@ export const InstantJoinPage: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <Link
-              to="/dashboard"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/20 transition"
+            <button
+              type="button"
+              onClick={handleContinueToDashboard}
+              disabled={isNavigating}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/20 transition cursor-pointer active:scale-95 disabled:opacity-50"
             >
-              Continue to Student Dashboard
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+              {isNavigating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Entering Dashboard...</span>
+                </>
+              ) : (
+                <>
+                  <span>Continue to Student Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
             <Link
               to="/login"
               className="w-full block py-2.5 rounded-xl border border-[var(--border)] hover:bg-[var(--accent)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-xs font-medium transition"
