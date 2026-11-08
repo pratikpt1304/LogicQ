@@ -80,6 +80,26 @@ export const ExamWorkspacePage: React.FC = () => {
   const focusLossStartRef = useRef<number | null>(null);
   const totalFocusLossMsRef = useRef<number>(0);
   const previousCodeLenRef = useRef<number>(0);
+  const isExitingRef = useRef<boolean>(false);
+
+  // Helper to safely exit proctored exam and immediately restore normal browser screen
+  const exitExamTo = useCallback((targetPath: string = '/student/tests') => {
+    isExitingRef.current = true;
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    navigate(targetPath);
+  }, [navigate]);
+
+  // Guaranteed unmount cleanup: Automatically exit fullscreen whenever leaving exam workspace
+  useEffect(() => {
+    return () => {
+      isExitingRef.current = true;
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
 
   // Fetch test details to get full question sequence for auto-advancing
   const { data: assignmentData } = useQuery({
@@ -255,7 +275,7 @@ export const ExamWorkspacePage: React.FC = () => {
 
       if (active) {
         hasEnteredFullscreenRef.current = true;
-      } else if (!active && hasEnteredFullscreenRef.current && !isLocked) {
+      } else if (!active && hasEnteredFullscreenRef.current && !isLocked && !isExitingRef.current) {
         // Proctoring violation: Student exited full-screen! Immediately kick them out
         setFullScreenExitCount((c) => {
           const next = c + 1;
@@ -276,6 +296,10 @@ export const ExamWorkspacePage: React.FC = () => {
           duration: 6000,
         });
 
+        isExitingRef.current = true;
+        if (typeof document !== 'undefined' && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
         navigate('/student/tests');
       }
     };
@@ -471,9 +495,13 @@ export const ExamWorkspacePage: React.FC = () => {
           toast.success('Final Question Accepted! Assessment Complete!', {
             duration: 4000,
           });
+          isExitingRef.current = true;
+          if (typeof document !== 'undefined' && document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
           setTimeout(() => {
             navigate('/student/tests');
-          }, 2000);
+          }, 1500);
         }
 
         // Section 29: Trigger AI Viva Verification if returned by engine
@@ -580,13 +608,14 @@ export const ExamWorkspacePage: React.FC = () => {
       {/* Top Proctoring & Institutional Header Bar (Apple Light Clean Style) */}
       <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs font-mono text-slate-800 shadow-xs shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <Link
-            to="/student/tests"
-            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium"
+          <button
+            type="button"
+            onClick={() => exitExamTo('/student/tests')}
+            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">All Tests</span>
-          </Link>
+          </button>
           <span className="text-slate-300">|</span>
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -657,12 +686,13 @@ export const ExamWorkspacePage: React.FC = () => {
                 <span>Next Question →</span>
               </Link>
             )}
-            <Link
-              to="/student/tests"
-              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
+            <button
+              type="button"
+              onClick={() => exitExamTo('/student/tests')}
+              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm cursor-pointer"
             >
               Return to Tests Overview →
-            </Link>
+            </button>
           </div>
         </div>
       )}
