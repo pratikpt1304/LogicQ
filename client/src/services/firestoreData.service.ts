@@ -4043,6 +4043,129 @@ export class FirestoreDataService {
   }
 
   /**
+   * Synchronizes student live assessment state & telemetry heartbeats directly to Firestore.
+   */
+  public static async recordStudentLiveTelemetry(
+    userId: string,
+    data: {
+      prn?: string | null;
+      studentName?: string | null;
+      studentEmail?: string | null;
+      testId?: string | null;
+      testTitle?: string | null;
+      problemId?: string | null;
+      problemTitle?: string | null;
+      tabSwitchCount: number;
+      copyPasteAttempts: number;
+      fullScreenExitCount: number;
+      totalKeystrokes?: number;
+      largestBurstChars?: number;
+      activeSec?: number;
+      status?: 'IN_PROGRESS' | 'COMPLETED' | 'CRITICAL_BREACH' | 'NEEDS_REVIEW' | 'CLEAN';
+      incident?: {
+        type: string;
+        details: string;
+        severity: 'INFO' | 'WARNING' | 'CRITICAL';
+        timestamp?: string;
+      };
+    }
+  ): Promise<void> {
+    try {
+      const prn = (data.prn || FirestoreDataService.resolvePrn(userId || auth.currentUser?.uid || undefined) || '').toUpperCase().trim();
+      if (!prn) return;
+
+      const cohortRef = doc(db, 'cohort_progress', prn);
+      const cohortSnap = await getDoc(cohortRef).catch(() => null);
+      const existingCohort = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+      const prevModule = existingCohort.moduleProgress || {};
+
+      const computedStatus = data.status || (
+        data.fullScreenExitCount > 0 || data.copyPasteAttempts > 3
+          ? 'CRITICAL_BREACH'
+          : (data.tabSwitchCount > 0 || data.copyPasteAttempts > 0)
+          ? 'NEEDS_REVIEW'
+          : 'CLEAN'
+      );
+
+      const autoLockCount = data.fullScreenExitCount > 0 ? 1 : (prevModule.autoLockCount || 0);
+
+      const integrityScore = FirestoreDataService.computeIntegrityScore({
+        tabSwitchCount: data.tabSwitchCount,
+        copyPasteAttempts: data.copyPasteAttempts,
+        fullscreenExits: data.fullScreenExitCount,
+        autoLockCount,
+      });
+
+      const updatedModule = {
+        ...prevModule,
+        currentModule: data.testTitle || prevModule.currentModule || 'Continuous Assessment',
+        currentProblem: data.problemTitle || prevModule.currentProblem || 'Assessment Question',
+        tabSwitches: Math.max(Number(data.tabSwitchCount) || 0, Number(prevModule.tabSwitches) || 0),
+        pasteBursts: Math.max(Number(data.copyPasteAttempts) || 0, Number(prevModule.pasteBursts) || 0),
+        fullscreenExits: Math.max(Number(data.fullScreenExitCount) || 0, Number(prevModule.fullscreenExits) || 0),
+        totalKeystrokes: Math.max(Number(data.totalKeystrokes) || 0, Number(prevModule.totalKeystrokes) || 0),
+        largestBurstChars: Math.max(Number(data.largestBurstChars) || 0, Number(prevModule.largestBurstChars) || 0),
+        integrityScore,
+        status: computedStatus,
+        activeSession: true,
+        lastActiveTime: new Date().toISOString(),
+      };
+
+      await setDoc(cohortRef, {
+        prn,
+        studentName: data.studentName || existingCohort.studentName,
+        studentEmail: data.studentEmail || existingCohort.studentEmail,
+        moduleProgress: updatedModule,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
+      // Subcollection draft for detailed inspection
+      const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
+      const draftSnap = await getDoc(telemetryDraftRef).catch(() => null);
+      let incidents: any[] = [];
+      if (draftSnap && draftSnap.exists()) {
+        try {
+          const parsed = JSON.parse(draftSnap.data()?.code || '{}');
+          if (Array.isArray(parsed?.incidents)) incidents = parsed.incidents;
+        } catch {}
+      }
+
+      if (data.incident) {
+        incidents.unshift({
+          id: `inc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          timestamp: data.incident.timestamp || new Date().toISOString(),
+          type: data.incident.type,
+          reason: data.incident.details,
+          severity: data.incident.severity,
+          problemTitle: data.problemTitle,
+        });
+        incidents = incidents.slice(0, 50);
+      }
+
+      await setDoc(telemetryDraftRef, {
+        code: JSON.stringify({
+          tabSwitchCount: updatedModule.tabSwitches,
+          copyPasteAttempts: updatedModule.pasteBursts,
+          fullscreenExits: updatedModule.fullscreenExits,
+          totalKeystrokes: updatedModule.totalKeystrokes,
+          integrityScore,
+          incidents,
+          testTitle: updatedModule.currentModule,
+          problemTitle: updatedModule.currentProblem,
+          updatedAt: new Date().toISOString(),
+        }),
+        problemSlug: 'proctoring_telemetry',
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('USERS');
+    } catch (err) {
+      console.warn('recordStudentLiveTelemetry error:', err);
+    }
+  }
+
+  /**
    * Resets student proctoring telemetry back to 100/100 verified clean record.
    * Clears infractions, tab switches, paste attempts, fullscreen exits, and all quarantine locks.
    */
@@ -4662,6 +4785,83 @@ export class FirestoreDataService {
         local.unshift(cleanSub);
         localStorage.setItem('logicq_assessment_submissions', JSON.stringify(local.slice(0, 100)));
       } catch {}
+
+      // 4. Update cohort_progress and forensic telemetry subcollection for live admin oversight
+      const prn = cleanSub.studentPrn || FirestoreDataService.resolvePrn(cleanSub.userId);
+      if (prn) {
+        try {
+          const cohortRef = doc(db, 'cohort_progress', prn);
+          const autoLockCount = cleanSub.fullscreenExits > 0 ? 1 : 0;
+          const status = autoLockCount > 0 || cleanSub.copyPasteAttempts > 3
+            ? 'CRITICAL_BREACH'
+            : (cleanSub.tabSwitchCount > 0 || cleanSub.copyPasteAttempts > 0)
+            ? 'NEEDS_REVIEW'
+            : 'CLEAN';
+
+          const integrityScore = FirestoreDataService.computeIntegrityScore({
+            tabSwitchCount: cleanSub.tabSwitchCount,
+            copyPasteAttempts: cleanSub.copyPasteAttempts,
+            fullscreenExits: cleanSub.fullscreenExits,
+            autoLockCount,
+          });
+
+          await setDoc(
+            cohortRef,
+            {
+              prn,
+              studentName: cleanSub.studentName,
+              studentEmail: cleanSub.studentEmail,
+              moduleProgress: {
+                currentModule: cleanSub.testTitle || 'Continuous Assessment',
+                currentProblem: cleanSub.problemTitle || 'Assessment Question',
+                tabSwitches: cleanSub.tabSwitchCount,
+                pasteBursts: cleanSub.copyPasteAttempts,
+                fullscreenExits: cleanSub.fullscreenExits,
+                totalKeystrokes: cleanSub.totalKeystrokes,
+                integrityScore,
+                status,
+                lastActiveTime: cleanSub.submittedAt,
+                submittedAt: cleanSub.submittedAt,
+                testStatus: 'SUBMITTED',
+                academicScore: cleanSub.academicScore,
+                verdict: cleanSub.verdict,
+                activeSession: false,
+              },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
+          await setDoc(
+            telemetryDraftRef,
+            {
+              code: JSON.stringify({
+                tabSwitchCount: cleanSub.tabSwitchCount,
+                copyPasteAttempts: cleanSub.copyPasteAttempts,
+                fullscreenExits: cleanSub.fullscreenExits,
+                totalKeystrokes: cleanSub.totalKeystrokes,
+                integrityScore,
+                incidents: cleanSub.incidents,
+                testTitle: cleanSub.testTitle,
+                problemTitle: cleanSub.problemTitle,
+                code: cleanSub.code,
+                submittedAt: cleanSub.submittedAt,
+                updatedAt: cleanSub.submittedAt,
+              }),
+              problemSlug: 'proctoring_telemetry',
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        } catch (cohortErr) {
+          console.warn('recordAssessmentSubmission cohort sync notice:', cohortErr);
+        }
+      }
+
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('DASHBOARD');
     } catch (err) {
       console.warn('recordAssessmentSubmission error:', err);
     }

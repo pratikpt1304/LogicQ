@@ -171,29 +171,38 @@ export const AdminIntegrityTab: React.FC = () => {
             const parsed = JSON.parse(rawCode);
             if (Array.isArray(parsed?.incidents) && parsed.incidents.length > 0) {
               const liveEvents: StudentTimelineEvent[] = parsed.incidents.map((inc: any, idx: number) => ({
-                id: inc.id || `inc-${idx}`,
+                id: inc.id || `live-inc-${idx}`,
                 timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
                 timeElapsed: '+Live',
                 moduleName: inc.problemTitle || 'C Programming Core',
-                problemTitle: inc.problemTitle || inc.problemSlug || 'Active Practice',
+                problemTitle: inc.problemTitle || inc.problemSlug || 'Active Assessment',
                 type: inc.type === 'TAB_SWITCH' || inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'TAB_SWITCH'
-                    : inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE' ? 'PASTE_BURST'
+                    : inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'PASTE_BURST'
                     : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
                     : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
                     : 'CODE_RUN',
-                severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt) ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
+                severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt || inc.type === 'FULLSCREEN_EXIT') ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
                 title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
                      : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
-                     : inc.type === 'COPY_PASTE' ? 'Clipboard Paste Burst Blocked'
+                     : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Paste Burst Blocked'
                      : inc.type === 'EXCEEDED_COPY_PASTE' ? 'Massive Paste Inflow (Quarantine Locked)'
                      : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
                      : inc.type === 'AI_VIVA_ANSWER' ? 'AI Viva Defense Submitted'
                      : 'Telemetry Incident Triggered',
-                details: inc.reason || 'Security event logged on student workspace.',
+                details: inc.reason || inc.details || 'Security event logged on student workspace.',
                 codeSnippet: inc.codeSnippet,
               }));
 
-              setSelectedStudentForTimeline((prev) => prev ? { ...prev, timeline: liveEvents } : null);
+              setSelectedStudentForTimeline((prev) => {
+                if (!prev) return null;
+                const merged = [...liveEvents];
+                (prev.timeline || []).forEach((ev) => {
+                  if (!merged.some((m) => m.id === ev.id || (m.timestamp === ev.timestamp && m.type === ev.type))) {
+                    merged.push(ev);
+                  }
+                });
+                return { ...prev, timeline: merged };
+              });
             }
           }
         }
@@ -221,69 +230,227 @@ export const AdminIntegrityTab: React.FC = () => {
           localStorage.removeItem('logicq_viva_logs');
         } catch {}
 
-        let authenticList: any[] = [];
-        const cached = localStorage.getItem('logicq_admin_students');
-        if (cached) {
+        // 1. Fetch authentic enrolled students and users from Firestore
+        const firestoreUsers = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
+        const studentsMap = new Map<string, any>();
+
+        if (Array.isArray(firestoreUsers)) {
+          firestoreUsers
+            .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+            .forEach((u: any) => {
+              const prnKey = (u.prn || '').toUpperCase().trim();
+              const key = prnKey || (u.id || u.uid || '').toUpperCase().trim();
+              if (key) {
+                studentsMap.set(key, {
+                  id: u.id || u.uid,
+                  name: u.fullName || u.displayName || u.username || 'Student Candidate',
+                  prn: prnKey || '—',
+                  email: u.email || '—',
+                  section: u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech'),
+                  integrityScore: u.integrityScore || 100,
+                });
+              }
+            });
+        }
+
+        // Fallback to local cache only if Firestore returned 0 users
+        if (studentsMap.size === 0) {
           try {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) authenticList = parsed;
+            const cached = localStorage.getItem('logicq_admin_students');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((s: any) => {
+                  const key = (s.prn || s.id || '').toUpperCase().trim();
+                  if (key && !studentsMap.has(key)) studentsMap.set(key, s);
+                });
+              }
+            }
           } catch {}
         }
 
-        if (authenticList.length === 0) {
-          const firestoreUsers = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
-          if (Array.isArray(firestoreUsers)) {
-            authenticList = firestoreUsers
-              .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
-              .map((u: any) => ({
-                id: u.id || u.uid,
-                name: u.fullName || u.displayName || u.username || 'Student Candidate',
-                prn: (u.prn || '').toUpperCase() || '—',
-                email: u.email || '—',
-                section: u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech'),
-                integrityScore: u.integrityScore || 100,
-              }));
-          }
-        }
+        // 2. Fetch all assessment submissions from Cloud Firestore
+        const assessmentSubmissions = await FirestoreDataService.getAssessmentSubmissions().catch(() => []);
 
-        // Fetch live cohort_progress for cross-device telemetry
+        // Ensure any student who submitted an assessment is represented in studentsMap
+        assessmentSubmissions.forEach((sub: any) => {
+          const prn = (sub.studentPrn || sub.prn || '').toUpperCase().trim();
+          const key = prn || (sub.userId || '').toUpperCase().trim();
+          if (key && !studentsMap.has(key)) {
+            studentsMap.set(key, {
+              id: sub.userId || `stu-${key}`,
+              name: sub.studentName || `Candidate ${key}`,
+              prn: prn || key,
+              email: sub.studentEmail || sub.email || `${key.toLowerCase()}@logicq.io`,
+              section: 'Integrated Mtech',
+              integrityScore: 100,
+            });
+          }
+        });
+
+        // 3. Fetch live cohort_progress for cross-device telemetry
         const cohortSnap = await getDocs(collection(db, 'cohort_progress')).catch(() => null);
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
-          cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+          cohortSnap.forEach((d) => {
+            const prnKey = d.id.toUpperCase().trim();
+            const data = d.data();
+            cohortMap.set(prnKey, data);
+
+            // Also register cohort progress student if not already present
+            if (prnKey && !studentsMap.has(prnKey) && !['ANON', 'ADMIN', 'UNDEFINED', 'CURRENT'].includes(prnKey)) {
+              studentsMap.set(prnKey, {
+                id: data.userId || `stu-${prnKey}`,
+                name: data.studentName || `Candidate ${prnKey}`,
+                prn: prnKey,
+                email: data.studentEmail || `${prnKey.toLowerCase()}@logicq.io`,
+                section: 'Integrated Mtech',
+                integrityScore: 100,
+              });
+            }
+          });
         }
 
         if (!isMounted) return;
 
-        // Map authentic students to clean standby forensic records
-        const records: StudentForensicRecord[] = authenticList
+        // 4. Map authentic students to synchronized forensic records
+        const records: StudentForensicRecord[] = Array.from(studentsMap.values())
           .filter((s) => s.name && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
           .map((s) => {
             const prnClean = (s.prn || '').toUpperCase().trim();
-            const cData = cohortMap.get(prnClean) || {};
+            const cData = cohortMap.get(prnClean) || cohortMap.get(String(s.id).toUpperCase().trim()) || {};
             const mod = cData?.moduleProgress || {};
 
-            const realTelemetryKey = `logicq_exam_telemetry_${s.id || s.prn}`;
-            let realEvents: StudentTimelineEvent[] = [];
-            try {
-              const telRaw = localStorage.getItem(realTelemetryKey);
-              if (telRaw) realEvents = JSON.parse(telRaw);
-            } catch {}
+            // Find all submissions matching this student
+            const studentSubs = assessmentSubmissions.filter((sub: any) => {
+              const subPrn = (sub.studentPrn || sub.prn || '').toUpperCase().trim();
+              const subUid = (sub.userId || '').trim();
+              const subEmail = (sub.studentEmail || sub.email || '').toLowerCase().trim();
+              return (prnClean && prnClean !== '—' && subPrn === prnClean) ||
+                     (s.id && subUid && subUid === s.id) ||
+                     (s.email && s.email !== '—' && subEmail && subEmail === s.email.toLowerCase().trim());
+            });
 
-            const tabSwitches = mod.tabSwitches !== undefined ? Number(mod.tabSwitches) : realEvents.filter((e) => e.type === 'TAB_SWITCH').length;
-            const pasteBursts = mod.pasteBursts !== undefined ? Number(mod.pasteBursts) : realEvents.filter((e) => e.type === 'PASTE_BURST').length;
-            const fullscreenExits = mod.fullscreenExits !== undefined ? Number(mod.fullscreenExits) : realEvents.filter((e) => e.type === 'FULLSCREEN_EXIT').length;
-            const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (s.integrityScore != null ? s.integrityScore : 100);
+            // Sort submissions descending by submittedAt
+            studentSubs.sort((a: any, b: any) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
+            const latestSub = studentSubs[0] || null;
 
-            const isSessionActive = realEvents.length > 0 || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0;
+            // Compute aggregated proctoring metrics across live stream & submissions
+            const tabSwitches = Math.max(Number(mod.tabSwitches) || 0, ...studentSubs.map((x: any) => Number(x.tabSwitchCount) || 0));
+            const pasteBursts = Math.max(Number(mod.pasteBursts) || 0, ...studentSubs.map((x: any) => Number(x.copyPasteAttempts) || 0));
+            const fullscreenExits = Math.max(Number(mod.fullscreenExits) || 0, ...studentSubs.map((x: any) => Number(x.fullscreenExits) || 0));
+            const totalKeystrokes = Math.max(Number(mod.totalKeystrokes) || 0, ...studentSubs.map((x: any) => Number(x.totalKeystrokes) || 0));
 
-            const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' = mod.status
-              ? mod.status
-              : (integrityScore < 70 || realEvents.some((e) => e.severity === 'CRITICAL'))
-              ? 'CRITICAL_BREACH'
-              : (integrityScore < 95 || tabSwitches > 0 || pasteBursts > 0 || realEvents.some((e) => e.severity === 'WARNING'))
-              ? 'NEEDS_REVIEW'
-              : 'CLEAN';
+            const isSessionActive = Boolean(mod.activeSession) || studentSubs.length > 0 || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0 || fullscreenExits > 0;
+
+            const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' =
+              (fullscreenExits > 0 || pasteBursts > 2 || tabSwitches > 3 || mod.status === 'CRITICAL_BREACH')
+                ? 'CRITICAL_BREACH'
+                : (tabSwitches > 0 || pasteBursts > 0 || mod.status === 'NEEDS_REVIEW')
+                ? 'NEEDS_REVIEW'
+                : 'CLEAN';
+
+            const integrityScore = Math.max(0, Math.min(100, 100 - (tabSwitches * 5) - (pasteBursts * 10) - (fullscreenExits * 25)));
+
+            const currentModule = latestSub?.testTitle || mod.currentModule || (isSessionActive ? 'Continuous Assessment' : 'No Active Assessment');
+            const currentProblem = latestSub?.problemTitle || mod.currentProblem || (isSessionActive ? 'Assessment Problem' : 'Standby — Awaiting Test Launch');
+
+            const startTime = mod.startTime
+              ? new Date(mod.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : (latestSub?.submittedAt ? new Date(latestSub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isSessionActive ? 'Session Active' : '—'));
+
+            const lastActiveTime = mod.lastActiveTime
+              ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : (latestSub?.submittedAt ? new Date(latestSub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (isSessionActive ? 'Recent' : 'Standby'));
+
+            const totalTimeSpent = isSessionActive
+              ? `${Math.max(1, Math.round(((latestSub?.timeTakenSeconds || 0) / 60) || ((tabSwitches + pasteBursts + 1) * 2)))}m`
+              : '0m';
+
+            // Construct chronological timeline events
+            const timelineEvents: StudentTimelineEvent[] = [];
+
+            // 1. Add all events recorded in student's submissions
+            studentSubs.forEach((sub: any, sIdx: number) => {
+              if (Array.isArray(sub.incidents)) {
+                sub.incidents.forEach((inc: any, iIdx: number) => {
+                  timelineEvents.push({
+                    id: inc.id || `inc-${sIdx}-${iIdx}`,
+                    timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Event',
+                    timeElapsed: 'Live',
+                    moduleName: sub.testTitle || currentModule,
+                    problemTitle: inc.problemTitle || sub.problemTitle || currentProblem,
+                    type: inc.type === 'TAB_SWITCH' ? 'TAB_SWITCH'
+                        : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'PASTE_BURST'
+                        : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
+                        : 'CODE_RUN',
+                    severity: inc.severity || (inc.type === 'FULLSCREEN_EXIT' ? 'CRITICAL' : 'WARNING'),
+                    title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
+                         : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
+                         : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Injection Blocked'
+                         : 'Telemetry Incident Triggered',
+                    details: inc.details || inc.reason || 'Proctoring sensor recorded perimeter event.',
+                  });
+                });
+              }
+
+              // Solution Submission Milestone
+              timelineEvents.push({
+                id: sub.id || `sub-${sIdx}`,
+                timestamp: sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Submitted',
+                timeElapsed: `${sub.timeTakenSeconds || 0}s`,
+                moduleName: sub.testTitle || currentModule,
+                problemTitle: sub.problemTitle || currentProblem,
+                type: 'CODE_SUBMIT',
+                severity: 'SUCCESS',
+                title: `Solution Accepted (${sub.verdict || 'ACCEPTED'})`,
+                details: `Score: ${sub.academicScore ?? 1.0} Marks • Total Keystrokes: ${sub.totalKeystrokes || 0}`,
+                codeSnippet: sub.code,
+              });
+            });
+
+            // 2. Synthesize clear milestone cards for detected violations if no deep telemetry incidents were logged
+            if (tabSwitches > 0 && !timelineEvents.some((e) => e.type === 'TAB_SWITCH')) {
+              timelineEvents.push({
+                id: `flag-tab-${prnClean}`,
+                timestamp: lastActiveTime || 'Logged',
+                timeElapsed: 'Violation',
+                moduleName: currentModule,
+                problemTitle: currentProblem,
+                type: 'TAB_SWITCH',
+                severity: 'WARNING',
+                title: `Tab Switch Violation (${tabSwitches} Events Detected)`,
+                details: 'Candidate navigated away from proctored examination window.',
+              });
+            }
+
+            if (pasteBursts > 0 && !timelineEvents.some((e) => e.type === 'PASTE_BURST')) {
+              timelineEvents.push({
+                id: `flag-paste-${prnClean}`,
+                timestamp: lastActiveTime || 'Logged',
+                timeElapsed: 'Violation',
+                moduleName: currentModule,
+                problemTitle: currentProblem,
+                type: 'PASTE_BURST',
+                severity: 'CRITICAL',
+                title: `Clipboard Paste Blocked (${pasteBursts} Injections Intercepted)`,
+                details: 'External code paste attempt intercepted by anti-cheat guardrail.',
+              });
+            }
+
+            if (fullscreenExits > 0 && !timelineEvents.some((e) => e.type === 'FULLSCREEN_EXIT')) {
+              timelineEvents.push({
+                id: `flag-fs-${prnClean}`,
+                timestamp: lastActiveTime || 'Logged',
+                timeElapsed: 'Breach',
+                moduleName: currentModule,
+                problemTitle: currentProblem,
+                type: 'FULLSCREEN_EXIT',
+                severity: 'CRITICAL',
+                title: `Proctored Fullscreen Violated (${fullscreenExits} Exits)`,
+                details: 'Candidate minimized or exited proctored full-screen boundary.',
+              });
+            }
 
             return {
               id: s.id || `stu-${s.prn}`,
@@ -291,21 +458,19 @@ export const AdminIntegrityTab: React.FC = () => {
               prn: s.prn || '—',
               email: s.email || '—',
               section: s.section || 'Integrated Mtech',
-              currentModule: mod.currentModule || (isSessionActive ? (realEvents[realEvents.length - 1]?.moduleName || 'C Programming Core') : 'No Active Assessment'),
-              currentProblem: mod.currentProblem || (isSessionActive ? (realEvents[realEvents.length - 1]?.problemTitle || 'Live Problem') : 'Standby — Awaiting Test Launch'),
-              startTime: isSessionActive ? (realEvents[0]?.timestamp || 'Session Active') : '—',
-              lastActiveTime: mod.lastActiveTime
-                ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : (isSessionActive ? (realEvents[realEvents.length - 1]?.timestamp || 'Recent') : 'Standby'),
-              totalTimeSpent: isSessionActive ? `${Math.max(1, Math.round((realEvents.length + tabSwitches + pasteBursts) * 1.5))}m` : '0m',
+              currentModule,
+              currentProblem,
+              startTime,
+              lastActiveTime,
+              totalTimeSpent,
               integrityScore,
               status: computedStatus,
               tabSwitches,
               pasteBursts,
               fullscreenExits,
-              avgWpm: 0,
-              aiVivaStatus: mod.aiVivaStatus || (realEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED'),
-              timeline: realEvents,
+              avgWpm: totalKeystrokes > 0 ? Math.min(95, Math.max(18, Math.round(totalKeystrokes / 10))) : 0,
+              aiVivaStatus: mod.aiVivaStatus || (timelineEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED'),
+              timeline: timelineEvents,
             };
           });
 
@@ -319,6 +484,8 @@ export const AdminIntegrityTab: React.FC = () => {
 
     // Live real-time Firestore synchronization for 0ms student forensics stream
     const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live cohort notice:', err));
+    const unsubSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live assessment submissions notice:', err));
+    const unsubGenSubmissions = onSnapshot(collection(db, 'submissions'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live submissions notice:', err));
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live enrolled notice:', err));
     const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live sections notice:', err));
     let unsubUsers: (() => void) | null = null;
@@ -327,15 +494,19 @@ export const AdminIntegrityTab: React.FC = () => {
     } catch {}
     const unsubMeshUsers = realtimeSync.on('USERS', () => fetchAuthenticStudents());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => fetchAuthenticStudents());
+    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => fetchAuthenticStudents());
 
     return () => {
       isMounted = false;
       unsubCohort();
+      unsubSubmissions();
+      unsubGenSubmissions();
       unsubEnrolled();
       unsubSections();
       if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
+      unsubMeshSubmissions();
     };
   }, []);
 

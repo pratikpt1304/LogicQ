@@ -348,6 +348,25 @@ export const ExamWorkspacePage: React.FC = () => {
     }).catch(() => {
       // Asynchronous non-blocking: silently ignore network errors so student is never interrupted
     });
+
+    // Cloud Firestore Live Telemetry Stream for Admin Integrity Tab
+    const targetId = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
+    FirestoreDataService.recordStudentLiveTelemetry(targetId, {
+      prn: user?.prn,
+      studentName: user?.fullName || user?.displayName || 'Student',
+      studentEmail: user?.email,
+      testId: assignmentId,
+      testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+      problemId,
+      problemTitle: problemData?.title || 'Assessment Question',
+      tabSwitchCount: overrideMetrics?.tabSwitchCount ?? tabSwitchCount,
+      copyPasteAttempts: overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts,
+      fullScreenExitCount: overrideMetrics?.fullScreenExitCount ?? fullScreenExitCount,
+      totalKeystrokes,
+      largestBurstChars,
+      activeSec,
+      status: (overrideMetrics?.fullScreenExitCount ?? fullScreenExitCount) > 0 ? 'CRITICAL_BREACH' : ((overrideMetrics?.tabSwitchCount ?? tabSwitchCount) > 0 || (overrideMetrics?.copyPasteAttempts ?? copyPasteAttempts) > 0 ? 'NEEDS_REVIEW' : 'CLEAN'),
+    }).catch(() => {});
   }, [
     attemptId,
     isLocked,
@@ -360,14 +379,20 @@ export const ExamWorkspacePage: React.FC = () => {
     totalKeystrokes,
     largestBurstChars,
     activeSec,
+    user,
+    assignmentId,
+    assignmentData,
+    problemId,
+    problemData,
   ]);
 
-  // Periodic Telemetry Sync every 30 seconds
+  // Periodic Telemetry Sync every 15 seconds for instantaneous admin visibility
   useEffect(() => {
     if (!attemptId || isLocked) return;
+    sendTelemetryPing();
     const interval = setInterval(() => {
       sendTelemetryPing();
-    }, 30000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [attemptId, isLocked, sendTelemetryPing]);
 
@@ -396,6 +421,28 @@ export const ExamWorkspacePage: React.FC = () => {
         setFullScreenExitCount((c) => {
           const next = c + 1;
           sendTelemetryPing({ fullScreenExitCount: next });
+          const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
+          FirestoreDataService.recordStudentLiveTelemetry(targetUser, {
+            prn: user?.prn,
+            studentName: user?.fullName || user?.displayName || 'Student',
+            studentEmail: user?.email,
+            testId: assignmentId,
+            testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+            problemId,
+            problemTitle: problemData?.title || 'Continuous Practical Assessment',
+            tabSwitchCount,
+            copyPasteAttempts,
+            fullScreenExitCount: next,
+            totalKeystrokes,
+            largestBurstChars,
+            activeSec,
+            status: 'CRITICAL_BREACH',
+            incident: {
+              type: 'FULLSCREEN_EXIT',
+              details: 'Fullscreen perimeter violated: Student exited proctored full-screen mode.',
+              severity: 'CRITICAL',
+            },
+          }).catch(() => {});
           return next;
         });
         addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter violated: Student minimized or exited full-screen examination.', 'CRITICAL');
@@ -427,6 +474,28 @@ export const ExamWorkspacePage: React.FC = () => {
           const next = c + 1;
           sendTelemetryPing({ tabSwitchCount: next });
           addProctorIncident('TAB_SWITCH', `Tab switch #${next} detected: Exam window was hidden.`, 'WARNING');
+          const targetId = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
+          FirestoreDataService.recordStudentLiveTelemetry(targetId, {
+            prn: user?.prn,
+            studentName: user?.fullName || user?.displayName || 'Student',
+            studentEmail: user?.email,
+            testId: assignmentId,
+            testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+            problemId,
+            problemTitle: problemData?.title || 'Assessment Question',
+            tabSwitchCount: next,
+            copyPasteAttempts,
+            fullScreenExitCount,
+            totalKeystrokes,
+            largestBurstChars,
+            activeSec,
+            status: 'NEEDS_REVIEW',
+            incident: {
+              type: 'TAB_SWITCH',
+              details: `Tab switch #${next} detected: Exam window was hidden.`,
+              severity: 'WARNING',
+            },
+          }).catch(() => {});
           return next;
         });
         focusLossStartRef.current = Date.now();
@@ -460,7 +529,7 @@ export const ExamWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [isLocked, sendTelemetryPing, navigate, user, problemId, assignmentId, problemData]);
+  }, [isLocked, sendTelemetryPing, navigate, user, problemId, assignmentId, problemData, tabSwitchCount, copyPasteAttempts, totalKeystrokes, largestBurstChars, activeSec, fullScreenExitCount]);
 
   const toggleFullscreen = async () => {
     try {
@@ -479,8 +548,33 @@ export const ExamWorkspacePage: React.FC = () => {
   // 4. Anti-Copying Clipboard Guards (Section 20)
   const handleEditorBlockedAction = (actionName: string) => {
     if (isLocked) return;
+    const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
     if (actionName === 'copy' || actionName === 'paste') {
-      setCopyPasteAttempts((c) => c + 1);
+      setCopyPasteAttempts((c) => {
+        const next = c + 1;
+        FirestoreDataService.recordStudentLiveTelemetry(targetUser, {
+          prn: user?.prn,
+          studentName: user?.fullName || user?.displayName || 'Student',
+          studentEmail: user?.email,
+          testId: assignmentId,
+          testTitle: assignmentData?.title || 'Continuous Practical Assessment',
+          problemId,
+          problemTitle: problemData?.title || 'Assessment Question',
+          tabSwitchCount,
+          copyPasteAttempts: next,
+          fullScreenExitCount,
+          totalKeystrokes,
+          largestBurstChars,
+          activeSec,
+          status: 'NEEDS_REVIEW',
+          incident: {
+            type: 'COPY_PASTE',
+            details: `Proctoring guard blocked ${actionName.toUpperCase()} attempt in code editor.`,
+            severity: 'WARNING',
+          },
+        }).catch(() => {});
+        return next;
+      });
       addProctorIncident('CLIPBOARD_BLOCKED', `Proctoring guard blocked ${actionName.toUpperCase()} attempt in code editor.`, 'WARNING');
     } else if (actionName === 'cut') {
       setCutAttempts((c) => c + 1);
