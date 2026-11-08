@@ -31,6 +31,7 @@ import {
   User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export interface StudentTimelineEvent {
   id: string;
@@ -133,108 +134,8 @@ const DEFAULT_GUARDRAILS: GuardrailSetting[] = [
   },
 ];
 
-// High-fidelity cohort forensic activities with timestamped timeline logs
-const INITIAL_STUDENT_FORENSICS: StudentForensicRecord[] = [
-  {
-    id: 'stu-demo1',
-    name: 'Demo 1',
-    prn: 'DEM01',
-    email: 'demo1@logicq.io',
-    section: 'Integrated Mtech',
-    currentModule: 'Unit 1: Foundations & Control Flow',
-    currentProblem: 'Bitwise Parity & Power of Two Validator',
-    startTime: '10:15 AM',
-    lastActiveTime: '10:39 AM',
-    totalTimeSpent: '24m 10s',
-    integrityScore: 100,
-    status: 'CLEAN',
-    tabSwitches: 0,
-    pasteBursts: 0,
-    fullscreenExits: 0,
-    avgWpm: 58,
-    aiVivaStatus: 'VERIFIED',
-    aiVivaScore: 96,
-    timeline: [
-      {
-        id: 'ev-1',
-        timestamp: '10:15:02 AM',
-        timeElapsed: '+00m 02s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'SESSION_START',
-        severity: 'INFO',
-        title: 'Assessment Session Initialized',
-        details: 'Candidate started exam session from secure client terminal (Chrome 128 / Windows).',
-      },
-      {
-        id: 'ev-2',
-        timestamp: '10:16:14 AM',
-        timeElapsed: '+01m 14s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'KEYSTROKE_CADENCE',
-        severity: 'INFO',
-        title: 'Natural Typing Cadence Verified',
-        details: 'Constructed basic function signature. Biomechanical keystroke cadence logged at 54 WPM (Organic Human Curve).',
-      },
-      {
-        id: 'ev-3',
-        timestamp: '10:21:40 AM',
-        timeElapsed: '+06m 38s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'CODE_RUN',
-        severity: 'INFO',
-        title: 'Executed Code Against Test Case 1',
-        details: 'Ran compiled C binary. Input: "16" -> Expected: "POWER_OF_TWO" | Actual: "POWER_OF_TWO" (PASSED).',
-      },
-      {
-        id: 'ev-4',
-        timestamp: '10:26:05 AM',
-        timeElapsed: '+11m 03s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'CODE_RUN',
-        severity: 'SUCCESS',
-        title: 'All Test Cases Passed (Visible & Hidden)',
-        details: 'Automated test runner verified 3/3 test cases including hidden boundary case with zero runtime error.',
-      },
-      {
-        id: 'ev-5',
-        timestamp: '10:27:10 AM',
-        timeElapsed: '+12m 08s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'AI_VIVA_PROMPT',
-        severity: 'INFO',
-        title: 'AI Conceptual Viva Triggered',
-        details: 'Successive correct validation triggered: "Explain why (n & (n - 1)) == 0 proves non-zero power of 2 without loops."',
-      },
-      {
-        id: 'ev-6',
-        timestamp: '10:28:02 AM',
-        timeElapsed: '+13m 00s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'AI_VIVA_ANSWER',
-        severity: 'SUCCESS',
-        title: 'AI Viva Verified (Score: 96/100)',
-        details: 'Candidate answered within 52 seconds with clear binary bit-manipulation justification. Verified genuine comprehension.',
-      },
-      {
-        id: 'ev-7',
-        timestamp: '10:28:45 AM',
-        timeElapsed: '+13m 43s',
-        moduleName: 'Unit 1: Foundations & Control Flow',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        type: 'CODE_SUBMIT',
-        severity: 'SUCCESS',
-        title: 'Solution Submitted & Locked',
-        details: 'Question locked under institutional policy. Score: 20/20 Marks awarded.',
-      },
-    ],
-  },
-];
+// No fake cohort mock data: clean empty default
+const INITIAL_STUDENT_FORENSICS: StudentForensicRecord[] = [];
 
 export const AdminIntegrityTab: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'STUDENTS' | 'INCIDENTS' | 'VIVA' | 'SETTINGS'>('STUDENTS');
@@ -255,90 +156,101 @@ export const AdminIntegrityTab: React.FC = () => {
     return DEFAULT_GUARDRAILS;
   });
 
-  // Students Forensics stream state
-  const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('logicq_student_forensics_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Strictly purge fake/demo records
-          const cleaned = parsed.filter(
-            (s: any) =>
-              s.id !== 'stu-rahul' &&
-              s.id !== 'stu-amit' &&
-              s.id !== 'stu-sneha' &&
-              !String(s.name || '').includes('Rahul') &&
-              !String(s.name || '').includes('Amit') &&
-              !String(s.name || '').includes('Sneha')
-          );
-          localStorage.setItem('logicq_student_forensics_data', JSON.stringify(cleaned));
-          if (cleaned.length > 0) return cleaned;
-        }
-      }
-    } catch {}
-    return INITIAL_STUDENT_FORENSICS;
-  });
+  // Students Forensics stream state (Purely Authentic Enrolled Students)
+  const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>([]);
 
-  // Ensure fake students are purged on mount and sync with real enrolled students
+  // Viva logs state (Purely Authentic - zero mock entries)
+  const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>([]);
+
+  // Load authentic enrolled students from Firestore / local cache & purge old mock data
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('logicq_student_forensics_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter(
-            (s: any) =>
-              s.id !== 'stu-rahul' &&
-              s.id !== 'stu-amit' &&
-              s.id !== 'stu-sneha' &&
-              !String(s.name || '').includes('Rahul') &&
-              !String(s.name || '').includes('Amit') &&
-              !String(s.name || '').includes('Sneha')
-          );
-          localStorage.setItem('logicq_student_forensics_data', JSON.stringify(cleaned));
-          if (cleaned.length > 0) {
-            setStudentsForensics(cleaned);
-          } else {
-            setStudentsForensics(INITIAL_STUDENT_FORENSICS);
+    let isMounted = true;
+
+    const fetchAuthenticStudents = async () => {
+      try {
+        // Purge old mock storage
+        try {
+          localStorage.removeItem('logicq_student_forensics_data');
+          localStorage.removeItem('logicq_viva_logs');
+        } catch {}
+
+        let authenticList: any[] = [];
+        const cached = localStorage.getItem('logicq_admin_students');
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) authenticList = parsed;
+          } catch {}
+        }
+
+        if (authenticList.length === 0) {
+          const firestoreUsers = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
+          if (Array.isArray(firestoreUsers)) {
+            authenticList = firestoreUsers
+              .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+              .map((u: any) => ({
+                id: u.id || u.uid,
+                name: u.fullName || u.displayName || u.username || 'Student Candidate',
+                prn: (u.prn || '').toUpperCase() || '—',
+                email: u.email || '—',
+                section: u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech'),
+                integrityScore: u.integrityScore || 100,
+              }));
           }
         }
-      }
-    } catch {}
-  }, []);
 
-  // Viva logs state (authentic students only)
-  const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('logicq_viva_logs');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter(
-            (v: any) =>
-              !String(v.studentName || '').includes('Rahul') &&
-              !String(v.studentName || '').includes('Amit') &&
-              !String(v.studentName || '').includes('Sneha')
-          );
-          return cleaned;
-        }
+        if (!isMounted) return;
+
+        // Map authentic students to clean standby forensic records
+        const records: StudentForensicRecord[] = authenticList
+          .filter((s) => s.name && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
+          .map((s) => {
+            const realTelemetryKey = `logicq_exam_telemetry_${s.id || s.prn}`;
+            let realEvents: StudentTimelineEvent[] = [];
+            try {
+              const telRaw = localStorage.getItem(realTelemetryKey);
+              if (telRaw) realEvents = JSON.parse(telRaw);
+            } catch {}
+
+            const isSessionActive = realEvents.length > 0;
+
+            return {
+              id: s.id || `stu-${s.prn}`,
+              name: s.name,
+              prn: s.prn || '—',
+              email: s.email || '—',
+              section: s.section || 'Integrated Mtech',
+              currentModule: isSessionActive ? (realEvents[realEvents.length - 1].moduleName || 'Active Test') : 'No Active Assessment',
+              currentProblem: isSessionActive ? (realEvents[realEvents.length - 1].problemTitle || 'Live Problem') : 'Standby — Awaiting Test Launch',
+              startTime: isSessionActive ? realEvents[0].timestamp : '—',
+              lastActiveTime: isSessionActive ? realEvents[realEvents.length - 1].timestamp : 'Standby',
+              totalTimeSpent: isSessionActive ? `${Math.max(1, Math.round(realEvents.length * 1.5))}m` : '0m',
+              integrityScore: s.integrityScore != null ? s.integrityScore : 100,
+              status: realEvents.some((e) => e.severity === 'CRITICAL')
+                ? 'CRITICAL_BREACH'
+                : realEvents.some((e) => e.severity === 'WARNING')
+                ? 'NEEDS_REVIEW'
+                : 'CLEAN',
+              tabSwitches: realEvents.filter((e) => e.type === 'TAB_SWITCH').length,
+              pasteBursts: realEvents.filter((e) => e.type === 'PASTE_BURST').length,
+              fullscreenExits: realEvents.filter((e) => e.type === 'FULLSCREEN_EXIT').length,
+              avgWpm: 0,
+              aiVivaStatus: realEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED',
+              timeline: realEvents,
+            };
+          });
+
+        setStudentsForensics(records);
+      } catch (err) {
+        console.warn('Error loading authentic integrity students:', err);
       }
-    } catch {}
-    return [
-      {
-        id: 'vl-1',
-        studentName: 'Demo 1',
-        prn: 'DEM01',
-        section: 'Integrated Mtech',
-        problemTitle: 'Bitwise Parity & Power of Two Validator',
-        question: 'Why does (n & (n - 1)) == 0 verify power of two without loops?',
-        answer: 'A power of two has only one set bit in binary. Subtracting 1 flips all bits up to that bit, making AND produce 0.',
-        score: 96,
-        status: 'VERIFIED',
-        timestamp: '10:28 AM',
-      },
-    ];
-  });
+    };
+
+    fetchAuthenticStudents();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleGuardrail = (id: string) => {
     const updated = guardrails.map((g) =>
@@ -1141,8 +1053,19 @@ export const AdminIntegrityTab: React.FC = () => {
                 </span>
               </div>
 
-              <div className="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-white/10">
-                {selectedStudentForTimeline.timeline.map((event, idx) => (
+              {selectedStudentForTimeline.timeline.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 space-y-2">
+                  <ShieldCheck className="w-8 h-8 mx-auto text-emerald-500" />
+                  <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    Zero Incidents &amp; Standby Session
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    This candidate has clean telemetry and has not triggered any proctoring breaches (no tab switches, no paste bursts, zero anomalies). Live events will stream here once the test is in progress.
+                  </p>
+                </div>
+              ) : (
+                <div className="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-white/10">
+                  {selectedStudentForTimeline.timeline.map((event, idx) => (
                   <div key={event.id || idx} className="relative group">
                     {/* Node Dot */}
                     <div
@@ -1218,6 +1141,7 @@ export const AdminIntegrityTab: React.FC = () => {
                   </div>
                 ))}
               </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
