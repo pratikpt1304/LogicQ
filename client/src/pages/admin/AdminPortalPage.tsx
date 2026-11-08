@@ -35,6 +35,9 @@ import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
+import { realtimeSync } from '../../services/realtimeSync.service.js';
 
 export type AdminTabKey =
   | 'command-center'
@@ -136,11 +139,45 @@ export const AdminPortalPage: React.FC = () => {
           totalSections: syncedSections.length,
           totalStudents: studentUsers.length,
         }));
+
+        try {
+          localStorage.setItem('logicq_admin_students', JSON.stringify(studentUsers));
+          localStorage.setItem('logicq_admin_sections', JSON.stringify(syncedSections));
+        } catch {}
       } catch (err) {
         console.error('Error fetching admin data:', err);
       }
     };
+
+    // 1. Initial authoritative load
     loadRealData();
+
+    // 2. Real-time Firestore Live Listeners (0ms delay)
+    const unsubSections = onSnapshot(collection(db, 'sections'), () => {
+      loadRealData();
+    }, () => {});
+
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
+      loadRealData();
+    }, () => {});
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), () => {
+      loadRealData();
+    }, () => {});
+
+    // 3. Multi-Tab Realtime Mesh Listeners
+    const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadRealData());
+    const unsubMeshUsers = realtimeSync.on('USERS', () => loadRealData());
+    const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => loadRealData());
+
+    return () => {
+      unsubSections();
+      unsubEnrolled();
+      unsubUsers();
+      unsubMeshSections();
+      unsubMeshUsers();
+      unsubMeshDashboard();
+    };
   }, []);
 
   const saveSections = (updated: any[]) => {

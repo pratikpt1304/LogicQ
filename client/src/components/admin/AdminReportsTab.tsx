@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Download,
@@ -22,6 +22,10 @@ import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
+import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export const AdminReportsTab: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -30,31 +34,69 @@ export const AdminReportsTab: React.FC = () => {
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
-  // Fetch real students & sections from storage
-  const getRosterData = () => {
+  const [students, setStudents] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem('logicq_admin_students');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+      if (cached) return JSON.parse(cached);
     } catch {}
     return [];
-  };
+  });
 
-  const getSectionsData = () => {
+  const [sections, setSections] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem('logicq_admin_sections');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+      if (cached) return JSON.parse(cached);
     } catch {}
     return [];
-  };
+  });
 
-  const students = getRosterData();
-  const sections = getSectionsData();
+  // Live real-time Firestore synchronization for 0ms report scope updates
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncReportsData = async () => {
+      try {
+        const [realSections, realUsers] = await Promise.all([
+          FirestoreDataService.getSectionsFromFirestore().catch(() => []),
+          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        if (Array.isArray(realUsers)) {
+          const cleanUsers = realUsers.filter(
+            (u: any) =>
+              (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
+              !FirestoreDataService.isPurgedStudent(u)
+          );
+          setStudents(cleanUsers);
+        }
+
+        if (Array.isArray(realSections)) {
+          setSections(realSections);
+        }
+      } catch (err) {
+        console.warn('Reports tab live sync warning:', err);
+      }
+    };
+
+    syncReportsData();
+
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), () => {});
+    const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), () => {});
+    const unsubUsers = onSnapshot(collection(db, 'users'), () => syncReportsData(), () => {});
+    const unsubMeshUsers = realtimeSync.on('USERS', () => syncReportsData());
+    const unsubMeshSections = realtimeSync.on('SECTIONS', () => syncReportsData());
+
+    return () => {
+      isMounted = false;
+      unsubEnrolled();
+      unsubSections();
+      unsubUsers();
+      unsubMeshUsers();
+      unsubMeshSections();
+    };
+  }, []);
 
   const activeStudents = selectedSection === 'ALL'
     ? students

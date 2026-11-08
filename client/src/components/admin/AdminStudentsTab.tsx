@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
+import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 
 export interface AdminStudentRecord {
@@ -123,8 +126,25 @@ export const AdminStudentsTab: React.FC = () => {
     };
 
     loadStudents();
+
+    // Live real-time Firestore listeners for 0ms student roster updates
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => {
+      loadStudents();
+    }, () => {});
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), () => {
+      loadStudents();
+    }, () => {});
+
+    const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents());
+    const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents());
+
     return () => {
       isMounted = false;
+      unsubEnrolled();
+      unsubUsers();
+      unsubMeshUsers();
+      unsubMeshSections();
     };
   }, []);
 

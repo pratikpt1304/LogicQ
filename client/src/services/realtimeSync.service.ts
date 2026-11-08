@@ -326,3 +326,4 @@ class RealtimeSyncManager {
 }
 
 export const RealtimeSyncService = new RealtimeSyncManager();
+export const realtimeSync = RealtimeSyncService;

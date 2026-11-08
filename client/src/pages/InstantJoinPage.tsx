@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ALLOWED_DEPARTMENTS, ALLOWED_YEARS, normalizeDepartment } from '../config/academic.config.js';
 import { useAuth } from '../context/AuthContext.js';
+import { realtimeSync } from '../services/realtimeSync.service.js';
 
 interface PublicSectionInfo {
   id: string;
@@ -519,6 +520,13 @@ export const InstantJoinPage: React.FC = () => {
       enrolled = true;
 
       if (enrolled) {
+        // Broadcast instant 0ms sync signals across all admin/faculty tabs
+        try {
+          realtimeSync.emit('SECTIONS');
+          realtimeSync.emit('USERS');
+          realtimeSync.emit('DASHBOARD');
+        } catch {}
+
         // Automatically establish active authenticated student session so student doesn't have to re-login
         try {
           await login(cleanPrn, cleanPwd);

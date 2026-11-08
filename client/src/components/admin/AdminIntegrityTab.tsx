@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
+import { realtimeSync } from '../../services/realtimeSync.service.js';
 
 export interface StudentTimelineEvent {
   id: string;
@@ -247,8 +250,21 @@ export const AdminIntegrityTab: React.FC = () => {
     };
 
     fetchAuthenticStudents();
+
+    // Live real-time Firestore synchronization for 0ms student forensics stream
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), () => {});
+    const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), () => {});
+    const unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
+    const unsubMeshUsers = realtimeSync.on('USERS', () => fetchAuthenticStudents());
+    const unsubMeshSections = realtimeSync.on('SECTIONS', () => fetchAuthenticStudents());
+
     return () => {
       isMounted = false;
+      unsubEnrolled();
+      unsubSections();
+      unsubUsers();
+      unsubMeshUsers();
+      unsubMeshSections();
     };
   }, []);
 
