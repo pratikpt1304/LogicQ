@@ -126,15 +126,15 @@ export const Navbar: React.FC = () => {
         minHeight: 'var(--navbar-height, 4rem)',
         paddingTop: 'env(safe-area-inset-top, 0px)',
       }}
-      className="sticky top-0 z-50 w-full border-b border-[var(--border-line)] bg-[var(--bg-panel)] text-[var(--text-main)] transition-colors"
+      className="sticky top-0 z-50 w-full border-b border-black/[0.06] dark:border-white/[0.08] bg-white/85 dark:bg-[#0c0f14]/85 backdrop-blur-xl text-slate-900 dark:text-white transition-colors"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Brand (links to /dashboard when signed in, / when signed out) */}
         <Logo size="md" to={user ? (isAdmin || user?.email?.toLowerCase() === 'logicqarena@gmail.com' ? '/admin' : '/dashboard') : '/'} />
 
-        {/* Desktop Navigation (Home, Daily Challenge, Practice, Leaderboard) - only for signed-in students */}
+        {/* Desktop Navigation (Apple HIG Segmented Capsule) */}
         {user && (
-          <nav aria-label="Primary Navigation" className="hidden md:flex items-center gap-1 lg:gap-1.5">
+          <nav aria-label="Primary Navigation" className="hidden md:flex items-center p-1 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/[0.05] shadow-xs">
             {appNavLinks.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
@@ -143,15 +143,15 @@ export const Navbar: React.FC = () => {
                   key={item.path}
                   to={item.path}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all duration-150 whitespace-nowrap select-none active:scale-[0.98] ${
                     active
-                      ? 'text-[var(--color-accent)] bg-[var(--bg-surface)] border border-[var(--color-accent)] font-semibold'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] border border-transparent'
+                      ? 'bg-white dark:bg-[#1c2230] text-blue-600 dark:text-blue-400 shadow-xs font-bold border border-slate-200/80 dark:border-white/10'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/[0.04] font-medium'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      active ? 'text-[var(--color-accent)]' : 'text-[var(--text-muted)]'
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
                     }`}
                   />
                   <span>{item.label}</span>
@@ -170,12 +170,12 @@ export const Navbar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCommandPaletteOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-indigo-500/50 text-[var(--text-muted)] hover:text-[var(--text-main)] transition text-xs font-mono shadow-sm group"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/[0.05] hover:bg-slate-200/80 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:hover:text-white transition text-xs font-medium shadow-xs select-none active:scale-95"
                   title="Search topics & actions (Ctrl+K)"
                 >
-                  <Search className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                  <span className="hidden lg:inline">Search...</span>
-                  <kbd className="text-[10px] bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-line)] text-[var(--text-muted)]">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden lg:inline text-xs">Search...</span>
+                  <kbd className="text-[10px] font-mono bg-white dark:bg-white/10 px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-300">
                     ⌘K
                   </kbd>
                 </button>
@@ -196,15 +196,15 @@ export const Navbar: React.FC = () => {
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                   aria-expanded={profileDropdownOpen}
                   aria-haspopup="menu"
-                  className="flex items-center gap-2 min-h-[40px] pl-2 pr-2.5 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-line)] hover:border-[var(--color-accent)] transition-colors text-sm"
+                  className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full bg-slate-200/50 dark:bg-white/[0.06] border border-slate-200/70 dark:border-white/[0.05] hover:bg-slate-200/80 dark:hover:bg-white/10 transition-all text-xs font-medium select-none active:scale-95 shadow-xs"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-[#8B9BFF] to-[#46D9A0] flex items-center justify-center text-xs font-bold text-[#0C0F1F]">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-xs">
                     {(user.displayName || user.username || 'S').charAt(0).toUpperCase()}
                   </div>
-                  <span className="font-medium text-[var(--text-main)] text-xs max-w-[110px] truncate">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs max-w-[110px] truncate">
                     {user?.prn === '2126PMIM1039' ? 'Pratik Thorat' : (user.displayName || user.maskedPrn || user.username)}
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
 
                 {profileDropdownOpen && (

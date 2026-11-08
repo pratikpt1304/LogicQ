@@ -63,7 +63,7 @@ export const MobileBottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile Bottom Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg-panel)]/95 backdrop-blur-xl border-t border-[var(--border-line)] shadow-[0_-4px_20px_rgba(0,0,0,0.12)] transition-colors pb-[max(env(safe-area-inset-bottom,0px),6px)] pt-1.5"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/85 dark:bg-[#0c0f14]/85 backdrop-blur-2xl border-t border-black/[0.06] dark:border-white/[0.08] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] transition-colors pb-[max(env(safe-area-inset-bottom,0px),8px)] pt-1.5"
     >
       <div className="grid grid-cols-5 items-center max-w-lg mx-auto px-1">
         {navItems.map((item) => {
@@ -74,21 +74,18 @@ export const MobileBottomNav: React.FC = () => {
               key={item.path}
               to={item.path}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all select-none min-h-[48px] relative ${
+              className={`flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all select-none min-h-[48px] relative active:scale-90 ${
                 active
-                  ? 'text-[var(--color-accent)] font-semibold'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-main)] active:scale-95'
+                  ? 'text-blue-600 dark:text-blue-400 font-bold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              {active && (
-                <span className="absolute top-0 w-8 h-1 rounded-full bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent)]" />
-              )}
               <div
                 className={`p-1 rounded-lg transition-transform ${
                   active ? 'scale-110' : ''
                 }`}
               >
-                <Icon className="w-5 h-5 shrink-0" />
+                <Icon className={`w-5 h-5 shrink-0 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
               </div>
               <span className="text-[10px] tracking-tight leading-none mt-0.5 font-medium truncate max-w-full">
                 {item.label}
