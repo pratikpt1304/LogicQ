@@ -3591,55 +3591,56 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   if (path === '/exam/my-tests' && method === 'GET') {
     let tests: any[] = [];
     try {
-      const parsed = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
-      tests = Array.isArray(parsed) ? parsed : [];
-    } catch {}
+      const firestoreTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+      if (Array.isArray(firestoreTests) && firestoreTests.length > 0) {
+        tests = firestoreTests.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          sectionId: t.sectionTarget || t.sectionId || 'All',
+          sectionTarget: t.sectionTarget || t.sectionId || 'All',
+          section: { sectionName: t.sectionTarget || t.sectionId || 'All' },
+          moduleId: t.unitTarget === 'ALL' ? 'All Units - Comprehensive' : `Unit ${t.unitTarget || 1}`,
+          durationMinutes: Number(t.durationMinutes) || 60,
+          totalMarks: Number(t.totalMarks) || 20,
+          status: t.status === 'ACTIVE' ? 'PUBLISHED' : t.status,
+          questionCount: t.questionCount || 2,
+          antiCheatingRotation: t.antiCheatingRotation ?? true,
+          randomiseQuestions: t.antiCheatingRotation ?? true,
+          questions: (t.questions || []).map((q: any, idx: number) => ({
+            id: `tq_${t.id}_${idx}`,
+            testId: t.id,
+            problemId: q.id,
+            orderIndex: idx,
+            points: Math.round((t.totalMarks || 20) / Math.max(1, Number(t.questionCount) || 2)),
+            problem: {
+              id: q.id,
+              title: q.title,
+              difficulty: q.difficulty,
+              description: q.description,
+              starterCode: q.starterCode,
+              solutionCode: q.solutionCode,
+              testCases: [
+                { input: q.visibleTestCase1?.input || '', expectedOutput: q.visibleTestCase1?.output || '', isHidden: false },
+                { input: q.visibleTestCase2?.input || '', expectedOutput: q.visibleTestCase2?.output || '', isHidden: false },
+                { input: q.hiddenTestCase?.input || '', expectedOutput: q.hiddenTestCase?.output || '', isHidden: true },
+              ],
+            },
+          })),
+          _count: { questions: (t.questions || []).length },
+          lockOnSubmit: t.lockOnSubmit ?? true,
+          createdAt: t.createdAt || new Date().toISOString(),
+        }));
+        try { localStorage.setItem(TESTS_KEY, JSON.stringify(tests)); } catch {}
+      }
+    } catch (err) {
+      console.warn('Error loading assessment tests from Firestore fallback:', err);
+    }
 
     if (tests.length === 0) {
       try {
-        const firestoreTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        if (Array.isArray(firestoreTests) && firestoreTests.length > 0) {
-          tests = firestoreTests.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            sectionId: t.sectionTarget || t.sectionId || 'All',
-            sectionTarget: t.sectionTarget || t.sectionId || 'All',
-            section: { sectionName: t.sectionTarget || t.sectionId || 'All' },
-            moduleId: t.unitTarget === 'ALL' ? 'All Units - Comprehensive' : `Unit ${t.unitTarget || 1}`,
-            durationMinutes: Number(t.durationMinutes) || 60,
-            totalMarks: Number(t.totalMarks) || 20,
-            status: t.status === 'ACTIVE' ? 'PUBLISHED' : t.status,
-            questionCount: t.questionCount || 2,
-            antiCheatingRotation: t.antiCheatingRotation ?? true,
-            randomiseQuestions: t.antiCheatingRotation ?? true,
-            questions: (t.questions || []).map((q: any, idx: number) => ({
-              id: `tq_${t.id}_${idx}`,
-              testId: t.id,
-              problemId: q.id,
-              orderIndex: idx,
-              points: Math.round((t.totalMarks || 20) / Math.max(1, Number(t.questionCount) || 2)),
-              problem: {
-                id: q.id,
-                title: q.title,
-                difficulty: q.difficulty,
-                description: q.description,
-                starterCode: q.starterCode,
-                solutionCode: q.solutionCode,
-                testCases: [
-                  { input: q.visibleTestCase1?.input || '', expectedOutput: q.visibleTestCase1?.output || '', isHidden: false },
-                  { input: q.visibleTestCase2?.input || '', expectedOutput: q.visibleTestCase2?.output || '', isHidden: false },
-                  { input: q.hiddenTestCase?.input || '', expectedOutput: q.hiddenTestCase?.output || '', isHidden: true },
-                ],
-              },
-            })),
-            _count: { questions: (t.questions || []).length },
-            lockOnSubmit: t.lockOnSubmit ?? true,
-            createdAt: t.createdAt || new Date().toISOString(),
-          }));
-        }
-      } catch (err) {
-        console.warn('Error loading assessment tests from Firestore fallback:', err);
-      }
+        const parsed = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+        tests = Array.isArray(parsed) ? parsed : [];
+      } catch {}
     }
 
     const currentUser = getCurrentUser();
@@ -4030,6 +4031,17 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   // ==========================================
   if (path === '/exam/start-question' && method === 'POST') {
     const { assignmentId, problemId } = body || {};
+
+    // Guard: Prevent entering or starting tests that were marked completed by admin
+    try {
+      const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+      const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
+      if (current && (current.status === 'COMPLETED' || current.status === 'CONCLUDED')) {
+        throw new Error('TEST_CONCLUDED: This assessment has been completed and closed by the examination authority.');
+      }
+    } catch (err: any) {
+      if (err.message?.includes('TEST_CONCLUDED')) throw err;
+    }
 
     let foundProb: any = null;
 

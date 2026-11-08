@@ -565,6 +565,8 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     for (const t of updated) {
       await FirestoreDataService.saveAssessmentTestToFirestore(t);
     }
+    RealtimeSyncService.emit('TESTS');
+    RealtimeSyncService.emit('DASHBOARD');
   };
 
   const handleCreateTest = (e: React.FormEvent) => {

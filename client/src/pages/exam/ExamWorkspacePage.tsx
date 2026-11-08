@@ -131,8 +131,34 @@ export const ExamWorkspacePage: React.FC = () => {
       }
     },
     enabled: Boolean(assignmentId),
-    staleTime: 60000,
+    staleTime: 5000,
+    refetchInterval: 5000,
   });
+
+  // Live listener to check if test was completed/concluded by admin in real-time
+  const [isTestConcludedByAdmin, setIsTestConcludedByAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!assignmentId) return;
+    const unsub = FirestoreDataService.listenToAssessmentTests((cloudTests) => {
+      const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
+      if (current && (current.status === 'COMPLETED' || current.status === 'CONCLUDED')) {
+        setIsTestConcludedByAdmin(true);
+      }
+    });
+    return () => unsub();
+  }, [assignmentId]);
+
+  const isExamConcluded = isTestConcludedByAdmin || assignmentData?.status === 'COMPLETED' || assignmentData?.status === 'CONCLUDED';
+
+  useEffect(() => {
+    if (isExamConcluded) {
+      setIsLocked(true);
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  }, [isExamConcluded]);
 
   // Total Assessment Duration & Shared Unified Countdown Timer
   const totalTestMinutes = Number(assignmentData?.durationMinutes) || 60;
@@ -638,6 +664,10 @@ export const ExamWorkspacePage: React.FC = () => {
 
   // Safe execution handler with validation guard
   const handleExecuteTests = useCallback(() => {
+    if (isExamConcluded) {
+      toast.error('This examination has been marked completed by the administrator.');
+      return;
+    }
     if (isLocked || runMutation.isPending || submitMutation.isPending) return;
     const cleanCode = (code || '').trim();
     const cleanStarter = (problemData?.starterCode || '').trim();
@@ -651,7 +681,7 @@ export const ExamWorkspacePage: React.FC = () => {
     }
     setActiveMobileTab('editor');
     runMutation.mutate();
-  }, [isLocked, runMutation, submitMutation, code, problemData]);
+  }, [isExamConcluded, isLocked, runMutation, submitMutation, code, problemData]);
 
   // Apple-grade Keyboard Shortcut: Ctrl + Enter or Cmd + Enter to Run Tests
   useEffect(() => {
@@ -1175,6 +1205,38 @@ export const ExamWorkspacePage: React.FC = () => {
             }
           }}
         />
+      )}
+
+      {/* Assessment Concluded Modal Overlay */}
+      {isExamConcluded && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 shadow-2xl text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Assessment Concluded
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                The administrator has marked this test completed. The exam session is now closed and no further submissions can be accepted.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                isExitingRef.current = true;
+                if (typeof document !== 'undefined' && document.fullscreenElement) {
+                  document.exitFullscreen().catch(() => {});
+                }
+                navigate('/student/tests');
+              }}
+              className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-xs transition active:scale-95 cursor-pointer shadow-md"
+            >
+              Back to Assigned Tests
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

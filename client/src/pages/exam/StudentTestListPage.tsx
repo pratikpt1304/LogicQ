@@ -150,53 +150,56 @@ export const StudentTestListPage: React.FC = () => {
 
   const assignments: any[] = React.useMemo(() => {
     if (!data) return [];
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data.data)) return data.data;
-    if (Array.isArray(data.tests)) {
-      return data.tests.map((t: any) => ({
-        id: t.id || `assign-${t.id}`,
-        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-        test: t.test || t,
-        attempts: t.attempts || [],
-      }));
+    let rawList: any[] = [];
+    if (Array.isArray(data)) rawList = data;
+    else if (Array.isArray(data.data)) rawList = data.data;
+    else if (Array.isArray(data.tests)) rawList = data.tests;
+    else if (Array.isArray(data.assignments)) rawList = data.assignments;
+    else if (data.data && typeof data.data === 'object') {
+      const active = Array.isArray(data.data.active) ? data.data.active : [];
+      const upcoming = Array.isArray(data.data.upcoming) ? data.data.upcoming : [];
+      const completed = Array.isArray(data.data.completed) ? data.data.completed : [];
+      rawList = [...active, ...upcoming, ...completed];
     }
-    if (Array.isArray(data.assignments)) return data.assignments;
-    const targetObj = (data.data && typeof data.data === 'object' && !Array.isArray(data.data))
-      ? data.data
-      : (typeof data === 'object' ? data : null);
-    if (targetObj) {
-      const active = Array.isArray(targetObj.active) ? targetObj.active : [];
-      const upcoming = Array.isArray(targetObj.upcoming) ? targetObj.upcoming : [];
-      const completed = Array.isArray(targetObj.completed) ? targetObj.completed : [];
-      const all = [...active, ...upcoming, ...completed];
-      if (all.length > 0) {
-        return all.map((t: any) => ({
-          id: t.id || `assign-${t.id}`,
-          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-          test: t.test || t,
-          attempts: t.attempts || [],
-        }));
+
+    return rawList.map((t: any) => {
+      const rawTest = t.test || t;
+      const isConcludedByAdmin = rawTest.status === 'COMPLETED' || rawTest.status === 'CONCLUDED' || t.status === 'COMPLETED' || t.status === 'CONCLUDED';
+      let derivedStatus: 'SUBMITTED' | 'CONCLUDED' | 'IN_PROGRESS' | 'PENDING' = 'PENDING';
+      if (t.status === 'SUBMITTED' || t.isSubmitted) {
+        derivedStatus = 'SUBMITTED';
+      } else if (isConcludedByAdmin) {
+        derivedStatus = 'CONCLUDED';
+      } else if (t.status === 'IN_PROGRESS') {
+        derivedStatus = 'IN_PROGRESS';
       }
-    }
-    return [];
+
+      return {
+        id: t.id || rawTest.id || `assign-${rawTest.id}`,
+        status: derivedStatus,
+        isConcludedByAdmin,
+        test: rawTest,
+        attempts: t.attempts || [],
+      };
+    });
   }, [data]);
 
   const safeAssignments: any[] = Array.isArray(assignments) ? assignments : [];
   const totalAssigned = safeAssignments.length;
-  const pendingCount = safeAssignments.filter((a: any) => a?.status !== 'SUBMITTED').length;
-  const completedCount = safeAssignments.filter((a: any) => a?.status === 'SUBMITTED').length;
+  const pendingCount = safeAssignments.filter((a: any) => a?.status === 'PENDING' || a?.status === 'IN_PROGRESS').length;
+  const completedCount = safeAssignments.filter((a: any) => a?.status === 'SUBMITTED' || a?.status === 'CONCLUDED').length;
 
   const enrolledSections = Array.from(
     new Set(
       safeAssignments
-        .map((a: any) => a?.test?.section?.sectionName || a?.sectionName)
+        .map((a: any) => a?.test?.section?.sectionName || a?.test?.sectionTarget || a?.sectionName)
         .filter(Boolean)
     )
   );
 
   const filteredAssignments = safeAssignments.filter((a: any) => {
-    if (filterTab === 'PENDING') return a?.status !== 'SUBMITTED';
-    if (filterTab === 'COMPLETED') return a?.status === 'SUBMITTED';
+    if (filterTab === 'PENDING') return a?.status === 'PENDING' || a?.status === 'IN_PROGRESS';
+    if (filterTab === 'COMPLETED') return a?.status === 'SUBMITTED' || a?.status === 'CONCLUDED';
     return true;
   });
 
@@ -410,7 +413,8 @@ export const StudentTestListPage: React.FC = () => {
             const safeQuestions = Array.isArray(questions) ? questions : [];
             const attempts = Array.isArray(assignment?.attempts) ? assignment.attempts : [];
             const isSubmitted = assignment?.status === 'SUBMITTED';
-            const isInProgress = assignment?.status === 'IN_PROGRESS';
+            const isConcluded = assignment?.status === 'CONCLUDED' || assignment?.isConcludedByAdmin || test?.status === 'COMPLETED' || test?.status === 'CONCLUDED';
+            const isInProgress = assignment?.status === 'IN_PROGRESS' && !isConcluded;
 
             const completedCountOnTest = attempts.filter((a: any) => a?.isLocked).length;
 
@@ -444,6 +448,11 @@ export const StudentTestListPage: React.FC = () => {
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>SUBMITTED</span>
+                        </span>
+                      ) : isConcluded ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300 border border-slate-300 dark:border-white/15 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 text-slate-500" />
+                          <span>TEST CONCLUDED</span>
                         </span>
                       ) : isInProgress ? (
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
@@ -494,6 +503,11 @@ export const StudentTestListPage: React.FC = () => {
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                         <span>Review Answers</span>
                       </Link>
+                    ) : isConcluded ? (
+                      <div className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold text-xs font-mono cursor-not-allowed select-none">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Test Concluded by Faculty</span>
+                      </div>
                     ) : isInProgress ? (
                       <Link
                         to={`/exam/${assignment.id}/${resumeProblemId}`}
@@ -520,6 +534,18 @@ export const StudentTestListPage: React.FC = () => {
                           const attempt = attempts.find((a: any) => a?.problemId === qId || a?.id === qId);
                           const isLocked = attempt?.isLocked;
                           const score = attempt?.academicScore;
+
+                          if (isConcluded && !isLocked && !isSubmitted) {
+                            return (
+                              <span
+                                key={qId || idx}
+                                className="px-3 py-1 rounded-xl text-xs font-mono font-semibold border bg-slate-100/60 dark:bg-slate-800/60 border-slate-200/50 dark:border-slate-700/50 text-slate-400 cursor-not-allowed select-none opacity-60"
+                                title="Test concluded by faculty"
+                              >
+                                Q{idx + 1}
+                              </span>
+                            );
+                          }
 
                           return (
                             <Link

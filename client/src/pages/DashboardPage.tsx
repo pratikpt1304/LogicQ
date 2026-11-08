@@ -647,9 +647,12 @@ export const DashboardPage: React.FC = () => {
     if (Array.isArray((studentTests as any).tests)) {
       return (studentTests as any).tests.map((t: any) => {
         const raw = t.test || t;
+        const isConcluded = raw.status === 'COMPLETED' || raw.status === 'CONCLUDED' || t.status === 'COMPLETED' || t.status === 'CONCLUDED';
+        const derivedStatus = (t.status === 'SUBMITTED' || t.isSubmitted) ? 'SUBMITTED' : isConcluded ? 'CONCLUDED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING');
         return {
           id: t.id || raw.id,
-          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+          status: derivedStatus,
+          isConcluded,
           test: {
             ...raw,
             questions: raw.questions || [],
@@ -670,9 +673,12 @@ export const DashboardPage: React.FC = () => {
       if (combined.length > 0) {
         return combined.map((t: any) => {
           const raw = t.test || t;
+          const isConcluded = raw.status === 'COMPLETED' || raw.status === 'CONCLUDED' || t.status === 'COMPLETED' || t.status === 'CONCLUDED';
+          const derivedStatus = (t.status === 'SUBMITTED' || t.isSubmitted) ? 'SUBMITTED' : isConcluded ? 'CONCLUDED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING');
           return {
             id: t.id || `assign-${raw.id || Math.random()}`,
-            status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+            status: derivedStatus,
+            isConcluded,
             test: {
               ...raw,
               questions: raw.questions || [],
@@ -1890,7 +1896,8 @@ export const DashboardPage: React.FC = () => {
                       const questions = Array.isArray(test?.questions) ? test.questions : [];
                       const attempts = Array.isArray(assignment?.attempts) ? assignment.attempts : [];
                       const isSubmitted = assignment?.status === 'SUBMITTED';
-                      const isInProgress = assignment?.status === 'IN_PROGRESS';
+                      const isConcluded = assignment?.status === 'CONCLUDED' || assignment?.isConcluded || test?.status === 'COMPLETED' || test?.status === 'CONCLUDED';
+                      const isInProgress = assignment?.status === 'IN_PROGRESS' && !isConcluded;
                       const completedCount = attempts.filter((a: any) => a?.isLocked).length;
 
                       return (
@@ -1904,9 +1911,15 @@ export const DashboardPage: React.FC = () => {
                                 {test?.section?.sectionName || 'Section Test'}
                               </span>
                               <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                                isSubmitted ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20'
+                                isSubmitted
+                                  ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                  : isConcluded
+                                  ? 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400 border border-slate-200 dark:border-white/10'
+                                  : isInProgress
+                                  ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                                  : 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20'
                               }`}>
-                                {isSubmitted ? 'SUBMITTED' : isInProgress ? 'IN PROGRESS' : 'ASSIGNED'}
+                                {isSubmitted ? 'SUBMITTED' : isConcluded ? 'CONCLUDED' : isInProgress ? 'IN PROGRESS' : 'ASSIGNED'}
                               </span>
                             </div>
                             <h3 className="font-bold text-base text-slate-900 dark:text-white truncate">
@@ -1923,9 +1936,13 @@ export const DashboardPage: React.FC = () => {
                             </span>
                             <Link
                               to="/student/tests"
-                              className="px-4 py-1.5 rounded-full text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1 shadow-xs transition"
+                              className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1 shadow-xs transition ${
+                                isConcluded
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                              }`}
                             >
-                              <span>{isSubmitted ? 'View Results' : 'Open Test'}</span>
+                              <span>{isSubmitted ? 'View Results' : isConcluded ? 'View Concluded' : 'Open Test'}</span>
                               <ChevronRight className="w-3.5 h-3.5" />
                             </Link>
                           </div>
