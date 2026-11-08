@@ -50,6 +50,8 @@ export interface User {
   isEmailBound?: boolean;
   isEmailBoundV2?: boolean;
   emailVerified?: boolean;
+  miniProjectUnlocked?: boolean;
+  miniProjectActive?: boolean;
   createdAt?: string;
 }
 

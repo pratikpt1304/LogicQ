@@ -106,7 +106,12 @@ export const AdminStudentsTab: React.FC = () => {
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
                 integrityScore: anyUser.integrityScore || 0,
-                miniProjectUnlocked: Boolean(anyUser.miniProjectUnlocked),
+                miniProjectUnlocked: (() => {
+                  const prnClean = (anyUser.prn || '').toUpperCase().trim();
+                  const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
+                  if (localCached !== null) return localCached === 'true';
+                  return Boolean(anyUser.miniProjectUnlocked || anyUser.miniProjectActive);
+                })(),
                 lastActive: anyUser.lastLoginAt
                   ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : 'Recent',
@@ -159,6 +164,13 @@ export const AdminStudentsTab: React.FC = () => {
   const handleToggleMiniProject = (student: AdminStudentRecord, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const nextStatus = !student.miniProjectUnlocked;
+    const cleanPrn = (student.prn || '').toUpperCase().trim();
+
+    if (cleanPrn && cleanPrn !== '—') {
+      try {
+        localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, nextStatus ? 'true' : 'false');
+      } catch {}
+    }
 
     const updated = students.map((s) =>
       s.id === student.id ? { ...s, miniProjectUnlocked: nextStatus } : s
@@ -168,9 +180,9 @@ export const AdminStudentsTab: React.FC = () => {
       localStorage.setItem('logicq_admin_students', JSON.stringify(updated));
     } catch {}
 
-    // Persist to Cloud Firestore & cross-browser cache
-    if (student.prn && student.prn !== '—') {
-      FirestoreDataService.setMiniProjectStatus(student.prn, nextStatus);
+    // Persist to Cloud Firestore across users, enrolled_students & cohort_progress
+    if (cleanPrn && cleanPrn !== '—') {
+      FirestoreDataService.setMiniProjectStatus(cleanPrn, nextStatus);
     }
 
     toast.success(

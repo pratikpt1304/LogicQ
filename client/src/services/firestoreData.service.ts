@@ -56,6 +56,8 @@ export class FirestoreDataService {
     if (!cleanPrn) return;
     try {
       localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, isUnlocked ? 'true' : 'false');
+
+      // 1. Update cohort_progress
       const cohortRef = doc(db, 'cohort_progress', cleanPrn);
       await setDoc(cohortRef, {
         prn: cleanPrn,
@@ -65,6 +67,28 @@ export class FirestoreDataService {
         },
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(() => {});
+
+      // 2. Persist to users collection
+      const userRef = doc(db, 'users', `std_${cleanPrn.toLowerCase()}`);
+      await setDoc(userRef, {
+        miniProjectUnlocked: isUnlocked,
+        miniProjectActive: isUnlocked,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(() => {});
+
+      // 3. Persist to enrolled_students collection
+      const enrolledSnap = await getDocs(collection(db, 'enrolled_students')).catch(() => null);
+      if (enrolledSnap) {
+        for (const d of enrolledSnap.docs) {
+          const data = d.data();
+          if (data && ((data.prn && String(data.prn).toUpperCase() === cleanPrn) || d.id.toUpperCase() === cleanPrn)) {
+            await setDoc(doc(db, 'enrolled_students', d.id), {
+              miniProjectUnlocked: isUnlocked,
+              miniProjectActive: isUnlocked,
+            }, { merge: true }).catch(() => {});
+          }
+        }
+      }
     } catch (err) {
       console.warn('setMiniProjectStatus notice:', err);
     }
@@ -1498,6 +1522,7 @@ export class FirestoreDataService {
       prnChangedAt: data.prnChangedAt || null,
       prnNextAllowedDate: data.prnNextAllowedDate || null,
       isPrnChangeEligible: Boolean(data.isPrnChangeEligible),
+      miniProjectUnlocked: Boolean(data.miniProjectUnlocked || data.miniProjectActive),
       themePreference: data.themePreference || null,
       storagePreference: data.storagePreference || null,
       sectionId: data.sectionId || null,
@@ -1621,6 +1646,7 @@ export class FirestoreDataService {
           totalPoints: Number(raw.totalPoints || 0),
           currentStreak: Number(raw.currentStreak || 0),
           longestStreak: Number(raw.longestStreak || 0),
+          miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
           createdAt: raw.enrolledAt?.toDate ? raw.enrolledAt.toDate().toISOString() : new Date().toISOString(),
         } as any);
       });
@@ -1733,6 +1759,7 @@ export class FirestoreDataService {
             totalPoints: Number(raw.totalPoints || 0),
             currentStreak: Number(raw.currentStreak || 0),
             longestStreak: Number(raw.longestStreak || 0),
+          miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
             createdAt: new Date().toISOString(),
           } as User);
         });
@@ -1803,6 +1830,7 @@ export class FirestoreDataService {
           totalPoints: finalPoints,
           currentStreak: Number(raw.currentStreak || 0),
           longestStreak: Number(raw.longestStreak || 0),
+          miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
           totalSolved: finalSolved,
         });
       });
