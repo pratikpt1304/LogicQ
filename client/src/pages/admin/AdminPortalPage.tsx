@@ -94,6 +94,7 @@ export const AdminPortalPage: React.FC = () => {
   React.useEffect(() => {
     try {
       localStorage.removeItem('logicq_admin_sections');
+      localStorage.removeItem('logicq_faculty_sections_backup_v2');
       localStorage.removeItem('logicq_admin_students');
       localStorage.removeItem('logicq_admin_students_list');
       localStorage.removeItem('logicq_admin_tests');
@@ -108,13 +109,31 @@ export const AdminPortalPage: React.FC = () => {
 
         const validSections = Array.isArray(realSections) ? realSections : [];
         const studentUsers = Array.isArray(realUsers)
-          ? realUsers.filter((u) => u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com'))
+          ? realUsers.filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
           : [];
 
-        setSections(validSections);
+        // Authoritatively synchronize each section's roster and count directly with the active student directory
+        const syncedSections = validSections.map((sec) => {
+          const matchingStudents = studentUsers.filter((u: any) => {
+            const matchesId = u.sectionId && (u.sectionId === sec.id || u.sectionId === sec.joinCode);
+            const matchesCode = u.joinCode && (u.joinCode === sec.joinCode || u.joinCode === sec.id);
+            const matchesName = (u.sectionName && u.sectionName === sec.sectionName) || (u.section && u.section === sec.sectionName);
+            const matchesArray = Array.isArray(u.sections) && u.sections.some((s: any) => s.id === sec.id || s.joinCode === sec.joinCode);
+            return matchesId || matchesCode || matchesName || matchesArray;
+          });
+          const count = matchingStudents.length;
+          return {
+            ...sec,
+            students: matchingStudents,
+            studentsCount: count,
+            _count: { students: count },
+          };
+        });
+
+        setSections(syncedSections);
         setStats((prev) => ({
           ...prev,
-          totalSections: validSections.length,
+          totalSections: syncedSections.length,
           totalStudents: studentUsers.length,
         }));
       } catch (err) {

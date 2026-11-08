@@ -20,6 +20,7 @@ import {
 import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export interface SectionItem {
   id: string;
@@ -262,7 +263,8 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {sections.map((sec) => {
             const isJustCopied = copiedId === sec.id;
-            const studentCount = sec.studentsCount || sec.students?.length || 0;
+            const validStudents = (sec.students || []).filter((s) => !FirestoreDataService.isPurgedStudent(s));
+            const studentCount = sec.students !== undefined ? validStudents.length : (sec.studentsCount || 0);
 
             return (
               <div

@@ -2746,11 +2746,7 @@ export class FirestoreDataService {
           }
 
           const filteredStudents = (studentsList || []).filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
-          const calculatedCount = Math.max(
-            filteredStudents.length,
-            existing._count?.students || 0,
-            item._count?.students || 0
-          );
+          const calculatedCount = filteredStudents.length;
 
           item.students = filteredStudents;
           item.studentsCount = calculatedCount;
@@ -2816,10 +2812,11 @@ export class FirestoreDataService {
           } catch {}
         }
         const filteredStudents = studentsList.filter((st: any) => !FirestoreDataService.isPurgedStudent(st));
-        const finalCount = Math.max(filteredStudents.length, s._count?.students || 0);
+        const finalCount = filteredStudents.length;
         return {
           ...s,
           students: filteredStudents,
+          studentsCount: finalCount,
           _count: { students: finalCount },
         };
       });
