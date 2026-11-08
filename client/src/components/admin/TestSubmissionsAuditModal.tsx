@@ -384,7 +384,7 @@ export const TestSubmissionsAuditModal: React.FC<TestSubmissionsAuditModalProps>
               onClick={() => setFilterSeverity('ALL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                 filterSeverity === 'ALL'
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >

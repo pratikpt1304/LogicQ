@@ -1504,10 +1504,11 @@ export const ProfilePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleOpenEdit}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    data-testid="edit-profile-btn"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-500/25 transition-all active:scale-95 cursor-pointer border border-blue-500/30"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit Profile</span>
+                    <Edit3 className="w-3.5 h-3.5 text-white" />
+                    <span className="text-white font-semibold">Edit Profile</span>
                   </button>
 
                   <button
