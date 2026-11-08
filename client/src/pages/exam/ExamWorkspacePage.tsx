@@ -122,6 +122,13 @@ export const ExamWorkspacePage: React.FC = () => {
     staleTime: 60000,
   });
 
+  // Total Assessment Duration & Shared Unified Countdown Timer
+  const totalTestMinutes = Number(assignmentData?.durationMinutes) || 60;
+  const totalTestDurationSec = totalTestMinutes * 60;
+  const [remainingTestSec, setRemainingTestSec] = useState<number>(totalTestDurationSec);
+  const testStartTimeRef = useRef<number>(Date.now());
+  const isTimeExpiredRef = useRef<boolean>(false);
+
   const questionSequence: string[] = React.useMemo(() => {
     if (assignmentData?.questions && Array.isArray(assignmentData.questions) && assignmentData.questions.length > 0) {
       const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
@@ -216,6 +223,71 @@ export const ExamWorkspacePage: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [startedAt, isLocked]);
+
+  // 2b. Total Assessment Test Countdown & Auto-Submit on Expiration
+  useEffect(() => {
+    if (!assignmentId) return;
+    const testStartKey = `logicq_exam_test_start_${assignmentId}`;
+    let saved = typeof window !== 'undefined' ? localStorage.getItem(testStartKey) : null;
+    let startMs = saved ? Number(saved) : 0;
+    if (!startMs || isNaN(startMs)) {
+      startMs = Date.now();
+      try { localStorage.setItem(testStartKey, String(startMs)); } catch {}
+    }
+    testStartTimeRef.current = startMs;
+  }, [assignmentId]);
+
+  useEffect(() => {
+    const checkCountdown = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
+      const remaining = Math.max(0, totalTestDurationSec - elapsed);
+      setRemainingTestSec(remaining);
+
+      // Auto-submit entire test when timer hits 0
+      if (remaining <= 0 && !isTimeExpiredRef.current && !isLocked) {
+        isTimeExpiredRef.current = true;
+        setIsLocked(true);
+        toast.error("Time's up! Total examination time limit has ended. Submitting assessment now...", {
+          duration: 6000,
+        });
+
+        // If user has written code in editor, submit current question
+        const cleanCode = (code || '').trim();
+        const cleanStarter = (problemData?.starterCode || '').trim();
+        if (cleanCode && cleanCode !== cleanStarter && attemptId) {
+          api.post('/exam/submit-question', {
+            attemptId,
+            code,
+            problemId,
+            assignmentId,
+            clientMetrics: {
+              tabSwitchCount,
+              focusLossCount,
+              fullScreenExitCount,
+              totalKeystrokes,
+              largestBurstChars,
+              activeInteractionTimeSec: activeSec,
+            },
+          }).catch(() => {});
+        }
+
+        try {
+          localStorage.setItem(`logicq_exam_test_completed_${assignmentId}`, 'true');
+        } catch {}
+        RealtimeSyncService.emit('SUBMISSIONS');
+        RealtimeSyncService.emit('TESTS');
+        RealtimeSyncService.emit('DASHBOARD');
+
+        setTimeout(() => {
+          exitExamTo('/student/tests');
+        }, 2000);
+      }
+    };
+
+    checkCountdown();
+    const interval = setInterval(checkCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [totalTestDurationSec, isLocked, code, problemData, attemptId, problemId, assignmentId, exitExamTo, activeSec, focusLossCount, fullScreenExitCount, largestBurstChars, tabSwitchCount, totalKeystrokes]);
 
   // 3. Silent Non-blocking Telemetry Heartbeat (Phase 3 Deliverable)
   const sendTelemetryPing = useCallback((overrideMetrics?: Record<string, any>) => {
@@ -562,13 +634,16 @@ export const ExamWorkspacePage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isLocked, runMutation, submitMutation, handleExecuteTests]);
 
-  // Timing metrics calculation
-  const expectedMaxSec = (problemData?.expectedTimeMax ?? 8) * 60;
-  const isWithinPrescribedTime = elapsedSec <= expectedMaxSec;
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  // Unified Total Countdown Timer formatting
+  const formatCountdown = (totalSec: number) => {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    if (h > 0) {
+      return `${h}:${pad(m)}:${pad(s)}`;
+    }
+    return `${pad(m)}:${pad(s)}`;
   };
 
   const visibleCasesList: any[] = React.useMemo(() => {
@@ -669,20 +744,23 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Live Proctoring & Time Indicator */}
+        {/* Live Proctoring & Total Test Countdown Timer */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Subtle Elapsed Timer */}
+          {/* Total Test Countdown Timer (Shared across all questions) */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold ${
-              isWithinPrescribedTime
-                ? 'bg-slate-50 border-slate-200 text-slate-700'
-                : 'bg-amber-50 border-amber-300 text-amber-800'
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold transition-all ${
+              remainingTestSec <= 300
+                ? 'bg-rose-50 border-rose-300 text-rose-700 animate-pulse shadow-sm shadow-rose-500/20'
+                : remainingTestSec <= 600
+                ? 'bg-amber-50 border-amber-300 text-amber-800'
+                : 'bg-slate-50 border-slate-200 text-slate-700'
             }`}
+            title={`Total Test Duration: ${totalTestMinutes} Minutes. Test will auto-submit when time expires.`}
           >
-            <Clock className="w-3.5 h-3.5 text-indigo-500" />
-            <span>{formatTime(elapsedSec)}</span>
-            <span className="hidden lg:inline text-[10px] text-slate-400 font-normal">
-              / max {problemData?.expectedTimeMax ?? 8}m
+            <Clock className={`w-3.5 h-3.5 ${remainingTestSec <= 300 ? 'text-rose-600' : 'text-indigo-600'}`} />
+            <span>{formatCountdown(remainingTestSec)}</span>
+            <span className="hidden sm:inline text-[10px] text-slate-400 font-sans font-normal">
+              left
             </span>
           </div>
 
@@ -774,8 +852,9 @@ export const ExamWorkspacePage: React.FC = () => {
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   20.0 Marks
                 </span>
-                <span className="text-xs text-slate-400 font-mono font-medium">
-                  Expected ~{problemData?.expectedTimeMax || 15}m
+                <span className="text-xs text-slate-500 font-mono font-medium flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  <span>Total Exam: {totalTestMinutes}m</span>
                 </span>
               </div>
 
