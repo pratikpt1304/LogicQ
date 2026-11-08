@@ -160,15 +160,63 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
   const [newSection, setNewSection] = useState(effectiveSections[0]);
   const [newDuration, setNewDuration] = useState(60);
   const [newMarks, setNewMarks] = useState(20);
-  const [selectedUnit, setSelectedUnit] = useState<'ALL' | 1 | 2 | 3 | 4>('ALL');
+  const [selectionMode, setSelectionMode] = useState<'UNITS' | 'MANUAL'>('UNITS');
+  const [selectedUnits, setSelectedUnits] = useState<(1 | 2 | 3 | 4)[]>([1, 2, 3, 4]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [questionSearch, setQuestionSearch] = useState('');
   const [difficultyProfile, setDifficultyProfile] = useState<'BALANCED' | 'FOUNDATIONAL' | 'RIGOROUS'>('BALANCED');
   const [lockPolicy, setLockPolicy] = useState(true);
 
   // Question Bank live pool
   const bankQuestions = getStoredBankQuestions();
-  const availableQuestionsForSelectedUnit = selectedUnit === 'ALL'
-    ? bankQuestions
-    : bankQuestions.filter((q) => q.sectionNumber === selectedUnit);
+
+  // Active pool of questions based on user selection mode
+  const activeQuestionsPool = selectionMode === 'MANUAL'
+    ? bankQuestions.filter((q) => selectedQuestionIds.includes(q.id))
+    : bankQuestions.filter((q) => selectedUnits.includes(q.sectionNumber));
+
+  // Filtered list of questions for manual selection mode
+  const filteredBankQuestions = bankQuestions.filter((q) => {
+    if (!questionSearch.trim()) return true;
+    const s = questionSearch.toLowerCase();
+    return q.title.toLowerCase().includes(s) || q.description.toLowerCase().includes(s);
+  });
+
+  const handleToggleUnit = (unitNum: 1 | 2 | 3 | 4) => {
+    if (selectedUnits.includes(unitNum)) {
+      if (selectedUnits.length === 1) {
+        toast.info('At least one unit must be selected');
+        return;
+      }
+      setSelectedUnits(selectedUnits.filter((u) => u !== unitNum));
+    } else {
+      setSelectedUnits([...selectedUnits, unitNum].sort());
+    }
+  };
+
+  const handleToggleAllUnits = () => {
+    if (selectedUnits.length === 4) {
+      setSelectedUnits([1]);
+    } else {
+      setSelectedUnits([1, 2, 3, 4]);
+    }
+  };
+
+  const handleToggleQuestionId = (qId: string) => {
+    if (selectedQuestionIds.includes(qId)) {
+      setSelectedQuestionIds(selectedQuestionIds.filter((id) => id !== qId));
+    } else {
+      setSelectedQuestionIds([...selectedQuestionIds, qId]);
+    }
+  };
+
+  const handleToggleAllQuestions = () => {
+    if (selectedQuestionIds.length === bankQuestions.length) {
+      setSelectedQuestionIds([]);
+    } else {
+      setSelectedQuestionIds(bankQuestions.map((q) => q.id));
+    }
+  };
 
   // Sync newSection if sections change
   useEffect(() => {
@@ -238,9 +286,18 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       return;
     }
 
-    const matchedQuestions = selectedUnit === 'ALL'
-      ? bankQuestions
-      : bankQuestions.filter((q) => q.sectionNumber === selectedUnit);
+    const matchedQuestions = selectionMode === 'MANUAL'
+      ? bankQuestions.filter((q) => selectedQuestionIds.includes(q.id))
+      : bankQuestions.filter((q) => selectedUnits.includes(q.sectionNumber));
+
+    if (matchedQuestions.length === 0) {
+      toast.error('Please select at least one question or unit with available questions');
+      return;
+    }
+
+    const unitLabel = selectionMode === 'UNITS'
+      ? (selectedUnits.length === 4 ? 'ALL' : selectedUnits.map(u => `Unit ${u}`).join(', ') as any)
+      : 'Custom Selection';
 
     const created: AdminTestDefinition = {
       id: `test-${Date.now().toString(36)}`,
@@ -255,7 +312,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       totalEnrolled: 60,
       suspiciousEvents: 0,
       createdAt: new Date().toISOString(),
-      unitTarget: selectedUnit,
+      unitTarget: unitLabel,
       questions: matchedQuestions,
     };
 
@@ -583,37 +640,43 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
       )}
 
       {/* ========================================================================= */}
-      {/* 3. APPLE MINIMALIST MODAL: SCHEDULE TEST (Simple, 3 Fields Only)          */}
+      {/* 3. APPLE HIG MODAL: SCHEDULE TEST (Flexible Multi-Unit & Custom Picker)   */}
       {/* ========================================================================= */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-[#121620] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   <Sliders className="w-5 h-5" />
                 </span>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Schedule Assessment
-                </h3>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                    Schedule Assessment
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Configure syllabus units, question bank selection &amp; proctoring guardrails
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTest} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateTest} className="space-y-4 text-xs">
+              {/* Test Title */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Test Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Unit 1 Practical Assessment"
+                  placeholder="e.g. Mid-Term Assessment (Units 1 & 2)"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
@@ -622,40 +685,166 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 />
               </div>
 
-              {/* Question Source from Question Bank */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">
-                    Question Source (Question Bank)
+              {/* Question Selection Mode Toggle (Apple HIG Segmented Capsule) */}
+              <div className="space-y-2 p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-800 dark:text-slate-200">
+                    Question Selection Mode
                   </label>
-                  <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
-                    {availableQuestionsForSelectedUnit.length} Ready in Bank
+                  <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                    {activeQuestionsPool.length} Questions Ready
                   </span>
                 </div>
-                <div className="grid grid-cols-5 gap-1">
-                  {UNITS.map((u) => (
-                    <button
-                      key={String(u.num)}
-                      type="button"
-                      onClick={() => setSelectedUnit(u.num)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition ${
-                        selectedUnit === u.num
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
-                      }`}
-                    >
-                      {u.label}
-                    </button>
-                  ))}
+
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-200/60 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.05] gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectionMode('UNITS')}
+                    className={`py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      selectionMode === 'UNITS'
+                        ? 'bg-white dark:bg-[#1c2230] text-blue-600 dark:text-blue-400 shadow-xs font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Select by Units (Multi-Unit)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectionMode('MANUAL');
+                      if (selectedQuestionIds.length === 0 && bankQuestions.length > 0) {
+                        setSelectedQuestionIds(bankQuestions.slice(0, 2).map((q) => q.id));
+                      }
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer ${
+                      selectionMode === 'MANUAL'
+                        ? 'bg-white dark:bg-[#1c2230] text-blue-600 dark:text-blue-400 shadow-xs font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Handpick Questions ({selectedQuestionIds.length})
+                  </button>
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="truncate">
-                    Pool: <strong>{UNITS.find((u) => u.num === selectedUnit)?.title}</strong> ({availableQuestionsForSelectedUnit.length} questions attached)
-                  </span>
-                </div>
+
+                {/* Mode A: Multi-Unit Selection */}
+                {selectionMode === 'UNITS' && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Select one or multiple units to combine into this test:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleAllUnits}
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                      >
+                        {selectedUnits.length === 4 ? 'Reset to Unit 1' : 'Select All 4 Units'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {([1, 2, 3, 4] as const).map((unitNum) => {
+                        const isSelected = selectedUnits.includes(unitNum);
+                        const count = bankQuestions.filter((q) => q.sectionNumber === unitNum).length;
+                        return (
+                          <button
+                            key={unitNum}
+                            type="button"
+                            onClick={() => handleToggleUnit(unitNum)}
+                            className={`p-2.5 rounded-xl text-center border transition-all active:scale-95 cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="font-bold text-xs">Unit {unitNum}</div>
+                            <div className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                              {count} {count === 1 ? 'Q' : 'Qs'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mode B: Manual Specific Question Checklist */}
+                {selectionMode === 'MANUAL' && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Check the exact questions you want included:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleAllQuestions}
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                      >
+                        {selectedQuestionIds.length === bankQuestions.length ? 'Deselect All' : 'Select All Questions'}
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="Search questions by keyword or topic..."
+                      value={questionSearch}
+                      onChange={(e) => setQuestionSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
+                    />
+
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {filteredBankQuestions.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-400 bg-white dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">
+                          No matching questions found in bank.
+                        </div>
+                      ) : (
+                        filteredBankQuestions.map((q) => {
+                          const isChecked = selectedQuestionIds.includes(q.id);
+                          return (
+                            <label
+                              key={q.id}
+                              className={`p-2.5 rounded-xl border flex items-center gap-2.5 cursor-pointer transition select-none ${
+                                isChecked
+                                  ? 'bg-blue-500/10 border-blue-500/30 text-slate-900 dark:text-white'
+                                  : 'bg-white dark:bg-white/5 border-slate-200/70 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleQuestionId(q.id)}
+                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 shrink-0 cursor-pointer"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-xs truncate">{q.title}</span>
+                                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-white/10 shrink-0">
+                                    Unit {q.sectionNumber}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-400 truncate mt-0.5">{q.description}</p>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                  q.difficulty === 'EASY'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : q.difficulty === 'MEDIUM'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                }`}
+                              >
+                                {q.difficulty}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Target Section & Total Marks */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -687,10 +876,10 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                         key={m}
                         type="button"
                         onClick={() => setNewMarks(m)}
-                        className={`py-2 rounded-xl text-xs font-semibold border transition ${
+                        className={`py-2 rounded-xl text-xs font-semibold border transition cursor-pointer active:scale-95 ${
                           newMarks === m
                             ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                         }`}
                       >
                         {m}M
@@ -700,6 +889,7 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 </div>
               </div>
 
+              {/* Duration */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Duration (Minutes)
@@ -710,10 +900,10 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                       key={mins}
                       type="button"
                       onClick={() => setNewDuration(mins)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition ${
+                      className={`py-2 rounded-xl text-xs font-semibold border transition cursor-pointer active:scale-95 ${
                         newDuration === mins
                           ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300'
+                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                       }`}
                     >
                       {mins}m
@@ -744,16 +934,16 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium"
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 text-xs font-medium cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!newTitle.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs cursor-pointer"
+                  disabled={!newTitle.trim() || activeQuestionsPool.length === 0}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold text-xs transition shadow-xs cursor-pointer active:scale-95"
                 >
-                  Schedule Test
+                  Schedule Test ({activeQuestionsPool.length} {activeQuestionsPool.length === 1 ? 'Question' : 'Questions'})
                 </button>
               </div>
             </form>
