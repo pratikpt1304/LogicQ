@@ -4607,4 +4607,145 @@ export class FirestoreDataService {
       return () => {};
     }
   }
+
+  /**
+   * Records a complete assessment test submission along with full proctoring telemetry & incident logs
+   */
+  public static async recordAssessmentSubmission(submission: any): Promise<void> {
+    try {
+      if (!submission) return;
+      const subId = `asub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const cleanSub = {
+        id: subId,
+        testId: String(submission.testId || submission.assignmentId || 'UNIT'),
+        assignmentId: String(submission.assignmentId || submission.testId || 'UNIT'),
+        testTitle: submission.testTitle || 'UNIT',
+        userId: submission.userId || auth.currentUser?.uid || 'anonymous',
+        studentName: submission.studentName || 'Student',
+        studentPrn: (submission.studentPrn || submission.prn || '').toUpperCase().trim(),
+        studentEmail: (submission.studentEmail || submission.email || '').toLowerCase().trim(),
+        problemId: submission.problemId || 'q1',
+        problemTitle: submission.problemTitle || 'Assessment Question',
+        code: submission.code || '',
+        verdict: submission.verdict || 'ACCEPTED',
+        academicScore: submission.academicScore ?? 1.0,
+        timeTakenSeconds: Number(submission.timeTakenSeconds) || 0,
+        tabSwitchCount: Number(submission.tabSwitchCount) || 0,
+        copyPasteAttempts: Number(submission.copyPasteAttempts) || 0,
+        cutAttempts: Number(submission.cutAttempts) || 0,
+        contextMenuAttempts: Number(submission.contextMenuAttempts) || 0,
+        fullscreenExits: Number(submission.fullscreenExits || submission.fullScreenExitCount) || 0,
+        totalKeystrokes: Number(submission.totalKeystrokes) || 0,
+        largestBurstChars: Number(submission.largestBurstChars) || 0,
+        incidents: Array.isArray(submission.incidents) ? submission.incidents : [],
+        submittedAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      };
+
+      // 1. Write to assessment_test_submissions
+      try {
+        await addDoc(collection(db, 'assessment_test_submissions'), cleanSub);
+      } catch (err) {
+        console.warn('Firestore assessment_test_submissions write notice:', err);
+      }
+
+      // 2. Also mirror to submissions for global admin oversight
+      try {
+        await addDoc(collection(db, 'submissions'), {
+          ...cleanSub,
+          submissionType: 'ASSESSMENT',
+        });
+      } catch (err) {
+        console.warn('Firestore submissions mirror notice:', err);
+      }
+
+      // 3. Cache locally for offline resilience
+      try {
+        const local = JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
+        local.unshift(cleanSub);
+        localStorage.setItem('logicq_assessment_submissions', JSON.stringify(local.slice(0, 100)));
+      } catch {}
+    } catch (err) {
+      console.warn('recordAssessmentSubmission error:', err);
+    }
+  }
+
+  /**
+   * Fetches all submissions matching a specific assessment test
+   */
+  public static async getAssessmentSubmissions(testId?: string): Promise<any[]> {
+    try {
+      const list: any[] = [];
+      try {
+        const snap = await getDocs(collection(db, 'assessment_test_submissions'));
+        snap.forEach((d) => {
+          const data = d.data();
+          if (!testId || data.testId === testId || data.assignmentId === testId) {
+            list.push({ id: d.id, ...data });
+          }
+        });
+      } catch {}
+
+      // Fallback from general submissions
+      if (list.length === 0) {
+        try {
+          const genSnap = await getDocs(collection(db, 'submissions'));
+          genSnap.forEach((d) => {
+            const data = d.data();
+            if (data && (data.submissionType === 'ASSESSMENT' || (testId && (data.testId === testId || data.assignmentId === testId)))) {
+              list.push({ id: d.id, ...data });
+            }
+          });
+        } catch {}
+      }
+
+      // Merge with local fallback
+      try {
+        const local = JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
+        if (Array.isArray(local)) {
+          local.forEach((item: any) => {
+            if ((!testId || item.testId === testId || item.assignmentId === testId) && !list.some((x) => x.id === item.id)) {
+              list.push(item);
+            }
+          });
+        }
+      } catch {}
+
+      return list;
+    } catch (err) {
+      console.warn('getAssessmentSubmissions notice:', err);
+      try {
+        return JSON.parse(localStorage.getItem('logicq_assessment_submissions') || '[]');
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  /**
+   * Live real-time listener for assessment test submissions
+   */
+  public static listenToAssessmentSubmissions(testId: string, callback: (subs: any[]) => void): () => void {
+    try {
+      const q = collection(db, 'assessment_test_submissions');
+      return onSnapshot(
+        q,
+        (snap) => {
+          const list: any[] = [];
+          snap.forEach((d) => {
+            const data = d.data();
+            if (!testId || data.testId === testId || data.assignmentId === testId) {
+              list.push({ id: d.id, ...data });
+            }
+          });
+          callback(list);
+        },
+        (err) => {
+          console.warn('Live assessment submissions listener notice:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
 }

@@ -19,6 +19,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Copy,
   ExternalLink,
   FileSpreadsheet,
@@ -29,6 +30,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { TestSubmissionsAuditModal } from './TestSubmissionsAuditModal.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -183,6 +185,51 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
         } catch {}
         syncToStudentTests(cloudTests);
       }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Proctoring Audit Modal & Live Test Submissions
+  const [selectedAuditTest, setSelectedAuditTest] = useState<AdminTestDefinition | null>(null);
+  const [selectedAuditStudentId, setSelectedAuditStudentId] = useState<string | null>(null);
+  const [testSubmissionsMap, setTestSubmissionsMap] = useState<Record<string, any[]>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSubs = async () => {
+      try {
+        const allSubs = await FirestoreDataService.getAssessmentSubmissions();
+        if (!isMounted) return;
+        const map: Record<string, any[]> = {};
+        allSubs.forEach((sub: any) => {
+          const tid = sub.testId || sub.assignmentId || 'general';
+          if (!map[tid]) map[tid] = [];
+          if (!map[tid].some((x: any) => x.id === sub.id)) {
+            map[tid].push(sub);
+          }
+        });
+        setTestSubmissionsMap(map);
+      } catch (err) {
+        console.warn('Notice loading assessment submissions for admin:', err);
+      }
+    };
+    fetchSubs();
+
+    const unsub = FirestoreDataService.listenToAssessmentSubmissions('', (allSubs) => {
+      if (!isMounted) return;
+      const map: Record<string, any[]> = {};
+      allSubs.forEach((sub: any) => {
+        const tid = sub.testId || sub.assignmentId || 'general';
+        if (!map[tid]) map[tid] = [];
+        if (!map[tid].some((x: any) => x.id === sub.id)) {
+          map[tid].push(sub);
+        }
+      });
+      setTestSubmissionsMap(map);
     });
 
     return () => {
@@ -977,6 +1024,115 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
                 )}
               </div>
 
+              {/* Student Submissions Section */}
+              {(() => {
+                const testSubs = (
+                  (testSubmissionsMap[t.id] || [])
+                    .concat(testSubmissionsMap[t.title] || [])
+                    .concat(testSubmissionsMap[t.id?.toLowerCase()] || [])
+                ).filter((item, index, self) => index === self.findIndex((s) => s.id === item.id));
+
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Student Submissions ({testSubs.length})</span>
+                      </span>
+                      {testSubs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAuditTest(t);
+                            setSelectedAuditStudentId(null);
+                          }}
+                          className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          View All &amp; Export →
+                        </button>
+                      )}
+                    </div>
+
+                    {testSubs.length === 0 ? (
+                      <div className="p-3 text-center rounded-xl bg-white/60 dark:bg-black/20 border border-slate-200/40 dark:border-white/5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          No students have submitted this assessment yet.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAuditTest(t);
+                            setSelectedAuditStudentId(null);
+                          }}
+                          className="mt-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <span>Open Proctoring &amp; Cheating Audit Console</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {testSubs.map((sub: any) => {
+                          const fullScreen = Number(sub.fullscreenExits || sub.fullScreenExitCount) || 0;
+                          const tabSwitches = Number(sub.tabSwitchCount) || 0;
+                          const pasteTries = Number(sub.copyPasteAttempts) || 0;
+                          const isFlagged = fullScreen > 0 || pasteTries > 0 || tabSwitches >= 2;
+                          const isClean = fullScreen === 0 && pasteTries === 0 && tabSwitches === 0;
+
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAuditTest(t);
+                                setSelectedAuditStudentId(sub.id);
+                              }}
+                              className="w-full text-left p-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/70 dark:border-white/5 hover:border-blue-500/40 hover:bg-blue-50/20 dark:hover:bg-blue-500/[0.04] transition flex items-center justify-between gap-2 group cursor-pointer"
+                              title="Click to view student code &amp; cheating audit log"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                    {sub.studentName || 'Student'}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-slate-400">
+                                    {sub.studentPrn || sub.prn}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                  <span>⏱️ {Math.floor((sub.timeTakenSeconds || 0) / 60)}m {(sub.timeTakenSeconds || 0) % 60}s</span>
+                                  <span>•</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                                    {sub.verdict === 'ACCEPTED' ? `${sub.academicScore || 20} Marks` : sub.verdict}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center gap-1.5">
+                                {isClean ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-500/30">
+                                    🛡️ 100% Clean
+                                  </span>
+                                ) : isFlagged ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 border border-rose-200/60 dark:border-rose-500/30">
+                                    🚨 Flagged ({fullScreen} FS, {pasteTries} Pastes)
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200/60 dark:border-amber-500/30">
+                                    ⚠️ {tabSwitches} Tabs
+                                  </span>
+                                )}
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition group-hover:translate-x-0.5" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Action Bar */}
               <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
                 <button
@@ -1002,12 +1158,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
 
                   <button
                     type="button"
-                    onClick={() =>
-                      toast.info(
-                        `Live Proctoring Stream for "${t.title}": Evaluation engine running.`
-                      )
-                    }
+                    onClick={() => {
+                      setSelectedAuditTest(t);
+                      setSelectedAuditStudentId(null);
+                    }}
                     className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                    title="Open live proctoring stream & cheating audit logs"
                   >
                     <Activity className="w-3.5 h-3.5" />
                     <span>Proctoring</span>
@@ -1520,6 +1676,20 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
             </form>
           </div>
         </div>
+      )}
+      {/* ========================================================================= */}
+      {/* 4. APPLE HIG MODAL: TEST SUBMISSIONS & ANTI-CHEAT AUDIT MODAL             */}
+      {/* ========================================================================= */}
+      {selectedAuditTest && (
+        <TestSubmissionsAuditModal
+          test={selectedAuditTest}
+          isOpen={Boolean(selectedAuditTest)}
+          onClose={() => {
+            setSelectedAuditTest(null);
+            setSelectedAuditStudentId(null);
+          }}
+          initialSelectedStudentId={selectedAuditStudentId}
+        />
       )}
     </div>
   );

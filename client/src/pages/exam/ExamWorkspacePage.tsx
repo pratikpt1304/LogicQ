@@ -78,6 +78,18 @@ export const ExamWorkspacePage: React.FC = () => {
   const [largestBurstChars, setLargestBurstChars] = useState<number>(0);
   const [activeSec, setActiveSec] = useState<number>(0);
 
+  const [proctorIncidentsLog, setProctorIncidentsLog] = useState<Array<{ timestamp: string; type: string; details: string; severity: 'INFO' | 'WARNING' | 'CRITICAL' }>>([]);
+
+  const addProctorIncident = useCallback((type: string, details: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'WARNING') => {
+    const item = {
+      timestamp: new Date().toLocaleTimeString(),
+      type,
+      details,
+      severity,
+    };
+    setProctorIncidentsLog((prev) => [item, ...prev].slice(0, 50));
+  }, []);
+
   const lastActivityRef = useRef<number>(Date.now());
   const focusLossStartRef = useRef<number | null>(null);
   const totalFocusLossMsRef = useRef<number>(0);
@@ -360,6 +372,7 @@ export const ExamWorkspacePage: React.FC = () => {
           sendTelemetryPing({ fullScreenExitCount: next });
           return next;
         });
+        addProctorIncident('FULLSCREEN_EXIT', 'Fullscreen perimeter violated: Student minimized or exited full-screen examination.', 'CRITICAL');
 
         const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
         FirestoreDataService.recordProctoringIncident(targetUser, {
@@ -387,6 +400,7 @@ export const ExamWorkspacePage: React.FC = () => {
         setTabSwitchCount((c) => {
           const next = c + 1;
           sendTelemetryPing({ tabSwitchCount: next });
+          addProctorIncident('TAB_SWITCH', `Tab switch #${next} detected: Exam window was hidden.`, 'WARNING');
           return next;
         });
         focusLossStartRef.current = Date.now();
@@ -441,10 +455,13 @@ export const ExamWorkspacePage: React.FC = () => {
     if (isLocked) return;
     if (actionName === 'copy' || actionName === 'paste') {
       setCopyPasteAttempts((c) => c + 1);
+      addProctorIncident('CLIPBOARD_BLOCKED', `Proctoring guard blocked ${actionName.toUpperCase()} attempt in code editor.`, 'WARNING');
     } else if (actionName === 'cut') {
       setCutAttempts((c) => c + 1);
+      addProctorIncident('CLIPBOARD_BLOCKED', 'Proctoring guard blocked CUT attempt in code editor.', 'WARNING');
     } else if (actionName === 'contextmenu') {
       setContextMenuAttempts((c) => c + 1);
+      addProctorIncident('CONTEXT_MENU', 'Right-click context menu blocked in code editor.', 'INFO');
     }
     toast.error(`Institutional Proctoring: ${actionName.toUpperCase()} is disabled during the assessment.`, {
       duration: 3000,
@@ -546,21 +563,37 @@ export const ExamWorkspacePage: React.FC = () => {
 
         // Record submission in Firestore and broadcast to all faculty & admin dashboards
         const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
-        FirestoreDataService.recordDailySubmission(uid, {
+        const subPayload = {
+          testId: assignmentId || 'UNIT',
+          assignmentId: assignmentId || 'UNIT',
+          testTitle: assignmentData?.title || 'UNIT',
+          userId: uid,
           problemId: problemId || assignmentId || 'exam-q1',
           problemTitle: problemData?.title || 'Continuous Internal Evaluation Question',
           problemSlug: problemId || assignmentId || 'exam-q1',
           difficulty: problemData?.difficulty || 'MEDIUM',
           code,
           verdict: res.verdict,
+          academicScore: res.academicScore ?? 1.0,
           timeTakenSeconds: elapsedSec,
           submissionType: 'ASSESSMENT',
           prn: user?.prn || '',
           studentPrn: user?.prn || '',
           email: user?.email || '',
           studentEmail: user?.email || '',
-          studentName: user?.fullName || user?.displayName || '',
-        }).catch(() => {});
+          studentName: user?.fullName || user?.displayName || 'Student',
+          tabSwitchCount,
+          copyPasteAttempts,
+          cutAttempts,
+          contextMenuAttempts,
+          fullscreenExits: fullScreenExitCount,
+          totalKeystrokes,
+          largestBurstChars,
+          incidents: proctorIncidentsLog,
+        };
+
+        FirestoreDataService.recordAssessmentSubmission(subPayload).catch(() => {});
+        FirestoreDataService.recordDailySubmission(uid, subPayload).catch(() => {});
         RealtimeSyncService.emit('SUBMISSIONS');
         RealtimeSyncService.emit('DASHBOARD');
         RealtimeSyncService.emit('TESTS');
