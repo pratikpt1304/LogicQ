@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { DraftSyncService, getDeviceLabel } from '../../services/draftSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { getStudentPersonalizedQuestions } from '../../utils/testQuestionDistributor.js';
 import { auth } from '../../config/firebase.js';
 import { Flag } from 'lucide-react';
 import {
@@ -123,14 +124,18 @@ export const ExamWorkspacePage: React.FC = () => {
 
   const questionSequence: string[] = React.useMemo(() => {
     if (assignmentData?.questions && Array.isArray(assignmentData.questions) && assignmentData.questions.length > 0) {
-      return assignmentData.questions.map((q: any) => {
+      const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
+      const count = assignmentData.questionCount || assignmentData.questions.length;
+      const personalized = getStudentPersonalizedQuestions(assignmentData.questions, count, studentIdentifier);
+      const safePersonalized = Array.isArray(personalized) && personalized.length > 0 ? personalized : assignmentData.questions;
+      return safePersonalized.map((q: any) => {
         if (typeof q === 'string') return q;
         return q.problemId || q.id || q.problem?.id || q.problem?.slug || '';
       }).filter(Boolean);
     }
     // Fallback sequence from bank
     return ['q-s1-01', 'q-s2-01', 'q-s3-01', 'q-s4-01'];
-  }, [assignmentData]);
+  }, [assignmentData, user]);
 
   const currentQuestionIndex = questionSequence.findIndex((qid) => qid === problemId);
   const nextProblemId = (currentQuestionIndex !== -1 && currentQuestionIndex + 1 < questionSequence.length)

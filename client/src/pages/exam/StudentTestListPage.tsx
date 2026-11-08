@@ -414,12 +414,13 @@ export const StudentTestListPage: React.FC = () => {
 
             const completedCountOnTest = attempts.filter((a: any) => a?.isLocked).length;
 
-            const nextUnsolvedIndex = safeQuestions.findIndex(
-              (q: any) => !attempts.some((a: any) => a?.problemId === q?.problemId && a?.isLocked)
-            );
+            const nextUnsolvedIndex = safeQuestions.findIndex((q: any) => {
+              const qId = q?.problemId || q?.id;
+              return !attempts.some((a: any) => (a?.problemId === qId || a?.id === qId) && a?.isLocked);
+            });
             const targetQuestion = nextUnsolvedIndex !== -1 ? safeQuestions[nextUnsolvedIndex] : (safeQuestions[0] || null);
-            const firstProblemId = safeQuestions[0]?.problemId || targetQuestion?.problemId || 'q1';
-            const resumeProblemId = targetQuestion?.problemId || firstProblemId;
+            const firstProblemId = safeQuestions[0]?.problemId || safeQuestions[0]?.id || targetQuestion?.problemId || targetQuestion?.id || 'q1';
+            const resumeProblemId = targetQuestion?.problemId || targetQuestion?.id || firstProblemId;
 
             return (
               <div
@@ -515,14 +516,15 @@ export const StudentTestListPage: React.FC = () => {
                     {safeQuestions.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 justify-start sm:justify-end">
                         {safeQuestions.map((q: any, idx: number) => {
-                          const attempt = attempts.find((a: any) => a?.problemId === q?.problemId);
+                          const qId = q?.problemId || q?.id || `q${idx + 1}`;
+                          const attempt = attempts.find((a: any) => a?.problemId === qId || a?.id === qId);
                           const isLocked = attempt?.isLocked;
                           const score = attempt?.academicScore;
 
                           return (
                             <Link
-                              key={q?.id || q?.problemId || idx}
-                              to={`/exam/${assignment.id}/${q?.problemId || 'q' + (idx + 1)}`}
+                              key={qId || idx}
+                              to={`/exam/${assignment.id}/${qId}`}
                               className={`px-3 py-1 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1 border ${
                                 isLocked
                                   ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
