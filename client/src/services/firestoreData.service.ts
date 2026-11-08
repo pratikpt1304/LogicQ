@@ -4517,7 +4517,9 @@ export class FirestoreDataService {
       if (snap.empty) {
         try {
           const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
-          return local ? JSON.parse(local) : [];
+          if (!local) return [];
+          const parsed = JSON.parse(local);
+          return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.tests) ? parsed.tests : []);
         } catch {
           return [];
         }
@@ -4532,7 +4534,9 @@ export class FirestoreDataService {
       console.warn('Failed to fetch assessment tests from Firestore, using local fallback:', err);
       try {
         const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
-        return local ? JSON.parse(local) : [];
+        if (!local) return [];
+        const parsed = JSON.parse(local);
+        return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.tests) ? parsed.tests : []);
       } catch {
         return [];
       }

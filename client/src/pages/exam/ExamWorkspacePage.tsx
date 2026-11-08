@@ -81,6 +81,51 @@ export const ExamWorkspacePage: React.FC = () => {
   const totalFocusLossMsRef = useRef<number>(0);
   const previousCodeLenRef = useRef<number>(0);
 
+  // Fetch test details to get full question sequence for auto-advancing
+  const { data: assignmentData } = useQuery({
+    queryKey: ['exam-assignment-questions', assignmentId],
+    queryFn: async () => {
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        const current = cloudTests.find((t: any) => t.id === assignmentId || t.testId === assignmentId);
+        if (current) return current;
+      } catch {}
+      try {
+        return await api.get(`/exam/assignment/${assignmentId}`);
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(assignmentId),
+    staleTime: 60000,
+  });
+
+  const questionSequence: string[] = React.useMemo(() => {
+    if (assignmentData?.questions && Array.isArray(assignmentData.questions) && assignmentData.questions.length > 0) {
+      return assignmentData.questions.map((q: any) => {
+        if (typeof q === 'string') return q;
+        return q.problemId || q.id || q.problem?.id || q.problem?.slug || '';
+      }).filter(Boolean);
+    }
+    // Fallback sequence from bank
+    return ['q-s1-01', 'q-s2-01', 'q-s3-01', 'q-s4-01'];
+  }, [assignmentData]);
+
+  const currentQuestionIndex = questionSequence.findIndex((qid) => qid === problemId);
+  const nextProblemId = (currentQuestionIndex !== -1 && currentQuestionIndex + 1 < questionSequence.length)
+    ? questionSequence[currentQuestionIndex + 1]
+    : null;
+
+  // Clean state reset when moving between questions
+  useEffect(() => {
+    setCode('');
+    setTestResults([]);
+    setIsLocked(false);
+    setAcademicScore(null);
+    setElapsedSec(0);
+    setStartedAt(null);
+  }, [assignmentId, problemId]);
+
   // 1. Start or resume question attempt (Single authoritative query with zero race condition)
   const { data: startData, isLoading, error, refetch } = useQuery({
     queryKey: ['start-exam-question', assignmentId, problemId],
@@ -348,11 +393,12 @@ export const ExamWorkspacePage: React.FC = () => {
       setTestResults(res.testResults || []);
       setActiveBottomTab('output');
       setIsDrawerOpen(true);
-      const allPassed = res.testResults?.every((t: any) => t.passed);
+      const allPassed = res.testResults?.length > 0 && res.testResults.every((t: any) => t.passed);
       if (allPassed) {
-        toast.success('Both visible test cases passed! Proceed to Final Submit when ready.');
+        toast.success('All visible test cases passed! Auto-submitting solution...');
+        submitMutation.mutate();
       } else {
-        toast.info('Visible test cases evaluated. Check output panel for mismatches.');
+        toast.info('Execution completed. Some test cases failed. Please check output panel.');
       }
     },
     onError: (err: any) => {
@@ -391,7 +437,6 @@ export const ExamWorkspacePage: React.FC = () => {
         try { localStorage.removeItem(draftKey); } catch {}
         setAcademicScore(res.academicScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-        toast.success(`ACCEPTED! Score: ${res.academicScore} Mark. Question is now permanently locked.`);
 
         // Record submission in Firestore and broadcast to all faculty & admin dashboards
         const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
@@ -413,6 +458,23 @@ export const ExamWorkspacePage: React.FC = () => {
         RealtimeSyncService.emit('SUBMISSIONS');
         RealtimeSyncService.emit('DASHBOARD');
         RealtimeSyncService.emit('TESTS');
+
+        // Automatic Next Question Navigation
+        if (nextProblemId) {
+          toast.success(`Accepted! Score: ${res.academicScore ?? 1.0} Mark awarded. Advancing to next question...`, {
+            duration: 3500,
+          });
+          setTimeout(() => {
+            navigate(`/exam/${assignmentId}/${nextProblemId}`);
+          }, 1500);
+        } else {
+          toast.success('Final Question Accepted! Assessment Complete!', {
+            duration: 4000,
+          });
+          setTimeout(() => {
+            navigate('/student/tests');
+          }, 2000);
+        }
 
         // Section 29: Trigger AI Viva Verification if returned by engine
         if (res.vivaTriggered && res.vivaId) {
@@ -570,10 +632,9 @@ export const ExamWorkspacePage: React.FC = () => {
             <span className="hidden sm:inline">Raise Issue</span>
           </button>
 
-          {/* Fullscreen Status Pill */}
+          {/* Question Counter Pill */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-bold">
-            <Maximize2 className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Proctored Fullscreen</span>
+            <span>Q{currentQuestionIndex >= 0 ? currentQuestionIndex + 1 : 1} of {questionSequence.length}</span>
           </div>
         </div>
       </header>
@@ -587,12 +648,22 @@ export const ExamWorkspacePage: React.FC = () => {
               <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.
             </span>
           </div>
-          <Link
-            to="/student/tests"
-            className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
-          >
-            Return to Tests Overview →
-          </Link>
+          <div className="flex items-center gap-2">
+            {nextProblemId && (
+              <Link
+                to={`/exam/${assignmentId}/${nextProblemId}`}
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm flex items-center gap-1.5"
+              >
+                <span>Next Question →</span>
+              </Link>
+            )}
+            <Link
+              to="/student/tests"
+              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
+            >
+              Return to Tests Overview →
+            </Link>
+          </div>
         </div>
       )}
 
@@ -851,13 +922,18 @@ export const ExamWorkspacePage: React.FC = () => {
                     setActiveMobileTab('editor');
                     runMutation.mutate();
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
-                  title="Run Visible Tests (Ctrl + Enter)"
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono font-bold text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
+                  title="Run Visible Tests & Auto-Submit on Pass (Ctrl + Enter)"
                 >
-                  {runMutation.isPending ? (
+                  {submitMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Running...</span>
+                      <span>Auto-Submitting...</span>
+                    </>
+                  ) : runMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Running Tests...</span>
                     </>
                   ) : (
                     <>
@@ -869,32 +945,9 @@ export const ExamWorkspacePage: React.FC = () => {
 
                 <button
                   type="button"
-                  disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                  onClick={() => {
-                    setActiveMobileTab('editor');
-                    submitMutation.mutate();
-                  }}
-                  className="flex items-center gap-1.5 px-3.5 py-1 text-xs font-mono font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
-                  title="Final Submit Solution"
-                >
-                  {submitMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Evaluating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Submit</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2.5 py-1 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 border border-slate-300 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-200/80 border border-slate-300 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
                 >
                   <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />

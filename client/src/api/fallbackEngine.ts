@@ -3591,13 +3591,14 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   if (path === '/exam/my-tests' && method === 'GET') {
     let tests: any[] = [];
     try {
-      tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+      const parsed = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
+      tests = Array.isArray(parsed) ? parsed : [];
     } catch {}
 
     if (tests.length === 0) {
       try {
         const firestoreTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        if (firestoreTests && firestoreTests.length > 0) {
+        if (Array.isArray(firestoreTests) && firestoreTests.length > 0) {
           tests = firestoreTests.map((t: any) => ({
             id: t.id,
             title: t.title,
@@ -3645,8 +3646,9 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     const studentIdentifier = currentUser?.prn || (currentUser as any)?.rollNo || currentUser?.id || currentUser?.email || '1001';
     const studentSection = (currentUser as any)?.sectionName || (currentUser as any)?.enrolledSection || (currentUser as any)?.section;
 
+    const safeTests = Array.isArray(tests) ? tests : [];
     // Filter tests by student section if targeted (matching case-insensitively or 'All')
-    const eligibleTests = tests.filter((t: any) => {
+    const eligibleTests = safeTests.filter((t: any) => {
       const target = (t.sectionTarget || t.sectionId || t.section?.sectionName || '').trim().toLowerCase();
       if (!target || target === 'all' || target === 'all sections') return true;
       if (!studentSection) return true;

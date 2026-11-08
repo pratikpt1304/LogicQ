@@ -398,15 +398,16 @@ export const DashboardPage: React.FC = () => {
         console.warn('API /exam/my-tests fetch notice:', err);
       }
 
-      if (cloudTests && cloudTests.length > 0) {
+      const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
+      if (safeCloudTests.length > 0) {
         return {
           success: true,
           data: {
-            active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
-            upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
-            completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+            active: safeCloudTests.filter((t: any) => t?.status === 'ACTIVE' || t?.status === 'PUBLISHED'),
+            upcoming: safeCloudTests.filter((t: any) => t?.status === 'UPCOMING'),
+            completed: safeCloudTests.filter((t: any) => t?.status === 'COMPLETED'),
           },
-          tests: cloudTests,
+          tests: safeCloudTests,
         };
       }
       return { success: true, data: { active: [], upcoming: [], completed: [] }, tests: [] };
@@ -1886,11 +1887,11 @@ export const DashboardPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {studentAssignedList.map((assignment: any) => {
                       const test = assignment?.test || {};
-                      const questions = test?.questions || [];
-                      const attempts = assignment?.attempts || [];
+                      const questions = Array.isArray(test?.questions) ? test.questions : [];
+                      const attempts = Array.isArray(assignment?.attempts) ? assignment.attempts : [];
                       const isSubmitted = assignment?.status === 'SUBMITTED';
                       const isInProgress = assignment?.status === 'IN_PROGRESS';
-                      const completedCount = attempts.filter((a: any) => a.isLocked).length;
+                      const completedCount = attempts.filter((a: any) => a?.isLocked).length;
 
                       return (
                         <div

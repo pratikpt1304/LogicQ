@@ -62,15 +62,16 @@ export const StudentTestListPage: React.FC = () => {
         }
       } catch {}
 
-      if (cloudTests && cloudTests.length > 0) {
+      const safeCloudTests = Array.isArray(cloudTests) ? cloudTests : [];
+      if (safeCloudTests.length > 0) {
         return {
           success: true,
           data: {
-            active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
-            upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
-            completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+            active: safeCloudTests.filter((t: any) => t?.status === 'ACTIVE' || t?.status === 'PUBLISHED'),
+            upcoming: safeCloudTests.filter((t: any) => t?.status === 'UPCOMING'),
+            completed: safeCloudTests.filter((t: any) => t?.status === 'COMPLETED'),
           },
-          tests: cloudTests,
+          tests: safeCloudTests,
         };
       }
       return {
@@ -180,19 +181,20 @@ export const StudentTestListPage: React.FC = () => {
     return [];
   }, [data]);
 
-  const totalAssigned = assignments.length;
-  const pendingCount = Array.isArray(assignments) ? assignments.filter((a: any) => a?.status !== 'SUBMITTED').length : 0;
-  const completedCount = Array.isArray(assignments) ? assignments.filter((a: any) => a?.status === 'SUBMITTED').length : 0;
+  const safeAssignments: any[] = Array.isArray(assignments) ? assignments : [];
+  const totalAssigned = safeAssignments.length;
+  const pendingCount = safeAssignments.filter((a: any) => a?.status !== 'SUBMITTED').length;
+  const completedCount = safeAssignments.filter((a: any) => a?.status === 'SUBMITTED').length;
 
   const enrolledSections = Array.from(
     new Set(
-      assignments
+      safeAssignments
         .map((a: any) => a?.test?.section?.sectionName || a?.sectionName)
         .filter(Boolean)
     )
   );
 
-  const filteredAssignments = assignments.filter((a: any) => {
+  const filteredAssignments = safeAssignments.filter((a: any) => {
     if (filterTab === 'PENDING') return a?.status !== 'SUBMITTED';
     if (filterTab === 'COMPLETED') return a?.status === 'SUBMITTED';
     return true;
@@ -397,25 +399,26 @@ export const StudentTestListPage: React.FC = () => {
         {/* ========================================================= */}
         <div className="space-y-4">
           {filteredAssignments.map((assignment: any) => {
-            const test = assignment.test || assignment || {};
-            const rawQuestions = test?.questions || [];
+            const test = assignment?.test || assignment || {};
+            const rawQuestions = Array.isArray(test?.questions) ? test.questions : [];
             const studentIdentifier = user?.prn || (user as any)?.rollNo || user?.id || user?.email || '1001';
             const questions = getStudentPersonalizedQuestions(
               rawQuestions,
               test?.questionCount || 2,
               studentIdentifier
             );
-            const attempts = Array.isArray(assignment.attempts) ? assignment.attempts : [];
-            const isSubmitted = assignment.status === 'SUBMITTED';
-            const isInProgress = assignment.status === 'IN_PROGRESS';
+            const safeQuestions = Array.isArray(questions) ? questions : [];
+            const attempts = Array.isArray(assignment?.attempts) ? assignment.attempts : [];
+            const isSubmitted = assignment?.status === 'SUBMITTED';
+            const isInProgress = assignment?.status === 'IN_PROGRESS';
 
             const completedCountOnTest = attempts.filter((a: any) => a?.isLocked).length;
 
-            const nextUnsolvedIndex = questions.findIndex(
+            const nextUnsolvedIndex = safeQuestions.findIndex(
               (q: any) => !attempts.some((a: any) => a?.problemId === q?.problemId && a?.isLocked)
             );
-            const targetQuestion = nextUnsolvedIndex !== -1 ? questions[nextUnsolvedIndex] : (questions[0] || null);
-            const firstProblemId = questions[0]?.problemId || targetQuestion?.problemId || 'q1';
+            const targetQuestion = nextUnsolvedIndex !== -1 ? safeQuestions[nextUnsolvedIndex] : (safeQuestions[0] || null);
+            const firstProblemId = safeQuestions[0]?.problemId || targetQuestion?.problemId || 'q1';
             const resumeProblemId = targetQuestion?.problemId || firstProblemId;
 
             return (
@@ -470,11 +473,11 @@ export const StudentTestListPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5" />
-                        <span>{questions.length} Questions</span>
+                        <span>{safeQuestions.length} Questions</span>
                       </div>
                       {isSubmitted && assignment.academicScore != null && (
                         <div className="flex items-center gap-1 font-bold text-emerald-500">
-                          <span>Score: {assignment.academicScore.toFixed(1)} / {questions.length} Marks</span>
+                          <span>Score: {assignment.academicScore.toFixed(1)} / {safeQuestions.length} Marks</span>
                         </div>
                       )}
                     </div>
@@ -509,9 +512,9 @@ export const StudentTestListPage: React.FC = () => {
                     )}
 
                     {/* Question Jump Pills */}
-                    {questions.length > 0 && (
+                    {safeQuestions.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 justify-start sm:justify-end">
-                        {questions.map((q: any, idx: number) => {
+                        {safeQuestions.map((q: any, idx: number) => {
                           const attempt = attempts.find((a: any) => a?.problemId === q?.problemId);
                           const isLocked = attempt?.isLocked;
                           const score = attempt?.academicScore;
