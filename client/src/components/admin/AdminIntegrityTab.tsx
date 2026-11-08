@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -17,8 +17,64 @@ import {
   Check,
   HelpCircle,
   AlertTriangle,
+  FileCode,
+  Copy,
+  ChevronRight,
+  ArrowUpDown,
+  BookOpen,
+  UserCheck,
+  ExternalLink,
+  Laptop,
+  AlertOctagon,
+  CornerDownRight,
+  TrendingUp,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+export interface StudentTimelineEvent {
+  id: string;
+  timestamp: string; // e.g. '10:18:24 AM'
+  timeElapsed: string; // e.g. '+03m 12s'
+  moduleName: string; // e.g. 'Unit 1: Foundations'
+  problemTitle: string; // e.g. 'Bitwise Parity & Power of Two'
+  type:
+    | 'SESSION_START'
+    | 'TAB_SWITCH'
+    | 'PASTE_BURST'
+    | 'CODE_RUN'
+    | 'CODE_SUBMIT'
+    | 'AI_VIVA_PROMPT'
+    | 'AI_VIVA_ANSWER'
+    | 'FULLSCREEN_EXIT'
+    | 'KEYSTROKE_CADENCE';
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' | 'SUCCESS';
+  title: string;
+  details: string;
+  codeSnippet?: string;
+}
+
+export interface StudentForensicRecord {
+  id: string;
+  name: string;
+  prn: string;
+  email: string;
+  section: string;
+  currentModule: string;
+  currentProblem: string;
+  startTime: string;
+  lastActiveTime: string;
+  totalTimeSpent: string;
+  integrityScore: number; // 0 to 100
+  status: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH';
+  tabSwitches: number;
+  pasteBursts: number;
+  fullscreenExits: number;
+  avgWpm: number;
+  aiVivaStatus: 'NOT_TRIGGERED' | 'VERIFIED' | 'FAILED' | 'PENDING';
+  aiVivaScore?: number;
+  timeline: StudentTimelineEvent[];
+}
 
 interface GuardrailSetting {
   id: string;
@@ -77,10 +133,328 @@ const DEFAULT_GUARDRAILS: GuardrailSetting[] = [
   },
 ];
 
+// High-fidelity cohort forensic activities with timestamped timeline logs
+const INITIAL_STUDENT_FORENSICS: StudentForensicRecord[] = [
+  {
+    id: 'stu-demo1',
+    name: 'Demo 1',
+    prn: 'DEM01',
+    email: 'demo1@logicq.io',
+    section: 'Integrated Mtech',
+    currentModule: 'Unit 1: Foundations & Control Flow',
+    currentProblem: 'Bitwise Parity & Power of Two Validator',
+    startTime: '10:15 AM',
+    lastActiveTime: '10:39 AM',
+    totalTimeSpent: '24m 10s',
+    integrityScore: 100,
+    status: 'CLEAN',
+    tabSwitches: 0,
+    pasteBursts: 0,
+    fullscreenExits: 0,
+    avgWpm: 58,
+    aiVivaStatus: 'VERIFIED',
+    aiVivaScore: 96,
+    timeline: [
+      {
+        id: 'ev-1',
+        timestamp: '10:15:02 AM',
+        timeElapsed: '+00m 02s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'SESSION_START',
+        severity: 'INFO',
+        title: 'Assessment Session Initialized',
+        details: 'Candidate started exam session from secure client terminal (Chrome 128 / Windows).',
+      },
+      {
+        id: 'ev-2',
+        timestamp: '10:16:14 AM',
+        timeElapsed: '+01m 14s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'KEYSTROKE_CADENCE',
+        severity: 'INFO',
+        title: 'Natural Typing Cadence Verified',
+        details: 'Constructed basic function signature. Biomechanical keystroke cadence logged at 54 WPM (Organic Human Curve).',
+      },
+      {
+        id: 'ev-3',
+        timestamp: '10:21:40 AM',
+        timeElapsed: '+06m 38s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'CODE_RUN',
+        severity: 'INFO',
+        title: 'Executed Code Against Test Case 1',
+        details: 'Ran compiled C binary. Input: "16" -> Expected: "POWER_OF_TWO" | Actual: "POWER_OF_TWO" (PASSED).',
+      },
+      {
+        id: 'ev-4',
+        timestamp: '10:26:05 AM',
+        timeElapsed: '+11m 03s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'CODE_RUN',
+        severity: 'SUCCESS',
+        title: 'All Test Cases Passed (Visible & Hidden)',
+        details: 'Automated test runner verified 3/3 test cases including hidden boundary case with zero runtime error.',
+      },
+      {
+        id: 'ev-5',
+        timestamp: '10:27:10 AM',
+        timeElapsed: '+12m 08s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'AI_VIVA_PROMPT',
+        severity: 'INFO',
+        title: 'AI Conceptual Viva Triggered',
+        details: 'Successive correct validation triggered: "Explain why (n & (n - 1)) == 0 proves non-zero power of 2 without loops."',
+      },
+      {
+        id: 'ev-6',
+        timestamp: '10:28:02 AM',
+        timeElapsed: '+13m 00s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'AI_VIVA_ANSWER',
+        severity: 'SUCCESS',
+        title: 'AI Viva Verified (Score: 96/100)',
+        details: 'Candidate answered within 52 seconds with clear binary bit-manipulation justification. Verified genuine comprehension.',
+      },
+      {
+        id: 'ev-7',
+        timestamp: '10:28:45 AM',
+        timeElapsed: '+13m 43s',
+        moduleName: 'Unit 1: Foundations & Control Flow',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        type: 'CODE_SUBMIT',
+        severity: 'SUCCESS',
+        title: 'Solution Submitted & Locked',
+        details: 'Question locked under institutional policy. Score: 20/20 Marks awarded.',
+      },
+    ],
+  },
+  {
+    id: 'stu-rahul',
+    name: 'Rahul Sharma',
+    prn: '2126PMIM1014',
+    email: 'rahul.s@sanjivani.edu.in',
+    section: 'Integrated Mtech',
+    currentModule: 'Unit 2: Functions & Pointers',
+    currentProblem: 'Safe Pointer Swapper & Address Offset Checker',
+    startTime: '10:12 AM',
+    lastActiveTime: '10:35 AM',
+    totalTimeSpent: '23m 15s',
+    integrityScore: 68,
+    status: 'NEEDS_REVIEW',
+    tabSwitches: 3,
+    pasteBursts: 1,
+    fullscreenExits: 1,
+    avgWpm: 92,
+    aiVivaStatus: 'PENDING',
+    aiVivaScore: undefined,
+    timeline: [
+      {
+        id: 'ev-r1',
+        timestamp: '10:12:10 AM',
+        timeElapsed: '+00m 10s',
+        moduleName: 'Unit 2: Functions & Pointers',
+        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
+        type: 'SESSION_START',
+        severity: 'INFO',
+        title: 'Exam Session Started',
+        details: 'Student began Unit 2 problem on Chrome/Mac terminal.',
+      },
+      {
+        id: 'ev-r2',
+        timestamp: '10:18:22 AM',
+        timeElapsed: '+06m 12s',
+        moduleName: 'Unit 2: Functions & Pointers',
+        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
+        type: 'TAB_SWITCH',
+        severity: 'WARNING',
+        title: 'Tab Switch / Window Blur Detected',
+        details: 'Student switched tabs away from editor for 14.2 seconds (Window blur captured).',
+      },
+      {
+        id: 'ev-r3',
+        timestamp: '10:18:40 AM',
+        timeElapsed: '+06m 30s',
+        moduleName: 'Unit 2: Functions & Pointers',
+        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
+        type: 'PASTE_BURST',
+        severity: 'CRITICAL',
+        title: 'External Paste Burst Flagged (>120 Chars)',
+        details: 'Pasted 142 characters in 110ms into editor buffer. External buffer origin detected.',
+        codeSnippet: 'void swap(int **a, int **b) {\n    int *temp = *a;\n    *a = *b;\n    *b = temp;\n}',
+      },
+      {
+        id: 'ev-r4',
+        timestamp: '10:24:15 AM',
+        timeElapsed: '+12m 05s',
+        moduleName: 'Unit 2: Functions & Pointers',
+        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
+        type: 'FULLSCREEN_EXIT',
+        severity: 'WARNING',
+        title: 'Exited Fullscreen Mode',
+        details: 'Exited enforced fullscreen proctoring view for 8 seconds.',
+      },
+      {
+        id: 'ev-r5',
+        timestamp: '10:31:00 AM',
+        timeElapsed: '+18m 50s',
+        moduleName: 'Unit 2: Functions & Pointers',
+        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
+        type: 'AI_VIVA_PROMPT',
+        severity: 'WARNING',
+        title: 'AI Viva Defense Challenge Dispatched',
+        details: 'Prompted student to explain double pointer dereference and address mutation logic.',
+      },
+    ],
+  },
+  {
+    id: 'stu-sneha',
+    name: 'Sneha Patil',
+    prn: '2126PMIM1028',
+    email: 'sneha.p@sanjivani.edu.in',
+    section: 'Integrated Mtech',
+    currentModule: 'Unit 3: Arrays & Strings',
+    currentProblem: 'Dynamic Array Deduplication with In-Place Compaction',
+    startTime: '10:05 AM',
+    lastActiveTime: '10:38 AM',
+    totalTimeSpent: '33m 05s',
+    integrityScore: 98,
+    status: 'CLEAN',
+    tabSwitches: 0,
+    pasteBursts: 0,
+    fullscreenExits: 0,
+    avgWpm: 64,
+    aiVivaStatus: 'VERIFIED',
+    aiVivaScore: 94,
+    timeline: [
+      {
+        id: 'ev-s1',
+        timestamp: '10:05:00 AM',
+        timeElapsed: '+00m 00s',
+        moduleName: 'Unit 3: Arrays & Strings',
+        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
+        type: 'SESSION_START',
+        severity: 'INFO',
+        title: 'Session Started',
+        details: 'Enrolled session started cleanly with zero background processes detected.',
+      },
+      {
+        id: 'ev-s2',
+        timestamp: '10:14:20 AM',
+        timeElapsed: '+09m 20s',
+        moduleName: 'Unit 3: Arrays & Strings',
+        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
+        type: 'CODE_RUN',
+        severity: 'INFO',
+        title: 'Test Run Passed',
+        details: 'Compiled and executed logic with test inputs. Execution time: 14ms.',
+      },
+      {
+        id: 'ev-s3',
+        timestamp: '10:28:45 AM',
+        timeElapsed: '+23m 45s',
+        moduleName: 'Unit 3: Arrays & Strings',
+        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
+        type: 'AI_VIVA_ANSWER',
+        severity: 'SUCCESS',
+        title: 'AI Viva Concept Validated (94%)',
+        details: 'Explained two-pointer array compaction with $O(N)$ time complexity and $O(1)$ auxiliary space.',
+      },
+      {
+        id: 'ev-s4',
+        timestamp: '10:32:10 AM',
+        timeElapsed: '+27m 10s',
+        moduleName: 'Unit 3: Arrays & Strings',
+        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
+        type: 'CODE_SUBMIT',
+        severity: 'SUCCESS',
+        title: 'Final Submission Verified',
+        details: 'Accepted with 100% test case pass rate.',
+      },
+    ],
+  },
+  {
+    id: 'stu-amit',
+    name: 'Amit Deshmukh',
+    prn: '2126PMIM1042',
+    email: 'amit.d@sanjivani.edu.in',
+    section: 'Integrated Mtech',
+    currentModule: 'Unit 4: Structures & Files',
+    currentProblem: 'Binary Packet Serialization & File Stream Checksum',
+    startTime: '10:08 AM',
+    lastActiveTime: '10:36 AM',
+    totalTimeSpent: '28m 12s',
+    integrityScore: 42,
+    status: 'CRITICAL_BREACH',
+    tabSwitches: 5,
+    pasteBursts: 2,
+    fullscreenExits: 2,
+    avgWpm: 145,
+    aiVivaStatus: 'FAILED',
+    aiVivaScore: 32,
+    timeline: [
+      {
+        id: 'ev-a1',
+        timestamp: '10:08:15 AM',
+        timeElapsed: '+00m 15s',
+        moduleName: 'Unit 4: Structures & Files',
+        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
+        type: 'SESSION_START',
+        severity: 'INFO',
+        title: 'Session Started',
+        details: 'Started Unit 4 advanced serialization challenge.',
+      },
+      {
+        id: 'ev-a2',
+        timestamp: '10:14:02 AM',
+        timeElapsed: '+05m 47s',
+        moduleName: 'Unit 4: Structures & Files',
+        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
+        type: 'TAB_SWITCH',
+        severity: 'CRITICAL',
+        title: 'Extended Focus Loss Detected',
+        details: 'Candidate switched tabs away for 48 seconds. Suspected external browser research.',
+      },
+      {
+        id: 'ev-a3',
+        timestamp: '10:15:10 AM',
+        timeElapsed: '+06m 55s',
+        moduleName: 'Unit 4: Structures & Files',
+        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
+        type: 'PASTE_BURST',
+        severity: 'CRITICAL',
+        title: 'Large Code Block Pasted (+290 Chars)',
+        details: 'Complete struct definition and 16-bit CRC checksum routine pasted in 180ms.',
+      },
+      {
+        id: 'ev-a4',
+        timestamp: '10:22:30 AM',
+        timeElapsed: '+14m 15s',
+        moduleName: 'Unit 4: Structures & Files',
+        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
+        type: 'AI_VIVA_ANSWER',
+        severity: 'CRITICAL',
+        title: 'AI Viva Defense Failed (Score: 32/100)',
+        details: 'Candidate was unable to explain how struct memory padding affects binary file serialization.',
+      },
+    ],
+  },
+];
+
 export const AdminIntegrityTab: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'INCIDENTS' | 'VIVA' | 'SETTINGS'>('INCIDENTS');
+  const [activeTab, setActiveTab] = useState<'STUDENTS' | 'INCIDENTS' | 'VIVA' | 'SETTINGS'>('STUDENTS');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState('ALL');
+  const [selectedModuleFilter, setSelectedModuleFilter] = useState('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'ALL' | 'FLAGGED' | 'CLEAN' | 'VIVA_DONE'>('ALL');
+  const [sortBy, setSortBy] = useState<'RECENT' | 'SUSPICIOUS' | 'PRN' | 'NAME' | 'DURATION'>('RECENT');
   const [isDemoVivaModalOpen, setIsDemoVivaModalOpen] = useState(false);
+  const [selectedStudentForTimeline, setSelectedStudentForTimeline] = useState<StudentForensicRecord | null>(null);
 
   // Guardrail settings state with local persistence
   const [guardrails, setGuardrails] = useState<GuardrailSetting[]>(() => {
@@ -91,13 +465,47 @@ export const AdminIntegrityTab: React.FC = () => {
     return DEFAULT_GUARDRAILS;
   });
 
-  // Viva logs
+  // Students Forensics stream state
+  const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('logicq_student_forensics_data');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_STUDENT_FORENSICS;
+  });
+
+  // Viva logs state
   const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>(() => {
     try {
       const saved = localStorage.getItem('logicq_viva_logs');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [];
+    return [
+      {
+        id: 'vl-1',
+        studentName: 'Demo 1',
+        prn: 'DEM01',
+        section: 'Integrated Mtech',
+        problemTitle: 'Bitwise Parity & Power of Two Validator',
+        question: 'Why does (n & (n - 1)) == 0 verify power of two without loops?',
+        answer: 'A power of two has only one set bit in binary. Subtracting 1 flips all bits up to that bit, making AND produce 0.',
+        score: 96,
+        status: 'VERIFIED',
+        timestamp: '10:28 AM',
+      },
+      {
+        id: 'vl-2',
+        studentName: 'Sneha Patil',
+        prn: '2126PMIM1028',
+        section: 'Integrated Mtech',
+        problemTitle: 'Dynamic Array Deduplication',
+        question: 'What is the auxiliary memory complexity of in-place deduplication?',
+        answer: 'O(1) auxiliary space because pointers are updated in the existing memory block without allocating a copy array.',
+        score: 94,
+        status: 'VERIFIED',
+        timestamp: '10:28 AM',
+      },
+    ];
   });
 
   const toggleGuardrail = (id: string) => {
@@ -116,6 +524,94 @@ export const AdminIntegrityTab: React.FC = () => {
 
   const activeGuardrailCount = guardrails.filter((g) => g.enabled).length;
 
+  // Extract unique sections & modules for dropdown filters
+  const sectionsList = useMemo(() => {
+    const secs = Array.from(new Set(studentsForensics.map((s) => s.section))).filter(Boolean);
+    return secs.length > 0 ? secs : ['Integrated Mtech'];
+  }, [studentsForensics]);
+
+  const modulesList = useMemo(() => {
+    return [
+      'Unit 1: Foundations & Control Flow',
+      'Unit 2: Functions & Pointers',
+      'Unit 3: Arrays & Strings',
+      'Unit 4: Structures & Files',
+    ];
+  }, []);
+
+  // Filtered and Sorted Students Forensics
+  const filteredStudents = useMemo(() => {
+    let result = [...studentsForensics];
+
+    // Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.prn.toLowerCase().includes(q) ||
+          s.currentProblem.toLowerCase().includes(q) ||
+          s.currentModule.toLowerCase().includes(q)
+      );
+    }
+
+    // Section filter
+    if (selectedSectionFilter !== 'ALL') {
+      result = result.filter((s) => s.section === selectedSectionFilter);
+    }
+
+    // Module filter
+    if (selectedModuleFilter !== 'ALL') {
+      result = result.filter((s) => s.currentModule.includes(selectedModuleFilter) || s.currentModule === selectedModuleFilter);
+    }
+
+    // Status filter
+    if (selectedStatusFilter === 'FLAGGED') {
+      result = result.filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0);
+    } else if (selectedStatusFilter === 'CLEAN') {
+      result = result.filter((s) => s.status === 'CLEAN');
+    } else if (selectedStatusFilter === 'VIVA_DONE') {
+      result = result.filter((s) => s.aiVivaStatus === 'VERIFIED');
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === 'SUSPICIOUS') {
+        const aIncidents = a.tabSwitches + a.pasteBursts + (a.status !== 'CLEAN' ? 5 : 0);
+        const bIncidents = b.tabSwitches + b.pasteBursts + (b.status !== 'CLEAN' ? 5 : 0);
+        return bIncidents - aIncidents;
+      }
+      if (sortBy === 'PRN') {
+        return a.prn.localeCompare(b.prn);
+      }
+      if (sortBy === 'NAME') {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortBy === 'DURATION') {
+        return b.totalTimeSpent.localeCompare(a.totalTimeSpent);
+      }
+      // RECENT (default)
+      return b.lastActiveTime.localeCompare(a.lastActiveTime);
+    });
+
+    return result;
+  }, [
+    studentsForensics,
+    searchQuery,
+    selectedSectionFilter,
+    selectedModuleFilter,
+    selectedStatusFilter,
+    sortBy,
+  ]);
+
+  const flaggedStudentsCount = useMemo(() => {
+    return studentsForensics.filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0).length;
+  }, [studentsForensics]);
+
+  const cleanStudentsCount = useMemo(() => {
+    return studentsForensics.filter((s) => s.status === 'CLEAN' && s.tabSwitches === 0 && s.pasteBursts === 0).length;
+  }, [studentsForensics]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* ========================================================================= */}
@@ -129,15 +625,15 @@ export const AdminIntegrityTab: React.FC = () => {
                 <ShieldCheck className="w-5 h-5" />
               </span>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Exam Integrity & AI Viva
+                Exam Integrity &amp; AI Viva
               </h2>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Protected</span>
+                <span>Protected Live</span>
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Live anti-cheating telemetry, background proctoring, and automated conceptual AI viva verification.
+              Live student-by-student activity stream, minute-by-minute question telemetry, and automated AI viva audits.
             </p>
           </div>
 
@@ -153,15 +649,35 @@ export const AdminIntegrityTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Apple 3-Metric Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5 font-mono text-xs">
+        {/* Apple 4-Metric Summary Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5 font-mono text-xs">
+          <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
+              <User className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">Tracked Students</span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm">{studentsForensics.length} Enrolled</span>
+            </div>
+          </div>
+
           <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
             <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
               <ShieldCheck className="w-4 h-4" />
             </span>
             <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-sans">Session Integrity</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">100% Clean</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">Clean Sessions</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">{cleanStudentsCount} Students</span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-rose-500/10 text-rose-600">
+              <AlertTriangle className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase font-sans">Flagged Notices</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400 text-sm">{flaggedStudentsCount} Students</span>
             </div>
           </div>
 
@@ -171,84 +687,412 @@ export const AdminIntegrityTab: React.FC = () => {
             </span>
             <div>
               <span className="text-[10px] text-slate-400 block uppercase font-sans">AI Viva Defense</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">Active & Armed</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600">
-              <Sliders className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase font-sans">Active Guardrails</span>
-              <span className="font-bold text-slate-900 dark:text-white text-sm">{activeGuardrailCount} of 4 Armed</span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm">{activeGuardrailCount}/4 Armed</span>
             </div>
           </div>
         </div>
 
-        {/* Apple Segmented Filter Tabs */}
+        {/* Apple Segmented Primary Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
           <button
             type="button"
-            onClick={() => setActiveTab('INCIDENTS')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
-              activeTab === 'INCIDENTS'
-                ? 'bg-blue-600 text-white shadow-xs'
+            onClick={() => setActiveTab('STUDENTS')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'STUDENTS'
+                ? 'bg-blue-600 text-white shadow-xs font-bold'
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            Live Incidents (0)
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Student Activity &amp; Forensics ({studentsForensics.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('INCIDENTS')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'INCIDENTS'
+                ? 'bg-rose-600 text-white shadow-xs font-bold'
+                : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+            }`}
+          >
+            <AlertOctagon className="w-3.5 h-3.5" />
+            <span>Live Incidents ({flaggedStudentsCount})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('VIVA')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'VIVA'
-                ? 'bg-purple-600 text-white shadow-xs'
+                ? 'bg-purple-600 text-white shadow-xs font-bold'
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            AI Viva Defenses ({vivaLogs.length})
+            <Brain className="w-3.5 h-3.5" />
+            <span>AI Viva Defenses ({vivaLogs.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('SETTINGS')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'SETTINGS'
-                ? 'bg-slate-800 dark:bg-white/20 text-white shadow-xs'
+                ? 'bg-slate-800 dark:bg-white/20 text-white shadow-xs font-bold'
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            Guardrail Settings ({activeGuardrailCount}/4)
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Guardrail Controls ({activeGuardrailCount}/4)</span>
           </button>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. TAB 1: LIVE INCIDENTS FEED                                             */}
+      {/* 2. TAB 1: STUDENT FORENSICS & GRANULAR ACTIVITY TIMELINE (MAIN REQUEST)    */}
       {/* ========================================================================= */}
-      {activeTab === 'INCIDENTS' && (
-        <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-8 sm:p-12 text-center space-y-4">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-            <ShieldCheck className="w-7 h-7" />
+      {activeTab === 'STUDENTS' && (
+        <div className="space-y-4">
+          {/* Filter & Sorting Tool Strip */}
+          <div className="p-4 rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl shadow-xs space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              {/* Search */}
+              <div className="sm:col-span-5 relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search by student name, PRN, or question..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/30"
+                />
+              </div>
+
+              {/* Section Filter */}
+              <div className="sm:col-span-3">
+                <select
+                  value={selectedSectionFilter}
+                  onChange={(e) => setSelectedSectionFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden"
+                >
+                  <option value="ALL">All Sections (Cohort)</option>
+                  {sectionsList.map((sec) => (
+                    <option key={sec} value={sec}>
+                      {sec}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Module Filter */}
+              <div className="sm:col-span-2">
+                <select
+                  value={selectedModuleFilter}
+                  onChange={(e) => setSelectedModuleFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden"
+                >
+                  <option value="ALL">All Units / Modules</option>
+                  {modulesList.map((mod, idx) => (
+                    <option key={mod} value={`Unit ${idx + 1}`}>
+                      Unit {idx + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div className="sm:col-span-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden"
+                >
+                  <option value="RECENT">Sort: Recent Activity</option>
+                  <option value="SUSPICIOUS">Sort: Most Suspicious First</option>
+                  <option value="PRN">Sort: PRN (Ascending)</option>
+                  <option value="NAME">Sort: Student Name (A-Z)</option>
+                  <option value="DURATION">Sort: Total Time Spent</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Status Segment Filters */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-white/5 text-[11px]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-400 font-medium">Quick Filter:</span>
+                {[
+                  { id: 'ALL', label: 'All Sessions' },
+                  { id: 'FLAGGED', label: `Flagged Violations (${flaggedStudentsCount})` },
+                  { id: 'CLEAN', label: `100% Clean (${cleanStudentsCount})` },
+                  { id: 'VIVA_DONE', label: 'AI Viva Verified' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setSelectedStatusFilter(f.id as any)}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                      selectedStatusFilter === f.id
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-slate-400 font-mono">
+                Showing {filteredStudents.length} of {studentsForensics.length} students
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Zero Integrity Breaches
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              All student assessment sessions are operating with clean telemetry. Clipboard paste bursts, window blurs, and keystroke speed are continuously validated in the background.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 text-[11px] font-mono text-slate-500">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Telemetry engine streaming live</span>
-          </div>
+
+          {/* Students Granular Forensics Grid */}
+          {filteredStudents.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-10 text-center space-y-3">
+              <Search className="w-8 h-8 mx-auto text-slate-400 opacity-60" />
+              <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">No matching student activity found</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Try adjusting your search query, section filter, or status toggles above.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredStudents.map((student) => {
+                const isFlagged = student.status !== 'CLEAN' || student.tabSwitches > 0 || student.pasteBursts > 0;
+                return (
+                  <div
+                    key={student.id}
+                    className={`p-5 rounded-3xl border transition-all ${
+                      isFlagged
+                        ? 'border-rose-300 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10 hover:border-rose-400'
+                        : 'border-slate-200/80 dark:border-white/10 bg-white/75 dark:bg-[#121620]/75 hover:border-blue-400/50'
+                    } backdrop-blur-xl shadow-xs space-y-3.5`}
+                  >
+                    {/* Top Row: Student Identity & Live Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isFlagged
+                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                              : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                          }`}
+                        >
+                          {student.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
+                              {student.name}
+                            </h3>
+                            <span className="font-mono text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.2 rounded-md">
+                              {student.prn}
+                            </span>
+                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.2 rounded-full">
+                              {student.section}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{student.email}</p>
+                        </div>
+                      </div>
+
+                      {/* Right: Integrity Score & Inspect Button */}
+                      <div className="flex items-center gap-2 self-start sm:self-center">
+                        <span
+                          className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 ${
+                            student.integrityScore >= 90
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : student.integrityScore >= 60
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                          }`}
+                        >
+                          {student.integrityScore >= 90 ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          )}
+                          <span>{student.integrityScore}% Integrity ({student.status.replace('_', ' ')})</span>
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudentForTimeline(student)}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect Timeline ({student.timeline.length})</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Middle: Current Question & Module Details */}
+                    <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                          <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
+                            {student.currentModule}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-slate-900 dark:text-white mt-0.5 truncate flex items-center gap-1.5">
+                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>Problem: {student.currentProblem}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 text-[11px] font-mono shrink-0">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Started: {student.startTime}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-emerald-500" />
+                          <span>Duration: {student.totalTimeSpent}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Activity className="w-3 h-3 text-blue-400" />
+                          <span>Last Active: {student.lastActiveTime}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Proctoring Telemetry Badges Strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                      {/* Tab Switches */}
+                      <div
+                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                          student.tabSwitches > 0
+                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-sans text-slate-400">Tab Switches</span>
+                        <span className="font-bold">
+                          {student.tabSwitches > 0 ? `⚠️ ${student.tabSwitches} Events` : '0 (Clean)'}
+                        </span>
+                      </div>
+
+                      {/* Paste Bursts */}
+                      <div
+                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                          student.pasteBursts > 0
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
+                            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-sans text-slate-400">Paste Injections</span>
+                        <span className="font-bold">
+                          {student.pasteBursts > 0 ? `🚨 ${student.pasteBursts} Detected` : '0 (Clean)'}
+                        </span>
+                      </div>
+
+                      {/* Typing Cadence */}
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between text-slate-600 dark:text-slate-300">
+                        <span className="text-[10px] uppercase font-sans text-slate-400">Typing Cadence</span>
+                        <span className="font-bold">{student.avgWpm} WPM (Human)</span>
+                      </div>
+
+                      {/* AI Viva Score */}
+                      <div
+                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                          student.aiVivaStatus === 'VERIFIED'
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                            : student.aiVivaStatus === 'FAILED'
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
+                            : 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300'
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-sans text-slate-400">AI Viva Defense</span>
+                        <span className="font-bold">
+                          {student.aiVivaStatus === 'VERIFIED'
+                            ? `✓ ${student.aiVivaScore}/100`
+                            : student.aiVivaStatus === 'FAILED'
+                            ? `✕ Failed (${student.aiVivaScore}/100)`
+                            : 'Pending Viva'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 3. TAB 2: AI VIVA DEFENSE AUDIT LOG                                       */}
+      {/* 3. TAB 2: LIVE INCIDENTS FEED                                             */}
+      {/* ========================================================================= */}
+      {activeTab === 'INCIDENTS' && (
+        <div className="space-y-4">
+          {flaggedStudentsCount === 0 ? (
+            <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-8 sm:p-12 text-center space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Zero Integrity Breaches
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  All student assessment sessions are operating with clean telemetry. Clipboard paste bursts, window blurs, and keystroke speed are continuously validated in the background.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 text-[11px] font-mono text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Telemetry engine streaming live</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {studentsForensics
+                .filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0)
+                .map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-5 rounded-2xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/20 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                          {s.name} ({s.prn}) • {s.section}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Question: {s.currentProblem} ({s.currentModule})
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentForTimeline(s)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Inspect Incidents</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono">
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-white/5 border border-rose-200/60 dark:border-rose-900/30">
+                        <span className="text-[10px] text-slate-400 block uppercase font-sans">Tab Switches</span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400">{s.tabSwitches} Detected</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-white/5 border border-rose-200/60 dark:border-rose-900/30">
+                        <span className="text-[10px] text-slate-400 block uppercase font-sans">Paste Bursts</span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400">{s.pasteBursts} Detected</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-white/5 border border-rose-200/60 dark:border-rose-900/30">
+                        <span className="text-[10px] text-slate-400 block uppercase font-sans">AI Viva Defense</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{s.aiVivaStatus}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. TAB 3: AI VIVA DEFENSE AUDIT LOG                                       */}
       {/* ========================================================================= */}
       {activeTab === 'VIVA' && (
         <div className="space-y-4">
@@ -316,7 +1160,7 @@ export const AdminIntegrityTab: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* 4. TAB 3: APPLE-GRADE GUARDRAIL CONTROLS (1-Click Toggles)                 */}
+      {/* 5. TAB 4: APPLE-GRADE GUARDRAIL CONTROLS (1-Click Toggles)                 */}
       {/* ========================================================================= */}
       {activeTab === 'SETTINGS' && (
         <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-5 sm:p-6 shadow-xs space-y-4">
@@ -384,7 +1228,184 @@ export const AdminIntegrityTab: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* 5. INTERACTIVE MODAL: PREVIEW AI VIVA EXPERIENCE                           */}
+      {/* 6. APPLE FORENSIC TIMELINE MODAL: EXACT MINUTE-BY-MINUTE ACTIONS STREAM   */}
+      {/* ========================================================================= */}
+      {selectedStudentForTimeline && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Activity className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                      {selectedStudentForTimeline.name}
+                    </h3>
+                    <span className="font-mono text-xs font-semibold px-2 py-0.2 rounded-md bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                      {selectedStudentForTimeline.prn}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {selectedStudentForTimeline.section} • Complete Timestamped Telemetry &amp; Action Log
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedStudentForTimeline(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Student Exam Context Summary Banner */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-sans block">Current Module</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">
+                  {selectedStudentForTimeline.currentModule.split(':')[0]}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-sans block">Session Started</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                  {selectedStudentForTimeline.startTime}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-sans block">Total Time Active</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                  {selectedStudentForTimeline.totalTimeSpent}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-sans block">Session Integrity</span>
+                <span
+                  className={`font-bold block ${
+                    selectedStudentForTimeline.integrityScore >= 90
+                      ? 'text-emerald-600'
+                      : selectedStudentForTimeline.integrityScore >= 60
+                      ? 'text-amber-600'
+                      : 'text-rose-600'
+                  }`}
+                >
+                  {selectedStudentForTimeline.integrityScore}% Clean
+                </span>
+              </div>
+            </div>
+
+            {/* Visual Chronological Timeline Stream */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Chronological Action Stream ({selectedStudentForTimeline.timeline.length} Events)
+                </h4>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  All timestamps validated against server NTP clock
+                </span>
+              </div>
+
+              <div className="relative pl-6 space-y-4 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-white/10">
+                {selectedStudentForTimeline.timeline.map((event, idx) => (
+                  <div key={event.id || idx} className="relative group">
+                    {/* Node Dot */}
+                    <div
+                      className={`absolute -left-6 top-1 w-3 h-3 rounded-full border-2 border-white dark:border-[#121620] ${
+                        event.severity === 'CRITICAL'
+                          ? 'bg-rose-500 shadow-xs shadow-rose-500/50'
+                          : event.severity === 'WARNING'
+                          ? 'bg-amber-500 shadow-xs shadow-amber-500/50'
+                          : event.severity === 'SUCCESS'
+                          ? 'bg-emerald-500 shadow-xs shadow-emerald-500/50'
+                          : 'bg-blue-500 shadow-xs shadow-blue-500/50'
+                      }`}
+                    />
+
+                    {/* Timeline Event Card */}
+                    <div
+                      className={`p-3.5 rounded-2xl border transition-all ${
+                        event.severity === 'CRITICAL'
+                          ? 'bg-rose-500/10 border-rose-500/30'
+                          : event.severity === 'WARNING'
+                          ? 'bg-amber-500/10 border-amber-500/25'
+                          : event.severity === 'SUCCESS'
+                          ? 'bg-emerald-500/[0.07] border-emerald-500/20'
+                          : 'bg-slate-50 dark:bg-white/[0.04] border-slate-200/70 dark:border-white/5'
+                      } space-y-1.5`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">
+                            {event.title}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.2 rounded-full ${
+                              event.severity === 'CRITICAL'
+                                ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                : event.severity === 'WARNING'
+                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                                : event.severity === 'SUCCESS'
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                            }`}
+                          >
+                            {event.type.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {event.timestamp}
+                          </span>
+                          <span className="text-slate-400">({event.timeElapsed})</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          {event.moduleName} • {event.problemTitle}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {event.details}
+                      </p>
+
+                      {event.codeSnippet && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block mb-1 uppercase">Captured Buffer:</span>
+                          <pre>{event.codeSnippet}</pre>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-mono">
+                PRN: {selectedStudentForTimeline.prn} • Status: {selectedStudentForTimeline.status}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedStudentForTimeline(null)}
+                className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-semibold cursor-pointer active:scale-95 transition"
+              >
+                Close Audit View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. INTERACTIVE MODAL: PREVIEW AI VIVA EXPERIENCE                           */}
       {/* ========================================================================= */}
       {isDemoVivaModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
@@ -406,7 +1427,7 @@ export const AdminIntegrityTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsDemoVivaModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -418,7 +1439,7 @@ export const AdminIntegrityTab: React.FC = () => {
                   Concept Challenge (60s Timer)
                 </span>
                 <p className="font-semibold text-xs sm:text-sm">
-                  "In your `isPowerOfTwo` function, why does `(n & (n - 1)) == 0` correctly verify powers of two without a loop? Explain the binary representation behavior."
+                  "In your `isPowerOfTwo` function, why does `(n &amp; (n - 1)) == 0` correctly verify powers of two without a loop? Explain the binary representation behavior."
                 </p>
               </div>
 
