@@ -375,7 +375,7 @@ export const DashboardPage: React.FC = () => {
   const [dashboardJoinCode, setDashboardJoinCode] = useState('');
   const [isEnrollingCode, setIsEnrollingCode] = useState(false);
 
-  // 1. Student Assigned Tests (Live 30s auto-refresh)
+  // 1. Student Assigned Tests (Live auto-refresh & Firestore Real-Time)
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
     enabled: Boolean(user && isStudent),
@@ -383,10 +383,27 @@ export const DashboardPage: React.FC = () => {
     queryFn: async () => {
       try {
         const res = await api.get('/exam/my-tests');
-        return res?.data || res?.assignments || [];
-      } catch {
-        return [];
+        if (res?.data || res?.assignments || res?.tests) {
+          return res;
+        }
+      } catch (err) {
+        console.warn('API /exam/my-tests fetch notice:', err);
       }
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        if (cloudTests && cloudTests.length > 0) {
+          return {
+            success: true,
+            data: {
+              active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
+              upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
+              completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+            },
+            tests: cloudTests,
+          };
+        }
+      } catch {}
+      return { success: true, data: { active: [], upcoming: [], completed: [] }, tests: [] };
     },
     refetchInterval: 30000,
   });
@@ -548,12 +565,17 @@ export const DashboardPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firestore-users'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     });
+    const unsubCloudTests = FirestoreDataService.listenToAssessmentTests(() => {
+      queryClient.invalidateQueries({ queryKey: ['student-assigned-tests'] });
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+    });
     return () => {
       unsubDashboard();
       unsubTests();
       unsubSections();
       unsubSubmissions();
       unsubUsers();
+      unsubCloudTests();
     };
   }, [queryClient]);
 
@@ -610,7 +632,38 @@ export const DashboardPage: React.FC = () => {
   const testsList: any[] = Array.isArray(facultyTests) ? facultyTests : [];
   const submissionsList: any[] = Array.isArray(recentSubmissions) ? recentSubmissions : [];
 
-  const studentAssignedList: any[] = Array.isArray(studentTests) ? studentTests : [];
+  const studentAssignedList: any[] = React.useMemo(() => {
+    if (!studentTests) return [];
+    if (Array.isArray(studentTests)) return studentTests;
+    if (Array.isArray((studentTests as any).data)) return (studentTests as any).data;
+    if (Array.isArray((studentTests as any).assignments)) return (studentTests as any).assignments;
+    if (Array.isArray((studentTests as any).tests)) {
+      return (studentTests as any).tests.map((t: any) => ({
+        id: t.id,
+        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+        test: t.test || t,
+        attempts: t.attempts || [],
+      }));
+    }
+    if (typeof studentTests === 'object') {
+      const targetObj = ((studentTests as any).data && typeof (studentTests as any).data === 'object' && !Array.isArray((studentTests as any).data))
+        ? (studentTests as any).data
+        : studentTests;
+      const active = Array.isArray(targetObj.active) ? targetObj.active : [];
+      const upcoming = Array.isArray(targetObj.upcoming) ? targetObj.upcoming : [];
+      const completed = Array.isArray(targetObj.completed) ? targetObj.completed : [];
+      const combined = [...active, ...upcoming, ...completed];
+      if (combined.length > 0) {
+        return combined.map((t: any) => ({
+          id: t.id || `assign-${t.id}`,
+          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+          test: t.test || t,
+          attempts: t.attempts || [],
+        }));
+      }
+    }
+    return [];
+  }, [studentTests]);
   const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => {
     const list = getSolvedPracticeTopicIds(user?.id);
     if (user?.prn) {

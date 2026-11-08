@@ -39,19 +39,38 @@ export const StudentTestListPage: React.FC = () => {
     queryFn: async () => {
       try {
         const res = await api.get('/exam/my-tests');
-        return res;
+        if (res && (res.data || res.assignments || res.tests)) {
+          const hasTests = Array.isArray(res.tests) ? res.tests.length > 0
+            : (res.data && typeof res.data === 'object' && (res.data.active?.length || res.data.upcoming?.length))
+            || (Array.isArray(res.data) && res.data.length > 0);
+          if (hasTests) return res;
+        }
       } catch (err: any) {
         console.warn('Backend /exam/my-tests notice, falling back gracefully:', err);
-        try {
-          const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
-          if (fallback) return fallback;
-        } catch {}
-        return {
-          success: true,
-          data: { active: [], upcoming: [], completed: [] },
-          tests: [],
-        };
       }
+      try {
+        const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
+        if (fallback) return fallback;
+      } catch {}
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        if (cloudTests && cloudTests.length > 0) {
+          return {
+            success: true,
+            data: {
+              active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
+              upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
+              completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+            },
+            tests: cloudTests,
+          };
+        }
+      } catch {}
+      return {
+        success: true,
+        data: { active: [], upcoming: [], completed: [] },
+        tests: [],
+      };
     },
     staleTime: 30000,
     refetchOnWindowFocus: false,
@@ -65,9 +84,13 @@ export const StudentTestListPage: React.FC = () => {
     const unsubSections = RealtimeSyncService.on('SECTIONS', () => {
       queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
     });
+    const unsubCloudTests = FirestoreDataService.listenToAssessmentTests(() => {
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-tests'] });
+    });
     return () => {
       unsubTests();
       unsubSections();
+      unsubCloudTests();
     };
   }, [queryClient]);
 
@@ -125,22 +148,27 @@ export const StudentTestListPage: React.FC = () => {
       return data.tests.map((t: any) => ({
         id: t.id || `assign-${t.id}`,
         status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-        test: t,
+        test: t.test || t,
         attempts: t.attempts || [],
       }));
     }
     if (Array.isArray(data.assignments)) return data.assignments;
-    if (data.data && typeof data.data === 'object') {
-      const active = Array.isArray(data.data.active) ? data.data.active : [];
-      const upcoming = Array.isArray(data.data.upcoming) ? data.data.upcoming : [];
-      const completed = Array.isArray(data.data.completed) ? data.data.completed : [];
+    const targetObj = (data.data && typeof data.data === 'object' && !Array.isArray(data.data))
+      ? data.data
+      : (typeof data === 'object' ? data : null);
+    if (targetObj) {
+      const active = Array.isArray(targetObj.active) ? targetObj.active : [];
+      const upcoming = Array.isArray(targetObj.upcoming) ? targetObj.upcoming : [];
+      const completed = Array.isArray(targetObj.completed) ? targetObj.completed : [];
       const all = [...active, ...upcoming, ...completed];
-      return all.map((t: any) => ({
-        id: t.id || `assign-${t.id}`,
-        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-        test: t.test || t,
-        attempts: t.attempts || [],
-      }));
+      if (all.length > 0) {
+        return all.map((t: any) => ({
+          id: t.id || `assign-${t.id}`,
+          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+          test: t.test || t,
+          attempts: t.attempts || [],
+        }));
+      }
     }
     return [];
   }, [data]);

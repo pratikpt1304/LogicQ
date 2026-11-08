@@ -3594,11 +3594,70 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
       tests = JSON.parse(localStorage.getItem(TESTS_KEY) || '[]');
     } catch {}
 
+    if (tests.length === 0) {
+      try {
+        const firestoreTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        if (firestoreTests && firestoreTests.length > 0) {
+          tests = firestoreTests.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            sectionId: t.sectionTarget || t.sectionId || 'All',
+            sectionTarget: t.sectionTarget || t.sectionId || 'All',
+            section: { sectionName: t.sectionTarget || t.sectionId || 'All' },
+            moduleId: t.unitTarget === 'ALL' ? 'All Units - Comprehensive' : `Unit ${t.unitTarget || 1}`,
+            durationMinutes: Number(t.durationMinutes) || 60,
+            totalMarks: Number(t.totalMarks) || 20,
+            status: t.status === 'ACTIVE' ? 'PUBLISHED' : t.status,
+            questionCount: t.questionCount || 2,
+            antiCheatingRotation: t.antiCheatingRotation ?? true,
+            randomiseQuestions: t.antiCheatingRotation ?? true,
+            questions: (t.questions || []).map((q: any, idx: number) => ({
+              id: `tq_${t.id}_${idx}`,
+              testId: t.id,
+              problemId: q.id,
+              orderIndex: idx,
+              points: Math.round((t.totalMarks || 20) / Math.max(1, Number(t.questionCount) || 2)),
+              problem: {
+                id: q.id,
+                title: q.title,
+                difficulty: q.difficulty,
+                description: q.description,
+                starterCode: q.starterCode,
+                solutionCode: q.solutionCode,
+                testCases: [
+                  { input: q.visibleTestCase1?.input || '', expectedOutput: q.visibleTestCase1?.output || '', isHidden: false },
+                  { input: q.visibleTestCase2?.input || '', expectedOutput: q.visibleTestCase2?.output || '', isHidden: false },
+                  { input: q.hiddenTestCase?.input || '', expectedOutput: q.hiddenTestCase?.output || '', isHidden: true },
+                ],
+              },
+            })),
+            _count: { questions: (t.questions || []).length },
+            lockOnSubmit: t.lockOnSubmit ?? true,
+            createdAt: t.createdAt || new Date().toISOString(),
+          }));
+        }
+      } catch (err) {
+        console.warn('Error loading assessment tests from Firestore fallback:', err);
+      }
+    }
+
     const currentUser = getCurrentUser();
     const studentIdentifier = currentUser?.prn || (currentUser as any)?.rollNo || currentUser?.id || currentUser?.email || '1001';
+    const studentSection = (currentUser as any)?.sectionName || (currentUser as any)?.enrolledSection || (currentUser as any)?.section;
+
+    // Filter tests by student section if targeted (matching case-insensitively or 'All')
+    const eligibleTests = tests.filter((t: any) => {
+      const target = (t.sectionTarget || t.sectionId || t.section?.sectionName || '').trim().toLowerCase();
+      if (!target || target === 'all' || target === 'all sections') return true;
+      if (!studentSection) return true;
+      const sec = String(studentSection).trim().toLowerCase();
+      return target === sec || target.includes(sec) || sec.includes(target);
+    });
+
+    const activePool = eligibleTests.length > 0 ? eligibleTests : tests;
 
     // Anti-Cheating: Return rotated personalized questions for current student
-    const personalizedTests = tests.map((t: any) => {
+    const personalizedTests = activePool.map((t: any) => {
       const rawPool = t.questions || [];
       const perStudent = t.questionCount || 2;
       const studentQuestions = getStudentPersonalizedQuestions(rawPool, perStudent, studentIdentifier);
@@ -3612,9 +3671,9 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     return {
       success: true,
       data: {
-        active: personalizedTests.filter((t: any) => t.status === 'PUBLISHED'),
-        upcoming: [],
-        completed: [],
+        active: personalizedTests.filter((t: any) => t.status === 'PUBLISHED' || t.status === 'ACTIVE'),
+        upcoming: personalizedTests.filter((t: any) => t.status === 'UPCOMING'),
+        completed: personalizedTests.filter((t: any) => t.status === 'COMPLETED'),
       },
       tests: personalizedTests,
     };
@@ -3991,6 +4050,28 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
         }
       }
     } catch {}
+
+    // 1b. Search in Firestore assessment tests (cross-device sync)
+    if (!foundProb) {
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        for (const t of cloudTests) {
+          if (t.questions && Array.isArray(t.questions)) {
+            const matched = t.questions.find(
+              (q: any) =>
+                q.problemId === problemId ||
+                q.id === problemId ||
+                q.problem?.id === problemId ||
+                q.problem?.slug === problemId
+            );
+            if (matched) {
+              foundProb = matched.problem || matched;
+              break;
+            }
+          }
+        }
+      } catch {}
+    }
 
     // 2. Search in Question Bank
     if (!foundProb) {

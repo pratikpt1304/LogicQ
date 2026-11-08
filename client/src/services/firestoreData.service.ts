@@ -4507,4 +4507,100 @@ export class FirestoreDataService {
       // Non-blocking silent catch: presence ping should never impact user experience
     }
   }
+
+  /**
+   * Timed Assessment Tests Architecture (cross-device Firestore primary)
+   */
+  public static async getAssessmentTestsFromFirestore(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'assessment_tests'));
+      if (snap.empty) {
+        try {
+          const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
+          return local ? JSON.parse(local) : [];
+        } catch {
+          return [];
+        }
+      }
+      const tests: any[] = [];
+      snap.forEach((docSnap) => {
+        const d = docSnap.data();
+        tests.push({ ...d, id: docSnap.id });
+      });
+      return tests;
+    } catch (err) {
+      console.warn('Failed to fetch assessment tests from Firestore, using local fallback:', err);
+      try {
+        const local = localStorage.getItem('logicq_admin_tests') || localStorage.getItem('logicq_assessment_tests_backup_v1');
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  public static async saveAssessmentTestToFirestore(test: any): Promise<void> {
+    if (!test || !test.id) return;
+    try {
+      const cleanTest: Record<string, any> = {
+        id: String(test.id),
+        title: String(test.title || 'Assessment Test'),
+        sectionTarget: String(test.sectionTarget || test.sectionId || 'All'),
+        sectionId: String(test.sectionId || test.sectionTarget || 'All'),
+        status: String(test.status || 'ACTIVE'),
+        durationMinutes: Number(test.durationMinutes) || 60,
+        totalMarks: Number(test.totalMarks) || 20,
+        antiCheatingRotation: Boolean(test.antiCheatingRotation ?? true),
+        randomiseQuestions: Boolean(test.randomiseQuestions ?? true),
+        lockOnSubmit: Boolean(test.lockOnSubmit ?? true),
+        selectionMode: String(test.selectionMode || 'UNITS'),
+        difficultyProfile: String(test.difficultyProfile || 'BALANCED'),
+        questionCount: test.questionCount ?? 2,
+        questions: Array.isArray(test.questions) ? test.questions : [],
+        unitTarget: test.unitTarget ?? 'ALL',
+        createdAt: test.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      if (test.section) cleanTest.section = test.section;
+      if (test.moduleId) cleanTest.moduleId = String(test.moduleId);
+      if (test._count) cleanTest._count = test._count;
+      if (test.activeStudents !== undefined) cleanTest.activeStudents = Number(test.activeStudents) || 0;
+      if (test.totalEnrolled !== undefined) cleanTest.totalEnrolled = Number(test.totalEnrolled) || 0;
+      if (test.suspiciousEvents !== undefined) cleanTest.suspiciousEvents = Number(test.suspiciousEvents) || 0;
+
+      await setDoc(doc(db, 'assessment_tests', test.id), cleanTest, { merge: true });
+    } catch (err) {
+      console.warn('Error saving assessment test to Firestore:', err);
+    }
+  }
+
+  public static async deleteAssessmentTestFromFirestore(testId: string): Promise<void> {
+    if (!testId) return;
+    try {
+      await deleteDoc(doc(db, 'assessment_tests', testId));
+    } catch (err) {
+      console.warn('Error deleting assessment test from Firestore:', err);
+    }
+  }
+
+  public static listenToAssessmentTests(callback: (tests: any[]) => void): () => void {
+    try {
+      const q = collection(db, 'assessment_tests');
+      return onSnapshot(
+        q,
+        (snap) => {
+          const tests: any[] = [];
+          snap.forEach((docSnap) => {
+            tests.push({ ...docSnap.data(), id: docSnap.id });
+          });
+          callback(tests);
+        },
+        (err) => {
+          console.warn('Live assessment tests listener error:', err);
+        }
+      );
+    } catch {
+      return () => {};
+    }
+  }
 }

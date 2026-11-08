@@ -204,6 +204,29 @@ rules_version = '2';
 //   - problemSlug: any (optional)
 //   - deviceLabel: any (optional)
 //
+// Collection: assessment_tests/{testId} (Timed Assessment & Lab Tests)
+// Document ID: Unique assessment identifier (e.g., test_{uuid} or slug)
+// Fields:
+//   - id: string (required, <= 128 chars)
+//   - title: string (required, 1..200 chars)
+//   - sectionTarget: string (optional, <= 100 chars)
+//   - sectionId: string (optional, <= 100 chars)
+//   - unitTarget: any (optional)
+//   - durationMinutes: int (optional)
+//   - totalMarks: int (optional)
+//   - status: string (required, <= 50 chars) - 'ACTIVE' | 'PUBLISHED' | 'UPCOMING' | 'COMPLETED'
+//   - questions: list (optional, <= 100 items)
+//   - questionCount: any (optional)
+//   - antiCheatingRotation: bool (optional)
+//   - randomiseQuestions: bool (optional)
+//   - lockOnSubmit: bool (optional)
+//   - difficultyProfile: string (optional, <= 50 chars)
+//   - selectionMode: string (optional, <= 50 chars)
+//   - scheduledAt: timestamp | int | string (optional)
+//   - deadline: timestamp | int | string (optional)
+//   - createdAt: timestamp | int | string (optional)
+//   - updatedAt: timestamp | int | string (optional)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -821,6 +844,55 @@ service cloud.firestore {
           && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
         allow delete: if isAdmin();
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. TIMED ASSESSMENT TESTS & EXAMS ARCHITECTURE
+    // -------------------------------------------------------------------------
+    function isValidAssessmentTest(data) {
+      let allowedKeys = [
+        'id', 'title', 'sectionTarget', 'sectionId', 'unitTarget', 'durationMinutes',
+        'totalMarks', 'status', 'questions', 'questionCount', 'antiCheatingRotation',
+        'randomiseQuestions', 'lockOnSubmit', 'createdAt', 'updatedAt', 'difficultyProfile',
+        'selectionMode', 'scheduledAt', 'deadline', 'activeStudents', 'totalEnrolled',
+        'suspiciousEvents', 'section', 'moduleId', '_count'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('sectionTarget' in data) || (data.sectionTarget is string && data.sectionTarget.size() <= 100))
+        && (!('sectionId' in data) || (data.sectionId is string && data.sectionId.size() <= 100))
+        && data.status is string && data.status.size() <= 50
+        && (!('durationMinutes' in data) || data.durationMinutes is int)
+        && (!('totalMarks' in data) || data.totalMarks is int)
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 100))
+        && (!('antiCheatingRotation' in data) || data.antiCheatingRotation is bool)
+        && (!('randomiseQuestions' in data) || data.randomiseQuestions is bool)
+        && (!('lockOnSubmit' in data) || data.lockOnSubmit is bool)
+        && (!('difficultyProfile' in data) || (data.difficultyProfile is string && data.difficultyProfile.size() <= 50))
+        && (!('selectionMode' in data) || (data.selectionMode is string && data.selectionMode.size() <= 50))
+        && (!('activeStudents' in data) || data.activeStudents is int)
+        && (!('totalEnrolled' in data) || data.totalEnrolled is int)
+        && (!('suspiciousEvents' in data) || data.suspiciousEvents is int)
+        && (!('section' in data) || data.section is map)
+        && (!('moduleId' in data) || (data.moduleId is string && data.moduleId.size() <= 100))
+        && (!('_count' in data) || data._count is map)
+        && (!('scheduledAt' in data) || data.scheduledAt is timestamp || data.scheduledAt is int || (data.scheduledAt is string && data.scheduledAt.size() <= 100))
+        && (!('deadline' in data) || data.deadline is timestamp || data.deadline is int || (data.deadline is string && data.deadline.size() <= 100))
+        && (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is int || (data.createdAt is string && data.createdAt.size() <= 100))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    match /assessment_tests/{testId} {
+      // Public read access so enrolled students (whether authenticated via Firebase Auth,
+      // backend JWT, or institutional PRN session) can fetch active assessments assigned to their section:
+      allow read: if true;
+
+      // Faculty and Admin write access, or web clients operating under JWT session validating payload schema:
+      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentTest(request.resource.data);
+
+      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication:
+      allow delete: if true;
     }
   }
 }

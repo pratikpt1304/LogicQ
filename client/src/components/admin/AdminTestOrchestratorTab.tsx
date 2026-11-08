@@ -28,6 +28,7 @@ import {
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
+import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
 export interface AdminTestDefinition {
   id: string;
@@ -138,6 +139,57 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     } catch {}
     return [];
   });
+
+  // Bi-directional live sync with Firestore assessment_tests collection
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+        let localTests: AdminTestDefinition[] = [];
+        try {
+          const raw = localStorage.getItem('logicq_admin_tests');
+          if (raw) localTests = JSON.parse(raw);
+        } catch {}
+
+        // If local has tests not yet in Firestore (e.g. previously created UNIT test), push to Firestore
+        if (localTests.length > 0) {
+          for (const lt of localTests) {
+            const existsInCloud = cloudTests.some((ct: any) => ct.id === lt.id);
+            if (!existsInCloud) {
+              await FirestoreDataService.saveAssessmentTestToFirestore(lt);
+            }
+          }
+        }
+
+        const merged = cloudTests.length > 0 ? cloudTests : localTests;
+        if (isMounted && merged.length > 0) {
+          setTests(merged);
+          try {
+            localStorage.setItem('logicq_admin_tests', JSON.stringify(merged));
+          } catch {}
+          syncToStudentTests(merged);
+        }
+      } catch (err) {
+        console.warn('Failed to sync assessment tests from Firestore:', err);
+      }
+    })();
+
+    const unsub = FirestoreDataService.listenToAssessmentTests((cloudTests) => {
+      if (isMounted && Array.isArray(cloudTests) && cloudTests.length > 0) {
+        setTests(cloudTests);
+        try {
+          localStorage.setItem('logicq_admin_tests', JSON.stringify(cloudTests));
+        } catch {}
+        syncToStudentTests(cloudTests);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
 
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -457,12 +509,15 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     } catch {}
   };
 
-  const saveTests = (updated: AdminTestDefinition[]) => {
+  const saveTests = async (updated: AdminTestDefinition[]) => {
     setTests(updated);
     try {
       localStorage.setItem('logicq_admin_tests', JSON.stringify(updated));
     } catch {}
     syncToStudentTests(updated);
+    for (const t of updated) {
+      await FirestoreDataService.saveAssessmentTestToFirestore(t);
+    }
   };
 
   const handleCreateTest = (e: React.FormEvent) => {
@@ -527,11 +582,12 @@ export const AdminTestOrchestratorTab: React.FC<AdminTestOrchestratorTabProps> =
     );
   };
 
-  const handleDeleteTest = (id: string, e: React.MouseEvent) => {
+  const handleDeleteTest = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this test?')) {
       const updated = tests.filter((t) => t.id !== id);
       saveTests(updated);
+      await FirestoreDataService.deleteAssessmentTestFromFirestore(id);
       toast.info('Test removed.');
     }
   };
