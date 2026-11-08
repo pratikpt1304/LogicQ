@@ -64,7 +64,8 @@ export const ExamWorkspacePage: React.FC = () => {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState<boolean>(false);
 
   // Behavioral Integrity Tracking (Sections 20 - 28)
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => Boolean(typeof document !== 'undefined' && document.fullscreenElement));
+  const hasEnteredFullscreenRef = useRef<boolean>(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
   const [tabSwitchCount, setTabSwitchCount] = useState<number>(0);
   const [focusLossCount, setFocusLossCount] = useState<number>(0);
   const [fullScreenExitCount, setFullScreenExitCount] = useState<number>(0);
@@ -189,20 +190,48 @@ export const ExamWorkspacePage: React.FC = () => {
     return () => clearInterval(interval);
   }, [attemptId, isLocked, sendTelemetryPing]);
 
+  // Auto fullscreen attempt on mount
+  useEffect(() => {
+    if (!isLocked && typeof document !== 'undefined' && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        hasEnteredFullscreenRef.current = true;
+      }).catch(() => {
+        // Browser requires explicit user gesture; modal will handle it
+      });
+    }
+  }, [isLocked]);
+
   // 4. Fullscreen & Focus Proctoring Event Listeners (Section 21)
   useEffect(() => {
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement);
       setIsFullscreen(active);
-      if (!active && !isLocked) {
+
+      if (active) {
+        hasEnteredFullscreenRef.current = true;
+      } else if (!active && hasEnteredFullscreenRef.current && !isLocked) {
+        // Proctoring violation: Student exited full-screen! Immediately kick them out
         setFullScreenExitCount((c) => {
           const next = c + 1;
           sendTelemetryPing({ fullScreenExitCount: next });
           return next;
         });
-        toast.warning('Proctoring Notice: Exiting full-screen mode is recorded on your institutional integrity audit.', {
-          duration: 4000,
+
+        const targetUser = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || user?.prn || 'current';
+        FirestoreDataService.recordProctoringIncident(targetUser, {
+          type: 'FULLSCREEN_EXIT',
+          reason: 'Student exited proctored full-screen mode. Examination session terminated.',
+          problemSlug: problemId || assignmentId,
+          problemTitle: problemData?.title || 'Continuous Practical Assessment',
+          isCheatAttempt: true,
+        }).catch(() => {});
+
+        toast.error('Proctoring Violation: Full-screen exit detected! You have been removed from the exam session.', {
+          duration: 6000,
         });
+
+        navigate('/student/tests');
       }
     };
 
@@ -244,17 +273,19 @@ export const ExamWorkspacePage: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [isLocked, sendTelemetryPing]);
+  }, [isLocked, sendTelemetryPing, navigate, user, problemId, assignmentId, problemData]);
 
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+        hasEnteredFullscreenRef.current = true;
       } else {
         await document.exitFullscreen();
       }
     } catch {
-      toast.error('Unable to toggle fullscreen in this browser.');
+      toast.error('Unable to activate fullscreen. Please click the button to allow fullscreen.');
     }
   };
 
@@ -451,47 +482,57 @@ export const ExamWorkspacePage: React.FC = () => {
   }, [problemData]);
 
   return (
-    <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-[#090d16] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
-      {/* 0. Fullscreen Proctored Requirement Callout (When not fullscreen) */}
+    <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-slate-100 text-slate-900 flex flex-col overflow-hidden select-none font-sans">
+      {/* 0. Fullscreen Proctored Requirement Modal (Blocks interaction until student enters fullscreen) */}
       {!isFullscreen && !isLocked && (
-        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border-b border-indigo-500/30 px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs font-mono shadow-md shrink-0">
-          <div className="flex items-center gap-2.5 text-indigo-200">
-            <span className="p-1 rounded-md bg-amber-500/20 text-amber-400 shrink-0">
-              <ShieldAlert className="w-4 h-4 animate-pulse" />
-            </span>
-            <span>
-              <strong>PROCTORED EXAM ENVIRONMENT:</strong> Fullscreen mode is required to maintain institutional proctoring compliance and prevent distraction.
-            </span>
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Maximize2 className="w-8 h-8 animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-mono font-bold">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>PROCTORED ASSESSMENT</span>
+              </div>
+              <h2 className="text-xl font-black text-slate-900">Full-Screen Mode Required</h2>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Institutional examination policy mandates full-screen mode. Any exit from full-screen or tab switch will be logged and will <strong>terminate your exam session immediately</strong>.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-blue-500 text-white font-bold font-mono text-sm shadow-lg shadow-indigo-600/25 transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>Launch Fullscreen Exam →</span>
+            </button>
+            <div className="text-[11px] text-slate-400 font-mono">
+              GCC 14 (C11) • Auto-Save Active • Real-Time Integrity
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center gap-2 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap text-xs"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span>Enter Fullscreen Exam</span>
-          </button>
         </div>
       )}
 
-      {/* Top Proctoring & Institutional Header Bar */}
-      <header className="bg-[#0c101a] border-b border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs font-mono shrink-0">
+      {/* Top Proctoring & Institutional Header Bar (Apple Light Clean Style) */}
+      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs font-mono text-slate-800 shadow-xs shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/student/tests"
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition-colors shrink-0 font-medium"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">All Tests</span>
           </Link>
-          <span className="text-slate-700">|</span>
+          <span className="text-slate-300">|</span>
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="font-bold text-white truncate max-w-[200px] sm:max-w-md">
+            <span className="font-extrabold text-slate-900 truncate max-w-[200px] sm:max-w-md">
               {problemData?.title || 'Continuous Practical Assessment'}
             </span>
           </div>
-          <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold">
+          <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
             {problemData?.difficulty || 'HARD'}
           </span>
         </div>
@@ -502,19 +543,19 @@ export const ExamWorkspacePage: React.FC = () => {
           <div
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold ${
               isWithinPrescribedTime
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                : 'bg-amber-50 border-amber-300 text-amber-800'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
             <span>{formatTime(elapsedSec)}</span>
-            <span className="hidden lg:inline text-[10px] text-slate-400 font-normal">
+            <span className="hidden lg:inline text-[10px] text-slate-500 font-normal">
               / max {problemData?.expectedTimeMax ?? 8}m
             </span>
           </div>
 
           {/* Integrity Badge */}
-          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono font-bold">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>100% Integrity</span>
           </div>
@@ -522,34 +563,26 @@ export const ExamWorkspacePage: React.FC = () => {
           {/* Raise Issue Button */}
           <button
             onClick={() => setIsIssueModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors text-xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition-colors text-xs font-semibold cursor-pointer"
             title="Flag question issue to faculty"
           >
             <Flag className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Raise Issue</span>
           </button>
 
-          {/* Fullscreen Button */}
-          <button
-            onClick={toggleFullscreen}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-              isFullscreen
-                ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
-                : 'bg-indigo-600 text-white hover:bg-indigo-500'
-            }`}
-            title="Toggle Fullscreen Mode"
-          >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-          </button>
+          {/* Fullscreen Status Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-bold">
+            <Maximize2 className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Proctored Fullscreen</span>
+          </div>
         </div>
       </header>
 
       {/* Permanent Locked Banner */}
       {isLocked && (
-        <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-2.5 text-emerald-300 font-mono">
-            <Lock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-2.5 text-emerald-800 font-mono">
+            <Lock className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span>
               <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.
             </span>
@@ -564,14 +597,14 @@ export const ExamWorkspacePage: React.FC = () => {
       )}
 
       {/* Mobile Segmented Switcher (Statement | Editor & Results) */}
-      <div className="lg:hidden flex items-center bg-[#0c101a] border-b border-slate-800 px-2 py-1.5 gap-1.5 shrink-0">
+      <div className="lg:hidden flex items-center bg-white border-b border-slate-200 px-2 py-1.5 gap-1.5 shrink-0">
         <button
           type="button"
           onClick={() => setActiveMobileTab('statement')}
           className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
             activeMobileTab === 'statement'
-              ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700 shadow-sm'
-              : 'text-slate-400'
+              ? 'bg-slate-100 text-indigo-600 font-bold border border-slate-200 shadow-sm'
+              : 'text-slate-500'
           }`}
         >
           <span>Problem Statement</span>
@@ -581,8 +614,8 @@ export const ExamWorkspacePage: React.FC = () => {
           onClick={() => setActiveMobileTab('editor')}
           className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
             activeMobileTab === 'editor'
-              ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700 shadow-sm'
-              : 'text-slate-400'
+              ? 'bg-slate-900 text-cyan-400 font-bold shadow-sm'
+              : 'text-slate-500'
           }`}
         >
           <span>Editor &amp; Output</span>
@@ -591,34 +624,34 @@ export const ExamWorkspacePage: React.FC = () => {
 
       {/* Main Two-Pane Split Layout (LeetCode / HackerRank layout: Left Statement, Right Editor) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Left Pane on desktop: Question Statement & Visible Test Cases */}
-        <div className={`w-full lg:w-[48%] flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 bg-[#0e131f] text-slate-200 overflow-y-auto lg:order-1 ${
+        {/* Left Pane on desktop: Question Statement & Visible Test Cases (Clean Crisp White Theme) */}
+        <div className={`w-full lg:w-[48%] flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-white text-slate-800 overflow-y-auto lg:order-1 ${
           activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
         }`}>
           <div className="p-5 sm:p-7 space-y-6">
             {/* Title & Metadata */}
-            <div className="space-y-3 pb-5 border-b border-slate-800">
+            <div className="space-y-3 pb-5 border-b border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {problemData?.difficulty || 'HARD'}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">
+                <span className="text-xs text-slate-500 font-mono font-medium">
                   ⏱️ Max Time: {problemData?.expectedTimeMin || 15}-{problemData?.expectedTimeMax || 25} Mins
                 </span>
-                <span className="text-xs text-slate-600">•</span>
-                <span className="text-xs text-emerald-400 font-mono font-bold">
+                <span className="text-xs text-slate-300">•</span>
+                <span className="text-xs text-emerald-700 font-mono font-bold">
                   20.0 Marks
                 </span>
               </div>
 
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {problemData?.title || 'Continuous Practical Assessment'}
               </h1>
             </div>
 
             {problemData?.scenario && (
-              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-300 leading-relaxed">
-                <div className="text-[10px] text-cyan-400 font-bold mb-1 uppercase tracking-wider">
+              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 text-xs font-mono text-blue-950 leading-relaxed shadow-xs">
+                <div className="text-[10px] text-blue-700 font-bold mb-1 uppercase tracking-wider">
                   Engineering Context &amp; Objective
                 </div>
                 {problemData.scenario}
@@ -627,21 +660,24 @@ export const ExamWorkspacePage: React.FC = () => {
 
             {/* Description */}
             <div className="space-y-2">
-              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
                 Problem Description
               </div>
-              <div className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-900/50 p-4 rounded-2xl border border-slate-800/80">
-                <StatementMarkdown content={problemData?.description || 'Implement the required algorithm conforming to the specifications.'} />
+              <div className="text-sm text-slate-800 leading-relaxed font-sans bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-xs">
+                <StatementMarkdown
+                  content={problemData?.description || 'Implement the required algorithm conforming to the specifications.'}
+                  className="!text-slate-800 [&_*]:!text-slate-800 [&_code]:!text-indigo-700 [&_code]:!bg-white [&_code]:!border-slate-300 [&_pre]:!bg-slate-900 [&_pre]:!text-slate-100 [&_pre_*]:!text-slate-100"
+                />
               </div>
             </div>
 
             {/* Visible Sample Test Cases */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600">
                   Visible Test Cases (2 Sample Tests)
                 </div>
-                <span className="text-[10px] font-mono text-slate-500">
+                <span className="text-[10px] font-mono text-slate-400">
                   Hidden test executed server-side
                 </span>
               </div>
@@ -650,25 +686,25 @@ export const ExamWorkspacePage: React.FC = () => {
                 {visibleCasesList.map((tc: any, idx: number) => (
                   <div
                     key={tc.id || idx}
-                    className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 font-mono text-xs space-y-3"
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 font-mono text-xs space-y-3 shadow-xs"
                   >
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="font-bold text-white">Sample Case #{idx + 1}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span className="font-bold text-slate-900">Sample Case #{idx + 1}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">
                         VISIBLE
                       </span>
                     </div>
 
                     <div className="space-y-1">
                       <div className="text-[10px] uppercase font-bold text-slate-500">Input:</div>
-                      <pre className="p-3 rounded-xl bg-[#060810] border border-slate-800 text-cyan-300 font-mono overflow-x-auto">
+                      <pre className="p-3 rounded-xl bg-white border border-slate-200 text-slate-900 font-mono shadow-inner font-semibold overflow-x-auto">
                         {tc.input}
                       </pre>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-emerald-500">Expected Output:</div>
-                      <pre className="p-3 rounded-xl bg-[#060810] border border-slate-800 text-emerald-400 font-mono font-bold overflow-x-auto">
+                      <div className="text-[10px] uppercase font-bold text-emerald-700">Expected Output:</div>
+                      <pre className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 font-mono font-bold shadow-inner overflow-x-auto">
                         {tc.expectedOutput}
                       </pre>
                     </div>
@@ -678,12 +714,12 @@ export const ExamWorkspacePage: React.FC = () => {
             </div>
 
             {/* Institutional Rules */}
-            <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/15 text-xs font-mono text-slate-400 space-y-1.5">
-              <div className="text-indigo-400 font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4" />
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-xs font-mono text-slate-600 space-y-1.5 shadow-xs">
+              <div className="text-indigo-800 font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-indigo-600" />
                 <span>Compiler &amp; Environment Rules:</span>
               </div>
-              <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+              <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
                 <li>Compiled using GCC 14 with standard C11 flag (`-std=c11 -O2`).</li>
                 <li>Standard input/output via stdin and stdout.</li>
                 <li>Code is auto-saved continuously; locking takes place automatically upon final submission.</li>
@@ -692,19 +728,19 @@ export const ExamWorkspacePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Pane on desktop: Code Editor & Execution Panel */}
-        <div className={`w-full lg:w-[52%] flex flex-col bg-[#0a0d14] lg:order-2 ${
+        {/* Right Pane on desktop: Code Editor & Execution Panel (Navy Blue Compiler) */}
+        <div className={`w-full lg:w-[52%] flex flex-col bg-[#0a0f1d] lg:order-2 border-l border-slate-800 ${
           activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
         }`}>
           {/* Single Clean Editor Header Bar */}
-          <div className="bg-[#0c101a] border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
+          <div className="bg-[#0f172a] border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full bg-rose-500/90" />
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500/90" />
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#161c2b] border border-slate-700/60 text-slate-200 font-mono text-[11px] font-semibold">
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#1e293b] border border-blue-500/30 text-blue-200 font-mono text-[11px] font-bold">
                 <span>solution.c</span>
                 <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-400 font-bold">C11</span>
               </div>
@@ -744,15 +780,15 @@ export const ExamWorkspacePage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Execution Dock (Apple-style Segmented Dock identical to Daily Challenge) */}
+          {/* Bottom Execution Dock (Deep Navy Blue IDE Theme) */}
           <div
-            className={`border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1017] shadow-xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
+            className={`border-t border-slate-800 bg-[#0d1424] text-slate-200 shadow-2xl transition-[height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col shrink-0 overflow-hidden ${
               isDrawerOpen ? 'h-64 sm:h-72 max-h-[48%]' : 'h-12'
             }`}
           >
             {/* Dock Header Bar */}
-            <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-slate-50 dark:bg-[#111622] border-b border-slate-200 dark:border-slate-800 shrink-0 font-mono text-xs">
-              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-[#080c14] border border-slate-300/80 dark:border-slate-800">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 bg-[#0f172a] border-b border-slate-800 shrink-0 font-mono text-xs">
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#080d18] border border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -761,11 +797,11 @@ export const ExamWorkspacePage: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeBottomTab === 'cases' && isDrawerOpen
-                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
+                      ? 'bg-blue-600/30 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Test Cases ({visibleCasesList.length})</span>
                 </button>
 
@@ -777,11 +813,11 @@ export const ExamWorkspacePage: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeBottomTab === 'output' && isDrawerOpen
-                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
+                      ? 'bg-blue-600/30 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  <Cpu className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Verdict &amp; Output</span>
                   {testResults.length > 0 && (
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
@@ -798,11 +834,11 @@ export const ExamWorkspacePage: React.FC = () => {
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeBottomTab === 'telemetry' && isDrawerOpen
-                      ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-400 border border-slate-300 dark:border-cyan-500/40 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/50'
+                      ? 'bg-blue-600/30 text-cyan-300 border border-cyan-500/40 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  <Activity className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <Activity className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="hidden sm:inline">Telemetry</span>
                 </button>
               </div>
@@ -858,7 +894,7 @@ export const ExamWorkspacePage: React.FC = () => {
                   type="button"
                   aria-label={isDrawerOpen ? 'Collapse execution drawer' : 'Expand execution drawer'}
                   onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-                  className="px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-all flex items-center gap-1 font-mono text-xs cursor-pointer"
                 >
                   <span className="font-semibold">{isDrawerOpen ? 'Collapse' : 'Expand'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isDrawerOpen ? 'rotate-0' : 'rotate-180'}`} />
@@ -868,7 +904,7 @@ export const ExamWorkspacePage: React.FC = () => {
 
             {/* Dock Body */}
             {isDrawerOpen && (
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-white dark:bg-[#0c1017]">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 font-mono text-xs bg-[#090e1a]">
                 {activeBottomTab === 'cases' && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between pb-1">
