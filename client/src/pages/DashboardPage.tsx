@@ -379,33 +379,39 @@ export const DashboardPage: React.FC = () => {
   const { data: studentTests = [], isLoading: isLoadingStudentTests } = useQuery({
     queryKey: ['student-assigned-tests'],
     enabled: Boolean(user && isStudent),
-    staleTime: 30000,
+    staleTime: 10000,
     queryFn: async () => {
+      let cloudTests: any[] = [];
+      try {
+        cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+      } catch (err) {
+        console.warn('Firestore assessment tests fetch notice:', err);
+      }
+
       try {
         const res = await api.get('/exam/my-tests');
-        if (res?.data || res?.assignments || res?.tests) {
+        const activeList = res?.data?.active || (Array.isArray(res?.data) ? res?.data : []) || res?.tests || [];
+        if (Array.isArray(activeList) && activeList.length > 0) {
           return res;
         }
       } catch (err) {
         console.warn('API /exam/my-tests fetch notice:', err);
       }
-      try {
-        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        if (cloudTests && cloudTests.length > 0) {
-          return {
-            success: true,
-            data: {
-              active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
-              upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
-              completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
-            },
-            tests: cloudTests,
-          };
-        }
-      } catch {}
+
+      if (cloudTests && cloudTests.length > 0) {
+        return {
+          success: true,
+          data: {
+            active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
+            upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
+            completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+          },
+          tests: cloudTests,
+        };
+      }
       return { success: true, data: { active: [], upcoming: [], completed: [] }, tests: [] };
     },
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
   // 2. Student Practice Modules
@@ -638,12 +644,19 @@ export const DashboardPage: React.FC = () => {
     if (Array.isArray((studentTests as any).data)) return (studentTests as any).data;
     if (Array.isArray((studentTests as any).assignments)) return (studentTests as any).assignments;
     if (Array.isArray((studentTests as any).tests)) {
-      return (studentTests as any).tests.map((t: any) => ({
-        id: t.id,
-        status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-        test: t.test || t,
-        attempts: t.attempts || [],
-      }));
+      return (studentTests as any).tests.map((t: any) => {
+        const raw = t.test || t;
+        return {
+          id: t.id || raw.id,
+          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+          test: {
+            ...raw,
+            questions: raw.questions || [],
+            section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || 'Integrated Mtech' },
+          },
+          attempts: t.attempts || [],
+        };
+      });
     }
     if (typeof studentTests === 'object') {
       const targetObj = ((studentTests as any).data && typeof (studentTests as any).data === 'object' && !Array.isArray((studentTests as any).data))
@@ -654,12 +667,19 @@ export const DashboardPage: React.FC = () => {
       const completed = Array.isArray(targetObj.completed) ? targetObj.completed : [];
       const combined = [...active, ...upcoming, ...completed];
       if (combined.length > 0) {
-        return combined.map((t: any) => ({
-          id: t.id || `assign-${t.id}`,
-          status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
-          test: t.test || t,
-          attempts: t.attempts || [],
-        }));
+        return combined.map((t: any) => {
+          const raw = t.test || t;
+          return {
+            id: t.id || `assign-${raw.id || Math.random()}`,
+            status: t.status === 'SUBMITTED' ? 'SUBMITTED' : (t.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'PENDING'),
+            test: {
+              ...raw,
+              questions: raw.questions || [],
+              section: raw.section || { sectionName: raw.sectionTarget || raw.sectionId || 'Integrated Mtech' },
+            },
+            attempts: t.attempts || [],
+          };
+        });
       }
     }
     return [];

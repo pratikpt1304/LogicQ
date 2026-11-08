@@ -37,6 +37,11 @@ export const StudentTestListPage: React.FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-assigned-tests'],
     queryFn: async () => {
+      let cloudTests: any[] = [];
+      try {
+        cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+      } catch {}
+
       try {
         const res = await api.get('/exam/my-tests');
         if (res && (res.data || res.assignments || res.tests)) {
@@ -50,31 +55,33 @@ export const StudentTestListPage: React.FC = () => {
       }
       try {
         const fallback = await handleFallbackRequest('/exam/my-tests', { method: 'GET' } as any);
-        if (fallback) return fallback;
-      } catch {}
-      try {
-        const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
-        if (cloudTests && cloudTests.length > 0) {
-          return {
-            success: true,
-            data: {
-              active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
-              upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
-              completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
-            },
-            tests: cloudTests,
-          };
+        if (fallback) {
+          const hasFallbackTests = Array.isArray(fallback.tests) ? fallback.tests.length > 0
+            : (fallback.data && typeof fallback.data === 'object' && (fallback.data.active?.length || fallback.data.upcoming?.length));
+          if (hasFallbackTests) return fallback;
         }
       } catch {}
+
+      if (cloudTests && cloudTests.length > 0) {
+        return {
+          success: true,
+          data: {
+            active: cloudTests.filter((t: any) => t.status === 'ACTIVE' || t.status === 'PUBLISHED'),
+            upcoming: cloudTests.filter((t: any) => t.status === 'UPCOMING'),
+            completed: cloudTests.filter((t: any) => t.status === 'COMPLETED'),
+          },
+          tests: cloudTests,
+        };
+      }
       return {
         success: true,
         data: { active: [], upcoming: [], completed: [] },
         tests: [],
       };
     },
-    staleTime: 30000,
+    staleTime: 10000,
     refetchOnWindowFocus: false,
-    refetchInterval: 30000,
+    refetchInterval: 10000,
   });
 
   useEffect(() => {
