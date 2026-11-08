@@ -81,13 +81,17 @@ export const AdminAnswerBankTab: React.FC = () => {
             .forEach((u: any) => {
               const prnKey = (u.prn || '').toUpperCase().trim();
               const key = prnKey || (u.id || u.uid || '').toUpperCase().trim();
+              const rawSection = u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech');
+              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+                ? 'Integrated Mtech'
+                : rawSection;
               if (key && !studentsMap.has(key)) {
                 studentsMap.set(key, {
                   id: u.id || u.uid || `stu-${key}`,
                   name: u.fullName || u.displayName || u.username || 'Student Candidate',
                   prn: prnKey || '—',
                   email: u.email || '—',
-                  section: u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech'),
+                  section: normalizedSection,
                   labInternalSubmissions: [],
                   practiceSubmissions: [],
                   totalAnswersCount: 0,

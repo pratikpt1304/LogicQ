@@ -27,6 +27,17 @@ import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 
+const isSectionMatch = (studentSec: string | undefined | null, targetSec: string | undefined | null): boolean => {
+  if (!targetSec || targetSec === 'ALL') return true;
+  const s = (studentSec || 'Integrated Mtech').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  const t = (targetSec || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (s === t) return true;
+  if ((s.includes('mtech') || s.includes('integrated')) && (t.includes('mtech') || t.includes('integrated'))) {
+    return true;
+  }
+  return false;
+};
+
 export const AdminReportsTab: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -56,10 +67,12 @@ export const AdminReportsTab: React.FC = () => {
 
     const syncReportsData = async () => {
       try {
-        const [realSections, realUsers, cohortSnap] = await Promise.all([
+        const [realSections, realUsers, cohortSnap, assessSnap, subSnap] = await Promise.all([
           FirestoreDataService.getSectionsFromFirestore().catch(() => []),
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
           getDocs(collection(db, 'cohort_progress')).catch(() => null),
+          getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
+          getDocs(collection(db, 'submissions')).catch(() => null),
         ]);
 
         if (!isMounted) return;
@@ -67,6 +80,16 @@ export const AdminReportsTab: React.FC = () => {
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
           cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
+
+        const assessSubs: any[] = [];
+        if (assessSnap) {
+          assessSnap.forEach((d: any) => assessSubs.push(d.data()));
+        }
+
+        const genSubs: any[] = [];
+        if (subSnap) {
+          subSnap.forEach((d: any) => genSubs.push(d.data()));
         }
 
         if (Array.isArray(realUsers)) {
@@ -78,23 +101,108 @@ export const AdminReportsTab: React.FC = () => {
             )
             .map((u: any) => {
               const prnClean = (u.prn || '').toUpperCase().trim();
+              const userEmail = (u.email || '').toLowerCase().trim();
+              const userId = String(u.id || u.uid || '').trim();
+
               const cData = cohortMap.get(prnClean) ||
                             cohortMap.get(prnClean.replace(/0/g, 'O')) ||
                             cohortMap.get(prnClean.replace(/O/g, '0')) ||
-                            cohortMap.get(String(u.id || u.uid || '').toUpperCase().trim()) || {};
+                            cohortMap.get(userId.toUpperCase()) || {};
               const mod = cData.moduleProgress || {};
-              const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
-              const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
-              const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
-              const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (u.integrityScore ?? 100);
+
+              // Match student's submissions across tests and practice
+              const matchedSubs = [...assessSubs, ...genSubs].filter((s: any) => {
+                const sPrn = s.studentPrn || s.prn || '';
+                const sEmail = (s.studentEmail || s.email || '').toLowerCase().trim();
+                const sUid = (s.userId || s.studentId || '').trim();
+                return (prnClean && FirestoreDataService.arePrnsMatching(sPrn, prnClean)) ||
+                       (userEmail && sEmail && sEmail === userEmail) ||
+                       (userId && sUid && sUid === userId);
+              });
+
+              const uniqueProblems = new Set<string>();
+              const labProblems = new Set<string>();
+              const practiceProblems = new Set<string>();
+
+              matchedSubs.forEach((s: any) => {
+                const isPassed = s.verdict === 'ACCEPTED' || s.status === 'PASSED' || s.academicScore > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed));
+                if (isPassed) {
+                  const pId = s.problemId || s.problemTitle || s.problemSlug || s.title || s.id;
+                  uniqueProblems.add(pId);
+                  if (s.track === 'assessment' || s.track === 'lab' || s.testId || s.type === 'LAB_INTERNAL') {
+                    labProblems.add(pId);
+                  } else {
+                    practiceProblems.add(pId);
+                  }
+                }
+              });
+
+              if (Array.isArray(cData.completedProblems)) {
+                cData.completedProblems.forEach((p: string) => uniqueProblems.add(p));
+              }
+
+              const totalSolved = Math.max(
+                uniqueProblems.size,
+                cData.totalSolved ?? 0,
+                u.totalSolved ?? 0
+              );
+
+              const pointsFromSubs = Math.round(
+                matchedSubs.reduce((acc: number, s: any) => acc + (Number(s.academicScore) || Number(s.score) || Number(s.points) || 0), 0)
+              );
+
+              const totalPoints = Math.max(
+                pointsFromSubs,
+                cData.totalPoints ?? 0,
+                u.totalPoints ?? 0,
+                totalSolved * 20
+              );
+
+              const tabSwitches = Math.max(
+                Number(mod.tabSwitches) || 0,
+                ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
+              );
+
+              const pasteBursts = Math.max(
+                Number(mod.pasteBursts) || 0,
+                ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
+              );
+
+              const totalKeystrokes = Math.max(
+                Number(mod.totalKeystrokes) || 0,
+                ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
+              );
+
+              const computedIntegrity = Math.max(
+                0,
+                Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10)
+              );
+
+              const computedAcademic = mod.academicScore !== undefined
+                ? Number(mod.academicScore)
+                : (u.academicScore !== undefined ? u.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
+
+              // Robust section name normalization
+              const rawSection = u.sectionName || u.section || (u.division ? (u.division.toLowerCase().includes('mtech') ? 'Integrated Mtech' : `Division ${u.division}`) : 'Integrated Mtech');
+              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+                ? 'Integrated Mtech'
+                : rawSection;
 
               return {
                 ...u,
+                name: u.fullName || u.displayName || u.username || 'Student Candidate',
+                section: normalizedSection,
+                sectionName: normalizedSection,
                 totalSolved,
+                labSolved: labProblems.size,
+                practiceSolved: practiceProblems.size,
                 totalPoints,
-                academicScore,
-                integrityScore,
-                completedProblems: cData.completedProblems || u.completedProblems || [],
+                academicScore: computedAcademic,
+                integrityScore: computedIntegrity,
+                tabSwitchCount: tabSwitches,
+                clipboardAttempts: pasteBursts,
+                totalKeystrokes,
+                completedProblems: Array.from(uniqueProblems),
                 miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
               };
             });
@@ -143,7 +251,7 @@ export const AdminReportsTab: React.FC = () => {
   const activeStudents = selectedSection === 'ALL'
     ? students
     : students.filter((s: any) =>
-        (s.section || s.sectionName || '').toLowerCase() === selectedSection.toLowerCase()
+        isSectionMatch(s.section || s.sectionName, selectedSection)
       );
 
   const matchedStudents = students.filter((s: any) => {
@@ -270,9 +378,9 @@ export const AdminReportsTab: React.FC = () => {
           activeStudents.slice(0, 8).forEach((st: any) => {
             doc.text(String(st.prn || st.id || '-'), 16, rowY);
             doc.text(String(st.name || st.fullName || 'Student').slice(0, 25), 55, rowY);
-            doc.text(String(st.section || 'General'), 115, rowY);
+            doc.text(String(st.section || 'Integrated Mtech'), 115, rowY);
             const displayScore = st.academicScore ?? st.score ?? st.totalPoints ?? 0;
-            doc.text(`${displayScore} / 100`, 155, rowY);
+            doc.text(`${displayScore} / 100 (${st.integrityScore ?? 100}%)`, 155, rowY);
             rowY += 5;
           });
           if (activeStudents.length > 8) {
@@ -323,13 +431,19 @@ export const AdminReportsTab: React.FC = () => {
             'PRN': u.prn || u.id || 'N/A',
             'Full Name': u.name || u.displayName || u.fullName || 'Candidate',
             'Email': u.email || 'N/A',
-            'Division': u.section || selectedSection || 'General',
-            'Identity Verified': u.isEmailBoundV2 || u.emailVerified ? 'YES' : 'PENDING',
-            'Academic Score (0-100)': u.academicScore ?? u.score ?? u.totalPoints ?? 0,
-            'Integrity Score (0-100)': u.integrityScore !== undefined ? u.integrityScore : 100,
-            'Problems Solved': u.totalSolved ?? (Array.isArray(u.completedProblems) ? u.completedProblems.length : 0),
+            'Section / Division': u.section || selectedSection || 'Integrated Mtech',
+            'Identity Verified': u.isEmailBoundV2 || u.emailVerified || (u.email && !u.email.endsWith('@sanjivani.edu.in')) ? 'YES' : 'PENDING',
+            'Total Problems Solved': u.totalSolved ?? 0,
+            'Lab Internal Solved': u.labSolved ?? 0,
+            'Practice Arena Solved': u.practiceSolved ?? 0,
+            'Continuous Practical Score (0-100)': u.academicScore ?? 0,
+            'Lab Internal CIE Marks (0-20)': Math.min(20, Math.round(((u.academicScore || 0) / 100) * 20)),
+            'Integrity Index (%)': u.integrityScore !== undefined ? `${u.integrityScore}%` : '100%',
+            'Tab Switch Violations': u.tabSwitchCount ?? 0,
+            'Clipboard Paste Bursts': u.clipboardAttempts ?? 0,
+            'Total Keystroke Signals': u.totalKeystrokes ?? 0,
             'Mini-Project Unlocked': u.miniProjectUnlocked ? 'YES' : 'NO',
-            'AI Viva Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
+            'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
           }));
         } else {
           studentRows = [
@@ -337,13 +451,19 @@ export const AdminReportsTab: React.FC = () => {
               'PRN': 'SAMPLE-101',
               'Full Name': 'Enrolled Student',
               'Email': 'student@university.edu',
-              'Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'C Programming') : selectedSection,
+              'Section / Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'Integrated Mtech') : selectedSection,
               'Identity Verified': 'YES',
-              'Academic Score (0-100)': 85,
-              'Integrity Score (0-100)': 100,
-              'Problems Solved': 5,
+              'Total Problems Solved': 5,
+              'Lab Internal Solved': 2,
+              'Practice Arena Solved': 3,
+              'Continuous Practical Score (0-100)': 85,
+              'Lab Internal CIE Marks (0-20)': 17,
+              'Integrity Index (%)': '100%',
+              'Tab Switch Violations': 0,
+              'Clipboard Paste Bursts': 0,
+              'Total Keystroke Signals': 1200,
               'Mini-Project Unlocked': 'YES',
-              'AI Viva Status': 'VERIFIED',
+              'AI Viva Defense Status': 'VERIFIED',
             },
           ];
         }
@@ -448,9 +568,9 @@ export const AdminReportsTab: React.FC = () => {
                 All Students ({students.length})
               </button>
               {sections.map((sec: any) => {
-                const secName = sec.sectionName || sec.name || 'C Programming';
+                const secName = sec.sectionName || sec.name || 'Integrated Mtech';
                 const count = students.filter(
-                  (s: any) => (s.section || s.sectionName || '').toLowerCase() === secName.toLowerCase()
+                  (s: any) => isSectionMatch(s.section || s.sectionName, secName)
                 ).length;
                 return (
                   <button
@@ -637,7 +757,7 @@ export const AdminReportsTab: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                      {st.section || 'General'} • Academic Score: {st.score || 0}/100 • Integrity: 98% (Clean)
+                      {st.section || 'Integrated Mtech'} • Solved: {st.totalSolved ?? 0} • Academic Score: {st.academicScore ?? st.score ?? 0}/100 • Integrity: {st.integrityScore ?? 100}% ({st.integrityScore < 85 ? 'Review Needed' : 'Clean'})
                     </p>
                   </div>
 

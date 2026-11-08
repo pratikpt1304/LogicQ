@@ -193,12 +193,17 @@ export const AdminStudentsTab: React.FC = () => {
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
 
+              const rawSection = anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech');
+              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+                ? 'Integrated Mtech'
+                : rawSection;
+
               return {
                 id: anyUser.id || anyUser.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,
                 name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student Candidate',
                 prn: (anyUser.prn || '').toUpperCase() || '—',
                 email: anyUser.email || '—',
-                section: anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'),
+                section: normalizedSection,
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: computedAcademic,
                 integrityScore: computedIntegrity,
