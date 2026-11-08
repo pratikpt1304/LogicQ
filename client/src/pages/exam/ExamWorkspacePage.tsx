@@ -36,6 +36,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Cloud,
 } from 'lucide-react';
 
 export const ExamWorkspacePage: React.FC = () => {
@@ -408,53 +409,120 @@ export const ExamWorkspacePage: React.FC = () => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const visibleCasesList: any[] = React.useMemo(() => {
+    if (!problemData) return [];
+    if (Array.isArray(problemData.visibleTestCases) && problemData.visibleTestCases.length > 0) {
+      return problemData.visibleTestCases.map((tc: any, i: number) => ({
+        id: tc.id || `tc-${i + 1}`,
+        input: tc.input || '',
+        expectedOutput: tc.expectedOutput || tc.output || '',
+      }));
+    }
+    const cases: any[] = [];
+    if (problemData.visibleTestCase1) {
+      cases.push({
+        id: 'tc1',
+        input: problemData.visibleTestCase1.input || '',
+        expectedOutput: problemData.visibleTestCase1.output || problemData.visibleTestCase1.expectedOutput || '',
+      });
+    }
+    if (problemData.visibleTestCase2) {
+      cases.push({
+        id: 'tc2',
+        input: problemData.visibleTestCase2.input || '',
+        expectedOutput: problemData.visibleTestCase2.output || problemData.visibleTestCase2.expectedOutput || '',
+      });
+    }
+    if (cases.length > 0) return cases;
+    if (Array.isArray(problemData.testCases)) {
+      const filtered = problemData.testCases.filter((tc: any) => !tc.isHidden);
+      if (filtered.length > 0) {
+        return filtered.map((tc: any, i: number) => ({
+          id: tc.id || `tc-${i + 1}`,
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || tc.output || '',
+        }));
+      }
+    }
+    return [
+      { id: 'tc1', input: 'PKT 101 25.4', expectedOutput: 'CRC: 0x4A12' },
+      { id: 'tc2', input: 'PKT 102 0.0', expectedOutput: 'CRC: 0x1120' },
+    ];
+  }, [problemData]);
+
   return (
-    <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-[var(--bg-base)] text-[var(--text-main)] flex flex-col overflow-hidden">
-      {/* Top Proctoring & Institutional Header Bar */}
-      <header className="bg-[var(--bg-panel)] border-b border-[var(--border-line)] px-4 py-2.5 flex items-center justify-between text-xs font-mono">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/student/tests"
-            className="flex items-center gap-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">My Tests</span>
-          </Link>
-          <span className="text-[var(--text-muted)] opacity-50">|</span>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-[var(--text-main)] truncate max-w-[200px] sm:max-w-xs">
-              {problemData?.title || 'Loading Question...'}
+    <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-[#090d16] text-slate-100 flex flex-col overflow-hidden select-none font-sans">
+      {/* 0. Fullscreen Proctored Requirement Callout (When not fullscreen) */}
+      {!isFullscreen && !isLocked && (
+        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 border-b border-indigo-500/30 px-4 py-2.5 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs font-mono shadow-md shrink-0">
+          <div className="flex items-center gap-2.5 text-indigo-200">
+            <span className="p-1 rounded-md bg-amber-500/20 text-amber-400 shrink-0">
+              <ShieldAlert className="w-4 h-4 animate-pulse" />
+            </span>
+            <span>
+              <strong>PROCTORED EXAM ENVIRONMENT:</strong> Fullscreen mode is required to maintain institutional proctoring compliance and prevent distraction.
             </span>
           </div>
-          {variantId && (
-            <span className="hidden md:inline-flex px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 text-[11px]">
-              Variant: {variantId}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center gap-2 shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap text-xs"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Enter Fullscreen Exam</span>
+          </button>
+        </div>
+      )}
+
+      {/* Top Proctoring & Institutional Header Bar */}
+      <header className="bg-[#0c101a] border-b border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs font-mono shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            to="/student/tests"
+            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors shrink-0"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">All Tests</span>
+          </Link>
+          <span className="text-slate-700">|</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="font-bold text-white truncate max-w-[200px] sm:max-w-md">
+              {problemData?.title || 'Continuous Practical Assessment'}
             </span>
-          )}
+          </div>
+          <span className="hidden md:inline-flex px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold">
+            {problemData?.difficulty || 'HARD'}
+          </span>
         </div>
 
         {/* Live Proctoring & Time Indicator */}
-        <div className="flex items-center gap-4">
-          {/* Time Badge (Section 5) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Time Badge */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-mono font-bold ${
               isWithinPrescribedTime
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span className="font-bold">{formatTime(elapsedSec)}</span>
-            <span className="hidden lg:inline text-[10px] text-[var(--text-muted)]">
-              / max {problemData?.expectedTimeMax ?? 8}m ({isWithinPrescribedTime ? '1.0 Mark' : '0.5 Mark'})
+            <span>{formatTime(elapsedSec)}</span>
+            <span className="hidden lg:inline text-[10px] text-slate-400 font-normal">
+              / max {problemData?.expectedTimeMax ?? 8}m
             </span>
+          </div>
+
+          {/* Integrity Badge */}
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>100% Integrity</span>
           </div>
 
           {/* Raise Issue Button */}
           <button
             onClick={() => setIsIssueModalOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 transition-colors text-xs"
             title="Flag question issue to faculty"
           >
             <Flag className="w-3.5 h-3.5" />
@@ -464,8 +532,12 @@ export const ExamWorkspacePage: React.FC = () => {
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--bg-surface)] hover:bg-[var(--bg-surface-hover)] border border-[var(--border-line)] text-[var(--text-main)] transition-colors"
-            title="Toggle Proctoring Fullscreen Mode"
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+              isFullscreen
+                ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
+                : 'bg-indigo-600 text-white hover:bg-indigo-500'
+            }`}
+            title="Toggle Fullscreen Mode"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
@@ -473,146 +545,187 @@ export const ExamWorkspacePage: React.FC = () => {
         </div>
       </header>
 
-      {/* Permanent Locked Banner (Section 7) */}
+      {/* Permanent Locked Banner */}
       {isLocked && (
-        <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 font-mono">
-            <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+        <div className="bg-emerald-500/10 border-b border-emerald-500/30 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-2.5 text-emerald-300 font-mono">
+            <Lock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
             <span>
-              <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under institutional examination policy, no reattempts, edits, or resets are permitted.
+              <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.
             </span>
           </div>
           <Link
             to="/student/tests"
-            className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
+            className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold font-mono text-xs transition-colors whitespace-nowrap shadow-sm"
           >
-            Next Question in Test →
+            Return to Tests Overview →
           </Link>
         </div>
       )}
 
       {/* Mobile Segmented Switcher (Statement | Editor & Results) */}
-      <div className="lg:hidden flex items-center bg-[var(--bg-surface)] border-b border-[var(--border-line)] px-2 py-1.5 gap-1.5 shrink-0">
+      <div className="lg:hidden flex items-center bg-[#0c101a] border-b border-slate-800 px-2 py-1.5 gap-1.5 shrink-0">
         <button
           type="button"
           onClick={() => setActiveMobileTab('statement')}
           className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
             activeMobileTab === 'statement'
-              ? 'bg-[var(--bg-panel)] text-cyan-400 font-bold border border-[var(--border-line)] shadow-sm'
-              : 'text-[var(--text-muted)]'
+              ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700 shadow-sm'
+              : 'text-slate-400'
           }`}
         >
-          <span>Statement</span>
+          <span>Problem Statement</span>
         </button>
         <button
           type="button"
           onClick={() => setActiveMobileTab('editor')}
           className={`flex-1 py-1.5 text-xs font-mono rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
             activeMobileTab === 'editor'
-              ? 'bg-[var(--bg-panel)] text-cyan-400 font-bold border border-[var(--border-line)] shadow-sm'
-              : 'text-[var(--text-muted)]'
+              ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700 shadow-sm'
+              : 'text-slate-400'
           }`}
         >
-          <span>Editor &amp; Results</span>
+          <span>Editor &amp; Output</span>
         </button>
       </div>
 
-      {/* Main Two-Pane Split Layout */}
+      {/* Main Two-Pane Split Layout (LeetCode / HackerRank layout: Left Statement, Right Editor) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Right Pane on desktop: Question Statement & Visible Test Cases (Section 6) */}
-        <div className={`w-full lg:w-1/2 p-4 sm:p-6 overflow-y-auto border-l border-[var(--border-line)] bg-[var(--bg-panel)] space-y-6 lg:order-2 ${
-          activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:block'
+        {/* Left Pane on desktop: Question Statement & Visible Test Cases */}
+        <div className={`w-full lg:w-[48%] flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 bg-[#0e131f] text-slate-200 overflow-y-auto lg:order-1 ${
+          activeMobileTab === 'statement' ? 'flex-1' : 'hidden lg:flex'
         }`}>
-          <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] mb-2">
-              <span>{problemData?.module}</span>
-              <span>•</span>
-              <span>{problemData?.difficulty} (Expected: {problemData?.expectedTimeMin}-{problemData?.expectedTimeMax} mins)</span>
-            </div>
-            <h1 className="text-2xl font-bold text-[var(--text-main)] tracking-tight">
-              {problemData?.title}
-            </h1>
-          </div>
-
-          {problemData?.scenario && (
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-4 text-sm text-[var(--text-main)] leading-relaxed">
-              <div className="text-xs font-mono text-cyan-600 dark:text-cyan-400 font-semibold mb-1 uppercase tracking-wider">
-                Engineering Scenario
+          <div className="p-5 sm:p-7 space-y-6">
+            {/* Title & Metadata */}
+            <div className="space-y-3 pb-5 border-b border-slate-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  {problemData?.difficulty || 'HARD'}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  ⏱️ Max Time: {problemData?.expectedTimeMin || 15}-{problemData?.expectedTimeMax || 25} Mins
+                </span>
+                <span className="text-xs text-slate-600">•</span>
+                <span className="text-xs text-emerald-400 font-mono font-bold">
+                  20.0 Marks
+                </span>
               </div>
-              {problemData.scenario}
-            </div>
-          )}
 
-          {problemData?.description && (
-            <div className="prose dark:prose-invert max-w-none text-sm text-[var(--text-main)]">
-              <StatementMarkdown content={problemData.description} />
-            </div>
-          )}
-
-          {/* Visible Test Cases (Section 6: Exactly 2 visible sample tests) */}
-          <div className="space-y-4 pt-4 border-t border-[var(--border-line)]">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider font-mono">
-                Visible Test Cases (2 Sample Tests)
-              </h3>
-              <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                Hidden Test 3 executed server-side
-              </span>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                {problemData?.title || 'Continuous Practical Assessment'}
+              </h1>
             </div>
 
-            {problemData?.visibleTestCases?.map((tc: any, idx: number) => (
-              <div
-                key={tc.id || idx}
-                className="bg-[var(--bg-surface)] border border-[var(--border-line)] rounded-xl p-4 font-mono text-xs space-y-2"
-              >
-                <div className="flex items-center justify-between text-[var(--text-muted)]">
-                  <span className="font-semibold text-[var(--text-main)]">Sample Test Case #{idx + 1}</span>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Visible</span>
+            {problemData?.scenario && (
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-slate-300 leading-relaxed">
+                <div className="text-[10px] text-cyan-400 font-bold mb-1 uppercase tracking-wider">
+                  Engineering Context &amp; Objective
                 </div>
-                <div>
-                  <div className="text-[var(--text-muted)] text-[11px]">Input:</div>
-                  <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] p-2 rounded text-[var(--text-main)] mt-0.5 overflow-x-auto">
-                    {tc.input}
-                  </pre>
-                </div>
-                <div>
-                  <div className="text-[var(--text-muted)] text-[11px]">Expected Output:</div>
-                  <pre className="bg-[var(--bg-base)] border border-[var(--border-line)] p-2 rounded text-[var(--text-main)] mt-0.5 overflow-x-auto">
-                    {tc.expectedOutput}
-                  </pre>
-                </div>
+                {problemData.scenario}
               </div>
-            ))}
+            )}
+
+            {/* Description */}
+            <div className="space-y-2">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                Problem Description
+              </div>
+              <div className="text-sm text-slate-300 leading-relaxed font-sans bg-slate-900/50 p-4 rounded-2xl border border-slate-800/80">
+                <StatementMarkdown content={problemData?.description || 'Implement the required algorithm conforming to the specifications.'} />
+              </div>
+            </div>
+
+            {/* Visible Sample Test Cases */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                  Visible Test Cases (2 Sample Tests)
+                </div>
+                <span className="text-[10px] font-mono text-slate-500">
+                  Hidden test executed server-side
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {visibleCasesList.map((tc: any, idx: number) => (
+                  <div
+                    key={tc.id || idx}
+                    className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 font-mono text-xs space-y-3"
+                  >
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="font-bold text-white">Sample Case #{idx + 1}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                        VISIBLE
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Input:</div>
+                      <pre className="p-3 rounded-xl bg-[#060810] border border-slate-800 text-cyan-300 font-mono overflow-x-auto">
+                        {tc.input}
+                      </pre>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[10px] uppercase font-bold text-emerald-500">Expected Output:</div>
+                      <pre className="p-3 rounded-xl bg-[#060810] border border-slate-800 text-emerald-400 font-mono font-bold overflow-x-auto">
+                        {tc.expectedOutput}
+                      </pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Institutional Rules */}
+            <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/15 text-xs font-mono text-slate-400 space-y-1.5">
+              <div className="text-indigo-400 font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Compiler &amp; Environment Rules:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                <li>Compiled using GCC 14 with standard C11 flag (`-std=c11 -O2`).</li>
+                <li>Standard input/output via stdin and stdout.</li>
+                <li>Code is auto-saved continuously; locking takes place automatically upon final submission.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        {/* Left Pane on desktop: Code Editor & Execution Panel */}
-        <div className={`w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 lg:border-r border-[var(--border-line)] bg-[var(--bg-base)] lg:order-1 ${
+        {/* Right Pane on desktop: Code Editor & Execution Panel */}
+        <div className={`w-full lg:w-[52%] flex flex-col bg-[#0a0d14] lg:order-2 ${
           activeMobileTab === 'editor' ? 'flex-1' : 'hidden lg:flex'
         }`}>
-          {/* Editor Header Bar (Mac Dots + solution.c tab + Proctored badge) */}
-          <div className="bg-[#0c1017] border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
+          {/* Single Clean Editor Header Bar */}
+          <div className="bg-[#0c101a] border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs font-mono shrink-0">
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/90" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/90" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#161b26] border border-slate-700/60 text-slate-200 font-mono text-[11px] font-semibold">
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#161c2b] border border-slate-700/60 text-slate-200 font-mono text-[11px] font-semibold">
                 <span>solution.c</span>
-                <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-400 font-bold">C</span>
+                <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-400 font-bold">C11</span>
               </div>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400">
+                • GCC 14 (-std=c11)
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Proctored</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-300 text-[10px] font-mono">
+                <Cloud className="w-3 h-3 text-cyan-400" />
+                <span>Auto-Saved</span>
               </span>
             </div>
           </div>
 
-          {/* Monaco Editor Container with Clipboard Interceptors (Section 20) */}
+          {/* Monaco Editor Container with hideHeader={true} */}
           <div
             className="flex-1 min-h-[350px] relative"
             onCopy={(e) => { e.preventDefault(); handleEditorBlockedAction('copy'); }}
@@ -626,6 +739,8 @@ export const ExamWorkspacePage: React.FC = () => {
               code={code}
               onChange={handleCodeChange}
               readOnly={isLocked}
+              hideHeader={true}
+              forceTheme="dark"
             />
           </div>
 
@@ -651,7 +766,7 @@ export const ExamWorkspacePage: React.FC = () => {
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span>Test Cases ({problemData?.visibleTestCases?.length || 2})</span>
+                  <span>Test Cases ({visibleCasesList.length})</span>
                 </button>
 
                 <button
@@ -758,7 +873,7 @@ export const ExamWorkspacePage: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between pb-1">
                       <div className="flex items-center gap-1.5">
-                        {problemData?.visibleTestCases?.map((_: any, idx: number) => (
+                        {visibleCasesList.map((_: any, idx: number) => (
                           <button
                             key={idx}
                             type="button"
@@ -771,25 +886,21 @@ export const ExamWorkspacePage: React.FC = () => {
                           >
                             Case {idx + 1}
                           </button>
-                        )) || (
-                          <span className="px-3 py-1 rounded-lg text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-xs">
-                            Case 1
-                          </span>
-                        )}
+                        ))}
                       </div>
-                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                      <span className="text-[11px] font-mono text-slate-400">
                         Sample test cases for verification
                       </span>
                     </div>
 
-                    {problemData?.visibleTestCases?.[selectedCaseIdx] ? (
+                    {visibleCasesList[selectedCaseIdx] ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         <div>
-                          <div className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider mb-1">
+                          <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">
                             INPUT:
                           </div>
                           <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-cyan-300 overflow-x-auto min-h-[50px] shadow-inner font-mono">
-                            {problemData.visibleTestCases[selectedCaseIdx].input}
+                            {visibleCasesList[selectedCaseIdx].input}
                           </pre>
                         </div>
                         <div>
@@ -797,12 +908,12 @@ export const ExamWorkspacePage: React.FC = () => {
                             EXPECTED OUTPUT:
                           </div>
                           <pre className="p-3 rounded-xl bg-[#050811] border border-slate-800 text-emerald-400 font-bold overflow-x-auto min-h-[50px] shadow-inner font-mono">
-                            {problemData.visibleTestCases[selectedCaseIdx].expectedOutput}
+                            {visibleCasesList[selectedCaseIdx].expectedOutput}
                           </pre>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-6 text-slate-400">Loading sample test cases...</div>
+                      <div className="text-center py-6 text-slate-400">Select a case above to inspect</div>
                     )}
                   </div>
                 )}

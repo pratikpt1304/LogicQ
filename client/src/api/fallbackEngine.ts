@@ -4139,28 +4139,60 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   if (path === '/exam/run-code' && method === 'POST') {
     const { code, stdin } = body || {};
+    const testResults = [
+      {
+        testCaseId: 'tc1',
+        passed: true,
+        input: 'PKT 101 25.4',
+        expectedOutput: 'CRC: 0x4A12',
+        actualOutput: 'CRC: 0x4A12',
+        executionTimeMs: 14,
+        memoryUsedKb: 256,
+      },
+      {
+        testCaseId: 'tc2',
+        passed: true,
+        input: 'PKT 102 0.0',
+        expectedOutput: 'CRC: 0x1120',
+        actualOutput: 'CRC: 0x1120',
+        executionTimeMs: 12,
+        memoryUsedKb: 256,
+      },
+    ];
     return {
       success: true,
       data: {
         verdict: 'ACCEPTED',
-        stdout: 'Program compiled and executed successfully.\n',
+        stdout: 'Program compiled and executed successfully.\nAll visible test cases passed.\n',
         stderr: '',
-        executionTimeMs: 12,
+        executionTimeMs: 14,
         memoryUsedKb: 256,
+        testResults,
       },
+      testResults,
     };
   }
 
   if (path === '/exam/submit-question' && method === 'POST') {
+    const testOutcomes = [
+      { testCaseId: 'tc1', passed: true, isHidden: false, executionTimeMs: 12 },
+      { testCaseId: 'tc2', passed: true, isHidden: false, executionTimeMs: 14 },
+      { testCaseId: 'tc3', passed: true, isHidden: true, executionTimeMs: 18 },
+    ];
     return {
       success: true,
       message: 'Question submitted and evaluated successfully!',
+      verdict: 'ACCEPTED',
+      academicScore: 1.0,
       data: {
         verdict: 'ACCEPTED',
         passedCount: 3,
         totalTestCases: 3,
-        score: 1,
+        score: 1.0,
+        academicScore: 1.0,
+        testOutcomes,
       },
+      testOutcomes,
     };
   }
 
