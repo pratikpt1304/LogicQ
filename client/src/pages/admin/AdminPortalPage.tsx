@@ -239,6 +239,14 @@ export const AdminPortalPage: React.FC = () => {
       loadRealData();
     }, (err) => console.warn('Live cohort onSnapshot notice:', err));
 
+    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
+      loadRealData();
+    }, (err) => console.warn('Live submissions onSnapshot notice:', err));
+
+    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
+      loadRealData();
+    }, (err) => console.warn('Live assessment submissions onSnapshot notice:', err));
+
     const unsubSections = onSnapshot(collection(db, 'sections'), () => {
       loadRealData();
     }, (err) => console.warn('Live sections onSnapshot notice:', err));
@@ -260,15 +268,19 @@ export const AdminPortalPage: React.FC = () => {
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadRealData());
     const unsubMeshUsers = realtimeSync.on('USERS', () => loadRealData());
     const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => loadRealData());
+    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => loadRealData());
 
     return () => {
       unsubCohort();
+      unsubSubmissions();
+      unsubAssessmentSubmissions();
       unsubSections();
       unsubEnrolled();
       if (unsubUsers) unsubUsers();
       unsubMeshSections();
       unsubMeshUsers();
       unsubMeshDashboard();
+      unsubMeshSubmissions();
     };
   }, []);
 

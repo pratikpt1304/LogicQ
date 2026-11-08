@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
@@ -84,8 +84,17 @@ export const AdminStudentsTab: React.FC = () => {
           }
         } catch {}
 
-        // 2. Fetch authoritative Firestore users
-        const users = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
+        // 2. Fetch authoritative Firestore users alongside cohort_progress
+        const [users, cohortSnap] = await Promise.all([
+          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+          getDocs(collection(db, 'cohort_progress')).catch(() => null),
+        ]);
+
+        const cohortMap = new Map<string, any>();
+        if (cohortSnap) {
+          cohortSnap.forEach((d: any) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
+
         if (isMounted && Array.isArray(users)) {
           const studentUsers: AdminStudentRecord[] = users
             .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
@@ -97,6 +106,18 @@ export const AdminStudentsTab: React.FC = () => {
                 (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in') && anyUser.email.includes('@'))
               );
 
+              const prnClean = (anyUser.prn || '').toUpperCase().trim();
+              const cData = cohortMap.get(prnClean) || cohortMap.get(String(anyUser.id || anyUser.uid || '').toUpperCase().trim()) || {};
+              const mod = cData.moduleProgress || {};
+              const totalSolved = cData.totalSolved ?? anyUser.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
+              const totalPoints = cData.totalPoints ?? anyUser.totalPoints ?? (totalSolved * 50);
+              const computedIntegrity = mod.integrityScore !== undefined
+                ? Number(mod.integrityScore)
+                : (anyUser.integrityScore ?? 100);
+              const computedAcademic = mod.academicScore !== undefined
+                ? Number(mod.academicScore)
+                : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
+
               return {
                 id: anyUser.id || anyUser.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,
                 name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student Candidate',
@@ -104,17 +125,16 @@ export const AdminStudentsTab: React.FC = () => {
                 email: anyUser.email || '—',
                 section: anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'),
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
-                academicScore: anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
-                integrityScore: anyUser.integrityScore !== undefined ? anyUser.integrityScore : 100,
+                academicScore: computedAcademic,
+                integrityScore: computedIntegrity,
                 miniProjectUnlocked: (() => {
-                  const prnClean = (anyUser.prn || '').toUpperCase().trim();
                   const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
                   if (localCached !== null) return localCached === 'true';
-                  return Boolean(anyUser.miniProjectUnlocked || anyUser.miniProjectActive);
+                  return Boolean(mod.miniProjectUnlocked ?? anyUser.miniProjectUnlocked ?? anyUser.miniProjectActive);
                 })(),
-                lastActive: anyUser.lastLoginAt
-                  ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : 'Recent',
+                lastActive: mod.lastActiveTime
+                  ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : (anyUser.lastLoginAt ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
               };
             });
 
@@ -247,16 +267,30 @@ export const AdminStudentsTab: React.FC = () => {
       }, () => {});
     } catch {}
 
+    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => {
+      loadStudents(false);
+    }, () => {});
+
+    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => {
+      loadStudents(false);
+    }, () => {});
+
     const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents(false));
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents(false));
+    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => loadStudents(false));
+    const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => loadStudents(false));
 
     return () => {
       isMounted = false;
       unsubEnrolled();
       unsubCohort();
+      unsubSubmissions();
+      unsubAssessmentSubmissions();
       if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
+      unsubMeshSubmissions();
+      unsubMeshDashboard();
     };
   }, []);
 

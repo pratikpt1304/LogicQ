@@ -605,6 +605,39 @@ export class FirestoreDataService {
       console.warn('syncStudentProfileUpdate sections notice:', err);
     }
 
+    // 3b. Update cohort_progress in Cloud Firestore so admin portals see updated identity immediately
+    const prnToSync = (params.newPrn || params.oldPrn || effectivePrn || FirestoreDataService.resolvePrn(targetUid) || '').toUpperCase().trim();
+    if (prnToSync) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prnToSync);
+        const cohortSnap = await getDoc(cohortRef).catch(() => null);
+        const existingData = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+
+        await setDoc(cohortRef, {
+          prn: prnToSync,
+          studentName: effectiveName || existingData.studentName || undefined,
+          studentEmail: cleanEmail || existingData.studentEmail || undefined,
+          department: params.department || existingData.department || undefined,
+          division: params.division !== undefined ? params.division : existingData.division,
+          year: params.year || existingData.year || undefined,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+
+        // If PRN changed, migrate old cohort document
+        if (params.oldPrn && params.newPrn && params.oldPrn.toUpperCase().trim() !== params.newPrn.toUpperCase().trim()) {
+          const oldPrnKey = params.oldPrn.toUpperCase().trim();
+          const oldCohortRef = doc(db, 'cohort_progress', oldPrnKey);
+          const oldSnap = await getDoc(oldCohortRef).catch(() => null);
+          if (oldSnap && oldSnap.exists()) {
+            await setDoc(cohortRef, oldSnap.data(), { merge: true });
+            await deleteDoc(oldCohortRef).catch(() => {});
+          }
+        }
+      } catch (cohortErr) {
+        console.warn('syncStudentProfileUpdate cohort_progress notice:', cohortErr);
+      }
+    }
+
     // 4. Update local active user and stored users cache
     try {
       const activeRaw = localStorage.getItem('logicq_active_user');
@@ -659,6 +692,8 @@ export class FirestoreDataService {
     try {
       RealtimeSyncService.emit('USERS');
       RealtimeSyncService.emit('SECTIONS');
+      RealtimeSyncService.emit('DASHBOARD');
+      RealtimeSyncService.emit('SUBMISSIONS');
     } catch {}
   }
 
@@ -998,6 +1033,45 @@ export class FirestoreDataService {
           }).catch(() => {});
         }
       } catch {}
+
+      // Also update cohort_progress in Cloud Firestore so admin portals see updated points & solved count immediately
+      if (effectivePrn) {
+        try {
+          const cohortRef = doc(db, 'cohort_progress', effectivePrn);
+          const cohortSnap = await getDoc(cohortRef).catch(() => null);
+          const cData = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+          const completedList: string[] = Array.isArray(cData.completedProblems) ? [...cData.completedProblems] : [];
+          if (data.verdict === 'ACCEPTED' && !completedList.includes(data.problemId)) {
+            completedList.push(data.problemId);
+          }
+
+          const currentSolved = completedList.length;
+          const currentPoints = (cData.totalPoints || 0) + pointsAwarded;
+          const prevMod = cData.moduleProgress || {};
+
+          await setDoc(
+            cohortRef,
+            {
+              prn: effectivePrn,
+              studentName: effectiveName || cData.studentName || undefined,
+              studentEmail: effectiveEmail || cData.studentEmail || undefined,
+              totalSolved: currentSolved,
+              totalPoints: currentPoints,
+              completedProblems: completedList,
+              moduleProgress: {
+                ...prevMod,
+                currentProblem: data.problemTitle,
+                academicScore: Math.min(100, currentSolved * 20),
+                lastActiveTime: new Date().toISOString(),
+              },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (cErr) {
+          console.warn('recordDailySubmission cohort_progress sync notice:', cErr);
+        }
+      }
 
       // Broadcast real-time updates across open tabs and listener hooks
       RealtimeSyncService.emit('SUBMISSIONS');
@@ -3989,6 +4063,8 @@ export class FirestoreDataService {
             cohortRef,
             {
               prn,
+              studentName: existingCohort.studentName || auth.currentUser?.displayName || undefined,
+              studentEmail: existingCohort.studentEmail || auth.currentUser?.email || undefined,
               moduleProgress: {
                 ...prevModule,
                 integrityScore,
@@ -4030,6 +4106,7 @@ export class FirestoreDataService {
 
           RealtimeSyncService.emit('USERS');
           RealtimeSyncService.emit('DASHBOARD');
+          RealtimeSyncService.emit('SUBMISSIONS');
         } catch (cohortErr) {
           console.warn('recordProctoringIncident cohort sync notice:', cohortErr);
         }

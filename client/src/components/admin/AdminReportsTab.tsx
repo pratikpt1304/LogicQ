@@ -109,6 +109,8 @@ export const AdminReportsTab: React.FC = () => {
     syncReportsData();
 
     const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => syncReportsData(), (err) => console.warn('Reports cohort notice:', err));
+    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => syncReportsData(), () => {});
+    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => syncReportsData(), () => {});
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), (err) => console.warn('Reports enrolled notice:', err));
     const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), (err) => console.warn('Reports sections notice:', err));
     let unsubUsers: (() => void) | null = null;
@@ -117,15 +119,21 @@ export const AdminReportsTab: React.FC = () => {
     } catch {}
     const unsubMeshUsers = realtimeSync.on('USERS', () => syncReportsData());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => syncReportsData());
+    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => syncReportsData());
+    const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => syncReportsData());
 
     return () => {
       isMounted = false;
       unsubCohort();
+      unsubSubmissions();
+      unsubAssessmentSubmissions();
       unsubEnrolled();
       unsubSections();
       if (unsubUsers) unsubUsers();
       unsubMeshUsers();
       unsubMeshSections();
+      unsubMeshSubmissions();
+      unsubMeshDashboard();
     };
   }, []);
 
