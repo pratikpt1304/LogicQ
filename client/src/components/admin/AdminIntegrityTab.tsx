@@ -318,7 +318,10 @@ export const AdminIntegrityTab: React.FC = () => {
           .filter((s) => s.name && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
           .map((s) => {
             const prnClean = (s.prn || '').toUpperCase().trim();
-            const cData = cohortMap.get(prnClean) || cohortMap.get(String(s.id).toUpperCase().trim()) || {};
+            const cData = cohortMap.get(prnClean) ||
+                          cohortMap.get(prnClean.replace(/0/g, 'O')) ||
+                          cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                          cohortMap.get(String(s.id).toUpperCase().trim()) || {};
             const mod = cData?.moduleProgress || {};
 
             // Find all submissions matching this student
@@ -326,7 +329,7 @@ export const AdminIntegrityTab: React.FC = () => {
               const subPrn = (sub.studentPrn || sub.prn || '').toUpperCase().trim();
               const subUid = (sub.userId || '').trim();
               const subEmail = (sub.studentEmail || sub.email || '').toLowerCase().trim();
-              return (prnClean && prnClean !== '—' && subPrn === prnClean) ||
+              return (prnClean && prnClean !== '—' && FirestoreDataService.arePrnsMatching(subPrn, prnClean)) ||
                      (s.id && subUid && subUid === s.id) ||
                      (s.email && s.email !== '—' && subEmail && subEmail === s.email.toLowerCase().trim());
             });

@@ -34,6 +34,10 @@ export interface AdminStudentRecord {
   integrityScore: number; // 0-100
   miniProjectUnlocked: boolean;
   lastActive: string;
+  problemsSolved?: number;
+  clipboardAttempts?: number;
+  tabSwitchCount?: number;
+  totalKeystrokes?: number;
 }
 
 export const AdminStudentsTab: React.FC = () => {
@@ -84,15 +88,27 @@ export const AdminStudentsTab: React.FC = () => {
           }
         } catch {}
 
-        // 2. Fetch authoritative Firestore users alongside cohort_progress
-        const [users, cohortSnap] = await Promise.all([
+        // 2. Fetch authoritative Firestore users alongside cohort_progress & submissions
+        const [users, cohortSnap, assessSnap, subSnap] = await Promise.all([
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
           getDocs(collection(db, 'cohort_progress')).catch(() => null),
+          getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
+          getDocs(collection(db, 'submissions')).catch(() => null),
         ]);
 
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
           cohortSnap.forEach((d: any) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
+
+        const assessSubs: any[] = [];
+        if (assessSnap) {
+          assessSnap.forEach((d: any) => assessSubs.push(d.data()));
+        }
+
+        const genSubs: any[] = [];
+        if (subSnap) {
+          subSnap.forEach((d: any) => genSubs.push(d.data()));
         }
 
         if (isMounted && Array.isArray(users)) {
@@ -107,13 +123,72 @@ export const AdminStudentsTab: React.FC = () => {
               );
 
               const prnClean = (anyUser.prn || '').toUpperCase().trim();
-              const cData = cohortMap.get(prnClean) || cohortMap.get(String(anyUser.id || anyUser.uid || '').toUpperCase().trim()) || {};
+              const userEmail = (anyUser.email || '').toLowerCase().trim();
+              const userId = String(anyUser.id || anyUser.uid || '').trim();
+
+              const cData = cohortMap.get(prnClean) ||
+                            cohortMap.get(prnClean.replace(/0/g, 'O')) ||
+                            cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                            cohortMap.get(userId.toUpperCase()) || {};
               const mod = cData.moduleProgress || {};
-              const totalSolved = cData.totalSolved ?? anyUser.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
-              const totalPoints = cData.totalPoints ?? anyUser.totalPoints ?? (totalSolved * 50);
-              const computedIntegrity = mod.integrityScore !== undefined
-                ? Number(mod.integrityScore)
-                : (anyUser.integrityScore ?? 100);
+
+              // Match student's submissions across tests and practice
+              const matchedSubs = [...assessSubs, ...genSubs].filter((s: any) => {
+                const sPrn = s.studentPrn || s.prn || '';
+                const sEmail = (s.studentEmail || s.email || '').toLowerCase().trim();
+                const sUid = (s.userId || s.studentId || '').trim();
+                return (prnClean && FirestoreDataService.arePrnsMatching(sPrn, prnClean)) ||
+                       (userEmail && sEmail && sEmail === userEmail) ||
+                       (userId && sUid && sUid === userId);
+              });
+
+              const uniqueProblems = new Set<string>();
+              matchedSubs.forEach((s: any) => {
+                if (s.verdict === 'ACCEPTED' || s.status === 'PASSED' || s.academicScore > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed))) {
+                  uniqueProblems.add(s.problemId || s.problemTitle || s.problemSlug || s.title || s.id);
+                }
+              });
+              if (Array.isArray(cData.completedProblems)) {
+                cData.completedProblems.forEach((p: string) => uniqueProblems.add(p));
+              }
+
+              const totalSolved = Math.max(
+                uniqueProblems.size,
+                cData.totalSolved ?? 0,
+                anyUser.totalSolved ?? 0
+              );
+
+              const pointsFromSubs = Math.round(
+                matchedSubs.reduce((acc: number, s: any) => acc + (Number(s.academicScore) || Number(s.score) || Number(s.points) || 0), 0)
+              );
+
+              const totalPoints = Math.max(
+                pointsFromSubs,
+                cData.totalPoints ?? 0,
+                anyUser.totalPoints ?? 0,
+                totalSolved * 20
+              );
+
+              const tabSwitches = Math.max(
+                Number(mod.tabSwitches) || 0,
+                ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
+              );
+
+              const pasteBursts = Math.max(
+                Number(mod.pasteBursts) || 0,
+                ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
+              );
+
+              const totalKeystrokes = Math.max(
+                Number(mod.totalKeystrokes) || 0,
+                ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
+              );
+
+              const computedIntegrity = Math.max(
+                0,
+                Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10)
+              );
+
               const computedAcademic = mod.academicScore !== undefined
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
@@ -127,6 +202,10 @@ export const AdminStudentsTab: React.FC = () => {
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: computedAcademic,
                 integrityScore: computedIntegrity,
+                problemsSolved: totalSolved,
+                clipboardAttempts: pasteBursts,
+                tabSwitchCount: tabSwitches,
+                totalKeystrokes,
                 miniProjectUnlocked: (() => {
                   const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
                   if (localCached !== null) return localCached === 'true';
@@ -230,7 +309,7 @@ export const AdminStudentsTab: React.FC = () => {
         if (data && prnClean) {
           setStudents((prev) =>
             prev.map((s) => {
-              if (s.prn.toUpperCase().trim() === prnClean) {
+              if (FirestoreDataService.arePrnsMatching(s.prn, prnClean) || (data.studentEmail && s.email && s.email.toLowerCase() === String(data.studentEmail).toLowerCase())) {
                 const totalSolved = data.totalSolved ?? (Array.isArray(data.completedProblems) ? data.completedProblems.length : 0);
                 const computedAcademic = data?.moduleProgress?.academicScore !== undefined
                   ? Number(data.moduleProgress.academicScore)

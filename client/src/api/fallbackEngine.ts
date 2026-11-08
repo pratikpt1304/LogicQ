@@ -4157,20 +4157,28 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     const { code, problemId } = body || {};
     const trimmedCode = (code || '').trim();
 
-    // 1. Resolve test cases for this specific problem
+    // 1. Resolve test cases and starter code for this specific problem
     let currentProblem: any = null;
     try {
       const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
       for (const t of cloudTests) {
         if (t.questions && Array.isArray(t.questions)) {
-          const matched = t.questions.find((q: any) => q.id === problemId || q.problemId === problemId);
+          const matched = t.questions.find((q: any) => q.id === problemId || q.problemId === problemId || q.problem?.id === problemId);
           if (matched) {
-            currentProblem = matched;
+            currentProblem = matched.problem || matched;
             break;
           }
         }
       }
     } catch {}
+
+    if (!currentProblem) {
+      try {
+        const bank = JSON.parse(localStorage.getItem('logicq_admin_questions') || '[]');
+        const matched = bank.find((q: any) => q.id === problemId || q.slug === problemId);
+        if (matched) currentProblem = matched;
+      } catch {}
+    }
 
     const visibleCases = [
       {
@@ -4186,9 +4194,11 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     ];
 
     const cleanStarter = (currentProblem?.starterCode || '').trim();
+    const normCode = trimmedCode.replace(/\s+/g, ' ');
+    const normStarter = cleanStarter.replace(/\s+/g, ' ');
 
-    // Verification 1: Incomplete or empty starter code
-    if (!trimmedCode || (cleanStarter && trimmedCode === cleanStarter) || trimmedCode.length < 35) {
+    // Verification 1: Incomplete or unmodified starter code
+    if (!trimmedCode || (normStarter && normCode === normStarter) || trimmedCode.length < 35) {
       const testResults = visibleCases.map((tc, idx) => ({
         testCaseId: tc.id || `tc${idx + 1}`,
         passed: false,
@@ -4354,10 +4364,36 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
     const { code, problemId } = body || {};
     const trimmedCode = (code || '').trim();
 
-    if (!trimmedCode || !trimmedCode.includes('main(')) {
+    let currentProblem: any = null;
+    try {
+      const cloudTests = await FirestoreDataService.getAssessmentTestsFromFirestore();
+      for (const t of cloudTests) {
+        if (t.questions && Array.isArray(t.questions)) {
+          const matched = t.questions.find((q: any) => q.id === problemId || q.problemId === problemId || q.problem?.id === problemId);
+          if (matched) {
+            currentProblem = matched.problem || matched;
+            break;
+          }
+        }
+      }
+    } catch {}
+
+    if (!currentProblem) {
+      try {
+        const bank = JSON.parse(localStorage.getItem('logicq_admin_questions') || '[]');
+        const matched = bank.find((q: any) => q.id === problemId || q.slug === problemId);
+        if (matched) currentProblem = matched;
+      } catch {}
+    }
+
+    const cleanStarter = (currentProblem?.starterCode || '').trim();
+    const normCode = trimmedCode.replace(/\s+/g, ' ');
+    const normStarter = cleanStarter.replace(/\s+/g, ' ');
+
+    if (!trimmedCode || (normStarter && normCode === normStarter) || trimmedCode.length < 35 || (!trimmedCode.includes('main(') && !trimmedCode.includes('main ('))) {
       return {
         success: false,
-        message: 'Compilation Error: undefined reference to main',
+        message: 'Compilation Error: No solution logic implemented in main()',
         verdict: 'COMPILATION_ERROR',
         academicScore: 0.0,
         data: {
@@ -4372,6 +4408,11 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
             { testCaseId: 'tc3', passed: false, isHidden: true },
           ],
         },
+        testOutcomes: [
+          { testCaseId: 'tc1', passed: false, isHidden: false },
+          { testCaseId: 'tc2', passed: false, isHidden: false },
+          { testCaseId: 'tc3', passed: false, isHidden: true },
+        ],
       };
     }
 

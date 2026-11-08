@@ -623,6 +623,16 @@ export const ExamWorkspacePage: React.FC = () => {
   const runMutation = useMutation({
     mutationFn: async () => {
       if (!attemptId) throw new Error('Attempt not initialized');
+      
+      const currentCode = (code || '').trim();
+      const starterCode = (problemData?.starterCode || '').trim();
+      const normCurrent = currentCode.replace(/\s+/g, ' ');
+      const normStarter = starterCode.replace(/\s+/g, ' ');
+
+      if (!currentCode || (normStarter && normCurrent === normStarter) || currentCode.length < 25) {
+        throw new Error('Please write your C code logic in the editor before running test cases.');
+      }
+
       return api.post('/exam/run-code', {
         attemptId,
         code,
@@ -651,6 +661,16 @@ export const ExamWorkspacePage: React.FC = () => {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!attemptId) throw new Error('Attempt not initialized');
+
+      const currentCode = (code || '').trim();
+      const starterCode = (problemData?.starterCode || '').trim();
+      const normCurrent = currentCode.replace(/\s+/g, ' ');
+      const normStarter = starterCode.replace(/\s+/g, ' ');
+
+      if (!currentCode || (normStarter && normCurrent === normStarter) || currentCode.length < 25) {
+        throw new Error('Cannot submit empty solution. Please write your C solution code.');
+      }
+
       return api.post('/exam/submit-question', {
         attemptId,
         code,

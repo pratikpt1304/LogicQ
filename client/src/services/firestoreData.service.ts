@@ -1201,6 +1201,18 @@ export class FirestoreDataService {
   }
 
   /**
+   * Compares two PRNs with case-insensitivity, trim, and O (letter) vs 0 (digit) tolerance.
+   */
+  public static arePrnsMatching(a?: string | null, b?: string | null): boolean {
+    if (!a || !b) return false;
+    const cleanA = String(a).toUpperCase().trim().replace(/^COHORT-/, '');
+    const cleanB = String(b).toUpperCase().trim().replace(/^COHORT-/, '');
+    if (cleanA === cleanB) return true;
+    if (cleanA.replace(/O/g, '0') === cleanB.replace(/O/g, '0')) return true;
+    return false;
+  }
+
+  /**
    * Persists student practice progress in users/{uid}/drafts/practice_progress and cohort_progress/{prn}
    */
   public static async savePracticeProgress(uid: string, completedProblems: string[]): Promise<void> {

@@ -78,7 +78,10 @@ export const AdminReportsTab: React.FC = () => {
             )
             .map((u: any) => {
               const prnClean = (u.prn || '').toUpperCase().trim();
-              const cData = cohortMap.get(prnClean) || {};
+              const cData = cohortMap.get(prnClean) ||
+                            cohortMap.get(prnClean.replace(/0/g, 'O')) ||
+                            cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                            cohortMap.get(String(u.id || u.uid || '').toUpperCase().trim()) || {};
               const mod = cData.moduleProgress || {};
               const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
               const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
