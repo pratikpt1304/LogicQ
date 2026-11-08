@@ -234,216 +234,6 @@ const INITIAL_STUDENT_FORENSICS: StudentForensicRecord[] = [
       },
     ],
   },
-  {
-    id: 'stu-rahul',
-    name: 'Rahul Sharma',
-    prn: '2126PMIM1014',
-    email: 'rahul.s@sanjivani.edu.in',
-    section: 'Integrated Mtech',
-    currentModule: 'Unit 2: Functions & Pointers',
-    currentProblem: 'Safe Pointer Swapper & Address Offset Checker',
-    startTime: '10:12 AM',
-    lastActiveTime: '10:35 AM',
-    totalTimeSpent: '23m 15s',
-    integrityScore: 68,
-    status: 'NEEDS_REVIEW',
-    tabSwitches: 3,
-    pasteBursts: 1,
-    fullscreenExits: 1,
-    avgWpm: 92,
-    aiVivaStatus: 'PENDING',
-    aiVivaScore: undefined,
-    timeline: [
-      {
-        id: 'ev-r1',
-        timestamp: '10:12:10 AM',
-        timeElapsed: '+00m 10s',
-        moduleName: 'Unit 2: Functions & Pointers',
-        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
-        type: 'SESSION_START',
-        severity: 'INFO',
-        title: 'Exam Session Started',
-        details: 'Student began Unit 2 problem on Chrome/Mac terminal.',
-      },
-      {
-        id: 'ev-r2',
-        timestamp: '10:18:22 AM',
-        timeElapsed: '+06m 12s',
-        moduleName: 'Unit 2: Functions & Pointers',
-        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
-        type: 'TAB_SWITCH',
-        severity: 'WARNING',
-        title: 'Tab Switch / Window Blur Detected',
-        details: 'Student switched tabs away from editor for 14.2 seconds (Window blur captured).',
-      },
-      {
-        id: 'ev-r3',
-        timestamp: '10:18:40 AM',
-        timeElapsed: '+06m 30s',
-        moduleName: 'Unit 2: Functions & Pointers',
-        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
-        type: 'PASTE_BURST',
-        severity: 'CRITICAL',
-        title: 'External Paste Burst Flagged (>120 Chars)',
-        details: 'Pasted 142 characters in 110ms into editor buffer. External buffer origin detected.',
-        codeSnippet: 'void swap(int **a, int **b) {\n    int *temp = *a;\n    *a = *b;\n    *b = temp;\n}',
-      },
-      {
-        id: 'ev-r4',
-        timestamp: '10:24:15 AM',
-        timeElapsed: '+12m 05s',
-        moduleName: 'Unit 2: Functions & Pointers',
-        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
-        type: 'FULLSCREEN_EXIT',
-        severity: 'WARNING',
-        title: 'Exited Fullscreen Mode',
-        details: 'Exited enforced fullscreen proctoring view for 8 seconds.',
-      },
-      {
-        id: 'ev-r5',
-        timestamp: '10:31:00 AM',
-        timeElapsed: '+18m 50s',
-        moduleName: 'Unit 2: Functions & Pointers',
-        problemTitle: 'Safe Pointer Swapper & Address Offset Checker',
-        type: 'AI_VIVA_PROMPT',
-        severity: 'WARNING',
-        title: 'AI Viva Defense Challenge Dispatched',
-        details: 'Prompted student to explain double pointer dereference and address mutation logic.',
-      },
-    ],
-  },
-  {
-    id: 'stu-sneha',
-    name: 'Sneha Patil',
-    prn: '2126PMIM1028',
-    email: 'sneha.p@sanjivani.edu.in',
-    section: 'Integrated Mtech',
-    currentModule: 'Unit 3: Arrays & Strings',
-    currentProblem: 'Dynamic Array Deduplication with In-Place Compaction',
-    startTime: '10:05 AM',
-    lastActiveTime: '10:38 AM',
-    totalTimeSpent: '33m 05s',
-    integrityScore: 98,
-    status: 'CLEAN',
-    tabSwitches: 0,
-    pasteBursts: 0,
-    fullscreenExits: 0,
-    avgWpm: 64,
-    aiVivaStatus: 'VERIFIED',
-    aiVivaScore: 94,
-    timeline: [
-      {
-        id: 'ev-s1',
-        timestamp: '10:05:00 AM',
-        timeElapsed: '+00m 00s',
-        moduleName: 'Unit 3: Arrays & Strings',
-        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
-        type: 'SESSION_START',
-        severity: 'INFO',
-        title: 'Session Started',
-        details: 'Enrolled session started cleanly with zero background processes detected.',
-      },
-      {
-        id: 'ev-s2',
-        timestamp: '10:14:20 AM',
-        timeElapsed: '+09m 20s',
-        moduleName: 'Unit 3: Arrays & Strings',
-        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
-        type: 'CODE_RUN',
-        severity: 'INFO',
-        title: 'Test Run Passed',
-        details: 'Compiled and executed logic with test inputs. Execution time: 14ms.',
-      },
-      {
-        id: 'ev-s3',
-        timestamp: '10:28:45 AM',
-        timeElapsed: '+23m 45s',
-        moduleName: 'Unit 3: Arrays & Strings',
-        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
-        type: 'AI_VIVA_ANSWER',
-        severity: 'SUCCESS',
-        title: 'AI Viva Concept Validated (94%)',
-        details: 'Explained two-pointer array compaction with $O(N)$ time complexity and $O(1)$ auxiliary space.',
-      },
-      {
-        id: 'ev-s4',
-        timestamp: '10:32:10 AM',
-        timeElapsed: '+27m 10s',
-        moduleName: 'Unit 3: Arrays & Strings',
-        problemTitle: 'Dynamic Array Deduplication with In-Place Compaction',
-        type: 'CODE_SUBMIT',
-        severity: 'SUCCESS',
-        title: 'Final Submission Verified',
-        details: 'Accepted with 100% test case pass rate.',
-      },
-    ],
-  },
-  {
-    id: 'stu-amit',
-    name: 'Amit Deshmukh',
-    prn: '2126PMIM1042',
-    email: 'amit.d@sanjivani.edu.in',
-    section: 'Integrated Mtech',
-    currentModule: 'Unit 4: Structures & Files',
-    currentProblem: 'Binary Packet Serialization & File Stream Checksum',
-    startTime: '10:08 AM',
-    lastActiveTime: '10:36 AM',
-    totalTimeSpent: '28m 12s',
-    integrityScore: 42,
-    status: 'CRITICAL_BREACH',
-    tabSwitches: 5,
-    pasteBursts: 2,
-    fullscreenExits: 2,
-    avgWpm: 145,
-    aiVivaStatus: 'FAILED',
-    aiVivaScore: 32,
-    timeline: [
-      {
-        id: 'ev-a1',
-        timestamp: '10:08:15 AM',
-        timeElapsed: '+00m 15s',
-        moduleName: 'Unit 4: Structures & Files',
-        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
-        type: 'SESSION_START',
-        severity: 'INFO',
-        title: 'Session Started',
-        details: 'Started Unit 4 advanced serialization challenge.',
-      },
-      {
-        id: 'ev-a2',
-        timestamp: '10:14:02 AM',
-        timeElapsed: '+05m 47s',
-        moduleName: 'Unit 4: Structures & Files',
-        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
-        type: 'TAB_SWITCH',
-        severity: 'CRITICAL',
-        title: 'Extended Focus Loss Detected',
-        details: 'Candidate switched tabs away for 48 seconds. Suspected external browser research.',
-      },
-      {
-        id: 'ev-a3',
-        timestamp: '10:15:10 AM',
-        timeElapsed: '+06m 55s',
-        moduleName: 'Unit 4: Structures & Files',
-        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
-        type: 'PASTE_BURST',
-        severity: 'CRITICAL',
-        title: 'Large Code Block Pasted (+290 Chars)',
-        details: 'Complete struct definition and 16-bit CRC checksum routine pasted in 180ms.',
-      },
-      {
-        id: 'ev-a4',
-        timestamp: '10:22:30 AM',
-        timeElapsed: '+14m 15s',
-        moduleName: 'Unit 4: Structures & Files',
-        problemTitle: 'Binary Packet Serialization & File Stream Checksum',
-        type: 'AI_VIVA_ANSWER',
-        severity: 'CRITICAL',
-        title: 'AI Viva Defense Failed (Score: 32/100)',
-        details: 'Candidate was unable to explain how struct memory padding affects binary file serialization.',
-      },
-    ],
-  },
 ];
 
 export const AdminIntegrityTab: React.FC = () => {
@@ -469,16 +259,70 @@ export const AdminIntegrityTab: React.FC = () => {
   const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>(() => {
     try {
       const saved = localStorage.getItem('logicq_student_forensics_data');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Strictly purge fake/demo records
+          const cleaned = parsed.filter(
+            (s: any) =>
+              s.id !== 'stu-rahul' &&
+              s.id !== 'stu-amit' &&
+              s.id !== 'stu-sneha' &&
+              !String(s.name || '').includes('Rahul') &&
+              !String(s.name || '').includes('Amit') &&
+              !String(s.name || '').includes('Sneha')
+          );
+          localStorage.setItem('logicq_student_forensics_data', JSON.stringify(cleaned));
+          if (cleaned.length > 0) return cleaned;
+        }
+      }
     } catch {}
     return INITIAL_STUDENT_FORENSICS;
   });
 
-  // Viva logs state
+  // Ensure fake students are purged on mount and sync with real enrolled students
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('logicq_student_forensics_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(
+            (s: any) =>
+              s.id !== 'stu-rahul' &&
+              s.id !== 'stu-amit' &&
+              s.id !== 'stu-sneha' &&
+              !String(s.name || '').includes('Rahul') &&
+              !String(s.name || '').includes('Amit') &&
+              !String(s.name || '').includes('Sneha')
+          );
+          localStorage.setItem('logicq_student_forensics_data', JSON.stringify(cleaned));
+          if (cleaned.length > 0) {
+            setStudentsForensics(cleaned);
+          } else {
+            setStudentsForensics(INITIAL_STUDENT_FORENSICS);
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Viva logs state (authentic students only)
   const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>(() => {
     try {
       const saved = localStorage.getItem('logicq_viva_logs');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(
+            (v: any) =>
+              !String(v.studentName || '').includes('Rahul') &&
+              !String(v.studentName || '').includes('Amit') &&
+              !String(v.studentName || '').includes('Sneha')
+          );
+          return cleaned;
+        }
+      }
     } catch {}
     return [
       {
@@ -490,18 +334,6 @@ export const AdminIntegrityTab: React.FC = () => {
         question: 'Why does (n & (n - 1)) == 0 verify power of two without loops?',
         answer: 'A power of two has only one set bit in binary. Subtracting 1 flips all bits up to that bit, making AND produce 0.',
         score: 96,
-        status: 'VERIFIED',
-        timestamp: '10:28 AM',
-      },
-      {
-        id: 'vl-2',
-        studentName: 'Sneha Patil',
-        prn: '2126PMIM1028',
-        section: 'Integrated Mtech',
-        problemTitle: 'Dynamic Array Deduplication',
-        question: 'What is the auxiliary memory complexity of in-place deduplication?',
-        answer: 'O(1) auxiliary space because pointers are updated in the existing memory block without allocating a copy array.',
-        score: 94,
         status: 'VERIFIED',
         timestamp: '10:28 AM',
       },
