@@ -214,7 +214,11 @@ export const AdminStudentsTab: React.FC = () => {
                 return {
                   ...s,
                   academicScore: Math.min(100, Math.round(((data.totalPoints || s.academicScore || 0) / 100) * 100)),
-                  miniProjectUnlocked: Boolean(data.miniProjectUnlocked || data.miniProjectActive || s.miniProjectUnlocked),
+                  miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
+                    ? Boolean(data.moduleProgress.miniProjectUnlocked)
+                    : (data.miniProjectUnlocked !== undefined
+                        ? Boolean(data.miniProjectUnlocked)
+                        : Boolean(data.miniProjectActive)),
                 };
               }
               return s;

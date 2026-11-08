@@ -10,7 +10,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth, db } from '../config/firebase.js';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
@@ -83,19 +83,44 @@ export const DashboardPage: React.FC = () => {
 
   // Sync Mini-Project unlock status dynamically from Firestore & localStorage
   useEffect(() => {
-    if (!user?.prn) return;
+    const cleanPrn = (user?.prn || '').trim().toUpperCase();
+    if (!cleanPrn) return;
     let isMounted = true;
+
     const checkStatus = async () => {
-      const unlocked = await FirestoreDataService.getMiniProjectStatus(user.prn || '');
+      const unlocked = await FirestoreDataService.getMiniProjectStatus(cleanPrn);
       if (isMounted) {
-        setIsMiniProjectUnlocked(unlocked || Boolean((user as any)?.miniProjectUnlocked));
+        setIsMiniProjectUnlocked(unlocked);
       }
     };
     checkStatus();
+
+    // 0ms Real-time Firestore live listener for instant unlock/lock
+    let unsubDoc: (() => void) | null = null;
+    try {
+      unsubDoc = onSnapshot(doc(db, 'cohort_progress', cleanPrn), (docSnap) => {
+        if (!isMounted) return;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data?.moduleProgress?.miniProjectUnlocked !== undefined) {
+            const val = Boolean(data.moduleProgress.miniProjectUnlocked);
+            setIsMiniProjectUnlocked(val);
+            localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, val ? 'true' : 'false');
+          }
+        }
+      }, () => {});
+    } catch {}
+
+    const unsubRealtime = RealtimeSyncService.on('DASHBOARD', () => checkStatus());
+    const unsubUsers = RealtimeSyncService.on('USERS', () => checkStatus());
+
     return () => {
       isMounted = false;
+      if (unsubDoc) unsubDoc();
+      unsubRealtime();
+      unsubUsers();
     };
-  }, [user?.prn, (user as any)?.miniProjectUnlocked]);
+  }, [user?.prn]);
 
   const [isDriveConnecting, setIsDriveConnecting] = useState(false);
   const [workspaceBlockMessage, setWorkspaceBlockMessage] = useState<string | null>(null);

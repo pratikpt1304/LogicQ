@@ -57,6 +57,19 @@ export class FirestoreDataService {
     try {
       localStorage.setItem(`logicq_mini_project_unlocked_${cleanPrn}`, isUnlocked ? 'true' : 'false');
 
+      // Update cached user if matches
+      try {
+        const uRaw = localStorage.getItem('logicq_user');
+        if (uRaw) {
+          const u = JSON.parse(uRaw);
+          if ((u.prn || '').toUpperCase() === cleanPrn) {
+            u.miniProjectUnlocked = isUnlocked;
+            u.miniProjectActive = isUnlocked;
+            localStorage.setItem('logicq_user', JSON.stringify(u));
+          }
+        }
+      } catch {}
+
       // 1. Update cohort_progress
       const cohortRef = doc(db, 'cohort_progress', cleanPrn);
       await setDoc(cohortRef, {
@@ -89,20 +102,22 @@ export class FirestoreDataService {
           }
         }
       }
+
+      RealtimeSyncService.emit('USERS');
+      RealtimeSyncService.emit('DASHBOARD');
     } catch (err) {
       console.warn('setMiniProjectStatus notice:', err);
     }
   }
 
   /**
-   * Retrieves Mini-Project unlock status from localStorage or Firestore cohort_progress.
+   * Retrieves Mini-Project unlock status from Firestore cohort_progress with localStorage fallback.
    */
   public static async getMiniProjectStatus(prn: string): Promise<boolean> {
     const cleanPrn = (prn || '').trim().toUpperCase();
     if (!cleanPrn) return false;
-    const cached = localStorage.getItem(`logicq_mini_project_unlocked_${cleanPrn}`);
-    if (cached !== null) return cached === 'true';
 
+    // 1. Authoritative Firestore check FIRST
     try {
       const cohortRef = doc(db, 'cohort_progress', cleanPrn);
       const snap = await getDoc(cohortRef);
@@ -115,6 +130,11 @@ export class FirestoreDataService {
         }
       }
     } catch {}
+
+    // 2. Fallback to localStorage cache
+    const cached = localStorage.getItem(`logicq_mini_project_unlocked_${cleanPrn}`);
+    if (cached !== null) return cached === 'true';
+
     return false;
   }
 
