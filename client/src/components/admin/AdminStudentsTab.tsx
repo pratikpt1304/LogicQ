@@ -104,8 +104,8 @@ export const AdminStudentsTab: React.FC = () => {
                 email: anyUser.email || '—',
                 section: anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'),
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
-                academicScore: Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
-                integrityScore: anyUser.integrityScore || 0,
+                academicScore: anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((anyUser.totalPoints || 0) / 100) * 100)),
+                integrityScore: anyUser.integrityScore !== undefined ? anyUser.integrityScore : 100,
                 miniProjectUnlocked: (() => {
                   const prnClean = (anyUser.prn || '').toUpperCase().trim();
                   const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
@@ -169,8 +169,8 @@ export const AdminStudentsTab: React.FC = () => {
           email: email || '—',
           section: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')),
           identityStatus: isBound ? 'BOUND' : 'PENDING',
-          academicScore: Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
-          integrityScore: raw.integrityScore || 0,
+          academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
+          integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
           miniProjectUnlocked: isUnlocked,
           lastActive: raw.enrolledAt ? new Date(raw.enrolledAt?.toDate ? raw.enrolledAt.toDate() : raw.enrolledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
         });
@@ -211,14 +211,26 @@ export const AdminStudentsTab: React.FC = () => {
           setStudents((prev) =>
             prev.map((s) => {
               if (s.prn.toUpperCase().trim() === prnClean) {
+                const totalSolved = data.totalSolved ?? (Array.isArray(data.completedProblems) ? data.completedProblems.length : 0);
+                const computedAcademic = data?.moduleProgress?.academicScore !== undefined
+                  ? Number(data.moduleProgress.academicScore)
+                  : Math.min(100, Math.round(((data.totalPoints || totalSolved * 20 || s.academicScore || 0) / 100) * 100));
+                const computedIntegrity = data?.moduleProgress?.integrityScore !== undefined
+                  ? Number(data.moduleProgress.integrityScore)
+                  : (s.integrityScore ?? 100);
+
                 return {
                   ...s,
-                  academicScore: Math.min(100, Math.round(((data.totalPoints || s.academicScore || 0) / 100) * 100)),
+                  academicScore: computedAcademic,
+                  integrityScore: computedIntegrity,
                   miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
                     ? Boolean(data.moduleProgress.miniProjectUnlocked)
                     : (data.miniProjectUnlocked !== undefined
                         ? Boolean(data.miniProjectUnlocked)
                         : Boolean(data.miniProjectActive)),
+                  lastActive: data?.moduleProgress?.lastActiveTime
+                    ? new Date(data.moduleProgress.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : s.lastActive,
                 };
               }
               return s;

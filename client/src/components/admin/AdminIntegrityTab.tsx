@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 
@@ -159,6 +159,50 @@ export const AdminIntegrityTab: React.FC = () => {
     return DEFAULT_GUARDRAILS;
   });
 
+  const handleInspectStudentTimeline = async (student: StudentForensicRecord) => {
+    setSelectedStudentForTimeline(student);
+    const prnClean = (student.prn || '').toUpperCase().trim();
+    if (prnClean && prnClean !== '—') {
+      try {
+        const draftSnap = await getDoc(doc(db, 'cohort_progress', prnClean, 'drafts', 'proctoring_telemetry')).catch(() => null);
+        if (draftSnap && draftSnap.exists()) {
+          const rawCode = draftSnap.data()?.code;
+          if (rawCode) {
+            const parsed = JSON.parse(rawCode);
+            if (Array.isArray(parsed?.incidents) && parsed.incidents.length > 0) {
+              const liveEvents: StudentTimelineEvent[] = parsed.incidents.map((inc: any, idx: number) => ({
+                id: inc.id || `inc-${idx}`,
+                timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
+                timeElapsed: '+Live',
+                moduleName: inc.problemTitle || 'C Programming Core',
+                problemTitle: inc.problemTitle || inc.problemSlug || 'Active Practice',
+                type: inc.type === 'TAB_SWITCH' || inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'TAB_SWITCH'
+                    : inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE' ? 'PASTE_BURST'
+                    : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
+                    : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
+                    : 'CODE_RUN',
+                severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt) ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
+                title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
+                     : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
+                     : inc.type === 'COPY_PASTE' ? 'Clipboard Paste Burst Blocked'
+                     : inc.type === 'EXCEEDED_COPY_PASTE' ? 'Massive Paste Inflow (Quarantine Locked)'
+                     : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
+                     : inc.type === 'AI_VIVA_ANSWER' ? 'AI Viva Defense Submitted'
+                     : 'Telemetry Incident Triggered',
+                details: inc.reason || 'Security event logged on student workspace.',
+                codeSnippet: inc.codeSnippet,
+              }));
+
+              setSelectedStudentForTimeline((prev) => prev ? { ...prev, timeline: liveEvents } : null);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load deep timeline for student:', err);
+      }
+    }
+  };
+
   // Students Forensics stream state (Purely Authentic Enrolled Students)
   const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>([]);
 
@@ -202,12 +246,23 @@ export const AdminIntegrityTab: React.FC = () => {
           }
         }
 
+        // Fetch live cohort_progress for cross-device telemetry
+        const cohortSnap = await getDocs(collection(db, 'cohort_progress')).catch(() => null);
+        const cohortMap = new Map<string, any>();
+        if (cohortSnap) {
+          cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
+
         if (!isMounted) return;
 
         // Map authentic students to clean standby forensic records
         const records: StudentForensicRecord[] = authenticList
           .filter((s) => s.name && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
           .map((s) => {
+            const prnClean = (s.prn || '').toUpperCase().trim();
+            const cData = cohortMap.get(prnClean) || {};
+            const mod = cData?.moduleProgress || {};
+
             const realTelemetryKey = `logicq_exam_telemetry_${s.id || s.prn}`;
             let realEvents: StudentTimelineEvent[] = [];
             try {
@@ -215,7 +270,20 @@ export const AdminIntegrityTab: React.FC = () => {
               if (telRaw) realEvents = JSON.parse(telRaw);
             } catch {}
 
-            const isSessionActive = realEvents.length > 0;
+            const tabSwitches = mod.tabSwitches !== undefined ? Number(mod.tabSwitches) : realEvents.filter((e) => e.type === 'TAB_SWITCH').length;
+            const pasteBursts = mod.pasteBursts !== undefined ? Number(mod.pasteBursts) : realEvents.filter((e) => e.type === 'PASTE_BURST').length;
+            const fullscreenExits = mod.fullscreenExits !== undefined ? Number(mod.fullscreenExits) : realEvents.filter((e) => e.type === 'FULLSCREEN_EXIT').length;
+            const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (s.integrityScore != null ? s.integrityScore : 100);
+
+            const isSessionActive = realEvents.length > 0 || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0;
+
+            const computedStatus: 'CLEAN' | 'NEEDS_REVIEW' | 'CRITICAL_BREACH' = mod.status
+              ? mod.status
+              : (integrityScore < 70 || realEvents.some((e) => e.severity === 'CRITICAL'))
+              ? 'CRITICAL_BREACH'
+              : (integrityScore < 95 || tabSwitches > 0 || pasteBursts > 0 || realEvents.some((e) => e.severity === 'WARNING'))
+              ? 'NEEDS_REVIEW'
+              : 'CLEAN';
 
             return {
               id: s.id || `stu-${s.prn}`,
@@ -223,22 +291,20 @@ export const AdminIntegrityTab: React.FC = () => {
               prn: s.prn || '—',
               email: s.email || '—',
               section: s.section || 'Integrated Mtech',
-              currentModule: isSessionActive ? (realEvents[realEvents.length - 1].moduleName || 'Active Test') : 'No Active Assessment',
-              currentProblem: isSessionActive ? (realEvents[realEvents.length - 1].problemTitle || 'Live Problem') : 'Standby — Awaiting Test Launch',
-              startTime: isSessionActive ? realEvents[0].timestamp : '—',
-              lastActiveTime: isSessionActive ? realEvents[realEvents.length - 1].timestamp : 'Standby',
-              totalTimeSpent: isSessionActive ? `${Math.max(1, Math.round(realEvents.length * 1.5))}m` : '0m',
-              integrityScore: s.integrityScore != null ? s.integrityScore : 100,
-              status: realEvents.some((e) => e.severity === 'CRITICAL')
-                ? 'CRITICAL_BREACH'
-                : realEvents.some((e) => e.severity === 'WARNING')
-                ? 'NEEDS_REVIEW'
-                : 'CLEAN',
-              tabSwitches: realEvents.filter((e) => e.type === 'TAB_SWITCH').length,
-              pasteBursts: realEvents.filter((e) => e.type === 'PASTE_BURST').length,
-              fullscreenExits: realEvents.filter((e) => e.type === 'FULLSCREEN_EXIT').length,
+              currentModule: mod.currentModule || (isSessionActive ? (realEvents[realEvents.length - 1]?.moduleName || 'C Programming Core') : 'No Active Assessment'),
+              currentProblem: mod.currentProblem || (isSessionActive ? (realEvents[realEvents.length - 1]?.problemTitle || 'Live Problem') : 'Standby — Awaiting Test Launch'),
+              startTime: isSessionActive ? (realEvents[0]?.timestamp || 'Session Active') : '—',
+              lastActiveTime: mod.lastActiveTime
+                ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : (isSessionActive ? (realEvents[realEvents.length - 1]?.timestamp || 'Recent') : 'Standby'),
+              totalTimeSpent: isSessionActive ? `${Math.max(1, Math.round((realEvents.length + tabSwitches + pasteBursts) * 1.5))}m` : '0m',
+              integrityScore,
+              status: computedStatus,
+              tabSwitches,
+              pasteBursts,
+              fullscreenExits,
               avgWpm: 0,
-              aiVivaStatus: realEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED',
+              aiVivaStatus: mod.aiVivaStatus || (realEvents.some((e) => e.type === 'AI_VIVA_ANSWER') ? 'VERIFIED' : 'NOT_TRIGGERED'),
               timeline: realEvents,
             };
           });
@@ -252,6 +318,7 @@ export const AdminIntegrityTab: React.FC = () => {
     fetchAuthenticStudents();
 
     // Live real-time Firestore synchronization for 0ms student forensics stream
+    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live cohort notice:', err));
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live enrolled notice:', err));
     const unsubSections = onSnapshot(collection(db, 'sections'), () => fetchAuthenticStudents(), (err) => console.warn('Integrity live sections notice:', err));
     let unsubUsers: (() => void) | null = null;
@@ -263,6 +330,7 @@ export const AdminIntegrityTab: React.FC = () => {
 
     return () => {
       isMounted = false;
+      unsubCohort();
       unsubEnrolled();
       unsubSections();
       if (unsubUsers) unsubUsers();
@@ -678,7 +746,7 @@ export const AdminIntegrityTab: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => setSelectedStudentForTimeline(student)}
+                          onClick={() => handleInspectStudentTimeline(student)}
                           className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -825,7 +893,7 @@ export const AdminIntegrityTab: React.FC = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedStudentForTimeline(s)}
+                        onClick={() => handleInspectStudentTimeline(s)}
                         className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />

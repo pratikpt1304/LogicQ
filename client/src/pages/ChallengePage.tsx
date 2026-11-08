@@ -810,6 +810,14 @@ export const ChallengePage: React.FC = () => {
                     localStorage.setItem('logicq_user_activity_dates', JSON.stringify(dates));
                   }
                 } catch {}
+                if (user?.id || user?.prn) {
+                  const effectiveUid = user?.id || user?.prn || 'current';
+                  FirestoreDataService.saveStatsBackup(effectiveUid, {
+                    totalPoints: (user?.totalPoints || 0) + (sub.pointsAwarded || 50),
+                    lastSolvedDate: new Date().toISOString(),
+                    completedProblems: [slug || 'challenge'],
+                  }).catch(() => {});
+                }
                 refreshUser();
               } else {
                 toast.error(`Verdict: ${sub.verdict.replace(/_/g, ' ')}`);

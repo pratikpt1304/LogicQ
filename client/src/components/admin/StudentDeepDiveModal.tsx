@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../config/firebase.js';
 import {
   Award,
   CheckCircle2,
@@ -31,23 +33,36 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   onToggleMiniProject,
 }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [liveCohort, setLiveCohort] = useState<any>(null);
+
+  useEffect(() => {
+    const prnClean = (student?.prn || '').toUpperCase().trim();
+    if (!prnClean || prnClean === 'N/A' || prnClean === '—') return;
+
+    const unsub = onSnapshot(doc(db, 'cohort_progress', prnClean), (snap) => {
+      if (snap.exists()) {
+        setLiveCohort(snap.data());
+      }
+    }, () => {});
+
+    return () => unsub();
+  }, [student?.prn]);
 
   if (!student) return null;
 
-  const isMiniProjectActive = Boolean(
-    student.miniProjectUnlocked ||
-    student.miniProjectActive ||
-    student.isMiniProjectActive
-  );
+  const problemsSolved = liveCohort?.totalSolved ?? student.problemsSolved ?? student.solvedCount ?? student.totalSolved ?? (Array.isArray(liveCohort?.completedProblems || student.completedProblems) ? (liveCohort?.completedProblems || student.completedProblems).length : 0);
+  const academicScore = liveCohort?.moduleProgress?.academicScore ?? student.academicScore ?? liveCohort?.totalPoints ?? student.totalPoints ?? student.score ?? Math.min(100, problemsSolved * 20);
+  const clipboardAttempts = liveCohort?.moduleProgress?.pasteBursts ?? student.clipboardAttempts ?? student.pasteBursts ?? 0;
+  const tabSwitchCount = liveCohort?.moduleProgress?.tabSwitches ?? student.tabSwitchCount ?? student.tabSwitches ?? 0;
+
+  const isMiniProjectActive = liveCohort?.moduleProgress?.miniProjectUnlocked !== undefined
+    ? Boolean(liveCohort.moduleProgress.miniProjectUnlocked)
+    : Boolean(student.miniProjectUnlocked || student.miniProjectActive || student.isMiniProjectActive);
 
   const studentName = student.fullName || student.name || 'Student Candidate';
   const prn = student.prn || 'N/A';
   const email = student.email || '—';
   const sectionName = student.section || student.sectionName || 'Integrated Mtech';
-  const academicScore = student.academicScore ?? student.totalPoints ?? student.score ?? 0;
-  const problemsSolved = student.problemsSolved ?? student.solvedCount ?? 0;
-  const clipboardAttempts = student.clipboardAttempts ?? 0;
-  const tabSwitchCount = student.tabSwitchCount ?? 0;
 
   const handleCopyEmail = () => {
     if (!email || email === '—') return;

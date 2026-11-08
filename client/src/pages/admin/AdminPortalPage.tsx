@@ -35,7 +35,7 @@ import { AdminIntegrityTab } from '../../components/admin/AdminIntegrityTab.js';
 import { AdminReportsTab } from '../../components/admin/AdminReportsTab.js';
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 
@@ -105,14 +105,40 @@ export const AdminPortalPage: React.FC = () => {
 
     const loadRealData = async () => {
       try {
-        const [realSections, realUsers] = await Promise.all([
+        const [realSections, realUsers, cohortSnap] = await Promise.all([
           FirestoreDataService.getSectionsFromFirestore().catch(() => []),
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+          getDocs(collection(db, 'cohort_progress')).catch(() => null),
         ]);
+
+        const cohortMap = new Map<string, any>();
+        if (cohortSnap) {
+          cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
 
         const validSections = Array.isArray(realSections) ? realSections : [];
         const studentUsers = Array.isArray(realUsers)
-          ? realUsers.filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+          ? realUsers
+              .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+              .map((u: any) => {
+                const prnClean = (u.prn || '').toUpperCase().trim();
+                const cData = cohortMap.get(prnClean) || {};
+                const mod = cData.moduleProgress || {};
+                const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
+                const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
+                const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
+                const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (u.integrityScore ?? 100);
+
+                return {
+                  ...u,
+                  totalSolved,
+                  totalPoints,
+                  academicScore,
+                  integrityScore,
+                  completedProblems: cData.completedProblems || u.completedProblems || [],
+                  miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
+                };
+              })
           : [];
 
         // Authoritatively synchronize each section's roster and count directly with the active student directory
@@ -167,11 +193,33 @@ export const AdminPortalPage: React.FC = () => {
           };
         });
 
+        let totalAcademic = 0;
+        let totalIntegrity = 0;
+        let needingSupport = 0;
+        let advanced = 0;
+        let flagged = 0;
+
+        studentUsers.forEach((s) => {
+          totalAcademic += s.academicScore || 0;
+          totalIntegrity += s.integrityScore !== undefined ? s.integrityScore : 100;
+          if ((s.academicScore || 0) < 40) needingSupport++;
+          if ((s.academicScore || 0) >= 80) advanced++;
+          if ((s.integrityScore || 100) < 70) flagged++;
+        });
+
+        const avgAcademic = studentUsers.length > 0 ? Math.round(totalAcademic / studentUsers.length) : 0;
+        const overallIntegrity = studentUsers.length > 0 ? Math.round(totalIntegrity / studentUsers.length) : 100;
+
         setSections(syncedSections);
         setStats((prev) => ({
           ...prev,
           totalSections: syncedSections.length,
           totalStudents: studentUsers.length,
+          avgAcademicScore: avgAcademic,
+          overallIntegrityScore: overallIntegrity,
+          studentsNeedingSupport: needingSupport,
+          advancedLearners: advanced,
+          flaggedSessions: flagged,
         }));
 
         try {
@@ -187,6 +235,10 @@ export const AdminPortalPage: React.FC = () => {
     loadRealData();
 
     // 2. Real-time Firestore Live Listeners (0ms delay)
+    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => {
+      loadRealData();
+    }, (err) => console.warn('Live cohort onSnapshot notice:', err));
+
     const unsubSections = onSnapshot(collection(db, 'sections'), () => {
       loadRealData();
     }, (err) => console.warn('Live sections onSnapshot notice:', err));
@@ -210,6 +262,7 @@ export const AdminPortalPage: React.FC = () => {
     const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => loadRealData());
 
     return () => {
+      unsubCohort();
       unsubSections();
       unsubEnrolled();
       if (unsubUsers) unsubUsers();

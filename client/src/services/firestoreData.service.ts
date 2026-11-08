@@ -1091,17 +1091,28 @@ export class FirestoreDataService {
       if (clean.startsWith('COHORT-')) {
         return clean.replace(/^COHORT-/, '');
       }
+      if (clean.startsWith('STU-')) {
+        const withoutPrefix = clean.replace(/^STU-/, '');
+        if (withoutPrefix.length >= 2 && !withoutPrefix.includes('@')) {
+          return withoutPrefix;
+        }
+      }
       if (/^[0-9]{4}[A-Z]{3,4}[MF]?[0-9]{3,4}$/.test(clean)) {
+        return clean;
+      }
+      // Support institutional & custom PRNs (e.g. DEMO1, DUMMY, 2126PMIM1130, TEST01)
+      if (/^[A-Z0-9_-]{2,30}$/.test(clean) && !['ANON', 'UNDEFINED', 'NULL', 'CURRENT', 'STUDENT', 'ADMIN', 'FALSE', 'TRUE'].includes(clean)) {
         return clean;
       }
       const student = findCohortStudent(clean);
       if (student) return student.prn.toUpperCase();
     }
     try {
-      const raw = localStorage.getItem('logicq_user');
+      const raw = localStorage.getItem('logicq_active_user') || localStorage.getItem('logicq_user');
       if (raw) {
         const u = JSON.parse(raw);
         if (u?.prn) return String(u.prn).trim().toUpperCase();
+        if (u?.username && /^[A-Z0-9_-]{2,30}$/i.test(u.username)) return String(u.username).trim().toUpperCase();
         if (u?.email) {
           const student = findCohortStudent(u.email);
           if (student) return student.prn.toUpperCase();
@@ -1131,16 +1142,28 @@ export class FirestoreDataService {
     if (prn) {
       try {
         const cohortRef = doc(db, 'cohort_progress', prn);
+        const cohortSnap = await getDoc(cohortRef).catch(() => null);
+        const existingData = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+        const prevModule = existingData.moduleProgress || {};
+        const computedAcademic = Math.min(100, Math.round(uniqueProblems.length * 20));
+
         await setDoc(
           cohortRef,
           {
             prn,
             completedProblems: uniqueProblems,
             totalSolved: uniqueProblems.length,
+            moduleProgress: {
+              ...prevModule,
+              academicScore: Math.max(Number(prevModule.academicScore || 0), computedAcademic),
+              lastActiveTime: new Date().toISOString(),
+            },
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
+        RealtimeSyncService.emit('USERS');
+        RealtimeSyncService.emit('DASHBOARD');
       } catch (err) {
         console.warn('savePracticeProgress to cohort_progress notice:', err);
       }
@@ -1294,6 +1317,9 @@ export class FirestoreDataService {
           ])
         );
 
+        const prevModule = existingData.moduleProgress || {};
+        const computedAcademic = Math.min(100, Math.round(mergedSolved * 20));
+
         await setDoc(
           cohortRef,
           {
@@ -1304,10 +1330,17 @@ export class FirestoreDataService {
             totalSolved: mergedSolved,
             completedProblems: mergedProblems,
             lastSolvedDate: stats.lastSolvedDate || existingData.lastSolvedDate || new Date().toISOString(),
+            moduleProgress: {
+              ...prevModule,
+              academicScore: Math.max(Number(prevModule.academicScore || 0), computedAcademic),
+              lastActiveTime: new Date().toISOString(),
+            },
             updatedAt: serverTimestamp(),
           },
           { merge: true }
         );
+        RealtimeSyncService.emit('USERS');
+        RealtimeSyncService.emit('DASHBOARD');
       } catch (err) {
         console.warn('saveStatsBackup to cohort_progress notice:', err);
       }
@@ -3937,6 +3970,71 @@ export class FirestoreDataService {
         }
       }
 
+      // Cross-Device Cloud Sync for Cohort Students via cohort_progress/{prn} and drafts/proctoring_telemetry
+      const prn = FirestoreDataService.resolvePrn(userId || targetUid || undefined);
+      if (prn) {
+        try {
+          const cohortRef = doc(db, 'cohort_progress', prn);
+          const cohortSnap = await getDoc(cohortRef).catch(() => null);
+          const existingCohort = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+          const prevModule = existingCohort.moduleProgress || {};
+
+          const status = autoLockCount > 0 || copyPasteAttempts > 3
+            ? 'CRITICAL_BREACH'
+            : (tabSwitchCount > 0 || copyPasteAttempts > 0)
+            ? 'NEEDS_REVIEW'
+            : 'CLEAN';
+
+          await setDoc(
+            cohortRef,
+            {
+              prn,
+              moduleProgress: {
+                ...prevModule,
+                integrityScore,
+                tabSwitches: tabSwitchCount,
+                pasteBursts: copyPasteAttempts,
+                fullscreenExits,
+                autoLockCount,
+                status,
+                currentProblem: incident.problemTitle || incident.problemSlug || prevModule.currentProblem || 'Active Practice',
+                currentModule: prevModule.currentModule || 'C Programming Core',
+                lastIncidentAt: incidentObj.timestamp,
+                lastActiveTime: new Date().toISOString(),
+              },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+
+          // Deep forensic timeline draft in subcollection
+          const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
+          await setDoc(
+            telemetryDraftRef,
+            {
+              code: JSON.stringify({
+                tabSwitchCount,
+                copyPasteAttempts,
+                fullscreenExits,
+                autoLockCount,
+                integrityScore,
+                incidents,
+                lastIncidentAt: incidentObj.timestamp,
+                updatedAt: new Date().toISOString(),
+              }),
+              problemSlug: 'proctoring_telemetry',
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+
+          RealtimeSyncService.emit('USERS');
+          RealtimeSyncService.emit('DASHBOARD');
+        } catch (cohortErr) {
+          console.warn('recordProctoringIncident cohort sync notice:', cohortErr);
+        }
+      }
+
       return payload;
     } catch (err) {
       console.warn('recordProctoringIncident error:', err);
@@ -4000,6 +4098,53 @@ export class FirestoreDataService {
         });
       } catch (fErr) {
         // notice only
+      }
+    }
+
+    // 3. Reset cohort_progress/{prn} and drafts/proctoring_telemetry
+    const prn = FirestoreDataService.resolvePrn(userId || targetUid || undefined);
+    if (prn) {
+      try {
+        const cohortRef = doc(db, 'cohort_progress', prn);
+        const cohortSnap = await getDoc(cohortRef).catch(() => null);
+        const existingCohort = cohortSnap && cohortSnap.exists() ? cohortSnap.data() : {};
+        const prevModule = existingCohort.moduleProgress || {};
+
+        await setDoc(
+          cohortRef,
+          {
+            prn,
+            moduleProgress: {
+              ...prevModule,
+              integrityScore: 100,
+              tabSwitches: 0,
+              pasteBursts: 0,
+              fullscreenExits: 0,
+              autoLockCount: 0,
+              status: 'CLEAN',
+              lastIncidentAt: null,
+              lastActiveTime: new Date().toISOString(),
+            },
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
+        await setDoc(
+          telemetryDraftRef,
+          {
+            code: JSON.stringify(cleanPayload),
+            problemSlug: 'proctoring_telemetry',
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+
+        RealtimeSyncService.emit('USERS');
+        RealtimeSyncService.emit('DASHBOARD');
+      } catch (cohortErr) {
+        console.warn('resetProctoringTelemetry cohort notice:', cohortErr);
       }
     }
 
@@ -4264,6 +4409,34 @@ export class FirestoreDataService {
         const snap = await getDoc(doc(db, 'users', targetUid, 'drafts', 'proctoring_telemetry'));
         if (snap.exists()) {
           remoteData = snap.data();
+        }
+      } catch {}
+    }
+
+    // Cross-Device Cohort Telemetry lookup (publicly readable)
+    const prn = FirestoreDataService.resolvePrn(userId || targetUid || undefined);
+    if (prn && !remoteData) {
+      try {
+        const draftSnap = await getDoc(doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry')).catch(() => null);
+        if (draftSnap && draftSnap.exists()) {
+          const rawCode = draftSnap.data()?.code;
+          if (rawCode) remoteData = JSON.parse(rawCode);
+        } else {
+          const cohortSnap = await getDoc(doc(db, 'cohort_progress', prn)).catch(() => null);
+          if (cohortSnap && cohortSnap.exists()) {
+            const mod = cohortSnap.data()?.moduleProgress;
+            if (mod) {
+              remoteData = {
+                tabSwitchCount: mod.tabSwitches || 0,
+                copyPasteAttempts: mod.pasteBursts || 0,
+                fullscreenExits: mod.fullscreenExits || 0,
+                autoLockCount: mod.autoLockCount || 0,
+                integrityScore: mod.integrityScore ?? 100,
+                lastIncidentAt: mod.lastIncidentAt,
+                incidents: [],
+              };
+            }
+          }
         }
       } catch {}
     }

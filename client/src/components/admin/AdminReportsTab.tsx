@@ -22,7 +22,7 @@ import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -56,19 +56,45 @@ export const AdminReportsTab: React.FC = () => {
 
     const syncReportsData = async () => {
       try {
-        const [realSections, realUsers] = await Promise.all([
+        const [realSections, realUsers, cohortSnap] = await Promise.all([
           FirestoreDataService.getSectionsFromFirestore().catch(() => []),
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+          getDocs(collection(db, 'cohort_progress')).catch(() => null),
         ]);
 
         if (!isMounted) return;
 
+        const cohortMap = new Map<string, any>();
+        if (cohortSnap) {
+          cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+        }
+
         if (Array.isArray(realUsers)) {
-          const cleanUsers = realUsers.filter(
-            (u: any) =>
-              (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
-              !FirestoreDataService.isPurgedStudent(u)
-          );
+          const cleanUsers = realUsers
+            .filter(
+              (u: any) =>
+                (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
+                !FirestoreDataService.isPurgedStudent(u)
+            )
+            .map((u: any) => {
+              const prnClean = (u.prn || '').toUpperCase().trim();
+              const cData = cohortMap.get(prnClean) || {};
+              const mod = cData.moduleProgress || {};
+              const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
+              const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
+              const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
+              const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (u.integrityScore ?? 100);
+
+              return {
+                ...u,
+                totalSolved,
+                totalPoints,
+                academicScore,
+                integrityScore,
+                completedProblems: cData.completedProblems || u.completedProblems || [],
+                miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
+              };
+            });
           setStudents(cleanUsers);
         }
 
@@ -82,6 +108,7 @@ export const AdminReportsTab: React.FC = () => {
 
     syncReportsData();
 
+    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => syncReportsData(), (err) => console.warn('Reports cohort notice:', err));
     const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), (err) => console.warn('Reports enrolled notice:', err));
     const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), (err) => console.warn('Reports sections notice:', err));
     let unsubUsers: (() => void) | null = null;
@@ -93,6 +120,7 @@ export const AdminReportsTab: React.FC = () => {
 
     return () => {
       isMounted = false;
+      unsubCohort();
       unsubEnrolled();
       unsubSections();
       if (unsubUsers) unsubUsers();
@@ -232,7 +260,8 @@ export const AdminReportsTab: React.FC = () => {
             doc.text(String(st.prn || st.id || '-'), 16, rowY);
             doc.text(String(st.name || st.fullName || 'Student').slice(0, 25), 55, rowY);
             doc.text(String(st.section || 'General'), 115, rowY);
-            doc.text(`${st.score || 0} / 100`, 155, rowY);
+            const displayScore = st.academicScore ?? st.score ?? st.totalPoints ?? 0;
+            doc.text(`${displayScore} / 100`, 155, rowY);
             rowY += 5;
           });
           if (activeStudents.length > 8) {
@@ -285,9 +314,11 @@ export const AdminReportsTab: React.FC = () => {
             'Email': u.email || 'N/A',
             'Division': u.section || selectedSection || 'General',
             'Identity Verified': u.isEmailBoundV2 || u.emailVerified ? 'YES' : 'PENDING',
-            'Academic Score (0-100)': u.score || 0,
+            'Academic Score (0-100)': u.academicScore ?? u.score ?? u.totalPoints ?? 0,
+            'Integrity Score (0-100)': u.integrityScore !== undefined ? u.integrityScore : 100,
+            'Problems Solved': u.totalSolved ?? (Array.isArray(u.completedProblems) ? u.completedProblems.length : 0),
             'Mini-Project Unlocked': u.miniProjectUnlocked ? 'YES' : 'NO',
-            'AI Viva Status': u.vivaStatus || 'CLEAN',
+            'AI Viva Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
           }));
         } else {
           studentRows = [
@@ -298,6 +329,8 @@ export const AdminReportsTab: React.FC = () => {
               'Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'C Programming') : selectedSection,
               'Identity Verified': 'YES',
               'Academic Score (0-100)': 85,
+              'Integrity Score (0-100)': 100,
+              'Problems Solved': 5,
               'Mini-Project Unlocked': 'YES',
               'AI Viva Status': 'VERIFIED',
             },
