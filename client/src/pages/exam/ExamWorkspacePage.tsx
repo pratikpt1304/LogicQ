@@ -417,6 +417,8 @@ export const ExamWorkspacePage: React.FC = () => {
       return api.post('/exam/run-code', {
         attemptId,
         code,
+        problemId,
+        assignmentId,
       });
     },
     onSuccess: (res) => {
@@ -428,7 +430,7 @@ export const ExamWorkspacePage: React.FC = () => {
         toast.success('All visible test cases passed! Auto-submitting solution...');
         submitMutation.mutate();
       } else {
-        toast.info('Execution completed. Some test cases failed. Please check output panel.');
+        toast.error('Test cases failed. Please review the output below and fix your code.');
       }
     },
     onError: (err: any) => {
@@ -443,6 +445,8 @@ export const ExamWorkspacePage: React.FC = () => {
       return api.post('/exam/submit-question', {
         attemptId,
         code,
+        problemId,
+        assignmentId,
         clientMetrics: {
           copyPasteAttempts,
           cutAttempts,
@@ -527,19 +531,36 @@ export const ExamWorkspacePage: React.FC = () => {
     },
   });
 
+  // Safe execution handler with validation guard
+  const handleExecuteTests = useCallback(() => {
+    if (isLocked || runMutation.isPending || submitMutation.isPending) return;
+    const cleanCode = (code || '').trim();
+    const cleanStarter = (problemData?.starterCode || '').trim();
+    if (!cleanCode || cleanCode === cleanStarter) {
+      toast.error('Please write your solution code before running tests!');
+      return;
+    }
+    if (!cleanCode.includes('main(') && !cleanCode.includes('main (')) {
+      toast.error("Compilation Error: Missing 'int main()' entrypoint in C program.");
+      return;
+    }
+    setActiveMobileTab('editor');
+    runMutation.mutate();
+  }, [isLocked, runMutation, submitMutation, code, problemData]);
+
   // Apple-grade Keyboard Shortcut: Ctrl + Enter or Cmd + Enter to Run Tests
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         if (!isLocked && !runMutation.isPending && !submitMutation.isPending) {
           e.preventDefault();
-          runMutation.mutate();
+          handleExecuteTests();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLocked, runMutation, submitMutation]);
+  }, [isLocked, runMutation, submitMutation, handleExecuteTests]);
 
   // Timing metrics calculation
   const expectedMaxSec = (problemData?.expectedTimeMax ?? 8) * 60;
@@ -923,10 +944,7 @@ export const ExamWorkspacePage: React.FC = () => {
                 <button
                   type="button"
                   disabled={isLocked || runMutation.isPending || submitMutation.isPending}
-                  onClick={() => {
-                    setActiveMobileTab('editor');
-                    runMutation.mutate();
-                  }}
+                  onClick={handleExecuteTests}
                   className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
                   title="Run Visible Tests & Auto-Submit on Pass (Ctrl + Enter)"
                 >
