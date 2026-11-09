@@ -284,6 +284,17 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
         setTimeout(() => {
           onClose();
+          setTimeout(() => {
+            toast.info('🔐 Security Alert: Your initial password is set to your PRN. Please update your password in Profile Settings to secure your account.', {
+              duration: 10000,
+              action: {
+                label: 'Change Password',
+                onClick: () => {
+                  window.location.href = '/profile';
+                },
+              },
+            });
+          }, 600);
         }, 1500);
       } else {
         setError('Invalid or expired verification code. Please check your inbox or click Auto-Fill.');

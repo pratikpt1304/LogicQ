@@ -1288,6 +1288,32 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
           )}
+
+          {/* DEFAULT PASSWORD REMINDER BANNER */}
+          {user?.role === 'STUDENT' && user.prn && user.prn !== 'DUMMY' && !user.prn.includes('DEMO') && !localStorage.getItem(`logicq_custom_password_${user.prn.toUpperCase()}`) && (
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 backdrop-blur-md p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                    Security Notice: Initial Default Password Active
+                  </div>
+                  <div className="text-[11px] text-amber-600/90 dark:text-amber-400/90">
+                    Your account is currently using your Institutional PRN as your default password. Please update it to a private password in Profile Settings.
+                  </div>
+                </div>
+              </div>
+              <Link
+                to="/profile"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
+              >
+                <span>Change Password</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
           {/* DAILY CODING BACKUP REMINDER BANNER */}
           {showBackupReminder && !hasDownloadedBackupToday() && !isBackupReminderDismissedToday() && (
             <div className="relative overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 backdrop-blur-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">

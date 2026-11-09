@@ -2632,7 +2632,7 @@ export class FirestoreDataService {
     // Explicit purge for Demo 1, Demo 2, and all legacy mock test PRNs
     const ghostPrns = [
       'DEMO1', 'DEMO01', 'STD_DEMO1', 'DEMO2',
-      '2126PMIF1057', '2126PMIF1106', '2126PMIM1003', '2126PMIM1039', '2126PMIM1130', '2199IMTE1001',
+      '2126PMIM1130', '2199IMTE1001',
       '2026IMTM0001', '2024BCSE0001', '2026VAL1390', '2026JON1390', '2026STUD0001', '2026SIM7208',
       '2199TESM0003', '2199TESF0099', '2199TESF0002',
     ];
@@ -2658,16 +2658,16 @@ export class FirestoreDataService {
       return true;
     }
 
-    // Nuclear purge for Rohan Sharma and all variants
+    // Explicit purge for legacy Rohan Sharma test account (keep genuine enrolled students like Jagtap Rohan Sunil safe)
     if (
-      name.includes('rohan') ||
-      email.includes('rohan') ||
+      name === 'rohan sharma' ||
+      name.startsWith('rohan sharma') ||
       email === 'rohan.sharma2026@gmail.com' ||
       email === 'rohan_sharma2026@gmail.com' ||
+      email === 'rohan_1390@test.edu' ||
       prn === '2199IMTE1001' ||
       prn.includes('2199IMTE') ||
-      id.includes('2199imte') ||
-      id.includes('rohan')
+      id.includes('2199imte')
     ) {
       return true;
     }
@@ -2739,10 +2739,6 @@ export class FirestoreDataService {
         'DEMO01',
         'STD_DEMO1',
         'DEMO2',
-        '2126PMIF1057',
-        '2126PMIF1106',
-        '2126PMIM1003',
-        '2126PMIM1039',
         '2126PMIM1130',
         '2199IMTE1001',
       '2026IMTM0001',
@@ -2759,14 +2755,6 @@ export class FirestoreDataService {
         'demo1',
         'std_demo1',
         'demo01',
-        '2126pmif1057',
-        '2126PMIF1057',
-        '2126pmif1106',
-        '2126PMIF1106',
-        '2126pmim1003',
-        '2126PMIM1003',
-        '2126pmim1039',
-        '2126PMIM1039',
         '2126pmim1130',
         '2126PMIM1130',
         'faculty-walkthrough-1',
