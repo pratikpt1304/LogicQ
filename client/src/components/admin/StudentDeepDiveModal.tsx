@@ -56,7 +56,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   const [telemetryDraft, setTelemetryDraft] = useState<any>(null);
   const [testSubmissions, setTestSubmissions] = useState<any[]>([]);
   const [practiceSubmissions, setPracticeSubmissions] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'submissions'>('overview');
+  const [activeTab, setActiveTab] = useState<'lab_internal' | 'practice' | 'overview'>('practice');
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
@@ -458,35 +458,307 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs inside Modal */}
-        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
+        {/* Navigation Tabs inside Modal — 3-way vault */}
+        <div className="flex items-center gap-1.5 border-b border-slate-100 dark:border-white/5 pb-2 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab('lab_internal')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'lab_internal'
+                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>🔬</span>
+            <span>Lab Internal</span>
+            <span className="px-1.5 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-700 dark:text-blue-300">
+              {testSubmissions.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('practice')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === 'practice'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <span>💻</span>
+            <span>Practice Solutions</span>
+            <span className="px-1.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+              {practiceSubmissions.length}
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'overview'
-                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                ? 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white border border-slate-300/50 dark:border-white/10'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            Overview &amp; Telemetry
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('submissions')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'submissions'
-                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>Submitted Answers Vault</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-700 dark:text-blue-300">
-              {allSubmissions.length}
-            </span>
+            <span>⚙️</span>
+            <span>Overview & Settings</span>
           </button>
         </div>
+
+        {/* ========================================================================= */}
+        {/* LAB INTERNAL ASSESSMENTS TAB                                             */}
+        {/* ========================================================================= */}
+        {activeTab === 'lab_internal' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-bold">Lab Internal Assessments: {testSubmissions.length} Submissions</span>
+              <span className="font-mono text-[11px]">Real-time Authoritative</span>
+            </div>
+
+            {testSubmissions.length === 0 ? (
+              <div className="p-8 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-center space-y-2">
+                <Terminal className="w-8 h-8 text-slate-400 mx-auto" />
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  No lab assessment submissions yet.
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Once the student submits code in a Lab Internal Assessment, their C code and proctoring telemetry will appear here instantly.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {testSubmissions.map((sub, sIdx) => {
+                  const subId = sub.id || `lab_${sIdx}`;
+                  const isExpanded = expandedSubId === subId;
+                  const isAccepted = sub.verdict === 'ACCEPTED' || sub.academicScore > 0 || (sub.testOutcomes && sub.testOutcomes.some((t: any) => t.passed));
+                  const codeSnippet = sub.code || sub.submittedCode || '// No code body saved';
+
+                  return (
+                    <div
+                      key={subId}
+                      className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] overflow-hidden transition"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSubId(isExpanded ? null : subId)}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-blue-500 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                {sub.problemTitle || sub.testTitle || sub.problemId || 'Lab Challenge'}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                isAccepted
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              }`}>
+                                {sub.verdict || (isAccepted ? 'ACCEPTED' : 'EVALUATED')}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                Lab Internal
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                              <span>
+                                {sub.submittedAt
+                                  ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+                                  : 'Live Session'}
+                              </span>
+                              <span>•</span>
+                              <span>Score: {sub.academicScore ?? sub.score ?? 0}</span>
+                              <span>•</span>
+                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
+                              GCC 14 · C Source · lab_internal.c
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(subId, codeSnippet)}
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-sans flex items-center gap-1 transition cursor-pointer"
+                            >
+                              {copiedCodeId === subId ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span>Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy Code</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <pre className="p-3 bg-black/60 rounded-xl overflow-x-auto text-emerald-400 text-xs font-mono max-h-60 leading-relaxed">
+                            {codeSnippet}
+                          </pre>
+
+                          {/* Proctoring mini-bar */}
+                          <div className="grid grid-cols-3 gap-2 text-[10px]">
+                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block">Clipboard Pastes</span>
+                              <span className={`font-bold text-sm block mt-0.5 ${(sub.copyPasteAttempts || 0) > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {sub.copyPasteAttempts || 0}
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block">Tab Switches</span>
+                              <span className={`font-bold text-sm block mt-0.5 ${(sub.tabSwitchCount || 0) > 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {sub.tabSwitchCount || 0}
+                              </span>
+                            </div>
+                            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                              <span className="text-slate-400 block">Keystrokes</span>
+                              <span className="font-bold text-sm text-indigo-400 block mt-0.5">
+                                {sub.totalKeystrokes || '—'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* PRACTICE SOLUTIONS TAB                                                    */}
+        {/* ========================================================================= */}
+        {activeTab === 'practice' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-bold">Practice Solutions: {practiceSubmissions.length} Submissions</span>
+              <span className="font-mono text-[11px]">Real-time Authoritative</span>
+            </div>
+
+            {practiceSubmissions.length === 0 ? (
+              <div className="p-8 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-center space-y-2">
+                <Terminal className="w-8 h-8 text-slate-400 mx-auto" />
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  No practice submissions yet.
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Once the student solves a practice problem, their submitted C code will appear here with verdict and points.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {practiceSubmissions.map((sub, sIdx) => {
+                  const subId = sub.id || `prac_${sIdx}`;
+                  const isExpanded = expandedSubId === subId;
+                  const isAccepted = sub.verdict === 'ACCEPTED' || sub.status === 'PASSED' || sub.score > 0;
+                  const codeSnippet = sub.code || sub.submittedCode || '// No code body saved';
+                  const pts = sub.points || sub.score || 0;
+
+                  return (
+                    <div
+                      key={subId}
+                      className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] overflow-hidden transition"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpandedSubId(isExpanded ? null : subId)}
+                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                {sub.problemTitle || sub.title || sub.problemId || 'Practice Problem'}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                isAccepted
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              }`}>
+                                {sub.verdict || sub.status || (isAccepted ? 'ACCEPTED' : 'ATTEMPTED')}
+                              </span>
+                              {pts > 0 && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                  +{pts} Pts
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                Practice
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                              <span>
+                                {sub.submittedAt
+                                  ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+                                  : 'Live Session'}
+                              </span>
+                              {sub.difficulty && (
+                                <>
+                                  <span>•</span>
+                                  <span>{sub.difficulty}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
+                              GCC 14 · C Source · practice_solution.c
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(subId, codeSnippet)}
+                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-sans flex items-center gap-1 transition cursor-pointer"
+                            >
+                              {copiedCodeId === subId ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span>Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy Code</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          <pre className="p-3 bg-black/60 rounded-xl overflow-x-auto text-emerald-400 text-xs font-mono max-h-60 leading-relaxed">
+                            {codeSnippet}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === 'overview' && (
           <>
@@ -760,131 +1032,6 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               )}
             </div>
           </>
-        )}
-
-        {/* ========================================================================= */}
-        {/* SUBMITTED ANSWERS VAULT TAB                                               */}
-        {/* ========================================================================= */}
-        {activeTab === 'submissions' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span className="font-bold">Total Attempts Logged: {allSubmissions.length}</span>
-              <span className="font-mono text-[11px]">Real-time Authoritative Submissions</span>
-            </div>
-
-            {allSubmissions.length === 0 ? (
-              <div className="p-8 rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-center space-y-2">
-                <Terminal className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  No submissions recorded yet for this student.
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Once the candidate runs or submits code in any Lab Internal or Practice problem, their code and telemetry will appear here instantly.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {allSubmissions.map((sub, sIdx) => {
-                  const subId = sub.id || `sub_${sIdx}`;
-                  const isExpanded = expandedSubId === subId;
-                  const isAccepted = sub.verdict === 'ACCEPTED' || sub.status === 'PASSED' || sub.academicScore > 0;
-                  const codeSnippet = sub.code || sub.submittedCode || '// No code body saved';
-
-                  return (
-                    <div
-                      key={subId}
-                      className="rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] overflow-hidden transition"
-                    >
-                      {/* Accordion Header */}
-                      <button
-                        type="button"
-                        onClick={() => setExpandedSubId(isExpanded ? null : subId)}
-                        className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-blue-500 shrink-0" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                {sub.problemTitle || sub.problemId || sub.title || 'Practical Challenge'}
-                              </span>
-                              <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                isAccepted
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                              }`}>
-                                {sub.verdict || sub.status || (isAccepted ? 'ACCEPTED' : 'EVALUATED')}
-                              </span>
-                              <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                {sub.sourceType === 'ASSESSMENT' ? 'Lab Internal' : 'Practice'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
-                              <span>
-                                {sub.submittedAt
-                                  ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
-                                  : 'Live Session'}
-                              </span>
-                              {sub.testTitle && (
-                                <>
-                                  <span>•</span>
-                                  <span className="truncate max-w-[180px]">{sub.testTitle}</span>
-                                </>
-                              )}
-                              <span>•</span>
-                              <span>Score: {sub.academicScore ?? sub.score ?? 0}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0 pl-2">
-                          <span className="text-[11px] font-mono text-slate-500">
-                            {sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes
-                          </span>
-                        </div>
-                      </button>
-
-                      {/* Accordion Body with Code Viewer */}
-                      {isExpanded && (
-                        <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
-                              Candidate Submitted C Code:
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyCode(subId, codeSnippet)}
-                              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-sans flex items-center gap-1 transition cursor-pointer"
-                            >
-                              {copiedCodeId === subId ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-400" />
-                                  <span>Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copy Code</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-
-                          <pre className="p-3 bg-black/60 rounded-xl overflow-x-auto text-emerald-400 text-xs font-mono max-h-60 leading-relaxed">
-                            {codeSnippet}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         )}
 
       </div>
