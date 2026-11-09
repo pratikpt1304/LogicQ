@@ -780,6 +780,7 @@ export const TopicPracticeHubPage: React.FC = () => {
     fullscreenExitsRef.current = 0;
 
     // Track topic open: increments attemptsCount every time question is opened
+    FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', topic.id).catch(() => {});
     api.post('/practice/topics/track-open', {
       topicId: topic.id,
       moduleIndex: topic.moduleIndex,
@@ -1083,6 +1084,8 @@ export const TopicPracticeHubPage: React.FC = () => {
           const currentCopyPastes = currentTelem?.copyPasteAttempts || 0;
           const currentExits = currentTelem?.fullscreenExits || 0;
 
+          const currentAttemptNum = FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', activeTopic.id);
+
           // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
           FirestoreDataService.recordDailySubmission(user.id, {
             problemId: activeTopic.id,
@@ -1091,6 +1094,7 @@ export const TopicPracticeHubPage: React.FC = () => {
             difficulty: activeTopic.problem.difficulty || 'EASY',
             code: currentCode,
             verdict: 'ACCEPTED',
+            attemptNumber: currentAttemptNum,
             timeTakenSeconds: elapsedSeconds,
             tabSwitchCount: currentTabSwitches,
             copyPasteAttempts: currentCopyPastes,

@@ -955,6 +955,7 @@ export class FirestoreDataService {
       copyPasteAttempts?: number;
       fullscreenExits?: number;
       submissionType?: string;
+      attemptNumber?: number;
       prn?: string;
       studentPrn?: string;
       email?: string;
@@ -994,6 +995,7 @@ export class FirestoreDataService {
           verdict: data.verdict,
           pointsAwarded,
           submissionType: data.submissionType || 'DAILY',
+          attemptNumber: data.attemptNumber || 1,
           timeTakenSeconds: data.timeTakenSeconds,
           timeToSolveSeconds: data.timeTakenSeconds,
           activeSeconds: data.timeTakenSeconds,
@@ -1031,6 +1033,7 @@ export class FirestoreDataService {
           score: pointsAwarded,
           pointsAwarded,
           submissionType: data.submissionType || 'PRACTICE',
+          attemptNumber: data.attemptNumber || 1,
           testTitle: 'Continuous Practical Lab',
           difficulty: data.difficulty || 'EASY',
           timeTakenSeconds: data.timeTakenSeconds || 0,
@@ -1368,6 +1371,48 @@ export class FirestoreDataService {
       } catch {
         // ignore
       }
+    }
+  }
+
+  /**
+   * Tracks question opening: increments attempt counter for a specific topic / problem.
+   * Every time student opens a problem (or closes & re-opens), attempt increments by 1.
+   */
+  public static async recordTopicAttemptOpen(studentIdOrPrn: string, topicId: string): Promise<number> {
+    if (!studentIdOrPrn || !topicId) return 1;
+    const cleanId = studentIdOrPrn.trim().toUpperCase();
+    const storageKey = `logicq_attempts_${cleanId}_${topicId}`;
+    let count = 1;
+    try {
+      const prev = parseInt(localStorage.getItem(storageKey) || '0', 10);
+      count = prev + 1;
+      localStorage.setItem(storageKey, String(count));
+    } catch {}
+
+    try {
+      const draftRef = doc(db, 'cohort_progress', cleanId, 'drafts', 'topic_attempts');
+      await setDoc(
+        draftRef,
+        {
+          [topicId]: count,
+          lastAttemptedTopic: topicId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('recordTopicAttemptOpen Firestore notice:', err);
+    }
+    return count;
+  }
+
+  public static getLocalTopicAttempt(studentIdOrPrn: string, topicId: string): number {
+    if (!studentIdOrPrn || !topicId) return 1;
+    const cleanId = studentIdOrPrn.trim().toUpperCase();
+    try {
+      return parseInt(localStorage.getItem(`logicq_attempts_${cleanId}_${topicId}`) || '1', 10);
+    } catch {
+      return 1;
     }
   }
 

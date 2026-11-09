@@ -121,16 +121,53 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     let rawGeneral: any[] = [];
 
     const updateCategorizedSubmissions = () => {
-      const combined = new Map<string, any>();
+      // 1. Group and deduplicate dual-writes across assessment_test_submissions and submissions
+      const uniqueSubmissionsMap = new Map<string, any>();
+
       [...rawAssess, ...rawGeneral].forEach((sub) => {
-        const key = sub.id || `${sub.problemId || sub.problemTitle || 'prob'}_${sub.submittedAt || sub.createdAt || ''}`;
-        if (!combined.has(key)) {
-          combined.set(key, sub);
+        const probId = String(sub.problemId || sub.problemSlug || sub.problemTitle || 'prob').trim().toLowerCase();
+        const timeBucket = Math.floor(new Date(sub.submittedAt || sub.createdAt || 0).getTime() / 60000);
+        const codePrefix = (sub.code || sub.submittedCode || '').trim().slice(0, 80);
+        
+        // Canonical dedupe key: same problem + same minute bucket + same code = duplicate dual-write
+        const dedupeKey = `${probId}_${timeBucket}_${codePrefix}`;
+
+        if (!uniqueSubmissionsMap.has(dedupeKey)) {
+          uniqueSubmissionsMap.set(dedupeKey, sub);
+        } else {
+          const prev = uniqueSubmissionsMap.get(dedupeKey);
+          uniqueSubmissionsMap.set(dedupeKey, {
+            ...prev,
+            ...sub,
+            tabSwitchCount: Math.max(prev.tabSwitchCount || 0, sub.tabSwitchCount || 0),
+            copyPasteAttempts: Math.max(prev.copyPasteAttempts || 0, sub.copyPasteAttempts || 0),
+          });
         }
       });
 
-      const all = Array.from(combined.values());
+      const all = Array.from(uniqueSubmissionsMap.values());
+
+      // Sort chronologically ascending (oldest first) to accurately determine attempt order
       all.sort(
+        (a, b) =>
+          new Date(a.submittedAt || a.createdAt || 0).getTime() -
+          new Date(b.submittedAt || b.createdAt || 0).getTime()
+      );
+
+      // Track running attempt counter per problem
+      const problemAttemptCounter: Record<string, number> = {};
+      const enrichedAll = all.map((sub) => {
+        const probKey = String(sub.problemId || sub.problemSlug || sub.problemTitle || 'prob').trim().toLowerCase();
+        problemAttemptCounter[probKey] = (problemAttemptCounter[probKey] || 0) + 1;
+        const autoAttempt = problemAttemptCounter[probKey];
+        return {
+          ...sub,
+          attemptNumber: sub.attemptNumber || autoAttempt,
+        };
+      });
+
+      // Sort newest first for UI display
+      enrichedAll.sort(
         (a, b) =>
           new Date(b.submittedAt || b.createdAt || 0).getTime() -
           new Date(a.submittedAt || a.createdAt || 0).getTime()
@@ -139,7 +176,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       const tests: any[] = [];
       const practices: any[] = [];
 
-      all.forEach((sub) => {
+      enrichedAll.forEach((sub) => {
         const probId = String(sub.problemId || sub.problemSlug || '').toLowerCase();
         const testTitle = String(sub.testTitle || '').toLowerCase();
         const subType = String(sub.submissionType || sub.type || '').toUpperCase();
@@ -596,6 +633,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               }`}>
                                 {sub.verdict || (isAccepted ? 'ACCEPTED' : 'EVALUATED')}
                               </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                Attempt #{sub.attemptNumber || 1}
+                              </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                 Lab Internal
                               </span>
@@ -607,6 +647,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   : 'Live Session'}
                               </span>
                               <span>•</span>
+                              <span className="text-indigo-500 dark:text-indigo-400 font-semibold">Attempt #{sub.attemptNumber || 1}</span>
+                              <span>•</span>
                               <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
                             </div>
                           </div>
@@ -617,7 +659,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                         <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
-                              GCC 14 · C Source · lab_internal.c
+                              GCC 14 · C Source · lab_internal.c · Submitted on Attempt #{sub.attemptNumber || 1}
                             </span>
                             <button
                               type="button"
@@ -730,6 +772,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               }`}>
                                 {sub.verdict || sub.status || (isAccepted ? 'ACCEPTED' : 'ATTEMPTED')}
                               </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                Attempt #{sub.attemptNumber || 1}
+                              </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 Practice
                               </span>
@@ -740,6 +785,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
                                   : 'Live Session'}
                               </span>
+                              <span>•</span>
+                              <span className="text-indigo-500 dark:text-indigo-400 font-semibold">Attempt #{sub.attemptNumber || 1}</span>
                               {sub.difficulty && (
                                 <>
                                   <span>•</span>
@@ -757,7 +804,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                         <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
-                              GCC 14 · C Source · practice_solution.c
+                              GCC 14 · C Source · practice_solution.c · Submitted on Attempt #{sub.attemptNumber || 1}
                             </span>
                             <button
                               type="button"
