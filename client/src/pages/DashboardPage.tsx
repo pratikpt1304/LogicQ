@@ -206,6 +206,7 @@ export const DashboardPage: React.FC = () => {
   // Fetch real-time Lab Internal coursework submissions for student progress drawer
   const { data: allLabSubmissions = [] } = useQuery({
     queryKey: ['dashboard-admin-lab-submissions'],
+    enabled: Boolean(user && isAdmin),
     queryFn: async () => {
       try {
         const res: any = await api.get('/practice/admin/lab-submissions?limit=300');

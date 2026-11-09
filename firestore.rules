@@ -235,6 +235,32 @@ rules_version = '2';
 //   - createdAt: timestamp | int | string (optional)
 //   - updatedAt: timestamp | int | string (optional)
 //
+// Collection: assessment_test_submissions/{docId} & assessment_submissions/{docId} (Assessment Test Submissions & Answer Bank)
+// Document ID: Unique assessment submission document identifier
+// Fields:
+//   - assignmentId / testId: string (optional, <= 128 chars)
+//   - testTitle: string (optional, <= 200 chars)
+//   - userId / uid / studentId: string (optional, <= 128 chars)
+//   - studentName / name: string (optional, <= 100 chars)
+//   - studentPrn / prn: string (optional, <= 30 chars)
+//   - studentEmail / email: string (optional, <= 150 chars)
+//   - problemId: string (optional, <= 128 chars)
+//   - problemTitle: string (optional, <= 200 chars)
+//   - code: string (optional, <= 65536 chars)
+//   - verdict: string (optional, <= 50 chars)
+//   - academicScore / score / marks / pointsAwarded: int | float (optional)
+//   - timeTakenSeconds / tabSwitchCount / copyPasteAttempts / cutAttempts / contextMenuAttempts: int (optional)
+//   - fullscreenExits / fullScreenExitCount / totalKeystrokes / largestBurstChars: int (optional)
+//   - incidents: list (optional, <= 200 items)
+//   - submittedAt / createdAt / updatedAt: timestamp | int | string (optional)
+//   - submissionType / status / difficulty / language / tag: string (optional, <= 50 chars)
+//   - runtimeMs / memoryKb / executionTimeMs: int | float (optional)
+//   - compileOutput: string (optional, <= 5000 chars)
+//   - quarantinedAttempt / isCheatAutoSubmit / isCheatAttempt: bool (optional)
+//   - cheatReason: string (optional, <= 500 chars)
+//   - problem / user / metadata: map (optional)
+//   - sectionId: string (optional, <= 100 chars)
+//
 // ===============================================================
 
 service cloud.firestore {
@@ -475,10 +501,9 @@ service cloud.firestore {
     // 3. SUBMISSIONS & UPLOADED SOLUTIONS COLLECTIONS (SERVER-MANAGED WRITES)
     // -------------------------------------------------------------------------
     match /submissions/{submissionId} {
-      // Students can ONLY read their own submissions. Admins can read all.
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isAdmin()
-      );
+      // Publicly readable so Admin console listeners (operating under backend JWT where request.auth is null)
+      // and client apps can stream submission updates, while writes remain strictly backend-only.
+      allow read: if true;
 
       // CLIENTS CAN NEVER WRITE SUBMISSIONS OR FORGE VERDICTS!
       // Must be created strictly by backend Judge via Firebase Admin SDK.
@@ -913,6 +938,96 @@ service cloud.firestore {
       allow create, update: if isFaculty() || isAdmin() || isValidAssessmentTest(request.resource.data);
 
       // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication:
+      allow delete: if true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. TIMED ASSESSMENT SUBMISSIONS & FORENSIC AUDIT (ANSWER BANK)
+    // -------------------------------------------------------------------------
+    function isValidAssessmentSubmission(data) {
+      let allowedKeys = [
+        'id', 'assignmentId', 'testId', 'testTitle', 'userId', 'uid', 'studentId',
+        'studentName', 'name', 'studentPrn', 'prn', 'studentEmail', 'email',
+        'problemId', 'problemTitle', 'code', 'verdict', 'academicScore', 'score',
+        'marks', 'pointsAwarded', 'timeTakenSeconds', 'tabSwitchCount', 'copyPasteAttempts',
+        'cutAttempts', 'contextMenuAttempts', 'fullscreenExits', 'fullScreenExitCount',
+        'totalKeystrokes', 'largestBurstChars', 'incidents', 'submittedAt', 'createdAt',
+        'updatedAt', 'submissionType', 'status', 'difficulty', 'language', 'runtimeMs',
+        'memoryKb', 'compileOutput', 'tag', 'quarantinedAttempt', 'isCheatAutoSubmit',
+        'isCheatAttempt', 'cheatReason', 'problem', 'user', 'sectionId', 'metadata',
+        'executionTimeMs'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && (!('assignmentId' in data) || data.assignmentId == null || (data.assignmentId is string && data.assignmentId.size() <= 128))
+        && (!('testId' in data) || data.testId == null || (data.testId is string && data.testId.size() <= 128))
+        && (!('testTitle' in data) || data.testTitle == null || (data.testTitle is string && data.testTitle.size() <= 200))
+        && (!('userId' in data) || data.userId == null || (data.userId is string && data.userId.size() <= 128))
+        && (!('uid' in data) || data.uid == null || (data.uid is string && data.uid.size() <= 128))
+        && (!('studentId' in data) || data.studentId == null || (data.studentId is string && data.studentId.size() <= 128))
+        && (!('studentName' in data) || data.studentName == null || (data.studentName is string && data.studentName.size() <= 100))
+        && (!('name' in data) || data.name == null || (data.name is string && data.name.size() <= 100))
+        && (!('studentPrn' in data) || data.studentPrn == null || (data.studentPrn is string && data.studentPrn.size() <= 30))
+        && (!('prn' in data) || data.prn == null || (data.prn is string && data.prn.size() <= 30))
+        && (!('studentEmail' in data) || data.studentEmail == null || (data.studentEmail is string && data.studentEmail.size() <= 150))
+        && (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150))
+        && (!('problemId' in data) || data.problemId == null || (data.problemId is string && data.problemId.size() <= 128))
+        && (!('problemTitle' in data) || data.problemTitle == null || (data.problemTitle is string && data.problemTitle.size() <= 200))
+        && (!('code' in data) || data.code == null || (data.code is string && data.code.size() <= 65536))
+        && (!('verdict' in data) || data.verdict == null || (data.verdict is string && data.verdict.size() <= 50))
+        && (!('academicScore' in data) || data.academicScore == null || data.academicScore is int || data.academicScore is float)
+        && (!('score' in data) || data.score == null || data.score is int || data.score is float)
+        && (!('marks' in data) || data.marks == null || data.marks is int || data.marks is float)
+        && (!('pointsAwarded' in data) || data.pointsAwarded == null || data.pointsAwarded is int || data.pointsAwarded is float)
+        && (!('timeTakenSeconds' in data) || data.timeTakenSeconds == null || data.timeTakenSeconds is int)
+        && (!('tabSwitchCount' in data) || data.tabSwitchCount == null || data.tabSwitchCount is int)
+        && (!('copyPasteAttempts' in data) || data.copyPasteAttempts == null || data.copyPasteAttempts is int)
+        && (!('cutAttempts' in data) || data.cutAttempts == null || data.cutAttempts is int)
+        && (!('contextMenuAttempts' in data) || data.contextMenuAttempts == null || data.contextMenuAttempts is int)
+        && (!('fullscreenExits' in data) || data.fullscreenExits == null || data.fullscreenExits is int)
+        && (!('fullScreenExitCount' in data) || data.fullScreenExitCount == null || data.fullScreenExitCount is int)
+        && (!('totalKeystrokes' in data) || data.totalKeystrokes == null || data.totalKeystrokes is int)
+        && (!('largestBurstChars' in data) || data.largestBurstChars == null || data.largestBurstChars is int)
+        && (!('incidents' in data) || data.incidents == null || (data.incidents is list && data.incidents.size() <= 200))
+        && (!('submittedAt' in data) || data.submittedAt == null || data.submittedAt is timestamp || data.submittedAt is int || (data.submittedAt is string && data.submittedAt.size() <= 100))
+        && (!('createdAt' in data) || data.createdAt == null || data.createdAt is timestamp || data.createdAt is int || (data.createdAt is string && data.createdAt.size() <= 100))
+        && (!('updatedAt' in data) || data.updatedAt == null || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100))
+        && (!('submissionType' in data) || data.submissionType == null || (data.submissionType is string && data.submissionType.size() <= 50))
+        && (!('status' in data) || data.status == null || (data.status is string && data.status.size() <= 50))
+        && (!('id' in data) || data.id == null || (data.id is string && data.id.size() <= 128))
+        && (!('difficulty' in data) || data.difficulty == null || (data.difficulty is string && data.difficulty.size() <= 50))
+        && (!('language' in data) || data.language == null || (data.language is string && data.language.size() <= 50))
+        && (!('runtimeMs' in data) || data.runtimeMs == null || data.runtimeMs is int || data.runtimeMs is float)
+        && (!('memoryKb' in data) || data.memoryKb == null || data.memoryKb is int || data.memoryKb is float)
+        && (!('compileOutput' in data) || data.compileOutput == null || (data.compileOutput is string && data.compileOutput.size() <= 5000))
+        && (!('tag' in data) || data.tag == null || (data.tag is string && data.tag.size() <= 50))
+        && (!('quarantinedAttempt' in data) || data.quarantinedAttempt == null || data.quarantinedAttempt is bool)
+        && (!('isCheatAutoSubmit' in data) || data.isCheatAutoSubmit == null || data.isCheatAutoSubmit is bool)
+        && (!('isCheatAttempt' in data) || data.isCheatAttempt == null || data.isCheatAttempt is bool)
+        && (!('cheatReason' in data) || data.cheatReason == null || (data.cheatReason is string && data.cheatReason.size() <= 500))
+        && (!('problem' in data) || data.problem == null || data.problem is map)
+        && (!('user' in data) || data.user == null || data.user is map)
+        && (!('sectionId' in data) || data.sectionId == null || (data.sectionId is string && data.sectionId.size() <= 100))
+        && (!('metadata' in data) || data.metadata == null || data.metadata is map)
+        && (!('executionTimeMs' in data) || data.executionTimeMs == null || data.executionTimeMs is int || data.executionTimeMs is float);
+    }
+
+    match /assessment_test_submissions/{docId} {
+      // Public read access to support Admin console live onSnapshot listeners, faculty analytics,
+      // and student submissions view where clients operate under backend JWT (where request.auth is null)
+      allow read: if true;
+
+      // Faculty and Admins can create and update assessment submissions;
+      // Web clients authenticated via backend JWT (where request.auth is null) can record submissions passing isValidAssessmentSubmission
+      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
+
+      // Deletion allowed for faculty/admins as well as web clients operating under JWT authentication (e.g. roster/student deletion cleanup)
+      allow delete: if true;
+    }
+
+    match /assessment_submissions/{docId} {
+      // Alias collection matching assessment_test_submissions semantics
+      allow read: if true;
+      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentSubmission(request.resource.data);
       allow delete: if true;
     }
   }
