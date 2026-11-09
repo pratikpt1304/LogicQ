@@ -5047,8 +5047,8 @@ export class FirestoreDataService {
    */
   public static async resetEntireStudentData(userId?: string | null, prn?: string | null, email?: string | null): Promise<void> {
     const targetUid = auth.currentUser?.uid || userId || 'current';
-    const targetPrn = (prn || '2126PMIM1039').trim().toUpperCase();
-    const targetEmail = (email || 'thoratpratik2323@gmail.com').trim().toLowerCase();
+    const targetPrn = (prn || '').trim().toUpperCase();
+    const targetEmail = (email || '').trim().toLowerCase();
 
     // 1. Reset Proctoring Telemetry first
     await this.resetProctoringTelemetry(targetUid);

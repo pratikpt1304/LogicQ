@@ -170,12 +170,16 @@ export const App: React.FC = () => {
       }
 
       // Check if student has already bound a personal email or completed verification
-      const hasBoundEmail = Boolean(
+      const isExplicitlyUnbound = (user as any).isEmailBound === false || (user as any).isEmailBoundV2 === false;
+      const hasRealBoundEmail = Boolean(
+        user.email &&
+        !user.email.endsWith('@sanjivani.edu.in') &&
+        !user.email.includes('placeholder')
+      );
+      const hasBoundEmail = !isExplicitlyUnbound && Boolean(
         (user as any).isEmailBoundV2 ||
-        (user.email && (user.email.toLowerCase() === 'logicqarena@gmail.com' || (!user.email.endsWith('@sanjivani.edu.in') && user.email.includes('@')))) ||
-        (prnUpper && localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true') ||
-        (user.id && localStorage.getItem(`logicq_bound_v2_${user.id}`) === 'true') ||
-        (prnUpper && localStorage.getItem(`logicq_bound_status_${prnUpper}`) === 'true')
+        (user as any).isEmailBound ||
+        hasRealBoundEmail
       );
 
       // Strictly compulsory: no dismissal without actual verified binding

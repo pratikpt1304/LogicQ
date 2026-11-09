@@ -273,14 +273,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         !finalUser.email.endsWith('@sanjivani.edu.in') &&
         !finalUser.email.includes('placeholder')
       );
-      const isBoundV2 = !isStudentRole || Boolean(
+      const isExplicitlyUnbound = (finalUser as any).isEmailBound === false || (finalUser as any).isEmailBoundV2 === false;
+      const isBoundV2 = !isStudentRole || (!isExplicitlyUnbound && Boolean(
         (finalUser as any).isEmailBoundV2 ||
         (finalUser as any).isEmailBound ||
-        hasRealBoundEmail ||
-        (prnUpper ? localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true' : false) ||
-        (finalUser.id ? localStorage.getItem(`logicq_bound_v2_${finalUser.id}`) === 'true' : false) ||
-        (active?.id ? localStorage.getItem(`logicq_bound_v2_${active.id}`) === 'true' : false)
-      );
+        hasRealBoundEmail
+      ));
 
       const boundEmailV2 = isBoundV2
         ? (prnUpper ? localStorage.getItem(`logicq_bound_v2_email_${prnUpper}`) : null) ||
@@ -293,9 +291,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         finalUser.displayName = 'Pratik Thorat';
         finalUser.role = 'STUDENT';
         finalUser.prn = '2126PMIM1039';
-        if (!finalUser.email || finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
-          finalUser.email = 'thoratpratik2323@gmail.com';
-        }
       }
 
       const retainedIsEmailBound = isMasterAdmin ? true : isBoundV2;
@@ -310,6 +305,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (retainedEmail && !retainedEmail.endsWith('@sanjivani.edu.in')) {
             localStorage.setItem(`logicq_bound_v2_email_${prnUpper}`, retainedEmail);
           }
+        } catch {}
+      } else if (!isBoundV2 && prnUpper) {
+        try {
+          localStorage.removeItem(`logicq_bound_v2_${prnUpper}`);
+          localStorage.removeItem(`logicq_bound_v2_email_${prnUpper}`);
+          localStorage.removeItem(`logicq_bound_email_${prnUpper}`);
+          localStorage.removeItem(`logicq_bound_status_${prnUpper}`);
         } catch {}
       }
 
@@ -360,12 +362,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVITY);
 
-    // Privacy Purge: Clear all in-progress student draft scratchpads from shared machine
+    // Clean up student bound/session caches
     try {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('logicq_draft_') || key.startsWith('logicq_practice_draft_'))) {
+        if (key && (
+          key.startsWith('logicq_draft_') ||
+          key.startsWith('logicq_practice_draft_') ||
+          key.startsWith('logicq_bound_') ||
+          key.startsWith('logicq_completed_problems_') ||
+          key.startsWith('logicq_solved_') ||
+          key.startsWith('logicq_proctoring_telemetry_') ||
+          key.startsWith('logicq_custom_password_')
+        )) {
           keysToRemove.push(key);
         }
       }
@@ -775,21 +785,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [idleWarningSeconds, logout]);
 
-  // Real-time active student ban listener: immediately kicks suspended student out
+  // Real-time active student ban and session revocation listener: immediately kicks suspended student out
   useEffect(() => {
     if (!user || user.role !== 'STUDENT' || !user.prn) return;
     const cleanPrn = user.prn.toUpperCase().trim();
     if (!cleanPrn) return;
 
-    const unsubEnrolled = onSnapshot(doc(db, 'enrolled_students', cleanPrn), (snap) => {
-      if (snap.exists() && snap.data()?.isBanned) {
+    const handleSessionRevocation = (data: any) => {
+      if (!data) return;
+      if (data.isBanned) {
         logout('banned');
+      } else if (data.activeSession === false || data.forceLogout === true) {
+        logout('revoked-by-admin');
+      }
+    };
+
+    const unsubEnrolled = onSnapshot(doc(db, 'enrolled_students', cleanPrn), (snap) => {
+      if (snap.exists()) {
+        handleSessionRevocation(snap.data());
       }
     }, () => {});
 
     const unsubCohort = onSnapshot(doc(db, 'cohort_progress', cleanPrn), (snap) => {
-      if (snap.exists() && snap.data()?.isBanned) {
-        logout('banned');
+      if (snap.exists()) {
+        handleSessionRevocation(snap.data());
       }
     }, () => {});
 
