@@ -2611,20 +2611,31 @@ export class FirestoreDataService {
     // Never purge admin
     if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
 
-    // Never purge demo or dummy students
+    // Never purge dummy student
     if (
       email === 'dummy@logicq.io' ||
-      email === 'demo1@logicq.io' ||
       prn === 'DUMMY' ||
-      prn === 'DEMO1' ||
       id === 'std_dummy' ||
-      id === 'std_demo1' ||
       id === 'dummy' ||
-      id === 'demo1' ||
-      name === 'dummy' ||
-      name === 'demo 1' ||
-      name === 'demo1'
+      name === 'dummy'
     ) return false;
+
+    // Explicit purge for Demo 1 and Demo 2 (as requested)
+    if (
+      email === 'demo1@logicq.io' ||
+      email === 'ipred1908@gmail.com' ||
+      prn === 'DEMO1' ||
+      prn === '2126PMIM1130' ||
+      id === 'std_demo1' ||
+      id === 'demo1' ||
+      id === '2126pmim1130' ||
+      name === 'demo 1' ||
+      name === 'demo1' ||
+      name === 'demo2' ||
+      name === 'demo 2'
+    ) {
+      return true;
+    }
 
     // Nuclear purge for Rohan Sharma and all variants
     if (
@@ -2684,6 +2695,8 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
+        'demo1@logicq.io',
+        'ipred1908@gmail.com',
         'hariprasathset@sanjivani.edu.in',
         'admin@logicq.io',
         'faculty@logicq.io',
@@ -2701,6 +2714,8 @@ export class FirestoreDataService {
         'prn_format_test_1@sanjivani.org.in',
       ];
       const targetPrns = [
+        'DEMO1',
+        '2126PMIM1130',
         '2199IMTE1001',
       '2026IMTM0001',
         '2024BCSE0001',
@@ -2713,6 +2728,10 @@ export class FirestoreDataService {
         '2199TESF0002',
       ];
       const directKeys = [
+        'demo1',
+        'std_demo1',
+        '2126pmim1130',
+        '2126PMIM1130',
         'faculty-walkthrough-1',
         'faculty_instructor',
         'faculty_logicq_io',
@@ -2742,11 +2761,14 @@ export class FirestoreDataService {
 
       for (const k of directKeys) {
         await deleteDoc(doc(db, 'enrolled_students', k)).catch(() => {});
+        await deleteDoc(doc(db, 'cohort_progress', k.toUpperCase())).catch(() => {});
+        await deleteDoc(doc(db, 'cohort_progress', k)).catch(() => {});
         await deleteDoc(doc(db, 'publicProfiles', k)).catch(() => {});
         await deleteDoc(doc(db, 'users', k)).catch(() => {});
       }
       for (const prn of targetPrns) {
         await deleteDoc(doc(db, 'prnIndex', prn)).catch(() => {});
+        await deleteDoc(doc(db, 'cohort_progress', prn)).catch(() => {});
       }
 
       // Query enrolled_students
