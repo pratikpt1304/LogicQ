@@ -276,50 +276,21 @@ export const AdminIntegrityTab: React.FC = () => {
         // 2. Fetch all assessment submissions from Cloud Firestore
         const assessmentSubmissions = await FirestoreDataService.getAssessmentSubmissions().catch(() => []);
 
-        // Ensure any student who submitted an assessment is represented in studentsMap
-        assessmentSubmissions.forEach((sub: any) => {
-          const prn = (sub.studentPrn || sub.prn || '').toUpperCase().trim();
-          const key = prn || (sub.userId || '').toUpperCase().trim();
-          if (key && !studentsMap.has(key)) {
-            studentsMap.set(key, {
-              id: sub.userId || `stu-${key}`,
-              name: sub.studentName || `Candidate ${key}`,
-              prn: prn || key,
-              email: sub.studentEmail || sub.email || `${key.toLowerCase()}@logicq.io`,
-              section: 'Integrated Mtech',
-              integrityScore: 100,
-            });
-          }
-        });
-
-        // 3. Fetch live cohort_progress for cross-device telemetry
+        // 3. Fetch live cohort_progress for cross-device telemetry (lookup only, never fabricate synthetic candidates)
         const cohortSnap = await getDocs(collection(db, 'cohort_progress')).catch(() => null);
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
           cohortSnap.forEach((d) => {
             const prnKey = d.id.toUpperCase().trim();
-            const data = d.data();
-            cohortMap.set(prnKey, data);
-
-            // Also register cohort progress student if not already present
-            if (prnKey && !studentsMap.has(prnKey) && !['ANON', 'ADMIN', 'UNDEFINED', 'CURRENT'].includes(prnKey)) {
-              studentsMap.set(prnKey, {
-                id: data.userId || `stu-${prnKey}`,
-                name: data.studentName || `Candidate ${prnKey}`,
-                prn: prnKey,
-                email: data.studentEmail || `${prnKey.toLowerCase()}@logicq.io`,
-                section: 'Integrated Mtech',
-                integrityScore: 100,
-              });
-            }
+            cohortMap.set(prnKey, d.data());
           });
         }
 
         if (!isMounted) return;
 
-        // 4. Map authentic students to synchronized forensic records
+        // 4. Map authentic verified enrolled students to synchronized forensic records
         const records: StudentForensicRecord[] = Array.from(studentsMap.values())
-          .filter((s) => s.name && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
+          .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !s.name?.startsWith('Candidate ') && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
           .map((s) => {
             const prnClean = (s.prn || '').toUpperCase().trim();
             const cData = cohortMap.get(prnClean) ||

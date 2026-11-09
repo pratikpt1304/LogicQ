@@ -2620,15 +2620,36 @@ export class FirestoreDataService {
       name === 'dummy'
     ) return false;
 
-    // Explicit purge for Demo 1 and Demo 2 (as requested)
+    // Purge any synthetic candidates (Candidate 2126..., Candidate DEMO..., etc.)
+    if (
+      name.startsWith('candidate ') ||
+      name.includes('candidate 21') ||
+      name.includes('candidate demo')
+    ) {
+      return true;
+    }
+
+    // Explicit purge for Demo 1, Demo 2, and all legacy mock test PRNs
+    const ghostPrns = [
+      'DEMO1', 'DEMO01', 'STD_DEMO1', 'DEMO2',
+      '2126PMIF1057', '2126PMIF1106', '2126PMIM1003', '2126PMIM1039', '2126PMIM1130', '2199IMTE1001',
+      '2026IMTM0001', '2024BCSE0001', '2026VAL1390', '2026JON1390', '2026STUD0001', '2026SIM7208',
+      '2199TESM0003', '2199TESF0099', '2199TESF0002',
+    ];
+
+    if (
+      ghostPrns.includes(prn) ||
+      ghostPrns.some((gp) => id === gp.toLowerCase() || id === `stu-${gp.toLowerCase()}`)
+    ) {
+      return true;
+    }
+
     if (
       email === 'demo1@logicq.io' ||
+      email === 'demo2@logicq.io' ||
+      email === 'std_demo1@logicq.io' ||
       email === 'ipred1908@gmail.com' ||
-      prn === 'DEMO1' ||
-      prn === '2126PMIM1130' ||
-      id === 'std_demo1' ||
-      id === 'demo1' ||
-      id === '2126pmim1130' ||
+      (email.endsWith('@logicq.io') && email !== 'dummy@logicq.io') ||
       name === 'demo 1' ||
       name === 'demo1' ||
       name === 'demo2' ||
@@ -2715,6 +2736,13 @@ export class FirestoreDataService {
       ];
       const targetPrns = [
         'DEMO1',
+        'DEMO01',
+        'STD_DEMO1',
+        'DEMO2',
+        '2126PMIF1057',
+        '2126PMIF1106',
+        '2126PMIM1003',
+        '2126PMIM1039',
         '2126PMIM1130',
         '2199IMTE1001',
       '2026IMTM0001',
@@ -2730,6 +2758,15 @@ export class FirestoreDataService {
       const directKeys = [
         'demo1',
         'std_demo1',
+        'demo01',
+        '2126pmif1057',
+        '2126PMIF1057',
+        '2126pmif1106',
+        '2126PMIF1106',
+        '2126pmim1003',
+        '2126PMIM1003',
+        '2126pmim1039',
+        '2126PMIM1039',
         '2126pmim1130',
         '2126PMIM1130',
         'faculty-walkthrough-1',

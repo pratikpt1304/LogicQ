@@ -111,20 +111,6 @@ export const AdminAnswerBankTab: React.FC = () => {
           let targetKey = prn || uid;
           if (!targetKey && email) targetKey = email.toUpperCase();
 
-          if (targetKey && !studentsMap.has(targetKey)) {
-            studentsMap.set(targetKey, {
-              id: sub.userId || `stu-${targetKey}`,
-              name: sub.studentName || `Candidate ${targetKey}`,
-              prn: prn || targetKey,
-              email: sub.studentEmail || sub.email || `${targetKey.toLowerCase()}@logicq.io`,
-              section: 'Integrated Mtech',
-              labInternalSubmissions: [],
-              practiceSubmissions: [],
-              totalAnswersCount: 0,
-              lastActive: sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
-            });
-          }
-
           const student = studentsMap.get(targetKey) || (prn ? studentsMap.get(prn) : null) || (uid ? studentsMap.get(uid) : null);
           if (student) {
             student.labInternalSubmissions.push(sub);
@@ -141,20 +127,6 @@ export const AdminAnswerBankTab: React.FC = () => {
           let targetKey = prn || uid;
           if (!targetKey && email) targetKey = email.toUpperCase();
 
-          if (targetKey && !studentsMap.has(targetKey)) {
-            studentsMap.set(targetKey, {
-              id: sub.userId || `stu-${targetKey}`,
-              name: sub.studentName || sub.user?.fullName || sub.user?.displayName || `Candidate ${targetKey}`,
-              prn: prn || targetKey,
-              email: sub.studentEmail || sub.email || `${targetKey.toLowerCase()}@logicq.io`,
-              section: 'Integrated Mtech',
-              labInternalSubmissions: [],
-              practiceSubmissions: [],
-              totalAnswersCount: 0,
-              lastActive: sub.createdAt ? new Date(sub.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
-            });
-          }
-
           const student = studentsMap.get(targetKey) || (prn ? studentsMap.get(prn) : null) || (uid ? studentsMap.get(uid) : null);
           if (student) {
             if (sub.submissionType === 'ASSESSMENT' || sub.submissionType === 'LAB_INTERNAL') {
@@ -168,7 +140,9 @@ export const AdminAnswerBankTab: React.FC = () => {
         });
 
         // Compute total answers and sort each student's submission history
-        const list = Array.from(studentsMap.values()).map((st) => {
+        const list = Array.from(studentsMap.values())
+          .filter((st) => !FirestoreDataService.isPurgedStudent(st) && !st.name?.startsWith('Candidate '))
+          .map((st) => {
           st.labInternalSubmissions.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0).getTime() - new Date(a.submittedAt || a.createdAt || 0).getTime());
           st.practiceSubmissions.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0).getTime() - new Date(a.submittedAt || a.createdAt || 0).getTime());
           st.totalAnswersCount = st.labInternalSubmissions.length + st.practiceSubmissions.length;
