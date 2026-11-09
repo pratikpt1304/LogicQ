@@ -2727,7 +2727,6 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
-        'dummy@logicq.io',
         'demo1@logicq.io',
         'ipred1908@gmail.com',
         'hariprasathset@sanjivani.edu.in',
@@ -2946,6 +2945,55 @@ export class FirestoreDataService {
     // 5. Broadcast real-time events
     realtimeSync.emit('USERS');
     realtimeSync.emit('SECTIONS');
+  }
+
+  /**
+   * Resets a student's password back to their institutional PRN
+   * and wipes all bound hardware devices so they can log in fresh and register.
+   */
+  public static async resetStudentPasswordToPrn(prn: string, userId?: string): Promise<boolean> {
+    const cleanPrn = String(prn || '').toUpperCase().trim();
+    if (!cleanPrn) return false;
+
+    try {
+      // 1. Delete custom password credentials from Firestore cohort_progress drafts
+      await deleteDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security')).catch(() => {});
+
+      // 2. Clear bound hardware devices in Firestore
+      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
+      const existingMod = cohortDoc?.data()?.moduleProgress || {};
+      await setDoc(
+        doc(db, 'cohort_progress', cleanPrn),
+        {
+          prn: cleanPrn,
+          moduleProgress: {
+            ...existingMod,
+            registeredDevices: [],
+          },
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      ).catch(() => {});
+
+      // 3. Clear local storage password and device bindings
+      try {
+        localStorage.removeItem(`logicq_custom_password_${cleanPrn}`);
+        localStorage.removeItem(`logicq_custom_password_${cleanPrn.toLowerCase()}`);
+        localStorage.removeItem(`logicq_registered_devices_${cleanPrn}`);
+        if (userId) {
+          localStorage.removeItem(`logicq_custom_password_${userId}`);
+          localStorage.removeItem(`logicq_registered_devices_${userId}`);
+        }
+      } catch {}
+
+      // 4. Broadcast real-time change
+      realtimeSync.emit('USERS');
+      realtimeSync.emit('SECTIONS');
+      return true;
+    } catch (err) {
+      console.error('Failed to reset student password to PRN:', err);
+      return false;
+    }
   }
 
   /**

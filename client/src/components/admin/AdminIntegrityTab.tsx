@@ -230,24 +230,64 @@ export const AdminIntegrityTab: React.FC = () => {
           localStorage.removeItem('logicq_viva_logs');
         } catch {}
 
-        // 1. Fetch authentic enrolled students and users from Firestore
-        const firestoreUsers = await FirestoreDataService.getAllFirestoreUsers().catch(() => []);
+        // Clean up any stale legacy cache with small counts
+        try {
+          const cached = localStorage.getItem('logicq_admin_students');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length < 20) {
+              localStorage.removeItem('logicq_admin_students');
+            }
+          }
+        } catch {}
+
+        // 1. Fetch directly from enrolled_students (authoritative roster of 116+ students)
+        const [enrolledSnap, firestoreUsers, assessmentSubmissions, cohortSnap] = await Promise.all([
+          getDocs(collection(db, 'enrolled_students')).catch(() => null),
+          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+          FirestoreDataService.getAssessmentSubmissions().catch(() => []),
+          getDocs(collection(db, 'cohort_progress')).catch(() => null),
+        ]);
+
         const studentsMap = new Map<string, any>();
 
+        // Populate from enrolled_students first (guarantees all 116 enrolled students are present)
+        if (enrolledSnap) {
+          enrolledSnap.forEach((d) => {
+            const raw = d.data();
+            if (!raw || FirestoreDataService.isPurgedStudent(raw)) return;
+            const prnClean = (raw.prn || '').toUpperCase().trim();
+            const key = prnClean || d.id.toUpperCase().trim();
+            const rawSection = raw.sectionName || raw.section || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech');
+            const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+              ? 'Integrated Mtech'
+              : rawSection;
+            studentsMap.set(key, {
+              id: d.id,
+              name: raw.fullName || raw.displayName || raw.name || 'Student',
+              prn: prnClean || '—',
+              email: (raw.email || '').toLowerCase().trim() || '—',
+              section: normalizedSection,
+              integrityScore: raw.integrityScore ?? 100,
+            });
+          });
+        }
+
+        // Merge any additional users from firestoreUsers
         if (Array.isArray(firestoreUsers)) {
           firestoreUsers
             .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
             .forEach((u: any) => {
               const prnKey = (u.prn || '').toUpperCase().trim();
               const key = prnKey || (u.id || u.uid || '').toUpperCase().trim();
-              const rawSection = u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech');
-              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-                ? 'Integrated Mtech'
-                : rawSection;
-              if (key) {
+              if (key && !studentsMap.has(key)) {
+                const rawSection = u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech');
+                const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+                  ? 'Integrated Mtech'
+                  : rawSection;
                 studentsMap.set(key, {
                   id: u.id || u.uid,
-                  name: u.fullName || u.displayName || u.username || 'Student Candidate',
+                  name: u.fullName || u.displayName || u.username || 'Student',
                   prn: prnKey || '—',
                   email: u.email || '—',
                   section: normalizedSection,
@@ -257,27 +297,7 @@ export const AdminIntegrityTab: React.FC = () => {
             });
         }
 
-        // Fallback to local cache only if Firestore returned 0 users
-        if (studentsMap.size === 0) {
-          try {
-            const cached = localStorage.getItem('logicq_admin_students');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((s: any) => {
-                  const key = (s.prn || s.id || '').toUpperCase().trim();
-                  if (key && !studentsMap.has(key)) studentsMap.set(key, s);
-                });
-              }
-            }
-          } catch {}
-        }
-
-        // 2. Fetch all assessment submissions from Cloud Firestore
-        const assessmentSubmissions = await FirestoreDataService.getAssessmentSubmissions().catch(() => []);
-
-        // 3. Fetch live cohort_progress for cross-device telemetry (lookup only, never fabricate synthetic candidates)
-        const cohortSnap = await getDocs(collection(db, 'cohort_progress')).catch(() => null);
+        // 2. Fetch live cohort_progress for cross-device telemetry
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
           cohortSnap.forEach((d) => {

@@ -32,6 +32,7 @@ import {
   AlertOctagon,
   Trash2,
   ShieldAlert,
+  KeyRound,
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 
@@ -292,6 +293,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     ? liveCohort.moduleProgress.registeredDevices
     : [];
   const [isResettingDevices, setIsResettingDevices] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const handleResetDevices = async () => {
     setIsResettingDevices(true);
@@ -304,6 +306,32 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       }
     } finally {
       setIsResettingDevices(false);
+    }
+  };
+
+  const handleResetPasswordToPrn = async () => {
+    const targetPrn = prn !== 'N/A' ? prn : (student.prn || student.id);
+    if (!targetPrn) {
+      toast.error('Student PRN not found.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Reset password for ${studentName} (${targetPrn}) back to default PRN?\n\nThis will remove any custom password and clear all bound devices so they can log in fresh using their PRN and set a new password.`
+    );
+    if (!confirmed) return;
+
+    setIsResettingPassword(true);
+    try {
+      const ok = await FirestoreDataService.resetStudentPasswordToPrn(targetPrn, studentUid);
+      if (ok) {
+        toast.success(`Password reset to PRN (${targetPrn}) successfully for ${studentName}!`);
+      } else {
+        toast.error('Failed to reset password. Please try again.');
+      }
+    } catch (err: any) {
+      toast.error('Error resetting password: ' + err.message);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -577,16 +605,29 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleResetDevices}
-                disabled={isResettingDevices || boundDevices.length === 0}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Reset registered hardware devices and allow student to bind new devices"
-              >
-                <RotateCcw className={`w-3.5 h-3.5 ${isResettingDevices ? 'animate-spin' : ''}`} />
-                <span>Reset Devices</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleResetDevices}
+                  disabled={isResettingDevices || boundDevices.length === 0}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Reset registered hardware devices and allow student to bind new devices"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isResettingDevices ? 'animate-spin' : ''}`} />
+                  <span>Reset Devices</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleResetPasswordToPrn}
+                  disabled={isResettingPassword}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  title="Reset student password back to their institutional PRN"
+                >
+                  <KeyRound className={`w-3.5 h-3.5 ${isResettingPassword ? 'animate-spin' : ''}`} />
+                  <span>Reset Password to PRN</span>
+                </button>
+              </div>
             </div>
 
             {/* ========================================================================= */}
