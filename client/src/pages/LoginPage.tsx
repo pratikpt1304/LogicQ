@@ -333,23 +333,20 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Main Card */}
-        <div className="glass-card p-6 sm:p-8 rounded-3xl border border-[var(--border-line)] bg-[var(--bg-panel)] shadow-2xl relative overflow-hidden">
-          {/* Ambient Card Glow */}
-          <div className="absolute -top-20 -right-20 w-44 h-44 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
+        <div className="rounded-2xl border border-[var(--border-line)] bg-[var(--bg-panel)] p-6 sm:p-8 shadow-xs relative">
           {/* Success / Verified Screen State */}
           {isVerifiedSuccess ? (
             <div className="py-4 text-center space-y-5 animate-in zoom-in-95 fade-in duration-300">
               <div className="relative inline-flex items-center justify-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 flex items-center justify-center border-2 border-emerald-500/40 shadow-lg shadow-emerald-500/25 animate-pulse">
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md">
-                    <Check className="w-6 h-6 stroke-[3.5]" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <Check className="w-6 h-6 stroke-[3]" />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <h3 className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)] tracking-tight">
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-main)] tracking-tight">
                   Welcome to LogicQ
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] font-medium">
@@ -360,7 +357,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(from, { replace: true })}
-                className="w-full py-3.5 px-6 rounded-2xl font-mono text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="w-full py-3 px-6 rounded-xl font-mono text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
               >
                 <span>Continue to Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
@@ -527,7 +524,7 @@ export const LoginPage: React.FC = () => {
                     type="button"
                     onClick={() => handlePrnLogin()}
                     disabled={loading || !prn.trim()}
-                    className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     <span>{loading ? 'Authenticating...' : 'Sign In as Student'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -561,7 +558,7 @@ export const LoginPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={loading || !identifier.trim()}
-                        className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
                         <span>{loading ? 'Sending Verification Code...' : 'Send OTP Code'}</span>
                         <ArrowRight className="w-4 h-4" />
@@ -592,7 +589,7 @@ export const LoginPage: React.FC = () => {
                         </div>
 
                         {/* 6 Individual Digit Inputs */}
-                        <div className="flex items-center justify-between gap-1.5 sm:gap-2.5" onPaste={handlePaste}>
+                        <div className="flex items-center justify-between gap-1.5 sm:gap-2" onPaste={handlePaste}>
                           {otpDigits.map((digit, idx) => (
                             <input
                               key={idx}
@@ -604,10 +601,10 @@ export const LoginPage: React.FC = () => {
                               value={digit}
                               onChange={(e) => handleDigitChange(idx, e.target.value)}
                               onKeyDown={(e) => handleKeyDown(idx, e)}
-                              className={`w-11 h-13 sm:w-13 sm:h-15 text-center text-xl sm:text-2xl font-mono font-black rounded-2xl border transition-all outline-none ${
+                              className={`w-11 h-12 sm:w-12 sm:h-13 text-center text-xl font-mono font-bold rounded-xl border transition-colors outline-none ${
                                 digit
-                                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-sm shadow-emerald-500/10 ring-1 ring-emerald-500/30'
-                                  : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-main)] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-[var(--bg-surface)] border-[var(--border-line)] text-[var(--text-main)] focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
                               }`}
                             />
                           ))}
@@ -617,7 +614,7 @@ export const LoginPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={loading || fullOtpCode.length !== 6}
-                        className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                       >
                         <span>{loading ? 'Verifying OTP...' : 'Verify OTP & Continue'}</span>
                         <ArrowRight className="w-4 h-4" />

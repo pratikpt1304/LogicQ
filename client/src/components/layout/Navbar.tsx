@@ -210,12 +210,12 @@ export const Navbar: React.FC = () => {
                 {profileDropdownOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-72 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl shadow-slate-950/20 p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute right-0 mt-2 w-72 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border-line)] shadow-lg p-2.5 z-50 animate-in fade-in duration-100"
                   >
-                    {/* Apple ID Style User Card */}
-                    <div className="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 mb-2">
+                    {/* User Card */}
+                    <div className="p-3.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-line)] mb-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-cyan-600 dark:bg-cyan-500 text-white dark:text-slate-950 font-bold text-sm flex items-center justify-center shrink-0">
                           {(user.displayName || user.fullName || user.username || 'U').charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -394,7 +394,7 @@ export const Navbar: React.FC = () => {
 
               <Link
                 to="/login"
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-md transition-all font-mono"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950 transition-colors shadow-xs"
               >
                 Sign In
               </Link>
@@ -423,7 +423,7 @@ export const Navbar: React.FC = () => {
           {!user && (
             <Link
               to="/login"
-              className="inline-flex items-center justify-center min-h-[36px] px-3.5 py-1 rounded-lg text-xs font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
+              className="inline-flex items-center justify-center min-h-[36px] px-3.5 py-1 rounded-lg text-xs font-medium text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950 transition-colors shadow-xs"
             >
               Sign In
             </Link>
@@ -570,7 +570,7 @@ export const Navbar: React.FC = () => {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold text-[#0C0F1F] bg-gradient-to-r from-cyan-400 to-emerald-400 font-mono shadow-sm"
+                  className="w-full flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950 transition-colors shadow-xs"
                 >
                   Sign In
                 </Link>

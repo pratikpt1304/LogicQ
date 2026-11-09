@@ -1712,7 +1712,7 @@ export const ChallengePage: React.FC = () => {
                 className="flex-1 py-2.5 rounded-xl font-mono text-xs font-bold tracking-wide transition flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-95 text-white shadow-lg shadow-cyan-500/20 cursor-pointer transform hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
-                <span>{fullscreenExits > 0 ? 'Resume Fullscreen ⛶' : 'Enter Fullscreen & Begin 🚀'}</span>
+                <span>{fullscreenExits > 0 ? 'Resume Fullscreen' : 'Enter Fullscreen & Begin'}</span>
               </button>
             </div>
           </div>

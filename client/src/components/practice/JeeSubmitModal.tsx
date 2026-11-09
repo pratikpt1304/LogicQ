@@ -249,7 +249,7 @@ export const JeeSubmitModal: React.FC<JeeSubmitModalProps> = ({
                 disabled={isSubmitting}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-mono font-bold tracking-wide shadow-lg shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
               >
-                {isSubmitting ? 'Submitting...' : isMasteryComplete ? 'Submit & Unlock Next Module 🚀' : 'Submit Test Session'}
+                {isSubmitting ? 'Submitting...' : isMasteryComplete ? 'Submit & Unlock Next Module' : 'Submit Test Session'}
               </button>
             </div>
           </>
