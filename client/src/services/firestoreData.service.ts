@@ -4609,6 +4609,8 @@ export class FirestoreDataService {
       type: 'EXCEEDED_TAB_SWITCHES' | 'EXCEEDED_COPY_PASTE' | 'TAB_SWITCH' | 'COPY_PASTE' | 'FULLSCREEN_EXIT' | 'SECOND_CHANCE_SUBMISSION';
       problemSlug?: string;
       problemTitle?: string;
+      moduleTitle?: string;
+      category?: string;
       reason: string;
       codeSnippet?: string;
       isCheatAttempt?: boolean;
@@ -4636,6 +4638,8 @@ export class FirestoreDataService {
         type: incident.type,
         problemSlug: incident.problemSlug || '',
         problemTitle: incident.problemTitle || '',
+        moduleTitle: incident.moduleTitle || '',
+        category: incident.category || 'PRACTICE',
         reason: incident.reason,
         codeSnippet: incident.codeSnippet ? incident.codeSnippet.slice(0, 500) : '',
         isCheatAttempt: Boolean(incident.isCheatAttempt || incident.type === 'SECOND_CHANCE_SUBMISSION'),

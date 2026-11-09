@@ -516,6 +516,8 @@ export const TopicPracticeHubPage: React.FC = () => {
       type: 'COPY_PASTE',
       problemSlug: activeTopicRef.current.id,
       problemTitle: activeTopicRef.current.problem.title,
+      moduleTitle: activeTopicRef.current.moduleTitle,
+      category: 'PRACTICE',
       reason: 'Clipboard paste attempt blocked by proctoring guard',
       codeSnippet: codeRef.current,
     }).catch(() => {});
@@ -538,6 +540,8 @@ export const TopicPracticeHubPage: React.FC = () => {
           type: 'TAB_SWITCH',
           problemSlug: activeTopicRef.current.id,
           problemTitle: activeTopicRef.current.problem.title,
+          moduleTitle: activeTopicRef.current.moduleTitle,
+          category: 'PRACTICE',
           reason: 'Tab switch or window unfocus detected during practice session',
         }).catch(() => {});
         toast.warning('⚠️ Tab Switch Detected! Focus loss is logged for faculty audit.');
@@ -555,6 +559,8 @@ export const TopicPracticeHubPage: React.FC = () => {
           type: 'TAB_SWITCH',
           problemSlug: activeTopicRef.current.id,
           problemTitle: activeTopicRef.current.problem.title,
+          moduleTitle: activeTopicRef.current.moduleTitle,
+          category: 'PRACTICE',
           reason: 'Window focus lost during practice session',
         }).catch(() => {});
         toast.warning('⚠️ Window Focus Lost! Proctored telemetry records all focus shifts.');

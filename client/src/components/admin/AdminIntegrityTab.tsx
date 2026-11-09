@@ -41,6 +41,7 @@ export interface StudentTimelineEvent {
   id: string;
   timestamp: string; // e.g. '10:18:24 AM'
   timeElapsed: string; // e.g. '+03m 12s'
+  category?: 'Practice' | 'Lab Internal';
   moduleName: string; // e.g. 'Unit 1: Foundations'
   problemTitle: string; // e.g. 'Bitwise Parity & Power of Two'
   type:
@@ -65,6 +66,7 @@ export interface StudentForensicRecord {
   prn: string;
   email: string;
   section: string;
+  category?: 'Practice' | 'Lab Internal';
   currentModule: string;
   currentProblem: string;
   startTime: string;
@@ -102,6 +104,67 @@ interface VivaLogItem {
   status: 'VERIFIED' | 'REVIEW_NEEDED';
   timestamp: string;
 }
+
+const resolveProblemContext = (
+  identifierOrTitle?: string,
+  fallbackTestTitle?: string,
+  submissionType?: string
+) => {
+  const clean = String(identifierOrTitle || '').trim();
+  const cleanLower = clean.toLowerCase();
+  const subType = String(submissionType || '').toUpperCase();
+
+  const isExplicitPractice = subType === 'PRACTICE' || subType === 'TOPIC';
+  const isExplicitAssessment = subType === 'ASSESSMENT' || subType === 'TEST' || subType === 'LAB_INTERNAL';
+
+  // 1. Check in TOPIC_PRACTICE_DATA
+  const matchedTopic = TOPIC_PRACTICE_DATA.find((t) =>
+    t.id.toLowerCase() === cleanLower ||
+    t.topicTitle.toLowerCase() === cleanLower ||
+    t.problem.title.toLowerCase() === cleanLower ||
+    cleanLower.includes(t.id.toLowerCase()) ||
+    (cleanLower.length > 5 && t.problem.title.toLowerCase().includes(cleanLower))
+  );
+
+  if (matchedTopic && !isExplicitAssessment) {
+    return {
+      category: 'Practice' as const,
+      categoryLabel: 'Practice Solutions',
+      moduleName: matchedTopic.moduleTitle || `Module ${matchedTopic.moduleIndex}: C Programming`,
+      topicTitle: matchedTopic.topicTitle,
+      problemTitle: matchedTopic.problem.title,
+    };
+  }
+
+  // 2. Check if it's an assessment
+  const isAssessment =
+    isExplicitAssessment ||
+    cleanLower.startsWith('exam_') ||
+    cleanLower.startsWith('unit_') ||
+    cleanLower.startsWith('test_') ||
+    cleanLower.startsWith('asub_') ||
+    /^(q-s\d+|q\d+|unit)/i.test(cleanLower) ||
+    (Boolean(fallbackTestTitle) && fallbackTestTitle !== 'Continuous Practical Lab');
+
+  if (isAssessment) {
+    return {
+      category: 'Lab Internal' as const,
+      categoryLabel: 'Lab Internal Assessment',
+      moduleName: fallbackTestTitle || 'Lab Internal Assessment',
+      topicTitle: clean || 'Lab Internal Challenge',
+      problemTitle: clean || 'Lab Internal Question',
+    };
+  }
+
+  // 3. Fallback
+  return {
+    category: isExplicitPractice ? ('Practice' as const) : ('Practice' as const),
+    categoryLabel: 'Practice Solutions',
+    moduleName: fallbackTestTitle || (matchedTopic ? matchedTopic.moduleTitle : 'Module: C Programming Practice'),
+    topicTitle: clean || 'Practice Problem',
+    problemTitle: clean || 'Practice Problem',
+  };
+};
 
 const DEFAULT_GUARDRAILS: GuardrailSetting[] = [
   {
@@ -188,28 +251,36 @@ export const AdminIntegrityTab: React.FC = () => {
               try {
                 const parsed = JSON.parse(rawCode);
                 if (Array.isArray(parsed?.incidents) && parsed.incidents.length > 0) {
-                  liveEvents = parsed.incidents.map((inc: any, idx: number) => ({
-                    id: inc.id || `live-inc-${idx}`,
-                    timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
-                    timeElapsed: '+Live',
-                    moduleName: inc.problemTitle || 'C Programming Core',
-                    problemTitle: inc.problemTitle || inc.problemSlug || 'Active Assessment',
-                    type: inc.type === 'TAB_SWITCH' || inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'TAB_SWITCH'
-                        : inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'PASTE_BURST'
-                        : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
-                        : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
-                        : 'CODE_RUN',
-                    severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt || inc.type === 'FULLSCREEN_EXIT') ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
-                    title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
-                         : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
-                         : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Paste Burst Blocked'
-                         : inc.type === 'EXCEEDED_COPY_PASTE' ? 'Massive Paste Inflow (Quarantine Locked)'
-                         : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
-                         : inc.type === 'AI_VIVA_ANSWER' ? 'AI Viva Defense Submitted'
-                         : 'Telemetry Incident Triggered',
-                    details: inc.reason || inc.details || 'Security event logged on student workspace.',
-                    codeSnippet: inc.codeSnippet,
-                  }));
+                  liveEvents = parsed.incidents.map((inc: any, idx: number) => {
+                    const ctx = resolveProblemContext(inc.problemTitle || inc.problemSlug, inc.moduleTitle, inc.category);
+                    const resolvedCategory = inc.category === 'LAB_INTERNAL' ? 'Lab Internal' : (inc.category === 'PRACTICE' ? 'Practice' : ctx.category);
+                    const resolvedModule = inc.moduleTitle || ctx.moduleName;
+                    const resolvedProblem = inc.problemTitle || ctx.problemTitle;
+
+                    return {
+                      id: inc.id || `live-inc-${idx}`,
+                      timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
+                      timeElapsed: '+Live',
+                      category: resolvedCategory,
+                      moduleName: resolvedModule,
+                      problemTitle: resolvedProblem,
+                      type: inc.type === 'TAB_SWITCH' || inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'TAB_SWITCH'
+                          : inc.type === 'COPY_PASTE' || inc.type === 'EXCEEDED_COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'PASTE_BURST'
+                          : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
+                          : inc.type === 'AI_VIVA_ANSWER' ? 'AI_VIVA_ANSWER'
+                          : 'CODE_RUN',
+                      severity: (inc.type.includes('EXCEEDED') || inc.isCheatAttempt || inc.type === 'FULLSCREEN_EXIT') ? 'CRITICAL' : (inc.type === 'AI_VIVA_ANSWER' ? 'SUCCESS' : 'WARNING'),
+                      title: inc.type === 'TAB_SWITCH' ? 'Tab Switch Detected'
+                           : inc.type === 'EXCEEDED_TAB_SWITCHES' ? 'Exceeded Allowed Tab Switches (Quarantine Locked)'
+                           : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'Clipboard Paste Burst Blocked'
+                           : inc.type === 'EXCEEDED_COPY_PASTE' ? 'Massive Paste Inflow (Quarantine Locked)'
+                           : inc.type === 'FULLSCREEN_EXIT' ? 'Exited Proctoring Fullscreen'
+                           : inc.type === 'AI_VIVA_ANSWER' ? 'AI Viva Defense Submitted'
+                           : 'Telemetry Incident Triggered',
+                      details: inc.reason || inc.details || 'Security event logged on student workspace.',
+                      codeSnippet: inc.codeSnippet,
+                    };
+                  });
                 } else if (Number(parsed?.tabSwitchCount || 0) === 0 && Number(parsed?.copyPasteAttempts || 0) === 0 && Number(parsed?.fullscreenExits || 0) === 0) {
                   liveEvents.push({
                     id: `clean-telemetry-${prnClean}`,
@@ -428,11 +499,12 @@ export const AdminIntegrityTab: React.FC = () => {
             const integrityScore = Math.max(0, Math.min(100, 100 - (tabSwitches * 5) - (pasteBursts * 10) - (fullscreenExits * 25)));
 
             const lastSolvedId = hasCompletedProblems ? cData.completedProblems[cData.completedProblems.length - 1] : null;
-            const lastTopic = lastSolvedId ? TOPIC_PRACTICE_DATA.find((t) => t.id === lastSolvedId) : null;
-            const lastSolvedTitle = lastTopic?.topicTitle || lastTopic?.problem?.title || lastSolvedId;
+            const primaryContext = resolveProblemContext(latestSub?.problemTitle || latestSub?.problemId || lastSolvedId, latestSub?.testTitle, latestSub?.submissionType);
 
-            const currentModule = latestSub?.testTitle || mod.currentModule || (hasCompletedProblems ? 'Continuous Practical Lab' : (isSessionActive ? 'Continuous Assessment' : 'No Active Assessment'));
-            const currentProblem = latestSub?.problemTitle || mod.currentProblem || (hasCompletedProblems ? (lastSolvedTitle || 'Practical Exercise') : (isSessionActive ? 'Assessment Problem' : 'Standby — Awaiting Test Launch'));
+            const isSubPractice = latestSub ? String(latestSub.submissionType || '').toUpperCase() === 'PRACTICE' : true;
+            const studentCategory: 'Practice' | 'Lab Internal' = isSubPractice ? 'Practice' : 'Lab Internal';
+            const currentModule = primaryContext.moduleName;
+            const currentProblem = latestSub?.problemTitle || primaryContext.problemTitle;
 
             const startTime = mod.startTime
               ? new Date(mod.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -451,14 +523,19 @@ export const AdminIntegrityTab: React.FC = () => {
 
             // 1. Add all events recorded in student's submissions
             studentSubs.forEach((sub: any, sIdx: number) => {
+              const isEventPractice = String(sub.submissionType || '').toUpperCase() === 'PRACTICE';
+              const eventCategory: 'Practice' | 'Lab Internal' = isEventPractice ? 'Practice' : 'Lab Internal';
+              const subCtx = resolveProblemContext(sub.problemTitle || sub.problemId, sub.testTitle, sub.submissionType);
+
               if (Array.isArray(sub.incidents)) {
                 sub.incidents.forEach((inc: any, iIdx: number) => {
                   timelineEvents.push({
                     id: inc.id || `inc-${sIdx}-${iIdx}`,
                     timestamp: inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Event',
                     timeElapsed: 'Live',
-                    moduleName: sub.testTitle || currentModule,
-                    problemTitle: inc.problemTitle || sub.problemTitle || currentProblem,
+                    category: eventCategory,
+                    moduleName: inc.moduleTitle || subCtx.moduleName,
+                    problemTitle: inc.problemTitle || sub.problemTitle || subCtx.problemTitle,
                     type: inc.type === 'TAB_SWITCH' ? 'TAB_SWITCH'
                         : inc.type === 'COPY_PASTE' || inc.type === 'CLIPBOARD_BLOCKED' ? 'PASTE_BURST'
                         : inc.type === 'FULLSCREEN_EXIT' ? 'FULLSCREEN_EXIT'
@@ -478,12 +555,13 @@ export const AdminIntegrityTab: React.FC = () => {
                 id: sub.id || `sub-${sIdx}`,
                 timestamp: sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Submitted',
                 timeElapsed: `${sub.timeTakenSeconds || 0}s`,
-                moduleName: sub.testTitle || currentModule,
-                problemTitle: sub.problemTitle || currentProblem,
+                category: eventCategory,
+                moduleName: subCtx.moduleName,
+                problemTitle: subCtx.problemTitle,
                 type: 'CODE_SUBMIT',
                 severity: 'SUCCESS',
                 title: `Solution Accepted (${sub.verdict || 'ACCEPTED'})`,
-                details: `Score: ${sub.academicScore ?? 1.0} Marks • Total Keystrokes: ${sub.totalKeystrokes || 0}`,
+                details: `${eventCategory} • Score: ${sub.academicScore ?? 1.0} Marks • Total Keystrokes: ${sub.totalKeystrokes || 0}`,
                 codeSnippet: sub.code,
               });
             });
@@ -494,6 +572,7 @@ export const AdminIntegrityTab: React.FC = () => {
                 id: `flag-tab-${prnClean}`,
                 timestamp: lastActiveTime || 'Logged',
                 timeElapsed: 'Violation',
+                category: studentCategory,
                 moduleName: currentModule,
                 problemTitle: currentProblem,
                 type: 'TAB_SWITCH',
@@ -508,6 +587,7 @@ export const AdminIntegrityTab: React.FC = () => {
                 id: `flag-paste-${prnClean}`,
                 timestamp: lastActiveTime || 'Logged',
                 timeElapsed: 'Violation',
+                category: studentCategory,
                 moduleName: currentModule,
                 problemTitle: currentProblem,
                 type: 'PASTE_BURST',
@@ -522,6 +602,7 @@ export const AdminIntegrityTab: React.FC = () => {
                 id: `flag-fs-${prnClean}`,
                 timestamp: lastActiveTime || 'Logged',
                 timeElapsed: 'Breach',
+                category: studentCategory,
                 moduleName: currentModule,
                 problemTitle: currentProblem,
                 type: 'FULLSCREEN_EXIT',
@@ -534,18 +615,18 @@ export const AdminIntegrityTab: React.FC = () => {
             // 3. For continuous practical lab solvers, add validated solve milestones
             if (timelineEvents.length === 0 && hasCompletedProblems) {
               cData.completedProblems.forEach((pId: string, idx: number) => {
-                const pTopic = TOPIC_PRACTICE_DATA.find((t) => t.id === pId);
-                const pTitle = pTopic?.topicTitle || pTopic?.problem?.title || pId;
+                const pCtx = resolveProblemContext(pId);
                 timelineEvents.push({
                   id: `solve-${prnClean}-${pId}-${idx}`,
                   timestamp: mod.lastActiveTime ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
                   timeElapsed: `${(idx + 1) * 5}m`,
-                  moduleName: 'Continuous Practical Lab',
-                  problemTitle: pTitle,
+                  category: 'Practice',
+                  moduleName: pCtx.moduleName,
+                  problemTitle: pCtx.problemTitle,
                   type: 'CODE_SUBMIT',
                   severity: 'SUCCESS',
                   title: `Solution Accepted (ACCEPTED)`,
-                  details: `Candidate completed GCC assertions for "${pTitle}". Score: 20 Marks.`,
+                  details: `Candidate completed GCC assertions for "${pCtx.problemTitle}".`,
                 });
               });
 
@@ -553,6 +634,7 @@ export const AdminIntegrityTab: React.FC = () => {
                 id: `env-${prnClean}`,
                 timestamp: mod.lastActiveTime ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live',
                 timeElapsed: '0m',
+                category: 'Practice',
                 moduleName: 'Continuous Practical Lab',
                 problemTitle: 'System Entry',
                 type: 'CODE_RUN',
@@ -568,6 +650,7 @@ export const AdminIntegrityTab: React.FC = () => {
               prn: s.prn || '—',
               email: s.email || '—',
               section: s.section || 'Integrated Mtech',
+              category: studentCategory,
               currentModule,
               currentProblem,
               startTime,
@@ -1384,29 +1467,39 @@ export const AdminIntegrityTab: React.FC = () => {
             </div>
 
             {/* Student Exam Context Summary Banner */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-sans block">Evaluation Type</span>
+                <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  selectedStudentForTimeline.category === 'Lab Internal'
+                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                }`}>
+                  {selectedStudentForTimeline.category || 'Practice'}
+                </span>
+              </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-sans block">Current Module</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">
-                  {selectedStudentForTimeline.currentModule.split(':')[0]}
+                <span className="font-bold text-slate-800 dark:text-slate-200 truncate block mt-0.5" title={selectedStudentForTimeline.currentModule}>
+                  {selectedStudentForTimeline.currentModule}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-sans block">Session Started</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block mt-0.5">
                   {selectedStudentForTimeline.startTime}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-sans block">Total Time Active</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block mt-0.5">
                   {selectedStudentForTimeline.totalTimeSpent}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 uppercase font-sans block">Session Integrity</span>
                 <span
-                  className={`font-bold block ${
+                  className={`font-bold block mt-0.5 ${
                     selectedStudentForTimeline.integrityScore >= 90
                       ? 'text-emerald-600'
                       : selectedStudentForTimeline.integrityScore >= 60
@@ -1497,10 +1590,20 @@ export const AdminIntegrityTab: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <BookOpen className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate">
-                          {event.moduleName} • {event.problemTitle}
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                          event.category === 'Lab Internal'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {event.category || 'Practice'}
+                        </span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {event.moduleName}
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-600 dark:text-slate-400 truncate">
+                          {event.problemTitle}
                         </span>
                       </div>
 

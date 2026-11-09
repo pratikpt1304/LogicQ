@@ -512,6 +512,8 @@ export const ExamWorkspacePage: React.FC = () => {
           reason: 'Student exited proctored full-screen mode. Examination session terminated.',
           problemSlug: problemId || assignmentId,
           problemTitle: problemData?.title || 'Continuous Practical Assessment',
+          moduleTitle: assignmentData?.title || 'Lab Internal Assessment',
+          category: 'LAB_INTERNAL',
           isCheatAttempt: true,
         }).catch(() => {});
 
