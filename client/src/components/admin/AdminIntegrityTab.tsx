@@ -844,7 +844,7 @@ export const AdminIntegrityTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Students Granular Forensics Grid */}
+          {/* Students Granular Forensics Grid (3 by 2 Grid matching Answer Bank) */}
           {filteredStudents.length === 0 ? (
             <div className="rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-[#121620]/75 backdrop-blur-xl p-10 text-center space-y-3">
               <Search className="w-8 h-8 mx-auto text-slate-400 opacity-60" />
@@ -854,50 +854,54 @@ export const AdminIntegrityTab: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredStudents.map((student) => {
                 const isFlagged = student.status !== 'CLEAN' || student.tabSwitches > 0 || student.pasteBursts > 0;
                 return (
                   <div
                     key={student.id}
-                    className={`p-5 rounded-3xl border transition-all ${
+                    onClick={() => handleInspectStudentTimeline(student)}
+                    className={`group relative p-5 rounded-3xl border transition-all duration-200 cursor-pointer flex flex-col justify-between ${
                       isFlagged
-                        ? 'border-rose-300 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10 hover:border-rose-400'
-                        : 'border-slate-200/80 dark:border-white/10 bg-white/75 dark:bg-[#121620]/75 hover:border-blue-400/50'
-                    } backdrop-blur-xl shadow-xs space-y-3.5`}
+                        ? 'border-rose-300 dark:border-rose-900/50 bg-rose-50/20 dark:bg-rose-950/10 hover:border-rose-400 hover:shadow-md'
+                        : 'border-slate-200/80 dark:border-white/10 bg-white/75 dark:bg-[#121620]/75 hover:border-blue-500/60 hover:shadow-lg hover:-translate-y-0.5'
+                    } backdrop-blur-xl shadow-xs`}
                   >
-                    {/* Top Row: Student Identity & Live Status */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                            isFlagged
-                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                              : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
-                          }`}
-                        >
-                          {student.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight">
+                    {/* Card Top: Identity & Status */}
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs shrink-0 transition ${
+                              isFlagged
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 group-hover:bg-rose-600 group-hover:text-white'
+                                : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white'
+                            }`}
+                          >
+                            {student.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                               {student.name}
                             </h3>
-                            <span className="font-mono text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.2 rounded-md">
-                              {student.prn}
-                            </span>
-                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.2 rounded-full">
-                              {student.section}
-                            </span>
+                            <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                              {student.email}
+                            </p>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-0.5">{student.email}</p>
                         </div>
+
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 shrink-0">
+                          {student.prn}
+                        </span>
                       </div>
 
-                      {/* Right: Integrity Score & Inspect Button */}
-                      <div className="flex items-center gap-2 self-start sm:self-center">
+                      {/* Section, Last Active & Integrity Pill */}
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap text-[11px]">
+                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full truncate max-w-[130px]">
+                          {student.section}
+                        </span>
                         <span
-                          className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 ${
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 ${
                             student.integrityScore >= 90
                               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                               : student.integrityScore >= 60
@@ -906,108 +910,98 @@ export const AdminIntegrityTab: React.FC = () => {
                           }`}
                         >
                           {student.integrityScore >= 90 ? (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <CheckCircle2 className="w-3 h-3" />
                           ) : (
-                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <AlertTriangle className="w-3 h-3" />
                           )}
-                          <span>{student.integrityScore}% Integrity ({student.status.replace('_', ' ')})</span>
+                          <span>{student.integrityScore}% Clean</span>
                         </span>
-
-                        <button
-                          type="button"
-                          onClick={() => handleInspectStudentTimeline(student)}
-                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Inspect Timeline ({student.timeline.length})</span>
-                        </button>
                       </div>
-                    </div>
 
-                    {/* Middle: Current Question & Module Details */}
-                    <div className="p-3 rounded-2xl bg-slate-50/90 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span className="font-bold text-slate-700 dark:text-slate-200 truncate">
-                            {student.currentModule}
+                      {/* Current Activity & Problem Info */}
+                      <div className="p-2.5 rounded-2xl bg-slate-50/90 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 space-y-1">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <span className="truncate flex items-center gap-1">
+                            <BookOpen className="w-3 h-3 text-blue-500 shrink-0" />
+                            <span className="truncate">{student.currentModule}</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                            {student.totalTimeSpent}
                           </span>
                         </div>
-                        <div className="font-semibold text-slate-900 dark:text-white mt-0.5 truncate flex items-center gap-1.5">
-                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>Problem: {student.currentProblem}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 text-[11px] font-mono shrink-0">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>Started: {student.startTime}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3 text-emerald-500" />
-                          <span>Duration: {student.totalTimeSpent}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Activity className="w-3 h-3 text-blue-400" />
-                          <span>Last Active: {student.lastActiveTime}</span>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                          <CornerDownRight className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{student.currentProblem}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Bottom: Proctoring Telemetry Badges Strip */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-                      {/* Tab Switches */}
-                      <div
-                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
-                          student.tabSwitches > 0
-                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
-                            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        <span className="text-[10px] uppercase font-sans text-slate-400">Tab Switches</span>
-                        <span className="font-bold">
-                          {student.tabSwitches > 0 ? `⚠️ ${student.tabSwitches} Events` : '0 (Clean)'}
+                    {/* Card Bottom: 4 Telemetry Metrics Grid (2x2) */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-white/5 space-y-2.5 mt-3">
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                        {/* Tab Switches */}
+                        <div
+                          className={`p-2 rounded-xl border flex items-center justify-between ${
+                            student.tabSwitches > 0
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+                              : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          <span className="text-[9px] uppercase font-sans text-slate-400">Tabs</span>
+                          <span className="font-bold">
+                            {student.tabSwitches > 0 ? `⚠️ ${student.tabSwitches}` : '0 Clean'}
+                          </span>
+                        </div>
+
+                        {/* Paste Injections */}
+                        <div
+                          className={`p-2 rounded-xl border flex items-center justify-between ${
+                            student.pasteBursts > 0
+                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
+                              : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          <span className="text-[9px] uppercase font-sans text-slate-400">Pastes</span>
+                          <span className="font-bold">
+                            {student.pasteBursts > 0 ? `🚨 ${student.pasteBursts}` : '0 Clean'}
+                          </span>
+                        </div>
+
+                        {/* Typing Cadence */}
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between text-slate-600 dark:text-slate-300">
+                          <span className="text-[9px] uppercase font-sans text-slate-400">Cadence</span>
+                          <span className="font-bold">{student.avgWpm} WPM</span>
+                        </div>
+
+                        {/* AI Viva */}
+                        <div
+                          className={`p-2 rounded-xl border flex items-center justify-between ${
+                            student.aiVivaStatus === 'VERIFIED'
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                              : student.aiVivaStatus === 'FAILED'
+                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
+                              : 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300'
+                          }`}
+                        >
+                          <span className="text-[9px] uppercase font-sans text-slate-400">AI Viva</span>
+                          <span className="font-bold text-[10px]">
+                            {student.aiVivaStatus === 'VERIFIED'
+                              ? `✓ ${student.aiVivaScore ?? 100}`
+                              : student.aiVivaStatus === 'FAILED'
+                              ? `✕ Fail`
+                              : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Action to Inspect Timeline */}
+                      <div className="flex items-center justify-between text-xs text-blue-600 dark:text-blue-400 font-semibold pt-1">
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {student.timeline.length} Event{student.timeline.length !== 1 ? 's' : ''}
                         </span>
-                      </div>
-
-                      {/* Paste Bursts */}
-                      <div
-                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
-                          student.pasteBursts > 0
-                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
-                            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        <span className="text-[10px] uppercase font-sans text-slate-400">Paste Injections</span>
-                        <span className="font-bold">
-                          {student.pasteBursts > 0 ? `🚨 ${student.pasteBursts} Detected` : '0 (Clean)'}
-                        </span>
-                      </div>
-
-                      {/* Typing Cadence */}
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-between text-slate-600 dark:text-slate-300">
-                        <span className="text-[10px] uppercase font-sans text-slate-400">Typing Cadence</span>
-                        <span className="font-bold">{student.avgWpm} WPM (Human)</span>
-                      </div>
-
-                      {/* AI Viva Score */}
-                      <div
-                        className={`p-2.5 rounded-xl border flex items-center justify-between ${
-                          student.aiVivaStatus === 'VERIFIED'
-                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-                            : student.aiVivaStatus === 'FAILED'
-                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
-                            : 'bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300'
-                        }`}
-                      >
-                        <span className="text-[10px] uppercase font-sans text-slate-400">AI Viva Defense</span>
-                        <span className="font-bold">
-                          {student.aiVivaStatus === 'VERIFIED'
-                            ? `✓ ${student.aiVivaScore}/100`
-                            : student.aiVivaStatus === 'FAILED'
-                            ? `✕ Failed (${student.aiVivaScore}/100)`
-                            : 'Pending Viva'}
+                        <span className="flex items-center gap-1 text-xs group-hover:translate-x-1 transition font-bold">
+                          <span>Inspect Timeline</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
                     </div>
