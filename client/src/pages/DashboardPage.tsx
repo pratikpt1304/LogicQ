@@ -10,7 +10,7 @@ import { GoogleDriveService } from '../services/googleDrive.service.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { auth, db } from '../config/firebase.js';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { PRACTICE_CONFIG, isModule5UnlockedByAdmin } from '../config/practice.config.js';
 import { resolveGreetingName } from '../config/academic.config.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
@@ -696,6 +696,16 @@ export const DashboardPage: React.FC = () => {
     const list = getSolvedPracticeTopicIds(user?.id);
     if (user?.prn) {
       getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+      try {
+        const raw = localStorage.getItem(`logicq_completed_problems_${user.prn.toUpperCase()}`) || localStorage.getItem(`logicq_solved_${user.prn.toUpperCase()}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) parsed.forEach((x) => !list.includes(x) && list.push(x));
+        }
+      } catch {}
+    }
+    if (Array.isArray((user as any)?.completedProblems)) {
+      (user as any).completedProblems.forEach((x: string) => !list.includes(x) && list.push(x));
     }
     const prnUpper = (user?.prn || '').toUpperCase();
     if (prnUpper.startsWith('2126DEMO')) {
@@ -713,10 +723,25 @@ export const DashboardPage: React.FC = () => {
     (async () => {
       try {
         const identifier = user?.prn || user?.id || '';
+        const prnClean = (user?.prn || '').toUpperCase().trim();
+        let cohortProblems: string[] = [];
+        if (prnClean) {
+          try {
+            const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
+            if (cohortSnap && cohortSnap.exists()) {
+              const cData = cohortSnap.data();
+              if (Array.isArray(cData?.completedProblems)) {
+                cohortProblems = cData.completedProblems;
+              }
+            }
+          } catch {}
+        }
+
         const stats = await FirestoreDataService.getStatsBackup(identifier);
         const prog = await FirestoreDataService.getPracticeProgress(identifier);
         const cloudSolved = Array.from(
           new Set([
+            ...cohortProblems,
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
             ...getSolvedPracticeTopicIds(user?.id),
@@ -736,24 +761,6 @@ export const DashboardPage: React.FC = () => {
     })();
   }, [user?.id, user?.prn]);
 
-  // One-time complete student data wipe for Pratik Thorat test account on Dashboard
-  React.useEffect(() => {
-    if (!user) return;
-    const isTarget =
-      user.prn === '2126PMIM1039' ||
-      user.email === 'thoratpratik2323@gmail.com' ||
-      user.prn === '2126PMIF1057' ||
-      user.email === 'samugangad@gmail.com';
-    const key = `logicq_clean_student_${user.prn || user.id}_v9`;
-    const hasReset = localStorage.getItem(key);
-    if (isTarget && !hasReset) {
-      localStorage.setItem(key, 'true');
-      FirestoreDataService.resetEntireStudentData(user.id || auth.currentUser?.uid, user.prn, user.email).then(() => {
-        setSolvedTopicIds([]);
-        queryClient.invalidateQueries();
-      });
-    }
-  }, [user, queryClient]);
 
   const studentModulesList: any[] = (Array.isArray(studentPracticeModules) ? studentPracticeModules : [])
     .map((m: any) => {

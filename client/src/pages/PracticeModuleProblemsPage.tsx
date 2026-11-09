@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client.js';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { DifficultyBadge } from '../components/common/Badge.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -61,24 +62,59 @@ export const PracticeModuleProblemsPage: React.FC = () => {
   const targetModule = targetModuleIdx >= 0 ? PRACTICE_CONFIG.MODULES[targetModuleIdx] : null;
 
   const effectiveUid = (user as any)?.uid || user?.id || auth.currentUser?.uid || 'anon';
-  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => getSolvedPracticeTopicIds(effectiveUid));
+  const [solvedTopicIds, setSolvedTopicIds] = useState<string[]>(() => {
+    const list = getSolvedPracticeTopicIds(effectiveUid);
+    if (user?.prn) {
+      getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+      try {
+        const raw = localStorage.getItem(`logicq_completed_problems_${user.prn.toUpperCase()}`) || localStorage.getItem(`logicq_solved_${user.prn.toUpperCase()}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) parsed.forEach((x) => !list.includes(x) && list.push(x));
+        }
+      } catch {}
+    }
+    if (Array.isArray((user as any)?.completedProblems)) {
+      (user as any).completedProblems.forEach((x: string) => !list.includes(x) && list.push(x));
+    }
+    return list;
+  });
 
   // Sync and restore solved practice topics from Firestore and local storage
   useEffect(() => {
     (async () => {
       try {
+        const prnClean = (user?.prn || '').toUpperCase().trim();
+        let cohortProblems: string[] = [];
+        if (prnClean) {
+          try {
+            const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
+            if (cohortSnap && cohortSnap.exists()) {
+              const cData = cohortSnap.data();
+              if (Array.isArray(cData?.completedProblems)) {
+                cohortProblems = cData.completedProblems;
+              }
+            }
+          } catch {}
+        }
+
         const stats = await FirestoreDataService.getStatsBackup(effectiveUid);
         const prog = await FirestoreDataService.getPracticeProgress(effectiveUid);
         const cloudSolved = Array.from(
           new Set([
+            ...cohortProblems,
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
             ...getSolvedPracticeTopicIds(effectiveUid),
+            ...(user?.prn ? getSolvedPracticeTopicIds(user.prn) : []),
           ])
         );
         if (cloudSolved.length > 0) {
-          cloudSolved.forEach((id) => markPracticeTopicSolved(id, effectiveUid));
-          setSolvedTopicIds(getSolvedPracticeTopicIds(effectiveUid));
+          cloudSolved.forEach((id) => {
+            markPracticeTopicSolved(id, effectiveUid);
+            if (user?.prn) markPracticeTopicSolved(id, user.prn);
+          });
+          setSolvedTopicIds(cloudSolved);
         }
       } catch (err) {
         console.warn('PracticeModuleProblems restore error:', err);

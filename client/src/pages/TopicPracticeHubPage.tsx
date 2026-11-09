@@ -57,7 +57,8 @@ import { StatementMarkdown } from '../components/common/StatementMarkdown.js';
 import { GccFriendlyHintCard } from '../components/common/GccFriendlyHintCard.js';
 import { TerminalConsole } from '../components/common/TerminalConsole.js';
 import { useAuth } from '../context/AuthContext.js';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
@@ -271,6 +272,16 @@ export const TopicPracticeHubPage: React.FC = () => {
     const list = getSolvedPracticeTopicIds(user?.id);
     if (user?.prn) {
       getSolvedPracticeTopicIds(user.prn).forEach((x) => !list.includes(x) && list.push(x));
+      try {
+        const raw = localStorage.getItem(`logicq_completed_problems_${user.prn.toUpperCase()}`) || localStorage.getItem(`logicq_solved_${user.prn.toUpperCase()}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) parsed.forEach((x) => !list.includes(x) && list.push(x));
+        }
+      } catch {}
+    }
+    if (Array.isArray((user as any)?.completedProblems)) {
+      (user as any).completedProblems.forEach((x: string) => !list.includes(x) && list.push(x));
     }
     return list;
   });
@@ -281,10 +292,25 @@ export const TopicPracticeHubPage: React.FC = () => {
     (async () => {
       try {
         const identifier = user?.prn || user?.id || '';
+        const prnClean = (user?.prn || '').toUpperCase().trim();
+        let cohortProblems: string[] = [];
+        if (prnClean) {
+          try {
+            const cohortSnap = await getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null);
+            if (cohortSnap && cohortSnap.exists()) {
+              const cData = cohortSnap.data();
+              if (Array.isArray(cData?.completedProblems)) {
+                cohortProblems = cData.completedProblems;
+              }
+            }
+          } catch {}
+        }
+
         const stats = await FirestoreDataService.getStatsBackup(identifier);
         const prog = await FirestoreDataService.getPracticeProgress(identifier);
         const cloudSolved = Array.from(
           new Set([
+            ...cohortProblems,
             ...(stats?.completedProblems || []),
             ...(prog?.completedProblems || []),
             ...getSolvedPracticeTopicIds(user?.id),
