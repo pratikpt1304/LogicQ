@@ -12,12 +12,14 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 interface BindEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   forcePrompt?: boolean;
 }
 
 export const BindEmailModal: React.FC<BindEmailModalProps> = ({
   isOpen,
   onClose,
+  onSuccess,
   forcePrompt = false,
 }) => {
   const { user, updateUser } = useAuth();
@@ -252,7 +254,8 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               name: effectiveName,
               fullName: effectiveName,
               displayName: effectiveName,
-              sectionId: 'LQ-C31A',
+              sectionId: user.sectionId || 'sec-mw6l4r2s',
+              sectionName: user.sectionName || 'Integrated Mtech',
               college: 'Sanjivani University',
               status: 'ACTIVE',
               updatedAt: serverTimestamp(),
@@ -284,18 +287,22 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
 
         setTimeout(() => {
           onClose();
-          setTimeout(() => {
-            toast.info('🔐 Security Alert: Your initial password is set to your PRN. Please update your password in Profile Settings to secure your account.', {
-              duration: 10000,
-              action: {
-                label: 'Change Password',
-                onClick: () => {
-                  window.location.href = '/profile';
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            setTimeout(() => {
+              toast.info('🔐 Security Alert: Your initial password is set to your PRN. Please update your password in Profile Settings to secure your account.', {
+                duration: 10000,
+                action: {
+                  label: 'Change Password',
+                  onClick: () => {
+                    window.location.href = '/profile';
+                  },
                 },
-              },
-            });
-          }, 600);
-        }, 1500);
+              });
+            }, 600);
+          }
+        }, 1200);
       } else {
         setError('Invalid or expired verification code. Please check your inbox or click Auto-Fill.');
       }

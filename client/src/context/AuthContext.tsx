@@ -1202,9 +1202,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isValidPwd =
             cleanPwd.toUpperCase() === prnUpper ||
             cleanPwd === 'StudentPassword123!' ||
-            cleanPwd === 'password123';
-            cleanPwd.toUpperCase() === prnUpper ||
-            cleanPwd === 'StudentPassword123!' ||
             cleanPwd === 'password123' ||
             cleanPwd.toLowerCase() === 'dummy';
           if (!isValidPwd) {

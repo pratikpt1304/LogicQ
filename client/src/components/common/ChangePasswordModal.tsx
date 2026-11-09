@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext.js';
 import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { auth, db } from '../../config/firebase.js';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -300,6 +301,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
       }
 
       recordPasswordChangeSuccess(user.id || 'u');
+      realtimeSync.emit('USERS');
+      realtimeSync.emit('SECTIONS');
+      realtimeSync.emit('DASHBOARD');
       setIsSuccess(true);
       try {
         confetti({

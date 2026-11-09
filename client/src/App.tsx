@@ -39,6 +39,7 @@ import { FacultyAnalyticsPage } from './pages/faculty/FacultyAnalyticsPage.js';
 import { AdminPortalPage } from './pages/admin/AdminPortalPage.js';
 import { FirestoreDataService } from './services/firestoreData.service.js';
 import { BindEmailModal } from './components/common/BindEmailModal.js';
+import { ChangePasswordModal } from './components/common/ChangePasswordModal.js';
 
 // Branded Auth Loading Screen (eliminates flash of login/landing on refresh)
 const AuthLoadingScreen: React.FC<{ message?: string }> = ({
@@ -134,11 +135,13 @@ export const App: React.FC = () => {
   const { user, isAdmin, authState } = useAuth();
   const location = useLocation();
   const [isAutoBindEmailOpen, setIsAutoBindEmailOpen] = React.useState(false);
+  const [isAutoChangePasswordOpen, setIsAutoChangePasswordOpen] = React.useState(false);
 
   // Mandatory email binding for students who haven't bound their verified personal email yet (Epoch V2)
   useEffect(() => {
     if (!user) {
       setIsAutoBindEmailOpen(false);
+      setIsAutoChangePasswordOpen(false);
       return;
     }
 
@@ -151,6 +154,7 @@ export const App: React.FC = () => {
 
     if (isAdminAccount) {
       setIsAutoBindEmailOpen(false);
+      setIsAutoChangePasswordOpen(false);
       return;
     }
 
@@ -161,6 +165,7 @@ export const App: React.FC = () => {
       // Demo accounts or showcase students never get interrupted by email binding
       if (prnUpper.includes('DEMO') || prnUpper === 'DUMMY' || (user.id && user.id.includes('demo'))) {
         setIsAutoBindEmailOpen(false);
+        setIsAutoChangePasswordOpen(false);
         return;
       }
 
@@ -176,6 +181,17 @@ export const App: React.FC = () => {
       // Strictly compulsory: no dismissal without actual verified binding
       if (hasBoundEmail) {
         setIsAutoBindEmailOpen(false);
+        // If email is already bound, prompt Change Password if they haven't set a custom password yet
+        const hasCustomPw = Boolean(
+          (prnUpper && localStorage.getItem(`logicq_custom_password_${prnUpper}`)) ||
+          (user.id && localStorage.getItem(`logicq_custom_password_${user.id}`))
+        );
+        const hasPrompted = sessionStorage.getItem(`logicq_pwd_prompt_${prnUpper || user.id}`) === 'true';
+        if (!hasCustomPw && !hasPrompted && location.pathname !== '/login') {
+          sessionStorage.setItem(`logicq_pwd_prompt_${prnUpper || user.id}`, 'true');
+          const pwdTimer = setTimeout(() => setIsAutoChangePasswordOpen(true), 1500);
+          return () => clearTimeout(pwdTimer);
+        }
         return;
       }
 
@@ -185,6 +201,7 @@ export const App: React.FC = () => {
       }
     } else {
       setIsAutoBindEmailOpen(false);
+      setIsAutoChangePasswordOpen(false);
     }
   }, [user, location.pathname]);
 
@@ -553,7 +570,17 @@ export const App: React.FC = () => {
           sessionStorage.setItem('logicq_dismiss_bind_modal', 'true');
           setIsAutoBindEmailOpen(false);
         }}
+        onSuccess={() => {
+          setIsAutoBindEmailOpen(false);
+          setTimeout(() => {
+            setIsAutoChangePasswordOpen(true);
+          }, 400);
+        }}
         forcePrompt={false}
+      />
+      <ChangePasswordModal
+        isOpen={isAutoChangePasswordOpen}
+        onClose={() => setIsAutoChangePasswordOpen(false)}
       />
     </div>
   );
