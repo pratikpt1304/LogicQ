@@ -300,7 +300,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     try {
       const ok = await DeviceSessionService.resetDeviceBindings(student.prn || student.id);
       if (ok) {
-        toast.success(`Device bindings reset to 0/2 for ${name}`);
+        toast.success(`Device bindings reset to 0/2 for ${studentName}`);
       } else {
         toast.error('Failed to reset device bindings');
       }
@@ -388,7 +388,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         <div className="flex items-start justify-between border-b border-slate-100 dark:border-white/5 pb-5">
           <div className="flex items-center gap-3.5">
             <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20 shrink-0">
-              {studentName.slice(0, 2).toUpperCase()}
+              {(studentName || 'ST').slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">

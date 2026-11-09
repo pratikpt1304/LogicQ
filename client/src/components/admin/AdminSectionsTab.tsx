@@ -275,11 +275,11 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
-                      {sec.sectionName.slice(0, 2).toUpperCase()}
+                      {(sec.sectionName || (sec as any).name || 'SE').slice(0, 2).toUpperCase()}
                     </div>
                     <div>
                       <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
-                        {sec.sectionName}
+                        {sec.sectionName || (sec as any).name || 'Class Section'}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         {sec.subject || 'C Programming'}

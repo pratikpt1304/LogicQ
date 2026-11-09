@@ -470,12 +470,16 @@ export const AdminStudentsTab: React.FC = () => {
   // Filter logic
   const filteredStudents = students.filter((s) => {
     const q = searchQuery.toLowerCase().trim();
+    const nameStr = String(s.name || (s as any).fullName || (s as any).displayName || '').toLowerCase();
+    const prnStr = String(s.prn || '').toLowerCase();
+    const emailStr = String(s.email || '').toLowerCase();
+    const sectionStr = String(s.section || '').toLowerCase();
     const matchesSearch =
       !q ||
-      s.name.toLowerCase().includes(q) ||
-      s.prn.toLowerCase().includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      s.section.toLowerCase().includes(q);
+      nameStr.includes(q) ||
+      prnStr.includes(q) ||
+      emailStr.includes(q) ||
+      sectionStr.includes(q);
 
     if (!matchesSearch) return false;
 

@@ -527,7 +527,7 @@ export const AdminPortalPage: React.FC = () => {
               miniProjectUnlocked: !currentStatus,
             });
             toast.success(
-              `Mini-Project status updated for ${selectedCandidateForDeepDive.name}`
+              `Mini-Project status updated for ${selectedCandidateForDeepDive.name || selectedCandidateForDeepDive.fullName || selectedCandidateForDeepDive.displayName || 'Student'}`
             );
           }}
         />

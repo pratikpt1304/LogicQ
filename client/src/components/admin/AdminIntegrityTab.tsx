@@ -348,7 +348,12 @@ export const AdminIntegrityTab: React.FC = () => {
 
         // 4. Map authentic verified enrolled students to synchronized forensic records
         const records: StudentForensicRecord[] = Array.from(studentsMap.values())
-          .filter((s) => !FirestoreDataService.isPurgedStudent(s) && !s.name?.startsWith('Candidate ') && !s.name.includes('Rahul') && !s.name.includes('Amit') && !s.name.includes('Sneha'))
+          .filter((s) => {
+            if (FirestoreDataService.isPurgedStudent(s)) return false;
+            const nm = String(s.name || s.fullName || s.displayName || '');
+            if (nm.startsWith('Candidate ') || nm.includes('Rahul') || nm.includes('Amit') || nm.includes('Sneha')) return false;
+            return true;
+          })
           .map((s) => {
             const prnClean = (s.prn || '').toUpperCase().trim();
             const cData = cohortMap.get(prnClean) ||
@@ -640,10 +645,10 @@ export const AdminIntegrityTab: React.FC = () => {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.prn.toLowerCase().includes(q) ||
-          s.currentProblem.toLowerCase().includes(q) ||
-          s.currentModule.toLowerCase().includes(q)
+          String(s.name || '').toLowerCase().includes(q) ||
+          String(s.prn || '').toLowerCase().includes(q) ||
+          String(s.currentProblem || '').toLowerCase().includes(q) ||
+          String(s.currentModule || '').toLowerCase().includes(q)
       );
     }
 
@@ -674,16 +679,16 @@ export const AdminIntegrityTab: React.FC = () => {
         return bIncidents - aIncidents;
       }
       if (sortBy === 'PRN') {
-        return a.prn.localeCompare(b.prn);
+        return String(a.prn || '').localeCompare(String(b.prn || ''));
       }
       if (sortBy === 'NAME') {
-        return a.name.localeCompare(b.name);
+        return String(a.name || '').localeCompare(String(b.name || ''));
       }
       if (sortBy === 'DURATION') {
-        return b.totalTimeSpent.localeCompare(a.totalTimeSpent);
+        return String(b.totalTimeSpent || '').localeCompare(String(a.totalTimeSpent || ''));
       }
       // RECENT (default)
-      return b.lastActiveTime.localeCompare(a.lastActiveTime);
+      return String(b.lastActiveTime || '').localeCompare(String(a.lastActiveTime || ''));
     });
 
     return result;

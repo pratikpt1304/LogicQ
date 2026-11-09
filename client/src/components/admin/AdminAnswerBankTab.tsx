@@ -318,10 +318,10 @@ export const AdminAnswerBankTab: React.FC = () => {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.prn.toLowerCase().includes(q) ||
-          s.section.toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q)
+          String(s.name || '').toLowerCase().includes(q) ||
+          String(s.prn || '').toLowerCase().includes(q) ||
+          String(s.section || '').toLowerCase().includes(q) ||
+          String(s.email || '').toLowerCase().includes(q)
       );
     }
 
@@ -345,13 +345,13 @@ export const AdminAnswerBankTab: React.FC = () => {
         return b.totalAnswersCount - a.totalAnswersCount;
       }
       if (sortBy === 'NAME') {
-        return a.name.localeCompare(b.name);
+        return String(a.name || '').localeCompare(String(b.name || ''));
       }
       if (sortBy === 'PRN') {
-        return a.prn.localeCompare(b.prn);
+        return String(a.prn || '').localeCompare(String(b.prn || ''));
       }
       // RECENT
-      return b.lastActive.localeCompare(a.lastActive);
+      return String(b.lastActive || '').localeCompare(String(a.lastActive || ''));
     });
 
     return result;
