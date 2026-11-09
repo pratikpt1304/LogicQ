@@ -1156,6 +1156,9 @@ export const TopicPracticeHubPage: React.FC = () => {
           },
         }).catch(() => {});
 
+        // Increment attempt count on every failed run attempt
+        FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', activeTopic.id).catch(() => {});
+
         if (compileErr) {
           toast.error('Compilation error! Review GCC hints in the terminal.');
         } else if (!openPassed) {

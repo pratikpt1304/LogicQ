@@ -1400,6 +1400,19 @@ export class FirestoreDataService {
         },
         { merge: true }
       );
+
+      // Also persist on cohort_progress root so real-time admin listener sees topicAttempts immediately
+      await setDoc(
+        doc(db, 'cohort_progress', cleanId),
+        {
+          topicAttempts: {
+            [topicId]: count,
+          },
+          lastAttemptedTopic: topicId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (err) {
       console.warn('recordTopicAttemptOpen Firestore notice:', err);
     }

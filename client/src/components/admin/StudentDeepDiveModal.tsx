@@ -56,6 +56,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   const [telemetryDraft, setTelemetryDraft] = useState<any>(null);
   const [testSubmissions, setTestSubmissions] = useState<any[]>([]);
   const [practiceSubmissions, setPracticeSubmissions] = useState<any[]>([]);
+  const [topicAttemptsDraft, setTopicAttemptsDraft] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<'lab_internal' | 'practice' | 'overview'>('practice');
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
@@ -114,6 +115,18 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           () => {}
         );
         unsubs.push(uDraft);
+
+        // Listen to topic_attempts draft
+        const uAttempts = onSnapshot(
+          doc(db, 'cohort_progress', key, 'drafts', 'topic_attempts'),
+          (snap) => {
+            if (snap.exists()) {
+              setTopicAttemptsDraft(snap.data() || {});
+            }
+          },
+          () => {}
+        );
+        unsubs.push(uAttempts);
       } catch {}
     });
 
@@ -160,9 +173,28 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         const probKey = String(sub.problemId || sub.problemSlug || sub.problemTitle || 'prob').trim().toLowerCase();
         problemAttemptCounter[probKey] = (problemAttemptCounter[probKey] || 0) + 1;
         const autoAttempt = problemAttemptCounter[probKey];
+
+        const topicAttemptsMap = {
+          ...(liveCohort?.topicAttempts || {}),
+          ...topicAttemptsDraft,
+        } as Record<string, number>;
+
+        const recordedOpenAttempts = Number(
+          topicAttemptsMap[sub.problemId] ||
+          topicAttemptsMap[probKey] ||
+          topicAttemptsMap[sub.problemSlug] ||
+          0
+        );
+
+        const attemptNum = sub.attemptNumber && sub.attemptNumber > 1
+          ? sub.attemptNumber
+          : recordedOpenAttempts > 0
+          ? recordedOpenAttempts
+          : (sub.attemptNumber || autoAttempt);
+
         return {
           ...sub,
-          attemptNumber: sub.attemptNumber || autoAttempt,
+          attemptNumber: attemptNum,
         };
       });
 
