@@ -971,41 +971,92 @@ export class FirestoreDataService {
 
       const pointsAwarded = data.verdict === 'ACCEPTED' ? (data.submissionType === 'LAB_INTERNAL' ? 20 : 10) : 0;
 
-      await addDoc(collection(db, 'submissions'), {
-        userId: primaryUid,
-        uid: primaryUid,
-        prn: effectivePrn,
-        studentPrn: effectivePrn,
-        email: effectiveEmail,
-        studentEmail: effectiveEmail,
-        studentName: effectiveName,
-        user: {
-          id: primaryUid,
+      // 1. Write to submissions collection (safely guarded)
+      try {
+        await addDoc(collection(db, 'submissions'), {
+          userId: primaryUid,
           uid: primaryUid,
           prn: effectivePrn,
+          studentPrn: effectivePrn,
           email: effectiveEmail,
-          fullName: effectiveName,
-        },
-        problemId: data.problemId,
-        code: data.code,
-        language: 'c',
-        verdict: data.verdict,
-        pointsAwarded,
-        submissionType: data.submissionType || 'DAILY',
-        timeTakenSeconds: data.timeTakenSeconds,
-        timeToSolveSeconds: data.timeTakenSeconds,
-        activeSeconds: data.timeTakenSeconds,
-        tabSwitchCount: data.tabSwitchCount || 0,
-        copyPasteAttempts: data.copyPasteAttempts || 0,
-        fullscreenExits: data.fullscreenExits || 0,
-        createdAt: serverTimestamp(),
-        problem: {
-          id: data.problemId,
-          title: data.problemTitle,
-          slug: data.problemSlug,
+          studentEmail: effectiveEmail,
+          studentName: effectiveName,
+          user: {
+            id: primaryUid,
+            uid: primaryUid,
+            prn: effectivePrn,
+            email: effectiveEmail,
+            fullName: effectiveName,
+          },
+          problemId: data.problemId,
+          code: data.code,
+          language: 'c',
+          verdict: data.verdict,
+          pointsAwarded,
+          submissionType: data.submissionType || 'DAILY',
+          timeTakenSeconds: data.timeTakenSeconds,
+          timeToSolveSeconds: data.timeTakenSeconds,
+          activeSeconds: data.timeTakenSeconds,
+          tabSwitchCount: data.tabSwitchCount || 0,
+          copyPasteAttempts: data.copyPasteAttempts || 0,
+          fullscreenExits: data.fullscreenExits || 0,
+          createdAt: serverTimestamp(),
+          problem: {
+            id: data.problemId,
+            title: data.problemTitle,
+            slug: data.problemSlug,
+            difficulty: data.difficulty || 'EASY',
+          },
+        });
+      } catch (subErr) {
+        console.warn('Submissions collection addDoc notice:', subErr);
+      }
+
+      // 2. Authoritatively write to assessment_test_submissions so Answer Bank and Live Listeners see it instantly
+      try {
+        await addDoc(collection(db, 'assessment_test_submissions'), {
+          studentPrn: effectivePrn,
+          prn: effectivePrn,
+          studentName: effectiveName,
+          name: effectiveName,
+          studentEmail: effectiveEmail,
+          email: effectiveEmail,
+          userId: primaryUid,
+          uid: primaryUid,
+          problemId: data.problemId,
+          problemTitle: data.problemTitle,
+          code: data.code,
+          verdict: data.verdict,
+          academicScore: pointsAwarded,
+          score: pointsAwarded,
+          pointsAwarded,
+          submissionType: data.submissionType || 'PRACTICE',
+          testTitle: 'Continuous Practical Lab',
           difficulty: data.difficulty || 'EASY',
-        },
-      });
+          timeTakenSeconds: data.timeTakenSeconds || 0,
+          tabSwitchCount: data.tabSwitchCount || 0,
+          copyPasteAttempts: data.copyPasteAttempts || 0,
+          fullscreenExits: data.fullscreenExits || 0,
+          submittedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (attErr) {
+        console.warn('assessment_test_submissions write notice:', attErr);
+      }
+
+      // 3. Save problem solution code directly into student draft vault in cohort_progress
+      if (effectivePrn && data.code) {
+        try {
+          await setDoc(doc(db, 'cohort_progress', effectivePrn, 'drafts', `practice_topic_${data.problemId}`), {
+            code: data.code,
+            problemSlug: data.problemId,
+            updatedAt: Date.now(),
+          }, { merge: true });
+        } catch (dErr) {
+          console.warn('cohort_progress draft code sync notice:', dErr);
+        }
+      }
 
       // Synchronize with local fallback submissions store for instant offline/API visibility
       const subObj = {
@@ -1106,7 +1157,9 @@ export class FirestoreDataService {
               completedProblems: completedList,
               moduleProgress: {
                 ...prevMod,
+                activeSession: true,
                 currentProblem: data.problemTitle,
+                currentModule: 'Continuous Practical Lab',
                 academicScore: Math.min(100, currentSolved * 20),
                 lastActiveTime: new Date().toISOString(),
               },
@@ -1132,7 +1185,6 @@ export class FirestoreDataService {
    * Fetches all submissions from Firestore for administrative oversight
    */
   public static async getAllFirestoreSubmissions(): Promise<any[]> {
-    if (!auth.currentUser) return [];
     try {
       const snap = await getDocs(collection(db, 'submissions'));
       const list: any[] = [];

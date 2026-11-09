@@ -1049,49 +1049,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanId = String(identifier || '').trim();
     const cleanPwd = String(password || cleanId).trim();
 
-    // Built-in Instant Demo Students: PRN="dummy" | "demo1"
-    if (cleanId.toLowerCase() === 'dummy' || cleanId.toLowerCase() === 'demo1') {
-      const isDemo1 = cleanId.toLowerCase() === 'demo1';
-      const expectedPw = isDemo1 ? 'demo1' : 'dummy';
-      if (cleanPwd && cleanPwd.toLowerCase() !== expectedPw && cleanPwd.toLowerCase() !== 'password123') {
-        throw new Error(`Invalid password. For ${cleanId}, use password: ${expectedPw}`);
-      }
-      const demoStudent: User = {
-        id: isDemo1 ? 'std_demo1' : 'std_dummy',
-        username: isDemo1 ? 'demo1' : 'dummy',
-        email: isDemo1 ? 'demo1@logicq.io' : 'dummy@logicq.io',
-        prn: isDemo1 ? 'DEMO1' : 'DUMMY',
-        fullName: isDemo1 ? 'Demo 1' : 'Dummy',
-        displayName: isDemo1 ? 'Demo 1' : 'Dummy',
-        role: 'STUDENT',
-        department: 'Integrated M.Tech',
-        year: 'First Year (FY)',
-        division: 'A',
-        sectionId: 'sec-mw6l4r2s',
-        sectionName: 'Integrated Mtech',
-        joinCode: 'LQ-INTE34',
-        profileComplete: true,
-        isEmailBound: true,
-        isEmailBoundV2: true,
-        emailVerified: true,
-        totalPoints: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-        totalSolved: 0,
-      };
-      const reg = await DeviceSessionService.registerDeviceSession(demoStudent.prn || (isDemo1 ? 'DEMO1' : 'DUMMY'));
-      if (!reg.success) {
-        throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
-      }
-      if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
-        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${isDemo1 ? 'demo1' : 'dummy'}_${Date.now()}`);
-      }
-      recordUserActivity();
-      persistUser(demoStudent);
-      setAuthState('signedIn');
-      return demoStudent;
-    }
-
     // Check device registration and single instance for cohort students
     const cohortStudent = findCohortStudent(cleanId);
 
@@ -1245,7 +1202,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             totalPoints: 0,
             currentStreak: 0,
             longestStreak: 0,
+            totalSolved: 0,
           };
+
+          // Strict Cross-Device Account & Identity Synchronization
+          try {
+            const [enrDoc, cohortDoc] = await Promise.all([
+              getDoc(doc(db, 'enrolled_students', prnUpper)).catch(() => null),
+              getDoc(doc(db, 'cohort_progress', prnUpper)).catch(() => null),
+            ]);
+            const enrData = enrDoc?.data() || {};
+            const cohortData = cohortDoc?.data() || {};
+            const foundEmail = enrData.email || cohortData.boundEmail || cohortData.studentEmail;
+
+            const isBound = Boolean(
+              enrData.isEmailBound ||
+              cohortData.isEmailBound ||
+              cohortData.isEmailBoundV2 ||
+              (foundEmail && !foundEmail.toLowerCase().endsWith('@sanjivani.edu.in'))
+            );
+
+            if (isBound) {
+              authUser.isEmailBound = true;
+              authUser.isEmailBoundV2 = true;
+              authUser.emailVerified = true;
+              if (foundEmail) {
+                authUser.email = foundEmail;
+                localStorage.setItem(`logicq_bound_v2_email_${prnUpper}`, foundEmail);
+              }
+              localStorage.setItem(`logicq_bound_v2_${prnUpper}`, 'true');
+            }
+
+            if (Array.isArray(cohortData.completedProblems) && cohortData.completedProblems.length > 0) {
+              authUser.totalSolved = Math.max(authUser.totalSolved || 0, cohortData.completedProblems.length);
+              (authUser as any).completedProblems = cohortData.completedProblems;
+              localStorage.setItem(`logicq_completed_problems_${prnUpper}`, JSON.stringify(cohortData.completedProblems));
+              localStorage.setItem(`logicq_solved_${prnUpper}`, JSON.stringify(cohortData.completedProblems));
+            }
+            if (cohortData.totalPoints) {
+              authUser.totalPoints = Math.max(authUser.totalPoints || 0, cohortData.totalPoints);
+            }
+            if (cohortData.currentStreak) {
+              authUser.currentStreak = Math.max(authUser.currentStreak || 0, cohortData.currentStreak);
+            }
+            if (cohortData.longestStreak) {
+              authUser.longestStreak = Math.max(authUser.longestStreak || 0, cohortData.longestStreak);
+            }
+          } catch (syncErr) {
+            console.warn('Cross-device student sync notice:', syncErr);
+          }
+
           try {
             const profile = await FirestoreDataService.getUserProfile(authUser.id);
             if (profile) Object.assign(authUser, profile);

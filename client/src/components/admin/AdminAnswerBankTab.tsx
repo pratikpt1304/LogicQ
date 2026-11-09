@@ -28,6 +28,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
 import { toast } from 'sonner';
 
 export interface AnswerBankStudent {
@@ -63,10 +64,11 @@ export const AdminAnswerBankTab: React.FC = () => {
 
     const loadAnswerBankData = async () => {
       try {
-        const [firestoreUsers, assessmentSubs, generalSubs] = await Promise.all([
+        const [firestoreUsers, assessmentSubs, generalSubs, cohortSnap] = await Promise.all([
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
           FirestoreDataService.getAssessmentSubmissions().catch(() => []),
           FirestoreDataService.getAllFirestoreSubmissions().catch(() => []),
+          getDocs(collection(db, 'cohort_progress')).catch(() => null),
         ]);
 
         if (!isMounted) return;
@@ -139,6 +141,51 @@ export const AdminAnswerBankTab: React.FC = () => {
           }
         });
 
+        // 4. Map Live Cohort Progress Solved Problems & Solution Vault
+        if (cohortSnap && cohortSnap.docs) {
+          cohortSnap.docs.forEach((d) => {
+            const cData = d.data();
+            const prn = (cData.prn || d.id || '').toUpperCase().trim();
+            const student = studentsMap.get(prn) || (prn ? studentsMap.get(prn.replace(/0/g, 'O')) : null) || (prn ? studentsMap.get(prn.replace(/O/g, '0')) : null);
+            if (student) {
+              if (cData.moduleProgress?.lastActiveTime) {
+                student.lastActive = new Date(cData.moduleProgress.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+              const completedList = Array.isArray(cData.completedProblems) ? cData.completedProblems : [];
+              completedList.forEach((probId: string) => {
+                const already = student.practiceSubmissions.some((x: any) => x.problemId === probId || x.problemSlug === probId || x.id === `cohort-${prn}-${probId}`);
+                if (!already) {
+                  const topic = TOPIC_PRACTICE_DATA.find((t) => t.id === probId);
+                  const title = topic?.topicTitle || topic?.problem?.title || probId.replace(/[-_]/g, ' ').toUpperCase();
+                  const difficulty = topic?.problem?.difficulty || 'EASY';
+                  const timeStr = cData.moduleProgress?.lastActiveTime || (cData.updatedAt?.toDate?.() ? cData.updatedAt.toDate().toISOString() : (typeof cData.updatedAt === 'string' ? cData.updatedAt : new Date().toISOString()));
+
+                  student.practiceSubmissions.push({
+                    id: `cohort-${prn}-${probId}`,
+                    problemId: probId,
+                    problemSlug: probId,
+                    problemTitle: title,
+                    problem: {
+                      id: probId,
+                      title,
+                      difficulty,
+                    },
+                    difficulty,
+                    verdict: 'ACCEPTED',
+                    pointsAwarded: 20,
+                    timeTakenSeconds: 45,
+                    submittedAt: timeStr,
+                    createdAt: timeStr,
+                    code: '',
+                    draftSlug: `practice_topic_${probId}`,
+                    studentPrn: prn,
+                  });
+                }
+              });
+            }
+          });
+        }
+
         // Compute total answers and sort each student's submission history
         const list = Array.from(studentsMap.values())
           .filter((st) => !FirestoreDataService.isPurgedStudent(st) && !st.name?.startsWith('Candidate '))
@@ -190,6 +237,59 @@ export const AdminAnswerBankTab: React.FC = () => {
       }
     }
   }, [students]);
+
+  // Deep load authenticated candidate draft codes from cohort_progress vault
+  useEffect(() => {
+    if (!inspectedStudent || !inspectedStudent.prn || inspectedStudent.prn === '—') return;
+    let active = true;
+
+    const loadStudentDraftCodes = async () => {
+      try {
+        const draftsSnap = await getDocs(collection(db, 'cohort_progress', inspectedStudent.prn, 'drafts')).catch(() => null);
+        if (!draftsSnap || draftsSnap.empty || !active) return;
+
+        const draftsMap = new Map<string, string>();
+        draftsSnap.docs.forEach((docSnap) => {
+          const code = docSnap.data()?.code;
+          if (code && typeof code === 'string') {
+            draftsMap.set(docSnap.id, code);
+          }
+        });
+
+        setInspectedStudent((prev) => {
+          if (!prev) return null;
+          let modified = false;
+          const updatedPractice = prev.practiceSubmissions.map((sub: any) => {
+            const matchedCode =
+              draftsMap.get(sub.draftSlug) ||
+              draftsMap.get(`practice_topic_${sub.problemId}`) ||
+              draftsMap.get(`topic_${sub.problemId}`) ||
+              draftsMap.get(sub.problemId) ||
+              draftsMap.get(sub.problemSlug);
+
+            if (matchedCode && matchedCode !== sub.code) {
+              modified = true;
+              return { ...sub, code: matchedCode };
+            }
+            return sub;
+          });
+
+          if (!modified) return prev;
+          return {
+            ...prev,
+            practiceSubmissions: updatedPractice,
+          };
+        });
+      } catch (e) {
+        console.warn('Error loading draft codes for student:', e);
+      }
+    };
+
+    loadStudentDraftCodes();
+    return () => {
+      active = false;
+    };
+  }, [inspectedStudent?.prn, inspectedStudent?.id]);
 
   // Unique sections list for dropdown
   const sectionsList = useMemo(() => {

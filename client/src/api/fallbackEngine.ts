@@ -872,10 +872,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       isValidPassword =
         (found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
         (prnKey && cleanPwd.toUpperCase() === prnKey) ||
-        (cleanId.toLowerCase() === 'dummy' && cleanPwd.toLowerCase() === 'dummy') ||
         cleanPwd === 'password123' ||
         cleanPwd === 'StudentPassword123!' ||
-        (found.role === 'FACULTY' && (cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty' || cleanPwd.toLowerCase() === 'dummy'));
+        (found.role === 'FACULTY' && (cleanPwd === 'password123' || cleanPwd.toLowerCase() === 'faculty'));
       if (!isValidPassword) {
         throw new Error('Invalid email/PRN or password. Default password is your PRN.');
       }
