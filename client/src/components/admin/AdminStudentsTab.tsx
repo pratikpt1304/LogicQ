@@ -193,7 +193,14 @@ export const AdminStudentsTab: React.FC = () => {
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
 
-              const rawSection = anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech');
+              const isMtechUser =
+                anyUser.sectionId === 'sec-mw6l4r2s' ||
+                (anyUser.department && anyUser.department.toLowerCase().includes('mtech')) ||
+                (anyUser.course && anyUser.course.toLowerCase().includes('mtech')) ||
+                (anyUser.sectionName && anyUser.sectionName.toLowerCase().includes('mtech')) ||
+                (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
+
+              const rawSection = isMtechUser ? 'Integrated Mtech' : (anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'));
               const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
                 ? 'Integrated Mtech'
                 : rawSection;
@@ -266,12 +273,23 @@ export const AdminStudentsTab: React.FC = () => {
         const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
         const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
 
+        const isMtechStudent =
+          raw.sectionId === 'sec-mw6l4r2s' ||
+          (raw.department && raw.department.toLowerCase().includes('mtech')) ||
+          (raw.course && raw.course.toLowerCase().includes('mtech')) ||
+          (raw.sectionName && raw.sectionName.toLowerCase().includes('mtech')) ||
+          (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
+
+        const resolvedSection = isMtechStudent
+          ? 'Integrated Mtech'
+          : ((raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.course || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')));
+
         liveList.push({
           id: d.id,
           name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
           prn: prnClean || '—',
           email: email || '—',
-          section: (raw.sectionName && raw.sectionName !== 'Academic Section') ? raw.sectionName : (raw.subject || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech')),
+          section: resolvedSection,
           identityStatus: isBound ? 'BOUND' : 'PENDING',
           academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
           integrityScore: raw.integrityScore !== undefined ? raw.integrityScore : 100,
