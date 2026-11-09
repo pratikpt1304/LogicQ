@@ -761,19 +761,40 @@ export const AdminAnswerBankTab: React.FC = () => {
                                 </h4>
                               </div>
 
-                              <div className="flex items-center gap-2 self-start sm:self-center font-mono text-xs">
-                                <span className={`px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 ${
-                                  isAccepted
-                                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                }`}>
-                                  {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                                  <span>{activeSubmission?.verdict || 'ACCEPTED'}</span>
-                                </span>
-                                <span className="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
-                                  Score: {activeSubmission?.academicScore ?? 1.0} Marks
-                                </span>
-                              </div>
+                              {(() => {
+                                const isSubLate = Boolean(
+                                  activeSubmission?.isLate ||
+                                  activeSubmission?.lateStatus === 'LATE' ||
+                                  (activeSubmission?.timeLimitMinutes && activeSubmission?.timeTakenSeconds > activeSubmission?.timeLimitMinutes * 60) ||
+                                  (activeSubmission?.timeLimitSeconds && activeSubmission?.timeTakenSeconds > activeSubmission?.timeLimitSeconds)
+                                );
+                                return (
+                                  <div className="flex items-center gap-2 self-start sm:self-center font-mono text-xs flex-wrap">
+                                    <span className={`px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 ${
+                                      isAccepted
+                                        ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                        : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                    }`}>
+                                      {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                                      <span>{activeSubmission?.verdict || 'ACCEPTED'}</span>
+                                    </span>
+                                    {isSubLate ? (
+                                      <>
+                                        <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30">
+                                          LATE SUBMISSION
+                                        </span>
+                                        <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30">
+                                          Marks: Pending Review (0 / {activeSubmission?.maxMarks || 10})
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                                        Marks: {activeSubmission?.academicScore ?? activeSubmission?.marksAwarded ?? 10} / {activeSubmission?.maxMarks || 10}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Attempt Selector (if multiple attempts) */}

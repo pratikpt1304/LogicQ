@@ -501,6 +501,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const keystrokesRef = useRef(0);
   const fullscreenExitsRef = useRef(0);
   const handleCloseTopicRef = useRef<() => void>(() => {});
+  const currentTopicAttemptRef = useRef<number>(1);
 
   const getTypingVelocityCPM = () => {
     const minutes = Math.max(10, elapsedSecondsRef.current) / 60;
@@ -780,7 +781,11 @@ export const TopicPracticeHubPage: React.FC = () => {
     fullscreenExitsRef.current = 0;
 
     // Track topic open: increments attemptsCount every time question is opened
-    FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', topic.id).catch(() => {});
+    FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', topic.id)
+      .then((num) => {
+        currentTopicAttemptRef.current = num;
+      })
+      .catch(() => {});
     api.post('/practice/topics/track-open', {
       topicId: topic.id,
       moduleIndex: topic.moduleIndex,
@@ -1084,7 +1089,7 @@ export const TopicPracticeHubPage: React.FC = () => {
           const currentCopyPastes = currentTelem?.copyPasteAttempts || 0;
           const currentExits = currentTelem?.fullscreenExits || 0;
 
-          const currentAttemptNum = FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', activeTopic.id);
+          const currentAttemptNum = currentTopicAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', activeTopic.id);
 
           // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
           FirestoreDataService.recordDailySubmission(user.id, {
@@ -1157,7 +1162,11 @@ export const TopicPracticeHubPage: React.FC = () => {
         }).catch(() => {});
 
         // Increment attempt count on every failed run attempt
-        FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', activeTopic.id).catch(() => {});
+        FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', activeTopic.id)
+          .then((num) => {
+            currentTopicAttemptRef.current = num;
+          })
+          .catch(() => {});
 
         if (compileErr) {
           toast.error('Compilation error! Review GCC hints in the terminal.');

@@ -186,11 +186,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
           0
         );
 
-        const attemptNum = sub.attemptNumber && sub.attemptNumber > 1
+        const hasExplicitAttempt = typeof sub.attemptNumber === 'number' && sub.attemptNumber > 0;
+        const attemptNum = hasExplicitAttempt
           ? sub.attemptNumber
           : recordedOpenAttempts > 0
           ? recordedOpenAttempts
-          : (sub.attemptNumber || autoAttempt);
+          : autoAttempt;
 
         return {
           ...sub,
@@ -637,6 +638,14 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   const isAccepted = sub.verdict === 'ACCEPTED' || sub.academicScore > 0 || (sub.testOutcomes && sub.testOutcomes.some((t: any) => t.passed));
                   const codeSnippet = sub.code || sub.submittedCode || '// No code body saved';
 
+                  const isLate = Boolean(
+                    sub.isLate ||
+                    sub.lateStatus === 'LATE' ||
+                    (sub.allocatedDurationMinutes && sub.timeTakenSeconds > sub.allocatedDurationMinutes * 60) ||
+                    (sub.timeLimitMinutes && sub.timeTakenSeconds > sub.timeLimitMinutes * 60) ||
+                    (sub.timeLimitSeconds && sub.timeTakenSeconds > sub.timeLimitSeconds)
+                  );
+
                   return (
                     <div
                       key={subId}
@@ -671,6 +680,11 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                                 Lab Internal
                               </span>
+                              {isLate && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                  LATE SUBMISSION
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
                               <span>
@@ -681,6 +695,17 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span>•</span>
                               <span className="text-indigo-500 dark:text-indigo-400 font-semibold">Attempt #{sub.attemptNumber || 1}</span>
                               <span>•</span>
+                              {isLate ? (
+                                <>
+                                  <span className="text-amber-600 dark:text-amber-400 font-semibold">Marks: Pending Manual Review (0 / {sub.maxMarks || 10})</span>
+                                  <span>•</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Marks: {sub.academicScore ?? sub.marksAwarded ?? 10} / {sub.maxMarks || 10}</span>
+                                  <span>•</span>
+                                </>
+                              )}
                               <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
                             </div>
                           </div>
@@ -689,6 +714,24 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
 
                       {isExpanded && (
                         <div className="p-4 border-t border-slate-200/80 dark:border-white/10 bg-slate-950 text-slate-100 font-mono text-xs space-y-3">
+                          {/* Marking & Late Evaluation Banner */}
+                          {isLate ? (
+                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                                <span><strong>Late Submission:</strong> Solution submitted after time limit. Automated score set to 0. Awaiting manual faculty evaluation.</span>
+                              </div>
+                              <span className="font-bold font-mono text-amber-400 shrink-0 ml-2">0 / {sub.maxMarks || 10} Marks</span>
+                            </div>
+                          ) : (
+                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span><strong>On-Time Submission:</strong> Evaluated according to test marking scheme.</span>
+                              </div>
+                              <span className="font-bold font-mono text-emerald-400 shrink-0 ml-2">{sub.academicScore ?? sub.marksAwarded ?? 10} / {sub.maxMarks || 10} Marks</span>
+                            </div>
+                          )}
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
                               GCC 14 · C Source · lab_internal.c · Submitted on Attempt #{sub.attemptNumber || 1}

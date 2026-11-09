@@ -956,6 +956,15 @@ export class FirestoreDataService {
       fullscreenExits?: number;
       submissionType?: string;
       attemptNumber?: number;
+      isLate?: boolean;
+      lateStatus?: string;
+      academicScore?: number;
+      score?: number;
+      marksAwarded?: number;
+      maxMarks?: number;
+      manualGradingRequired?: boolean;
+      allocatedDurationMinutes?: number;
+      timeLimitSeconds?: number;
       prn?: string;
       studentPrn?: string;
       email?: string;
@@ -970,7 +979,14 @@ export class FirestoreDataService {
       const effectiveEmail = (data.email || data.studentEmail || '').toLowerCase().trim();
       const effectiveName = data.studentName || '';
 
-      const pointsAwarded = data.verdict === 'ACCEPTED' ? (data.submissionType === 'LAB_INTERNAL' ? 20 : 10) : 0;
+      const isPractice = String(data.submissionType || '').toUpperCase() === 'PRACTICE';
+      const isLate = Boolean(data.isLate || data.lateStatus === 'LATE');
+      const maxMarks = Number(data.maxMarks || 10);
+      const pointsAwarded = isPractice
+        ? 0
+        : isLate
+        ? 0
+        : (data.verdict === 'ACCEPTED' ? (data.academicScore ?? data.marksAwarded ?? (data.submissionType === 'LAB_INTERNAL' ? 20 : 10)) : 0);
 
       // 1. Write to submissions collection (safely guarded)
       try {
@@ -994,6 +1010,13 @@ export class FirestoreDataService {
           language: 'c',
           verdict: data.verdict,
           pointsAwarded,
+          academicScore: pointsAwarded,
+          score: pointsAwarded,
+          marksAwarded: pointsAwarded,
+          maxMarks,
+          isLate,
+          lateStatus: isLate ? 'LATE' : 'ON_TIME',
+          manualGradingRequired: isLate || Boolean(data.manualGradingRequired),
           submissionType: data.submissionType || 'DAILY',
           attemptNumber: data.attemptNumber || 1,
           timeTakenSeconds: data.timeTakenSeconds,
@@ -1032,9 +1055,14 @@ export class FirestoreDataService {
           academicScore: pointsAwarded,
           score: pointsAwarded,
           pointsAwarded,
+          marksAwarded: pointsAwarded,
+          maxMarks,
+          isLate,
+          lateStatus: isLate ? 'LATE' : 'ON_TIME',
+          manualGradingRequired: isLate || Boolean(data.manualGradingRequired),
           submissionType: data.submissionType || 'PRACTICE',
           attemptNumber: data.attemptNumber || 1,
-          testTitle: 'Continuous Practical Lab',
+          testTitle: isPractice ? 'Continuous Practical Lab' : 'Lab Internal Assessment',
           difficulty: data.difficulty || 'EASY',
           timeTakenSeconds: data.timeTakenSeconds || 0,
           tabSwitchCount: data.tabSwitchCount || 0,
@@ -5493,6 +5521,10 @@ export class FirestoreDataService {
     try {
       if (!submission) return;
       const subId = `asub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const isLate = Boolean(submission.isLate || submission.lateStatus === 'LATE');
+      const maxMarks = Number(submission.maxMarks || 10);
+      const earnedScore = isLate ? 0 : Number(submission.academicScore ?? submission.marksAwarded ?? maxMarks);
+
       const cleanSub = {
         id: subId,
         testId: String(submission.testId || submission.assignmentId || 'UNIT'),
@@ -5505,8 +5537,17 @@ export class FirestoreDataService {
         problemId: submission.problemId || 'q1',
         problemTitle: submission.problemTitle || 'Assessment Question',
         code: submission.code || '',
-        verdict: submission.verdict || 'ACCEPTED',
-        academicScore: submission.academicScore ?? 1.0,
+        verdict: submission.verdict || (isLate ? 'LATE_ACCEPTED' : 'ACCEPTED'),
+        academicScore: earnedScore,
+        score: earnedScore,
+        marksAwarded: earnedScore,
+        maxMarks,
+        isLate,
+        lateStatus: isLate ? 'LATE' : 'ON_TIME',
+        manualGradingRequired: isLate || Boolean(submission.manualGradingRequired),
+        allocatedDurationMinutes: Number(submission.allocatedDurationMinutes || 0),
+        timeLimitSeconds: Number(submission.timeLimitSeconds || 0),
+        attemptNumber: Number(submission.attemptNumber || 1),
         timeTakenSeconds: Number(submission.timeTakenSeconds) || 0,
         tabSwitchCount: Number(submission.tabSwitchCount) || 0,
         copyPasteAttempts: Number(submission.copyPasteAttempts) || 0,

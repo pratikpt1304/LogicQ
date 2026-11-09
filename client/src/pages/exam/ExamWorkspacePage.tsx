@@ -95,6 +95,7 @@ export const ExamWorkspacePage: React.FC = () => {
   const totalFocusLossMsRef = useRef<number>(0);
   const previousCodeLenRef = useRef<number>(0);
   const isExitingRef = useRef<boolean>(false);
+  const currentExamAttemptRef = useRef<number>(1);
 
   // Helper to safely exit proctored exam and immediately restore normal browser screen
   const exitExamTo = useCallback((targetPath: string = '/student/tests') => {
@@ -232,7 +233,16 @@ export const ExamWorkspacePage: React.FC = () => {
     if (res.startedAt) {
       setStartedAt(new Date(res.startedAt));
     }
-  }, [startData, code]);
+
+    // Track attempt opening for Lab Internal test question: increments attempt on every open / reopen
+    const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+    const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+    FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
+      .then((num) => {
+        currentExamAttemptRef.current = num;
+      })
+      .catch(() => {});
+  }, [startData, code, assignmentId, problemId, user]);
 
   useEffect(() => {
     if (error) {
@@ -285,19 +295,68 @@ export const ExamWorkspacePage: React.FC = () => {
       if (remaining <= 0 && !isTimeExpiredRef.current && !isLocked) {
         isTimeExpiredRef.current = true;
         setIsLocked(true);
-        toast.error("Time's up! Total examination time limit has ended. Submitting assessment now...", {
+        toast.error("Time's up! Total examination time limit has ended. Submitting assessment as LATE...", {
           duration: 6000,
         });
 
-        // If user has written code in editor, submit current question
+        // If user has written code in editor, submit current question as LATE
         const cleanCode = (code || '').trim();
         const cleanStarter = (problemData?.starterCode || '').trim();
         if (cleanCode && cleanCode !== cleanStarter && attemptId) {
+          const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+          const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+          const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+          const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
+          const maxMarks = Number(problemData?.maxMarks || problemData?.marks || 10);
+
+          const latePayload = {
+            testId: assignmentId || 'UNIT',
+            assignmentId: assignmentId || 'UNIT',
+            testTitle: assignmentData?.title || 'UNIT',
+            userId: uid,
+            problemId: problemId || assignmentId || 'exam-q1',
+            problemTitle: problemData?.title || 'Continuous Internal Evaluation Question',
+            problemSlug: problemId || assignmentId || 'exam-q1',
+            difficulty: problemData?.difficulty || 'MEDIUM',
+            code: cleanCode,
+            verdict: 'LATE_SUBMISSION',
+            academicScore: 0,
+            marksAwarded: 0,
+            score: 0,
+            maxMarks,
+            isLate: true,
+            lateStatus: 'LATE',
+            manualGradingRequired: true,
+            allocatedDurationMinutes: totalTestMinutes,
+            timeLimitSeconds: totalTestDurationSec,
+            attemptNumber: currentAttemptNum,
+            timeTakenSeconds: elapsedSec,
+            submissionType: 'ASSESSMENT',
+            prn: user?.prn || '',
+            studentPrn: user?.prn || '',
+            email: user?.email || '',
+            studentEmail: user?.email || '',
+            studentName: user?.fullName || user?.displayName || 'Student',
+            tabSwitchCount,
+            copyPasteAttempts,
+            cutAttempts,
+            contextMenuAttempts,
+            fullscreenExits: fullScreenExitCount,
+            totalKeystrokes,
+            largestBurstChars,
+            incidents: proctorIncidentsLog,
+          };
+
+          FirestoreDataService.recordAssessmentSubmission(latePayload).catch(() => {});
+          FirestoreDataService.recordDailySubmission(uid, latePayload).catch(() => {});
+
           api.post('/exam/submit-question', {
             attemptId,
             code,
             problemId,
             assignmentId,
+            isLate: true,
+            attemptNumber: currentAttemptNum,
             clientMetrics: {
               tabSwitchCount,
               focusLossCount,
@@ -646,13 +705,28 @@ export const ExamWorkspacePage: React.FC = () => {
       setIsDrawerOpen(true);
       const allPassed = res.testResults?.length > 0 && res.testResults.every((t: any) => t.passed);
       if (allPassed) {
-        toast.success('All visible test cases passed! Auto-submitting solution...');
+        toast.success('All visible test cases passed! Submitting final solution...');
         submitMutation.mutate();
       } else {
+        // Increment attempt counter on failed test execution
+        const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+        const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+        FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
+          .then((num) => {
+            currentExamAttemptRef.current = num;
+          })
+          .catch(() => {});
         toast.error('Test cases failed. Please review the output below and fix your code.');
       }
     },
     onError: (err: any) => {
+      const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+      const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+      FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
+        .then((num) => {
+          currentExamAttemptRef.current = num;
+        })
+        .catch(() => {});
       toast.error(err.message || 'Run execution failed.');
     },
   });
@@ -671,11 +745,16 @@ export const ExamWorkspacePage: React.FC = () => {
         throw new Error('Cannot submit empty solution. Please write your C solution code.');
       }
 
+      const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+      const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+      const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
+
       return api.post('/exam/submit-question', {
         attemptId,
         code,
         problemId,
         assignmentId,
+        attemptNumber: currentAttemptNum,
         clientMetrics: {
           copyPasteAttempts,
           cutAttempts,
@@ -698,11 +777,27 @@ export const ExamWorkspacePage: React.FC = () => {
         setIsLocked(true);
         const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
         try { localStorage.removeItem(draftKey); } catch {}
-        setAcademicScore(res.academicScore);
+
+        // Compute overtime / late status based on question & test time limit
+        const questionTimeLimitMinutes = Number(problemData?.timeLimitMinutes || problemData?.timeLimit || (assignmentData?.durationMinutes ? Math.round(assignmentData.durationMinutes / (questionSequence.length || 1)) : 0));
+        const questionTimeLimitSec = questionTimeLimitMinutes * 60;
+        const elapsedTotalSec = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
+        const isQuestionOvertime = questionTimeLimitSec > 0 && elapsedSec > questionTimeLimitSec;
+        const isTotalTestOvertime = remainingTestSec <= 0 || (totalTestDurationSec > 0 && elapsedTotalSec > totalTestDurationSec);
+        const isLate = isQuestionOvertime || isTotalTestOvertime || isTimeExpiredRef.current;
+
+        const maxMarks = Number(problemData?.maxMarks || problemData?.marks || 10);
+        // If late: 0 marks awarded automatically. Instructor will manually review and assign marks.
+        const earnedScore = isLate ? 0 : Number(res.academicScore ?? maxMarks);
+        setAcademicScore(earnedScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
 
         // Record submission in Firestore and broadcast to all faculty & admin dashboards
         const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
+        const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+        const currentAttemptNum = currentExamAttemptRef.current || FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
+
         const subPayload = {
           testId: assignmentId || 'UNIT',
           assignmentId: assignmentId || 'UNIT',
@@ -713,8 +808,17 @@ export const ExamWorkspacePage: React.FC = () => {
           problemSlug: problemId || assignmentId || 'exam-q1',
           difficulty: problemData?.difficulty || 'MEDIUM',
           code,
-          verdict: res.verdict,
-          academicScore: res.academicScore ?? 1.0,
+          verdict: isLate ? 'LATE_ACCEPTED' : res.verdict,
+          academicScore: earnedScore,
+          score: earnedScore,
+          marksAwarded: earnedScore,
+          maxMarks,
+          isLate,
+          lateStatus: isLate ? 'LATE' : 'ON_TIME',
+          manualGradingRequired: isLate,
+          allocatedDurationMinutes: questionTimeLimitMinutes || totalTestMinutes,
+          timeLimitSeconds: questionTimeLimitSec || totalTestDurationSec,
+          attemptNumber: currentAttemptNum,
           timeTakenSeconds: elapsedSec,
           submissionType: 'ASSESSMENT',
           prn: user?.prn || '',
@@ -738,11 +842,18 @@ export const ExamWorkspacePage: React.FC = () => {
         RealtimeSyncService.emit('DASHBOARD');
         RealtimeSyncService.emit('TESTS');
 
-        // Automatic Next Question Navigation
-        if (nextProblemId) {
-          toast.success(`Accepted! Score: ${res.academicScore ?? 1.0} Mark awarded. Advancing to next question...`, {
+        if (isLate) {
+          toast.warning(`Submitted Late! Allotted time limit exceeded. Automated marks set to 0. Awaiting manual faculty evaluation.`, {
+            duration: 6000,
+          });
+        } else {
+          toast.success(`Accepted! Score: ${earnedScore} / ${maxMarks} Marks awarded.`, {
             duration: 3500,
           });
+        }
+
+        // Automatic Next Question Navigation
+        if (nextProblemId) {
           setTimeout(() => {
             navigate(`/exam/${assignmentId}/${nextProblemId}`);
           }, 1500);
@@ -960,11 +1071,15 @@ export const ExamWorkspacePage: React.FC = () => {
 
       {/* Permanent Locked Banner */}
       {isLocked && (
-        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-2.5 text-emerald-800 font-mono">
-            <Lock className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+        <div className={`border-b px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0 ${
+          academicScore === 0
+            ? 'bg-amber-50 border-amber-200 text-amber-900'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-2.5 font-mono">
+            <Lock className={`w-4 h-4 flex-shrink-0 ${academicScore === 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
             <span>
-              <strong>QUESTION PERMANENTLY LOCKED:</strong> Your solution was accepted ({academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.
+              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Submitted after time limit (LATE). Automated score set to 0. Awaiting manual faculty evaluation.' : `Your solution was accepted (${academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.`}
             </span>
           </div>
           <div className="flex items-center gap-2">
