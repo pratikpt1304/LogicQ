@@ -72,7 +72,15 @@ export const AdminStudentsTab: React.FC = () => {
       const e = String(s.email || '').toLowerCase();
       const p = String(s.prn || '').toUpperCase();
       const id = String(s.id || s.uid || '').toLowerCase();
-      return n.includes('rohan') || e.includes('rohan') || p.includes('2199IMTE') || id.includes('2199imte');
+      // Only purge the legacy mock test account 'Rohan Sharma' (preserve authentic student Jagtap Rohan Sunil)
+      return (
+        n === 'rohan sharma' ||
+        n.startsWith('rohan sharma') ||
+        e.includes('rohan_1390') ||
+        e.includes('rohan.sharma') ||
+        p.includes('2199IMTE') ||
+        id.includes('2199imte')
+      );
     };
 
     const loadStudents = async (showLoading = true) => {
