@@ -860,8 +860,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       }
     }
 
-    if (found.isBanned) {
-      throw new Error('Your account has been suspended by an administrator.');
+    const fPrn = (found.prn || '').toUpperCase().trim();
+    if (found.isBanned || (fPrn && localStorage.getItem(`logicq_banned_${fPrn}`) === 'true')) {
+      throw new Error('⛔ You are banned. Your account has been suspended by an administrator.');
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;
@@ -915,8 +916,9 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       found.profileComplete = true;
       saveStoredUsers(users);
     }
-    if (found.isBanned) {
-      throw new Error('Your account has been suspended by an administrator.');
+    const fPrn = (found.prn || '').toUpperCase().trim();
+    if (found.isBanned || (fPrn && localStorage.getItem(`logicq_banned_${fPrn}`) === 'true')) {
+      throw new Error('⛔ You are banned. Your account has been suspended by an administrator.');
     }
     if (found && body.firestoreProfile) {
       if (body.firestoreProfile.displayName) found.displayName = body.firestoreProfile.displayName;

@@ -10,7 +10,7 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { auth as firebaseAuth, googleAuthProvider, db } from '../config/firebase.js';
-import { doc, getDoc, deleteDoc, updateDoc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, updateDoc, setDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
 import { queryClient } from '../config/queryClient.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
@@ -757,6 +757,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [idleWarningSeconds, logout]);
 
+  // Real-time active student ban listener: immediately kicks suspended student out
+  useEffect(() => {
+    if (!user || user.role !== 'STUDENT' || !user.prn) return;
+    const cleanPrn = user.prn.toUpperCase().trim();
+    if (!cleanPrn) return;
+
+    const unsubEnrolled = onSnapshot(doc(db, 'enrolled_students', cleanPrn), (snap) => {
+      if (snap.exists() && snap.data()?.isBanned) {
+        logout('banned');
+      }
+    }, () => {});
+
+    const unsubCohort = onSnapshot(doc(db, 'cohort_progress', cleanPrn), (snap) => {
+      if (snap.exists() && snap.data()?.isBanned) {
+        logout('banned');
+      }
+    }, () => {});
+
+    return () => {
+      unsubEnrolled();
+      unsubCohort();
+    };
+  }, [user, logout]);
+
   // Cross-tab synchronization listener
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -1054,6 +1078,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cohortStudent = findCohortStudent(cleanId);
 
     const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : cleanId.toUpperCase();
+
+    // 0. Pre-login Ban Check: Banned students cannot log in
+    if (prnToCheck && cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
+      try {
+        const [enrolledSnap, cohortSnap] = await Promise.all([
+          getDoc(doc(db, 'enrolled_students', prnToCheck)).catch(() => null),
+          getDoc(doc(db, 'cohort_progress', prnToCheck)).catch(() => null),
+        ]);
+        const isBanned = Boolean(
+          enrolledSnap?.data()?.isBanned ||
+          cohortSnap?.data()?.isBanned ||
+          localStorage.getItem(`logicq_banned_${prnToCheck}`) === 'true'
+        );
+        if (isBanned) {
+          throw new Error('⛔ You are banned. Your account has been suspended by an administrator.');
+        }
+      } catch (banErr: any) {
+        if (banErr.message?.includes('banned')) throw banErr;
+      }
+    }
 
     if (cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
       const reg = await DeviceSessionService.registerDeviceSession(prnToCheck);

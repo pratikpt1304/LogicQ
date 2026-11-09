@@ -52,6 +52,9 @@ export interface User {
   emailVerified?: boolean;
   miniProjectUnlocked?: boolean;
   miniProjectActive?: boolean;
+  isBanned?: boolean;
+  bannedAt?: string | null;
+  banReason?: string | null;
   createdAt?: string;
 }
 

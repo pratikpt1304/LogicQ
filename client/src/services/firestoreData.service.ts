@@ -20,7 +20,7 @@ import { db, auth } from '../config/firebase.js';
 import { User, Submission } from '../types/index.js';
 import { maskPrn, formatOwnIdentityLabel, formatPublicDisplayName, isRealPersonName, normalizeDepartment, deriveDepartmentFromPrn, formatNameFromEmail } from '../config/academic.config.js';
 import { isExplicitAdminEmail } from '../api/fallbackEngine.js';
-import { RealtimeSyncService } from './realtimeSync.service.js';
+import { RealtimeSyncService, realtimeSync } from './realtimeSync.service.js';
 import { C_PROGRAMMING_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 import { PRACTICE_MODULE_1_PROBLEMS } from '../data/practice-module1.data.js';
@@ -1708,6 +1708,9 @@ export class FirestoreDataService {
       prnNextAllowedDate: data.prnNextAllowedDate || null,
       isPrnChangeEligible: Boolean(data.isPrnChangeEligible),
       miniProjectUnlocked: Boolean(data.miniProjectUnlocked || data.miniProjectActive),
+      isBanned: Boolean(data.isBanned),
+      bannedAt: data.bannedAt || null,
+      banReason: data.banReason || null,
       themePreference: data.themePreference || null,
       storagePreference: data.storagePreference || null,
       sectionId: data.sectionId || null,
@@ -1787,6 +1790,9 @@ export class FirestoreDataService {
           if (raw.year && (!existingStudent.year || existingStudent.year === '—')) existingStudent.year = raw.year;
           if (raw.division && !existingStudent.division) existingStudent.division = raw.division;
           if (!existingStudent.sections) existingStudent.sections = [];
+          if (raw.isBanned !== undefined) (existingStudent as any).isBanned = Boolean(raw.isBanned);
+          if (raw.bannedAt) (existingStudent as any).bannedAt = raw.bannedAt;
+          if (raw.banReason) (existingStudent as any).banReason = raw.banReason;
           if (raw.sectionId && !existingStudent.sections.some((s: any) => s.id === raw.sectionId || s.joinCode === raw.sectionId)) {
             existingStudent.sections.push({
               id: raw.sectionId,
@@ -1834,6 +1840,9 @@ export class FirestoreDataService {
           currentStreak: Number(raw.currentStreak || 0),
           longestStreak: Number(raw.longestStreak || 0),
           miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
+          isBanned: Boolean(raw.isBanned),
+          bannedAt: raw.bannedAt || null,
+          banReason: raw.banReason || null,
           createdAt: raw.enrolledAt?.toDate ? raw.enrolledAt.toDate().toISOString() : new Date().toISOString(),
         } as any);
       });
@@ -2718,6 +2727,7 @@ export class FirestoreDataService {
       } catch {}
 
       const targetEmails = [
+        'dummy@logicq.io',
         'demo1@logicq.io',
         'ipred1908@gmail.com',
         'hariprasathset@sanjivani.edu.in',
@@ -2737,6 +2747,7 @@ export class FirestoreDataService {
         'prn_format_test_1@sanjivani.org.in',
       ];
       const targetPrns = [
+        'DUMMY',
         'DEMO1',
         'DEMO01',
         'STD_DEMO1',
@@ -2754,6 +2765,9 @@ export class FirestoreDataService {
         '2199TESF0002',
       ];
       const directKeys = [
+        'dummy',
+        'std_dummy',
+        'DUMMY',
         'demo1',
         'std_demo1',
         'demo01',
@@ -2854,6 +2868,313 @@ export class FirestoreDataService {
     } catch (e) {
       console.warn('purgeDeletedStudentsFromFirestore error:', e);
     }
+  }
+
+  /**
+   * Bans a student account. Immediately persists across enrolled_students, cohort_progress, and users.
+   */
+  public static async banStudent(prn: string, userId?: string, reason: string = 'Violated institutional integrity policy'): Promise<void> {
+    const cleanPrn = String(prn || '').toUpperCase().trim();
+    const now = new Date().toISOString();
+
+    // 1. Mark in enrolled_students
+    if (cleanPrn) {
+      await updateDoc(doc(db, 'enrolled_students', cleanPrn), {
+        isBanned: true,
+        bannedAt: now,
+        banReason: reason,
+        status: 'BANNED'
+      }).catch(async () => {
+        await setDoc(doc(db, 'enrolled_students', cleanPrn), {
+          isBanned: true,
+          bannedAt: now,
+          banReason: reason,
+          status: 'BANNED'
+        }, { merge: true }).catch(() => {});
+      });
+
+      await setDoc(doc(db, 'enrolled_students', cleanPrn.toLowerCase()), {
+        isBanned: true,
+        bannedAt: now,
+        banReason: reason,
+        status: 'BANNED'
+      }, { merge: true }).catch(() => {});
+    }
+
+    // 2. Mark in cohort_progress & draft security
+    if (cleanPrn) {
+      await setDoc(doc(db, 'cohort_progress', cleanPrn), {
+        prn: cleanPrn,
+        isBanned: true,
+        bannedAt: now,
+        banReason: reason,
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+
+      await setDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security'), {
+        isBanned: true,
+        bannedAt: now,
+        banReason: reason,
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    }
+
+    // 3. Mark in users if doc exists or by userId
+    const userKeys = [userId, cleanPrn, cleanPrn.toLowerCase(), `std_${cleanPrn.toLowerCase()}`].filter(Boolean) as string[];
+    for (const uk of userKeys) {
+      await setDoc(doc(db, 'users', uk), {
+        isBanned: true,
+        bannedAt: now,
+        banReason: reason,
+        status: 'BANNED',
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    }
+
+    // 4. Update local storage cache
+    try {
+      localStorage.setItem(`logicq_banned_${cleanPrn}`, 'true');
+      const cached = localStorage.getItem('logicq_admin_students');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const updated = parsed.map((s: any) => {
+          if (String(s.prn || '').toUpperCase() === cleanPrn || s.id === userId) {
+            return { ...s, isBanned: true, bannedAt: now, banReason: reason };
+          }
+          return s;
+        });
+        localStorage.setItem('logicq_admin_students', JSON.stringify(updated));
+      }
+    } catch {}
+
+    // 5. Broadcast real-time events
+    realtimeSync.emit('USERS');
+    realtimeSync.emit('SECTIONS');
+  }
+
+  /**
+   * Unbans a student account.
+   */
+  public static async unbanStudent(prn: string, userId?: string): Promise<void> {
+    const cleanPrn = String(prn || '').toUpperCase().trim();
+    const now = new Date().toISOString();
+
+    if (cleanPrn) {
+      await updateDoc(doc(db, 'enrolled_students', cleanPrn), {
+        isBanned: false,
+        bannedAt: null,
+        banReason: null,
+        status: 'ACTIVE'
+      }).catch(async () => {
+        await setDoc(doc(db, 'enrolled_students', cleanPrn), {
+          isBanned: false,
+          bannedAt: null,
+          banReason: null,
+          status: 'ACTIVE'
+        }, { merge: true }).catch(() => {});
+      });
+
+      await setDoc(doc(db, 'enrolled_students', cleanPrn.toLowerCase()), {
+        isBanned: false,
+        bannedAt: null,
+        banReason: null,
+        status: 'ACTIVE'
+      }, { merge: true }).catch(() => {});
+
+      await setDoc(doc(db, 'cohort_progress', cleanPrn), {
+        isBanned: false,
+        bannedAt: null,
+        banReason: null,
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+
+      await setDoc(doc(db, 'cohort_progress', cleanPrn, 'drafts', '__account_security'), {
+        isBanned: false,
+        bannedAt: null,
+        banReason: null,
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    }
+
+    const userKeys = [userId, cleanPrn, cleanPrn.toLowerCase(), `std_${cleanPrn.toLowerCase()}`].filter(Boolean) as string[];
+    for (const uk of userKeys) {
+      await setDoc(doc(db, 'users', uk), {
+        isBanned: false,
+        bannedAt: null,
+        banReason: null,
+        status: 'ACTIVE',
+        updatedAt: now
+      }, { merge: true }).catch(() => {});
+    }
+
+    try {
+      localStorage.removeItem(`logicq_banned_${cleanPrn}`);
+      const cached = localStorage.getItem('logicq_admin_students');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const updated = parsed.map((s: any) => {
+          if (String(s.prn || '').toUpperCase() === cleanPrn || s.id === userId) {
+            return { ...s, isBanned: false, bannedAt: null, banReason: null };
+          }
+          return s;
+        });
+        localStorage.setItem('logicq_admin_students', JSON.stringify(updated));
+      }
+    } catch {}
+
+    realtimeSync.emit('USERS');
+    realtimeSync.emit('SECTIONS');
+  }
+
+  /**
+   * Complete Nuclear Unregister & Vanish of a Student Account.
+   * Completely purges the student from enrolled_students, cohort_progress (including all drafts),
+   * users, publicProfiles, device_sessions, assessment test submissions, and section rosters.
+   * Leaves 0 trace on the platform. The student must re-register from scratch via section link if they wish to return.
+   */
+  public static async unregisterAndPurgeStudent(student: { id?: string; uid?: string; prn?: string; email?: string }): Promise<void> {
+    const cleanPrn = String(student.prn || '').toUpperCase().trim();
+    const cleanEmail = String(student.email || '').toLowerCase().trim();
+    const cleanId = String(student.id || student.uid || '').trim();
+
+    // 1. Delete from enrolled_students
+    const enrolledKeys = [
+      cleanPrn,
+      cleanPrn.toLowerCase(),
+      cleanId,
+      cleanId.toLowerCase(),
+      cleanEmail ? cleanEmail.replace(/[@.]/g, '_') : null,
+    ].filter(Boolean) as string[];
+
+    for (const k of enrolledKeys) {
+      await deleteDoc(doc(db, 'enrolled_students', k)).catch(() => {});
+    }
+
+    // 2. Delete all cohort_progress drafts subcollection documents
+    if (cleanPrn) {
+      try {
+        const draftsSnap = await getDocs(collection(db, 'cohort_progress', cleanPrn, 'drafts')).catch(() => null);
+        if (draftsSnap) {
+          for (const d of draftsSnap.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      } catch {}
+      await deleteDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => {});
+      await deleteDoc(doc(db, 'cohort_progress', cleanPrn.toLowerCase())).catch(() => {});
+    }
+
+    // 3. Delete from users & publicProfiles
+    const userKeys = [
+      cleanId,
+      cleanPrn,
+      cleanPrn.toLowerCase(),
+      `std_${cleanPrn.toLowerCase()}`,
+      `cohort-${cleanPrn.toLowerCase()}`,
+      cleanEmail ? cleanEmail.replace(/[@.]/g, '_') : null,
+    ].filter(Boolean) as string[];
+
+    for (const uk of userKeys) {
+      await deleteDoc(doc(db, 'users', uk)).catch(() => {});
+      await deleteDoc(doc(db, 'publicProfiles', uk)).catch(() => {});
+      await deleteDoc(doc(db, 'prnIndex', uk)).catch(() => {});
+    }
+
+    // 4. Reset device bindings
+    if (cleanPrn) {
+      try {
+        localStorage.removeItem(`logicq_bound_v2_${cleanPrn}`);
+        localStorage.removeItem('logicq_device_id');
+        localStorage.removeItem('logicq_session_id');
+      } catch {}
+    }
+
+    // 5. Delete submissions across assessment_test_submissions and submissions
+    try {
+      const assessSnap = await getDocs(collection(db, 'assessment_test_submissions')).catch(() => null);
+      if (assessSnap) {
+        for (const d of assessSnap.docs) {
+          const data = d.data();
+          const sPrn = String(data.studentPrn || data.prn || '').toUpperCase().trim();
+          const sEmail = String(data.studentEmail || data.email || '').toLowerCase().trim();
+          const sUid = String(data.userId || data.studentId || '').trim();
+          if ((cleanPrn && sPrn === cleanPrn) || (cleanEmail && sEmail === cleanEmail) || (cleanId && sUid === cleanId)) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+    } catch {}
+
+    try {
+      const genSnap = await getDocs(collection(db, 'submissions')).catch(() => null);
+      if (genSnap) {
+        for (const d of genSnap.docs) {
+          const data = d.data();
+          const sPrn = String(data.studentPrn || data.prn || '').toUpperCase().trim();
+          const sEmail = String(data.studentEmail || data.email || '').toLowerCase().trim();
+          const sUid = String(data.userId || data.studentId || '').trim();
+          if ((cleanPrn && sPrn === cleanPrn) || (cleanEmail && sEmail === cleanEmail) || (cleanId && sUid === cleanId)) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+    } catch {}
+
+    // 6. Remove from all sections
+    try {
+      const sections = await FirestoreDataService.getSectionsFromFirestore();
+      for (const sec of sections) {
+        if (Array.isArray(sec.students)) {
+          const originalLen = sec.students.length;
+          const updated = sec.students.filter((st: any) => {
+            const stPrn = String(st.prn || st.student?.prn || '').toUpperCase().trim();
+            const stEmail = String(st.email || st.student?.email || '').toLowerCase().trim();
+            const stId = String(st.id || st.uid || st.studentId || '').trim();
+            return !(
+              (cleanPrn && stPrn === cleanPrn) ||
+              (cleanEmail && stEmail === cleanEmail) ||
+              (cleanId && stId === cleanId)
+            );
+          });
+          if (updated.length !== originalLen) {
+            sec.students = updated;
+            sec.studentsCount = updated.length;
+            await FirestoreDataService.saveSectionToFirestore(sec);
+          }
+        }
+      }
+    } catch {}
+
+    // 7. Clean all local storage entries
+    try {
+      if (cleanPrn) {
+        localStorage.removeItem(`logicq_custom_password_${cleanPrn}`);
+        localStorage.removeItem(`logicq_custom_password_cohort-${cleanPrn.toLowerCase()}`);
+        localStorage.removeItem(`logicq_bound_v2_${cleanPrn}`);
+        localStorage.removeItem(`logicq_mini_project_unlocked_${cleanPrn}`);
+        localStorage.removeItem(`logicq_banned_${cleanPrn}`);
+      }
+      const cached = localStorage.getItem('logicq_admin_students');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const filtered = parsed.filter((s: any) => {
+          const sPrn = String(s.prn || '').toUpperCase().trim();
+          const sEmail = String(s.email || '').toLowerCase().trim();
+          const sId = String(s.id || '').trim();
+          return !(
+            (cleanPrn && sPrn === cleanPrn) ||
+            (cleanEmail && sEmail === cleanEmail) ||
+            (cleanId && sId === cleanId)
+          );
+        });
+        localStorage.setItem('logicq_admin_students', JSON.stringify(filtered));
+      }
+    } catch {}
+
+    // 8. Fire sync events
+    realtimeSync.emit('USERS');
+    realtimeSync.emit('SECTIONS');
+    realtimeSync.emit('DASHBOARD');
   }
 
   /**

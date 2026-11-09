@@ -27,6 +27,11 @@ import {
   Terminal,
   Smartphone,
   RotateCcw,
+  Ban,
+  UserX,
+  AlertOctagon,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 
@@ -34,12 +39,16 @@ interface StudentDeepDiveModalProps {
   student: any;
   onClose: () => void;
   onToggleMiniProject: (studentId: string, currentStatus: boolean) => void;
+  onStudentPurged?: (prn: string) => void;
+  onStudentBanChanged?: (prn: string, isBanned: boolean) => void;
 }
 
 export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   student,
   onClose,
   onToggleMiniProject,
+  onStudentPurged,
+  onStudentBanChanged,
 }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [liveCohort, setLiveCohort] = useState<any>(null);
@@ -298,6 +307,49 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
     }
   };
 
+  const [isBanned, setIsBanned] = useState<boolean>(Boolean(student?.isBanned));
+  const [isBanning, setIsBanning] = useState<boolean>(false);
+  const [isConfirmingPurge, setIsConfirmingPurge] = useState<boolean>(false);
+  const [isPurging, setIsPurging] = useState<boolean>(false);
+
+  const handleToggleBan = async () => {
+    setIsBanning(true);
+    try {
+      const targetPrn = prn !== 'N/A' ? prn : (student.prn || student.id);
+      if (isBanned) {
+        await FirestoreDataService.unbanStudent(targetPrn, studentUid);
+        setIsBanned(false);
+        toast.success(`Access restored: ${studentName} is now unbanned.`);
+      } else {
+        await FirestoreDataService.banStudent(targetPrn, studentUid, 'Violated institutional integrity policy');
+        setIsBanned(true);
+        toast.warning(`Account suspended: ${studentName} has been banned.`);
+      }
+      onStudentBanChanged?.(targetPrn, !isBanned);
+    } catch (err: any) {
+      toast.error('Failed to update ban status: ' + err.message);
+    } finally {
+      setIsBanning(false);
+    }
+  };
+
+  const handleUnregisterAndPurge = async () => {
+    setIsPurging(true);
+    try {
+      await FirestoreDataService.unregisterAndPurgeStudent({
+        id: studentUid,
+        prn: prn !== 'N/A' ? prn : student.prn,
+        email: email !== '—' ? email : student.email,
+      });
+      toast.success(`Student ${studentName} has been completely vanished and unregistered from LogicQ. Zero trace remaining.`);
+      onStudentPurged?.(prn !== 'N/A' ? prn : student.prn);
+      onClose();
+    } catch (err: any) {
+      toast.error('Failed to unregister student: ' + err.message);
+      setIsPurging(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto animate-in zoom-in-95">
@@ -322,6 +374,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Verified Identity</span>
                 </span>
+                {isBanned && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20">
+                    <AlertOctagon className="w-3.5 h-3.5" />
+                    <span>ACCOUNT BANNED</span>
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">
@@ -532,6 +590,58 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             </div>
 
             {/* ========================================================================= */}
+            {/* 3C. ADMINISTRATIVE MODERATION & ACCOUNT CONTROL (BAN / UNREGISTER)        */}
+            {/* ========================================================================= */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-500" />
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Account Security &amp; Moderation
+                  </h4>
+                  {isBanned && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      BANNED
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Suspend student login access or completely purge and unregister this account with zero trace.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Ban / Unban Toggle */}
+                <button
+                  type="button"
+                  onClick={handleToggleBan}
+                  disabled={isBanning}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer disabled:opacity-50 ${
+                    isBanned
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                      : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                  }`}
+                  title={isBanned ? 'Unban student account' : 'Ban student account'}
+                >
+                  <Ban className={`w-3.5 h-3.5 ${isBanning ? 'animate-spin' : ''}`} />
+                  <span>{isBanned ? 'Unban Student' : 'Ban Student'}</span>
+                </button>
+
+                {/* Nuclear Unregister & Vanish */}
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingPurge(true)}
+                  disabled={isPurging}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+                  title="Completely unregister student and erase all data with zero trace"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Unregister &amp; Purge</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ========================================================================= */}
             {/* 4. PROCTORING & INTEGRITY SIGNALS                                          */}
             {/* ========================================================================= */}
             <div className="space-y-2.5">
@@ -737,6 +847,56 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         )}
 
       </div>
+
+      {/* Unregister Confirmation Dialog */}
+      {isConfirmingPurge && (
+        <div className="fixed inset-0 z-[10000] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#151a26] border border-rose-500/30 rounded-2xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                Completely Unregister &amp; Purge Student?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                This will permanently delete <strong>{studentName}</strong> ({prn}) and vanish all submissions, test records, drafts, and device bindings from the platform. <strong>Zero trace will remain.</strong>
+              </p>
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] text-amber-700 dark:text-amber-300 text-left">
+                ℹ️ If this student ever wishes to return, they will need to register anew from scratch using the section join link.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingPurge(false)}
+                disabled={isPurging}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUnregisterAndPurge}
+                disabled={isPurging}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isPurging ? (
+                  <>
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Vanishing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Vanish Student</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

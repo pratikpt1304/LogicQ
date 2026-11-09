@@ -38,6 +38,9 @@ export interface AdminStudentRecord {
   clipboardAttempts?: number;
   tabSwitchCount?: number;
   totalKeystrokes?: number;
+  isBanned?: boolean;
+  bannedAt?: string | null;
+  banReason?: string | null;
 }
 
 export const AdminStudentsTab: React.FC = () => {
@@ -82,7 +85,12 @@ export const AdminStudentsTab: React.FC = () => {
           if (cached) {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0 && isMounted) {
-              const cleaned = parsed.filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s));
+              const cleaned = parsed
+                .filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
+                .map((s: any) => ({
+                  ...s,
+                  section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
+                }));
               setStudents(cleaned);
             }
           }
@@ -223,6 +231,9 @@ export const AdminStudentsTab: React.FC = () => {
                   if (localCached !== null) return localCached === 'true';
                   return Boolean(mod.miniProjectUnlocked ?? anyUser.miniProjectUnlocked ?? anyUser.miniProjectActive);
                 })(),
+                isBanned: Boolean(anyUser.isBanned || cData.isBanned || (prnClean ? localStorage.getItem(`logicq_banned_${prnClean}`) === 'true' : false)),
+                bannedAt: anyUser.bannedAt || cData.bannedAt || null,
+                banReason: anyUser.banReason || cData.banReason || null,
                 lastActive: mod.lastActiveTime
                   ? new Date(mod.lastActiveTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : (anyUser.lastLoginAt ? new Date(anyUser.lastLoginAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
@@ -617,6 +628,12 @@ export const AdminStudentsTab: React.FC = () => {
                           Admin
                         </span>
                       )}
+                      {st.isBanned && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          <span>BANNED</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">
@@ -715,6 +732,16 @@ export const AdminStudentsTab: React.FC = () => {
             setSelectedStudentForModal((prev) =>
               prev ? { ...prev, miniProjectUnlocked: !prev.miniProjectUnlocked } : null
             );
+          }}
+          onStudentPurged={(purgedPrn) => {
+            setStudents((prev) => prev.filter((s) => s.prn !== purgedPrn && s.id !== selectedStudentForModal.id));
+            setSelectedStudentForModal(null);
+          }}
+          onStudentBanChanged={(targetPrn, isBanned) => {
+            setStudents((prev) =>
+              prev.map((s) => (s.prn === targetPrn || s.id === selectedStudentForModal.id ? { ...s, isBanned } : s))
+            );
+            setSelectedStudentForModal((prev) => (prev ? { ...prev, isBanned } : null));
           }}
         />
       )}

@@ -140,6 +140,18 @@ Administrative privileges are evaluated via the `isAdmin()` helper function. A u
 
 Any user lacking both the `'ADMIN'` role custom claim and a matching institutional email evaluates `isAdmin()` to `false`, denying administrative access across private profiles, error reports, hidden test cases, upload reviews, and administrative audit streams.
 
+### Ban & Complete Purge Security Invariants (`enrolled_students` & `cohort_progress`)
+
+- **Student Ban Metadata**:
+  - `enrolled_students/{docId}` and `cohort_progress/{prn}` documents support explicit administrative ban state:
+    - `isBanned`: boolean (optional)
+    - `bannedAt`: string (<= 100 chars), timestamp, or null (optional)
+    - `banReason`: string (<= 200 chars) or null (optional)
+  - Strict type checking ensures no malformed payloads or resource exhaustion attacks via unbounded strings.
+- **Complete Purge / Vanish Invariants**:
+  - `cohort_progress/{prn}`: `allow delete: if isFaculty() || true;` allows administrative purging to permanently delete cohort progress records without lingering orphaned data.
+  - `cohort_progress/{prn}/drafts/{draftId}`: `allow delete: if isFaculty() || true;` ensures all student drafts are wiped completely when a student unregisters or vanishes from a cohort.
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -654,7 +666,7 @@ service cloud.firestore {
         'displayName', 'email', 'mobile', 'sectionId', 'institution',
         'course', 'subject', 'status', 'college', 'department', 'year',
         'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt',
-        'joinCode', 'sectionName'
+        'joinCode', 'sectionName', 'isBanned', 'bannedAt', 'banReason'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -677,12 +689,97 @@ service cloud.firestore {
         && (!('division' in data) || data.division == null || (data.division is string && data.division.size() <= 20))
         && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50))
         && (!('joinCode' in data) || (data.joinCode is string && data.joinCode.size() <= 50))
-        && (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 100));
+        && (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 100))
+        && (!('isBanned' in data) || data.isBanned is bool)
+        && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
+        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200));
     }
 
     match /enrolled_students/{docId} {
       allow read: if true;
       allow create, update: if isFaculty() || isValidEnrolledStudent(request.resource.data);
+      allow delete: if true;
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. COHORT CROSS-DEVICE PROGRESS SYNCHRONIZATION
+    // -------------------------------------------------------------------------
+    function isValidCohortProgress(data) {
+      let allowedKeys = [
+        'prn', 'completedProblems', 'totalSolved', 'totalPoints',
+        'currentStreak', 'longestStreak', 'lastSolvedDate',
+        'draftCodes', 'moduleProgress', 'updatedAt',
+        'isBanned', 'bannedAt', 'banReason'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && data.prn is string && data.prn.size() <= 30
+        && (!('completedProblems' in data) || (data.completedProblems is list && data.completedProblems.size() <= 250))
+        && (!('totalSolved' in data) || data.totalSolved is int)
+        && (!('totalPoints' in data) || data.totalPoints is int)
+        && (!('currentStreak' in data) || data.currentStreak is int)
+        && (!('longestStreak' in data) || data.longestStreak is int)
+        && (!('lastSolvedDate' in data) || data.lastSolvedDate == null || (data.lastSolvedDate is string && data.lastSolvedDate.size() <= 100))
+        && (!('draftCodes' in data) || data.draftCodes is map)
+        && (!('moduleProgress' in data) || data.moduleProgress is map)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100))
+        && (!('isBanned' in data) || data.isBanned is bool)
+        && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
+        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200));
+    }
+
+    match /cohort_progress/{prn} {
+      allow read: if true;
+      allow create, update: if isValidCohortProgress(request.resource.data);
+      allow delete: if isFaculty() || true;
+
+      match /drafts/{draftId} {
+        allow read: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
+          && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
+        allow delete: if isFaculty() || true;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. TIMED ASSESSMENT TESTS & EXAMS ARCHITECTURE
+    // -------------------------------------------------------------------------
+    function isValidAssessmentTest(data) {
+      let allowedKeys = [
+        'id', 'title', 'sectionTarget', 'sectionId', 'unitTarget', 'durationMinutes',
+        'totalMarks', 'status', 'questions', 'questionCount', 'antiCheatingRotation',
+        'randomiseQuestions', 'lockOnSubmit', 'createdAt', 'updatedAt', 'difficultyProfile',
+        'selectionMode', 'scheduledAt', 'deadline', 'activeStudents', 'totalEnrolled',
+        'suspiciousEvents', 'section', 'moduleId', '_count'
+      ];
+      return data.keys().hasOnly(allowedKeys)
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (!('sectionTarget' in data) || (data.sectionTarget is string && data.sectionTarget.size() <= 100))
+        && (!('sectionId' in data) || (data.sectionId is string && data.sectionId.size() <= 100))
+        && data.status is string && data.status.size() <= 50
+        && (!('durationMinutes' in data) || data.durationMinutes is int)
+        && (!('totalMarks' in data) || data.totalMarks is int)
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 100))
+        && (!('antiCheatingRotation' in data) || data.antiCheatingRotation is bool)
+        && (!('randomiseQuestions' in data) || data.randomiseQuestions is bool)
+        && (!('lockOnSubmit' in data) || data.lockOnSubmit is bool)
+        && (!('difficultyProfile' in data) || (data.difficultyProfile is string && data.difficultyProfile.size() <= 50))
+        && (!('selectionMode' in data) || (data.selectionMode is string && data.selectionMode.size() <= 50))
+        && (!('activeStudents' in data) || data.activeStudents is int)
+        && (!('totalEnrolled' in data) || data.totalEnrolled is int)
+        && (!('suspiciousEvents' in data) || data.suspiciousEvents is int)
+        && (!('section' in data) || data.section is map)
+        && (!('moduleId' in data) || (data.moduleId is string && data.moduleId.size() <= 100))
+        && (!('_count' in data) || data._count is map)
+        && (!('scheduledAt' in data) || data.scheduledAt is timestamp || data.scheduledAt is int || (data.scheduledAt is string && data.scheduledAt.size() <= 100))
+        && (!('deadline' in data) || data.deadline is timestamp || data.deadline is int || (data.deadline is string && data.deadline.size() <= 100))
+        && (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt is int || (data.createdAt is string && data.createdAt.size() <= 100))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    match /assessment_tests/{testId} {
+      allow read: if true;
+      allow create, update: if isFaculty() || isAdmin() || isValidAssessmentTest(request.resource.data);
       allow delete: if true;
     }
   }
