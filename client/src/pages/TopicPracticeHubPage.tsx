@@ -964,6 +964,7 @@ export const TopicPracticeHubPage: React.FC = () => {
       const [resOpen, resHidden] = await Promise.all([
         api.post('/submissions/run', {
           code: currentCode,
+          problemId: activeTopic.id,
           stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) => ({
@@ -974,6 +975,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         })),
         api.post('/submissions/run', {
           code: currentCode,
+          problemId: activeTopic.id,
           stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
         }).catch((err) => ({

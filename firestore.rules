@@ -796,7 +796,10 @@ service cloud.firestore {
         'displayName', 'email', 'mobile', 'sectionId', 'institution',
         'course', 'subject', 'status', 'college', 'department', 'year',
         'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt',
-        'joinCode', 'sectionName', 'isBanned', 'bannedAt', 'banReason'
+        'joinCode', 'sectionName', 'isBanned', 'bannedAt', 'banReason',
+        'isEmailBound', 'isEmailBoundV2', 'boundEmail',
+        'integrityScore', 'tabSwitchCount', 'tabSwitches', 'pasteBursts',
+        'copyPasteAttempts'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -822,7 +825,15 @@ service cloud.firestore {
         && (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 100))
         && (!('isBanned' in data) || data.isBanned is bool)
         && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
-        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200));
+        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200))
+        && (!('isEmailBound' in data) || data.isEmailBound is bool)
+        && (!('isEmailBoundV2' in data) || data.isEmailBoundV2 is bool)
+        && (!('boundEmail' in data) || (data.boundEmail is string && data.boundEmail.size() <= 150))
+        && (!('integrityScore' in data) || data.integrityScore is int)
+        && (!('tabSwitchCount' in data) || data.tabSwitchCount is int)
+        && (!('tabSwitches' in data) || data.tabSwitches is int)
+        && (!('pasteBursts' in data) || data.pasteBursts is int)
+        && (!('copyPasteAttempts' in data) || data.copyPasteAttempts is int);
     }
 
     match /enrolled_students/{docId} {
@@ -844,7 +855,13 @@ service cloud.firestore {
         'prn', 'completedProblems', 'totalSolved', 'totalPoints',
         'currentStreak', 'longestStreak', 'lastSolvedDate',
         'draftCodes', 'moduleProgress', 'updatedAt',
-        'isBanned', 'bannedAt', 'banReason'
+        'isBanned', 'bannedAt', 'banReason',
+        'studentName', 'studentEmail', 'boundEmail', 'isEmailBound',
+        'isEmailBoundV2', 'emailVerified', 'department', 'division',
+        'year', 'college', 'sectionName', 'sectionId',
+        'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
+        'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
+        'deviceSession', 'activeSession'
       ];
       return data.keys().hasOnly(allowedKeys)
         && data.prn is string && data.prn.size() <= 30
@@ -859,7 +876,28 @@ service cloud.firestore {
         && (!('updatedAt' in data) || data.updatedAt is timestamp || data.updatedAt is int || (data.updatedAt is string && data.updatedAt.size() <= 100))
         && (!('isBanned' in data) || data.isBanned is bool)
         && (!('bannedAt' in data) || data.bannedAt == null || (data.bannedAt is string && data.bannedAt.size() <= 100) || data.bannedAt is timestamp)
-        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200));
+        && (!('banReason' in data) || data.banReason == null || (data.banReason is string && data.banReason.size() <= 200))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 100))
+        && (!('studentEmail' in data) || (data.studentEmail is string && data.studentEmail.size() <= 150))
+        && (!('boundEmail' in data) || (data.boundEmail is string && data.boundEmail.size() <= 150))
+        && (!('isEmailBound' in data) || data.isEmailBound is bool)
+        && (!('isEmailBoundV2' in data) || data.isEmailBoundV2 is bool)
+        && (!('emailVerified' in data) || data.emailVerified is bool)
+        && (!('department' in data) || (data.department is string && data.department.size() <= 100))
+        && (!('division' in data) || data.division == null || (data.division is string && data.division.size() <= 20))
+        && (!('year' in data) || (data.year is string && data.year.size() <= 20))
+        && (!('college' in data) || (data.college is string && data.college.size() <= 100))
+        && (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 100))
+        && (!('sectionId' in data) || (data.sectionId is string && data.sectionId.size() <= 100))
+        && (!('integrityScore' in data) || data.integrityScore is int)
+        && (!('tabSwitches' in data) || data.tabSwitches is int)
+        && (!('pasteBursts' in data) || data.pasteBursts is int)
+        && (!('clipboardAttempts' in data) || data.clipboardAttempts is int)
+        && (!('fullscreenExits' in data) || data.fullscreenExits is int)
+        && (!('miniProjectUnlocked' in data) || data.miniProjectUnlocked is bool)
+        && (!('registeredDevices' in data) || (data.registeredDevices is list && data.registeredDevices.size() <= 10))
+        && (!('deviceSession' in data) || data.deviceSession is map || (data.deviceSession is string && data.deviceSession.size() <= 100))
+        && (!('activeSession' in data) || data.activeSession is bool);
     }
 
     match /cohort_progress/{prn} {

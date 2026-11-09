@@ -4644,6 +4644,22 @@ export class FirestoreDataService {
             console.warn('recordProctoringIncident cohort root sync notice:', cohortErr);
           }
 
+          // 3. Mirror directly into enrolled_students for redundant real-time admin sync
+          try {
+            const enrRef = doc(db, 'enrolled_students', prn);
+            await setDoc(enrRef, {
+              prn,
+              integrityScore,
+              tabSwitchCount,
+              tabSwitches: tabSwitchCount,
+              pasteBursts: copyPasteAttempts,
+              copyPasteAttempts,
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
+          } catch (enrErr) {
+            console.warn('enrolled_students telemetry sync notice:', enrErr);
+          }
+
           RealtimeSyncService.emit('USERS');
           RealtimeSyncService.emit('DASHBOARD');
           RealtimeSyncService.emit('SUBMISSIONS');
@@ -4735,6 +4751,22 @@ export class FirestoreDataService {
         moduleProgress: updatedModule,
         updatedAt: serverTimestamp(),
       }, { merge: true });
+
+      // Mirror to enrolled_students for redundant real-time sync
+      try {
+        const enrRef = doc(db, 'enrolled_students', prn);
+        await setDoc(enrRef, {
+          prn,
+          integrityScore,
+          tabSwitchCount: data.tabSwitchCount,
+          tabSwitches: data.tabSwitchCount,
+          pasteBursts: data.copyPasteAttempts,
+          copyPasteAttempts: data.copyPasteAttempts,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (enrErr) {
+        console.warn('enrolled_students live telemetry sync notice:', enrErr);
+      }
 
       // Subcollection draft for detailed inspection
       const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
@@ -5204,6 +5236,28 @@ export class FirestoreDataService {
                 lastIncidentAt: mod.lastIncidentAt,
                 incidents: [],
               };
+            }
+          }
+        }
+
+        // Also check enrolled_students as a robust secondary source
+        if (!remoteData || remoteData.tabSwitchCount === 0) {
+          const enrSnap = await getDoc(doc(db, 'enrolled_students', prn)).catch(() => null);
+          if (enrSnap && enrSnap.exists()) {
+            const eData = enrSnap.data();
+            if (eData?.tabSwitchCount || eData?.tabSwitches || eData?.integrityScore !== undefined) {
+              const eTabs = Number(eData.tabSwitchCount || eData.tabSwitches) || 0;
+              const ePastes = Number(eData.pasteBursts || eData.copyPasteAttempts) || 0;
+              if (eTabs > 0 || ePastes > 0 || eData.integrityScore < 100) {
+                remoteData = {
+                  tabSwitchCount: Math.max(eTabs, remoteData?.tabSwitchCount || 0),
+                  copyPasteAttempts: Math.max(ePastes, remoteData?.copyPasteAttempts || 0),
+                  fullscreenExits: remoteData?.fullscreenExits || 0,
+                  autoLockCount: 0,
+                  integrityScore: eData.integrityScore ?? Math.max(0, 100 - eTabs * 5 - ePastes * 10),
+                  incidents: remoteData?.incidents || [],
+                };
+              }
             }
           }
         }

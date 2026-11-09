@@ -306,6 +306,16 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       } catch (fallbackErr: any) {
         // Continue to server error if fallback didn't resolve
       }
+
+      // Code runs in sandbox/practice should never fail with a blocking session expiration error
+      if (cleanEndpoint === '/submissions/run' || cleanEndpoint === '/problems/run') {
+        try {
+          const body = options.body && typeof options.body === 'string' ? JSON.parse(options.body) : {};
+          const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
+          if (fallbackRes) return fallbackRes as T;
+        } catch {}
+      }
+
       if (data && data.message) {
         const err = new Error(data.message) as LogicQApiError;
         err.status = response.status;

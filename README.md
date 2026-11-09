@@ -13,7 +13,7 @@
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Production_Live-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=rocket&logoColor=white" alt="Live Status" /></a>
   <a href="https://logicq-bitwiseclub.onrender.com/api/health"><img src="https://img.shields.io/badge/Render_API-Online_200_OK-8B9BFF?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
   <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v41_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
-  <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-52%2F52_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
+  <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-53%2F53_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
   <a href="docs/assessment/GAP_ANALYSIS.md"><img src="https://img.shields.io/badge/Assessment_Engine-Anti--Cheating_Active-emerald?style=for-the-badge&logo=checkmarx&logoColor=white" alt="Assessment Verification" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white" alt="Security Policy" /></a>
 </p>

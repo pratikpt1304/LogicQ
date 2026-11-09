@@ -45,6 +45,7 @@ import { PRACTICE_MODULE_4_PROBLEMS } from '../data/practice-module4.data.js';
 import { PRACTICE_MODULE_5_PROBLEMS } from '../data/practice-module5.data.js';
 import { KANETKAR_BOOK_PROBLEMS } from '../data/kanetkar-book-bank.js';
 import { DAILY_CHALLENGES } from '../data/daily-challenges.data.js';
+import { TOPIC_PRACTICE_DATA } from '../data/topic-practice.data.js';
 
 const STATIC_PRACTICE_PROBLEMS: PracticeProblemDef[] = [
   ...PRACTICE_MODULE_1_PROBLEMS,
@@ -1533,19 +1534,68 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
 
   // 4. Resolve problem test cases if available
   let expectedOut = '';
+  const cleanStdin = (stdin || '').trim();
+
+  // Match against structured TOPIC_PRACTICE_DATA (Open & Hidden test cases)
   if (problemId) {
+    const topic = TOPIC_PRACTICE_DATA.find((t) => t.id === problemId || t.problem?.title === problemId);
+    if (topic?.problem) {
+      if (cleanStdin === (topic.problem.openTestCase.input || '').trim()) {
+        expectedOut = topic.problem.openTestCase.expectedOutput;
+      } else if (cleanStdin === (topic.problem.hiddenTestCase.input || '').trim()) {
+        expectedOut = topic.problem.hiddenTestCase.expectedOutput;
+      }
+    }
+  }
+
+  // Fallback search across TOPIC_PRACTICE_DATA if not matched by problemId
+  if (!expectedOut && cleanStdin) {
+    for (const t of TOPIC_PRACTICE_DATA) {
+      if (t.problem) {
+        if (cleanStdin === (t.problem.openTestCase.input || '').trim()) {
+          expectedOut = t.problem.openTestCase.expectedOutput;
+          break;
+        } else if (cleanStdin === (t.problem.hiddenTestCase.input || '').trim()) {
+          expectedOut = t.problem.hiddenTestCase.expectedOutput;
+          break;
+        }
+      }
+    }
+  }
+
+  // Match against general stored problems
+  if (!expectedOut && problemId) {
     const problems = getStoredProblems();
     const prob = problems.find((p: any) => p.id === problemId || p.slug === problemId);
     if (prob?.testCases && prob.testCases.length > 0) {
-      const matchedCase = prob.testCases.find((tc: any) => (tc.input || '').trim() === (stdin || '').trim());
+      const matchedCase = prob.testCases.find((tc: any) => (tc.input || '').trim() === cleanStdin);
       expectedOut = (matchedCase?.expectedOutput || prob.testCases[0]?.expectedOutput || '').trim();
+    }
+  }
+
+  // Extract direct printf string literals if no expected output is defined
+  if (!expectedOut) {
+    const printfRegex = /printf\s*\(\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*(?:,\s*([^)]+))?\s*\)/g;
+    let match;
+    let directPrints = '';
+    while ((match = printfRegex.exec(trimmed)) !== null) {
+      const str = match[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\\/g, '\\');
+      if (!str.includes('%')) {
+        directPrints += str;
+      }
+    }
+    if (directPrints) {
+      expectedOut = directPrints;
     }
   }
 
   return {
     verdict: 'ACCEPTED',
     compileOutput: '',
-    stdout: expectedOut || 'Process finished with exit code 0\n',
+    stdout: expectedOut ? (expectedOut.endsWith('\n') ? expectedOut : expectedOut + '\n') : 'Process finished with exit code 0\n',
     stderr: '',
     exitCode: 0,
     runtimeMs: 15,

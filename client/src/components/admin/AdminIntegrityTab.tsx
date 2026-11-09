@@ -372,10 +372,28 @@ export const AdminIntegrityTab: React.FC = () => {
             const latestSub = studentSubs[0] || null;
 
             // Compute aggregated proctoring metrics across live stream & submissions
-            const tabSwitches = Math.max(Number(mod.tabSwitches) || 0, ...studentSubs.map((x: any) => Number(x.tabSwitchCount) || 0));
-            const pasteBursts = Math.max(Number(mod.pasteBursts) || 0, ...studentSubs.map((x: any) => Number(x.copyPasteAttempts) || 0));
-            const fullscreenExits = Math.max(Number(mod.fullscreenExits) || 0, ...studentSubs.map((x: any) => Number(x.fullscreenExits) || 0));
-            const totalKeystrokes = Math.max(Number(mod.totalKeystrokes) || 0, ...studentSubs.map((x: any) => Number(x.totalKeystrokes) || 0));
+            const tabSwitches = Math.max(
+              Number(mod.tabSwitches) || 0,
+              Number(s.tabSwitchCount) || 0,
+              Number(s.tabSwitches) || 0,
+              ...studentSubs.map((x: any) => Number(x.tabSwitchCount) || 0)
+            );
+            const pasteBursts = Math.max(
+              Number(mod.pasteBursts) || 0,
+              Number(s.pasteBursts) || 0,
+              Number(s.copyPasteAttempts) || 0,
+              ...studentSubs.map((x: any) => Number(x.copyPasteAttempts) || 0)
+            );
+            const fullscreenExits = Math.max(
+              Number(mod.fullscreenExits) || 0,
+              Number(s.fullscreenExits) || 0,
+              ...studentSubs.map((x: any) => Number(x.fullscreenExits) || 0)
+            );
+            const totalKeystrokes = Math.max(
+              Number(mod.totalKeystrokes) || 0,
+              Number(s.totalKeystrokes) || 0,
+              ...studentSubs.map((x: any) => Number(x.totalKeystrokes) || 0)
+            );
 
             const hasCompletedProblems = Array.isArray(cData?.completedProblems) && cData.completedProblems.length > 0;
             const isSessionActive = Boolean(mod.activeSession) || studentSubs.length > 0 || hasCompletedProblems || Boolean(mod.currentProblem) || tabSwitches > 0 || pasteBursts > 0 || fullscreenExits > 0;

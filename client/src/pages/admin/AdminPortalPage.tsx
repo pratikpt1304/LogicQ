@@ -130,7 +130,11 @@ export const AdminPortalPage: React.FC = () => {
                 const totalSolved = cData.totalSolved ?? u.totalSolved ?? (Array.isArray(cData.completedProblems) ? cData.completedProblems.length : 0);
                 const totalPoints = cData.totalPoints ?? u.totalPoints ?? (totalSolved * 50);
                 const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
-                const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (u.integrityScore ?? 100);
+                const tabSwitches = Math.max(Number(mod.tabSwitches) || 0, Number(u.tabSwitchCount) || 0, Number(u.tabSwitches) || 0);
+                const pasteBursts = Math.max(Number(mod.pasteBursts) || 0, Number(u.clipboardAttempts) || 0, Number(u.pasteBursts) || 0);
+                const computedIntegrity = mod.integrityScore !== undefined
+                  ? Number(mod.integrityScore)
+                  : (tabSwitches > 0 || pasteBursts > 0 ? Math.max(0, 100 - tabSwitches * 5 - pasteBursts * 10) : (u.integrityScore ?? 100));
 
                 const sName = u.fullName || u.displayName || u.name || u.username || 'Student Candidate';
                 return {
@@ -141,7 +145,11 @@ export const AdminPortalPage: React.FC = () => {
                   totalSolved,
                   totalPoints,
                   academicScore,
-                  integrityScore,
+                  integrityScore: computedIntegrity,
+                  tabSwitchCount: tabSwitches,
+                  tabSwitches,
+                  clipboardAttempts: pasteBursts,
+                  pasteBursts,
                   completedProblems: cData.completedProblems || u.completedProblems || [],
                   miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
                 };

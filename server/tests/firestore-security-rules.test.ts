@@ -181,7 +181,11 @@ class RulesEvaluator {
       'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
       'displayName', 'email', 'mobile', 'sectionId', 'institution',
       'course', 'subject', 'status', 'college', 'department', 'year',
-      'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt'
+      'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt',
+      'joinCode', 'sectionName', 'isBanned', 'bannedAt', 'banReason',
+      'isEmailBound', 'isEmailBoundV2', 'boundEmail',
+      'integrityScore', 'tabSwitchCount', 'tabSwitches', 'pasteBursts',
+      'copyPasteAttempts'
     ];
     for (const key of Object.keys(data)) {
       if (!allowedKeys.includes(key)) return false;
@@ -205,6 +209,69 @@ class RulesEvaluator {
     if ('year' in data && (typeof data.year !== 'string' || data.year.length > 20)) return false;
     if ('division' in data && data.division !== null && (typeof data.division !== 'string' || data.division.length > 20)) return false;
     if ('joinedVia' in data && (typeof data.joinedVia !== 'string' || data.joinedVia.length > 50)) return false;
+    if ('joinCode' in data && (typeof data.joinCode !== 'string' || data.joinCode.length > 50)) return false;
+    if ('sectionName' in data && (typeof data.sectionName !== 'string' || data.sectionName.length > 100)) return false;
+    if ('isBanned' in data && typeof data.isBanned !== 'boolean') return false;
+    if ('banReason' in data && data.banReason !== null && (typeof data.banReason !== 'string' || data.banReason.length > 200)) return false;
+    if ('isEmailBound' in data && typeof data.isEmailBound !== 'boolean') return false;
+    if ('isEmailBoundV2' in data && typeof data.isEmailBoundV2 !== 'boolean') return false;
+    if ('boundEmail' in data && (typeof data.boundEmail !== 'string' || data.boundEmail.length > 150)) return false;
+    if ('integrityScore' in data && !Number.isInteger(data.integrityScore)) return false;
+    if ('tabSwitchCount' in data && !Number.isInteger(data.tabSwitchCount)) return false;
+    if ('tabSwitches' in data && !Number.isInteger(data.tabSwitches)) return false;
+    if ('pasteBursts' in data && !Number.isInteger(data.pasteBursts)) return false;
+    if ('copyPasteAttempts' in data && !Number.isInteger(data.copyPasteAttempts)) return false;
+    return true;
+  }
+
+  static isValidCohortProgress(data: Record<string, any>): boolean {
+    const allowedKeys = [
+      'prn', 'completedProblems', 'totalSolved', 'totalPoints',
+      'currentStreak', 'longestStreak', 'lastSolvedDate',
+      'draftCodes', 'moduleProgress', 'updatedAt',
+      'isBanned', 'bannedAt', 'banReason',
+      'studentName', 'studentEmail', 'boundEmail', 'isEmailBound',
+      'isEmailBoundV2', 'emailVerified', 'department', 'division',
+      'year', 'college', 'sectionName', 'sectionId',
+      'integrityScore', 'tabSwitches', 'pasteBursts', 'clipboardAttempts',
+      'fullscreenExits', 'miniProjectUnlocked', 'registeredDevices',
+      'deviceSession', 'activeSession'
+    ];
+    for (const key of Object.keys(data)) {
+      if (!allowedKeys.includes(key)) return false;
+    }
+    if (typeof data.prn !== 'string' || data.prn.length > 30) return false;
+    if ('completedProblems' in data && (!Array.isArray(data.completedProblems) || data.completedProblems.length > 250)) return false;
+    if ('totalSolved' in data && !Number.isInteger(data.totalSolved)) return false;
+    if ('totalPoints' in data && !Number.isInteger(data.totalPoints)) return false;
+    if ('currentStreak' in data && !Number.isInteger(data.currentStreak)) return false;
+    if ('longestStreak' in data && !Number.isInteger(data.longestStreak)) return false;
+    if ('lastSolvedDate' in data && data.lastSolvedDate !== null && (typeof data.lastSolvedDate !== 'string' || data.lastSolvedDate.length > 100)) return false;
+    if ('draftCodes' in data && (typeof data.draftCodes !== 'object' || data.draftCodes === null || Array.isArray(data.draftCodes))) return false;
+    if ('moduleProgress' in data && (typeof data.moduleProgress !== 'object' || data.moduleProgress === null || Array.isArray(data.moduleProgress))) return false;
+    if ('isBanned' in data && typeof data.isBanned !== 'boolean') return false;
+    if ('banReason' in data && data.banReason !== null && (typeof data.banReason !== 'string' || data.banReason.length > 200)) return false;
+    if ('studentName' in data && (typeof data.studentName !== 'string' || data.studentName.length > 100)) return false;
+    if ('studentEmail' in data && (typeof data.studentEmail !== 'string' || data.studentEmail.length > 150)) return false;
+    if ('boundEmail' in data && (typeof data.boundEmail !== 'string' || data.boundEmail.length > 150)) return false;
+    if ('isEmailBound' in data && typeof data.isEmailBound !== 'boolean') return false;
+    if ('isEmailBoundV2' in data && typeof data.isEmailBoundV2 !== 'boolean') return false;
+    if ('emailVerified' in data && typeof data.emailVerified !== 'boolean') return false;
+    if ('department' in data && (typeof data.department !== 'string' || data.department.length > 100)) return false;
+    if ('division' in data && data.division !== null && (typeof data.division !== 'string' || data.division.length > 20)) return false;
+    if ('year' in data && (typeof data.year !== 'string' || data.year.length > 20)) return false;
+    if ('college' in data && (typeof data.college !== 'string' || data.college.length > 100)) return false;
+    if ('sectionName' in data && (typeof data.sectionName !== 'string' || data.sectionName.length > 100)) return false;
+    if ('sectionId' in data && (typeof data.sectionId !== 'string' || data.sectionId.length > 100)) return false;
+    if ('integrityScore' in data && !Number.isInteger(data.integrityScore)) return false;
+    if ('tabSwitches' in data && !Number.isInteger(data.tabSwitches)) return false;
+    if ('pasteBursts' in data && !Number.isInteger(data.pasteBursts)) return false;
+    if ('clipboardAttempts' in data && !Number.isInteger(data.clipboardAttempts)) return false;
+    if ('fullscreenExits' in data && !Number.isInteger(data.fullscreenExits)) return false;
+    if ('miniProjectUnlocked' in data && typeof data.miniProjectUnlocked !== 'boolean') return false;
+    if ('registeredDevices' in data && (!Array.isArray(data.registeredDevices) || data.registeredDevices.length > 10)) return false;
+    if ('deviceSession' in data && !((typeof data.deviceSession === 'object' && data.deviceSession !== null && !Array.isArray(data.deviceSession)) || (typeof data.deviceSession === 'string' && data.deviceSession.length <= 100))) return false;
+    if ('activeSession' in data && typeof data.activeSession !== 'boolean') return false;
     return true;
   }
 
@@ -2820,6 +2887,82 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // unallowed key -> MUST FAIL
     expect(RulesEvaluator.isValidEnrolledStudent({ ...validEnrolledStudentData, unknownField: 'forbidden' })).toBe(false);
+
+    // 7. Enrolled student telemetry & binding fields
+    const enrolledWithTelemetry = {
+      ...validEnrolledStudentData,
+      isEmailBound: true,
+      isEmailBoundV2: true,
+      boundEmail: 'student@personal.com',
+      integrityScore: 95,
+      tabSwitchCount: 2,
+      tabSwitches: 2,
+      pasteBursts: 1,
+      copyPasteAttempts: 1,
+    };
+    expect(RulesEvaluator.isValidEnrolledStudent(enrolledWithTelemetry)).toBe(true);
+    // Invalid type for telemetry -> MUST FAIL
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...enrolledWithTelemetry, integrityScore: 'high' })).toBe(false);
+    expect(RulesEvaluator.isValidEnrolledStudent({ ...enrolledWithTelemetry, isEmailBound: 'yes' })).toBe(false);
+  });
+
+  it('COHORT PROGRESS & PROCTORING TELEMETRY: Validates student identity, devices, and proctoring fields', () => {
+    const validCohortData: Record<string, any> = {
+      prn: '2026AIML0001',
+      totalSolved: 15,
+      totalPoints: 1500,
+      currentStreak: 5,
+      longestStreak: 7,
+      studentName: 'Alice Smith',
+      studentEmail: 'student@sanjivani.edu.in',
+      boundEmail: 'student@gmail.com',
+      isEmailBound: true,
+      isEmailBoundV2: true,
+      emailVerified: true,
+      department: 'AIML',
+      division: 'A',
+      year: 'FY',
+      college: 'Sanjivani University',
+      sectionName: 'AIML Section 1',
+      sectionId: 'sec_101',
+      integrityScore: 92,
+      tabSwitches: 3,
+      pasteBursts: 1,
+      clipboardAttempts: 2,
+      fullscreenExits: 1,
+      miniProjectUnlocked: true,
+      registeredDevices: ['dev_hash_1', 'dev_hash_2'],
+      deviceSession: { deviceId: 'dev_hash_1', timestamp: Date.now() },
+      activeSession: true,
+    };
+    expect(RulesEvaluator.isValidCohortProgress(validCohortData)).toBe(true);
+
+    // Null division is allowed
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, division: null })).toBe(true);
+
+    // Device session as string <= 100 chars
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, deviceSession: 'device_token_abc' })).toBe(true);
+
+    // Oversized studentName (> 100) -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, studentName: 'A'.repeat(101) })).toBe(false);
+
+    // Oversized boundEmail (> 150) -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, boundEmail: 'A'.repeat(151) })).toBe(false);
+
+    // Non-int integrityScore -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, integrityScore: 92.5 })).toBe(false);
+
+    // Non-bool miniProjectUnlocked -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, miniProjectUnlocked: 'yes' })).toBe(false);
+
+    // More than 10 registeredDevices -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({
+      ...validCohortData,
+      registeredDevices: Array.from({ length: 11 }, (_, i) => `dev_${i}`),
+    })).toBe(false);
+
+    // Disallowed key -> MUST FAIL
+    expect(RulesEvaluator.isValidCohortProgress({ ...validCohortData, unauthorizedCheatingKey: true })).toBe(false);
   });
 });
 

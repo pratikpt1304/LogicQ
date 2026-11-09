@@ -188,23 +188,27 @@ export const AdminStudentsTab: React.FC = () => {
 
               const tabSwitches = Math.max(
                 Number(mod.tabSwitches) || 0,
+                Number(anyUser.tabSwitchCount) || 0,
+                Number(anyUser.tabSwitches) || 0,
                 ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
               );
 
               const pasteBursts = Math.max(
                 Number(mod.pasteBursts) || 0,
+                Number(anyUser.clipboardAttempts) || 0,
+                Number(anyUser.pasteBursts) || 0,
                 ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
               );
 
               const totalKeystrokes = Math.max(
                 Number(mod.totalKeystrokes) || 0,
+                Number(anyUser.totalKeystrokes) || 0,
                 ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
               );
 
-              const computedIntegrity = Math.max(
-                0,
-                Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10)
-              );
+              const computedIntegrity = mod.integrityScore !== undefined
+                ? Number(mod.integrityScore)
+                : Math.max(0, Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10));
 
               const computedAcademic = mod.academicScore !== undefined
                 ? Number(mod.academicScore)
@@ -357,14 +361,22 @@ export const AdminStudentsTab: React.FC = () => {
                 const computedAcademic = data?.moduleProgress?.academicScore !== undefined
                   ? Number(data.moduleProgress.academicScore)
                   : Math.min(100, Math.round(((data.totalPoints || totalSolved * 20 || s.academicScore || 0) / 100) * 100));
+                const newTabSwitches = data?.moduleProgress?.tabSwitches !== undefined
+                  ? Number(data.moduleProgress.tabSwitches)
+                  : (s.tabSwitchCount ?? 0);
+                const newPasteBursts = data?.moduleProgress?.pasteBursts !== undefined
+                  ? Number(data.moduleProgress.pasteBursts)
+                  : (s.clipboardAttempts ?? 0);
                 const computedIntegrity = data?.moduleProgress?.integrityScore !== undefined
                   ? Number(data.moduleProgress.integrityScore)
-                  : (s.integrityScore ?? 100);
+                  : (newTabSwitches > 0 || newPasteBursts > 0 ? Math.max(0, 100 - newTabSwitches * 5 - newPasteBursts * 10) : (s.integrityScore ?? 100));
 
                 return {
                   ...s,
                   academicScore: computedAcademic,
                   integrityScore: computedIntegrity,
+                  tabSwitchCount: newTabSwitches,
+                  clipboardAttempts: newPasteBursts,
                   miniProjectUnlocked: data?.moduleProgress?.miniProjectUnlocked !== undefined
                     ? Boolean(data.moduleProgress.miniProjectUnlocked)
                     : (data.miniProjectUnlocked !== undefined
