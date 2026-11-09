@@ -11,7 +11,7 @@ import { isDailyChallengePaused } from '../services/system-config.service.js';
 
 export const runCodeSchema = z.object({
   body: z.object({
-    problemId: z.string().uuid().optional().nullable(),
+    problemId: z.string().optional().nullable(),
     code: z
       .string()
       .min(1, 'Source code cannot be empty')
@@ -23,7 +23,7 @@ export const runCodeSchema = z.object({
 
 export const submitSolutionSchema = z.object({
   body: z.object({
-    problemId: z.string().uuid('Valid problem ID is required'),
+    problemId: z.string().min(1, 'Valid problem ID is required'),
     code: z
       .string()
       .min(1, 'Source code cannot be empty')

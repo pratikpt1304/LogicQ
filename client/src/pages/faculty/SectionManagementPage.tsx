@@ -1688,9 +1688,9 @@ export const SectionManagementPage: React.FC = () => {
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
                             {studentMetrics
                               .filter((m: any) => {
-                                const prn = m.prn.toLowerCase();
-                                const name = m.name.toLowerCase();
-                                const email = m.actualEmail.toLowerCase();
+                                const prn = String(m.prn || '').toLowerCase();
+                                const name = String(m.name || m.fullName || '').toLowerCase();
+                                const email = String(m.actualEmail || m.email || '').toLowerCase();
                                 const query = searchTerm.toLowerCase().trim();
                                 return !query || prn.includes(query) || name.includes(query) || email.includes(query);
                               })
@@ -1701,7 +1701,7 @@ export const SectionManagementPage: React.FC = () => {
                                     <td className="py-3 px-4">
                                       <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold text-xs uppercase shrink-0">
-                                          {m.name.charAt(0) || 'S'}
+                                          {String(m.name || m.fullName || 'S').charAt(0).toUpperCase()}
                                         </div>
                                         <div>
                                           <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1854,8 +1854,8 @@ export const SectionManagementPage: React.FC = () => {
                             .filter((m: any) => {
                               if (scoreViewFilter === 'INTERNAL' && m.labCompletedModules === 0) return false;
                               if (scoreViewFilter === 'PRACTICAL' && m.solvedCount === 0) return false;
-                              const prn = m.prn.toLowerCase();
-                              const name = m.name.toLowerCase();
+                              const prn = String(m.prn || '').toLowerCase();
+                              const name = String(m.name || m.fullName || '').toLowerCase();
                               const query = searchTerm.toLowerCase().trim();
                               return !query || prn.includes(query) || name.includes(query);
                             })

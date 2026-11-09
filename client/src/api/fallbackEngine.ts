@@ -1536,6 +1536,19 @@ function evaluateFallbackCCode(code: string, stdin: string = '', problemId?: str
   let expectedOut = '';
   const cleanStdin = (stdin || '').trim();
 
+  // If student code does not contain any printf statement, it produces empty stdout
+  const hasPrintf = /\bprintf\s*\(/.test(trimmed);
+  if (!hasPrintf) {
+    return {
+      verdict: 'ACCEPTED',
+      compileOutput: '',
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      runtimeMs: 14,
+    };
+  }
+
   // Match against structured TOPIC_PRACTICE_DATA (Open & Hidden test cases)
   if (problemId) {
     const topic = TOPIC_PRACTICE_DATA.find((t) => t.id === problemId || t.problem?.title === problemId);

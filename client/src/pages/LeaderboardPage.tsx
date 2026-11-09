@@ -162,9 +162,11 @@ export const LeaderboardPage: React.FC = () => {
   };
 
   const getInitials = (name: string) => {
-    const parts = name.trim().split(/\s+/);
+    const safeName = String(name || '').trim();
+    if (!safeName) return 'ST';
+    const parts = safeName.split(/\s+/);
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.slice(0, 2).toUpperCase();
+    return safeName.slice(0, 2).toUpperCase();
   };
 
   const filteredUsers = useMemo(() => {

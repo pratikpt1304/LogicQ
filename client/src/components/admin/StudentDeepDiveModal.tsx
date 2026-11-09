@@ -117,6 +117,50 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       } catch {}
     });
 
+    let rawAssess: any[] = [];
+    let rawGeneral: any[] = [];
+
+    const updateCategorizedSubmissions = () => {
+      const combined = new Map<string, any>();
+      [...rawAssess, ...rawGeneral].forEach((sub) => {
+        const key = sub.id || `${sub.problemId || sub.problemTitle || 'prob'}_${sub.submittedAt || sub.createdAt || ''}`;
+        if (!combined.has(key)) {
+          combined.set(key, sub);
+        }
+      });
+
+      const all = Array.from(combined.values());
+      all.sort(
+        (a, b) =>
+          new Date(b.submittedAt || b.createdAt || 0).getTime() -
+          new Date(a.submittedAt || a.createdAt || 0).getTime()
+      );
+
+      const tests: any[] = [];
+      const practices: any[] = [];
+
+      all.forEach((sub) => {
+        const probId = String(sub.problemId || sub.problemSlug || '').toLowerCase();
+        const testTitle = String(sub.testTitle || '').toLowerCase();
+        const subType = String(sub.submissionType || sub.type || '').toUpperCase();
+
+        const isPractice =
+          subType === 'PRACTICE' ||
+          testTitle === 'continuous practical lab' ||
+          /^(m\d+-|practice-|topic-|kanetkar-)/i.test(probId) ||
+          (!sub.testId && !sub.assessmentId && subType !== 'ASSESSMENT' && subType !== 'TEST');
+
+        if (isPractice) {
+          practices.push(sub);
+        } else {
+          tests.push(sub);
+        }
+      });
+
+      setTestSubmissions(tests);
+      setPracticeSubmissions(practices);
+    };
+
     // B. Real-time listener on assessment_test_submissions
     try {
       const uAssess = onSnapshot(
@@ -137,12 +181,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               matched.push(data);
             }
           });
-          matched.sort(
-            (a, b) =>
-              new Date(b.submittedAt || b.createdAt || 0).getTime() -
-              new Date(a.submittedAt || a.createdAt || 0).getTime()
-          );
-          setTestSubmissions(matched);
+          rawAssess = matched;
+          updateCategorizedSubmissions();
         },
         () => {}
       );
@@ -169,12 +209,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               matched.push(data);
             }
           });
-          matched.sort(
-            (a, b) =>
-              new Date(b.submittedAt || b.createdAt || 0).getTime() -
-              new Date(a.submittedAt || a.createdAt || 0).getTime()
-          );
-          setPracticeSubmissions(matched);
+          rawGeneral = matched;
+          updateCategorizedSubmissions();
         },
         () => {}
       );
@@ -571,8 +607,6 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   : 'Live Session'}
                               </span>
                               <span>•</span>
-                              <span>Score: {sub.academicScore ?? sub.score ?? 0}</span>
-                              <span>•</span>
                               <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
                             </div>
                           </div>
@@ -696,11 +730,6 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               }`}>
                                 {sub.verdict || sub.status || (isAccepted ? 'ACCEPTED' : 'ATTEMPTED')}
                               </span>
-                              {pts > 0 && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                  +{pts} Pts
-                                </span>
-                              )}
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 Practice
                               </span>
@@ -717,6 +746,8 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                                   <span>{sub.difficulty}</span>
                                 </>
                               )}
+                              <span>•</span>
+                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
                             </div>
                           </div>
                         </div>
