@@ -1037,6 +1037,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         longestStreak: 0,
         totalSolved: 0,
       };
+      const reg = await DeviceSessionService.registerDeviceSession(demoStudent.prn || (isDemo1 ? 'DEMO1' : 'DUMMY'));
+      if (!reg.success) {
+        throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
+      }
       if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
         localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, `logicq_sess_${isDemo1 ? 'demo1' : 'dummy'}_${Date.now()}`);
       }
@@ -1051,10 +1055,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const prnToCheck = cohortStudent ? cohortStudent.prn.toUpperCase() : cleanId.toUpperCase();
 
-    if (prnToCheck && prnToCheck.startsWith('212')) {
+    if (cleanId.toLowerCase() !== 'logicqarena@gmail.com' && !cleanId.toLowerCase().includes('admin')) {
       const reg = await DeviceSessionService.registerDeviceSession(prnToCheck);
       if (!reg.success) {
-        throw new Error(reg.message || 'Device registration limit reached (maximum 2 devices allowed).');
+        throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
       }
     }
 
@@ -1356,7 +1360,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Failed to sign in. Please verify your PRN and password.');
     }
     if (authUser.role === 'STUDENT' && authUser.prn) {
-      await DeviceSessionService.registerDeviceSession(authUser.prn);
+      const reg = await DeviceSessionService.registerDeviceSession(authUser.prn);
+      if (!reg.success) {
+        throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
+      }
     }
 
     if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {

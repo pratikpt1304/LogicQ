@@ -67,6 +67,7 @@ export class DeviceSessionService {
   /**
    * Enforces device registration and single-instance session creation.
    * - Max 2 registered devices allowed per student PRN.
+   * - Authoritatively stored in Firestore cohort_progress/{prn}/moduleProgress/registeredDevices.
    * - Generates a new sessionId and invalidates any previous session.
    */
   public static async registerDeviceSession(prn: string): Promise<{
@@ -80,49 +81,80 @@ export class DeviceSessionService {
       return { success: false, message: 'PRN is required.' };
     }
 
+    // Admins and faculty are exempt from device limits
+    if (cleanPrn === 'LOGICQARENA' || cleanPrn.includes('ADMIN') || auth.currentUser?.email === 'logicqarena@gmail.com') {
+      return { success: true, sessionId: this.createSessionId(), deviceId: this.getDeviceId() };
+    }
+
     const deviceId = this.getDeviceId();
     const sessionId = this.createSessionId();
 
-    // 1. Check local registered devices cache
-    const deviceStorageKey = `logicq_registered_devices_${cleanPrn}`;
+    // 1. Authoritative Firestore check in cohort_progress/{cleanPrn}
     let registeredDevices: string[] = [];
+    let cohortSnap: any = null;
     try {
-      registeredDevices = JSON.parse(localStorage.getItem(deviceStorageKey) || '[]');
-    } catch {}
-
-    // 2. Try Firestore lookup for authoritative cross-device registration check
-    const currentUid = auth.currentUser?.uid;
-    if (currentUid) {
-      try {
-        const sessionDocRef = doc(db, 'users', currentUid, 'drafts', 'device_session');
-        const snap = await getDoc(sessionDocRef).catch(() => null);
-        if (snap && snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.registeredDevices) && data.registeredDevices.length > 0) {
-            registeredDevices = Array.from(new Set([...registeredDevices, ...data.registeredDevices]));
-          }
-        }
-      } catch {
-        // Offline / fallback to local storage
+      cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
+      if (!cohortSnap?.exists()) {
+        cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn.replace(/0/g, 'O'))).catch(() => null);
       }
+      if (!cohortSnap?.exists()) {
+        cohortSnap = await getDoc(doc(db, 'cohort_progress', cleanPrn.replace(/O/g, '0'))).catch(() => null);
+      }
+      if (cohortSnap && cohortSnap.exists()) {
+        const cData = cohortSnap.data();
+        if (Array.isArray(cData?.moduleProgress?.registeredDevices)) {
+          registeredDevices = cData.moduleProgress.registeredDevices.filter(Boolean);
+        }
+      }
+    } catch (err) {
+      console.warn('registerDeviceSession: cohort_progress lookup notice:', err);
     }
 
-    // 3. Enforce maximum 2 devices limit per account
+    // 2. Check local registered devices cache as secondary check
+    const deviceStorageKey = `logicq_registered_devices_${cleanPrn}`;
+    try {
+      const localList: string[] = JSON.parse(localStorage.getItem(deviceStorageKey) || '[]');
+      if (Array.isArray(localList)) {
+        registeredDevices = Array.from(new Set([...registeredDevices, ...localList]));
+      }
+    } catch {}
+
+    // 3. Enforce maximum 2 devices limit per student account
     const isDeviceKnown = registeredDevices.includes(deviceId);
     if (!isDeviceKnown) {
       if (registeredDevices.length >= 2) {
         return {
           success: false,
-          message: `Device Limit Reached: Your PRN (${cleanPrn}) is already registered on 2 devices. Parallel or multi-device abuse is restricted. Please contact your instructor to reset device authorization.`,
+          message: `Too many devices bound. Your account (${cleanPrn}) is already bound to 2 authorized devices. Access from a new device is restricted.`,
         };
       }
       registeredDevices.push(deviceId);
       try {
         localStorage.setItem(deviceStorageKey, JSON.stringify(registeredDevices));
       } catch {}
+
+      // Authoritatively persist new bound device to Firestore cohort_progress
+      try {
+        const existingMod = cohortSnap?.data()?.moduleProgress || {};
+        await setDoc(
+          doc(db, 'cohort_progress', cleanPrn),
+          {
+            prn: cleanPrn,
+            moduleProgress: {
+              ...existingMod,
+              registeredDevices,
+            },
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        ).catch(() => {});
+      } catch (err) {
+        console.warn('registerDeviceSession: Firestore save error:', err);
+      }
     }
 
-    // 4. Update Firestore with new active session (overwrites any previous session)
+    // 4. Update Firestore user drafts if signed in with Firebase Auth
+    const currentUid = auth.currentUser?.uid;
     if (currentUid) {
       try {
         const sessionDocRef = doc(db, 'users', currentUid, 'drafts', 'device_session');
@@ -139,9 +171,7 @@ export class DeviceSessionService {
           },
           { merge: true }
         ).catch(() => {});
-      } catch {
-        // Non-blocking for offline demo
-      }
+      } catch {}
     }
 
     // 5. Broadcast to any other open tabs/windows to immediately terminate older sessions
@@ -161,6 +191,54 @@ export class DeviceSessionService {
       sessionId,
       deviceId,
     };
+  }
+
+  /**
+   * Admin utility to reset a student's bound devices back to 0.
+   */
+  public static async resetDeviceBindings(prn: string): Promise<boolean> {
+    const cleanPrn = (prn || '').trim().toUpperCase();
+    if (!cleanPrn) return false;
+    try {
+      localStorage.removeItem(`logicq_registered_devices_${cleanPrn}`);
+      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
+      const existingMod = cohortDoc?.data()?.moduleProgress || {};
+      await setDoc(
+        doc(db, 'cohort_progress', cleanPrn),
+        {
+          moduleProgress: {
+            ...existingMod,
+            registeredDevices: [],
+          },
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      ).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Returns how many devices are currently bound to this PRN (0, 1, or 2).
+   */
+  public static async getRegisteredDevicesCount(prn: string): Promise<number> {
+    const cleanPrn = (prn || '').trim().toUpperCase();
+    if (!cleanPrn) return 0;
+    try {
+      const cohortDoc = await getDoc(doc(db, 'cohort_progress', cleanPrn)).catch(() => null);
+      if (cohortDoc && cohortDoc.exists()) {
+        const devs = cohortDoc.data()?.moduleProgress?.registeredDevices;
+        if (Array.isArray(devs)) return devs.length;
+      }
+      const raw = localStorage.getItem(`logicq_registered_devices_${cleanPrn}`);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.length;
+      }
+    } catch {}
+    return 0;
   }
 
   /**

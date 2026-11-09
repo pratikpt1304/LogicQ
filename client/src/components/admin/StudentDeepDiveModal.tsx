@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { DeviceSessionService } from '../../services/deviceSession.service.js';
+import { toast } from 'sonner';
 import {
   Award,
   CheckCircle2,
@@ -23,6 +25,8 @@ import {
   ExternalLink,
   Code2,
   Terminal,
+  Smartphone,
+  RotateCcw,
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
 
@@ -275,6 +279,25 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
       .map((s) => ({ ...s, sourceType: 'PRACTICE' })),
   ];
 
+  const boundDevices: string[] = Array.isArray(liveCohort?.moduleProgress?.registeredDevices)
+    ? liveCohort.moduleProgress.registeredDevices
+    : [];
+  const [isResettingDevices, setIsResettingDevices] = useState(false);
+
+  const handleResetDevices = async () => {
+    setIsResettingDevices(true);
+    try {
+      const ok = await DeviceSessionService.resetDeviceBindings(student.prn || student.id);
+      if (ok) {
+        toast.success(`Device bindings reset to 0/2 for ${name}`);
+      } else {
+        toast.error('Failed to reset device bindings');
+      }
+    } finally {
+      setIsResettingDevices(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
       <div className="w-full max-w-2xl bg-white dark:bg-[#121620] border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto animate-in zoom-in-95">
@@ -470,6 +493,41 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                     <span>Unlock Mini-Project</span>
                   </>
                 )}
+              </button>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* 3B. HARDWARE DEVICE BINDING CARD (Max 2 Devices Limit)                    */}
+            {/* ========================================================================= */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-blue-500" />
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Hardware Device Authorization
+                  </h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    boundDevices.length >= 2
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  }`}>
+                    {boundDevices.length} / 2 Devices Bound
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Student ID is bound to a maximum of 2 physical devices (e.g. Laptop &amp; Mobile). Any 3rd device login attempt is automatically rejected.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetDevices}
+                disabled={isResettingDevices || boundDevices.length === 0}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Reset registered hardware devices and allow student to bind new devices"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isResettingDevices ? 'animate-spin' : ''}`} />
+                <span>Reset Devices</span>
               </button>
             </div>
 
