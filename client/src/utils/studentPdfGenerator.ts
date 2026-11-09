@@ -346,103 +346,111 @@ export const generateIndividualStudentPdf = async (student: any) => {
 
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(margin, procY + 4, contentWidth, 24, 2, 2, 'FD');
+    doc.roundedRect(margin, procY + 4, contentWidth, 23, 2, 2, 'FD');
 
-    const colW = contentWidth / 2;
-    const pRow1Y = procY + 11;
+    const col2X = margin + 95;
+    const pRow1Y = procY + 11.5;
     const pRow2Y = procY + 20;
 
-    // Item 1: Window switches
+    // Col 1, Row 1: Window switches
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(71, 85, 105);
-    doc.text('• Window & Tab Switches:', margin + 4, pRow1Y);
+    doc.text('• Window / Tab Switches:', margin + 4, pRow1Y);
     doc.setFont('helvetica', 'bold');
     if (tabSwitches === 0) {
       doc.setTextColor(16, 185, 129);
     } else {
       doc.setTextColor(225, 29, 72);
     }
-    doc.text(`${tabSwitches} times ${tabSwitches === 0 ? '(Clean)' : '(Recorded)'}`, margin + 44, pRow1Y);
+    doc.text(`${tabSwitches} times ${tabSwitches === 0 ? '(Clean)' : '(Recorded)'}`, margin + 42, pRow1Y);
 
-    // Item 2: Copy-paste attempts
+    // Col 2, Row 1: Copy-paste attempts
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
-    doc.text('• Copy-Paste Blocked:', margin + colW + 4, pRow1Y);
+    doc.text('• Copy-Paste Blocked:', col2X, pRow1Y);
     doc.setFont('helvetica', 'bold');
     if (clipboardAttempts === 0) {
       doc.setTextColor(16, 185, 129);
     } else {
       doc.setTextColor(225, 29, 72);
     }
-    doc.text(`${clipboardAttempts} attempts`, margin + colW + 42, pRow1Y);
+    doc.text(`${clipboardAttempts} attempts`, col2X + 36, pRow1Y);
 
-    // Item 3: Code Authenticity
+    // Col 1, Row 2: Code Authenticity
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
     doc.text('• Code Authenticity:', margin + 4, pRow2Y);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(30, 41, 59);
-    doc.text('100% Student-authored (No external bot code)', margin + 44, pRow2Y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(16, 185, 129);
+    doc.text('100% Verified Human Code', margin + 42, pRow2Y);
 
-    // Item 4: AI Viva Defense
+    // Col 2, Row 2: AI Viva Defense
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
-    doc.text('• AI Viva & Concept Check:', margin + colW + 4, pRow2Y);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(30, 41, 59);
-    doc.text('Verified through oral/written viva questions', margin + colW + 42, pRow2Y);
+    doc.text('• AI Viva Concept Check:', col2X, pRow2Y);
+    doc.setFont('helvetica', 'bold');
+    if (student.aiVivaStatus === 'VERIFIED') {
+      doc.setTextColor(16, 185, 129);
+      doc.text('Verified & Cleared', col2X + 36, pRow2Y);
+    } else if (student.aiVivaStatus === 'FAILED') {
+      doc.setTextColor(225, 29, 72);
+      doc.text('Review Required', col2X + 36, pRow2Y);
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.text('Pending Viva Evaluation', col2X + 36, pRow2Y);
+    }
 
     // =========================================================================
-    // 6. FACULTY REMARKS & RECOMMENDATION
+    // 6. FACULTY REMARKS & RECOMMENDATION (Multi-line Wrapped)
     // =========================================================================
-    const remY = procY + 34;
+    const remY = procY + 33;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
     doc.text('Faculty Observation & Remarks:', margin, remY);
 
+    const remarkText = academicScore >= 80
+      ? 'Candidate exhibits strong problem-solving skills, solid understanding of C pointer architecture, and clean code structure. Recommended for advanced systems electives.'
+      : academicScore >= 50
+      ? 'Good overall grasp of fundamental programming constructs. Consistent lab practice is recommended for dynamic memory allocation and file handling.'
+      : 'Foundational practical exercises are currently in progress. Candidate is advised to complete all scheduled unit labs prior to semester evaluations.';
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(51, 65, 85);
 
-    let remarkText = '';
-    if (academicScore >= 80) {
-      remarkText = 'Candidate exhibits excellent understanding of C programming, pointers, and memory layout. Highly recommended for advanced systems electives.';
-    } else if (academicScore >= 50) {
-      remarkText = 'Good overall grasp of core programming constructs. Encouraged to continue consistent lab practice for pointer operations and dynamic memory.';
-    } else {
-      remarkText = 'Foundational exercises in progress. Candidate is advised to complete all scheduled practical units before the semester end examination.';
-    }
-    doc.text(remarkText, margin + 48, remY);
+    // Reserve 28mm on the right for QR code if available
+    const maxRemarkWidth = qrDataUrl ? contentWidth - 30 : contentWidth;
+    const wrappedRemarks = doc.splitTextToSize(remarkText, maxRemarkWidth);
+    doc.text(wrappedRemarks, margin, remY + 4.5);
 
-    // Mini project note
+    // Mini project status right below the remarks with proper spacing
+    const projectNoteY = remY + 4.5 + (wrappedRemarks.length * 3.8) + 2.5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     if (isMiniProject) {
       doc.setTextColor(16, 185, 129);
+      doc.text('✓ Capstone Mini-Project: UNLOCKED by Faculty In-Charge. Candidate is eligible for project submission.', margin, projectNoteY);
     } else {
-      doc.setTextColor(148, 163, 184);
+      doc.setTextColor(100, 116, 139);
+      doc.text('• Capstone Mini-Project: Currently LOCKED. It will automatically unlock once unit practicals are completed.', margin, projectNoteY);
     }
-    doc.text(
-      isMiniProject
-        ? '✓ Capstone Mini-Project: UNLOCKED by Faculty In-Charge. Student can begin capstone project implementation.'
-        : '• Capstone Mini-Project: Currently LOCKED. It will automatically unlock once the practical units are cleared.',
-      margin,
-      remY + 5.5
-    );
 
     // =========================================================================
     // 7. QR CODE & VERIFICATION WATERMARK
     // =========================================================================
     if (qrDataUrl) {
       try {
-        doc.addImage(qrDataUrl, 'PNG', pageWidth - margin - 22, remY + 9, 22, 22);
+        const qrSize = 20;
+        const qrX = pageWidth - margin - qrSize;
+        const qrY = remY;
+        doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(100, 116, 139);
-        doc.text('Scan to Verify Online', pageWidth - margin - 11, remY + 33, { align: 'center' });
+        doc.text('Scan to Verify Online', qrX + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
       } catch {}
     }
 
