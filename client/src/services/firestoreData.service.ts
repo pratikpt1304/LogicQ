@@ -2619,17 +2619,17 @@ export class FirestoreDataService {
     const id = String(student.id || student.uid || '').toLowerCase().trim();
     const name = String(student.name || student.fullName || student.displayName || student.student?.fullName || student.student?.name || '').toLowerCase().trim();
 
-    // Never purge admin
-    if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
-
-    // Purge any dummy or test student account
+    // Never purge admin or canonical dummy student testing account
     if (
+      email === 'logicqarena@gmail.com' ||
+      prn === 'LOGICQARENA' ||
       email === 'dummy@logicq.io' ||
       prn === 'DUMMY' ||
       id === 'std_dummy' ||
       id === 'dummy' ||
-      name === 'dummy'
-    ) return true;
+      name === 'dummy' ||
+      name === 'dummy student'
+    ) return false;
 
     // Purge any synthetic candidates (Candidate 2126..., Candidate DEMO..., etc.)
     if (
@@ -2747,14 +2747,13 @@ export class FirestoreDataService {
         'prn_format_test_1@sanjivani.org.in',
       ];
       const targetPrns = [
-        'DUMMY',
         'DEMO1',
         'DEMO01',
         'STD_DEMO1',
         'DEMO2',
         '2126PMIM1130',
         '2199IMTE1001',
-      '2026IMTM0001',
+        '2026IMTM0001',
         '2024BCSE0001',
         '2026VAL1390',
         '2026JON1390',
@@ -2765,9 +2764,6 @@ export class FirestoreDataService {
         '2199TESF0002',
       ];
       const directKeys = [
-        'dummy',
-        'std_dummy',
-        'DUMMY',
         'demo1',
         'std_demo1',
         'demo01',
