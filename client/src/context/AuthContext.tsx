@@ -1063,44 +1063,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // STRICT CROSS-DEVICE CREDENTIAL RESOLUTION:
-    // If student has changed their password, the default PRN password is permanently invalidated!
+    // Firestore is authoritative: If student has genuinely changed password in Firestore, enforce it.
+    // Otherwise, clean any stale local storage dev keys and allow initial PRN password.
     if (prnToCheck) {
-      let knownCustomPw =
-        (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${prnToCheck}`) : null) ||
-        (cohortStudent ? localStorage.getItem(`logicq_custom_password_cohort-${cohortStudent.prn.toLowerCase()}`) : null);
-
-      if (!knownCustomPw && typeof window !== 'undefined') {
-        try {
-          const rawUsers = localStorage.getItem('logicq_stored_users_v1');
-          if (rawUsers) {
-            const parsed = JSON.parse(rawUsers);
-            const foundUser = parsed.find(
-              (u: any) =>
-                (u.prn && u.prn.toUpperCase() === prnToCheck) ||
-                (cohortStudent && u.id === `cohort-${cohortStudent.prn.toLowerCase()}`)
-            );
-            if (foundUser?.password && foundUser.password.toUpperCase() !== prnToCheck) {
-              knownCustomPw = foundUser.password;
-            }
+      let knownCustomPw: string | null = null;
+      try {
+        const secDoc = await getDoc(doc(db, 'cohort_progress', prnToCheck, 'drafts', '__account_security'));
+        if (secDoc.exists()) {
+          const data = secDoc.data();
+          if (data?.code && typeof data.code === 'string') {
+            knownCustomPw = data.code;
+            try {
+              localStorage.setItem(`logicq_custom_password_${prnToCheck}`, data.code);
+            } catch {}
           }
-        } catch {}
-      }
-
-      if (!knownCustomPw) {
-        try {
-          const secDoc = await getDoc(doc(db, 'cohort_progress', prnToCheck, 'drafts', '__account_security'));
-          if (secDoc.exists()) {
-            const data = secDoc.data();
-            if (data?.code && typeof data.code === 'string') {
-              knownCustomPw = data.code;
-              try {
-                localStorage.setItem(`logicq_custom_password_${prnToCheck}`, data.code);
-              } catch {}
+        } else {
+          // No custom password in Firestore! Authoritative initial state: PRN is valid password.
+          try {
+            localStorage.removeItem(`logicq_custom_password_${prnToCheck}`);
+            if (cohortStudent) {
+              localStorage.removeItem(`logicq_custom_password_cohort-${cohortStudent.prn.toLowerCase()}`);
             }
-          }
-        } catch (secErr) {
-          console.warn('Firestore security credential check skipped:', secErr);
+            const rawUsers = localStorage.getItem('logicq_stored_users_v1');
+            if (rawUsers) {
+              const parsed = JSON.parse(rawUsers);
+              const target = parsed.find(
+                (u: any) =>
+                  (u.prn && u.prn.toUpperCase() === prnToCheck) ||
+                  (cohortStudent && u.id === `cohort-${cohortStudent.prn.toLowerCase()}`)
+              );
+              if (target) {
+                target.password = prnToCheck;
+                localStorage.setItem('logicq_stored_users_v1', JSON.stringify(parsed));
+              }
+            }
+          } catch {}
         }
+      } catch (secErr) {
+        console.warn('Firestore security credential check skipped:', secErr);
       }
 
       if (knownCustomPw) {
@@ -1129,45 +1129,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cohortStudent) {
         const prnUpper = cohortStudent.prn.toUpperCase();
 
-        // 1. Check local custom password overrides
-        let customPw =
-          (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_${prnUpper}`) : null) ||
-          (typeof window !== 'undefined' ? localStorage.getItem(`logicq_custom_password_cohort-${cohortStudent.prn.toLowerCase()}`) : null);
-
-        // 2. Check fallback engine stored users
-        if (!customPw && typeof window !== 'undefined') {
-          try {
-            const rawUsers = localStorage.getItem('logicq_stored_users_v1');
-            if (rawUsers) {
-              const parsed = JSON.parse(rawUsers);
-              const foundUser = parsed.find(
-                (u: any) =>
-                  (u.prn && u.prn.toUpperCase() === prnUpper) ||
-                  u.id === `cohort-${cohortStudent.prn.toLowerCase()}`
-              );
-              if (foundUser?.password && foundUser.password.toUpperCase() !== prnUpper) {
-                customPw = foundUser.password;
-              }
+        // Check Firestore cross-device security credential authoritatively
+        let customPw: string | null = null;
+        try {
+          const secDoc = await getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'));
+          if (secDoc.exists()) {
+            const data = secDoc.data();
+            if (data?.code && typeof data.code === 'string') {
+              customPw = data.code;
             }
-          } catch {}
-        }
-
-        // 3. Check Firestore cross-device security credential
-        if (!customPw) {
-          try {
-            const secDoc = await getDoc(doc(db, 'cohort_progress', prnUpper, 'drafts', '__account_security'));
-            if (secDoc.exists()) {
-              const data = secDoc.data();
-              if (data?.code && typeof data.code === 'string') {
-                customPw = data.code;
-                try {
-                  localStorage.setItem(`logicq_custom_password_${prnUpper}`, data.code);
-                } catch {}
-              }
-            }
-          } catch (secErr) {
-            console.warn('Firestore security credential check skipped:', secErr);
           }
+        } catch (secErr) {
+          console.warn('Firestore security credential check skipped:', secErr);
         }
 
         let isValidPwd = false;
@@ -1183,6 +1156,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           // Default password is their PRN
           isValidPwd =
+            cleanPwd.toUpperCase() === prnUpper ||
+            cleanPwd === 'StudentPassword123!' ||
+            cleanPwd === 'password123';
             cleanPwd.toUpperCase() === prnUpper ||
             cleanPwd === 'StudentPassword123!' ||
             cleanPwd === 'password123' ||

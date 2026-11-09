@@ -836,12 +836,11 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
 
     const prnKey = (found.prn || '').toUpperCase().trim();
     const customStoredPw = prnKey ? localStorage.getItem(`logicq_custom_password_${prnKey}`) : null;
-    const effectivePassword = customStoredPw || found.password;
-    const hasCustomPassword = Boolean(effectivePassword && effectivePassword.toUpperCase() !== prnKey);
+    const hasCustomPassword = Boolean(customStoredPw && customStoredPw.toUpperCase() !== prnKey);
 
     let isValidPassword = false;
-    if (hasCustomPassword && effectivePassword) {
-      if (cleanPwd === effectivePassword || cleanPwd.toLowerCase() === effectivePassword.toLowerCase()) {
+    if (hasCustomPassword && customStoredPw) {
+      if (cleanPwd === customStoredPw || cleanPwd.toLowerCase() === customStoredPw.toLowerCase()) {
         isValidPassword = true;
       } else if (cleanPwd.toUpperCase() === prnKey) {
         throw new Error('Your password has been changed. Default PRN password is no longer valid. Please enter your new password.');
@@ -851,6 +850,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     } else {
       isValidPassword =
         (found.prn && found.prn.toUpperCase() === cleanPwd.toUpperCase()) ||
+        (prnKey && cleanPwd.toUpperCase() === prnKey) ||
         (cleanId.toLowerCase() === 'dummy' && cleanPwd.toLowerCase() === 'dummy') ||
         cleanPwd === 'password123' ||
         cleanPwd === 'StudentPassword123!' ||
