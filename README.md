@@ -70,6 +70,16 @@ Designed according to modern Apple Human Interface Guidelines (HIG) with zero-cl
     4. **💻 Submissions**: Instant filterable audit log of live student code attempts.
 - **Chronological Question Bank (`/faculty/questions`)**:
   - Sorted by creation timestamps with relative indicators (`Just now`, `Yesterday`) and `NEW` status badges.
+- **Unified Student Deep-Dive & Source Code Vault (`/admin` -> Students)**:
+  - Consolidates answer inspection directly inside the student card deep-dive modal, eliminating navigation clutter.
+  - **🔬 Lab Internal Assessments**: Inspect submitted C code (GCC 14), compilation output, test case verdicts, and proctoring indices.
+  - **💻 Practice Solutions**: Live view of all solved coding challenges, points awarded, and syntax-highlighted solutions with 1-click Copy Code.
+  - **⚙️ Account Security & Moderation**: Hardware device binding reset (max 2 devices: Laptop & Mobile), Reset Password to PRN, Student Account Suspension/Ban, and complete Unregister & Purge with zero trace.
+- **Cross-Device Integrity & Proctoring Telemetry Sync**:
+  - Tab switches and clipboard paste bursts synchronously persist to Cloud Firestore (`cohort_progress/{prn}/drafts/proctoring_telemetry`).
+  - Seamlessly syncs between mobile phone, laptop, and admin consoles with real-time zero-drift integrity indexing.
+- **Silent Judge Session Auto-Recovery**:
+  - Background JWT auto-renewal ensures students never face "Session Expired" interruptions during live lab practice or exam submissions.
 
 ---
 
