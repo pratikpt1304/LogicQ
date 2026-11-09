@@ -311,48 +311,68 @@ export const AdminReportsTab: React.FC = () => {
       try {
         let studentRows: any[] = [];
         if (activeStudents.length > 0) {
-          studentRows = activeStudents.map((u: any) => ({
+          studentRows = activeStudents.map((u: any, idx: number) => ({
+            'Sr No': idx + 1,
             'PRN': u.prn || u.id || 'N/A',
-            'Full Name': u.name || u.displayName || u.fullName || 'Candidate',
-            'Email': u.email || 'N/A',
+            'Student Name': u.name || u.displayName || u.fullName || 'Candidate',
+            'Institutional Email': u.email || 'N/A',
             'Section / Division': u.section || selectedSection || 'Integrated Mtech',
             'Identity Verified': u.isEmailBoundV2 || u.emailVerified || (u.email && !u.email.endsWith('@sanjivani.edu.in')) ? 'YES' : 'PENDING',
-            'Total Problems Solved': u.totalSolved ?? 0,
+            'Total Solved': u.totalSolved ?? 0,
             'Lab Internal Solved': u.labSolved ?? 0,
-            'Practice Arena Solved': u.practiceSolved ?? 0,
+            'Practice Solved': u.practiceSolved ?? 0,
             'Continuous Practical Score (0-100)': u.academicScore ?? 0,
             'Lab Internal CIE Marks (0-20)': Math.min(20, Math.round(((u.academicScore || 0) / 100) * 20)),
-            'Integrity Index (%)': u.integrityScore !== undefined ? `${u.integrityScore}%` : '100%',
+            'Integrity Index': u.integrityScore !== undefined ? `${u.integrityScore}%` : '100%',
             'Tab Switch Violations': u.tabSwitchCount ?? 0,
-            'Clipboard Paste Bursts': u.clipboardAttempts ?? 0,
-            'Total Keystroke Signals': u.totalKeystrokes ?? 0,
-            'Mini-Project Unlocked': u.miniProjectUnlocked ? 'YES' : 'NO',
+            'Clipboard Paste Attempts': u.clipboardAttempts ?? 0,
+            'Total Keystroke Dynamics': u.totalKeystrokes ?? 0,
+            'Capstone Mini-Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
             'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
           }));
         } else {
           studentRows = [
             {
+              'Sr No': 1,
               'PRN': 'SAMPLE-101',
-              'Full Name': 'Enrolled Student',
-              'Email': 'student@university.edu',
+              'Student Name': 'Enrolled Student',
+              'Institutional Email': 'student@sanjivani.edu.in',
               'Section / Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'Integrated Mtech') : selectedSection,
               'Identity Verified': 'YES',
-              'Total Problems Solved': 5,
+              'Total Solved': 5,
               'Lab Internal Solved': 2,
-              'Practice Arena Solved': 3,
+              'Practice Solved': 3,
               'Continuous Practical Score (0-100)': 85,
               'Lab Internal CIE Marks (0-20)': 17,
-              'Integrity Index (%)': '100%',
+              'Integrity Index': '100%',
               'Tab Switch Violations': 0,
-              'Clipboard Paste Bursts': 0,
-              'Total Keystroke Signals': 1200,
-              'Mini-Project Unlocked': 'YES',
+              'Clipboard Paste Attempts': 0,
+              'Total Keystroke Dynamics': 1200,
+              'Capstone Mini-Project': 'UNLOCKED',
               'AI Viva Defense Status': 'VERIFIED',
             },
           ];
         }
 
         const worksheet = XLSX.utils.json_to_sheet(studentRows);
+
+        // Auto-fit spacious column widths so no headers or values are cut off
+        const columnKeys = Object.keys(studentRows[0] || {});
+        const colWidths = columnKeys.map((key) => {
+          let maxLen = key.length;
+          studentRows.forEach((row) => {
+            const val = row[key];
+            const str = val !== null && val !== undefined ? String(val) : '';
+            if (str.length > maxLen) {
+              maxLen = str.length;
+            }
+          });
+          // Generous padding (+4) and minimum 14 chars width for clean presentation
+          return { wch: Math.max(maxLen + 4, 14) };
+        });
+
+        worksheet['!cols'] = colWidths;
+
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Assessment Roster');
 
