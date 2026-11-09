@@ -1150,8 +1150,6 @@ export class FirestoreDataService {
             cohortRef,
             {
               prn: effectivePrn,
-              studentName: effectiveName || cData.studentName || undefined,
-              studentEmail: effectiveEmail || cData.studentEmail || undefined,
               totalSolved: currentSolved,
               totalPoints: currentPoints,
               completedProblems: completedList,
