@@ -839,6 +839,52 @@ export class FirestoreDataService {
         }
       } catch {}
 
+      // Cross-Device Sync: Also query assessment_test_submissions for this user / PRN / email
+      try {
+        const assessQueries = [
+          ...targetUids.map((u) => query(collection(db, 'assessment_test_submissions'), where('userId', '==', u))),
+          ...(activePrn ? [query(collection(db, 'assessment_test_submissions'), where('studentPrn', '==', activePrn))] : []),
+          ...(activeEmail ? [query(collection(db, 'assessment_test_submissions'), where('studentEmail', '==', activeEmail))] : []),
+        ];
+
+        const assessSnaps = await Promise.all(assessQueries.map((q) => getDocs(q).catch(() => null)));
+        for (const snap of assessSnaps) {
+          if (snap) {
+            snap.forEach((d) => {
+              const data = d.data();
+              if (!submissionMap.has(d.id)) {
+                submissionMap.set(d.id, {
+                  id: d.id,
+                  userId: data.userId || uid,
+                  problemId: data.problemId || data.testId || '',
+                  contestId: data.testId || null,
+                  code: data.code || '',
+                  language: data.language || 'c',
+                  verdict: data.verdict || (data.status === 'PASSED' ? 'ACCEPTED' : 'FAILED'),
+                  runtimeMs: data.runtimeMs ?? 15,
+                  memoryKb: data.memoryKb ?? 1024,
+                  compileOutput: data.compileOutput ?? null,
+                  pointsAwarded: Number(data.academicScore || data.score || data.points || 0),
+                  createdAt: data.submittedAt || data.createdAt || new Date().toISOString(),
+                  isCheatAutoSubmit: Boolean(data.isCheatAutoSubmit),
+                  isCheatAttempt: Boolean(data.isCheatAttempt),
+                  quarantinedAttempt: false,
+                  tag: 'LAB_INTERNAL',
+                  problem: {
+                    id: data.problemId || data.testId || '',
+                    title: data.problemTitle || data.testTitle || 'Lab Internal Problem',
+                    slug: data.problemSlug || data.problemId || '',
+                    difficulty: 'MEDIUM',
+                  },
+                });
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('getUserSubmissions: assessment_test_submissions cross-device query notice:', err);
+      }
+
       const list = Array.from(submissionMap.values());
       return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (err) {

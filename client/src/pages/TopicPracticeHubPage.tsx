@@ -1346,15 +1346,15 @@ export const TopicPracticeHubPage: React.FC = () => {
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Curriculum Practice</span>
+              <span>{((user as any)?.sectionName || (user as any)?.section || user?.department || 'Integrated Mtech')} Curriculum</span>
               <span className="w-1 h-1 rounded-full bg-indigo-400" />
               <span>C11 GCC 14</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              C Programming Practice
+              {((user as any)?.sectionName || (user as any)?.section || user?.department || 'Integrated Mtech')} — C Programming Practice
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              Targeted logic exercises with instant compiler feedback and syntax tip boxes. No timers, unlimited attempts.
+              Targeted logic exercises for {((user as any)?.sectionName || (user as any)?.section || user?.department || 'Integrated Mtech')} with instant compiler feedback and syntax tip boxes. No timers, unlimited attempts.
             </p>
           </div>
 

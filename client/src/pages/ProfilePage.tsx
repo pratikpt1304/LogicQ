@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.js';
-import { auth } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { doc, getDoc } from 'firebase/firestore';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import {
@@ -241,17 +242,31 @@ export const ProfilePage: React.FC = () => {
       if (isOwnProfile) {
         try {
           const effectiveUid = auth.currentUser?.uid || currentUser?.id || '';
+          const prnClean = (currentUser?.prn || auth.currentUser?.email?.split('@')[0] || '').trim().toUpperCase();
           let fsUser = null;
           let fsBackup = null;
           let fsPractice = null;
           let fsSubmissions: any[] = [];
-          if (auth.currentUser) {
-            [fsUser, fsBackup, fsPractice, fsSubmissions] = await Promise.all([
-              FirestoreDataService.getUserProfile(effectiveUid).catch(() => null),
-              FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null),
-              FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null),
-              FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []),
-            ]);
+          let cohortData: any = null;
+
+          const queryPromises: Promise<any>[] = [
+            effectiveUid ? FirestoreDataService.getUserProfile(effectiveUid).catch(() => null) : Promise.resolve(null),
+            effectiveUid ? FirestoreDataService.getStatsBackup(effectiveUid).catch(() => null) : Promise.resolve(null),
+            effectiveUid ? FirestoreDataService.getPracticeProgress(effectiveUid).catch(() => null) : Promise.resolve(null),
+            effectiveUid ? FirestoreDataService.getUserSubmissions(effectiveUid).catch(() => []) : Promise.resolve([]),
+          ];
+
+          if (prnClean) {
+            queryPromises.push(getDoc(doc(db, 'cohort_progress', prnClean)).catch(() => null));
+          }
+
+          const results = await Promise.all(queryPromises);
+          fsUser = results[0];
+          fsBackup = results[1];
+          fsPractice = results[2];
+          fsSubmissions = results[3] || [];
+          if (results[4] && results[4].exists()) {
+            cohortData = results[4].data();
           }
 
           // Calculate solved problems from local storage fallback as well
@@ -303,10 +318,14 @@ export const ProfilePage: React.FC = () => {
             }
           } catch {}
 
+          const cohortCompletedList = Array.isArray(cohortData?.completedProblems) ? cohortData.completedProblems : [];
+          const cohortSolvedCount = cohortData?.totalSolved || cohortCompletedList.length;
+
           const fsSolvedCount = Math.max(
             fsPractice?.completedProblems?.length || 0,
             fsBackup?.totalSolved || 0,
-            fsBackup?.completedProblems?.length || 0
+            fsBackup?.completedProblems?.length || 0,
+            cohortSolvedCount
           );
           const acceptedSubmissionsCount = new Set(
             fsSubmissions.filter((s) => s.verdict === 'ACCEPTED').map((s) => s.problemId)
@@ -317,6 +336,7 @@ export const ProfilePage: React.FC = () => {
             serverUser?.practiceStats?.totalSolved || 0,
             fsSolvedCount,
             acceptedSubmissionsCount,
+            cohortSolvedCount,
             localSolvedCount,
             localAcceptedCount
           );
@@ -410,6 +430,7 @@ export const ProfilePage: React.FC = () => {
             currentUser?.totalPoints || 0,
             fsUser?.totalPoints || 0,
             fsBackup?.totalPoints || 0,
+            cohortData?.totalPoints || 0,
             cachedPoints,
             solvedPoints,
             authoritativeSolved * 20,
@@ -1053,12 +1074,28 @@ export const ProfilePage: React.FC = () => {
   const isFacultyProfile = !isAdminProfile && (profile.role === 'FACULTY' || (isOwnProfile && (currentUser?.role === 'FACULTY' || isFaculty)));
   const isAdminOrFaculty = isAdminProfile || isFacultyProfile;
 
-  let solvedTopicIds: string[] = [];
+  const solvedTopicIdsSet = new Set<string>();
   try {
-    solvedTopicIds = getSolvedPracticeTopicIds();
-  } catch {
-    solvedTopicIds = [];
+    getSolvedPracticeTopicIds().forEach((id) => solvedTopicIdsSet.add(id));
+  } catch {}
+
+  // Cross-device Firestore sync: Include all completed problems from profile and submissions
+  if (Array.isArray(profile?.completedProblems)) {
+    profile.completedProblems.forEach((p: string) => p && solvedTopicIdsSet.add(String(p)));
   }
+  const currentAny = currentUser as any;
+  if (Array.isArray(currentAny?.completedProblems)) {
+    currentAny.completedProblems.forEach((p: string) => p && solvedTopicIdsSet.add(String(p)));
+  }
+  if (Array.isArray(profile?.recentSubmissions)) {
+    profile.recentSubmissions.forEach((s: any) => {
+      if (s?.verdict === 'ACCEPTED' || s?.status === 'PASSED') {
+        const pid = s.problemId || s.problem?.slug || s.problemSlug || s.id;
+        if (pid) solvedTopicIdsSet.add(String(pid));
+      }
+    });
+  }
+  const solvedTopicIds = Array.from(solvedTopicIdsSet);
 
   // Practice Modules (100 Topics total across 4 modules)
   const m1PracticeSolved = TOPIC_PRACTICE_DATA.filter((t) => t.moduleIndex === 1 && solvedTopicIds.includes(t.id)).length;
