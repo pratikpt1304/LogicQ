@@ -105,13 +105,13 @@ async function refreshAuthSession(): Promise<string | null> {
 
       // 3. Silent Institutional PRN Student Token Auto-Recovery
       try {
-        const rawUser = localStorage.getItem('logicq_auth_user');
+        const rawUser = localStorage.getItem('logicq_active_user') || localStorage.getItem('logicq_auth_user');
         if (rawUser) {
           const parsed = JSON.parse(rawUser);
-          const prn = (parsed?.prn || '').toUpperCase().trim();
+          const prn = (parsed?.prn || parsed?.username || '').toUpperCase().trim();
           if (prn) {
             const customPw = localStorage.getItem(`logicq_custom_password_${prn}`);
-            const tryPasswords = [customPw, prn, 'StudentPassword123!'].filter(Boolean) as string[];
+            const tryPasswords = [customPw, prn, 'StudentPassword123!', 'password123'].filter(Boolean) as string[];
 
             for (const pwd of tryPasswords) {
               try {

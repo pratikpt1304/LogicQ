@@ -132,8 +132,12 @@ export const AdminPortalPage: React.FC = () => {
                 const academicScore = mod.academicScore !== undefined ? Number(mod.academicScore) : Math.min(100, Math.round(totalSolved * 20));
                 const integrityScore = mod.integrityScore !== undefined ? Number(mod.integrityScore) : (u.integrityScore ?? 100);
 
+                const sName = u.fullName || u.displayName || u.name || u.username || 'Student Candidate';
                 return {
                   ...u,
+                  name: sName,
+                  fullName: u.fullName || sName,
+                  displayName: u.displayName || sName,
                   totalSolved,
                   totalPoints,
                   academicScore,

@@ -546,11 +546,11 @@ export const AdminAnswerBankTab: React.FC = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
-                        {student.name.slice(0, 2).toUpperCase()}
+                        {(student.name || (student as any).fullName || (student as any).displayName || 'ST').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                          {student.name}
+                          {student.name || (student as any).fullName || (student as any).displayName || 'Student'}
                         </h3>
                         <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
                           {student.email}
@@ -612,12 +612,12 @@ export const AdminAnswerBankTab: React.FC = () => {
             <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-white/5 shrink-0">
               <div className="flex items-center gap-3.5">
                 <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-blue-500/20">
-                  {inspectedStudent.name.slice(0, 2).toUpperCase()}
+                  {(inspectedStudent.name || (inspectedStudent as any).fullName || (inspectedStudent as any).displayName || 'ST').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">
-                      {inspectedStudent.name}
+                      {inspectedStudent.name || (inspectedStudent as any).fullName || (inspectedStudent as any).displayName || 'Student'}
                     </h3>
                     <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300">
                       {inspectedStudent.prn}

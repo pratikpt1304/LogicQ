@@ -952,11 +952,11 @@ export const AdminIntegrityTab: React.FC = () => {
                                 : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white'
                             }`}
                           >
-                            {student.name.slice(0, 2).toUpperCase()}
+                            {(student.name || (student as any).fullName || (student as any).displayName || 'ST').slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
                             <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                              {student.name}
+                              {student.name || (student as any).fullName || (student as any).displayName || 'Student'}
                             </h3>
                             <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
                               {student.email}

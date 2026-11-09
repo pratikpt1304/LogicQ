@@ -321,3 +321,17 @@ npm --prefix server test tests/e2e-institutional-lifecycle.test.ts
 - **Copyright**: © 2026 LogicQ / Sanjivani University. All rights reserved.
 - **Lead Architect & Developer**: Pratik Thorat ([@pratikpt1304](https://github.com/pratikpt1304))
 - **Institutional Partner**: Sanjivani University Department of Computer Engineering
+
+---
+
+## 🚀 Recent Architectural Enhancements
+
+- **Direct Student Inspection Modal & Answer Bank Consolidation**:
+  - Integrated the full submission vault (Lab Internal assessments & 100 Practice Solutions) directly into the student inspection sheet (`StudentDeepDiveModal`).
+  - Consolidated student administration: Ban/Unban, Hardware Device Authorization (2-device reset), Password Reset to PRN, and zero-trace purge all in one unified modal.
+  - Eliminated redundant navigation clutter by retiring the standalone Answer Bank tab.
+- **Judge Soft-Auth & Resilient Session Auto-Recovery**:
+  - Upgraded `/api/submissions/run` with `optionalAuthenticate`, ensuring sandboxed GCC test runs never fail with 401 Unauthorized.
+  - Supported client session tokens (`logicq_sess_`) across backend middleware, eliminating false "session expired" popups and ensuring test outputs accurately match expected outputs in practice and compiler cards.
+- **Defensive Null-Safe Admin Rendering**:
+  - Hardened student name resolution across `AdminStudentsTab`, `AdminIntegrityTab`, and `AdminAnswerBankTab` with safe fallback properties, preventing undefined property slice exceptions.

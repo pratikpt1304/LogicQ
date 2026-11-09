@@ -97,6 +97,7 @@ export const AdminStudentsTab: React.FC = () => {
                 .filter((s: any) => !FirestoreDataService.isPurgedStudent(s) && !isRohanRecord(s))
                 .map((s: any) => ({
                   ...s,
+                  name: s.name || s.fullName || s.displayName || 'Student Candidate',
                   section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
                 }));
               setStudents(cleaned);
@@ -613,6 +614,8 @@ export const AdminStudentsTab: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudents.map((st) => {
             const isEmailCopied = copiedEmail === st.email;
+            const studentDisplayName = st.name || (st as any).fullName || (st as any).displayName || 'Student Candidate';
+            const studentInitials = (studentDisplayName || 'ST').slice(0, 2).toUpperCase();
 
             return (
               <div
@@ -623,13 +626,13 @@ export const AdminStudentsTab: React.FC = () => {
                 {/* Top: Avatar + Identity + Section */}
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0 mt-0.5">
-                    {st.name.slice(0, 2).toUpperCase()}
+                    {studentInitials}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white leading-tight group-hover:text-blue-500 transition-colors truncate max-w-[170px]" title={st.name}>
-                        {st.name}
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white leading-tight group-hover:text-blue-500 transition-colors truncate max-w-[170px]" title={studentDisplayName}>
+                        {studentDisplayName}
                       </h4>
                       {st.prn === 'LOGICQARENA' && (
                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400">
