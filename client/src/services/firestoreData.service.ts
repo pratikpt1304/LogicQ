@@ -2767,6 +2767,13 @@ export class FirestoreDataService {
       name === 'dummy student'
     ) return false;
 
+    // Purge any anonymous/unlinked test sessions lacking authentic institutional PRN
+    if (!prn || prn === '—' || prn === '-' || prn === 'GUEST' || prn === 'UNDEFINED' || prn === 'NULL') {
+      if (!name || name === 'student' || name.startsWith('student') || name.startsWith('candidate') || name === 'guest') {
+        return true;
+      }
+    }
+
     // Purge any synthetic candidates (Candidate 2126..., Candidate DEMO..., etc.)
     if (
       name.startsWith('candidate ') ||
@@ -2897,6 +2904,12 @@ export class FirestoreDataService {
         '2199TESM0003',
         '2199TESF0099',
         '2199TESF0002',
+        'guest',
+        'student',
+        '—',
+        '-',
+        'undefined',
+        'null',
       ];
       const directKeys = [
         'demo1',
@@ -2929,6 +2942,12 @@ export class FirestoreDataService {
         '2199TESM0003',
         '2199TESF0099',
         '2199TESF0002',
+        'guest',
+        'student',
+        '—',
+        '-',
+        'undefined',
+        'null',
       ];
 
       for (const k of directKeys) {

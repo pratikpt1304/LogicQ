@@ -289,21 +289,26 @@ export const AdminIntegrityTab: React.FC = () => {
 
         const studentsMap = new Map<string, any>();
 
-        // Populate from enrolled_students first (guarantees all 116 enrolled students are present)
+        // Populate from enrolled_students first (guarantees all authentic enrolled students are present)
         if (enrolledSnap) {
           enrolledSnap.forEach((d) => {
             const raw = d.data();
             if (!raw || FirestoreDataService.isPurgedStudent(raw)) return;
             const prnClean = (raw.prn || '').toUpperCase().trim();
-            const key = prnClean || d.id.toUpperCase().trim();
+            // Skip any ghost entry without authentic PRN
+            if (!prnClean || prnClean === '—' || prnClean === '-' || prnClean === 'GUEST' || prnClean === 'UNDEFINED' || prnClean === 'NULL') return;
+            const rawName = (raw.fullName || raw.displayName || raw.name || '').trim();
+            if (!rawName || rawName.toLowerCase() === 'student' || rawName.toLowerCase().startsWith('candidate ')) return;
+
+            const key = prnClean;
             const rawSection = raw.sectionName || raw.section || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech');
             const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
               ? 'Integrated Mtech'
               : rawSection;
             studentsMap.set(key, {
               id: d.id,
-              name: raw.fullName || raw.displayName || raw.name || 'Student',
-              prn: prnClean || '—',
+              name: rawName,
+              prn: prnClean,
               email: (raw.email || '').toLowerCase().trim() || '—',
               section: normalizedSection,
               integrityScore: raw.integrityScore ?? 100,
@@ -311,22 +316,30 @@ export const AdminIntegrityTab: React.FC = () => {
           });
         }
 
-        // Merge any additional users from firestoreUsers
+        // Merge any additional registered users from firestoreUsers ONLY if they have a valid institutional PRN
         if (Array.isArray(firestoreUsers)) {
           firestoreUsers
-            .filter((u: any) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+            .filter((u: any) => {
+              if (u.role && u.role !== 'STUDENT') return false;
+              if (u.email === 'logicqarena@gmail.com') return false;
+              if (FirestoreDataService.isPurgedStudent(u)) return false;
+              const prnKey = (u.prn || '').toUpperCase().trim();
+              if (!prnKey || prnKey === '—' || prnKey === '-' || prnKey === 'GUEST' || prnKey === 'UNDEFINED' || prnKey === 'NULL') return false;
+              const rawName = (u.fullName || u.displayName || u.username || u.name || '').trim();
+              if (!rawName || rawName.toLowerCase() === 'student' || rawName.toLowerCase().startsWith('candidate ')) return false;
+              return true;
+            })
             .forEach((u: any) => {
               const prnKey = (u.prn || '').toUpperCase().trim();
-              const key = prnKey || (u.id || u.uid || '').toUpperCase().trim();
-              if (key && !studentsMap.has(key)) {
+              if (prnKey && !studentsMap.has(prnKey)) {
                 const rawSection = u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech');
                 const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
                   ? 'Integrated Mtech'
                   : rawSection;
-                studentsMap.set(key, {
+                studentsMap.set(prnKey, {
                   id: u.id || u.uid,
-                  name: u.fullName || u.displayName || u.username || 'Student',
-                  prn: prnKey || '—',
+                  name: u.fullName || u.displayName || u.username || u.name,
+                  prn: prnKey,
                   email: u.email || '—',
                   section: normalizedSection,
                   integrityScore: u.integrityScore || 100,
@@ -350,8 +363,10 @@ export const AdminIntegrityTab: React.FC = () => {
         const records: StudentForensicRecord[] = Array.from(studentsMap.values())
           .filter((s) => {
             if (FirestoreDataService.isPurgedStudent(s)) return false;
-            const nm = String(s.name || s.fullName || s.displayName || '');
-            if (nm.startsWith('Candidate ') || nm.includes('Rahul') || nm.includes('Amit') || nm.includes('Sneha')) return false;
+            const nm = String(s.name || s.fullName || s.displayName || '').trim();
+            const prn = String(s.prn || '').trim().toUpperCase();
+            if (!prn || prn === '—' || prn === '-' || prn === 'GUEST' || prn === 'UNDEFINED' || prn === 'NULL') return false;
+            if (!nm || nm.toLowerCase() === 'student' || nm.startsWith('Candidate ') || nm.includes('Rahul') || nm.includes('Amit') || nm.includes('Sneha')) return false;
             return true;
           })
           .map((s) => {
@@ -702,11 +717,21 @@ export const AdminIntegrityTab: React.FC = () => {
   ]);
 
   const flaggedStudentsCount = useMemo(() => {
-    return studentsForensics.filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0).length;
+    return studentsForensics.filter((s) => {
+      const prn = String(s.prn || '').trim();
+      const nm = String(s.name || '').trim().toLowerCase();
+      if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
+      return s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0;
+    }).length;
   }, [studentsForensics]);
 
   const cleanStudentsCount = useMemo(() => {
-    return studentsForensics.filter((s) => s.status === 'CLEAN' && s.tabSwitches === 0 && s.pasteBursts === 0).length;
+    return studentsForensics.filter((s) => {
+      const prn = String(s.prn || '').trim();
+      const nm = String(s.name || '').trim().toLowerCase();
+      if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
+      return s.status === 'CLEAN' && s.tabSwitches === 0 && s.pasteBursts === 0;
+    }).length;
   }, [studentsForensics]);
 
   return (
@@ -1136,7 +1161,12 @@ export const AdminIntegrityTab: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {studentsForensics
-                .filter((s) => s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0)
+                .filter((s) => {
+                  const prn = String(s.prn || '').trim();
+                  const nm = String(s.name || '').trim().toLowerCase();
+                  if (!prn || prn === '—' || prn === '-' || nm === 'student' || nm.startsWith('candidate ')) return false;
+                  return s.status !== 'CLEAN' || s.tabSwitches > 0 || s.pasteBursts > 0;
+                })
                 .map((s) => (
                   <div
                     key={s.id}
