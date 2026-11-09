@@ -35,6 +35,31 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { generateIndividualStudentPdf } from '../../utils/studentPdfGenerator.js';
+import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
+
+const resolvePracticeModule = (sub: any): string => {
+  const probId = String(sub.problemId || sub.problemSlug || '').trim().toLowerCase();
+  const probTitle = String(sub.problemTitle || sub.title || '').trim().toLowerCase();
+  const matched = TOPIC_PRACTICE_DATA.find((t) =>
+    t.id.toLowerCase() === probId ||
+    t.topicTitle.toLowerCase() === probTitle ||
+    t.problem.title.toLowerCase() === probTitle ||
+    (probId && t.id.toLowerCase().includes(probId)) ||
+    (probTitle && t.topicTitle.toLowerCase().includes(probTitle)) ||
+    (probTitle && t.problem.title.toLowerCase().includes(probTitle))
+  );
+
+  if (matched?.moduleTitle) {
+    return matched.moduleTitle;
+  }
+  if (matched?.moduleIndex) {
+    return `Module ${matched.moduleIndex}`;
+  }
+  if (sub.testTitle && sub.testTitle !== 'Continuous Practical Lab') {
+    return sub.testTitle;
+  }
+  return 'Module 1: C Fundamentals';
+};
 
 interface StudentDeepDiveModalProps {
   student: any;
@@ -850,26 +875,29 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                                 Attempt #{sub.attemptNumber || 1}
                               </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                {resolvePracticeModule(sub)}
+                              </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 Practice
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5 flex-wrap">
                               <span>
                                 {sub.submittedAt
                                   ? new Date(sub.submittedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
-                                  : 'Live Session'}
+                                  : 'Submitted'}
                               </span>
                               <span>•</span>
-                              <span className="text-indigo-500 dark:text-indigo-400 font-semibold">Attempt #{sub.attemptNumber || 1}</span>
-                              {sub.difficulty && (
-                                <>
-                                  <span>•</span>
-                                  <span>{sub.difficulty}</span>
-                                </>
-                              )}
+                              <span className="font-semibold text-purple-500 dark:text-purple-400">{resolvePracticeModule(sub)}</span>
                               <span>•</span>
-                              <span>{sub.tabSwitchCount || 0} Tabs • {sub.copyPasteAttempts || 0} Pastes</span>
+                              <span>Attempt #{sub.attemptNumber || 1}</span>
+                              <span>•</span>
+                              <span>{sub.difficulty || 'EASY'}</span>
+                              <span>•</span>
+                              <span>{sub.tabSwitchCount || 0} Tabs</span>
+                              <span>•</span>
+                              <span>{sub.copyPasteAttempts || sub.pasteBursts || 0} Pastes</span>
                             </div>
                           </div>
                         </div>

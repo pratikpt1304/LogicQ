@@ -207,6 +207,20 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     credentials: 'include',
   };
 
+  // For sandbox / dry-run execution against GCC, non-UUID slugs (e.g. 'm1-t1-basic-io')
+  // must never fail backend schema validation (z.string().uuid()).
+  if (cleanEndpoint === '/submissions/run' || cleanEndpoint === '/problems/run') {
+    if (config.body && typeof config.body === 'string') {
+      try {
+        const parsed = JSON.parse(config.body);
+        if (parsed.problemId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(parsed.problemId))) {
+          delete parsed.problemId;
+          config.body = JSON.stringify(parsed);
+        }
+      } catch {}
+    }
+  }
+
   let response: Response | null = null;
   let useFallback = false;
 

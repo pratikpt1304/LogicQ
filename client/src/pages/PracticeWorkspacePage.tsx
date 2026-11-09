@@ -1314,8 +1314,10 @@ export const PracticeWorkspacePage: React.FC = () => {
       }
       const currentCase = sampleCases[selectedCaseIndex] || sampleCases[0];
       const stdinInput = currentCase?.input ?? customInput ?? '';
+      const rawProbId = problem?.id || problem?.slug || problemSlug;
+      const validUuid = Boolean(rawProbId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(rawProbId)));
       return api.post('/submissions/run', {
-        problemId: problem?.id || problem?.slug || problemSlug,
+        ...(validUuid ? { problemId: rawProbId } : {}),
         code,
         stdin: stdinInput,
         timeLimitMs: problem?.timeLimitMs || 1000,

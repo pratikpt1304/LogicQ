@@ -63,6 +63,7 @@ import { FirestoreDataService } from '../services/firestoreData.service.js';
 import { RealtimeSyncService } from '../services/realtimeSync.service.js';
 import { DraftSyncService, DraftData, getDeviceLabel } from '../services/draftSync.service.js';
 import { api } from '../api/client.js';
+import { handleFallbackRequest } from '../api/fallbackEngine.js';
 import { formatPracticeTime } from '../components/practice/PracticeTimer.js';
 import { getPracticeModuleUnlockInfo } from '../utils/progression.js';
 
@@ -973,29 +974,48 @@ export const TopicPracticeHubPage: React.FC = () => {
       const currentCode = codeRef.current || code;
 
       // Standard automated mode: evaluate BOTH open and hidden use cases automatically without manual typing
+      const isUuid = (id?: string) => Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id)));
       const [resOpen, resHidden] = await Promise.all([
         api.post('/submissions/run', {
           code: currentCode,
-          problemId: activeTopic.id,
+          ...(isUuid(activeTopic.id) ? { problemId: activeTopic.id } : {}),
           stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
-        }).catch((err) => ({
-          error: err?.message || 'Execution failed',
-          compileOutput: err?.message || 'Execution failed',
-          stdout: '',
-          verdict: 'COMPILATION_ERROR',
-        })),
+        }).catch((err) =>
+          handleFallbackRequest('/submissions/run', {
+            method: 'POST',
+            body: JSON.stringify({
+              code: currentCode,
+              problemId: activeTopic.id,
+              stdin: (activeTopic.problem.openTestCase.input || '').trim() + '\n',
+            }),
+          }).catch(() => ({
+            error: err?.message || 'Execution failed',
+            compileOutput: err?.message || 'Execution failed',
+            stdout: '',
+            verdict: 'COMPILATION_ERROR',
+          }))
+        ),
         api.post('/submissions/run', {
           code: currentCode,
-          problemId: activeTopic.id,
+          ...(isUuid(activeTopic.id) ? { problemId: activeTopic.id } : {}),
           stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
           timeLimitMs: 2000,
-        }).catch((err) => ({
-          error: err?.message || 'Execution failed',
-          compileOutput: err?.message || 'Execution failed',
-          stdout: '',
-          verdict: 'COMPILATION_ERROR',
-        })),
+        }).catch((err) =>
+          handleFallbackRequest('/submissions/run', {
+            method: 'POST',
+            body: JSON.stringify({
+              code: currentCode,
+              problemId: activeTopic.id,
+              stdin: (activeTopic.problem.hiddenTestCase.input || '').trim() + '\n',
+            }),
+          }).catch(() => ({
+            error: err?.message || 'Execution failed',
+            compileOutput: err?.message || 'Execution failed',
+            stdout: '',
+            verdict: 'COMPILATION_ERROR',
+          }))
+        ),
       ]);
 
       const resolvePayload = (res: any) => {

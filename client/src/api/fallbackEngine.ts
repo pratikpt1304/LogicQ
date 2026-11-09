@@ -824,7 +824,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           longestStreak: 0,
           password: cohortSt.prn,
           isBanned: false,
-          shortId: cohortSt.prn.slice(-4),
+          shortId: String(cohortSt.prn || '0000').slice(-4),
           createdAt: '2026-11-01T00:00:00.000Z',
         } as any;
         users.push(newRecord);
@@ -1204,7 +1204,7 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
           longestStreak: 0,
           password: cohortSt.prn,
           isBanned: false,
-          shortId: cohortSt.prn.slice(-4),
+          shortId: String(cohortSt.prn || '0000').slice(-4),
           createdAt: new Date().toISOString(),
         } as any;
         users.push(user as any);

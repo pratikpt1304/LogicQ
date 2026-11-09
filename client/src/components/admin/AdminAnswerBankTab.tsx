@@ -43,6 +43,30 @@ export interface AnswerBankStudent {
   lastActive: string;
 }
 
+const resolvePracticeModule = (sub: any): string => {
+  const probId = String(sub.problemId || sub.problemSlug || '').trim().toLowerCase();
+  const probTitle = String(sub.problemTitle || sub.title || '').trim().toLowerCase();
+  const matched = TOPIC_PRACTICE_DATA.find((t) =>
+    t.id.toLowerCase() === probId ||
+    t.topicTitle.toLowerCase() === probTitle ||
+    t.problem.title.toLowerCase() === probTitle ||
+    (probId && t.id.toLowerCase().includes(probId)) ||
+    (probTitle && t.topicTitle.toLowerCase().includes(probTitle)) ||
+    (probTitle && t.problem.title.toLowerCase().includes(probTitle))
+  );
+
+  if (matched?.moduleTitle) {
+    return matched.moduleTitle;
+  }
+  if (matched?.moduleIndex) {
+    return `Module ${matched.moduleIndex}`;
+  }
+  if (sub.testTitle && sub.testTitle !== 'Continuous Practical Lab') {
+    return sub.testTitle;
+  }
+  return 'Module 1: C Fundamentals';
+};
+
 export const AdminAnswerBankTab: React.FC = () => {
   const [students, setStudents] = useState<AnswerBankStudent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -919,6 +943,9 @@ export const AdminAnswerBankTab: React.FC = () => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                     Self-Paced Practice
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                    {resolvePracticeModule(sub)}
                                   </span>
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                                     pDiff === 'HARD' ? 'bg-rose-500/10 text-rose-600' :
