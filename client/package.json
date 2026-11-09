@@ -18,6 +18,7 @@
     "framer-motion": "^11.5.4",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.439.0",
     "monaco-editor": "^0.57.0",
     "qrcode": "^1.5.4",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "@types/jszip": "^3.4.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
