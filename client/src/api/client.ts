@@ -210,7 +210,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay
   // into browser localStorage fallback in production.
   if (useFallback || !response) {
-    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password'))) {
+    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
       let errorMsg = cleanEndpoint.startsWith('/submissions')

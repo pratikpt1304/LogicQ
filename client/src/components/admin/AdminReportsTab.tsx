@@ -367,8 +367,18 @@ export const AdminReportsTab: React.FC = () => {
               maxLen = str.length;
             }
           });
-          // Generous padding (+4) and minimum 14 chars width for clean presentation
-          return { wch: Math.max(maxLen + 4, 14) };
+          // Explicit column minimums so Excel online and desktop render beautifully without any truncation
+          let minWidth = 16;
+          if (key === 'Sr No') minWidth = 10;
+          else if (key === 'PRN') minWidth = 20;
+          else if (key === 'Student Name') minWidth = 34;
+          else if (key === 'Institutional Email') minWidth = 38;
+          else if (key === 'Section / Division') minWidth = 26;
+          else if (key === 'AI Viva Defense Status') minWidth = 24;
+          else if (key === 'Capstone Mini-Project') minWidth = 22;
+          else if (key === 'Identity Verified') minWidth = 18;
+
+          return { wch: Math.max(maxLen + 5, minWidth) };
         });
 
         worksheet['!cols'] = colWidths;

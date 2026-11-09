@@ -7,7 +7,7 @@ import { api } from '../../api/client.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { auth, db } from '../../config/firebase.js';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -254,6 +254,11 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             problemSlug: '__auth_credential',
             updatedAt: Date.now(),
           }, { merge: true });
+
+          setDoc(doc(db, 'enrolled_students', prnUpper), {
+            hasCustomPassword: true,
+            updatedAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
         } catch (fsErr) {
           console.warn('Firestore security credential write warning:', fsErr);
         }

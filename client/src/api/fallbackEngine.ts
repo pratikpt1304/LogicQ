@@ -1,5 +1,7 @@
 import { User, Role } from '../types/index.js';
 import { FirestoreDataService } from '../services/firestoreData.service.js';
+import { db } from '../config/firebase.js';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { C_PROGRAMMING_COHORT_STUDENTS, ALL_COHORT_STUDENTS, DEMO_SECTION_COHORT_STUDENTS, findCohortStudent } from '../data/c-programming-cohort.data.js';
 import { getStudentPersonalizedQuestions } from '../utils/testQuestionDistributor.js';
 import {
@@ -835,7 +837,26 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
     }
 
     const prnKey = (found.prn || '').toUpperCase().trim();
-    const customStoredPw = prnKey ? localStorage.getItem(`logicq_custom_password_${prnKey}`) : null;
+    let customStoredPw = prnKey ? localStorage.getItem(`logicq_custom_password_${prnKey}`) : null;
+
+    // Cross-Device Authoritative Check: Query Firestore account security credential
+    if (prnKey) {
+      try {
+        const secDoc = await getDoc(doc(db, 'cohort_progress', prnKey, 'drafts', '__account_security'));
+        if (secDoc.exists()) {
+          const fsPw = secDoc.data()?.code;
+          if (fsPw && typeof fsPw === 'string') {
+            customStoredPw = fsPw;
+            try {
+              localStorage.setItem(`logicq_custom_password_${prnKey}`, fsPw);
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('fallbackEngine Firestore password lookup skipped:', err);
+      }
+    }
+
     const hasCustomPassword = Boolean(customStoredPw && customStoredPw.toUpperCase() !== prnKey);
 
     let isValidPassword = false;
@@ -1069,6 +1090,30 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
         displayName: effectiveName,
         fullName: effectiveName,
       }).catch(() => {});
+
+      // Authoritative cross-device persistence for email binding:
+      try {
+        setDoc(doc(db, 'enrolled_students', effectivePrn), {
+          email: cleanEmail,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+
+        getDoc(doc(db, 'cohort_progress', effectivePrn)).then(cohortSnap => {
+          const existingMod = cohortSnap.exists() ? cohortSnap.data()?.moduleProgress || {} : {};
+          setDoc(doc(db, 'cohort_progress', effectivePrn), {
+            prn: effectivePrn,
+            moduleProgress: {
+              ...existingMod,
+              isEmailBound: true,
+              isEmailBoundV2: true,
+              boundEmail: cleanEmail,
+            },
+            updatedAt: Date.now(),
+          }, { merge: true }).catch(() => {});
+        }).catch(() => {});
+      } catch (syncErr) {
+        console.warn('fallbackEngine email binding sync notice:', syncErr);
+      }
     }
     return {
       success: true,
@@ -1202,6 +1247,17 @@ export async function handleFallbackRequest(endpoint: string, options: RequestIn
       try {
         localStorage.setItem(`logicq_custom_password_${prnKey}`, newPassword);
       } catch {}
+
+      // Authoritative cross-device persistence for custom password:
+      try {
+        setDoc(doc(db, 'cohort_progress', prnKey, 'drafts', '__account_security'), {
+          code: newPassword,
+          problemSlug: '__auth_credential',
+          updatedAt: Date.now(),
+        }, { merge: true }).catch(() => {});
+      } catch (secErr) {
+        console.warn('fallbackEngine password save warning:', secErr);
+      }
     }
     if (user.id) {
       try {

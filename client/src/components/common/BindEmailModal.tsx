@@ -244,7 +244,7 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
         const effectivePrn = (user.prn || '').toUpperCase().trim();
         const effectiveName = user.displayName || user.fullName || '';
 
-        // Immediate direct canonical write to Firestore enrolled_students
+        // Immediate direct canonical write to Firestore enrolled_students & cohort_progress
         if (effectivePrn) {
           try {
             const canonicalRef = doc(db, 'enrolled_students', effectivePrn);
@@ -260,6 +260,21 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
               status: 'ACTIVE',
               updatedAt: serverTimestamp(),
             }, { merge: true }).catch((err) => console.warn('Direct enrolled_students write notice:', err));
+
+            const cohortRef = doc(db, 'cohort_progress', effectivePrn);
+            setDoc(cohortRef, {
+              prn: effectivePrn,
+              boundEmail: cleanEmail,
+              isEmailBound: true,
+              isEmailBoundV2: true,
+              moduleProgress: {
+                boundEmail: cleanEmail,
+                isEmailBound: true,
+                isEmailBoundV2: true,
+                lastActiveTime: new Date().toISOString(),
+              },
+              updatedAt: Date.now(),
+            }, { merge: true }).catch(() => {});
           } catch (writeErr) {
             console.warn('Direct canonical write setup notice:', writeErr);
           }

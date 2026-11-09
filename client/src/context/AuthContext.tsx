@@ -267,10 +267,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const prnUpper = (finalUser.prn || active?.prn || '').toUpperCase();
 
       // Mandatory Institutional Email Binding Epoch V2 for all students:
-      // Invalidate legacy V1 flags so all students are prompted to bind their institutional email.
       const isStudentRole = finalUser.role === 'STUDENT';
+      const hasRealBoundEmail = Boolean(
+        finalUser.email &&
+        !finalUser.email.endsWith('@sanjivani.edu.in') &&
+        !finalUser.email.includes('placeholder')
+      );
       const isBoundV2 = !isStudentRole || Boolean(
         (finalUser as any).isEmailBoundV2 ||
+        (finalUser as any).isEmailBound ||
+        hasRealBoundEmail ||
         (prnUpper ? localStorage.getItem(`logicq_bound_v2_${prnUpper}`) === 'true' : false) ||
         (finalUser.id ? localStorage.getItem(`logicq_bound_v2_${finalUser.id}`) === 'true' : false) ||
         (active?.id ? localStorage.getItem(`logicq_bound_v2_${active.id}`) === 'true' : false)
@@ -279,7 +285,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const boundEmailV2 = isBoundV2
         ? (prnUpper ? localStorage.getItem(`logicq_bound_v2_email_${prnUpper}`) : null) ||
           (finalUser.id ? localStorage.getItem(`logicq_bound_v2_email_${finalUser.id}`) : null) ||
-          (finalUser.email && !finalUser.email.endsWith('@sanjivani.edu.in') && !finalUser.email.includes('placeholder') ? finalUser.email : '')
+          (hasRealBoundEmail ? finalUser.email : '')
         : '';
 
       if (prnUpper === '2126PMIM1039') {
@@ -287,14 +293,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         finalUser.displayName = 'Pratik Thorat';
         finalUser.role = 'STUDENT';
         finalUser.prn = '2126PMIM1039';
-        if (finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
+        if (!finalUser.email || finalUser.email?.toLowerCase() === 'faculty.demo@sanjivani.edu.in') {
           finalUser.email = 'thoratpratik2323@gmail.com';
         }
       }
 
       const retainedIsEmailBound = isMasterAdmin ? true : isBoundV2;
       const retainedEmailVerified = isMasterAdmin ? true : isBoundV2;
-      const retainedEmail = isMasterAdmin ? 'logicqarena@gmail.com' : (isBoundV2 ? (boundEmailV2 || finalUser.email || '') : '');
+      const retainedEmail = isMasterAdmin
+        ? 'logicqarena@gmail.com'
+        : (boundEmailV2 || finalUser.email || (prnUpper ? `${prnUpper.toLowerCase()}@sanjivani.edu.in` : ''));
+
+      if (isBoundV2 && prnUpper) {
+        try {
+          localStorage.setItem(`logicq_bound_v2_${prnUpper}`, 'true');
+          if (retainedEmail && !retainedEmail.endsWith('@sanjivani.edu.in')) {
+            localStorage.setItem(`logicq_bound_v2_email_${prnUpper}`, retainedEmail);
+          }
+        } catch {}
+      }
+
       const cleanSectionName = retainedSectionName ? String(retainedSectionName).replace(/\s*\(Presidential Showcase\)/gi, '').trim() : '';
 
       finalUser = {
@@ -1336,11 +1354,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           const expectedPw = customPw || registeredUser.password || effectivePrn;
-          const isMatch =
-            cleanPwd === expectedPw ||
-            cleanPwd.toLowerCase() === expectedPw.toLowerCase() ||
-            cleanPwd.toUpperCase() === effectivePrn ||
-            cleanPwd === 'password123';
+          let isMatch = false;
+          if (customPw && customPw.toUpperCase() !== effectivePrn) {
+            if (cleanPwd === customPw) {
+              isMatch = true;
+            } else if (cleanPwd.toUpperCase() === effectivePrn) {
+              throw new Error('You have changed your password. The default PRN password is no longer valid. Please enter your new password.');
+            } else {
+              throw new Error('Invalid password. Please enter the new password you set for this account.');
+            }
+          } else {
+            isMatch =
+              cleanPwd === expectedPw ||
+              cleanPwd.toLowerCase() === expectedPw.toLowerCase() ||
+              cleanPwd.toUpperCase() === effectivePrn ||
+              cleanPwd === 'password123';
+          }
 
           if (!isMatch) {
             throw new Error('Invalid password. Please enter the password you set for this account.');
@@ -1376,6 +1405,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!authUser) {
       throw new Error('Failed to sign in. Please verify your PRN and password.');
     }
+
+    // Cross-Device Authoritative Hydration: Restore bound email and progress from Firestore
+    if (authUser.role === 'STUDENT' && authUser.prn) {
+      const studentPrn = authUser.prn.toUpperCase().trim();
+      try {
+        const enrSnap = await getDoc(doc(db, 'enrolled_students', studentPrn));
+        if (enrSnap.exists()) {
+          const enr = enrSnap.data();
+          if (enr.fullName || enr.name) {
+            authUser.fullName = enr.fullName || enr.name;
+            authUser.displayName = enr.displayName || enr.fullName || enr.name;
+          }
+          if (enr.email && !enr.email.includes('placeholder')) {
+            authUser.email = enr.email;
+            if (!enr.email.endsWith('@sanjivani.edu.in')) {
+              authUser.isEmailBound = true;
+              (authUser as any).isEmailBoundV2 = true;
+              authUser.emailVerified = true;
+              try {
+                localStorage.setItem(`logicq_bound_v2_${studentPrn}`, 'true');
+                localStorage.setItem(`logicq_bound_v2_email_${studentPrn}`, enr.email);
+              } catch {}
+            }
+          }
+        }
+      } catch (enrErr) {
+        console.warn('enrolled_students hydration notice:', enrErr);
+      }
+
+      try {
+        const cohortSnap = await getDoc(doc(db, 'cohort_progress', studentPrn));
+        if (cohortSnap.exists()) {
+          const cData = cohortSnap.data();
+          if (cData.totalPoints !== undefined) {
+            authUser.totalPoints = Math.max(authUser.totalPoints || 0, Number(cData.totalPoints || 0));
+          }
+          if (cData.currentStreak !== undefined) {
+            authUser.currentStreak = Math.max(authUser.currentStreak || 0, Number(cData.currentStreak || 0));
+          }
+          if (cData.longestStreak !== undefined) {
+            authUser.longestStreak = Math.max(authUser.longestStreak || 0, Number(cData.longestStreak || 0));
+          }
+          if (cData.totalSolved !== undefined) {
+            authUser.totalSolved = Math.max((authUser as any).totalSolved || 0, Number(cData.totalSolved || 0));
+          }
+          if (Array.isArray(cData.completedProblems) && cData.completedProblems.length > 0) {
+            authUser.totalSolved = Math.max((authUser as any).totalSolved || 0, cData.completedProblems.length);
+            try {
+              localStorage.setItem(`logicq_completed_problems_${studentPrn}`, JSON.stringify(cData.completedProblems));
+              localStorage.setItem(`logicq_solved_${studentPrn}`, JSON.stringify(cData.completedProblems));
+              if (authUser.id) {
+                localStorage.setItem(`logicq_completed_problems_${authUser.id}`, JSON.stringify(cData.completedProblems));
+                localStorage.setItem(`logicq_solved_${authUser.id}`, JSON.stringify(cData.completedProblems));
+              }
+            } catch {}
+          }
+          const bEmail = cData.boundEmail || cData.moduleProgress?.boundEmail;
+          if (bEmail && !bEmail.endsWith('@sanjivani.edu.in')) {
+            authUser.email = bEmail;
+            authUser.isEmailBound = true;
+            (authUser as any).isEmailBoundV2 = true;
+            authUser.emailVerified = true;
+            try {
+              localStorage.setItem(`logicq_bound_v2_${studentPrn}`, 'true');
+              localStorage.setItem(`logicq_bound_v2_email_${studentPrn}`, bEmail);
+            } catch {}
+          }
+        }
+      } catch (cohortErr) {
+        console.warn('cohort_progress hydration notice:', cohortErr);
+      }
+    }
+
     if (authUser.role === 'STUDENT' && authUser.prn) {
       const reg = await DeviceSessionService.registerDeviceSession(authUser.prn);
       if (!reg.success) {
