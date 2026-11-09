@@ -17,6 +17,7 @@ import {
   Share2,
   Search,
   User,
+  RefreshCw,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
@@ -46,6 +47,7 @@ export const AdminReportsTab: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, studentName: '' });
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -66,180 +68,303 @@ export const AdminReportsTab: React.FC = () => {
     return [];
   });
 
+  // Authoritative real-time fetch directly from Cloud Firestore
+  const fetchAuthoritativeReportStudents = async (showNotice = false): Promise<any[]> => {
+    try {
+      if (showNotice) {
+        setIsRefreshing(true);
+      }
+
+      const [enrolledSnap, realSections, realUsers, cohortSnap, assessSnap, subSnap] = await Promise.all([
+        getDocs(collection(db, 'enrolled_students')).catch(() => null),
+        FirestoreDataService.getSectionsFromFirestore().catch(() => []),
+        FirestoreDataService.getAllFirestoreUsers().catch(() => []),
+        getDocs(collection(db, 'cohort_progress')).catch(() => null),
+        getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
+        getDocs(collection(db, 'submissions')).catch(() => null),
+      ]);
+
+      const cohortMap = new Map<string, any>();
+      if (cohortSnap) {
+        cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+      }
+
+      const enrolledMap = new Map<string, any>();
+      if (enrolledSnap) {
+        enrolledSnap.forEach((d) => enrolledMap.set(d.id.toUpperCase().trim(), d.data()));
+      }
+
+      const assessSubs: any[] = [];
+      if (assessSnap) {
+        assessSnap.forEach((d: any) => assessSubs.push(d.data()));
+      }
+
+      const genSubs: any[] = [];
+      if (subSnap) {
+        subSnap.forEach((d: any) => genSubs.push(d.data()));
+      }
+
+      const allSubs = [...assessSubs, ...genSubs];
+
+      // Base student collection: union of enrolled_students, users, and sections
+      const studentMap = new Map<string, any>();
+
+      // 1. First add from enrolled_students (authoritative roster of enrolled students)
+      if (enrolledSnap) {
+        enrolledSnap.forEach((d) => {
+          const raw = d.data();
+          const prnClean = (raw.prn || d.id).toUpperCase().trim();
+          studentMap.set(prnClean, {
+            ...raw,
+            id: d.id,
+            prn: prnClean,
+            fullName: raw.fullName || raw.name || raw.displayName || 'Student',
+            displayName: raw.displayName || raw.name || raw.fullName || 'Student',
+            email: raw.email || `${prnClean.toLowerCase()}@sanjivani.edu.in`,
+          });
+        });
+      }
+
+      // 2. Add / merge with realUsers
+      if (Array.isArray(realUsers)) {
+        realUsers.forEach((u: any) => {
+          const prnClean = (u.prn || '').toUpperCase().trim();
+          if (!prnClean || FirestoreDataService.isPurgedStudent(u)) return;
+          const existing = studentMap.get(prnClean) || {};
+          studentMap.set(prnClean, {
+            ...existing,
+            ...u,
+            prn: prnClean,
+            fullName: u.fullName || u.name || existing.fullName || 'Student',
+            displayName: u.displayName || u.name || existing.displayName || 'Student',
+            email: existing.email || u.email || `${prnClean.toLowerCase()}@sanjivani.edu.in`,
+          });
+        });
+      }
+
+      const rawList = Array.from(studentMap.values()).filter(
+        (u: any) =>
+          (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
+          !FirestoreDataService.isPurgedStudent(u)
+      );
+
+      const processed = rawList.map((u: any) => {
+        const prnClean = (u.prn || '').toUpperCase().trim();
+        const userEmail = (u.email || '').toLowerCase().trim();
+        const userId = String(u.id || u.uid || '').trim();
+
+        const cData = cohortMap.get(prnClean) ||
+                      cohortMap.get(prnClean.replace(/0/g, 'O')) ||
+                      cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                      cohortMap.get(userId.toUpperCase()) || {};
+        const enrData = enrolledMap.get(prnClean) || {};
+        const mod = cData.moduleProgress || {};
+
+        // Match student's submissions across tests and practice
+        const matchedSubs = allSubs.filter((s: any) => {
+          const sPrn = (s.studentPrn || s.prn || '').toUpperCase().trim();
+          const sEmail = (s.studentEmail || s.email || '').toLowerCase().trim();
+          const sUid = (s.userId || s.studentId || '').trim();
+          return (prnClean && FirestoreDataService.arePrnsMatching(sPrn, prnClean)) ||
+                 (userEmail && sEmail && sEmail === userEmail) ||
+                 (userId && sUid && sUid === userId);
+        });
+
+        const uniqueProblems = new Set<string>();
+        const labProblems = new Set<string>();
+        const practiceProblems = new Set<string>();
+
+        let totalSubPoints = 0;
+        let lastActionTime: string | null = null;
+
+        matchedSubs.forEach((s: any) => {
+          const isPassed = s.verdict === 'ACCEPTED' || s.status === 'PASSED' || (Number(s.academicScore) || 0) > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed));
+          const pId = s.problemId || s.problemTitle || s.problemSlug || s.title || s.id;
+          if (pId) {
+            uniqueProblems.add(pId);
+            if (s.track === 'assessment' || s.track === 'lab' || s.testId || s.type === 'LAB_INTERNAL') {
+              labProblems.add(pId);
+            } else {
+              practiceProblems.add(pId);
+            }
+          }
+          const subPts = Number(s.academicScore) || Number(s.score) || Number(s.points) || 0;
+          totalSubPoints += subPts;
+
+          const sTime = s.submittedAt || s.createdAt || s.timestamp;
+          if (sTime) {
+            if (!lastActionTime || new Date(sTime).getTime() > new Date(lastActionTime).getTime()) {
+              lastActionTime = sTime;
+            }
+          }
+        });
+
+        if (Array.isArray(cData.completedProblems)) {
+          cData.completedProblems.forEach((p: string) => {
+            uniqueProblems.add(p);
+            if (p.startsWith('m') || p.includes('topic') || p.includes('practice')) {
+              practiceProblems.add(p);
+            } else {
+              labProblems.add(p);
+            }
+          });
+        }
+
+        const totalSolved = Math.max(
+          uniqueProblems.size,
+          cData.totalSolved ?? 0,
+          u.totalSolved ?? 0
+        );
+
+        const labSolved = labProblems.size;
+        const practiceSolved = Math.max(practiceProblems.size, totalSolved - labSolved);
+
+        const totalPoints = Math.max(
+          Math.round(totalSubPoints),
+          cData.totalPoints ?? 0,
+          u.totalPoints ?? 0,
+          totalSolved * 20
+        );
+
+        const tabSwitches = Math.max(
+          Number(mod.tabSwitches) || 0,
+          Number(enrData.tabSwitchCount) || 0,
+          Number(enrData.tabSwitches) || 0,
+          ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
+        );
+
+        const pasteBursts = Math.max(
+          Number(mod.pasteBursts) || 0,
+          Number(enrData.pasteBursts) || 0,
+          Number(enrData.copyPasteAttempts) || 0,
+          ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
+        );
+
+        const totalKeystrokes = Math.max(
+          Number(mod.totalKeystrokes) || 0,
+          ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
+        );
+
+        const computedIntegrity = enrData.integrityScore !== undefined
+          ? Number(enrData.integrityScore)
+          : (cData.integrityScore !== undefined ? Number(cData.integrityScore) : Math.max(0, Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10)));
+
+        const computedAcademic = mod.academicScore !== undefined
+          ? Number(mod.academicScore)
+          : (u.academicScore !== undefined ? u.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
+
+        const cieMarks = Math.min(20, Math.round(((computedAcademic || 0) / 100) * 20));
+
+        // Robust section name normalization
+        const rawSection = u.sectionName || u.section || enrData.sectionName || (u.division ? (u.division.toLowerCase().includes('mtech') ? 'Integrated Mtech' : `Division ${u.division}`) : 'Integrated Mtech');
+        const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
+          ? 'Integrated Mtech'
+          : rawSection;
+
+        const isBound = Boolean(
+          enrData.isEmailBound ||
+          enrData.isEmailBoundV2 ||
+          cData.isEmailBound ||
+          cData.isEmailBoundV2 ||
+          (u.email && !u.email.endsWith('@sanjivani.edu.in')) ||
+          (enrData.email && !enrData.email.endsWith('@sanjivani.edu.in')) ||
+          (cData.boundEmail && !cData.boundEmail.endsWith('@sanjivani.edu.in'))
+        );
+
+        const boundEmail = cData.boundEmail || enrData.boundEmail || (u.email && !u.email.endsWith('@sanjivani.edu.in') ? u.email : (enrData.email && !enrData.email.endsWith('@sanjivani.edu.in') ? enrData.email : null));
+
+        const isBanned = Boolean(enrData.isBanned || cData.isBanned || u.isBanned);
+        const activeSession = Boolean(cData.activeSession);
+
+        if (!lastActionTime && cData.updatedAt) {
+          lastActionTime = typeof cData.updatedAt === 'string' ? cData.updatedAt : new Date().toISOString();
+        }
+
+        return {
+          ...u,
+          prn: prnClean,
+          name: u.fullName || u.displayName || enrData.name || 'Student Candidate',
+          fullName: u.fullName || u.displayName || enrData.name || 'Student Candidate',
+          displayName: u.displayName || u.fullName || enrData.name || 'Student Candidate',
+          email: enrData.email || u.email || `${prnClean.toLowerCase()}@sanjivani.edu.in`,
+          institutionalEmail: `${prnClean.toLowerCase()}@sanjivani.edu.in`,
+          isEmailBound: isBound,
+          isEmailBoundV2: isBound,
+          boundEmail,
+          section: normalizedSection,
+          sectionName: normalizedSection,
+          totalSolved,
+          labSolved,
+          practiceSolved,
+          totalPoints,
+          academicScore: computedAcademic,
+          cieMarks,
+          integrityScore: computedIntegrity,
+          tabSwitchCount: tabSwitches,
+          clipboardAttempts: pasteBursts,
+          totalKeystrokes,
+          completedProblems: Array.from(uniqueProblems),
+          miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
+          isBanned,
+          activeSession,
+          lastActivityTime: lastActionTime ? new Date(lastActionTime).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' }) : 'Never Active',
+        };
+      });
+
+      // Sort students consistently by PRN
+      processed.sort((a: any, b: any) => (a.prn || '').localeCompare(b.prn || ''));
+
+      setStudents(processed);
+      if (Array.isArray(realSections) && realSections.length > 0) {
+        setSections(realSections);
+      }
+
+      if (showNotice) {
+        toast.success(`Synchronized ${processed.length} students live from Cloud Firestore!`);
+      }
+
+      return processed;
+    } catch (err: any) {
+      console.warn('Reports tab authoritative fetch warning:', err);
+      return [];
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Live real-time Firestore synchronization for 0ms report scope updates
   useEffect(() => {
     let isMounted = true;
+    let syncTimeout: any = null;
 
-    const syncReportsData = async () => {
-      try {
-        const [realSections, realUsers, cohortSnap, assessSnap, subSnap] = await Promise.all([
-          FirestoreDataService.getSectionsFromFirestore().catch(() => []),
-          FirestoreDataService.getAllFirestoreUsers().catch(() => []),
-          getDocs(collection(db, 'cohort_progress')).catch(() => null),
-          getDocs(collection(db, 'assessment_test_submissions')).catch(() => null),
-          getDocs(collection(db, 'submissions')).catch(() => null),
-        ]);
-
-        if (!isMounted) return;
-
-        const cohortMap = new Map<string, any>();
-        if (cohortSnap) {
-          cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+    const triggerDebouncedSync = () => {
+      if (syncTimeout) clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(() => {
+        if (isMounted) {
+          fetchAuthoritativeReportStudents();
         }
-
-        const assessSubs: any[] = [];
-        if (assessSnap) {
-          assessSnap.forEach((d: any) => assessSubs.push(d.data()));
-        }
-
-        const genSubs: any[] = [];
-        if (subSnap) {
-          subSnap.forEach((d: any) => genSubs.push(d.data()));
-        }
-
-        if (Array.isArray(realUsers)) {
-          const cleanUsers = realUsers
-            .filter(
-              (u: any) =>
-                (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
-                !FirestoreDataService.isPurgedStudent(u)
-            )
-            .map((u: any) => {
-              const prnClean = (u.prn || '').toUpperCase().trim();
-              const userEmail = (u.email || '').toLowerCase().trim();
-              const userId = String(u.id || u.uid || '').trim();
-
-              const cData = cohortMap.get(prnClean) ||
-                            cohortMap.get(prnClean.replace(/0/g, 'O')) ||
-                            cohortMap.get(prnClean.replace(/O/g, '0')) ||
-                            cohortMap.get(userId.toUpperCase()) || {};
-              const mod = cData.moduleProgress || {};
-
-              // Match student's submissions across tests and practice
-              const matchedSubs = [...assessSubs, ...genSubs].filter((s: any) => {
-                const sPrn = s.studentPrn || s.prn || '';
-                const sEmail = (s.studentEmail || s.email || '').toLowerCase().trim();
-                const sUid = (s.userId || s.studentId || '').trim();
-                return (prnClean && FirestoreDataService.arePrnsMatching(sPrn, prnClean)) ||
-                       (userEmail && sEmail && sEmail === userEmail) ||
-                       (userId && sUid && sUid === userId);
-              });
-
-              const uniqueProblems = new Set<string>();
-              const labProblems = new Set<string>();
-              const practiceProblems = new Set<string>();
-
-              matchedSubs.forEach((s: any) => {
-                const isPassed = s.verdict === 'ACCEPTED' || s.status === 'PASSED' || s.academicScore > 0 || (s.testOutcomes && s.testOutcomes.some((t: any) => t.passed));
-                if (isPassed) {
-                  const pId = s.problemId || s.problemTitle || s.problemSlug || s.title || s.id;
-                  uniqueProblems.add(pId);
-                  if (s.track === 'assessment' || s.track === 'lab' || s.testId || s.type === 'LAB_INTERNAL') {
-                    labProblems.add(pId);
-                  } else {
-                    practiceProblems.add(pId);
-                  }
-                }
-              });
-
-              if (Array.isArray(cData.completedProblems)) {
-                cData.completedProblems.forEach((p: string) => uniqueProblems.add(p));
-              }
-
-              const totalSolved = Math.max(
-                uniqueProblems.size,
-                cData.totalSolved ?? 0,
-                u.totalSolved ?? 0
-              );
-
-              const pointsFromSubs = Math.round(
-                matchedSubs.reduce((acc: number, s: any) => acc + (Number(s.academicScore) || Number(s.score) || Number(s.points) || 0), 0)
-              );
-
-              const totalPoints = Math.max(
-                pointsFromSubs,
-                cData.totalPoints ?? 0,
-                u.totalPoints ?? 0,
-                totalSolved * 20
-              );
-
-              const tabSwitches = Math.max(
-                Number(mod.tabSwitches) || 0,
-                ...matchedSubs.map((s: any) => Number(s.tabSwitchCount) || 0)
-              );
-
-              const pasteBursts = Math.max(
-                Number(mod.pasteBursts) || 0,
-                ...matchedSubs.map((s: any) => Number(s.copyPasteAttempts) || 0)
-              );
-
-              const totalKeystrokes = Math.max(
-                Number(mod.totalKeystrokes) || 0,
-                ...matchedSubs.map((s: any) => Number(s.totalKeystrokes) || 0)
-              );
-
-              const computedIntegrity = Math.max(
-                0,
-                Math.min(100, 100 - tabSwitches * 5 - pasteBursts * 10)
-              );
-
-              const computedAcademic = mod.academicScore !== undefined
-                ? Number(mod.academicScore)
-                : (u.academicScore !== undefined ? u.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
-
-              // Robust section name normalization
-              const rawSection = u.sectionName || u.section || (u.division ? (u.division.toLowerCase().includes('mtech') ? 'Integrated Mtech' : `Division ${u.division}`) : 'Integrated Mtech');
-              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-                ? 'Integrated Mtech'
-                : rawSection;
-
-              return {
-                ...u,
-                name: u.fullName || u.displayName || u.username || 'Student Candidate',
-                section: normalizedSection,
-                sectionName: normalizedSection,
-                totalSolved,
-                labSolved: labProblems.size,
-                practiceSolved: practiceProblems.size,
-                totalPoints,
-                academicScore: computedAcademic,
-                integrityScore: computedIntegrity,
-                tabSwitchCount: tabSwitches,
-                clipboardAttempts: pasteBursts,
-                totalKeystrokes,
-                completedProblems: Array.from(uniqueProblems),
-                miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
-              };
-            });
-          setStudents(cleanUsers);
-        }
-
-        if (Array.isArray(realSections)) {
-          setSections(realSections);
-        }
-      } catch (err) {
-        console.warn('Reports tab live sync warning:', err);
-      }
+      }, 300);
     };
 
-    syncReportsData();
+    fetchAuthoritativeReportStudents();
 
-    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => syncReportsData(), (err) => console.warn('Reports cohort notice:', err));
-    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), () => syncReportsData(), () => {});
-    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), () => syncReportsData(), () => {});
-    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), () => syncReportsData(), (err) => console.warn('Reports enrolled notice:', err));
-    const unsubSections = onSnapshot(collection(db, 'sections'), () => syncReportsData(), (err) => console.warn('Reports sections notice:', err));
+    const unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, (err) => console.warn('Reports cohort notice:', err));
+    const unsubSubmissions = onSnapshot(collection(db, 'submissions'), triggerDebouncedSync, () => {});
+    const unsubAssessmentSubmissions = onSnapshot(collection(db, 'assessment_test_submissions'), triggerDebouncedSync, () => {});
+    const unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), triggerDebouncedSync, (err) => console.warn('Reports enrolled notice:', err));
+    const unsubSections = onSnapshot(collection(db, 'sections'), triggerDebouncedSync, (err) => console.warn('Reports sections notice:', err));
     let unsubUsers: (() => void) | null = null;
     try {
-      unsubUsers = onSnapshot(collection(db, 'users'), () => syncReportsData(), () => {});
+      unsubUsers = onSnapshot(collection(db, 'users'), triggerDebouncedSync, () => {});
     } catch {}
-    const unsubMeshUsers = realtimeSync.on('USERS', () => syncReportsData());
-    const unsubMeshSections = realtimeSync.on('SECTIONS', () => syncReportsData());
-    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => syncReportsData());
-    const unsubMeshDashboard = realtimeSync.on('DASHBOARD', () => syncReportsData());
+    const unsubMeshUsers = realtimeSync.on('USERS', triggerDebouncedSync);
+    const unsubMeshSections = realtimeSync.on('SECTIONS', triggerDebouncedSync);
+    const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', triggerDebouncedSync);
+    const unsubMeshDashboard = realtimeSync.on('DASHBOARD', triggerDebouncedSync);
 
     return () => {
       isMounted = false;
+      if (syncTimeout) clearTimeout(syncTimeout);
       unsubCohort();
       unsubSubmissions();
       unsubAssessmentSubmissions();
@@ -303,101 +428,105 @@ export const AdminReportsTab: React.FC = () => {
     }
   };
 
-  const handleDownloadExcelDataset = () => {
+  const handleDownloadExcelDataset = async () => {
     setIsExportingExcel(true);
-    toast.info('Compiling institutional Excel spreadsheet...');
+    toast.info('Fetching live real-time submissions & scores from Cloud Firestore...');
 
-    setTimeout(() => {
-      try {
-        let studentRows: any[] = [];
-        if (activeStudents.length > 0) {
-          studentRows = activeStudents.map((u: any, idx: number) => ({
-            'Sr No': idx + 1,
-            'PRN': u.prn || u.id || 'N/A',
-            'Student Name': u.name || u.displayName || u.fullName || 'Candidate',
-            'Institutional Email': u.email || 'N/A',
-            'Section / Division': u.section || selectedSection || 'Integrated Mtech',
-            'Identity Verified': u.isEmailBoundV2 || u.emailVerified || (u.email && !u.email.endsWith('@sanjivani.edu.in')) ? 'YES' : 'PENDING',
-            'Total Solved': u.totalSolved ?? 0,
-            'Lab Internal Solved': u.labSolved ?? 0,
-            'Practice Solved': u.practiceSolved ?? 0,
-            'Continuous Practical Score (0-100)': u.academicScore ?? 0,
-            'Lab Internal CIE Marks (0-20)': Math.min(20, Math.round(((u.academicScore || 0) / 100) * 20)),
-            'Integrity Index': u.integrityScore !== undefined ? `${u.integrityScore}%` : '100%',
-            'Tab Switch Violations': u.tabSwitchCount ?? 0,
-            'Clipboard Paste Attempts': u.clipboardAttempts ?? 0,
-            'Total Keystroke Dynamics': u.totalKeystrokes ?? 0,
-            'Capstone Mini-Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
-            'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
-          }));
-        } else {
-          studentRows = [
-            {
-              'Sr No': 1,
-              'PRN': 'SAMPLE-101',
-              'Student Name': 'Enrolled Student',
-              'Institutional Email': 'student@sanjivani.edu.in',
-              'Section / Division': selectedSection === 'ALL' ? (sections[0]?.sectionName || 'Integrated Mtech') : selectedSection,
-              'Identity Verified': 'YES',
-              'Total Solved': 5,
-              'Lab Internal Solved': 2,
-              'Practice Solved': 3,
-              'Continuous Practical Score (0-100)': 85,
-              'Lab Internal CIE Marks (0-20)': 17,
-              'Integrity Index': '100%',
-              'Tab Switch Violations': 0,
-              'Clipboard Paste Attempts': 0,
-              'Total Keystroke Dynamics': 1200,
-              'Capstone Mini-Project': 'UNLOCKED',
-              'AI Viva Defense Status': 'VERIFIED',
-            },
-          ];
-        }
+    try {
+      // 1. Authoritative real-time fetch directly from Firestore right at the instant of click
+      const latestStudents = await fetchAuthoritativeReportStudents();
+      const currentList = latestStudents.length > 0 ? latestStudents : activeStudents;
 
-        const worksheet = XLSX.utils.json_to_sheet(studentRows);
+      // 2. Filter by current section scope
+      const targetStudents = selectedSection === 'ALL'
+        ? currentList
+        : currentList.filter((s: any) => isSectionMatch(s.section || s.sectionName, selectedSection));
 
-        // Auto-fit spacious column widths so no headers or values are cut off
-        const columnKeys = Object.keys(studentRows[0] || {});
-        const colWidths = columnKeys.map((key) => {
-          let maxLen = key.length;
-          studentRows.forEach((row) => {
-            const val = row[key];
-            const str = val !== null && val !== undefined ? String(val) : '';
-            if (str.length > maxLen) {
-              maxLen = str.length;
-            }
-          });
-          // Explicit column minimums so Excel online and desktop render beautifully without any truncation
-          let minWidth = 16;
-          if (key === 'Sr No') minWidth = 10;
-          else if (key === 'PRN') minWidth = 20;
-          else if (key === 'Student Name') minWidth = 34;
-          else if (key === 'Institutional Email') minWidth = 38;
-          else if (key === 'Section / Division') minWidth = 26;
-          else if (key === 'AI Viva Defense Status') minWidth = 24;
-          else if (key === 'Capstone Mini-Project') minWidth = 22;
-          else if (key === 'Identity Verified') minWidth = 18;
+      if (targetStudents.length === 0) {
+        toast.error('No enrolled students in the selected section to export.');
+        setIsExportingExcel(false);
+        return;
+      }
 
-          return { wch: Math.max(maxLen + 5, minWidth) };
+      const studentRows = targetStudents.map((u: any, idx: number) => ({
+        'Sr No': idx + 1,
+        'PRN': u.prn || u.id || 'N/A',
+        'Student Name': u.name || u.displayName || u.fullName || 'Candidate',
+        'Institutional Email': u.institutionalEmail || u.email || `${String(u.prn || '').toLowerCase()}@sanjivani.edu.in`,
+        'Verified Bound Email': u.boundEmail || (u.isEmailBound && !u.email.endsWith('@sanjivani.edu.in') ? u.email : 'NOT_BOUND'),
+        'Identity Status': u.isEmailBound ? 'VERIFIED / BOUND' : 'PENDING (UNBOUND)',
+        'Section / Division': u.section || selectedSection || 'Integrated Mtech',
+        'Total Solved (Lab + Practice)': u.totalSolved ?? 0,
+        'Lab Internal Experiments Solved': u.labSolved ?? 0,
+        'Topic Practice Problems Solved': u.practiceSolved ?? 0,
+        'Continuous Practical Score (0-100)': u.academicScore ?? 0,
+        'Lab Internal CIE Marks (0-20)': u.cieMarks ?? Math.min(20, Math.round(((u.academicScore || 0) / 100) * 20)),
+        'Exam Integrity Index': `${u.integrityScore ?? 100}%`,
+        'Tab Switch Violations': u.tabSwitchCount ?? 0,
+        'Clipboard Paste Attempts': u.clipboardAttempts ?? 0,
+        'Total Keystroke Dynamics': u.totalKeystrokes ?? 0,
+        'Active Session Status': u.activeSession ? 'ACTIVE / ONLINE' : 'OFFLINE',
+        'Account Security Status': u.isBanned ? 'SUSPENDED / BANNED' : 'ACTIVE',
+        'Capstone Mini-Project': u.miniProjectUnlocked ? 'UNLOCKED' : 'LOCKED',
+        'AI Viva Defense Status': u.vivaStatus || (u.aiVivaStatus ?? 'CLEAN'),
+        'Last Activity / Submission': u.lastActivityTime || 'N/A',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(studentRows);
+
+      // Auto-fit spacious column widths so no headers or values are cut off
+      const columnKeys = Object.keys(studentRows[0] || {});
+      const colWidths = columnKeys.map((key) => {
+        let maxLen = key.length;
+        studentRows.forEach((row: any) => {
+          const val = row[key];
+          const str = val !== null && val !== undefined ? String(val) : '';
+          if (str.length > maxLen) {
+            maxLen = str.length;
+          }
         });
 
-        worksheet['!cols'] = colWidths;
+        // Explicit column minimums so Excel online and desktop render beautifully without any truncation
+        let minWidth = 16;
+        if (key === 'Sr No') minWidth = 8;
+        else if (key === 'PRN') minWidth = 18;
+        else if (key === 'Student Name') minWidth = 32;
+        else if (key === 'Institutional Email') minWidth = 36;
+        else if (key === 'Verified Bound Email') minWidth = 36;
+        else if (key === 'Identity Status') minWidth = 22;
+        else if (key === 'Section / Division') minWidth = 24;
+        else if (key === 'Total Solved (Lab + Practice)') minWidth = 28;
+        else if (key === 'Lab Internal Experiments Solved') minWidth = 30;
+        else if (key === 'Topic Practice Problems Solved') minWidth = 30;
+        else if (key === 'Continuous Practical Score (0-100)') minWidth = 32;
+        else if (key === 'Lab Internal CIE Marks (0-20)') minWidth = 28;
+        else if (key === 'Exam Integrity Index') minWidth = 22;
+        else if (key === 'Tab Switch Violations') minWidth = 22;
+        else if (key === 'Clipboard Paste Attempts') minWidth = 24;
+        else if (key === 'Active Session Status') minWidth = 22;
+        else if (key === 'Account Security Status') minWidth = 24;
+        else if (key === 'Last Activity / Submission') minWidth = 26;
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Assessment Roster');
+        return { wch: Math.max(maxLen + 4, minWidth) };
+      });
 
-        const cleanSecName = selectedSection === 'ALL' ? 'FullCohort' : selectedSection.replace(/[^A-Za-z0-9]/g, '_');
-        XLSX.writeFile(
-          workbook,
-          `LogicQ_${cleanSecName}_Dataset_${new Date().toISOString().split('T')[0]}.xlsx`
-        );
-        toast.success(`Excel dataset (${selectedSection === 'ALL' ? 'All Students' : selectedSection}) exported!`);
-      } catch (err: any) {
-        toast.error('Failed to export Excel: ' + err.message);
-      } finally {
-        setIsExportingExcel(false);
-      }
-    }, 600);
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Live Assessment Roster');
+
+      const cleanSecName = selectedSection === 'ALL' ? 'FullCohort' : selectedSection.replace(/[^A-Za-z0-9]/g, '_');
+      const timeStampStr = new Date().toISOString().replace(/:/g, '-').slice(0, 19);
+      XLSX.writeFile(
+        workbook,
+        `LogicQ_${cleanSecName}_Live_Dataset_${timeStampStr}.xlsx`
+      );
+      toast.success(`Live Excel dataset exported with ${studentRows.length} students!`);
+    } catch (err: any) {
+      toast.error('Failed to export Excel: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   return (
@@ -416,13 +545,26 @@ export const AdminReportsTab: React.FC = () => {
                 Reports & Accreditation
               </h2>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Ready for Export</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live Real-Time Sync</span>
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Download certified assessment transcripts, student marks rosters, and institutional accreditation spreadsheets.
+              Live automated gradebook, certified student transcripts, and real-time Excel spreadsheets updating dynamically.
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchAuthoritativeReportStudents(true)}
+              disabled={isRefreshing}
+              className="px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 transition active:scale-95 cursor-pointer disabled:opacity-50 shadow-2xs"
+              title="Pull latest live student submissions and marks directly from Cloud Firestore"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-500'}`} />
+              <span>{isRefreshing ? 'Syncing...' : 'Sync Live Data'}</span>
+            </button>
           </div>
         </div>
 
@@ -590,10 +732,10 @@ export const AdminReportsTab: React.FC = () => {
 
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                Comprehensive Cohort Spreadsheet
+                Live Real-Time Cohort Spreadsheet
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Full tabular dataset with PRN, verified emails, section allocations, practical marks breakdown, mini-project milestones, and proctoring indices.
+                Fetches live authoritative Firestore data on click: PRN, verified emails, real-time lab internal & practice solved counts, continuous practical marks, and exam proctoring index.
               </p>
             </div>
 
@@ -620,8 +762,8 @@ export const AdminReportsTab: React.FC = () => {
               disabled={isExportingExcel}
               className="w-full py-2.5 rounded-xl font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isExportingExcel ? 'Exporting...' : 'Export Excel (.xlsx) Dataset'}</span>
+              <Download className={`w-3.5 h-3.5 ${isExportingExcel ? 'animate-bounce' : ''}`} />
+              <span>{isExportingExcel ? 'Syncing & Generating Live Excel...' : 'Export Live Excel (.xlsx) Dataset'}</span>
             </button>
           </div>
         </div>
