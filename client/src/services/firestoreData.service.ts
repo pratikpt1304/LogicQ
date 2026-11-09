@@ -3525,23 +3525,33 @@ export class FirestoreDataService {
       const batch = writeBatch(db);
       for (const s of students) {
         if (!s.email && !s.prn) continue;
-        const key = (s.email || s.prn).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const prnUpper = s.prn ? String(s.prn).trim().toUpperCase() : null;
+        const key = prnUpper || (s.email || s.id || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
         const docRef = doc(db, 'enrolled_students', key);
         const cleanPayload: Record<string, any> = {
+          id: s.id || prnUpper || key,
+          studentId: s.studentId || prnUpper || key,
+          userId: s.userId || s.uid || prnUpper || key,
+          uid: s.uid || s.userId || prnUpper || key,
           name: s.name || s.fullName || 'Student',
           fullName: s.name || s.fullName || 'Student',
-          prn: s.prn ? String(s.prn).trim().toUpperCase() : null,
+          displayName: s.displayName || s.name || s.fullName || 'Student',
+          prn: prnUpper,
           email: s.email ? String(s.email).trim().toLowerCase() : null,
           sectionId,
-          institution: s.college || s.institution || 'Sanjivani University',
-          status: 'ENROLLED',
+          college: s.college || s.institution || 'Sanjivani University',
+          institution: s.institution || s.college || 'Sanjivani University',
+          course: s.course || 'Integrated M.Tech',
+          subject: s.subject || 'C Programming',
+          status: 'ACTIVE',
+          joinedVia: s.joinedVia || 'INSTANT_JOIN_LINK',
+          enrolledAt: s.enrolledAt || new Date().toISOString(),
         };
         if (s.joinCode || joinCodeResolved) cleanPayload.joinCode = s.joinCode || joinCodeResolved;
         if (s.sectionName || sectionNameResolved) cleanPayload.sectionName = s.sectionName || sectionNameResolved;
         if (s.department) cleanPayload.department = String(s.department).trim();
         if (s.year) cleanPayload.year = String(s.year).trim();
         if (s.division) cleanPayload.division = String(s.division).trim();
-        if (s.joinedVia) cleanPayload.joinedVia = String(s.joinedVia).trim();
         if (s.mobile) cleanPayload.mobile = String(s.mobile).trim();
         batch.set(docRef, cleanPayload, { merge: true });
       }

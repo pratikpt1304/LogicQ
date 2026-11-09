@@ -522,10 +522,13 @@ export const InstantJoinPage: React.FC = () => {
       }
 
       // Always save to Firestore roster so faculty see student immediately
-      await FirestoreDataService.saveEnrolledStudentsToFirestore(targetSecId, [studentData]);
-      if (section?.joinCode && section.joinCode !== targetSecId) {
-        await FirestoreDataService.saveEnrolledStudentsToFirestore(section.joinCode, [studentData]);
-      }
+      const canonicalSecId = section?.id || targetSecId;
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(canonicalSecId, [{
+        ...studentData,
+        sectionId: canonicalSecId,
+        joinCode: section?.joinCode || studentData.joinCode,
+        sectionName: section?.sectionName || studentData.sectionName,
+      }]);
       enrolled = true;
 
       if (enrolled) {

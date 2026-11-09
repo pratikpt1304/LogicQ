@@ -653,7 +653,8 @@ service cloud.firestore {
         'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
         'displayName', 'email', 'mobile', 'sectionId', 'institution',
         'course', 'subject', 'status', 'college', 'department', 'year',
-        'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt'
+        'division', 'joinedVia', 'enrolledAt', 'createdAt', 'updatedAt',
+        'joinCode', 'sectionName'
       ];
       return data.keys().hasOnly(allowedKeys)
         && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
@@ -674,7 +675,9 @@ service cloud.firestore {
         && (!('department' in data) || (data.department is string && data.department.size() <= 50))
         && (!('year' in data) || (data.year is string && data.year.size() <= 20))
         && (!('division' in data) || data.division == null || (data.division is string && data.division.size() <= 20))
-        && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50));
+        && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50))
+        && (!('joinCode' in data) || (data.joinCode is string && data.joinCode.size() <= 50))
+        && (!('sectionName' in data) || (data.sectionName is string && data.sectionName.size() <= 100));
     }
 
     match /enrolled_students/{docId} {
