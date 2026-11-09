@@ -2613,14 +2613,14 @@ export class FirestoreDataService {
     // Never purge admin
     if (email === 'logicqarena@gmail.com' || prn === 'LOGICQARENA') return false;
 
-    // Never purge dummy student
+    // Purge any dummy or test student account
     if (
       email === 'dummy@logicq.io' ||
       prn === 'DUMMY' ||
       id === 'std_dummy' ||
       id === 'dummy' ||
       name === 'dummy'
-    ) return false;
+    ) return true;
 
     // Purge any synthetic candidates (Candidate 2126..., Candidate DEMO..., etc.)
     if (
@@ -2651,7 +2651,7 @@ export class FirestoreDataService {
       email === 'demo2@logicq.io' ||
       email === 'std_demo1@logicq.io' ||
       email === 'ipred1908@gmail.com' ||
-      (email.endsWith('@logicq.io') && email !== 'dummy@logicq.io') ||
+      email.endsWith('@logicq.io') ||
       name === 'demo 1' ||
       name === 'demo1' ||
       name === 'demo2' ||
