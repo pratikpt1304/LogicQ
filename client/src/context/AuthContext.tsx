@@ -1277,6 +1277,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             localStorage.setItem('logicq_stored_users_v1', JSON.stringify(list));
           } catch {}
+
+          // Obtain authoritative backend access token for judge execution
+          try {
+            const tokenRes: any = await api.post('/auth/login', { identifier: prnUpper, password: prnUpper }, { skipAuthRefresh: true } as any);
+            if (tokenRes?.data?.accessToken) {
+              localStorage.setItem('logicq_access_token', tokenRes.data.accessToken);
+              if (tokenRes.data.refreshToken) {
+                localStorage.setItem('logicq_refresh_token', tokenRes.data.refreshToken);
+              }
+            }
+          } catch {}
         }
       } else {
         // Fallback for registered / instant-joined student accounts

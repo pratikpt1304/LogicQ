@@ -509,7 +509,8 @@ export const TopicPracticeHubPage: React.FC = () => {
 
   const handlePasteBlocked = useCallback(() => {
     if (!activeTopicRef.current) return;
-    const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+    const targetPrn = (user?.prn || '').toUpperCase().trim();
+    const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
     FirestoreDataService.recordProctoringIncident(uid, {
       type: 'COPY_PASTE',
       problemSlug: activeTopicRef.current.id,
@@ -530,7 +531,8 @@ export const TopicPracticeHubPage: React.FC = () => {
         const now = Date.now();
         if (now - lastTabLog < 1500) return;
         lastTabLog = now;
-        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        const targetPrn = (user?.prn || '').toUpperCase().trim();
+        const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
         FirestoreDataService.recordProctoringIncident(uid, {
           type: 'TAB_SWITCH',
           problemSlug: activeTopicRef.current.id,
@@ -546,7 +548,8 @@ export const TopicPracticeHubPage: React.FC = () => {
       if (now - lastTabLog < 1500) return;
       lastTabLog = now;
       if (activeTopicRef.current) {
-        const uid = (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
+        const targetPrn = (user?.prn || '').toUpperCase().trim();
+        const uid = targetPrn || (user as any)?.uid || (user as any)?.id || auth.currentUser?.uid || 'current';
         FirestoreDataService.recordProctoringIncident(uid, {
           type: 'TAB_SWITCH',
           problemSlug: activeTopicRef.current.id,
@@ -1072,6 +1075,12 @@ export const TopicPracticeHubPage: React.FC = () => {
             FirestoreDataService.savePracticeProgress(user.prn, updated).catch(() => {});
           }
 
+          // Fetch current proctoring telemetry
+          const currentTelem = await FirestoreDataService.getProctoringTelemetry(user?.prn || user?.id).catch(() => null);
+          const currentTabSwitches = currentTelem?.tabSwitchCount || 0;
+          const currentCopyPastes = currentTelem?.copyPasteAttempts || 0;
+          const currentExits = currentTelem?.fullscreenExits || 0;
+
           // Mirror solved submission to primary Firestore submissions collection so Admin overview & feeds update immediately
           FirestoreDataService.recordDailySubmission(user.id, {
             problemId: activeTopic.id,
@@ -1081,9 +1090,9 @@ export const TopicPracticeHubPage: React.FC = () => {
             code: currentCode,
             verdict: 'ACCEPTED',
             timeTakenSeconds: elapsedSeconds,
-            tabSwitchCount: 0,
-            copyPasteAttempts: 0,
-            fullscreenExits: 0,
+            tabSwitchCount: currentTabSwitches,
+            copyPasteAttempts: currentCopyPastes,
+            fullscreenExits: currentExits,
             submissionType: 'PRACTICE',
             prn: user?.prn || '',
             studentPrn: user?.prn || '',

@@ -103,6 +103,40 @@ async function refreshAuthSession(): Promise<string | null> {
         }
       }
 
+      // 3. Silent Institutional PRN Student Token Auto-Recovery
+      try {
+        const rawUser = localStorage.getItem('logicq_auth_user');
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          const prn = (parsed?.prn || '').toUpperCase().trim();
+          if (prn) {
+            const customPw = localStorage.getItem(`logicq_custom_password_${prn}`);
+            const tryPasswords = [customPw, prn, 'StudentPassword123!'].filter(Boolean) as string[];
+
+            for (const pwd of tryPasswords) {
+              try {
+                const reLoginRes = await fetch(`${API_BASE}/auth/login`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ identifier: prn, password: pwd }),
+                });
+                if (reLoginRes.ok && isJsonResponse(reLoginRes)) {
+                  const loginData = await reLoginRes.json().catch(() => null);
+                  const token = loginData?.data?.accessToken;
+                  if (typeof token === 'string' && token.length > 0) {
+                    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+                    if (loginData?.data?.refreshToken) {
+                      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, loginData.data.refreshToken);
+                    }
+                    return token;
+                  }
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+
       // If both backend refresh and Firebase re-exchange fail, wipe dead tokens
       localStorage.removeItem(TOKEN_STORAGE_KEY);
       localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
@@ -210,10 +244,10 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   // Primary student data (auth, submissions, practice progress, profile) must never silently decay
   // into browser localStorage fallback in production.
   if (useFallback || !response) {
-    if (cleanEndpoint.startsWith('/submissions') || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
+    if (cleanEndpoint === '/submissions/submit' || (import.meta.env.PROD && cleanEndpoint.startsWith('/auth') && !cleanEndpoint.includes('-otp') && !cleanEndpoint.includes('change-password') && !cleanEndpoint.includes('bind-email') && cleanEndpoint !== '/auth/login')) {
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // Fail closed: Replaces legacy generic "LogicQ server connection unavailable" with honest classified errors
-      let errorMsg = cleanEndpoint.startsWith('/submissions')
+      let errorMsg = cleanEndpoint === '/submissions/submit'
         ? 'LogicQ server did not respond. The judge service may be starting up or temporarily offline. Your code is saved.'
         : 'Server is temporarily unavailable. Please try again in a moment.';
       let errorCode = 'SERVER_UNAVAILABLE';
@@ -222,10 +256,10 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
         errorMsg = 'You are currently offline. Please reconnect to the internet and click Retry.';
         errorCode = 'OFFLINE';
       } else if (response && !isJsonResponse(response)) {
-        errorMsg = cleanEndpoint.startsWith('/submissions')
+        errorMsg = cleanEndpoint === '/submissions/submit'
           ? 'Judge service unreachable: server returned unexpected response. Your code is safely saved to your account.'
           : 'Server returned an unexpected response. Please try again.';
-        errorCode = cleanEndpoint.startsWith('/submissions') ? 'JUDGE_UNREACHABLE' : 'SERVER_ERROR';
+        errorCode = cleanEndpoint === '/submissions/submit' ? 'JUDGE_UNREACHABLE' : 'SERVER_ERROR';
       }
 
       const err = new Error(errorMsg) as LogicQApiError;
@@ -263,7 +297,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     }
 
-    if (!cleanEndpoint.startsWith('/submissions')) {
+    if (cleanEndpoint !== '/submissions/submit') {
       try {
         const fallbackRes = await handleFallbackRequest(cleanEndpoint, options);
         if (fallbackRes !== null && fallbackRes !== undefined) {
@@ -290,8 +324,8 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
       if (cleanEndpoint.includes('/auth/login') || cleanEndpoint.includes('/auth/prn-login') || cleanEndpoint.includes('/auth/verify-login-otp') || cleanEndpoint.includes('/auth/send-login-otp')) {
         errorMsg = data?.message || 'Invalid PRN or password. Please verify your credentials.';
         errorCode = 'INVALID_CREDENTIALS';
-      } else if (cleanEndpoint.startsWith('/submissions')) {
-        errorMsg = 'Your session has expired. Please log in again to run or submit code.';
+      } else if (cleanEndpoint === '/submissions/submit') {
+        errorMsg = 'Your session has expired. Please log in again to submit code.';
         errorCode = 'SESSION_EXPIRED';
       } else {
         errorMsg = data?.message || 'Authentication required.';

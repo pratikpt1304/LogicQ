@@ -4591,50 +4591,58 @@ export class FirestoreDataService {
             ? 'NEEDS_REVIEW'
             : 'CLEAN';
 
-          await setDoc(
-            cohortRef,
-            {
-              prn,
-              studentName: existingCohort.studentName || auth.currentUser?.displayName || undefined,
-              studentEmail: existingCohort.studentEmail || auth.currentUser?.email || undefined,
-              moduleProgress: {
-                ...prevModule,
-                integrityScore,
-                tabSwitches: tabSwitchCount,
-                pasteBursts: copyPasteAttempts,
-                fullscreenExits,
-                autoLockCount,
-                status,
-                currentProblem: incident.problemTitle || incident.problemSlug || prevModule.currentProblem || 'Active Practice',
-                currentModule: prevModule.currentModule || 'C Programming Core',
-                lastIncidentAt: incidentObj.timestamp,
-                lastActiveTime: new Date().toISOString(),
-              },
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-
-          // Deep forensic timeline draft in subcollection
-          const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
-          await setDoc(
-            telemetryDraftRef,
-            {
-              code: JSON.stringify({
-                tabSwitchCount,
-                copyPasteAttempts,
-                fullscreenExits,
-                autoLockCount,
-                integrityScore,
-                incidents,
-                lastIncidentAt: incidentObj.timestamp,
+          // 1. Authoritative deep forensic timeline draft in subcollection
+          try {
+            const telemetryDraftRef = doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry');
+            await setDoc(
+              telemetryDraftRef,
+              {
+                code: JSON.stringify({
+                  tabSwitchCount,
+                  copyPasteAttempts,
+                  fullscreenExits,
+                  autoLockCount,
+                  integrityScore,
+                  incidents,
+                  lastIncidentAt: incidentObj.timestamp,
+                  updatedAt: new Date().toISOString(),
+                }),
+                problemSlug: 'proctoring_telemetry',
                 updatedAt: new Date().toISOString(),
-              }),
-              problemSlug: 'proctoring_telemetry',
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
+              },
+              { merge: true }
+            );
+          } catch (draftErr) {
+            console.warn('recordProctoringIncident draft sync notice:', draftErr);
+          }
+
+          // 2. Update cohort_progress root document strictly respecting allowedKeys:
+          // ['prn', 'completedProblems', 'totalSolved', 'totalPoints', 'moduleProgress', 'updatedAt']
+          try {
+            await setDoc(
+              cohortRef,
+              {
+                prn,
+                moduleProgress: {
+                  ...prevModule,
+                  integrityScore,
+                  tabSwitches: tabSwitchCount,
+                  pasteBursts: copyPasteAttempts,
+                  fullscreenExits,
+                  autoLockCount,
+                  status,
+                  currentProblem: incident.problemTitle || incident.problemSlug || prevModule.currentProblem || 'Active Practice',
+                  currentModule: prevModule.currentModule || 'C Programming Core',
+                  lastIncidentAt: incidentObj.timestamp,
+                  lastActiveTime: new Date().toISOString(),
+                },
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          } catch (cohortErr) {
+            console.warn('recordProctoringIncident cohort root sync notice:', cohortErr);
+          }
 
           RealtimeSyncService.emit('USERS');
           RealtimeSyncService.emit('DASHBOARD');
@@ -5084,9 +5092,38 @@ export class FirestoreDataService {
       // Always save to localStorage immediately
       try {
         localStorage.setItem('logicq_proctoring_telemetry', JSON.stringify(merged));
+        if (userId && userId !== 'current') {
+          localStorage.setItem(`logicq_proctoring_telemetry_${userId}`, JSON.stringify(merged));
+        }
       } catch {}
 
-      // Sync to Firestore (only if actively signed in to Firebase Auth)
+      // 1. Authoritative Cross-Device Cohort Telemetry sync (works for all PRN students)
+      const prn = (FirestoreDataService.resolvePrn(userId) || (typeof userId === 'string' ? userId.replace(/^cohort-/, '').toUpperCase() : '')).trim();
+      if (prn && prn.length >= 6) {
+        try {
+          await setDoc(doc(db, 'cohort_progress', prn, 'drafts', 'proctoring_telemetry'), {
+            code: JSON.stringify(merged),
+            updatedAt: serverTimestamp(),
+            problemSlug: 'proctoring_telemetry',
+          }, { merge: true });
+        } catch (cErr: any) {
+          console.warn('saveProctoringTelemetry cohort draft sync notice:', cErr);
+        }
+
+        try {
+          await updateDoc(doc(db, 'cohort_progress', prn), {
+            'moduleProgress.tabSwitches': tabSwitchCount,
+            'moduleProgress.pasteBursts': copyPasteAttempts,
+            'moduleProgress.integrityScore': integrityScore,
+            'moduleProgress.lastIncidentAt': merged.lastIncidentAt,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (mErr: any) {
+          console.warn('saveProctoringTelemetry cohort module update notice:', mErr);
+        }
+      }
+
+      // 2. Sync to Firestore users subcollection if signed in via Firebase Auth
       try {
         const primaryUid = auth.currentUser?.uid;
         if (primaryUid) {

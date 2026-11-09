@@ -761,101 +761,9 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
         )}
 
         {activeTab === 'overview' && (
-          <>
+          <div className="space-y-3">
             {/* ========================================================================= */}
-            {/* 2. ACADEMIC OVERVIEW CARDS                                                */}
-            {/* ========================================================================= */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/5">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-                  <span>Problems Solved</span>
-                  <FileCode2 className="w-4 h-4 text-blue-500" />
-                </div>
-                <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  {problemsSolved}
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">Laboratory &amp; Practice</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/5">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-                  <span>Academic Points</span>
-                  <Award className="w-4 h-4 text-amber-500" />
-                </div>
-                <div className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">
-                  {academicScore}
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">Continuous evaluation</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/70 dark:border-white/5">
-                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
-                  <span>Integrity Status</span>
-                  <ShieldCheck className={`w-4 h-4 ${integrityScore >= 90 ? 'text-emerald-500' : integrityScore >= 70 ? 'text-amber-500' : 'text-rose-500'}`} />
-                </div>
-                <div className={`text-2xl font-black font-mono mt-1 ${integrityScore >= 90 ? 'text-emerald-600 dark:text-emerald-400' : integrityScore >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                  {integrityScore}%
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {clipboardAttempts === 0 && tabSwitchCount === 0 ? 'Clean Proctoring' : 'Telemetry Monitored'}
-                </p>
-              </div>
-            </div>
-
-            {/* ========================================================================= */}
-            {/* 3. CAPSTONE MINI-PROJECT PERMISSION CARD                                   */}
-            {/* ========================================================================= */}
-            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <FolderLock className="w-4 h-4 text-indigo-500" />
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                    Capstone Mini-Project Access
-                  </h4>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Grant individual permission for this student to access and submit the Capstone Project.
-                </p>
-                <div className="pt-1">
-                  {isMiniProjectActive ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      <Unlock className="w-3 h-3" />
-                      <span>Unlocked — Visible on Student Portal</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200/70 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-300/50 dark:border-white/10">
-                      <Lock className="w-3 h-3" />
-                      <span>Locked — Awaiting Faculty Unlock</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onToggleMiniProject(student.id || student.prn, isMiniProjectActive)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 ${
-                  isMiniProjectActive
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                }`}
-              >
-                {isMiniProjectActive ? (
-                  <>
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Lock Project</span>
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>Unlock Mini-Project</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* ========================================================================= */}
-            {/* 3B. HARDWARE DEVICE BINDING CARD (Max 2 Devices Limit)                    */}
+            {/* HARDWARE DEVICE BINDING CARD                                               */}
             {/* ========================================================================= */}
             <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
@@ -867,13 +775,13 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
                     boundDevices.length >= 2
                       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                   }`}>
                     {boundDevices.length} / 2 Devices Bound
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Student ID is bound to a maximum of 2 physical devices (e.g. Laptop &amp; Mobile). Any 3rd device login attempt is automatically rejected.
+                  Max 2 physical devices allowed (Laptop &amp; Mobile). Reset to let student bind new devices or recover lost access.
                 </p>
               </div>
 
@@ -883,18 +791,15 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                   onClick={handleResetDevices}
                   disabled={isResettingDevices || boundDevices.length === 0}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Reset registered hardware devices and allow student to bind new devices"
                 >
                   <RotateCcw className={`w-3.5 h-3.5 ${isResettingDevices ? 'animate-spin' : ''}`} />
                   <span>Reset Devices</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={handleResetPasswordToPrn}
                   disabled={isResettingPassword}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 transition active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  title="Reset student password back to their institutional PRN"
                 >
                   <KeyRound className={`w-3.5 h-3.5 ${isResettingPassword ? 'animate-spin' : ''}`} />
                   <span>Reset Password to PRN</span>
@@ -903,7 +808,7 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
             </div>
 
             {/* ========================================================================= */}
-            {/* 3C. ADMINISTRATIVE MODERATION & ACCOUNT CONTROL (BAN / UNREGISTER)        */}
+            {/* BAN / UNREGISTER CARD                                                      */}
             {/* ========================================================================= */}
             <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
@@ -924,7 +829,6 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {/* Ban / Unban Toggle */}
                 <button
                   type="button"
                   onClick={handleToggleBan}
@@ -934,104 +838,22 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                       : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                   }`}
-                  title={isBanned ? 'Unban student account' : 'Ban student account'}
                 >
                   <Ban className={`w-3.5 h-3.5 ${isBanning ? 'animate-spin' : ''}`} />
                   <span>{isBanned ? 'Unban Student' : 'Ban Student'}</span>
                 </button>
-
-                {/* Nuclear Unregister & Vanish */}
                 <button
                   type="button"
                   onClick={() => setIsConfirmingPurge(true)}
                   disabled={isPurging}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-                  title="Completely unregister student and erase all data with zero trace"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Unregister &amp; Purge</span>
                 </button>
               </div>
             </div>
-
-            {/* ========================================================================= */}
-            {/* 4. PROCTORING & INTEGRITY SIGNALS                                          */}
-            {/* ========================================================================= */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Proctoring &amp; Exam Security Telemetry</span>
-                </h4>
-                <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Live Stream Connected</span>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
-                  <span className="text-[11px] text-slate-400 block font-sans">Clipboard Paste</span>
-                  <span className="font-bold text-sm text-slate-900 dark:text-white mt-0.5 block">{clipboardAttempts}</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">
-                    {clipboardAttempts === 0 ? 'No violations' : `${clipboardAttempts} blocked attempt${clipboardAttempts > 1 ? 's' : ''}`}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
-                  <span className="text-[11px] text-slate-400 block font-sans">Focus / Tab Switches</span>
-                  <span className="font-bold text-sm text-slate-900 dark:text-white mt-0.5 block">{tabSwitchCount}</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">
-                    {tabSwitchCount === 0 ? 'Focused session' : `${tabSwitchCount} switch${tabSwitchCount > 1 ? 'es' : ''} logged`}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
-                  <span className="text-[11px] text-slate-400 block font-sans">Keystroke Cadence</span>
-                  <span className="font-bold text-sm text-indigo-500 mt-0.5 block">
-                    {totalKeystrokes > 50
-                      ? `~${Math.min(95, Math.max(25, Math.round(totalKeystrokes / 12)))} WPM`
-                      : totalKeystrokes > 0
-                      ? 'Active'
-                      : '—'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">
-                    {totalKeystrokes > 0 ? `${totalKeystrokes} strokes` : 'No active typing'}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/5">
-                  <span className="text-[11px] text-slate-400 block font-sans">Plagiarism Check</span>
-                  <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                    0%
-                  </span>
-                  <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 block mt-0.5 font-sans">
-                    Original Code
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* ========================================================================= */}
-            {/* 5. AI GAP ANALYSIS & LEARNING INTERVENTIONS                                */}
-            {/* ========================================================================= */}
-            <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-500/5 border border-blue-200/60 dark:border-blue-500/20 space-y-1.5">
-              <div className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5 text-xs">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Learning Assessment &amp; Recommendations</span>
-              </div>
-
-              {academicScore === 0 && problemsSolved === 0 ? (
-                <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
-                  Candidate has active credentials verified. No coding submissions have been made yet. Detailed concept mastery, time-complexity analysis, and customized practice recommendations will appear here automatically once lab work begins.
-                </p>
-              ) : (
-                <p className="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
-                  Candidate demonstrates continuous evaluation with <strong className="text-blue-700 dark:text-blue-300">{problemsSolved} problem{problemsSolved > 1 ? 's' : ''} solved</strong> and <strong className="text-blue-700 dark:text-blue-300">{academicScore} academic points</strong>. Session shows {integrityScore >= 90 ? 'strong authentic code integrity' : 'some proctoring events flagged for review'}.
-                </p>
-              )}
-            </div>
-          </>
+          </div>
         )}
 
       </div>
