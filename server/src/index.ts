@@ -50,6 +50,21 @@ async function bootstrap() {
     console.log(`🛡️ Node Env:     ${ENV.NODE_ENV}`);
     console.log(`======================================================\n`);
   });
+
+  const shutdown = (signal: string) => {
+    console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+    server.close(() => {
+      console.log('⚡ HTTP server closed. In-flight requests drained.');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error('⚠️ Forcing server shutdown after 25s timeout');
+      process.exit(1);
+    }, 25000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 bootstrap().catch((err) => {

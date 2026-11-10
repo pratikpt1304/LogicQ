@@ -27,6 +27,7 @@ import { notificationRouter } from './routes/notification.routes.js';
 import { prisma } from './utils/prisma.js';
 
 export const app = express();
+app.set('trust proxy', 1);
 
 // Security & Parsing Middleware
 app.use(

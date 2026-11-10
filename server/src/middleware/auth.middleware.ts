@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { verifyAccessToken, TokenPayload } from '../utils/jwt.js';
 import { prisma } from '../utils/prisma.js';
@@ -59,7 +60,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
         if (isAdminAccount) {
           const targetEmail = payload.email?.toLowerCase() || (isExplicitAdminEmail(payload.username) ? payload.username : 'logicqarena@gmail.com');
           const isPratik = targetEmail.includes('thorat');
-          const placeholderHash = await bcrypt.hash('AdminPassword123!', 10);
+          const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
 
           dbUser = await prisma.user.upsert({
             where: { email: targetEmail },
@@ -79,7 +80,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
           });
         } else if (payload.email) {
           // Auto-restore enrolled student/faculty from valid signed JWT
-          const placeholderHash = await bcrypt.hash('AutoRestoredStudent123!', 10);
+          const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
           const targetEmail = payload.email.toLowerCase().trim();
           const targetUsername = payload.username || targetEmail.split('@')[0];
 
