@@ -208,24 +208,32 @@ export const AdminPortalPage: React.FC = () => {
         const usersMap = new Map<string, any>();
         backendUsers.forEach((u) => {
           if (u && (u.id || u.prn || u.email)) {
-            const key = String(u.prn || u.email || u.id).toUpperCase().trim();
-            usersMap.set(key, u);
+            const key = FirestoreDataService.getCanonicalStudentKey(u);
+            if (key) usersMap.set(key, u);
           }
         });
         (Array.isArray(realUsers) ? realUsers : []).forEach((u) => {
           if (u && (u.id || u.prn || u.email)) {
-            const key = String(u.prn || u.email || u.id).toUpperCase().trim();
-            usersMap.set(key, { ...usersMap.get(key), ...u });
+            const key = FirestoreDataService.getCanonicalStudentKey(u);
+            if (key) {
+              const prev = usersMap.get(key) || {};
+              usersMap.set(key, { ...prev, ...u });
+            }
           }
         });
-        // Seed all 116 directory students
+        // Seed all 116 directory students with canonical key deduplication
         C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
-          const key = cs.prn.toUpperCase().trim();
-          if (!usersMap.has(key)) {
-            usersMap.set(key, { ...cs, role: 'STUDENT' });
+          const key = FirestoreDataService.getCanonicalStudentKey(cs);
+          if (key) {
+            if (!usersMap.has(key)) {
+              usersMap.set(key, { ...cs, role: 'STUDENT', section: 'Batch 1', sectionName: 'Batch 1' });
+            } else {
+              const prev = usersMap.get(key);
+              usersMap.set(key, { ...cs, ...prev, role: 'STUDENT', section: prev.section || 'Batch 1' });
+            }
           }
         });
-        const allCandidateUsers = Array.from(usersMap.values());
+        const allCandidateUsers = FirestoreDataService.deduplicateStudentRecords(Array.from(usersMap.values()));
 
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
@@ -346,7 +354,7 @@ export const AdminPortalPage: React.FC = () => {
             });
           }
 
-          const finalRoster = Array.from(combined.values());
+          const finalRoster = FirestoreDataService.deduplicateStudentRecords(Array.from(combined.values()));
           const count = finalRoster.length;
 
           return {
@@ -357,13 +365,15 @@ export const AdminPortalPage: React.FC = () => {
           };
         });
 
+        const deduplicatedStudents = FirestoreDataService.deduplicateStudentRecords(studentUsers);
+
         let totalAcademic = 0;
         let totalIntegrity = 0;
         let needingSupport = 0;
         let advanced = 0;
         let flagged = 0;
 
-        studentUsers.forEach((s) => {
+        deduplicatedStudents.forEach((s) => {
           totalAcademic += s.academicScore || 0;
           totalIntegrity += s.integrityScore !== undefined ? s.integrityScore : 100;
           if ((s.academicScore || 0) < 40) needingSupport++;
@@ -371,14 +381,14 @@ export const AdminPortalPage: React.FC = () => {
           if ((s.integrityScore || 100) < 70) flagged++;
         });
 
-        const avgAcademic = studentUsers.length > 0 ? Math.round(totalAcademic / studentUsers.length) : 0;
-        const overallIntegrity = studentUsers.length > 0 ? Math.round(totalIntegrity / studentUsers.length) : 100;
+        const avgAcademic = deduplicatedStudents.length > 0 ? Math.round(totalAcademic / deduplicatedStudents.length) : 0;
+        const overallIntegrity = deduplicatedStudents.length > 0 ? Math.round(totalIntegrity / deduplicatedStudents.length) : 100;
 
         setSections(syncedSections);
         setStats((prev) => ({
           ...prev,
           totalSections: syncedSections.length,
-          totalStudents: studentUsers.length,
+          totalStudents: deduplicatedStudents.length,
           avgAcademicScore: avgAcademic,
           overallIntegrityScore: overallIntegrity,
           studentsNeedingSupport: needingSupport,
@@ -387,7 +397,7 @@ export const AdminPortalPage: React.FC = () => {
         }));
 
         try {
-          localStorage.setItem('logicq_admin_students', JSON.stringify(studentUsers));
+          localStorage.setItem('logicq_admin_students', JSON.stringify(deduplicatedStudents));
           localStorage.setItem('logicq_admin_sections', JSON.stringify(syncedSections));
         } catch {}
       } catch (err) {

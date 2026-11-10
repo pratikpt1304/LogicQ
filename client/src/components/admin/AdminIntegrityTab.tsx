@@ -757,7 +757,8 @@ export const AdminIntegrityTab: React.FC = () => {
             };
           });
 
-        setStudentsForensics(records);
+        const deduplicatedRecords = FirestoreDataService.deduplicateStudentRecords(records);
+        setStudentsForensics(deduplicatedRecords);
       } catch (err) {
         console.warn('Error loading authentic integrity students:', err);
       }

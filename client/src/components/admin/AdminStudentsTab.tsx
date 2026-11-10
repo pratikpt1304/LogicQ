@@ -116,7 +116,8 @@ export const AdminStudentsTab: React.FC = () => {
                         ? s.section
                         : activeSectionName)
                 }));
-              setStudents(cleaned);
+              const deduplicated = FirestoreDataService.deduplicateStudentRecords(cleaned);
+              setStudents(deduplicated);
             }
           }
         } catch {}
@@ -263,16 +264,7 @@ export const AdminStudentsTab: React.FC = () => {
             });
 
           setStudents((prev) => {
-            const map = new Map<string, AdminStudentRecord>();
-            prev.forEach((p) => {
-              const k = (p.prn || p.email || p.id).toUpperCase();
-              if (k) map.set(k, p);
-            });
-            studentUsers.forEach((st) => {
-              const k = (st.prn || st.email || st.id).toUpperCase();
-              if (k) map.set(k, st);
-            });
-            const merged = Array.from(map.values());
+            const merged = FirestoreDataService.deduplicateStudentRecords([...prev, ...studentUsers]);
             try {
               localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
             } catch {}
@@ -333,16 +325,7 @@ export const AdminStudentsTab: React.FC = () => {
 
       if (liveList.length > 0) {
         setStudents((prev) => {
-          const map = new Map<string, AdminStudentRecord>();
-          prev.forEach((p) => {
-            const k = (p.prn || p.email || p.id).toUpperCase();
-            if (k && !FirestoreDataService.isPurgedStudent(p) && !isRohanRecord(p)) map.set(k, p);
-          });
-          liveList.forEach((st) => {
-            const k = (st.prn || st.email || st.id).toUpperCase();
-            if (k) map.set(k, st);
-          });
-          const merged = Array.from(map.values());
+          const merged = FirestoreDataService.deduplicateStudentRecords([...prev, ...liveList]);
           try {
             localStorage.setItem('logicq_admin_students', JSON.stringify(merged));
           } catch {}
@@ -476,31 +459,40 @@ export const AdminStudentsTab: React.FC = () => {
     );
   };
 
+  // Canonical deduplicated students list
+  const uniqueStudents = React.useMemo(() => {
+    return FirestoreDataService.deduplicateStudentRecords(students);
+  }, [students]);
+
   // Filter logic
-  const filteredStudents = students.filter((s) => {
+  const filteredStudents = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    const nameStr = String(s.name || (s as any).fullName || (s as any).displayName || '').toLowerCase();
-    const prnStr = String(s.prn || '').toLowerCase();
-    const emailStr = String(s.email || '').toLowerCase();
-    const sectionStr = String(s.section || '').toLowerCase();
-    const matchesSearch =
-      !q ||
-      nameStr.includes(q) ||
-      prnStr.includes(q) ||
-      emailStr.includes(q) ||
-      sectionStr.includes(q);
+    const result = uniqueStudents.filter((s) => {
+      const nameStr = String(s.name || (s as any).fullName || (s as any).displayName || '').toLowerCase();
+      const prnStr = String(s.prn || '').toLowerCase();
+      const emailStr = String(s.email || '').toLowerCase();
+      const sectionStr = String(s.section || '').toLowerCase();
+      const matchesSearch =
+        !q ||
+        nameStr.includes(q) ||
+        prnStr.includes(q) ||
+        emailStr.includes(q) ||
+        sectionStr.includes(q);
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    if (selectedSection !== 'ALL' && s.section !== selectedSection) return false;
+      if (selectedSection !== 'ALL' && s.section !== selectedSection) return false;
 
-    if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
-    if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
-    return true;
-  });
+      if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
+      if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
+      return true;
+    });
 
-  const verifiedCount = students.filter((s) => s.identityStatus === 'BOUND').length;
-  const unlockedCount = students.filter((s) => s.miniProjectUnlocked).length;
+    return FirestoreDataService.deduplicateStudentRecords(result);
+  }, [uniqueStudents, searchQuery, selectedSection, activeFilter]);
+
+  const verifiedCount = uniqueStudents.filter((s) => s.identityStatus === 'BOUND').length;
+  const unlockedCount = uniqueStudents.filter((s) => s.miniProjectUnlocked).length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -518,7 +510,7 @@ export const AdminStudentsTab: React.FC = () => {
                 Student Directory
               </h2>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                {filteredStudents.length} of {students.length} {students.length === 1 ? 'Student' : 'Students'}
+                {filteredStudents.length} of {uniqueStudents.length} {uniqueStudents.length === 1 ? 'Student' : 'Students'}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -536,10 +528,10 @@ export const AdminStudentsTab: React.FC = () => {
                   onChange={(e) => setSelectedSection(e.target.value)}
                   className="w-full sm:w-auto pl-8 pr-8 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 text-slate-900 dark:text-white text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500/30 cursor-pointer appearance-none"
                 >
-                  <option value="ALL">All Sections ({students.length})</option>
+                  <option value="ALL">All Sections ({uniqueStudents.length})</option>
                   {availableSections.map((sec) => (
                     <option key={sec} value={sec}>
-                      {sec} ({students.filter((s) => s.section === sec).length})
+                      {sec} ({uniqueStudents.filter((s) => s.section === sec).length})
                     </option>
                   ))}
                 </select>
@@ -574,7 +566,7 @@ export const AdminStudentsTab: React.FC = () => {
                 : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
             }`}
           >
-            All Students ({students.length})
+            All Students ({uniqueStudents.length})
           </button>
           <button
             type="button"
@@ -627,16 +619,33 @@ export const AdminStudentsTab: React.FC = () => {
             <GraduationCap className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-            {searchQuery ? 'No Matching Students Found' : 'No Students Enrolled Yet'}
+            {activeFilter === 'VERIFIED'
+              ? 'No Email-Verified Students Yet'
+              : (activeFilter === 'UNLOCKED'
+                  ? 'No Mini-Project Active Students Yet'
+                  : (searchQuery ? 'No Matching Students Found' : 'No Students Enrolled Yet'))}
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {searchQuery
-              ? `No student matches "${searchQuery}". Clear your search or check spelling.`
-              : 'Students who join using your class section join links or uploaded Excel rosters will appear here automatically.'}
+            {activeFilter === 'VERIFIED'
+              ? 'All 116 enrolled students currently have standard institutional accounts pending personal email OTP binding. Click below to view the full student directory.'
+              : (activeFilter === 'UNLOCKED'
+                  ? 'No students currently have an unlocked mini-project. Use the Unlock button on any student card to activate.'
+                  : (searchQuery
+                      ? `No student matches "${searchQuery}". Clear your search or check spelling.`
+                      : 'Students who join using your class section join links or uploaded Excel rosters will appear here automatically.'))}
           </p>
+          {activeFilter !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter('ALL')}
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer"
+            >
+              View All Students ({uniqueStudents.length})
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStudents.map((st) => {
             const isEmailCopied = copiedEmail === st.email;
             const studentDisplayName = st.name || (st as any).fullName || (st as any).displayName || 'Student Candidate';
@@ -644,9 +653,9 @@ export const AdminStudentsTab: React.FC = () => {
 
             return (
               <div
-                key={st.id}
+                key={st.prn && st.prn !== '—' ? st.prn : st.id}
                 onClick={() => setSelectedStudentForModal(st)}
-                className="group rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121620] p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-blue-500/40 transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer"
+                className="group rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#121620] p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-blue-500/40 transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer w-full min-w-0"
               >
                 {/* Top: Avatar + Identity + Section */}
                 <div className="flex items-start gap-3">

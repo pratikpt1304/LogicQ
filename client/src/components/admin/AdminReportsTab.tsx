@@ -145,8 +145,10 @@ export const AdminReportsTab: React.FC = () => {
       if (enrolledSnap) {
         enrolledSnap.forEach((d) => {
           const raw = d.data();
-          const prnClean = (raw.prn || d.id).toUpperCase().trim();
-          studentMap.set(prnClean, {
+          const canonKey = FirestoreDataService.getCanonicalStudentKey({ ...raw, id: d.id });
+          if (!canonKey) return;
+          const prnClean = (raw.prn || canonKey).toUpperCase().trim();
+          studentMap.set(canonKey, {
             ...raw,
             id: d.id,
             prn: prnClean,
@@ -160,10 +162,12 @@ export const AdminReportsTab: React.FC = () => {
       // 2. Add / merge with realUsers
       if (Array.isArray(realUsers)) {
         realUsers.forEach((u: any) => {
-          const prnClean = (u.prn || '').toUpperCase().trim();
-          if (!prnClean || FirestoreDataService.isPurgedStudent(u)) return;
-          const existing = studentMap.get(prnClean) || {};
-          studentMap.set(prnClean, {
+          if (FirestoreDataService.isPurgedStudent(u)) return;
+          const canonKey = FirestoreDataService.getCanonicalStudentKey(u);
+          if (!canonKey) return;
+          const prnClean = (u.prn || canonKey).toUpperCase().trim();
+          const existing = studentMap.get(canonKey) || {};
+          studentMap.set(canonKey, {
             ...existing,
             ...u,
             prn: prnClean,
@@ -176,9 +180,11 @@ export const AdminReportsTab: React.FC = () => {
 
       // 3. Always ensure all 116 authentic cohort students are seeded
       C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+        const canonKey = FirestoreDataService.getCanonicalStudentKey(cs);
+        if (!canonKey) return;
         const prnClean = cs.prn.toUpperCase().trim();
-        if (!studentMap.has(prnClean)) {
-          studentMap.set(prnClean, {
+        if (!studentMap.has(canonKey)) {
+          studentMap.set(canonKey, {
             ...cs,
             id: cs.prn,
             prn: prnClean,
@@ -190,10 +196,12 @@ export const AdminReportsTab: React.FC = () => {
         }
       });
 
-      const rawList = Array.from(studentMap.values()).filter(
-        (u: any) =>
-          (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
-          !FirestoreDataService.isPurgedStudent(u)
+      const rawList = FirestoreDataService.deduplicateStudentRecords(
+        Array.from(studentMap.values()).filter(
+          (u: any) =>
+            (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) &&
+            !FirestoreDataService.isPurgedStudent(u)
+        )
       );
 
       const processed = rawList.map((u: any) => {

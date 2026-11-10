@@ -1340,6 +1340,96 @@ export class FirestoreDataService {
   }
 
   /**
+   * Resolves a strictly unique canonical key for any student record across all Firestore collections,
+   * Express backends, and in-memory caches. Eliminates duplicates between PRN and email-based documents.
+   */
+  public static getCanonicalStudentKey(s: any): string {
+    if (!s) return '';
+    // 1. Direct PRN
+    const rawPrn = String(s.prn || s.studentPrn || s.student?.prn || '').trim().toUpperCase();
+    const cleanPrn = rawPrn.replace(/[^A-Z0-9]/g, '');
+    if (cleanPrn && cleanPrn !== '—' && cleanPrn !== '-' && cleanPrn.length >= 6) {
+      return cleanPrn;
+    }
+    // 2. Institutional email (prefix before @sanjivani.edu.in is the student PRN)
+    const rawEmail = String(s.email || s.studentEmail || s.student?.email || '').trim().toLowerCase();
+    if (rawEmail && rawEmail.includes('@sanjivani.edu.in')) {
+      const prefix = rawEmail.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (prefix && prefix.length >= 6) return prefix;
+    }
+    // 3. Fallback to resolvePrn
+    const resolved = FirestoreDataService.resolvePrn(s.id || s.uid || rawEmail);
+    if (resolved) return resolved.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    // 4. Other verified email
+    if (rawEmail && rawEmail !== '—' && rawEmail !== '-' && rawEmail.includes('@')) {
+      return rawEmail;
+    }
+    // 5. Fallback ID
+    const rawId = String(s.id || s.uid || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return rawId || '';
+  }
+
+  /**
+   * Strictly deduplicates a list of student records so that every student appears exactly once.
+   * Merges telemetry, verified credentials, and active section memberships into a single canonical record.
+   */
+  public static deduplicateStudentRecords<T extends Record<string, any>>(list: T[]): T[] {
+    if (!Array.isArray(list)) return [];
+    const map = new Map<string, T>();
+
+    for (const item of list) {
+      if (!item || FirestoreDataService.isPurgedStudent(item)) continue;
+      const key = FirestoreDataService.getCanonicalStudentKey(item);
+      if (!key) continue;
+
+      const email = String(item.email || item.studentEmail || '').trim().toLowerCase();
+      let effectivePrn = String(item.prn || item.studentPrn || '').trim().toUpperCase();
+      if ((!effectivePrn || effectivePrn === '—' || effectivePrn === '-') && email.includes('@sanjivani.edu.in')) {
+        const extracted = email.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (extracted.length >= 6) effectivePrn = extracted;
+      }
+
+      const normalizedItem: any = {
+        ...item,
+        prn: (effectivePrn && effectivePrn !== '—') ? effectivePrn : (item.prn || '—'),
+        email: (email && email !== '—') ? email : (item.email || '—'),
+      };
+
+      if (!map.has(key)) {
+        map.set(key, normalizedItem);
+      } else {
+        const existing: any = map.get(key)!;
+        const merged: any = {
+          ...existing,
+          ...normalizedItem,
+          id: existing.id || normalizedItem.id,
+          name: (existing.name && existing.name !== 'Student Candidate') ? existing.name : normalizedItem.name,
+          fullName: (existing.fullName && existing.fullName !== 'Student Candidate') ? existing.fullName : normalizedItem.fullName,
+          displayName: existing.displayName || normalizedItem.displayName,
+          prn: (existing.prn && existing.prn !== '—') ? existing.prn : normalizedItem.prn,
+          email: (existing.email && existing.email !== '—') ? existing.email : normalizedItem.email,
+          section: (normalizedItem.section && normalizedItem.section !== 'General' && normalizedItem.section !== 'Integrated Mtech')
+            ? normalizedItem.section
+            : (existing.section || 'Batch 1'),
+          sectionName: (normalizedItem.sectionName && normalizedItem.sectionName !== 'General' && normalizedItem.sectionName !== 'Integrated Mtech')
+            ? normalizedItem.sectionName
+            : (existing.sectionName || 'Batch 1'),
+          identityStatus: (existing.identityStatus === 'BOUND' || normalizedItem.identityStatus === 'BOUND') ? 'BOUND' : existing.identityStatus,
+          miniProjectUnlocked: Boolean(existing.miniProjectUnlocked || normalizedItem.miniProjectUnlocked),
+          academicScore: Math.max(Number(existing.academicScore) || 0, Number(normalizedItem.academicScore) || 0),
+          integrityScore: Math.min(Number(existing.integrityScore) ?? 100, Number(normalizedItem.integrityScore) ?? 100),
+          totalSolved: Math.max(Number(existing.totalSolved) || 0, Number(normalizedItem.totalSolved) || 0),
+          totalPoints: Math.max(Number(existing.totalPoints) || 0, Number(normalizedItem.totalPoints) || 0),
+        };
+        map.set(key, merged);
+      }
+    }
+
+    return Array.from(map.values());
+  }
+
+  /**
    * Persists student practice progress in users/{uid}/drafts/practice_progress and cohort_progress/{prn}
    */
   public static async savePracticeProgress(uid: string, completedProblems: string[]): Promise<void> {
@@ -1907,9 +1997,16 @@ export class FirestoreDataService {
         );
 
         if (existingStudent) {
+          if (prn && !existingStudent.prn) {
+            existingStudent.prn = prn;
+          }
           if (email) {
             existingStudent.email = email;
             (existingStudent as any).isEmailBound = !email.endsWith('@sanjivani.edu.in');
+            if (!existingStudent.prn && email.includes('@sanjivani.edu.in')) {
+              const ext = email.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+              if (ext.length >= 6) existingStudent.prn = ext;
+            }
           }
           if (raw.name || raw.fullName || raw.displayName) {
             const rName = raw.name || raw.fullName || raw.displayName;
@@ -2116,7 +2213,7 @@ export class FirestoreDataService {
     });
 
     const filtered = list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
-    return filtered;
+    return FirestoreDataService.deduplicateStudentRecords(filtered);
   }
 
   /**
@@ -3981,7 +4078,7 @@ export class FirestoreDataService {
     });
 
     const filtered = list.filter((u) => !FirestoreDataService.isPurgedStudent(u));
-    return filtered;
+    return FirestoreDataService.deduplicateStudentRecords(filtered);
   }
 
   /**
