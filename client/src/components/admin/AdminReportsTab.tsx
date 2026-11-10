@@ -28,6 +28,7 @@ import {
   buildMasterCohortPdfDoc,
 } from '../../utils/studentPdfGenerator.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
@@ -411,7 +412,8 @@ export const AdminReportsTab: React.FC = () => {
     let unsubSections = () => {};
     let unsubUsers: (() => void) | null = null;
 
-    if (auth.currentUser) {
+    const attachRealtimeListeners = () => {
+      if (!auth.currentUser) return;
       unsubCohort = onSnapshot(collection(db, 'cohort_progress'), triggerDebouncedSync, (err) => {
         if (err?.code !== 'permission-denied') console.warn('Reports cohort notice:', err);
       });
@@ -426,7 +428,16 @@ export const AdminReportsTab: React.FC = () => {
       try {
         unsubUsers = onSnapshot(collection(db, 'users'), triggerDebouncedSync, () => {});
       } catch {}
-    }
+    };
+
+    attachRealtimeListeners();
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (user && isMounted) {
+        fetchAuthoritativeReportStudents();
+        attachRealtimeListeners();
+      }
+    });
 
     const unsubMeshUsers = realtimeSync.on('USERS', triggerDebouncedSync);
     const unsubMeshSections = realtimeSync.on('SECTIONS', triggerDebouncedSync);
@@ -436,6 +447,7 @@ export const AdminReportsTab: React.FC = () => {
     return () => {
       isMounted = false;
       if (syncTimeout) clearTimeout(syncTimeout);
+      unsubAuth();
       unsubCohort();
       unsubSubmissions();
       unsubAssessmentSubmissions();

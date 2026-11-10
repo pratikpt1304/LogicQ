@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, doc, getDoc, getDocs, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
@@ -774,7 +775,8 @@ export const AdminIntegrityTab: React.FC = () => {
     let unsubSections = () => {};
     let unsubUsers: (() => void) | null = null;
 
-    if (auth.currentUser) {
+    const attachRealtimeListeners = () => {
+      if (!auth.currentUser) return;
       unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => fetchAuthenticStudents(), (err) => {
         if (err?.code !== 'permission-denied') console.warn('Integrity live cohort notice:', err);
       });
@@ -793,7 +795,16 @@ export const AdminIntegrityTab: React.FC = () => {
       try {
         unsubUsers = onSnapshot(collection(db, 'users'), () => fetchAuthenticStudents(), () => {});
       } catch {}
-    }
+    };
+
+    attachRealtimeListeners();
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (user && isMounted) {
+        fetchAuthenticStudents();
+        attachRealtimeListeners();
+      }
+    });
 
     const unsubMeshUsers = realtimeSync.on('USERS', () => fetchAuthenticStudents());
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => fetchAuthenticStudents());
@@ -801,6 +812,7 @@ export const AdminIntegrityTab: React.FC = () => {
 
     return () => {
       isMounted = false;
+      unsubAuth();
       unsubCohort();
       unsubSubmissions();
       unsubGenSubmissions();

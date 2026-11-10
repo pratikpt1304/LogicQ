@@ -1346,20 +1346,20 @@ export class FirestoreDataService {
   public static getCanonicalStudentKey(s: any): string {
     if (!s) return '';
     // 1. Direct PRN
-    const rawPrn = String(s.prn || s.studentPrn || s.student?.prn || '').trim().toUpperCase();
+    const rawPrn = String(s.prn || s.studentPrn || s.student?.prn || '').trim().toUpperCase().replace(/^COHORT-/, '');
     const cleanPrn = rawPrn.replace(/[^A-Z0-9]/g, '');
     if (cleanPrn && cleanPrn !== '—' && cleanPrn !== '-' && cleanPrn.length >= 6) {
-      return cleanPrn;
+      return cleanPrn.replace(/O/g, '0');
     }
     // 2. Institutional email (prefix before @sanjivani.edu.in is the student PRN)
     const rawEmail = String(s.email || s.studentEmail || s.student?.email || '').trim().toLowerCase();
     if (rawEmail && rawEmail.includes('@sanjivani.edu.in')) {
       const prefix = rawEmail.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (prefix && prefix.length >= 6) return prefix;
+      if (prefix && prefix.length >= 6) return prefix.replace(/O/g, '0');
     }
     // 3. Fallback to resolvePrn
     const resolved = FirestoreDataService.resolvePrn(s.id || s.uid || rawEmail);
-    if (resolved) return resolved.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (resolved) return resolved.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/O/g, '0');
 
     // 4. Other verified email
     if (rawEmail && rawEmail !== '—' && rawEmail !== '-' && rawEmail.includes('@')) {
@@ -1408,14 +1408,29 @@ export class FirestoreDataService {
           fullName: (existing.fullName && existing.fullName !== 'Student Candidate') ? existing.fullName : normalizedItem.fullName,
           displayName: existing.displayName || normalizedItem.displayName,
           prn: (existing.prn && existing.prn !== '—') ? existing.prn : normalizedItem.prn,
-          email: (existing.email && existing.email !== '—') ? existing.email : normalizedItem.email,
+          email: (() => {
+            const isNormVerified = normalizedItem.email && !normalizedItem.email.endsWith('@sanjivani.edu.in') && normalizedItem.email.includes('@');
+            const isExistVerified = existing.email && !existing.email.endsWith('@sanjivani.edu.in') && existing.email.includes('@');
+            if (isNormVerified) return normalizedItem.email;
+            if (isExistVerified) return existing.email;
+            return (normalizedItem.email && normalizedItem.email !== '—') ? normalizedItem.email : (existing.email || '—');
+          })(),
           section: (normalizedItem.section && normalizedItem.section !== 'General' && normalizedItem.section !== 'Integrated Mtech')
             ? normalizedItem.section
             : (existing.section || 'Batch 1'),
           sectionName: (normalizedItem.sectionName && normalizedItem.sectionName !== 'General' && normalizedItem.sectionName !== 'Integrated Mtech')
             ? normalizedItem.sectionName
             : (existing.sectionName || 'Batch 1'),
-          identityStatus: (existing.identityStatus === 'BOUND' || normalizedItem.identityStatus === 'BOUND') ? 'BOUND' : existing.identityStatus,
+          identityStatus: (existing.identityStatus === 'BOUND' || normalizedItem.identityStatus === 'BOUND' || existing.identityStatus === 'EMAIL_VERIFIED' || normalizedItem.identityStatus === 'EMAIL_VERIFIED' || existing.isEmailBound || normalizedItem.isEmailBound || existing.emailVerified || normalizedItem.emailVerified) ? 'BOUND' : (existing.identityStatus || normalizedItem.identityStatus || 'PENDING'),
+          isEmailBound: Boolean(existing.isEmailBound || normalizedItem.isEmailBound || existing.identityStatus === 'BOUND' || normalizedItem.identityStatus === 'BOUND'),
+          emailVerified: Boolean(existing.emailVerified || normalizedItem.emailVerified || existing.isEmailBound || normalizedItem.isEmailBound),
+          boundEmail: (() => {
+            const normBound = normalizedItem.boundEmail && !normalizedItem.boundEmail.endsWith('@sanjivani.edu.in') && normalizedItem.boundEmail.includes('@');
+            const existBound = existing.boundEmail && !existing.boundEmail.endsWith('@sanjivani.edu.in') && existing.boundEmail.includes('@');
+            if (normBound) return normalizedItem.boundEmail;
+            if (existBound) return existing.boundEmail;
+            return normalizedItem.boundEmail || existing.boundEmail || null;
+          })(),
           miniProjectUnlocked: Boolean(existing.miniProjectUnlocked || normalizedItem.miniProjectUnlocked),
           academicScore: Math.max(Number(existing.academicScore) || 0, Number(normalizedItem.academicScore) || 0),
           integrityScore: Math.min(Number(existing.integrityScore) ?? 100, Number(normalizedItem.integrityScore) ?? 100),
@@ -2002,7 +2017,8 @@ export class FirestoreDataService {
           }
           if (email) {
             existingStudent.email = email;
-            (existingStudent as any).isEmailBound = !email.endsWith('@sanjivani.edu.in');
+            (existingStudent as any).isEmailBound = Boolean(raw.isEmailBound || raw.isEmailBoundV2 || raw.emailVerified || (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@')));
+            (existingStudent as any).emailVerified = Boolean(raw.emailVerified || raw.isEmailBound || raw.isEmailBoundV2 || (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@')));
             if (!existingStudent.prn && email.includes('@sanjivani.edu.in')) {
               const ext = email.split('@')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
               if (ext.length >= 6) existingStudent.prn = ext;
@@ -2072,6 +2088,8 @@ export class FirestoreDataService {
           totalPoints: Number(raw.totalPoints || 0),
           currentStreak: Number(raw.currentStreak || 0),
           longestStreak: Number(raw.longestStreak || 0),
+            isEmailBound: Boolean(raw.isEmailBound || raw.isEmailBoundV2 || raw.emailVerified || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
+            emailVerified: Boolean(raw.emailVerified || raw.isEmailBound || raw.isEmailBoundV2 || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
           miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
           isBanned: Boolean(raw.isBanned),
           bannedAt: raw.bannedAt || null,
@@ -2188,6 +2206,8 @@ export class FirestoreDataService {
             totalPoints: Number(raw.totalPoints || 0),
             currentStreak: Number(raw.currentStreak || 0),
             longestStreak: Number(raw.longestStreak || 0),
+            isEmailBound: Boolean(raw.isEmailBound || raw.isEmailBoundV2 || raw.emailVerified || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
+            emailVerified: Boolean(raw.emailVerified || raw.isEmailBound || raw.isEmailBoundV2 || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
           miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
             createdAt: new Date().toISOString(),
           } as User);
@@ -2259,6 +2279,8 @@ export class FirestoreDataService {
           totalPoints: finalPoints,
           currentStreak: Number(raw.currentStreak || 0),
           longestStreak: Number(raw.longestStreak || 0),
+            isEmailBound: Boolean(raw.isEmailBound || raw.isEmailBoundV2 || raw.emailVerified || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
+            emailVerified: Boolean(raw.emailVerified || raw.isEmailBound || raw.isEmailBoundV2 || (raw.email && !String(raw.email).endsWith('@sanjivani.edu.in') && String(raw.email).includes('@'))),
           miniProjectUnlocked: Boolean(raw.miniProjectUnlocked || raw.miniProjectActive),
           totalSolved: finalSolved,
         });

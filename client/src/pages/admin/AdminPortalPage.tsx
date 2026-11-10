@@ -39,6 +39,7 @@ import { AdminAnswerBankTab } from '../../components/admin/AdminAnswerBankTab.js
 import { StudentDeepDiveModal } from '../../components/admin/StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { api } from '../../api/client.js';
@@ -416,7 +417,9 @@ export const AdminPortalPage: React.FC = () => {
     let unsubEnrolled = () => {};
     let unsubUsers: (() => void) | null = null;
 
-    if (auth.currentUser) {
+    const attachRealtimeListeners = () => {
+      if (!auth.currentUser) return;
+
       unsubCohort = onSnapshot(collection(db, 'cohort_progress'), () => {
         loadRealData();
       }, (err) => {
@@ -452,7 +455,16 @@ export const AdminPortalPage: React.FC = () => {
           loadRealData();
         }, () => {});
       } catch {}
-    }
+    };
+
+    attachRealtimeListeners();
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loadRealData();
+        attachRealtimeListeners();
+      }
+    });
 
     // 3. Multi-Tab Realtime Mesh Listeners
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadRealData());
@@ -461,6 +473,7 @@ export const AdminPortalPage: React.FC = () => {
     const unsubMeshSubmissions = realtimeSync.on('SUBMISSIONS', () => loadRealData());
 
     return () => {
+      unsubAuth();
       unsubCohort();
       unsubSubmissions();
       unsubAssessmentSubmissions();

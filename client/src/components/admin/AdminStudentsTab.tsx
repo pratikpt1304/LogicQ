@@ -19,6 +19,7 @@ import {
 import { StudentDeepDiveModal } from './StudentDeepDiveModal.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
@@ -122,9 +123,10 @@ export const AdminStudentsTab: React.FC = () => {
           }
         } catch {}
 
-        // 2. Fetch authoritative Firestore users alongside cohort_progress & submissions (authenticated only)
-        const [users, cohortSnap, assessSnap, subSnap] = await Promise.all([
+        // 2. Fetch authoritative Firestore users, enrolled_students, cohort_progress & submissions (authenticated only)
+        const [users, enrolledSnap, cohortSnap, assessSnap, subSnap] = await Promise.all([
           auth.currentUser ? FirestoreDataService.getAllFirestoreUsers().catch(() => []) : Promise.resolve([]),
+          auth.currentUser ? getDocs(collection(db, 'enrolled_students')).catch(() => null) : Promise.resolve(null),
           auth.currentUser ? getDocs(collection(db, 'cohort_progress')).catch(() => null) : Promise.resolve(null),
           auth.currentUser ? getDocs(collection(db, 'assessment_test_submissions')).catch(() => null) : Promise.resolve(null),
           auth.currentUser ? getDocs(collection(db, 'submissions')).catch(() => null) : Promise.resolve(null),
@@ -132,7 +134,23 @@ export const AdminStudentsTab: React.FC = () => {
 
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
-          cohortSnap.forEach((d: any) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
+          cohortSnap.forEach((d: any) => {
+            const idKey = d.id.toUpperCase().trim();
+            cohortMap.set(idKey, d.data());
+            cohortMap.set(idKey.replace(/O/g, '0'), d.data());
+          });
+        }
+
+        const enrolledMap = new Map<string, any>();
+        if (enrolledSnap) {
+          enrolledSnap.forEach((d: any) => {
+            const raw = d.data();
+            const prnKey = (raw.prn || d.id || '').toUpperCase().trim();
+            if (prnKey) {
+              enrolledMap.set(prnKey, raw);
+              enrolledMap.set(prnKey.replace(/O/g, '0'), raw);
+            }
+          });
         }
 
         const assessSubs: any[] = [];
@@ -150,21 +168,48 @@ export const AdminStudentsTab: React.FC = () => {
             .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u) && !isRohanRecord(u))
             .map((u) => {
               const anyUser = u as any;
-              const isBound = Boolean(
-                anyUser.isEmailBoundV2 ||
-                anyUser.emailVerified ||
-                (anyUser.email && !anyUser.email.endsWith('@sanjivani.edu.in') && anyUser.email.includes('@'))
-              );
-
               const prnClean = (anyUser.prn || '').toUpperCase().trim();
               const userEmail = (anyUser.email || '').toLowerCase().trim();
               const userId = String(anyUser.id || anyUser.uid || '').trim();
 
               const cData = cohortMap.get(prnClean) ||
-                            cohortMap.get(prnClean.replace(/0/g, 'O')) ||
                             cohortMap.get(prnClean.replace(/O/g, '0')) ||
+                            cohortMap.get(prnClean.replace(/0/g, 'O')) ||
                             cohortMap.get(userId.toUpperCase()) || {};
+              const enrData = enrolledMap.get(prnClean) ||
+                              enrolledMap.get(prnClean.replace(/O/g, '0')) ||
+                              enrolledMap.get(prnClean.replace(/0/g, 'O')) ||
+                              enrolledMap.get(userId.toUpperCase()) || {};
               const mod = cData.moduleProgress || {};
+
+              const boundEmail = [
+                cData.boundEmail,
+                mod.boundEmail,
+                enrData.boundEmail,
+                anyUser.boundEmail,
+                cData.studentEmail,
+                enrData.email,
+                anyUser.email,
+              ].find((em) => em && typeof em === 'string' && em.includes('@') && !em.endsWith('@sanjivani.edu.in'));
+
+              const isBound = Boolean(
+                anyUser.isEmailBound ||
+                anyUser.isEmailBoundV2 ||
+                anyUser.emailVerified ||
+                enrData.isEmailBound ||
+                enrData.isEmailBoundV2 ||
+                enrData.emailVerified ||
+                cData.isEmailBound ||
+                cData.isEmailBoundV2 ||
+                cData.emailVerified ||
+                mod.isEmailBound ||
+                mod.isEmailBoundV2 ||
+                mod.emailVerified ||
+                boundEmail ||
+                (prnClean && localStorage.getItem(`logicq_bound_v2_${prnClean}`) === 'true')
+              );
+
+              const effectiveDisplayEmail = boundEmail || enrData.email || anyUser.email || (prnClean ? `${prnClean.toLowerCase()}@sanjivani.edu.in` : '—');
 
               // Match student's submissions across tests and practice
               const matchedSubs = [...assessSubs, ...genSubs].filter((s: any) => {
@@ -231,16 +276,16 @@ export const AdminStudentsTab: React.FC = () => {
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
 
-              const assignedSec = anyUser.sectionName || anyUser.section;
+              const assignedSec = anyUser.sectionName || anyUser.section || enrData.sectionName;
               const normalizedSection = (assignedSec && assignedSec !== 'Integrated Mtech' && assignedSec !== 'General')
                 ? assignedSec
                 : activeSectionName;
 
               return {
                 id: anyUser.id || anyUser.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,
-                name: anyUser.fullName || anyUser.displayName || anyUser.username || 'Student Candidate',
+                name: anyUser.fullName || anyUser.displayName || anyUser.username || enrData.name || 'Student Candidate',
                 prn: (anyUser.prn || '').toUpperCase() || '—',
-                email: anyUser.email || '—',
+                email: effectiveDisplayEmail,
                 section: normalizedSection,
                 identityStatus: isBound ? 'BOUND' : 'PENDING',
                 academicScore: computedAcademic,
@@ -287,21 +332,27 @@ export const AdminStudentsTab: React.FC = () => {
     let unsubSubmissions = () => {};
     let unsubAssessmentSubmissions = () => {};
 
-    // Live real-time Firestore listeners (active when authenticated)
-    if (auth.currentUser) {
+    const attachRealtimeListeners = () => {
+      if (!auth.currentUser) return;
+
       unsubEnrolled = onSnapshot(collection(db, 'enrolled_students'), (snap) => {
         if (!isMounted) return;
         const liveList: AdminStudentRecord[] = [];
         snap.forEach((d) => {
           const raw = d.data();
           if (!raw || FirestoreDataService.isPurgedStudent(raw) || isRohanRecord(raw)) return;
-          const prnClean = (raw.prn || '').toUpperCase().trim();
+          const prnClean = (raw.prn || d.id || '').toUpperCase().trim();
           const email = (raw.email || '').toLowerCase().trim();
+          const boundEmail = (raw.boundEmail || '').toLowerCase().trim();
           const isBound = Boolean(
+            raw.isEmailBound ||
             raw.isEmailBoundV2 ||
             raw.emailVerified ||
-            (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@'))
+            (boundEmail && !boundEmail.endsWith('@sanjivani.edu.in') && boundEmail.includes('@')) ||
+            (email && !email.endsWith('@sanjivani.edu.in') && email.includes('@')) ||
+            (prnClean && localStorage.getItem(`logicq_bound_v2_${prnClean}`) === 'true')
           );
+          const effectiveEmail = (isBound && boundEmail) ? boundEmail : (email || (prnClean ? `${prnClean.toLowerCase()}@sanjivani.edu.in` : '—'));
           const localCached = prnClean ? localStorage.getItem(`logicq_mini_project_unlocked_${prnClean}`) : null;
           const isUnlocked = localCached !== null ? localCached === 'true' : Boolean(raw.miniProjectUnlocked || raw.miniProjectActive);
 
@@ -313,7 +364,7 @@ export const AdminStudentsTab: React.FC = () => {
             id: d.id,
             name: raw.fullName || raw.displayName || raw.name || 'Student Candidate',
             prn: prnClean || '—',
-            email: email || '—',
+            email: effectiveEmail,
             section: resolvedSection,
             identityStatus: isBound ? 'BOUND' : 'PENDING',
             academicScore: raw.academicScore !== undefined ? raw.academicScore : Math.min(100, Math.round(((raw.totalPoints || 0) / 100) * 100)),
@@ -339,13 +390,26 @@ export const AdminStudentsTab: React.FC = () => {
         if (err?.code !== 'permission-denied') console.warn('Live enrolled_students onSnapshot notice:', err);
       });
 
-      // Live real-time listener on cohort_progress for miniProject and points
+      // Live real-time listener on cohort_progress for miniProject, verified email, and points
       unsubCohort = onSnapshot(collection(db, 'cohort_progress'), (snap) => {
         if (!isMounted) return;
         snap.docChanges().forEach((change) => {
           const prnClean = change.doc.id.toUpperCase().trim();
           const data = change.doc.data();
           if (data && prnClean) {
+            const isBoundFromCohort = Boolean(
+              data.isEmailBound ||
+              data.isEmailBoundV2 ||
+              data.emailVerified ||
+              data?.moduleProgress?.isEmailBound ||
+              data?.moduleProgress?.isEmailBoundV2 ||
+              data?.moduleProgress?.emailVerified ||
+              (data.boundEmail && data.boundEmail.includes('@') && !data.boundEmail.endsWith('@sanjivani.edu.in')) ||
+              (data?.moduleProgress?.boundEmail && data.moduleProgress.boundEmail.includes('@') && !data.moduleProgress.boundEmail.endsWith('@sanjivani.edu.in')) ||
+              localStorage.getItem(`logicq_bound_v2_${prnClean}`) === 'true'
+            );
+            const verifiedEmailFromCohort = data.boundEmail || data?.moduleProgress?.boundEmail || data.studentEmail;
+
             setStudents((prev) =>
               prev.map((s) => {
                 if (FirestoreDataService.arePrnsMatching(s.prn, prnClean) || (data.studentEmail && s.email && s.email.toLowerCase() === String(data.studentEmail).toLowerCase())) {
@@ -365,6 +429,8 @@ export const AdminStudentsTab: React.FC = () => {
 
                   return {
                     ...s,
+                    identityStatus: isBoundFromCohort ? 'BOUND' : s.identityStatus,
+                    email: (isBoundFromCohort && verifiedEmailFromCohort) ? verifiedEmailFromCohort : s.email,
                     academicScore: computedAcademic,
                     integrityScore: computedIntegrity,
                     tabSwitchCount: newTabSwitches,
@@ -405,7 +471,18 @@ export const AdminStudentsTab: React.FC = () => {
       }, (err) => {
         if (err?.code !== 'permission-denied') console.warn('Live assessment_test_submissions notice:', err);
       });
-    }
+    };
+
+    // Attach listeners if already authenticated
+    attachRealtimeListeners();
+
+    // Attach listeners and reload as soon as Firebase Auth completes session restore
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (user && isMounted) {
+        loadStudents(false);
+        attachRealtimeListeners();
+      }
+    });
 
     const unsubMeshUsers = realtimeSync.on('USERS', () => loadStudents(false));
     const unsubMeshSections = realtimeSync.on('SECTIONS', () => loadStudents(false));
@@ -414,6 +491,7 @@ export const AdminStudentsTab: React.FC = () => {
 
     return () => {
       isMounted = false;
+      unsubAuth();
       unsubEnrolled();
       unsubCohort();
       unsubSubmissions();
@@ -489,7 +567,7 @@ export const AdminStudentsTab: React.FC = () => {
 
       if (selectedSection !== 'ALL' && s.section !== selectedSection) return false;
 
-      if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND';
+      if (activeFilter === 'VERIFIED') return s.identityStatus === 'BOUND' || s.identityStatus === 'EMAIL_VERIFIED';
       if (activeFilter === 'UNLOCKED') return s.miniProjectUnlocked;
       return true;
     });
@@ -497,7 +575,7 @@ export const AdminStudentsTab: React.FC = () => {
     return FirestoreDataService.deduplicateStudentRecords(result);
   }, [uniqueStudents, searchQuery, selectedSection, activeFilter]);
 
-  const verifiedCount = uniqueStudents.filter((s) => s.identityStatus === 'BOUND').length;
+  const verifiedCount = uniqueStudents.filter((s) => s.identityStatus === 'BOUND' || s.identityStatus === 'EMAIL_VERIFIED').length;
   const unlockedCount = uniqueStudents.filter((s) => s.miniProjectUnlocked).length;
 
   return (
@@ -722,7 +800,7 @@ export const AdminStudentsTab: React.FC = () => {
 
                 {/* Bottom: Verification + Mini-project + Chevron */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/5 gap-2">
-                  {st.identityStatus === 'BOUND' ? (
+                  {st.identityStatus === 'BOUND' || st.identityStatus === 'EMAIL_VERIFIED' ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       <ShieldCheck className="w-3 h-3" />
                       <span>Verified</span>

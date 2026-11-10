@@ -251,11 +251,15 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
             setDoc(canonicalRef, {
               prn: effectivePrn,
               email: cleanEmail,
+              boundEmail: cleanEmail,
+              isEmailBound: true,
+              isEmailBoundV2: true,
+              emailVerified: true,
               name: effectiveName,
               fullName: effectiveName,
               displayName: effectiveName,
-              sectionId: user.sectionId || 'sec-mw6l4r2s',
-              sectionName: user.sectionName || 'Integrated Mtech',
+              sectionId: user.sectionId || 'sec-batch1',
+              sectionName: user.sectionName && user.sectionName !== 'Integrated Mtech' ? user.sectionName : 'Batch 1',
               college: 'Sanjivani University',
               status: 'ACTIVE',
               updatedAt: serverTimestamp(),
@@ -265,16 +269,34 @@ export const BindEmailModal: React.FC<BindEmailModalProps> = ({
             setDoc(cohortRef, {
               prn: effectivePrn,
               boundEmail: cleanEmail,
+              studentEmail: cleanEmail,
               isEmailBound: true,
               isEmailBoundV2: true,
+              emailVerified: true,
               moduleProgress: {
                 boundEmail: cleanEmail,
                 isEmailBound: true,
                 isEmailBoundV2: true,
+                emailVerified: true,
                 lastActiveTime: new Date().toISOString(),
               },
               updatedAt: Date.now(),
             }, { merge: true }).catch(() => {});
+
+            // Update user document in Firestore users collection
+            const userRef = doc(db, 'users', `std_${effectivePrn.toLowerCase()}`);
+            setDoc(userRef, {
+              email: cleanEmail,
+              boundEmail: cleanEmail,
+              isEmailBound: true,
+              isEmailBoundV2: true,
+              emailVerified: true,
+              updatedAt: serverTimestamp(),
+            }, { merge: true }).catch(() => {});
+
+            // Persist to local storage binding keys
+            localStorage.setItem(`logicq_bound_v2_${effectivePrn}`, 'true');
+            localStorage.setItem(`logicq_bound_v2_email_${effectivePrn}`, cleanEmail);
           } catch (writeErr) {
             console.warn('Direct canonical write setup notice:', writeErr);
           }

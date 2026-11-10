@@ -265,9 +265,12 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
           {sections.map((sec) => {
             const isJustCopied = copiedId === sec.id;
             const validStudents = (sec.students || []).filter((s) => !FirestoreDataService.isPurgedStudent(s));
-            const studentCount = validStudents.length > 0
-              ? validStudents.length
-              : (sec.studentsCount || (sec.joinCode === 'LQ-906E' || sec.sectionName === 'Batch 1' || sections.length === 1 ? 116 : 0));
+            const isBatch1OrSolo = sec.joinCode === 'LQ-906E' || sec.sectionName === 'Batch 1' || sections.length === 1;
+            const studentCount = Math.max(
+              validStudents.length,
+              Number(sec.studentsCount) || 0,
+              isBatch1OrSolo ? 116 : 0
+            );
 
             return (
               <div

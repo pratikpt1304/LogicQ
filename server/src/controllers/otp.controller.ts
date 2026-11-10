@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { OtpService } from '../services/otp.service.js';
+import { prisma } from '../config/database.js';
 
 export class OtpController {
   static async sendEmailOtp(req: Request, res: Response) {
@@ -32,6 +33,34 @@ export class OtpController {
       const result = await OtpService.verifyEmailOtp(email, code, prn);
       if (!result.verified) {
         return res.status(400).json({ success: false, message: result.message });
+      }
+
+      // Mark user in database as email OTP verified
+      if (prn || email) {
+        try {
+          const cleanEmail = String(email).trim().toLowerCase();
+          const cleanPrn = prn ? String(prn).trim().toUpperCase() : null;
+          const user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                ...(cleanPrn ? [{ prn: cleanPrn }] : []),
+                { email: cleanEmail },
+              ],
+            },
+          });
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                email: cleanEmail,
+                accountState: 'EMAIL_OTP_VERIFIED',
+                emailOtpVerifiedAt: new Date(),
+              },
+            });
+          }
+        } catch (dbErr) {
+          console.warn('OtpController.verifyEmailOtp database user sync notice:', dbErr);
+        }
       }
 
       return res.json({ success: true, message: result.message });
