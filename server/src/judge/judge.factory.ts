@@ -18,7 +18,7 @@ export async function getJudge(): Promise<IJudge> {
       activeJudgeInstance = judge0;
       return activeJudgeInstance;
     }
-    console.warn('⚠️ Judge0 configured but unavailable. Falling back to LocalGccJudge.');
+    throw new Error('JUDGE_UNAVAILABLE: Configured Judge0 execution service is unavailable.');
   }
 
   if (ENV.JUDGE_TYPE === 'docker') {
@@ -28,7 +28,7 @@ export async function getJudge(): Promise<IJudge> {
       activeJudgeInstance = dockerJudge;
       return activeJudgeInstance;
     }
-    console.warn('⚠️ Docker configured but unavailable. Falling back to LocalGccJudge.');
+    throw new Error('JUDGE_UNAVAILABLE: Configured Docker execution service is unavailable.');
   }
 
   // Default fallback: LocalGccJudge (real GCC compiler)
