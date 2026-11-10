@@ -31,6 +31,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
 
 const isSectionMatch = (studentSec: string | undefined | null, targetSec: string | undefined | null): boolean => {
   if (!targetSec || targetSec === 'ALL') return true;
@@ -141,6 +142,22 @@ export const AdminReportsTab: React.FC = () => {
           });
         });
       }
+
+      // 3. Always ensure all 116 authentic cohort students are seeded
+      C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+        const prnClean = cs.prn.toUpperCase().trim();
+        if (!studentMap.has(prnClean)) {
+          studentMap.set(prnClean, {
+            ...cs,
+            id: cs.prn,
+            prn: prnClean,
+            fullName: cs.fullName,
+            displayName: cs.fullName,
+            email: cs.email || `${prnClean.toLowerCase()}@sanjivani.edu.in`,
+            role: 'STUDENT',
+          });
+        }
+      });
 
       const rawList = Array.from(studentMap.values()).filter(
         (u: any) =>

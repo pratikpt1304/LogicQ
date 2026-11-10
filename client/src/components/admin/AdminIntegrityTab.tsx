@@ -36,6 +36,7 @@ import { collection, doc, getDoc, getDocs, onSnapshot } from 'firebase/firestore
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { TOPIC_PRACTICE_DATA } from '../../data/topic-practice.data.js';
+import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
 
 export interface StudentTimelineEvent {
   id: string;
@@ -321,8 +322,59 @@ export const AdminIntegrityTab: React.FC = () => {
     }
   };
 
-  // Students Forensics stream state (Purely Authentic Enrolled Students)
-  const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>([]);
+  // Students Forensics stream state (Purely Authentic Enrolled Students - synchronous hydration)
+  const [studentsForensics, setStudentsForensics] = useState<StudentForensicRecord[]>(() => {
+    try {
+      const cached = localStorage.getItem('logicq_admin_students');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s: any) => ({
+            id: s.id || s.prn,
+            name: s.name || s.fullName || s.displayName || 'Student Candidate',
+            prn: (s.prn || '').toUpperCase() || '—',
+            email: s.email || '—',
+            section: s.sectionName && s.sectionName !== 'Integrated Mtech' && s.sectionName !== 'General' ? s.sectionName : (s.section || 'Batch 1'),
+            category: 'Practice',
+            currentModule: 'Continuous Practical Lab',
+            currentProblem: 'Foundations & Logic Exercises',
+            startTime: '—',
+            lastActiveTime: 'Recent',
+            totalTimeSpent: `${s.totalSolved ? s.totalSolved * 5 : 0}m`,
+            integrityScore: s.integrityScore !== undefined ? s.integrityScore : 100,
+            status: (s.integrityScore !== undefined && s.integrityScore < 70) ? 'NEEDS_REVIEW' : 'CLEAN',
+            tabSwitches: s.tabSwitches || s.tabSwitchCount || 0,
+            pasteBursts: s.pasteBursts || s.clipboardAttempts || 0,
+            fullscreenExits: 0,
+            avgWpm: 32,
+            aiVivaStatus: 'NOT_TRIGGERED',
+            timeline: [],
+          }));
+        }
+      }
+    } catch {}
+    return C_PROGRAMMING_COHORT_STUDENTS.map((cs) => ({
+      id: cs.prn,
+      name: cs.fullName,
+      prn: cs.prn,
+      email: cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`,
+      section: 'Batch 1',
+      category: 'Practice',
+      currentModule: 'Continuous Practical Lab',
+      currentProblem: 'Foundations & Logic Exercises',
+      startTime: '—',
+      lastActiveTime: 'Recent',
+      totalTimeSpent: '0m',
+      integrityScore: 100,
+      status: 'CLEAN',
+      tabSwitches: 0,
+      pasteBursts: 0,
+      fullscreenExits: 0,
+      avgWpm: 0,
+      aiVivaStatus: 'NOT_TRIGGERED',
+      timeline: [],
+    }));
+  });
 
   // Viva logs state (Purely Authentic - zero mock entries)
   const [vivaLogs, setVivaLogs] = useState<VivaLogItem[]>([]);
@@ -339,18 +391,19 @@ export const AdminIntegrityTab: React.FC = () => {
           localStorage.removeItem('logicq_viva_logs');
         } catch {}
 
-        // Clean up any stale legacy cache with small counts
+        // Discover active section name (default to "Batch 1")
+        let activeSectionName = 'Batch 1';
         try {
-          const cached = localStorage.getItem('logicq_admin_students');
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length < 20) {
-              localStorage.removeItem('logicq_admin_students');
+          const rawSec = localStorage.getItem('logicq_admin_sections') || localStorage.getItem('logicq_faculty_sections_backup_v2');
+          if (rawSec) {
+            const parsed = JSON.parse(rawSec);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].sectionName) {
+              activeSectionName = parsed[0].sectionName;
             }
           }
         } catch {}
 
-        // 1. Fetch directly from enrolled_students (authoritative roster of 116+ students)
+        // 1. Fetch directly from enrolled_students, users, submissions, and live cohort progress
         const [enrolledSnap, firestoreUsers, assessmentSubmissions, cohortSnap] = await Promise.all([
           getDocs(collection(db, 'enrolled_students')).catch(() => null),
           FirestoreDataService.getAllFirestoreUsers().catch(() => []),
@@ -360,34 +413,73 @@ export const AdminIntegrityTab: React.FC = () => {
 
         const studentsMap = new Map<string, any>();
 
-        // Populate from enrolled_students first (guarantees all authentic enrolled students are present)
+        // 0. Seed from local storage cached students if available
+        try {
+          const cached = localStorage.getItem('logicq_admin_students');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              parsed.forEach((u: any) => {
+                const prn = (u.prn || '').toUpperCase().trim();
+                if (prn) {
+                  studentsMap.set(prn, {
+                    id: u.id || prn,
+                    name: u.fullName || u.displayName || u.name || 'Student Candidate',
+                    prn,
+                    email: u.email || `${prn.toLowerCase()}@sanjivani.edu.in`,
+                    section: u.sectionName && u.sectionName !== 'Integrated Mtech' && u.sectionName !== 'General'
+                      ? u.sectionName
+                      : (u.section && u.section !== 'Integrated Mtech' && u.section !== 'General' ? u.section : activeSectionName),
+                    integrityScore: u.integrityScore ?? 100,
+                  });
+                }
+              });
+            }
+          }
+        } catch {}
+
+        // 1. Always seed all 116 authentic directory cohort students
+        C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+          const prnClean = cs.prn.toUpperCase().trim();
+          if (!studentsMap.has(prnClean)) {
+            studentsMap.set(prnClean, {
+              id: cs.prn,
+              name: cs.fullName,
+              prn: prnClean,
+              email: cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`,
+              section: activeSectionName,
+              integrityScore: 100,
+            });
+          }
+        });
+
+        // 2. Populate / enrich from enrolled_students
         if (enrolledSnap) {
           enrolledSnap.forEach((d) => {
             const raw = d.data();
             if (!raw || FirestoreDataService.isPurgedStudent(raw)) return;
             const prnClean = (raw.prn || '').toUpperCase().trim();
-            // Skip any ghost entry without authentic PRN
             if (!prnClean || prnClean === '—' || prnClean === '-' || prnClean === 'GUEST' || prnClean === 'UNDEFINED' || prnClean === 'NULL') return;
             const rawName = (raw.fullName || raw.displayName || raw.name || '').trim();
             if (!rawName || rawName.toLowerCase() === 'student' || rawName.toLowerCase().startsWith('candidate ')) return;
 
-            const key = prnClean;
-            const rawSection = raw.sectionName || raw.section || (raw.division ? `Division ${raw.division}` : 'Integrated Mtech');
-            const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-              ? 'Integrated Mtech'
-              : rawSection;
-            studentsMap.set(key, {
-              id: d.id,
-              name: rawName,
+            const existing = studentsMap.get(prnClean) || {};
+            const rawSection = raw.sectionName || raw.section || existing.section || activeSectionName;
+            const normalizedSection = (rawSection && rawSection !== 'Integrated Mtech' && rawSection !== 'General') ? rawSection : activeSectionName;
+
+            studentsMap.set(prnClean, {
+              ...existing,
+              id: d.id || existing.id,
+              name: rawName || existing.name,
               prn: prnClean,
-              email: (raw.email || '').toLowerCase().trim() || '—',
+              email: (raw.email || existing.email || '').toLowerCase().trim() || `${prnClean.toLowerCase()}@sanjivani.edu.in`,
               section: normalizedSection,
-              integrityScore: raw.integrityScore ?? 100,
+              integrityScore: raw.integrityScore ?? existing.integrityScore ?? 100,
             });
           });
         }
 
-        // Merge any additional registered users from firestoreUsers ONLY if they have a valid institutional PRN
+        // 3. Merge from firestoreUsers
         if (Array.isArray(firestoreUsers)) {
           firestoreUsers
             .filter((u: any) => {
@@ -396,26 +488,23 @@ export const AdminIntegrityTab: React.FC = () => {
               if (FirestoreDataService.isPurgedStudent(u)) return false;
               const prnKey = (u.prn || '').toUpperCase().trim();
               if (!prnKey || prnKey === '—' || prnKey === '-' || prnKey === 'GUEST' || prnKey === 'UNDEFINED' || prnKey === 'NULL') return false;
-              const rawName = (u.fullName || u.displayName || u.username || u.name || '').trim();
-              if (!rawName || rawName.toLowerCase() === 'student' || rawName.toLowerCase().startsWith('candidate ')) return false;
               return true;
             })
             .forEach((u: any) => {
               const prnKey = (u.prn || '').toUpperCase().trim();
-              if (prnKey && !studentsMap.has(prnKey)) {
-                const rawSection = u.sectionName || u.section || (u.division ? `Division ${u.division}` : 'Integrated Mtech');
-                const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-                  ? 'Integrated Mtech'
-                  : rawSection;
-                studentsMap.set(prnKey, {
-                  id: u.id || u.uid,
-                  name: u.fullName || u.displayName || u.username || u.name,
-                  prn: prnKey,
-                  email: u.email || '—',
-                  section: normalizedSection,
-                  integrityScore: u.integrityScore || 100,
-                });
-              }
+              const existing = studentsMap.get(prnKey) || {};
+              const rawSection = u.sectionName || u.section || existing.section || activeSectionName;
+              const normalizedSection = (rawSection && rawSection !== 'Integrated Mtech' && rawSection !== 'General') ? rawSection : activeSectionName;
+
+              studentsMap.set(prnKey, {
+                ...existing,
+                id: u.id || u.uid || existing.id,
+                name: u.fullName || u.displayName || u.username || u.name || existing.name,
+                prn: prnKey,
+                email: u.email || existing.email || `${prnKey.toLowerCase()}@sanjivani.edu.in`,
+                section: normalizedSection,
+                integrityScore: u.integrityScore ?? existing.integrityScore ?? 100,
+              });
             });
         }
 
@@ -723,7 +812,7 @@ export const AdminIntegrityTab: React.FC = () => {
   // Extract unique sections & modules for dropdown filters
   const sectionsList = useMemo(() => {
     const secs = Array.from(new Set(studentsForensics.map((s) => s.section))).filter(Boolean);
-    return secs.length > 0 ? secs : ['Integrated Mtech'];
+    return secs.length > 0 ? secs : ['Batch 1'];
   }, [studentsForensics]);
 
   const modulesList = useMemo(() => {
