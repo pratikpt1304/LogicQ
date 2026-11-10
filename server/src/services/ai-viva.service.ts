@@ -276,14 +276,19 @@ Respond ONLY with a valid JSON object matching this schema:
 
     const now = new Date();
     const durationSec = Math.max(1, Math.round((now.getTime() - viva.startedAt.getTime()) / 1000));
-    // Generous 2.5-minute limit (150 seconds) with 5s network grace (Decision 3 & Phase 4)
-    const submittedBeforeTimeout = durationSec <= 155;
+    // Strict 10-second rapid viva limit with 2s network latency grace (12s max)
+    const VIVA_TIME_LIMIT_SEC = 10;
+    const VIVA_GRACE_SEC = 2;
+    const submittedBeforeTimeout = durationSec <= (VIVA_TIME_LIMIT_SEC + VIVA_GRACE_SEC);
+
+    // Strict input length bound to prevent prompt injection and payload bloating
+    const cleanAnswer = (input.answer || '').trim().slice(0, 100);
 
     // Evaluate relevance score using AI Grounded Rubric
     const { relevanceScore, aiEvaluation } = await this.evaluateVivaAnswerWithAi({
       questionText: viva.questionText,
       codeContext: viva.codeContext,
-      studentAnswer: input.answer,
+      studentAnswer: cleanAnswer,
       submittedBeforeTimeout,
       durationSec,
     });
@@ -292,7 +297,7 @@ Respond ONLY with a valid JSON object matching this schema:
       where: { id: input.vivaId },
       data: {
         submittedAt: now,
-        studentAnswer: input.answer.trim(),
+        studentAnswer: cleanAnswer,
         responseDurationSec: durationSec,
         submittedBeforeTimeout,
         relevanceScore,

@@ -56,6 +56,9 @@ function normalizeOutput(str: string): string {
   return str.replace(/\r\n/g, '\n').trim();
 }
 
+// Global in-flight lock preventing concurrency races on code evaluation
+const inFlightSubmissions = new Set<string>();
+
 export class SmartExamService {
   /**
    * Starts a question attempt for an enrolled student.
@@ -93,6 +96,25 @@ export class SmartExamService {
     const isProblemInTest = assignment.test.questions.some((q) => q.problemId === input.problemId);
     if (!isProblemInTest) {
       throw new Error('This question is not part of the active assessment test.');
+    }
+
+    // Ensure no unresolved rapid viva blocks starting another question
+    const pendingViva = await prisma.assessmentVivaQuestion.findFirst({
+      where: {
+        assignmentId: input.assignmentId,
+        status: 'PENDING',
+      },
+    });
+    if (pendingViva) {
+      const elapsed = Math.round((Date.now() - pendingViva.startedAt.getTime()) / 1000);
+      if (elapsed <= 12) {
+        throw new Error('PENDING_VIVA: A rapid 10-second AI Viva is pending. Please answer it before starting a new question.');
+      } else {
+        await prisma.assessmentVivaQuestion.update({
+          where: { id: pendingViva.id },
+          data: { status: 'TIMED_OUT', relevanceScore: 0, responseDurationSec: elapsed },
+        });
+      }
     }
 
     // 2. Fetch or create Question Attempt
@@ -355,8 +377,33 @@ export class SmartExamService {
       throw new Error('QUESTION_LOCKED: Question is already locked after a successful submission.');
     }
 
-    const now = new Date();
-    const judge = await getJudge();
+    // Ensure no unresolved rapid viva blocks submitting another question
+    const pendingViva = await prisma.assessmentVivaQuestion.findFirst({
+      where: {
+        assignmentId: attempt.assignmentId,
+        status: 'PENDING',
+      },
+    });
+    if (pendingViva) {
+      const elapsed = Math.round((Date.now() - pendingViva.startedAt.getTime()) / 1000);
+      if (elapsed <= 12) {
+        throw new Error('PENDING_VIVA: A rapid 10-second AI Viva is pending. Please complete it before submitting another question.');
+      } else {
+        await prisma.assessmentVivaQuestion.update({
+          where: { id: pendingViva.id },
+          data: { status: 'TIMED_OUT', relevanceScore: 0, responseDurationSec: elapsed },
+        });
+      }
+    }
+
+    if (inFlightSubmissions.has(input.attemptId)) {
+      throw new Error('CONCURRENT_SUBMISSION: A code evaluation is already in progress for this attempt. Please wait.');
+    }
+    inFlightSubmissions.add(input.attemptId);
+
+    try {
+      const now = new Date();
+      const judge = await getJudge();
 
     // 1. Evaluate against all test cases (2 visible + 1 hidden)
     let allPassed = true;
@@ -558,5 +605,8 @@ export class SmartExamService {
       vivaId: vivaOutcome.vivaId,
       vivaQuestionText: vivaOutcome.questionText,
     };
+  } finally {
+    inFlightSubmissions.delete(input.attemptId);
   }
+}
 }

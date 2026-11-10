@@ -1,7 +1,52 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { SmartExamService } from '../services/smart-exam.service.js';
 import { AiVivaService } from '../services/ai-viva.service.js';
 import { prisma } from '../utils/prisma.js';
+
+const startQuestionSchema = z.object({
+  assignmentId: z.string().min(1).max(128),
+  problemId: z.string().min(1).max(128),
+});
+
+const runCodeSchema = z.object({
+  attemptId: z.string().min(1).max(128),
+  code: z.string().max(64 * 1024),
+});
+
+const clientMetricsSchema = z.object({
+  copyPasteAttempts: z.number().int().min(0).max(10000).optional(),
+  cutAttempts: z.number().int().min(0).max(10000).optional(),
+  contextMenuAttempts: z.number().int().min(0).max(10000).optional(),
+  tabSwitchCount: z.number().int().min(0).max(10000).optional(),
+  focusLossCount: z.number().int().min(0).max(10000).optional(),
+  totalFocusLossDurationMs: z.number().int().min(0).max(86400000).optional(),
+  longestFocusLossDurationMs: z.number().int().min(0).max(86400000).optional(),
+  fullScreenExitCount: z.number().int().min(0).max(10000).optional(),
+  totalKeystrokes: z.number().int().min(0).max(1000000).optional(),
+  charsInserted: z.number().int().min(0).max(1000000).optional(),
+  charsDeleted: z.number().int().min(0).max(1000000).optional(),
+  cpm: z.number().min(0).max(5000).optional(),
+  wpm: z.number().min(0).max(1000).optional(),
+  largestBurstChars: z.number().int().min(0).max(64 * 1024).optional(),
+  activeInteractionTimeSec: z.number().int().min(0).max(86400).optional(),
+}).optional();
+
+const telemetrySchema = z.object({
+  attemptId: z.string().min(1).max(128),
+  clientMetrics: clientMetricsSchema,
+});
+
+const submitQuestionSchema = z.object({
+  attemptId: z.string().min(1).max(128),
+  code: z.string().min(1).max(64 * 1024),
+  clientMetrics: clientMetricsSchema,
+});
+
+const submitVivaSchema = z.object({
+  vivaId: z.string().min(1).max(128),
+  answer: z.string().trim().max(100),
+});
 
 export class SmartExamController {
   /**
@@ -10,27 +55,26 @@ export class SmartExamController {
   static async startQuestion(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { assignmentId, problemId } = req.body;
+      if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-      if (!assignmentId || !problemId) {
-        return res.status(400).json({
-          success: false,
-          message: 'assignmentId and problemId are required.',
-        });
+      const parsed = startQuestionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({ success: false, message: 'Invalid start payload', errors: parsed.error.issues });
       }
 
       const result = await SmartExamService.startQuestionAttempt({
-        assignmentId,
-        problemId,
+        assignmentId: parsed.data.assignmentId,
+        problemId: parsed.data.problemId,
         studentId: user.userId || user.id,
       });
 
       return res.json(result);
     } catch (err: any) {
-      const isLocked = err.message.includes('QUESTION_LOCKED');
-      return res.status(isLocked ? 403 : 400).json({
+      const isLocked = err.message?.includes('QUESTION_LOCKED');
+      const isPendingViva = err.message?.includes('PENDING_VIVA');
+      return res.status(isLocked ? 403 : isPendingViva ? 409 : 400).json({
         success: false,
-        code: isLocked ? 'QUESTION_LOCKED' : 'START_FAILED',
+        code: isLocked ? 'QUESTION_LOCKED' : isPendingViva ? 'PENDING_VIVA' : 'START_FAILED',
         message: err.message || 'Failed to start question attempt.',
       });
     }
@@ -42,18 +86,16 @@ export class SmartExamController {
   static async runCode(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { attemptId, code } = req.body;
+      if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-      if (!attemptId || code === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'attemptId and code are required.',
-        });
+      const parsed = runCodeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({ success: false, message: 'Invalid run payload', errors: parsed.error.issues });
       }
 
       const result = await SmartExamService.runVisibleTests(
-        attemptId,
-        code,
+        parsed.data.attemptId,
+        parsed.data.code,
         user.userId || user.id
       );
 
@@ -72,19 +114,17 @@ export class SmartExamController {
   static async recordTelemetry(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { attemptId, clientMetrics } = req.body;
+      if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-      if (!attemptId) {
-        return res.status(400).json({
-          success: false,
-          message: 'attemptId is required.',
-        });
+      const parsed = telemetrySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({ success: false, message: 'Invalid telemetry payload', errors: parsed.error.issues });
       }
 
       const result = await SmartExamService.recordTelemetry(
         {
-          attemptId,
-          clientMetrics: clientMetrics || {},
+          attemptId: parsed.data.attemptId,
+          clientMetrics: parsed.data.clientMetrics || {},
         },
         user.userId || user.id
       );
@@ -104,30 +144,55 @@ export class SmartExamController {
   static async submitQuestion(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { attemptId, code, clientMetrics } = req.body;
+      if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-      if (!attemptId || code === undefined) {
-        return res.status(400).json({
-          success: false,
-          message: 'attemptId and code are required.',
-        });
+      const parsed = submitQuestionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({ success: false, message: 'Invalid submission payload', errors: parsed.error.issues });
       }
 
       const result = await SmartExamService.submitQuestion(
         {
-          attemptId,
-          code,
-          clientMetrics,
+          attemptId: parsed.data.attemptId,
+          code: parsed.data.code,
+          clientMetrics: parsed.data.clientMetrics,
         },
         user.userId || user.id
       );
 
-      return res.json(result);
+      // Whitelist response fields: never expose internal hidden test cases or unmasked server directories
+      return res.json({
+        success: true,
+        verdict: result.verdict,
+        academicScore: result.academicScore,
+        isLocked: result.isLocked,
+        actualTimeTakenSec: result.actualTimeTakenSec,
+        timeDeviationSec: result.timeDeviationSec,
+        deviationPercent: result.deviationPercent,
+        integrityScore: result.integrityScore,
+        integrityRisk: result.integrityRisk,
+        suspiciousFlags: result.suspiciousFlags,
+        vivaTriggered: result.vivaTriggered,
+        vivaId: result.vivaId,
+        vivaQuestionText: result.vivaQuestionText,
+        testOutcomes: result.testOutcomes.map((t: any) => ({
+          testIndex: t.testIndex,
+          passed: t.passed,
+          verdict: t.verdict,
+          runtimeMs: t.runtimeMs,
+          input: t.isHidden ? undefined : t.input,
+          expectedOutput: t.isHidden ? undefined : t.expectedOutput,
+          actualOutput: t.isHidden ? (t.passed ? 'PASSED' : 'OUTPUT MISMATCH') : t.actualOutput,
+        })),
+      });
     } catch (err: any) {
-      const isLocked = err.message.includes('QUESTION_LOCKED');
-      return res.status(isLocked ? 403 : 400).json({
+      const isLocked = err.message?.includes('QUESTION_LOCKED');
+      const isPendingViva = err.message?.includes('PENDING_VIVA');
+      const isConcurrent = err.message?.includes('CONCURRENT_SUBMISSION');
+      const status = isLocked ? 403 : isPendingViva ? 409 : isConcurrent ? 429 : 400;
+      return res.status(status).json({
         success: false,
-        code: isLocked ? 'QUESTION_LOCKED' : 'SUBMIT_FAILED',
+        code: isLocked ? 'QUESTION_LOCKED' : isPendingViva ? 'PENDING_VIVA' : isConcurrent ? 'CONCURRENT_LIMIT' : 'SUBMIT_FAILED',
         message: err.message || 'Failed to submit question.',
       });
     }
@@ -271,17 +336,28 @@ export class SmartExamController {
   static async submitViva(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { vivaId, answer } = req.body;
-      if (!vivaId || answer === undefined) {
-        return res.status(400).json({ success: false, message: 'vivaId and answer are required.' });
+      if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
+
+      const parsed = submitVivaSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(422).json({ success: false, message: 'Invalid viva response format', errors: parsed.error.issues });
       }
 
       const outcome = await AiVivaService.submitVivaAnswer({
-        vivaId,
-        answer,
+        vivaId: parsed.data.vivaId,
+        answer: parsed.data.answer,
         studentId: user.userId || user.id,
       });
-      return res.json(outcome);
+
+      // Whitelist response: never expose prompt instructions or expected keywords
+      return res.json({
+        success: true,
+        vivaId: outcome.vivaId,
+        submittedBeforeTimeout: outcome.submittedBeforeTimeout,
+        durationSec: outcome.durationSec,
+        relevanceScore: outcome.relevanceScore,
+        aiEvaluation: outcome.aiEvaluation,
+      });
     } catch (err: any) {
       return res.status(400).json({ success: false, message: err.message || 'Failed to submit viva.' });
     }
