@@ -35,12 +35,13 @@ import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.d
 
 const isSectionMatch = (studentSec: string | undefined | null, targetSec: string | undefined | null): boolean => {
   if (!targetSec || targetSec === 'ALL') return true;
-  const s = (studentSec || 'Integrated Mtech').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  const t = (targetSec || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  const s = String(studentSec || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  const t = String(targetSec || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (!s || !t) return true;
   if (s === t) return true;
-  if ((s.includes('mtech') || s.includes('integrated')) && (t.includes('mtech') || t.includes('integrated'))) {
-    return true;
-  }
+  if (s.includes(t) || t.includes(s)) return true;
+  // If target is Batch 1 or student belongs to cohort, match
+  if (t.includes('batch') || t.includes('cprog') || t.includes('906e')) return true;
   return false;
 };
 
@@ -53,20 +54,50 @@ export const AdminReportsTab: React.FC = () => {
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
+  // Synchronous state hydration to prevent 0-stats flicker
   const [students, setStudents] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem('logicq_admin_students');
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
-    return [];
+    return C_PROGRAMMING_COHORT_STUDENTS.map((cs) => ({
+      ...cs,
+      id: cs.prn,
+      name: cs.fullName,
+      fullName: cs.fullName,
+      displayName: cs.fullName,
+      section: 'Batch 1',
+      sectionName: 'Batch 1',
+      role: 'STUDENT',
+      totalSolved: 0,
+      totalPoints: 0,
+      academicScore: 0,
+      cieMarks: 0,
+      integrityScore: 100,
+    }));
   });
 
   const [sections, setSections] = useState<any[]>(() => {
     try {
-      const cached = localStorage.getItem('logicq_admin_sections');
-      if (cached) return JSON.parse(cached);
+      const cached = localStorage.getItem('logicq_admin_sections') || localStorage.getItem('logicq_faculty_sections_backup_v2');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
-    return [];
+    return [
+      {
+        id: 'sec-batch1',
+        sectionName: 'Batch 1',
+        subject: 'C Programming',
+        course: 'C Programming',
+        joinCode: 'LQ-906E',
+        studentsCount: 116,
+      },
+    ];
   });
 
   // Authoritative real-time fetch directly from Cloud Firestore
@@ -272,11 +303,11 @@ export const AdminReportsTab: React.FC = () => {
 
         const cieMarks = Math.min(20, Math.round(((computedAcademic || 0) / 100) * 20));
 
-        // Robust section name normalization
-        const rawSection = u.sectionName || u.section || enrData.sectionName || (u.division ? (u.division.toLowerCase().includes('mtech') ? 'Integrated Mtech' : `Division ${u.division}`) : 'Integrated Mtech');
-        const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-          ? 'Integrated Mtech'
-          : rawSection;
+        // Robust section name normalization (respects Batch 1 and active class sections)
+        const rawSection = u.sectionName || u.section || enrData.sectionName;
+        const normalizedSection = (rawSection && rawSection !== 'Integrated Mtech' && rawSection !== 'General')
+          ? rawSection
+          : 'Batch 1';
 
         const isBound = Boolean(
           enrData.isEmailBound ||
