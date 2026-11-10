@@ -204,13 +204,19 @@ rules_version = '2';
 //   - banReason: string | null (optional, <= 200 chars)
 //
 // Subcollection: cohort_progress/{prn}/drafts/{draftId}
-// Document ID: Draft ID (e.g. problemSlug)
+// Document ID: Draft ID (^[a-zA-Z0-9_-]{1,80}$)
 // Fields:
-//   - code: string (required, <= 65536 chars)
-//   - customInput: any (optional)
+//   - code: string (optional, <= 65536 chars)
+//   - customInput: string (optional, <= 4096 chars)
 //   - updatedAt: any (optional)
-//   - problemSlug: any (optional)
-//   - deviceLabel: any (optional)
+//   - problemSlug: string (optional, <= 100 chars)
+//   - deviceLabel: string (optional, <= 80 chars)
+//   - timestamp: any (optional)
+//
+// Subcollection: cohort_progress/{prn}/proctoring/{docId}
+// Document ID: Proctoring incident or telemetry identifier
+// Fields:
+//   - Isolated cheating incidents and telemetry (faculty/admin read only)
 //
 // Collection: assessment_tests/{testId} (Timed Assessment & Lab Tests)
 // Document ID: Unique assessment identifier (e.g., test_{uuid} or slug)
@@ -314,6 +320,14 @@ service cloud.firestore {
           (request.auth.token.role == 'FACULTY' || request.auth.token.role == 'TEACHER' || request.auth.token.role == 'INSTRUCTOR' || request.auth.token.isFaculty == true)
           && isInstitutionalEmail(request.auth.token.email)
         )
+      );
+    }
+
+    function isOwnerId(id) {
+      return isAuthenticated() && (
+        id == request.auth.uid
+        || (request.auth.token.prn is string && id == request.auth.token.prn)
+        || (request.auth.token.email is string && request.auth.token.email_verified == true && id.lower() == request.auth.token.email.lower())
       );
     }
 
@@ -881,9 +895,9 @@ service cloud.firestore {
 
     match /enrolled_students/{docId} {
       // Student PII protection: strictly restricted get to student owner or Faculty/Admin; list restricted to Faculty/Admin
-      allow get: if isFaculty() || isAdmin() || isStudentOwner(resource.data, docId);
+      allow get: if isFaculty() || isAdmin() || isOwnerId(docId) || (resource != null && isStudentOwner(resource.data, docId));
       allow list: if isFaculty() || isAdmin();
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
     // -------------------------------------------------------------------------
@@ -941,15 +955,24 @@ service cloud.firestore {
 
     match /cohort_progress/{prn} {
       // Progress is readable by Faculty/Admin or the authenticated owner student (get only); list restricted to Faculty/Admin
-      allow get: if isFaculty() || isAdmin() || isStudentOwner(resource.data, prn);
+      allow get: if isFaculty() || isAdmin() || isOwnerId(prn) || (resource != null && isStudentOwner(resource.data, prn));
       allow list: if isFaculty() || isAdmin();
       allow write: if false; // Progress, totalPoints, integrityScore, device sessions are server-authoritative
 
       match /drafts/{draftId} {
-        allow read, delete: if isStudentOwner({}, prn);
-        allow create, update: if isStudentOwner({}, prn)
+        allow read, delete: if isOwnerId(prn);
+        allow create, update: if isOwnerId(prn)
+          && draftId.matches('^[a-zA-Z0-9_-]{1,80}$')
           && request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])
-          && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536));
+          && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536))
+          && (!('customInput' in request.resource.data) || (request.resource.data.customInput is string && request.resource.data.customInput.size() <= 4096))
+          && (!('deviceLabel' in request.resource.data) || (request.resource.data.deviceLabel is string && request.resource.data.deviceLabel.size() <= 80))
+          && (!('problemSlug' in request.resource.data) || (request.resource.data.problemSlug is string && request.resource.data.problemSlug.size() <= 100));
+      }
+
+      match /proctoring/{docId} {
+        allow read: if isFaculty() || isAdmin();
+        allow write: if false;
       }
     }
 

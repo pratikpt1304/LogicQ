@@ -69,6 +69,84 @@ class RulesEvaluator {
     return isFacultyRole && RulesEvaluator.isInstitutionalEmail(ctx.auth.token?.email);
   }
 
+  static isOwnerId(ctx: FirestoreRuleContext, id: string): boolean {
+    if (!ctx.auth) return false;
+    if (id === ctx.auth.uid) return true;
+    if (typeof ctx.auth.token?.prn === 'string' && id === ctx.auth.token.prn) return true;
+    if (
+      typeof ctx.auth.token?.email === 'string' &&
+      ctx.auth.token?.email_verified === true &&
+      id.toLowerCase() === ctx.auth.token.email.toLowerCase()
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  static isStudentOwner(ctx: FirestoreRuleContext, data: Record<string, any>, identifier: string): boolean {
+    if (!ctx.auth) return false;
+    const authUid = ctx.auth.uid;
+    const authPrn = typeof ctx.auth.token?.prn === 'string' ? ctx.auth.token.prn : undefined;
+    const authEmail = typeof ctx.auth.token?.email === 'string' ? ctx.auth.token.email.toLowerCase() : undefined;
+
+    if (
+      identifier === authUid ||
+      (authPrn && identifier === authPrn) ||
+      (authEmail && identifier.toLowerCase() === authEmail)
+    ) {
+      return true;
+    }
+
+    if (data && typeof data === 'object') {
+      if (data.userId === authUid || data.uid === authUid || data.studentId === authUid) return true;
+      if (authUid === data.prn || authUid === data.studentPrn) return true;
+      if (authPrn && (data.prn === authPrn || data.studentPrn === authPrn)) return true;
+      if (authEmail) {
+        if (typeof data.email === 'string' && authEmail === data.email.toLowerCase()) return true;
+        if (typeof data.studentEmail === 'string' && authEmail === data.studentEmail.toLowerCase()) return true;
+        if (typeof data.boundEmail === 'string' && authEmail === data.boundEmail.toLowerCase()) return true;
+      }
+    }
+    return false;
+  }
+
+  static evaluateCohortProgressGet(ctx: FirestoreRuleContext, prn: string): boolean {
+    if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
+    if (RulesEvaluator.isOwnerId(ctx, prn)) return true;
+    if (ctx.resource?.data && RulesEvaluator.isStudentOwner(ctx, ctx.resource.data, prn)) return true;
+    return false;
+  }
+
+  static evaluateEnrolledStudentGet(ctx: FirestoreRuleContext, docId: string): boolean {
+    if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
+    if (RulesEvaluator.isOwnerId(ctx, docId)) return true;
+    if (ctx.resource?.data && RulesEvaluator.isStudentOwner(ctx, ctx.resource.data, docId)) return true;
+    return false;
+  }
+
+  static evaluateCohortDraftReadOrDelete(ctx: FirestoreRuleContext, prn: string): boolean {
+    return RulesEvaluator.isOwnerId(ctx, prn);
+  }
+
+  static evaluateCohortDraftWrite(ctx: FirestoreRuleContext, prn: string, draftId: string): boolean {
+    if (!RulesEvaluator.isOwnerId(ctx, prn)) return false;
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(draftId)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    const allowedKeys = ['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'];
+    if (!Object.keys(data).every((k) => allowedKeys.includes(k))) return false;
+    if ('code' in data && (typeof data.code !== 'string' || data.code.length > 65536)) return false;
+    if ('customInput' in data && (typeof data.customInput !== 'string' || data.customInput.length > 4096)) return false;
+    if ('deviceLabel' in data && (typeof data.deviceLabel !== 'string' || data.deviceLabel.length > 80)) return false;
+    if ('problemSlug' in data && (typeof data.problemSlug !== 'string' || data.problemSlug.length > 100)) return false;
+    return true;
+  }
+
+  static evaluateCohortProctoringRead(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
+  }
+
   static evaluateSectionRead(ctx: FirestoreRuleContext): boolean {
     return true;
   }
@@ -3117,6 +3195,152 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     for (const section of submissionSections) {
       expect(firestoreRules).toContain(section);
     }
+  });
+
+  it('PATH-BASED ISOWNERID & CLEAN 404: Verifies isOwnerId matches UID, PRN, or verified email only, preventing permission-denied crashes on non-existent documents', () => {
+    const verifiedStudent: AuthContext = {
+      uid: 'student_123',
+      token: {
+        email: 'student@sanjivani.edu.in',
+        email_verified: true,
+        prn: '2026AIML0001',
+      },
+    };
+    const unverifiedStudent: AuthContext = {
+      uid: 'student_456',
+      token: {
+        email: 'unverified@sanjivani.edu.in',
+        email_verified: false,
+        prn: '2026AIML0002',
+      },
+    };
+
+    // 1. Matches uid
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'student_123')).toBe(true);
+    // 2. Matches token.prn
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, '2026AIML0001')).toBe(true);
+    // 3. Matches verified email (case-insensitive)
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'student@sanjivani.edu.in')).toBe(true);
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'STUDENT@SANJIVANI.EDU.IN')).toBe(true);
+
+    // 4. Unverified email MUST NOT match
+    expect(RulesEvaluator.isOwnerId({ auth: unverifiedStudent }, 'unverified@sanjivani.edu.in')).toBe(false);
+    // But UID and PRN still match for unverified student
+    expect(RulesEvaluator.isOwnerId({ auth: unverifiedStudent }, 'student_456')).toBe(true);
+    expect(RulesEvaluator.isOwnerId({ auth: unverifiedStudent }, '2026AIML0002')).toBe(true);
+
+    // 5. Mismatched ID fails
+    expect(RulesEvaluator.isOwnerId({ auth: verifiedStudent }, 'foreign_id')).toBe(false);
+
+    // 6. Clean 404 test: when document does NOT exist (resource == null), isOwnerId allows get without evaluating resource.data
+    const nonExistentDocCtx: FirestoreRuleContext = {
+      auth: verifiedStudent,
+      request: {},
+      // resource is undefined/null (document does not exist)
+    };
+    expect(RulesEvaluator.evaluateCohortProgressGet(nonExistentDocCtx, '2026AIML0001')).toBe(true);
+    expect(RulesEvaluator.evaluateEnrolledStudentGet(nonExistentDocCtx, 'student_123')).toBe(true);
+    expect(RulesEvaluator.evaluateCohortProgressGet(nonExistentDocCtx, 'someone_elses_prn')).toBe(false);
+  });
+
+  it('COHORT PROGRESS & DRAFTS: Validates hardened draft validation, length bounds, and cohort proctoring isolation', () => {
+    const studentUser: AuthContext = {
+      uid: 'student_123',
+      token: { prn: '2026AIML0001', email: 'student@sanjivani.edu.in', email_verified: true },
+    };
+    const facultyUser: AuthContext = {
+      uid: 'faculty_1',
+      token: { email: 'prof@sanjivani.edu.in', role: 'FACULTY' },
+    };
+
+    // 1. Valid draft creation by student owner
+    const validDraftData = {
+      code: 'print("hello world")',
+      customInput: '42',
+      updatedAt: '2026-11-10T08:00:00Z',
+      problemSlug: 'two-sum',
+      deviceLabel: 'Chrome on macOS',
+      timestamp: Date.now(),
+    };
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: validDraftData } },
+    }, '2026AIML0001', 'two-sum')).toBe(true);
+
+    // 2. Draft write for different PRN -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: validDraftData } },
+    }, '2026AIML9999', 'two-sum')).toBe(false);
+
+    // 3. Draft ID exceeding 80 characters -> MUST FAIL
+    const tooLongDraftId = 'a'.repeat(81);
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: validDraftData } },
+    }, '2026AIML0001', tooLongDraftId)).toBe(false);
+
+    // 4. Draft ID with invalid characters -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: validDraftData } },
+    }, '2026AIML0001', 'draft/with/slash')).toBe(false);
+
+    // 5. Code exceeding 65536 characters -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: { ...validDraftData, code: 'c'.repeat(65537) } } },
+    }, '2026AIML0001', 'two-sum')).toBe(false);
+
+    // 6. Custom input exceeding 4096 characters -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: { ...validDraftData, customInput: 'i'.repeat(4097) } } },
+    }, '2026AIML0001', 'two-sum')).toBe(false);
+
+    // 7. Device label exceeding 80 characters -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: { ...validDraftData, deviceLabel: 'd'.repeat(81) } } },
+    }, '2026AIML0001', 'two-sum')).toBe(false);
+
+    // 8. Problem slug exceeding 100 characters -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: { ...validDraftData, problemSlug: 'p'.repeat(101) } } },
+    }, '2026AIML0001', 'two-sum')).toBe(false);
+
+    // 9. Unauthorized keys in draft -> MUST FAIL
+    expect(RulesEvaluator.evaluateCohortDraftWrite({
+      auth: studentUser,
+      request: { resource: { data: { ...validDraftData, hackedField: 'malicious' } } },
+    }, '2026AIML0001', 'two-sum')).toBe(false);
+
+    // 10. Cohort progress proctoring subcollection: readable by faculty, denied for students
+    expect(RulesEvaluator.evaluateCohortProctoringRead({ auth: facultyUser })).toBe(true);
+    expect(RulesEvaluator.evaluateCohortProctoringRead({ auth: studentUser })).toBe(false);
+  });
+
+  it('SPEC VERIFICATION: firestore.rules declares isOwnerId, hardened drafts validator, proctoring subcollection, and locked writes', () => {
+    const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
+
+    // Helper definition
+    expect(firestoreRules).toContain('function isOwnerId(id)');
+    expect(firestoreRules).toContain('request.auth.token.email_verified == true');
+
+    // cohort_progress/{prn} rules
+    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(prn) || (resource != null && isStudentOwner(resource.data, prn));');
+    expect(firestoreRules).toContain("draftId.matches('^[a-zA-Z0-9_-]{1,80}$')");
+    expect(firestoreRules).toContain("request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])");
+    expect(firestoreRules).toContain("request.resource.data.customInput.size() <= 4096");
+    expect(firestoreRules).toContain("request.resource.data.deviceLabel.size() <= 80");
+    expect(firestoreRules).toContain("request.resource.data.problemSlug.size() <= 100");
+
+    // cohort_progress/{prn}/proctoring/{docId}
+    expect(firestoreRules).toContain('match /proctoring/{docId}');
+
+    // enrolled_students/{docId} rules
+    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(docId) || (resource != null && isStudentOwner(resource.data, docId));');
   });
 });
 
