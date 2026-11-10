@@ -13,7 +13,7 @@
   <a href="https://logicq-clanguage.web.app"><img src="https://img.shields.io/badge/Production_Live-logicq--clanguage.web.app-46D9A0?style=for-the-badge&logo=rocket&logoColor=white" alt="Live Status" /></a>
   <a href="https://logicq-bitwiseclub.onrender.com/api/health"><img src="https://img.shields.io/badge/Render_API-Online_200_OK-8B9BFF?style=for-the-badge&logo=render&logoColor=white" alt="Backend API" /></a>
   <a href="https://github.com/pratikpt1304/LogicQ"><img src="https://img.shields.io/badge/PWA_Shell-v41_Service_Worker-indigo?style=for-the-badge&logo=pwa&logoColor=white" alt="PWA Version" /></a>
-  <a href="docs/SECURITY_RULES.md"><img src="https://img.shields.io/badge/Firestore_Rules-53%2F53_Verified-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
+  <a href="firestore.rules"><img src="https://img.shields.io/badge/Firestore_Rules-Hardened_Perimeter-success?style=for-the-badge&logo=firebase&logoColor=white" alt="Firestore Security" /></a>
   <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/AI_Viva-Gemini_2.5_Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="Gemini Viva" /></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-Deny_by_Default-crimson?style=for-the-badge&logo=shield&logoColor=white" alt="Security Policy" /></a>
 </p>
@@ -102,7 +102,7 @@ flowchart TD
     subgraph FirebaseCloud ["Google Cloud & Firebase Edge"]
         Hosting["Firebase Edge CDN (Brotli, HSTS, Global Cache)"]
         AuthService["Firebase Authentication (Institutional PRN & Email)"]
-        FirestoreDB["Cloud Firestore (Real-Time Sync, 53 Security Rules)"]
+        FirestoreDB["Cloud Firestore (Real-Time Sync, Zero-Trust Hardened Rules)"]
         CloudStorage["Cloud Storage (Audit Proofs & PDF Reports)"]
     end
 
@@ -143,7 +143,7 @@ flowchart TD
 | **Spreadsheet Engine** | SheetJS (xlsx) | `0.18.5` | Client-side Excel question import and template generation |
 | **Backend Framework** | Node.js / Express | `20.x` / `4.21.0` | High-throughput REST API and judge runner |
 | **ORM & Database** | Prisma ORM | `5.22.0` | PostgreSQL (Production) / SQLite (Dev) |
-| **Cloud Database** | Cloud Firestore | `v2` | Real-time state store with 53 security rules |
+| **Cloud Database** | Cloud Firestore | `v2` | Real-time state store with zero-trust perimeter rules |
 | **Cloud Hosting** | Firebase Hosting | `v15.x` | Global CDN, HTTP/2, custom security headers |
 | **AI Viva Engine** | Gemini 2.5 Flash | `v1beta` | 10-second rapid conceptual code verification |
 | **Compiler Toolchain** | GCC / MinGW-w64 | `14.2+` | Native ISO C11 compiler sandbox |
@@ -185,7 +185,7 @@ LogicQ/
 │   ├── verify-no-localstorage-primary.mjs  # Zero-localStorage security build guard
 │   ├── scan-secrets.mjs                    # Secret scanner
 │   └── generate-pwa-icons.mjs              # Icon generation utility
-├── firestore.rules                         # 53 Deny-by-default Firestore rules
+├── firestore.rules                         # Zero-trust, deny-by-default Firestore rules
 ├── storage.rules                           # Cloud Storage security rules
 ├── firebase.json                           # Firebase Hosting and Firestore configuration
 └── package.json                            # Workspace configuration
