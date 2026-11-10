@@ -395,10 +395,13 @@ export class SmartExamService {
       });
     }
 
-    // 2. Time-Based Scoring (Section 5)
+    // 2. Time-Based Scoring (Section 5: Easy 10m, Medium 20m, Hard 30m)
     const actualTimeTakenSec = Math.max(1, Math.round((now.getTime() - attempt.startedAt.getTime()) / 1000));
-    const expectedMinSec = (attempt.problem.expectedTimeMin ?? 2) * 60;
-    const expectedMaxSec = (attempt.problem.expectedTimeMax ?? 8) * 60;
+    const diffStr = String(attempt.problem?.difficulty || 'EASY').toUpperCase();
+    const defaultMin = diffStr === 'HARD' ? 15 : diffStr === 'MEDIUM' ? 8 : 2;
+    const defaultMax = diffStr === 'HARD' ? 30 : diffStr === 'MEDIUM' ? 20 : 10;
+    const expectedMinSec = (attempt.problem.expectedTimeMin ?? defaultMin) * 60;
+    const expectedMaxSec = (attempt.problem.expectedTimeMax ?? defaultMax) * 60;
     const expectedRefTimeSec = Math.round((expectedMinSec + expectedMaxSec) / 2);
     const timeDeviationSec = actualTimeTakenSec - expectedRefTimeSec;
     const deviationPercent = ((actualTimeTakenSec - expectedRefTimeSec) / expectedRefTimeSec) * 100;

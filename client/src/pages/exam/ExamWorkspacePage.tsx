@@ -781,9 +781,10 @@ export const ExamWorkspacePage: React.FC = () => {
         try { localStorage.removeItem(draftKey); } catch {}
 
         // Compute overtime / late status based on Section 4 & 5 Time-Based Scoring
+        // EASY = 10 min, MEDIUM = 20 min, HARD = 30 min
         const diffStr = String(problemData?.difficulty || 'EASY').toUpperCase();
         const expectedMinMinutes = diffStr === 'HARD' ? 15 : diffStr === 'MEDIUM' ? 8 : 2;
-        const expectedMaxMinutes = diffStr === 'HARD' ? 25 : diffStr === 'MEDIUM' ? 15 : 8;
+        const expectedMaxMinutes = diffStr === 'HARD' ? 30 : diffStr === 'MEDIUM' ? 20 : 10;
         const questionTimeLimitMinutes = Number(problemData?.timeLimitMinutes || expectedMaxMinutes);
         const questionTimeLimitSec = questionTimeLimitMinutes * 60;
         const elapsedTotalSec = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
