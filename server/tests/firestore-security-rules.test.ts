@@ -102,9 +102,39 @@ class RulesEvaluator {
     return RulesEvaluator.isOwnerId(ctx, identifier);
   }
 
-  static evaluateCohortProgressGet(ctx: FirestoreRuleContext, prn: string): boolean {
+  static ownsProgress(
+    ctx: FirestoreRuleContext,
+    prn: string,
+    cohortProgressStore?: Record<string, any>
+  ): boolean {
+    if (RulesEvaluator.isOwnerId(ctx, prn)) return true;
+    if (!RulesEvaluator.isAuthenticated(ctx)) return false;
+    if (ctx.auth!.token?.email_verified !== true) return false;
+
+    const authEmail = ctx.auth!.token?.email;
+    if (typeof authEmail !== 'string' || authEmail === '') return false;
+
+    let cohortDoc: Record<string, any> | undefined;
+    if (cohortProgressStore && prn in cohortProgressStore) {
+      cohortDoc = cohortProgressStore[prn];
+    } else if (ctx.resource?.data && (ctx.resource.data.prn === prn || !ctx.resource.data.prn)) {
+      cohortDoc = ctx.resource.data;
+    }
+
+    if (!cohortDoc) return false;
+    const docEmail = typeof cohortDoc.email === 'string' ? cohortDoc.email : '';
+    if (docEmail === '') return false;
+
+    return docEmail.toLowerCase() === authEmail.toLowerCase();
+  }
+
+  static evaluateCohortProgressGet(
+    ctx: FirestoreRuleContext,
+    prn: string,
+    cohortProgressStore?: Record<string, any>
+  ): boolean {
     if (RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx)) return true;
-    return RulesEvaluator.isOwnerId(ctx, prn);
+    return RulesEvaluator.ownsProgress(ctx, prn, cohortProgressStore);
   }
 
   static evaluateEnrolledStudentGet(ctx: FirestoreRuleContext, docId: string): boolean {
@@ -112,12 +142,21 @@ class RulesEvaluator {
     return RulesEvaluator.isOwnerId(ctx, docId);
   }
 
-  static evaluateCohortDraftReadOrDelete(ctx: FirestoreRuleContext, prn: string): boolean {
-    return RulesEvaluator.isOwnerId(ctx, prn);
+  static evaluateCohortDraftReadOrDelete(
+    ctx: FirestoreRuleContext,
+    prn: string,
+    cohortProgressStore?: Record<string, any>
+  ): boolean {
+    return RulesEvaluator.ownsProgress(ctx, prn, cohortProgressStore);
   }
 
-  static evaluateCohortDraftWrite(ctx: FirestoreRuleContext, prn: string, draftId: string): boolean {
-    if (!RulesEvaluator.isOwnerId(ctx, prn)) return false;
+  static evaluateCohortDraftWrite(
+    ctx: FirestoreRuleContext,
+    prn: string,
+    draftId: string,
+    cohortProgressStore?: Record<string, any>
+  ): boolean {
+    if (!RulesEvaluator.ownsProgress(ctx, prn, cohortProgressStore)) return false;
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(draftId)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
@@ -3495,16 +3534,139 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluateCohortProctoringRead({ auth: studentUser })).toBe(false);
   });
 
+  it('COHORT PROGRESS STOPGAP: ownsProgress(prn) allows verified Google auth user without PRN claim to access drafts if cohort_progress matches email', () => {
+    const googleUser: AuthContext = {
+      uid: 'google_uid_1',
+      token: {
+        email: 'student@sanjivani.edu.in',
+        email_verified: true,
+      },
+    };
+    const otherGoogleUser: AuthContext = {
+      uid: 'google_uid_2',
+      token: {
+        email: 'attacker@sanjivani.edu.in',
+        email_verified: true,
+      },
+    };
+    const unverifiedGoogleUser: AuthContext = {
+      uid: 'google_uid_3',
+      token: {
+        email: 'student@sanjivani.edu.in',
+        email_verified: false,
+      },
+    };
+
+    const cohortStore = {
+      '2026ABCM0001': {
+        prn: '2026ABCM0001',
+        email: 'student@sanjivani.edu.in',
+      },
+    };
+
+    const validDraftData = {
+      code: 'console.log("hello")',
+      customInput: '',
+      updatedAt: '2026-11-10T12:00:00Z',
+      problemSlug: 'code',
+      deviceLabel: 'Chrome Windows',
+      timestamp: Date.now(),
+    };
+
+    // 1. Google user with NO prn claim CAN read their draft under cohort_progress/2026ABCM0001/drafts/code
+    expect(
+      RulesEvaluator.evaluateCohortDraftReadOrDelete(
+        { auth: googleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(true);
+
+    // Google user with NO prn claim CAN write/update their draft
+    expect(
+      RulesEvaluator.evaluateCohortDraftWrite(
+        { auth: googleUser, request: { resource: { data: validDraftData } } },
+        '2026ABCM0001',
+        'code',
+        cohortStore
+      )
+    ).toBe(true);
+
+    // Google user with NO prn claim CAN get cohort_progress/2026ABCM0001
+    expect(
+      RulesEvaluator.evaluateCohortProgressGet(
+        { auth: googleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(true);
+
+    // 2. Google user with a different email is DENIED access to that draft
+    expect(
+      RulesEvaluator.evaluateCohortDraftReadOrDelete(
+        { auth: otherGoogleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(false);
+
+    expect(
+      RulesEvaluator.evaluateCohortDraftWrite(
+        { auth: otherGoogleUser, request: { resource: { data: validDraftData } } },
+        '2026ABCM0001',
+        'code',
+        cohortStore
+      )
+    ).toBe(false);
+
+    expect(
+      RulesEvaluator.evaluateCohortProgressGet(
+        { auth: otherGoogleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(false);
+
+    // 3. An unverified email token is DENIED access to that draft
+    expect(
+      RulesEvaluator.evaluateCohortDraftReadOrDelete(
+        { auth: unverifiedGoogleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(false);
+
+    expect(
+      RulesEvaluator.evaluateCohortDraftWrite(
+        { auth: unverifiedGoogleUser, request: { resource: { data: validDraftData } } },
+        '2026ABCM0001',
+        'code',
+        cohortStore
+      )
+    ).toBe(false);
+
+    expect(
+      RulesEvaluator.evaluateCohortProgressGet(
+        { auth: unverifiedGoogleUser, request: {} },
+        '2026ABCM0001',
+        cohortStore
+      )
+    ).toBe(false);
+  });
+
   it('SPEC VERIFICATION: firestore.rules declares isOwnerId, hardened drafts validator, proctoring subcollection, and locked writes', () => {
     const firestoreRules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf-8');
 
     // Helper definition
     expect(firestoreRules).toContain('function isOwnerId(targetId)');
+    expect(firestoreRules).toContain('function ownsProgress(prn)');
     expect(firestoreRules).toContain('function isStudentOwner(data, identifier)');
     expect(firestoreRules).toContain("request.auth.token.get('email_verified', false) == true");
 
     // cohort_progress/{prn} rules
-    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(prn);');
+    expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || ownsProgress(prn);');
+    expect(firestoreRules).toContain('allow read, delete: if ownsProgress(prn);');
+    expect(firestoreRules).toContain('allow create, update: if ownsProgress(prn)');
     expect(firestoreRules).toContain("draftId.matches('^[a-zA-Z0-9_-]{1,80}$')");
     expect(firestoreRules).toContain("request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])");
     expect(firestoreRules).toContain("request.resource.data.customInput.size() <= 4096");

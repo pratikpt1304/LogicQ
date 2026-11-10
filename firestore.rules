@@ -861,13 +861,13 @@ service cloud.firestore {
     // 8. COHORT CROSS-DEVICE PROGRESS SYNCHRONIZATION
     // -------------------------------------------------------------------------
     match /cohort_progress/{prn} {
-      allow get: if isFaculty() || isAdmin() || isOwnerId(prn);
+      allow get: if isFaculty() || isAdmin() || ownsProgress(prn);
       allow list: if isFaculty() || isAdmin();
       allow write: if false;
 
       match /drafts/{draftId} {
-        allow read, delete: if isOwnerId(prn);
-        allow create, update: if isOwnerId(prn)
+        allow read, delete: if ownsProgress(prn);
+        allow create, update: if ownsProgress(prn)
           && draftId.matches('^[a-zA-Z0-9_-]{1,80}$')
           && request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])
           && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536))

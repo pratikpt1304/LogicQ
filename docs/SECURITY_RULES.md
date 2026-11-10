@@ -191,6 +191,42 @@ Any user lacking both the `'ADMIN'` role custom claim and a matching institution
   - **List Access (`list`)**: Restricted to `isFaculty()`.
   - **Write Access (`create`, `update`, `delete`)**: Blocked to all clients (`allow write: if false;`). Populated strictly by backend services using Firebase Admin SDK.
 
+### Cohort Progress & Draft Synchronization Invariants (`cohort_progress/{prn}`, `ownsProgress(prn)`)
+
+- **Ownership & Access Verification (`ownsProgress(prn)`)**:
+  - Direct ownership via `isOwnerId(prn)`: Matches authenticated `request.auth.uid` or token claim `request.auth.token.prn`.
+  - Email-verified document binding fallback (Stopgap):
+    ```firestore
+    function ownsProgress(prn) {
+      return isOwnerId(prn) || (
+        isAuthenticated() &&
+        request.auth.token.get('email_verified', false) == true &&
+        exists(/databases/$(database)/documents/cohort_progress/$(prn)) &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '') != '' &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '').lower()
+          == request.auth.token.get('email', '').lower()
+      );
+    }
+    ```
+    Allows verified Google Auth users whose token lacks the `prn` custom claim to securely access their cohort progress and drafts when the target document's `email` matches the token's verified email.
+  - Documents with mismatched emails or unverified tokens are categorically denied.
+- **Top-Level `cohort_progress/{prn}` Access**:
+  - `get`: Permitted if `isFaculty()`, `isAdmin()`, or `ownsProgress(prn)`.
+  - `list`: Permitted strictly to `isFaculty()` or `isAdmin()`.
+  - `write`: Blocked to all clients (`allow write: if false;`).
+- **Student Drafts Subcollection (`cohort_progress/{prn}/drafts/{draftId}`)**:
+  - `read, delete`: Permitted if `ownsProgress(prn)`.
+  - `create, update`: Permitted if `ownsProgress(prn)` and adheres to strict length and schema validation:
+    - `draftId.matches('^[a-zA-Z0-9_-]{1,80}$')`
+    - Allowed keys: `['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp']`
+    - `code`: string <= 65,536 chars
+    - `customInput`: string <= 4,096 chars
+    - `deviceLabel`: string <= 80 chars
+    - `problemSlug`: string <= 100 chars
+- **Proctoring Telemetry Subcollection (`cohort_progress/{prn}/proctoring/{docId}`)**:
+  - `read`: Permitted strictly to `isFaculty()` or `isAdmin()`.
+  - `write`: Blocked to all clients (`allow write: if false;`).
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -257,6 +293,17 @@ service cloud.firestore {
       return isAuthenticated() && targetId is string && targetId != '' && (
         targetId == request.auth.uid ||
         (request.auth.token.get('prn', '') != '' && targetId == request.auth.token.get('prn', ''))
+      );
+    }
+
+    function ownsProgress(prn) {
+      return isOwnerId(prn) || (
+        isAuthenticated() &&
+        request.auth.token.get('email_verified', false) == true &&
+        exists(/databases/$(database)/documents/cohort_progress/$(prn)) &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '') != '' &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '').lower()
+          == request.auth.token.get('email', '').lower()
       );
     }
 
@@ -798,15 +845,24 @@ service cloud.firestore {
     }
 
     match /cohort_progress/{prn} {
-      allow read: if true;
-      allow create, update: if isValidCohortProgress(request.resource.data);
-      allow delete: if isFaculty() || true;
+      allow get: if isFaculty() || isAdmin() || ownsProgress(prn);
+      allow list: if isFaculty() || isAdmin();
+      allow write: if false;
 
       match /drafts/{draftId} {
-        allow read: if true;
-        allow create, update: if request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel'])
-          && request.resource.data.code is string && request.resource.data.code.size() <= 65536;
-        allow delete: if isFaculty() || true;
+        allow read, delete: if ownsProgress(prn);
+        allow create, update: if ownsProgress(prn)
+          && draftId.matches('^[a-zA-Z0-9_-]{1,80}$')
+          && request.resource.data.keys().hasOnly(['code', 'customInput', 'updatedAt', 'problemSlug', 'deviceLabel', 'timestamp'])
+          && (!('code' in request.resource.data) || (request.resource.data.code is string && request.resource.data.code.size() <= 65536))
+          && (!('customInput' in request.resource.data) || (request.resource.data.customInput is string && request.resource.data.customInput.size() <= 4096))
+          && (!('deviceLabel' in request.resource.data) || (request.resource.data.deviceLabel is string && request.resource.data.deviceLabel.size() <= 80))
+          && (!('problemSlug' in request.resource.data) || (request.resource.data.problemSlug is string && request.resource.data.problemSlug.size() <= 100));
+      }
+
+      match /proctoring/{docId} {
+        allow read: if isFaculty() || isAdmin();
+        allow write: if false;
       }
     }
 
