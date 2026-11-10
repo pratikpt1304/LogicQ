@@ -981,12 +981,12 @@ export class FirestoreDataService {
 
       const isPractice = String(data.submissionType || '').toUpperCase() === 'PRACTICE';
       const isLate = Boolean(data.isLate || data.lateStatus === 'LATE');
-      const maxMarks = Number(data.maxMarks || 10);
+      const maxMarks = Number(data.maxMarks ?? 1.0);
       const pointsAwarded = isPractice
         ? 0
         : isLate
-        ? 0
-        : (data.verdict === 'ACCEPTED' ? (data.academicScore ?? data.marksAwarded ?? (data.submissionType === 'LAB_INTERNAL' ? 20 : 10)) : 0);
+        ? 0.5 // Section 5: Correct but outside prescribed time = 0.5 mark
+        : (data.verdict === 'ACCEPTED' ? Number(data.academicScore ?? data.marksAwarded ?? maxMarks) : 0);
 
       // 1. Write to submissions collection (safely guarded)
       try {
@@ -5545,8 +5545,8 @@ export class FirestoreDataService {
       if (!submission) return;
       const subId = `asub_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const isLate = Boolean(submission.isLate || submission.lateStatus === 'LATE');
-      const maxMarks = Number(submission.maxMarks || 10);
-      const earnedScore = isLate ? 0 : Number(submission.academicScore ?? submission.marksAwarded ?? maxMarks);
+      const maxMarks = Number(submission.maxMarks ?? 1.0);
+      const earnedScore = isLate ? 0.5 : Number(submission.academicScore ?? submission.marksAwarded ?? maxMarks);
 
       const cleanSub = {
         id: subId,

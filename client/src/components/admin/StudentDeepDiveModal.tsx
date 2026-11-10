@@ -776,12 +776,12 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span>•</span>
                               {isLate ? (
                                 <>
-                                  <span className="text-amber-600 dark:text-amber-400 font-semibold">Marks: Pending Manual Review (0 / {sub.maxMarks || 10})</span>
+                                  <span className="text-amber-600 dark:text-amber-400 font-semibold">Marks: {sub.academicScore ?? 0.5} / {sub.maxMarks || 1.0} (Late: 0.5 Mark)</span>
                                   <span>•</span>
                                 </>
                               ) : (
                                 <>
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Marks: {sub.academicScore ?? sub.marksAwarded ?? 10} / {sub.maxMarks || 10}</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Marks: {sub.academicScore ?? sub.marksAwarded ?? 1.0} / {sub.maxMarks || 1.0}</span>
                                   <span>•</span>
                                 </>
                               )}
@@ -798,17 +798,17 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                                <span><strong>Late Submission:</strong> Solution submitted after time limit. Automated score set to 0. Awaiting manual faculty evaluation.</span>
+                                <span><strong>Late Submission:</strong> Solved outside prescribed time. Awarded 0.5 / 1.0 mark as per time-based scoring (Section 5).</span>
                               </div>
-                              <span className="font-bold font-mono text-amber-400 shrink-0 ml-2">0 / {sub.maxMarks || 10} Marks</span>
+                              <span className="font-bold font-mono text-amber-400 shrink-0 ml-2">{sub.academicScore ?? 0.5} / {sub.maxMarks || 1.0} Mark</span>
                             </div>
                           ) : (
                             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                                <span><strong>On-Time Submission:</strong> Evaluated according to test marking scheme.</span>
+                                <span><strong>On-Time Submission:</strong> Solved within prescribed time. Awarded full 1.0 mark (Section 5).</span>
                               </div>
-                              <span className="font-bold font-mono text-emerald-400 shrink-0 ml-2">{sub.academicScore ?? sub.marksAwarded ?? 10} / {sub.maxMarks || 10} Marks</span>
+                              <span className="font-bold font-mono text-emerald-400 shrink-0 ml-2">{sub.academicScore ?? sub.marksAwarded ?? 1.0} / {sub.maxMarks || 1.0} Mark</span>
                             </div>
                           )}
 
@@ -818,22 +818,23 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <Award className="w-4 h-4 text-indigo-400 shrink-0" />
                               <span className="font-semibold text-slate-200">Faculty Marks Award:</span>
                               <span className="text-slate-400 text-[11px] font-mono">
-                                (Current: {sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10))} / {sub.maxMarks || 10})
+                                (Current: {sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0.5 : (sub.maxMarks || 1.0))} / {sub.maxMarks || 1.0})
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <input
                                 type="number"
+                                step="0.5"
                                 min={0}
-                                max={sub.maxMarks || 10}
-                                value={editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10)))}
+                                max={sub.maxMarks || 1.0}
+                                value={editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0.5 : (sub.maxMarks || 1.0)))}
                                 onChange={(e) => setEditingMarksMap({ ...editingMarksMap, [subId]: Number(e.target.value) })}
                                 className="w-16 px-2.5 py-1 rounded-lg bg-black/80 border border-white/20 text-white font-mono text-xs text-center focus:outline-hidden focus:border-indigo-500"
                               />
-                              <span className="text-slate-400 text-xs font-mono">/ {sub.maxMarks || 10}</span>
+                              <span className="text-slate-400 text-xs font-mono">/ {sub.maxMarks || 1.0}</span>
                               <button
                                 type="button"
-                                onClick={() => handleSaveManualMarks(sub, editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10))))}
+                                onClick={() => handleSaveManualMarks(sub, editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0.5 : (sub.maxMarks || 1.0))))}
                                 disabled={isSavingMarks}
                                 className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               >

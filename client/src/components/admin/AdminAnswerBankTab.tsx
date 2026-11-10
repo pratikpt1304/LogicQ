@@ -808,12 +808,12 @@ export const AdminAnswerBankTab: React.FC = () => {
                                           LATE SUBMISSION
                                         </span>
                                         <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30">
-                                          Marks: Pending Review (0 / {activeSubmission?.maxMarks || 10})
+                                          Marks: {activeSubmission?.academicScore ?? 0.5} / {activeSubmission?.maxMarks || 1.0} (0.5 Mark Late)
                                         </span>
                                       </>
                                     ) : (
                                       <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                                        Marks: {activeSubmission?.academicScore ?? activeSubmission?.marksAwarded ?? 10} / {activeSubmission?.maxMarks || 10}
+                                        Marks: {activeSubmission?.academicScore ?? activeSubmission?.marksAwarded ?? 1.0} / {activeSubmission?.maxMarks || 1.0}
                                       </span>
                                     )}
                                   </div>

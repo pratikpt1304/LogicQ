@@ -780,17 +780,25 @@ export const ExamWorkspacePage: React.FC = () => {
         const draftKey = `logicq_exam_draft_${attemptId || (assignmentId + '_' + problemId)}`;
         try { localStorage.removeItem(draftKey); } catch {}
 
-        // Compute overtime / late status based on question & test time limit
-        const questionTimeLimitMinutes = Number(problemData?.timeLimitMinutes || problemData?.timeLimit || (assignmentData?.durationMinutes ? Math.round(assignmentData.durationMinutes / (questionSequence.length || 1)) : 0));
+        // Compute overtime / late status based on Section 4 & 5 Time-Based Scoring
+        const diffStr = String(problemData?.difficulty || 'EASY').toUpperCase();
+        const expectedMinMinutes = diffStr === 'HARD' ? 15 : diffStr === 'MEDIUM' ? 8 : 2;
+        const expectedMaxMinutes = diffStr === 'HARD' ? 25 : diffStr === 'MEDIUM' ? 15 : 8;
+        const questionTimeLimitMinutes = Number(problemData?.timeLimitMinutes || expectedMaxMinutes);
         const questionTimeLimitSec = questionTimeLimitMinutes * 60;
         const elapsedTotalSec = Math.max(0, Math.floor((Date.now() - testStartTimeRef.current) / 1000));
         const isQuestionOvertime = questionTimeLimitSec > 0 && elapsedSec > questionTimeLimitSec;
         const isTotalTestOvertime = remainingTestSec <= 0 || (totalTestDurationSec > 0 && elapsedTotalSec > totalTestDurationSec);
         const isLate = isQuestionOvertime || isTotalTestOvertime || isTimeExpiredRef.current;
 
-        const maxMarks = Number(problemData?.maxMarks || problemData?.marks || 10);
-        // If late: 0 marks awarded automatically. Instructor will manually review and assign marks.
-        const earnedScore = isLate ? 0 : Number(res.academicScore ?? maxMarks);
+        // Section 5: Actual vs Expected Time Deviation
+        const expectedRefTimeSec = Math.round(((expectedMinMinutes + expectedMaxMinutes) / 2) * 60);
+        const timeDeviationSec = elapsedSec - expectedRefTimeSec;
+        const deviationPercent = Number((((elapsedSec - expectedRefTimeSec) / Math.max(1, expectedRefTimeSec)) * 100).toFixed(1));
+
+        const maxMarks = Number(problemData?.maxMarks ?? problemData?.marks ?? 1.0);
+        // Section 5: Correct within prescribed time = 1 mark; Correct but outside prescribed time = 0.5 mark; Incorrect = 0 marks
+        const earnedScore = isLate ? 0.5 : Number(res.academicScore ?? maxMarks);
         setAcademicScore(earnedScore);
         confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
 
@@ -822,6 +830,11 @@ export const ExamWorkspacePage: React.FC = () => {
           timeLimitSeconds: questionTimeLimitSec || totalTestDurationSec,
           attemptNumber: currentAttemptNum,
           timeTakenSeconds: elapsedSec,
+          expectedMinMinutes,
+          expectedMaxMinutes,
+          expectedRefTimeSeconds: expectedRefTimeSec,
+          timeDeviationSeconds: timeDeviationSec,
+          deviationPercent,
           submissionType: 'ASSESSMENT',
           prn: user?.prn || '',
           studentPrn: user?.prn || '',
@@ -845,11 +858,11 @@ export const ExamWorkspacePage: React.FC = () => {
         RealtimeSyncService.emit('TESTS');
 
         if (isLate) {
-          toast.warning(`Submitted Late! Allotted time limit exceeded. Automated marks set to 0. Awaiting manual faculty evaluation.`, {
+          toast.warning(`Submitted Outside Prescribed Time! Academic Score: 0.5 / ${maxMarks} Mark awarded (Time Deviation: ${timeDeviationSec > 0 ? '+' : ''}${timeDeviationSec}s).`, {
             duration: 6000,
           });
         } else {
-          toast.success(`Accepted! Score: ${earnedScore} / ${maxMarks} Marks awarded.`, {
+          toast.success(`Accepted! Correct & On-Time: ${earnedScore} / ${maxMarks} Mark awarded.`, {
             duration: 3500,
           });
         }
@@ -1084,7 +1097,7 @@ export const ExamWorkspacePage: React.FC = () => {
           <div className="flex items-center gap-2.5 font-mono">
             <Lock className={`w-4 h-4 flex-shrink-0 ${academicScore === 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
             <span>
-              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Submitted after time limit (LATE). Automated score set to 0. Awaiting manual faculty evaluation.' : `Your solution was accepted (${academicScore ?? (problemData?.maxMarks || 10)} / ${problemData?.maxMarks || 10} Marks awarded). Under examination policy, edits and resets are locked.`}
+              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Incorrect solution (0 marks).' : academicScore === 0.5 ? 'Submitted outside prescribed time (0.5 mark awarded as per time-based scoring).' : `Your solution was accepted (${academicScore ?? 1.0} / 1.0 Mark awarded). Under examination policy, edits and resets are locked.`}
             </span>
           </div>
           <div className="flex items-center gap-2">
