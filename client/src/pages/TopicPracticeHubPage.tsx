@@ -503,6 +503,7 @@ export const TopicPracticeHubPage: React.FC = () => {
   const fullscreenExitsRef = useRef(0);
   const handleCloseTopicRef = useRef<() => void>(() => {});
   const currentTopicAttemptRef = useRef<number>(1);
+  const [currentTopicAttempt, setCurrentTopicAttempt] = useState<number>(1);
 
   const getTypingVelocityCPM = () => {
     const minutes = Math.max(10, elapsedSecondsRef.current) / 60;
@@ -788,9 +789,15 @@ export const TopicPracticeHubPage: React.FC = () => {
     fullscreenExitsRef.current = 0;
 
     // Track topic open: increments attemptsCount every time question is opened
-    FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', topic.id)
+    const studentIdent = user?.prn || user?.id || 'guest';
+    const initialAttempt = FirestoreDataService.getLocalTopicAttempt(studentIdent, topic.id);
+    currentTopicAttemptRef.current = initialAttempt || 1;
+    setCurrentTopicAttempt(initialAttempt || 1);
+
+    FirestoreDataService.recordTopicAttemptOpen(studentIdent, topic.id)
       .then((num) => {
         currentTopicAttemptRef.current = num;
+        setCurrentTopicAttempt(num);
       })
       .catch(() => {});
     api.post('/practice/topics/track-open', {
@@ -1191,6 +1198,7 @@ export const TopicPracticeHubPage: React.FC = () => {
         FirestoreDataService.recordTopicAttemptOpen(user?.prn || user?.id || 'guest', activeTopic.id)
           .then((num) => {
             currentTopicAttemptRef.current = num;
+            setCurrentTopicAttempt(num);
           })
           .catch(() => {});
 
@@ -1792,6 +1800,13 @@ export const TopicPracticeHubPage: React.FC = () => {
                             {topic.problem.difficulty}
                           </span>
 
+                          {FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', topic.id) > 0 && !isLocked && (
+                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold flex items-center gap-1">
+                              <RotateCcw className="w-2.5 h-2.5 text-indigo-500" />
+                              <span>Attempt #{FirestoreDataService.getLocalTopicAttempt(user?.prn || user?.id || 'guest', topic.id)}</span>
+                            </span>
+                          )}
+
                           {hasDraft && !isSolved && !isLocked && (
                             <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-bold flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -1895,6 +1910,15 @@ export const TopicPracticeHubPage: React.FC = () => {
                   }`}
                 >
                   {activeTopic.problem.difficulty}
+                </span>
+
+                {/* Live Student Attempt Counter Pill */}
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 sm:px-2.5 py-0.5 rounded-full border border-indigo-500/25 shrink-0 shadow-2xs"
+                  title={`Your current attempt on this question: Attempt #${currentTopicAttempt}`}
+                >
+                  <RotateCcw className="w-3 h-3 text-indigo-500 shrink-0" />
+                  <span>Attempt #{currentTopicAttempt}</span>
                 </span>
 
                 {solvedTopics.includes(activeTopic.id) && (
@@ -2037,13 +2061,23 @@ export const TopicPracticeHubPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    EASY
+                  <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold border ${
+                    activeTopic.problem.difficulty === 'HARD'
+                      ? 'bg-rose-500/15 text-rose-500 dark:text-rose-400 border-rose-500/30'
+                      : activeTopic.problem.difficulty === 'MEDIUM'
+                      ? 'bg-amber-500/15 text-amber-500 dark:text-amber-400 border-amber-500/30'
+                      : 'bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border-emerald-500/30'
+                  }`}>
+                    {activeTopic.problem.difficulty || 'EASY'}
                   </span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-cyan-500/15 text-cyan-500 dark:text-cyan-400 border border-cyan-500/30">
                     Topic Practice
                   </span>
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1.5 shadow-2xs">
+                    <RotateCcw className="w-3 h-3 text-indigo-500" />
+                    <span>Attempt #{currentTopicAttempt}</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-300 border border-slate-500/30">
                     GCC C11
                   </span>
                 </div>

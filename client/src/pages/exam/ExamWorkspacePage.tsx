@@ -39,6 +39,7 @@ import {
   ChevronUp,
   Loader2,
   Cloud,
+  RotateCcw,
 } from 'lucide-react';
 
 export const ExamWorkspacePage: React.FC = () => {
@@ -96,6 +97,7 @@ export const ExamWorkspacePage: React.FC = () => {
   const previousCodeLenRef = useRef<number>(0);
   const isExitingRef = useRef<boolean>(false);
   const currentExamAttemptRef = useRef<number>(1);
+  const [currentExamAttempt, setCurrentExamAttempt] = useState<number>(1);
 
   // Helper to safely exit proctored exam and immediately restore normal browser screen
   const exitExamTo = useCallback((targetPath: string = '/student/tests') => {
@@ -237,9 +239,14 @@ export const ExamWorkspacePage: React.FC = () => {
     // Track attempt opening for Lab Internal test question: increments attempt on every open / reopen
     const studentId = user?.prn || (user as any)?.uid || (user as any)?.id || 'student';
     const examAttemptKey = `${assignmentId || 'UNIT'}_${problemId || 'q1'}`;
+    const initialAttempt = FirestoreDataService.getLocalTopicAttempt(studentId, examAttemptKey);
+    currentExamAttemptRef.current = initialAttempt || 1;
+    setCurrentExamAttempt(initialAttempt || 1);
+
     FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
       .then((num) => {
         currentExamAttemptRef.current = num;
+        setCurrentExamAttempt(num);
       })
       .catch(() => {});
   }, [startData, code, assignmentId, problemId, user]);
@@ -716,6 +723,7 @@ export const ExamWorkspacePage: React.FC = () => {
         FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
           .then((num) => {
             currentExamAttemptRef.current = num;
+            setCurrentExamAttempt(num);
           })
           .catch(() => {});
         toast.error('Test cases failed. Please review the output below and fix your code.');
@@ -727,6 +735,7 @@ export const ExamWorkspacePage: React.FC = () => {
       FirestoreDataService.recordTopicAttemptOpen(studentId, examAttemptKey)
         .then((num) => {
           currentExamAttemptRef.current = num;
+          setCurrentExamAttempt(num);
         })
         .catch(() => {});
       toast.error(err.message || 'Run execution failed.');
@@ -1048,6 +1057,10 @@ export const ExamWorkspacePage: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] font-bold shrink-0">
               {problemData?.maxMarks || problemData?.marks || 10} Marks
             </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-200/80 text-purple-700 text-[11px] font-bold shrink-0 flex items-center gap-1 font-mono">
+              <RotateCcw className="w-3 h-3 text-purple-600" />
+              <span>Attempt #{currentExamAttempt}</span>
+            </span>
           </div>
         </div>
 
@@ -1159,6 +1172,10 @@ export const ExamWorkspacePage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {problemData?.difficulty || 'HARD'}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3 text-purple-600" />
+                  <span>Attempt #{currentExamAttempt}</span>
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   20.0 Marks
