@@ -795,8 +795,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data) return;
       if (data.isBanned) {
         logout('banned');
-      } else if (data.activeSession === false || data.forceLogout === true) {
-        logout('revoked-by-admin');
       }
     };
 
@@ -1519,6 +1517,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!reg.success) {
         throw new Error(reg.message || 'Too many devices bound. Your account is already bound to 2 devices.');
       }
+      try {
+        const prnUpper = authUser.prn.toUpperCase().trim();
+        updateDoc(doc(db, 'cohort_progress', prnUpper), { activeSession: true }).catch(() => {});
+      } catch {}
     }
 
     if (!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)) {
