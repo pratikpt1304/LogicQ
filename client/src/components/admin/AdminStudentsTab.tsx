@@ -87,6 +87,18 @@ export const AdminStudentsTab: React.FC = () => {
       try {
         if (showLoading) setIsLoading(true);
 
+        // Discover active section name (defaults to "Batch 1")
+        let activeSectionName = 'Batch 1';
+        try {
+          const rawSec = localStorage.getItem('logicq_admin_sections') || localStorage.getItem('logicq_faculty_sections_backup_v2');
+          if (rawSec) {
+            const parsed = JSON.parse(rawSec);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].sectionName) {
+              activeSectionName = parsed[0].sectionName;
+            }
+          }
+        } catch {}
+
         // 1. Check local cache first for instant render
         try {
           const cached = localStorage.getItem('logicq_admin_students');
@@ -98,7 +110,11 @@ export const AdminStudentsTab: React.FC = () => {
                 .map((s: any) => ({
                   ...s,
                   name: s.name || s.fullName || s.displayName || 'Student Candidate',
-                  section: (s.section === 'C Programming' || !s.section || s.section.toLowerCase().includes('mtech')) ? 'Integrated Mtech' : s.section
+                  section: s.sectionName && s.sectionName !== 'Integrated Mtech' && s.sectionName !== 'General'
+                    ? s.sectionName
+                    : (s.section && s.section !== 'Integrated Mtech' && s.section !== 'General'
+                        ? s.section
+                        : activeSectionName)
                 }));
               setStudents(cleaned);
             }
@@ -214,17 +230,10 @@ export const AdminStudentsTab: React.FC = () => {
                 ? Number(mod.academicScore)
                 : (anyUser.academicScore !== undefined ? anyUser.academicScore : Math.min(100, Math.round(((totalPoints || 0) / 100) * 100)));
 
-              const isMtechUser =
-                anyUser.sectionId === 'sec-mw6l4r2s' ||
-                (anyUser.department && anyUser.department.toLowerCase().includes('mtech')) ||
-                (anyUser.course && anyUser.course.toLowerCase().includes('mtech')) ||
-                (anyUser.sectionName && anyUser.sectionName.toLowerCase().includes('mtech')) ||
-                (prnClean && (prnClean.startsWith('2126PMI') || prnClean.startsWith('2125PMI')));
-
-              const rawSection = isMtechUser ? 'Integrated Mtech' : (anyUser.sectionName || anyUser.section || (anyUser.division ? `Division ${anyUser.division}` : 'Integrated Mtech'));
-              const normalizedSection = (rawSection.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes('mtech') || rawSection.toLowerCase().includes('integrated'))
-                ? 'Integrated Mtech'
-                : rawSection;
+              const assignedSec = anyUser.sectionName || anyUser.section;
+              const normalizedSection = (assignedSec && assignedSec !== 'Integrated Mtech' && assignedSec !== 'General')
+                ? assignedSec
+                : activeSectionName;
 
               return {
                 id: anyUser.id || anyUser.uid || `stu-${Math.random().toString(36).substring(2, 7)}`,

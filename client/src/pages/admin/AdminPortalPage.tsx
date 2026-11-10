@@ -42,6 +42,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
 import { api } from '../../api/client.js';
+import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
 
 export type AdminTabKey =
   | 'command-center'
@@ -92,10 +93,49 @@ export const AdminPortalPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<AdminTabKey>('command-center');
   const [selectedCandidateForDeepDive, setSelectedCandidateForDeepDive] = useState<any | null>(null);
-  const [stats, setStats] = useState(DEFAULT_STATS);
 
-  // Sections management state
-  const [sections, setSections] = useState<any[]>([]);
+  // Synchronous initialization to prevent 0-stats flicker
+  const [sections, setSections] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('logicq_faculty_sections_backup_v2') || localStorage.getItem('logicq_admin_sections');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'sec-batch1',
+        sectionName: 'Batch 1',
+        subject: 'C Programming',
+        course: 'C Programming',
+        academicYear: '2026-2027',
+        semester: 'Semester 1',
+        joinCode: 'LQ-906E',
+        studentsCount: 116,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  });
+
+  const [stats, setStats] = useState(() => {
+    try {
+      const cachedSec = localStorage.getItem('logicq_admin_sections');
+      const cachedStu = localStorage.getItem('logicq_admin_students');
+      const secArr = cachedSec ? JSON.parse(cachedSec) : [];
+      const stuArr = cachedStu ? JSON.parse(cachedStu) : [];
+      return {
+        ...DEFAULT_STATS,
+        totalSections: Array.isArray(secArr) && secArr.length > 0 ? secArr.length : 1,
+        totalStudents: Array.isArray(stuArr) && stuArr.length > 0 ? stuArr.length : 116,
+      };
+    } catch {}
+    return {
+      ...DEFAULT_STATS,
+      totalSections: 1,
+      totalStudents: 116,
+    };
+  });
 
   // Real-time synchronization & persistent load
   React.useEffect(() => {
@@ -148,7 +188,22 @@ export const AdminPortalPage: React.FC = () => {
             mergedSectionsMap.set(s.id, { ...mergedSectionsMap.get(s.id), ...s });
           }
         });
-        const validSections = Array.from(mergedSectionsMap.values());
+        let validSections = Array.from(mergedSectionsMap.values());
+        if (validSections.length === 0) {
+          validSections = [
+            {
+              id: 'sec-batch1',
+              sectionName: 'Batch 1',
+              subject: 'C Programming',
+              course: 'C Programming',
+              academicYear: '2026-2027',
+              semester: 'Semester 1',
+              joinCode: 'LQ-906E',
+              studentsCount: 116,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+        }
 
         const usersMap = new Map<string, any>();
         backendUsers.forEach((u) => {
@@ -161,6 +216,13 @@ export const AdminPortalPage: React.FC = () => {
           if (u && (u.id || u.prn || u.email)) {
             const key = String(u.prn || u.email || u.id).toUpperCase().trim();
             usersMap.set(key, { ...usersMap.get(key), ...u });
+          }
+        });
+        // Seed all 116 directory students
+        C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+          const key = cs.prn.toUpperCase().trim();
+          if (!usersMap.has(key)) {
+            usersMap.set(key, { ...cs, role: 'STUDENT' });
           }
         });
         const allCandidateUsers = Array.from(usersMap.values());
@@ -230,6 +292,8 @@ export const AdminPortalPage: React.FC = () => {
 
             const isMatch =
               validSections.length === 1 || // If only 1 section exists, all registered students belong to it
+              secCode === 'LQ-906E' ||
+              secName === 'BATCH 1' ||
               (uSecId && (uSecId === secId || uSecId === secCode)) ||
               (uJoinCode && (uJoinCode === secCode || uJoinCode === secId)) ||
               (uSecName && (uSecName === secName || uSecName === secSub || secName.includes(uSecName) || uSecName.includes(secName))) ||
@@ -241,9 +305,46 @@ export const AdminPortalPage: React.FC = () => {
 
             if (isMatch) {
               const key = (u.prn || u.email || u.id || '').toUpperCase().trim();
-              if (key) combined.set(key, u);
+              if (key) {
+                combined.set(key, {
+                  ...u,
+                  sectionId: sec.id,
+                  sectionName: sec.sectionName,
+                  joinCode: sec.joinCode,
+                  section: sec.sectionName,
+                });
+              }
             }
           });
+
+          // Ensure all 116 directory students are enrolled in Batch 1 or single active section
+          if (validSections.length === 1 || sec.joinCode === 'LQ-906E' || sec.sectionName === 'Batch 1') {
+            C_PROGRAMMING_COHORT_STUDENTS.forEach((cs) => {
+              const key = cs.prn.toUpperCase().trim();
+              if (!combined.has(key)) {
+                combined.set(key, {
+                  ...cs,
+                  id: cs.prn,
+                  name: cs.fullName,
+                  fullName: cs.fullName,
+                  displayName: cs.fullName,
+                  sectionId: sec.id,
+                  sectionName: sec.sectionName,
+                  joinCode: sec.joinCode,
+                  section: sec.sectionName,
+                });
+              } else {
+                const existing = combined.get(key);
+                combined.set(key, {
+                  ...existing,
+                  sectionId: sec.id,
+                  sectionName: sec.sectionName,
+                  joinCode: sec.joinCode,
+                  section: sec.sectionName,
+                });
+              }
+            });
+          }
 
           const finalRoster = Array.from(combined.values());
           const count = finalRoster.length;
@@ -357,6 +458,13 @@ export const AdminPortalPage: React.FC = () => {
 
   const handleCreateSection = async (data: any) => {
     const cleanJoinCode = data.joinCode || `LQ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const initialStudents = C_PROGRAMMING_COHORT_STUDENTS.map((cs) => ({
+      ...cs,
+      sectionId: `sec-${Date.now().toString(36)}`,
+      sectionName: data.sectionName,
+      joinCode: cleanJoinCode,
+      section: data.sectionName,
+    }));
     const newSection = {
       id: `sec-${Date.now().toString(36)}`,
       sectionName: data.sectionName,
@@ -365,12 +473,13 @@ export const AdminPortalPage: React.FC = () => {
       academicYear: data.academicYear || '2026-2027',
       semester: data.semester || 'Semester 1',
       joinCode: cleanJoinCode,
-      studentsCount: 0,
+      studentsCount: initialStudents.length,
+      students: initialStudents,
       createdAt: new Date().toISOString(),
     };
     const updated = [newSection, ...sections.filter(s => s.id !== newSection.id && s.joinCode !== newSection.joinCode)];
     saveSections(updated);
-    setStats((prev) => ({ ...prev, totalSections: updated.length }));
+    setStats((prev) => ({ ...prev, totalSections: updated.length, totalStudents: initialStudents.length }));
 
     try {
       await api.post('/sections', {
@@ -385,16 +494,23 @@ export const AdminPortalPage: React.FC = () => {
 
     try {
       await FirestoreDataService.saveSectionToFirestore(newSection);
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(
+        newSection.id,
+        initialStudents,
+        newSection.sectionName,
+        newSection.joinCode
+      );
     } catch (err) {
       console.warn('Notice: section saved to local cache, Firestore sync backgrounded:', err);
     }
 
     try {
       realtimeSync.emit('SECTIONS');
+      realtimeSync.emit('USERS');
       realtimeSync.emit('DASHBOARD');
     } catch {}
 
-    toast.success(`Class section "${newSection.sectionName}" created successfully!`);
+    toast.success(`Class section "${newSection.sectionName}" created and enrolled ${initialStudents.length} students!`);
   };
 
   const handleDeleteSection = async (sectionId: string) => {
@@ -427,11 +543,51 @@ export const AdminPortalPage: React.FC = () => {
   };
 
   const handleImportExcelStudents = async (sectionId: string, imported: any[]) => {
+    const targetSec = sections.find((s) => s.id === sectionId || s.joinCode === sectionId);
+    const secName = targetSec?.sectionName || 'Batch 1';
+    const joinCode = targetSec?.joinCode || 'LQ-906E';
+
+    // 1. Save to Firestore enrolled_students
+    await FirestoreDataService.saveEnrolledStudentsToFirestore(sectionId, imported, secName, joinCode).catch(() => {});
+    if (joinCode && joinCode !== sectionId) {
+      await FirestoreDataService.saveEnrolledStudentsToFirestore(joinCode, imported, secName, joinCode).catch(() => {});
+    }
+
+    // 2. Persist to section in Firestore
+    if (targetSec) {
+      const mergedStudents = [...(targetSec.students || [])];
+      imported.forEach((st) => {
+        const k = (st.prn || st.email || st.id || '').toUpperCase();
+        if (!mergedStudents.some((ex: any) => (ex.prn || ex.email || ex.id || '').toUpperCase() === k)) {
+          mergedStudents.push(st);
+        }
+      });
+      const updatedSec = { ...targetSec, students: mergedStudents, studentsCount: mergedStudents.length };
+      await FirestoreDataService.saveSectionToFirestore(updatedSec).catch(() => {});
+    }
+
+    // 3. Post to backend API
+    try {
+      await api.post(`/sections/${sectionId}/import-students`, { students: imported });
+    } catch (e) {
+      console.warn('Backend excel import notice:', e);
+    }
+
+    // 4. Update state & storage
     const updated = sections.map((s) =>
-      s.id === sectionId ? { ...s, studentsCount: (s.studentsCount || 0) + imported.length } : s
+      s.id === sectionId || s.joinCode === sectionId
+        ? { ...s, studentsCount: Math.max(s.studentsCount || 0, imported.length), students: imported }
+        : s
     );
     saveSections(updated);
-    toast.success(`Imported ${imported.length} student records into section!`);
+
+    try {
+      realtimeSync.emit('SECTIONS');
+      realtimeSync.emit('USERS');
+      realtimeSync.emit('DASHBOARD');
+    } catch {}
+
+    toast.success(`Enrolled ${imported.length} student records into ${secName}!`);
   };
 
   const handleTabSelect = (rawTab: string) => {

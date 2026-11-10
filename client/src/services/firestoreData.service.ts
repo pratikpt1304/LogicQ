@@ -1962,14 +1962,14 @@ export class FirestoreDataService {
           department: normalizeDepartment(raw.department) || raw.department || null,
           year: raw.year || 'SY',
           division: raw.division || null,
-          sectionId: raw.sectionId || 'sec-mw6l4r2s',
-          sectionName: 'Integrated Mtech',
+          sectionId: raw.sectionId || 'sec-batch1',
+          sectionName: raw.sectionName || 'Batch 1',
           sections: [{
-            id: raw.sectionId || 'sec-mw6l4r2s',
-            sectionName: 'Integrated Mtech',
-            joinCode: raw.joinCode || 'LQ-INTE34',
-            subject: 'C Programming',
-            course: 'Integrated M.Tech',
+            id: raw.sectionId || 'sec-batch1',
+            sectionName: raw.sectionName || 'Batch 1',
+            joinCode: raw.joinCode || 'LQ-906E',
+            subject: raw.subject || 'C Programming',
+            course: raw.course || 'Integrated M.Tech',
           }],
           profileComplete: true,
           totalPoints: Number(raw.totalPoints || 0),
@@ -3633,9 +3633,13 @@ export class FirestoreDataService {
     } else {
       let cProgSec = result.find(
         (s: any) =>
+          s.joinCode === 'LQ-906E' ||
+          s.sectionName === 'Batch 1' ||
           s.joinCode === 'LQ-C31A' ||
           s.id === 'LQ-C31A' ||
-          s.sectionName === 'C Programming'
+          s.sectionName === 'C Programming' ||
+          (s.subject && s.subject.toUpperCase().includes('C PROGRAMMING')) ||
+          result.length === 1
       );
 
       if (cProgSec) {
@@ -3647,6 +3651,9 @@ export class FirestoreDataService {
           const validCohortEmail = cs.email || `${cs.prn.toLowerCase()}@sanjivani.edu.in`;
           const existing = existingStudents.find((s: any) => (s.prn || s.student?.prn || '').toUpperCase() === prnUpper);
           if (existing) {
+            existing.sectionId = cProgSec.id;
+            existing.sectionName = cProgSec.sectionName || 'Batch 1';
+            existing.joinCode = cProgSec.joinCode || 'LQ-906E';
             if (validCohortEmail && (!existing.email || existing.email.endsWith('@sanjivani.edu.in'))) {
               existing.email = validCohortEmail;
               if (existing.student) existing.student.email = validCohortEmail;
@@ -3666,7 +3673,9 @@ export class FirestoreDataService {
               ...cs,
               email: validCohortEmail,
               name: cs.fullName,
-              sectionId: cProgSec.id || 'LQ-C31A',
+              sectionId: cProgSec.id || 'LQ-906E',
+              sectionName: cProgSec.sectionName || 'Batch 1',
+              joinCode: cProgSec.joinCode || 'LQ-906E',
               enrolledAt: 1730000000000,
               status: 'ACTIVE',
             });
@@ -3978,12 +3987,17 @@ export class FirestoreDataService {
   /**
    * Persists enrolled students to Firestore under 'enrolled_students' collection.
    */
-  public static async saveEnrolledStudentsToFirestore(sectionId: string, students: any[]): Promise<void> {
+  public static async saveEnrolledStudentsToFirestore(
+    sectionId: string,
+    students: any[],
+    explicitSectionName?: string,
+    explicitJoinCode?: string
+  ): Promise<void> {
     if (!students || students.length === 0) return;
 
     // Discover section joinCode and name if available
-    let joinCodeResolved: string | null = sectionId.startsWith('LQ-') ? sectionId : null;
-    let sectionNameResolved: string | null = null;
+    let joinCodeResolved: string | null = explicitJoinCode || (sectionId.startsWith('LQ-') ? sectionId : null);
+    let sectionNameResolved: string | null = explicitSectionName || null;
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
       const stored = JSON.parse(

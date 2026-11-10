@@ -21,6 +21,7 @@ import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
+import { C_PROGRAMMING_COHORT_STUDENTS } from '../../data/c-programming-cohort.data.js';
 
 export interface SectionItem {
   id: string;
@@ -387,6 +388,19 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                     <span>Excel</span>
                   </button>
                 </div>
+
+                {/* 1-Click Cohort Enrollment (116 Students) */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onImportExcelStudents(sec.id, C_PROGRAMMING_COHORT_STUDENTS);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+                  title="Enroll all 116 students from the student directory into this section"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Enroll All 116 Directory Students</span>
+                </button>
               </div>
             );
           })}
@@ -570,6 +584,36 @@ export const AdminSectionsTab: React.FC<AdminSectionsTabProps> = ({
                 onChange={handleExcelUpload}
                 className="mt-2 block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-500/10 file:text-blue-600 cursor-pointer"
               />
+            </div>
+
+            {/* Direct 1-Click Cohort Quick Action */}
+            <div className="p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/20 flex items-center justify-between gap-3">
+              <div>
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block">
+                  Quick Enroll Directory Cohort
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Directly enroll all 116 students from the Student Directory without uploading a file.
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={isImporting}
+                onClick={async () => {
+                  if (!targetSectionForExcel) return;
+                  setIsImporting(true);
+                  try {
+                    await onImportExcelStudents(targetSectionForExcel.id, C_PROGRAMMING_COHORT_STUDENTS);
+                    setIsExcelModalOpen(false);
+                  } finally {
+                    setIsImporting(false);
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shrink-0 cursor-pointer transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Enroll All 116</span>
+              </button>
             </div>
 
             {/* Preview Breakdown */}
