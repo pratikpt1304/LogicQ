@@ -12,6 +12,21 @@ import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import './index.css';
 import { RealtimeSyncService } from './services/realtimeSync.service.js';
 
+// Global System Launch Epoch: Reset all cached browser sessions & student local data across all devices
+const SYSTEM_LAUNCH_EPOCH = 'logicq_clean_launch_2026_11_10_v2';
+if (typeof window !== 'undefined') {
+  try {
+    const currentEpoch = localStorage.getItem('logicq_system_launch_epoch');
+    if (currentEpoch !== SYSTEM_LAUNCH_EPOCH) {
+      const themeVal = localStorage.getItem('logicq-theme');
+      localStorage.clear();
+      sessionStorage.clear();
+      if (themeVal) localStorage.setItem('logicq-theme', themeVal);
+      localStorage.setItem('logicq_system_launch_epoch', SYSTEM_LAUNCH_EPOCH);
+    }
+  } catch {}
+}
+
 // Rate-limited, privacy-scrubbed client error reporter (posts to /api/support/error-report)
 let reportedCount = 0;
 function reportClientError(message: string, stack?: string) {
