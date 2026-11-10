@@ -53,7 +53,12 @@ export interface RecordTelemetryDto {
 }
 
 function normalizeOutput(str: string): string {
-  return str.replace(/\r\n/g, '\n').trim();
+  return str
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => l.replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n+$/, '');
 }
 
 // Global in-flight lock preventing concurrency races on code evaluation
@@ -405,6 +410,11 @@ export class SmartExamService {
       const now = new Date();
       const judge = await getJudge();
 
+    // Fail-closed: Never accept if no test cases are configured
+    if (!attempt.problem.testCases || attempt.problem.testCases.length === 0) {
+      throw new Error('Judge misconfigured: problem has no test cases.');
+    }
+
     // 1. Evaluate against all test cases (2 visible + 1 hidden)
     let allPassed = true;
     let finalVerdict: Verdict = Verdict.ACCEPTED;
@@ -420,7 +430,9 @@ export class SmartExamService {
 
       if (!passed) {
         allPassed = false;
-        finalVerdict = exec.verdict !== Verdict.ACCEPTED ? exec.verdict : Verdict.WRONG_ANSWER;
+        if (finalVerdict === Verdict.ACCEPTED) {
+          finalVerdict = exec.verdict !== Verdict.ACCEPTED ? exec.verdict : Verdict.WRONG_ANSWER;
+        }
       }
 
       if (passed && tc.isHidden && !attempt.firstPassT3At) {

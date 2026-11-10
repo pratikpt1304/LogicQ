@@ -80,6 +80,26 @@ function getSanitizedExecutionEnv(workDir: string, gccDir?: string): NodeJS.Proc
   return env;
 }
 
+class Semaphore {
+  private waiters: Array<() => void> = [];
+  private active = 0;
+  constructor(private readonly max: number) {}
+  async acquire() {
+    if (this.active < this.max) { this.active++; return; }
+    if (this.waiters.length >= 50) {
+      throw new Error('Judge is currently busy under heavy load. Please retry in a moment.');
+    }
+    await new Promise<void>((res) => this.waiters.push(res));
+  }
+  release() {
+    const next = this.waiters.shift();
+    if (next) next();
+    else this.active--;
+  }
+}
+
+const judgeSemaphore = new Semaphore(Number(process.env.JUDGE_CONCURRENCY || 2));
+
 if (typeof process !== 'undefined') {
   process.once('exit', cleanAllActiveDirs);
   process.once('SIGINT', () => {
@@ -491,13 +511,9 @@ static inline char* __lq_getenv(const char *name) {
     const preludeFile = path.join(tempDir, 'sandbox_prelude.h');
     const sourceFile = path.join(tempDir, 'solution.c');
     const isWindows = process.platform === 'win32';
-    const binaryFile = isWindows
-      ? path.join(getJudgeWorkingRoot(), `solution_${tempId}.exe`)
-      : path.join(tempDir, 'solution');
-
-    if (isWindows) {
-      registerTempDir(binaryFile);
-    }
+    const binaryName = isWindows ? 'solution.exe' : 'solution';
+    // CRITICAL: Binary is strictly compiled inside its dedicated isolated temp directory, NEVER in server root
+    const binaryFile = path.join(tempDir, binaryName);
 
     try {
       fs.writeFileSync(preludeFile, this.buildSandboxPrelude(options?.memoryLimitMb ?? 128), 'utf8');
@@ -506,6 +522,7 @@ static inline char* __lq_getenv(const char *name) {
       const gcc = this.getGccExecutable();
       const gccDir = path.dirname(gcc);
 
+      // Relative compilation inside tempDir prevents host file paths from appearing in diagnostics
       const compileArgs = [
         '-O2',
         '-Wall',
@@ -514,10 +531,10 @@ static inline char* __lq_getenv(const char *name) {
         '-fno-asm',
         '-D__LQ_BUILD__=LOGICQ',
         '-include',
-        preludeFile,
+        'sandbox_prelude.h',
         '-o',
-        binaryFile,
-        sourceFile,
+        binaryName,
+        'solution.c',
         '-lm',
       ];
 
@@ -541,9 +558,6 @@ static inline char* __lq_getenv(const char *name) {
 
       const cleanup = async () => {
         try {
-          if (isWindows && fs.existsSync(binaryFile)) {
-            await fs.promises.rm(binaryFile, { force: true }).catch(() => {});
-          }
           if (fs.existsSync(tempDir)) {
             await fs.promises.rm(tempDir, { recursive: true, force: true });
           }
@@ -551,7 +565,6 @@ static inline char* __lq_getenv(const char *name) {
           // Ignore transient lock cleanup races
         } finally {
           unregisterTempDir(tempDir);
-          if (isWindows) unregisterTempDir(binaryFile);
         }
       };
 
@@ -985,7 +998,7 @@ static inline char* __lq_getenv(const char *name) {
   }
 
   /**
-   * Backward-compatible compileAndRun wrapper.
+   * Backward-compatible compileAndRun wrapper with concurrency limiting & input clamping.
    */
   async compileAndRun(
     code: string,
@@ -993,29 +1006,35 @@ static inline char* __lq_getenv(const char *name) {
     timeLimitMs: number = 1000,
     memoryLimitMb: number = 64
   ): Promise<ExecutionResult> {
-    const compilation = await this.compile(code, { timeLimitMs: 10000, memoryLimitMb });
-    if (!compilation.success) {
-      return {
-        verdict: Verdict.COMPILE_ERROR,
-        runtimeMs: 0,
-        compileOutput: compilation.compileOutput,
-        diagnostics: compilation.diagnostics,
-      };
-    }
-
+    const clampedLimitMs = Math.min(Math.max(Number(timeLimitMs) || 1000, 200), 5000);
+    await judgeSemaphore.acquire();
     try {
-      const execResult = await this.execute(
-        compilation.binaryPath,
-        stdin,
-        timeLimitMs,
-        memoryLimitMb
-      );
-      return {
-        ...execResult,
-        compileOutput: compilation.compileOutput,
-      };
+      const compilation = await this.compile(code, { timeLimitMs: 10000, memoryLimitMb });
+      if (!compilation.success) {
+        return {
+          verdict: Verdict.COMPILE_ERROR,
+          runtimeMs: 0,
+          compileOutput: compilation.compileOutput,
+          diagnostics: compilation.diagnostics,
+        };
+      }
+
+      try {
+        const execResult = await this.execute(
+          compilation.binaryPath,
+          stdin,
+          clampedLimitMs,
+          memoryLimitMb
+        );
+        return {
+          ...execResult,
+          compileOutput: compilation.compileOutput,
+        };
+      } finally {
+        await compilation.cleanup();
+      }
     } finally {
-      await compilation.cleanup();
+      judgeSemaphore.release();
     }
   }
 }
