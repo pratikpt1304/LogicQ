@@ -1031,6 +1031,9 @@ export const ExamWorkspacePage: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[11px] font-bold shrink-0">
               Question {currentQuestionIndex >= 0 ? currentQuestionIndex + 1 : 1} of {questionSequence.length || 1}
             </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] font-bold shrink-0">
+              {problemData?.maxMarks || problemData?.marks || 10} Marks
+            </span>
           </div>
         </div>
 
@@ -1081,7 +1084,7 @@ export const ExamWorkspacePage: React.FC = () => {
           <div className="flex items-center gap-2.5 font-mono">
             <Lock className={`w-4 h-4 flex-shrink-0 ${academicScore === 0 ? 'text-amber-600' : 'text-emerald-600'}`} />
             <span>
-              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Submitted after time limit (LATE). Automated score set to 0. Awaiting manual faculty evaluation.' : `Your solution was accepted (${academicScore ?? 1.0} mark awarded). Under examination policy, edits and resets are locked.`}
+              <strong>QUESTION PERMANENTLY LOCKED:</strong> {academicScore === 0 ? 'Submitted after time limit (LATE). Automated score set to 0. Awaiting manual faculty evaluation.' : `Your solution was accepted (${academicScore ?? (problemData?.maxMarks || 10)} / ${problemData?.maxMarks || 10} Marks awarded). Under examination policy, edits and resets are locked.`}
             </span>
           </div>
           <div className="flex items-center gap-2">

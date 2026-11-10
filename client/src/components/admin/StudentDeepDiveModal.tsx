@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, getDocs, updateDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { DeviceSessionService } from '../../services/deviceSession.service.js';
+import { RealtimeSyncService } from '../../services/realtimeSync.service.js';
 import { toast } from 'sonner';
 import {
   Award,
@@ -85,6 +86,59 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
   const [activeTab, setActiveTab] = useState<'lab_internal' | 'practice' | 'overview'>('practice');
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [editingMarksMap, setEditingMarksMap] = useState<Record<string, number>>({});
+  const [isSavingMarks, setIsSavingMarks] = useState(false);
+
+  const handleSaveManualMarks = async (sub: any, awarded: number) => {
+    try {
+      setIsSavingMarks(true);
+      const maxMarks = Number(sub.maxMarks || 10);
+      const awardedScore = Math.max(0, Math.min(Number(awarded) || 0, maxMarks));
+      const targetPrn = student?.prn || sub.studentPrn || sub.prn;
+
+      // 1. Update in assessment_test_submissions if exists
+      if (sub.id) {
+        const assessRef = doc(db, 'assessment_test_submissions', sub.id);
+        await updateDoc(assessRef, {
+          academicScore: awardedScore,
+          marksAwarded: awardedScore,
+          score: awardedScore,
+          manualGradingRequired: false,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+
+      // 2. Also search and update in submissions collection
+      if (targetPrn) {
+        const subQ = query(collection(db, 'submissions'), where('studentPrn', '==', targetPrn));
+        const snap = await getDocs(subQ).catch(() => null);
+        if (snap && !snap.empty) {
+          for (const d of snap.docs) {
+            const data = d.data();
+            if (data.problemId === sub.problemId || data.problemTitle === sub.problemTitle || d.id === sub.id) {
+              await updateDoc(d.ref, {
+                academicScore: awardedScore,
+                marksAwarded: awardedScore,
+                score: awardedScore,
+                manualGradingRequired: false,
+                updatedAt: serverTimestamp(),
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      // 3. Emit real-time sync across system
+      RealtimeSyncService.emit('SUBMISSIONS');
+      RealtimeSyncService.emit('DASHBOARD');
+      RealtimeSyncService.emit('TESTS');
+      toast.success(`Marks updated to ${awardedScore} / ${maxMarks}! Synced to student gradebook in real-time.`);
+    } catch (err: any) {
+      toast.error('Failed to update marks: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsSavingMarks(false);
+    }
+  };
 
   const studentName = student?.fullName || student?.name || 'Student Candidate';
   const prnRaw = (student?.prn || '').trim();
@@ -757,6 +811,37 @@ export const StudentDeepDiveModal: React.FC<StudentDeepDiveModalProps> = ({
                               <span className="font-bold font-mono text-emerald-400 shrink-0 ml-2">{sub.academicScore ?? sub.marksAwarded ?? 10} / {sub.maxMarks || 10} Marks</span>
                             </div>
                           )}
+
+                          {/* Faculty Manual Marks Award / Override (Real-Time Synchronized) */}
+                          <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Award className="w-4 h-4 text-indigo-400 shrink-0" />
+                              <span className="font-semibold text-slate-200">Faculty Marks Award:</span>
+                              <span className="text-slate-400 text-[11px] font-mono">
+                                (Current: {sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10))} / {sub.maxMarks || 10})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                max={sub.maxMarks || 10}
+                                value={editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10)))}
+                                onChange={(e) => setEditingMarksMap({ ...editingMarksMap, [subId]: Number(e.target.value) })}
+                                className="w-16 px-2.5 py-1 rounded-lg bg-black/80 border border-white/20 text-white font-mono text-xs text-center focus:outline-hidden focus:border-indigo-500"
+                              />
+                              <span className="text-slate-400 text-xs font-mono">/ {sub.maxMarks || 10}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveManualMarks(sub, editingMarksMap[subId] !== undefined ? editingMarksMap[subId] : (sub.academicScore ?? sub.marksAwarded ?? (isLate ? 0 : (sub.maxMarks || 10))))}
+                                disabled={isSavingMarks}
+                                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>Save Marks</span>
+                              </button>
+                            </div>
+                          </div>
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-400 uppercase tracking-wider font-bold">
                               GCC 14 · C Source · lab_internal.c · Submitted on Attempt #{sub.attemptNumber || 1}

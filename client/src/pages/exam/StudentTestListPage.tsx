@@ -485,7 +485,7 @@ export const StudentTestListPage: React.FC = () => {
                       </div>
                       {isSubmitted && assignment.academicScore != null && (
                         <div className="flex items-center gap-1 font-bold text-emerald-500">
-                          <span>Score: {assignment.academicScore.toFixed(1)} / {safeQuestions.length} Marks</span>
+                          <span>Score: {assignment.academicScore.toFixed(1)} / {test?.totalMarks || (safeQuestions.length * 10)} Marks</span>
                         </div>
                       )}
                     </div>
