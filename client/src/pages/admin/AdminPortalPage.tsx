@@ -41,6 +41,7 @@ import { FirestoreDataService } from '../../services/firestoreData.service.js';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../config/firebase.js';
 import { realtimeSync } from '../../services/realtimeSync.service.js';
+import { api } from '../../api/client.js';
 
 export type AdminTabKey =
   | 'command-center'
@@ -96,16 +97,8 @@ export const AdminPortalPage: React.FC = () => {
   // Sections management state
   const [sections, setSections] = useState<any[]>([]);
 
-  // Real-time synchronization & fake cache purge
+  // Real-time synchronization & persistent load
   React.useEffect(() => {
-    try {
-      localStorage.removeItem('logicq_admin_sections');
-      localStorage.removeItem('logicq_faculty_sections_backup_v2');
-      localStorage.removeItem('logicq_admin_students');
-      localStorage.removeItem('logicq_admin_students_list');
-      localStorage.removeItem('logicq_admin_tests');
-    } catch {}
-
     const loadRealData = async () => {
       try {
         const [realSections, realUsers, cohortSnap] = await Promise.all([
@@ -114,15 +107,71 @@ export const AdminPortalPage: React.FC = () => {
           getDocs(collection(db, 'cohort_progress')).catch(() => null),
         ]);
 
+        let backendSections: any[] = [];
+        let backendUsers: any[] = [];
+        try {
+          const secRes: any = await api.get('/sections').catch(() => null);
+          if (secRes?.success && Array.isArray(secRes?.data || secRes?.sections)) {
+            backendSections = secRes.data || secRes.sections;
+          }
+        } catch {}
+
+        try {
+          const userRes: any = await api.get('/admin/users').catch(() => null);
+          if (userRes?.success && Array.isArray(userRes?.data?.users || userRes?.users)) {
+            backendUsers = userRes.data?.users || userRes.users;
+          }
+        } catch {}
+
+        let cachedSections: any[] = [];
+        try {
+          const raw = localStorage.getItem('logicq_faculty_sections_backup_v2') || localStorage.getItem('logicq_admin_sections');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) cachedSections = parsed;
+          }
+        } catch {}
+
+        const mergedSectionsMap = new Map<string, any>();
+        cachedSections.forEach((s) => {
+          if (s && s.id && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)) {
+            mergedSectionsMap.set(s.id, s);
+          }
+        });
+        backendSections.forEach((s) => {
+          if (s && s.id && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)) {
+            mergedSectionsMap.set(s.id, { ...mergedSectionsMap.get(s.id), ...s });
+          }
+        });
+        (Array.isArray(realSections) ? realSections : []).forEach((s) => {
+          if (s && s.id && !FirestoreDataService.isSectionDeleted(s.id, s.joinCode)) {
+            mergedSectionsMap.set(s.id, { ...mergedSectionsMap.get(s.id), ...s });
+          }
+        });
+        const validSections = Array.from(mergedSectionsMap.values());
+
+        const usersMap = new Map<string, any>();
+        backendUsers.forEach((u) => {
+          if (u && (u.id || u.prn || u.email)) {
+            const key = String(u.prn || u.email || u.id).toUpperCase().trim();
+            usersMap.set(key, u);
+          }
+        });
+        (Array.isArray(realUsers) ? realUsers : []).forEach((u) => {
+          if (u && (u.id || u.prn || u.email)) {
+            const key = String(u.prn || u.email || u.id).toUpperCase().trim();
+            usersMap.set(key, { ...usersMap.get(key), ...u });
+          }
+        });
+        const allCandidateUsers = Array.from(usersMap.values());
+
         const cohortMap = new Map<string, any>();
         if (cohortSnap) {
           cohortSnap.forEach((d) => cohortMap.set(d.id.toUpperCase().trim(), d.data()));
         }
 
-        const validSections = Array.isArray(realSections) ? realSections : [];
-        const studentUsers = Array.isArray(realUsers)
-          ? realUsers
-              .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
+        const studentUsers = allCandidateUsers
+          .filter((u) => (u.role === 'STUDENT' || (!u.role && u.email !== 'logicqarena@gmail.com')) && !FirestoreDataService.isPurgedStudent(u))
               .map((u: any) => {
                 const prnClean = (u.prn || '').toUpperCase().trim();
                 const cData = cohortMap.get(prnClean) || {};
@@ -153,8 +202,7 @@ export const AdminPortalPage: React.FC = () => {
                   completedProblems: cData.completedProblems || u.completedProblems || [],
                   miniProjectUnlocked: mod.miniProjectUnlocked ?? u.miniProjectUnlocked ?? false,
                 };
-              })
-          : [];
+              });
 
         // Authoritatively synchronize each section's roster and count directly with the active student directory
         const syncedSections = validSections.map((sec) => {
@@ -322,6 +370,18 @@ export const AdminPortalPage: React.FC = () => {
     };
     const updated = [newSection, ...sections.filter(s => s.id !== newSection.id && s.joinCode !== newSection.joinCode)];
     saveSections(updated);
+    setStats((prev) => ({ ...prev, totalSections: updated.length }));
+
+    try {
+      await api.post('/sections', {
+        sectionName: newSection.sectionName,
+        subject: newSection.subject,
+        course: newSection.course,
+        academicYear: newSection.academicYear,
+        semester: newSection.semester,
+        joinCode: cleanJoinCode,
+      }).catch((e: any) => console.warn('Backend section creation notice:', e));
+    } catch {}
 
     try {
       await FirestoreDataService.saveSectionToFirestore(newSection);
@@ -342,6 +402,10 @@ export const AdminPortalPage: React.FC = () => {
     const updated = sections.filter((s) => s.id !== sectionId);
     saveSections(updated);
     setStats((prev) => ({ ...prev, totalSections: updated.length }));
+
+    try {
+      await api.delete(`/sections/${sectionId}`).catch((e: any) => console.warn('Backend section delete notice:', e));
+    } catch {}
 
     try {
       await FirestoreDataService.deleteSectionFromFirestore(

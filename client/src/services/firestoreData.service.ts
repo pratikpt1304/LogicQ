@@ -3388,7 +3388,11 @@ export class FirestoreDataService {
     // 1. Read persistent local cache first
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
-      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      const stored = JSON.parse(
+        localStorage.getItem(LOCAL_KEY) ||
+        localStorage.getItem('logicq_admin_sections') ||
+        '[]'
+      );
       if (Array.isArray(stored)) {
         stored.forEach((item: any) => {
           if (
@@ -3982,7 +3986,11 @@ export class FirestoreDataService {
     let sectionNameResolved: string | null = null;
     try {
       const LOCAL_KEY = 'logicq_faculty_sections_backup_v2';
-      const stored = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+      const stored = JSON.parse(
+        localStorage.getItem(LOCAL_KEY) ||
+        localStorage.getItem('logicq_admin_sections') ||
+        '[]'
+      );
       if (Array.isArray(stored)) {
         const found = stored.find((s: any) => s.id === sectionId || s.joinCode === sectionId);
         if (found) {
