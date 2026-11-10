@@ -42,7 +42,14 @@ export async function getJudge(): Promise<IJudge> {
     throw new Error('JUDGE_UNAVAILABLE: Configured Docker execution service is unavailable.');
   }
 
-  // Default fallback: LocalGccJudge (real GCC compiler)
+  // In production, NEVER silently fall back to an unsandboxed local compiler process
+  if (ENV.NODE_ENV === 'production') {
+    throw new Error(
+      'JUDGE_UNAVAILABLE: Code execution service is temporarily unavailable. Local unsandboxed judge is disabled in production.'
+    );
+  }
+
+  // Development/Local fallback: LocalGccJudge (real GCC compiler)
   const localJudge = new LocalGccJudge();
   if (await localJudge.isAvailable()) {
     activeJudgeInstance = localJudge;

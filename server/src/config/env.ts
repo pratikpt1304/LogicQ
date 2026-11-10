@@ -10,8 +10,8 @@ export const ENV = {
   DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
   
   // JWT (High entropy rotated secrets)
-  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'lq_sec_9f7a8b1c4d2e3f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a',
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'lq_ref_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'lq_sec_9f7a8b1c4d2e3f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a'),
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'lq_ref_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'),
   JWT_ACCESS_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || '2h',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
@@ -38,3 +38,17 @@ export const ENV = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   MAIL_FROM: process.env.MAIL_FROM || 'LogicQ Arena <no-reply@logicq.io>',
 };
+
+// Production fail-fast assertions
+if (ENV.NODE_ENV === 'production') {
+  if (!ENV.JWT_ACCESS_SECRET) {
+    throw new Error('FATAL SECURITY ERROR: JWT_ACCESS_SECRET must be set in production.');
+  }
+  if (!ENV.JWT_REFRESH_SECRET) {
+    throw new Error('FATAL SECURITY ERROR: JWT_REFRESH_SECRET must be set in production.');
+  }
+  if (!ENV.DATABASE_URL || ENV.DATABASE_URL.startsWith('file:')) {
+    throw new Error('FATAL CONFIG ERROR: DATABASE_URL must be a PostgreSQL connection string in production.');
+  }
+}
+
