@@ -154,6 +154,26 @@ Any user lacking both the `'ADMIN'` role custom claim and a matching institution
   - `cohort_progress/{prn}`: `allow delete: if isFaculty() || true;` allows administrative purging to permanently delete cohort progress records without lingering orphaned data.
   - `cohort_progress/{prn}/drafts/{draftId}`: `allow delete: if isFaculty() || true;` ensures all student drafts are wiped completely when a student unregisters or vanishes from a cohort.
 
+### Academic Sections & Roster Security Invariants (`sections/{sectionId}`)
+
+- **Authority Helpers**:
+  - `sectionOwner(data)`: Evaluates `true` if the user is an Admin, or if the user is Faculty and `data.facultyId == request.auth.uid`.
+  - `parentSection(sectionId)`: Looks up parent section document data to verify faculty ownership across subcollections.
+  - `isEnrolled(sectionId)`: Validates that the authenticated student's `request.auth.uid` or verified `request.auth.token.prn` exists in `/sections/{sectionId}/students/{studentId}`.
+- **Section Document (`sections/{sectionId}`) Access Control**:
+  - `get`: Permitted if authenticated and the caller is either `sectionOwner(resource.data)` or `isEnrolled(sectionId)`.
+  - `list`: Permitted only for `sectionOwner(resource.data)`. Faculty client queries must scope with `.where('facultyId', '==', request.auth.uid)`. Admins can list all sections.
+  - `create`: Restricted to Faculty/Admin where `facultyId` matches `request.auth.uid` (or Admin). Validated via `isValidSection()`.
+  - `update`: Restricted to `isFaculty()` and `sectionOwner(resource.data)`. Enforces strict immutability of `facultyId` (`request.resource.data.facultyId == resource.data.facultyId`) and `createdAt` (`request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)`), preventing ownership hijacking or forgery.
+  - `delete`: Strictly restricted to `isAdmin()` to prevent orphaned subcollections and student rosters.
+- **Join Secrets Isolation (`sections/{sectionId}/private/{docId}`)**:
+  - `read`: Permitted strictly to `sectionOwner(parentSection(sectionId))` (Faculty owner or Admin). Students are denied direct read access.
+  - `write`: Blocked to all clients (`allow write: if false;`).
+- **Student Roster (`sections/{sectionId}/students/{studentId}`)**:
+  - `get`: Permitted to the student owner (`isOwnerId(studentId)`) or `sectionOwner(parentSection(sectionId))`.
+  - `list`: Permitted strictly to `sectionOwner(parentSection(sectionId))` (Faculty owner or Admin). Students cannot enumerate peer rosters.
+  - `write`: Strictly prohibited to all clients (`allow write: if false;`). Enrolments, CSV imports, join-code redemptions, and removals execute strictly via backend APIs with Firebase Admin SDK.
+
 ---
 
 ## 2. Hardened Production Firestore Security Rules (`firestore.rules`)
@@ -617,7 +637,7 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     function isValidSection(data) {
       let allowedKeys = [
-        'id', 'sectionId', 'sectionName', 'name', 'course', 'subject',
+        'id', 'sectionId', 'sectionName', 'name', 'title', 'course', 'subject',
         'institution', 'academicYear', 'semester', 'facultyId', 'facultyEmail', 'facultyName',
         'description', 'joinCode', 'joinToken', 'isActive',
         'startDate', 'endDate', 'createdAt', 'updatedAt', 'studentsCount'
@@ -639,35 +659,46 @@ service cloud.firestore {
         && (!('studentsCount' in data) || data.studentsCount is int);
     }
 
-    function isValidSectionStudent(data) {
-      let allowedKeys = [
-        'id', 'studentId', 'userId', 'uid', 'prn', 'name', 'fullName',
-        'displayName', 'email', 'mobile', 'status', 'joinedVia',
-        'enrolledAt', 'createdAt', 'updatedAt'
-      ];
-      return data.keys().hasOnly(allowedKeys)
-        && (!('studentId' in data) || (data.studentId is string && data.studentId.size() <= 128))
-        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
-        && (!('uid' in data) || (data.uid is string && data.uid.size() <= 128))
-        && (!('prn' in data) || (data.prn is string && data.prn.size() <= 30))
-        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
-        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
-        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 100))
-        && (!('email' in data) || (data.email is string && data.email.size() <= 150))
-        && (!('mobile' in data) || data.mobile == null || (data.mobile is string && data.mobile.size() <= 25))
-        && (!('status' in data) || (data.status is string && data.status.size() <= 50))
-        && (!('joinedVia' in data) || (data.joinedVia is string && data.joinedVia.size() <= 50));
+    function sectionOwner(data) {
+      return isAdmin() || (isFaculty() && data.get('facultyId', '') == request.auth.uid);
+    }
+    function parentSection(sectionId) {
+      return get(/databases/$(database)/documents/sections/$(sectionId)).data;
+    }
+    function isEnrolled(sectionId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/sections/$(sectionId)/students/$(request.auth.uid))
+        || (request.auth.token.get('prn', '') != '' && exists(/databases/$(database)/documents/sections/$(sectionId)/students/$(request.auth.token.get('prn', ''))))
+      );
     }
 
     match /sections/{sectionId} {
-      allow read: if true;
-      allow create, update: if isFaculty() || isValidSection(request.resource.data);
-      allow delete: if true;
+      allow get: if isAuthenticated() && (sectionOwner(resource.data) || isEnrolled(sectionId));
+      // Scoped query: faculty must filter where('facultyId', '==', request.auth.uid); admins can list all
+      allow list: if isAuthenticated() && sectionOwner(resource.data);
+
+      allow create: if isFaculty() && isValidSection(request.resource.data)
+                    && (isAdmin() || request.resource.data.facultyId == request.auth.uid);
+
+      // Prevent section ownership hijacking, facultyId tampering, and createdAt forgery
+      allow update: if isFaculty() && sectionOwner(resource.data)
+                    && isValidSection(request.resource.data)
+                    && request.resource.data.facultyId == resource.data.facultyId
+                    && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
+
+      // Hard deletion restricted to Admin only (preventing orphaned student subcollections)
+      allow delete: if isAdmin();
+
+      // Join secrets are isolated from student read
+      match /private/{docId} {
+        allow read: if sectionOwner(parentSection(sectionId));
+        allow write: if false;
+      }
 
       match /students/{studentId} {
-        allow read: if true;
-        allow create, update: if isFaculty() || isValidSectionStudent(request.resource.data);
-        allow delete: if true;
+        allow get: if isOwnerId(studentId) || sectionOwner(parentSection(sectionId));
+        allow list: if sectionOwner(parentSection(sectionId));
+        allow write: if false; // Joins, CSV imports, and removals go strictly through the backend API
       }
     }
 

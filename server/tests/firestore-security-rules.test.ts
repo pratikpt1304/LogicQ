@@ -157,39 +157,55 @@ class RulesEvaluator {
     return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
   }
 
-  static evaluateSectionRead(ctx: FirestoreRuleContext): boolean {
-    return true;
+  static sectionOwner(ctx: FirestoreRuleContext, data?: Record<string, any>): boolean {
+    if (!ctx.auth) return false;
+    if (RulesEvaluator.isAdmin(ctx)) return true;
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const facultyId = (data && 'facultyId' in data && typeof data.facultyId === 'string') ? data.facultyId : '';
+    return facultyId !== '' && facultyId === ctx.auth.uid;
   }
 
-  static evaluateSectionCreate(ctx: FirestoreRuleContext): boolean {
+  static isEnrolled(
+    ctx: FirestoreRuleContext,
+    sectionId: string,
+    enrolledStudents?: Record<string, string[]> | string[]
+  ): boolean {
     if (!ctx.auth) return false;
-    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
-    const data = ctx.request.resource?.data;
-    if (!data) return false;
-    if (!RulesEvaluator.isValidSection(data)) return false;
-    if (!RulesEvaluator.isAdmin(ctx) && data.facultyId !== ctx.auth.uid) return false;
-    return true;
+    if (!enrolledStudents) return false;
+    const roster: string[] = Array.isArray(enrolledStudents)
+      ? enrolledStudents
+      : (enrolledStudents[sectionId] || []);
+    if (roster.includes(ctx.auth.uid)) return true;
+    const prn = typeof ctx.auth.token?.prn === 'string' ? ctx.auth.token.prn : '';
+    if (prn !== '' && roster.includes(prn)) return true;
+    return false;
   }
 
-  static evaluateSectionUpdate(ctx: FirestoreRuleContext): boolean {
+  static evaluateSectionGet(
+    ctx: FirestoreRuleContext,
+    sectionId = 'section_1',
+    enrolledStudents?: Record<string, string[]> | string[]
+  ): boolean {
     if (!ctx.auth) return false;
-    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
-    const data = ctx.request.resource?.data;
-    if (!data) return false;
-    if (!RulesEvaluator.isValidSection(data)) return false;
-    if (!RulesEvaluator.isAdmin(ctx) && ctx.resource?.data?.facultyId !== ctx.auth.uid) return false;
-    if (!RulesEvaluator.isAdmin(ctx) && data.facultyId !== ctx.resource?.data?.facultyId) return false;
-    return true;
+    const data = ctx.resource?.data;
+    return (
+      RulesEvaluator.sectionOwner(ctx, data) ||
+      RulesEvaluator.isEnrolled(ctx, sectionId, enrolledStudents)
+    );
   }
 
-  static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
-    if (!ctx.auth) return false;
-    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
+  static evaluateSectionRead(
+    ctx: FirestoreRuleContext,
+    sectionId = 'section_1',
+    enrolledStudents?: Record<string, string[]> | string[]
+  ): boolean {
+    return RulesEvaluator.evaluateSectionGet(ctx, sectionId, enrolledStudents);
   }
 
-  static evaluateSectionStudentList(ctx: FirestoreRuleContext): boolean {
+  static evaluateSectionList(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
-    return RulesEvaluator.isFaculty(ctx) || RulesEvaluator.isAdmin(ctx);
+    const data = ctx.resource?.data;
+    return RulesEvaluator.sectionOwner(ctx, data);
   }
 
   static isValidSection(data: Record<string, any>): boolean {
@@ -221,28 +237,83 @@ class RulesEvaluator {
     return true;
   }
 
-  static evaluateSectionStudentRead(ctx: FirestoreRuleContext, studentPrn: string): boolean {
+  static evaluateSectionCreate(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const data = ctx.request.resource?.data;
+    if (!data) return false;
+    if (!RulesEvaluator.isValidSection(data)) return false;
+    if (!RulesEvaluator.isAdmin(ctx) && data.facultyId !== ctx.auth.uid) return false;
     return true;
   }
 
-  static evaluateSectionStudentCreate(ctx: FirestoreRuleContext, studentPrn: string): boolean {
+  static evaluateSectionUpdate(ctx: FirestoreRuleContext): boolean {
     if (!ctx.auth) return false;
-    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
+    if (!RulesEvaluator.isFaculty(ctx)) return false;
+    const existingData = ctx.resource?.data;
+    if (!existingData) return false;
+    if (!RulesEvaluator.sectionOwner(ctx, existingData)) return false;
     const data = ctx.request.resource?.data;
     if (!data) return false;
-    return RulesEvaluator.isValidSectionStudent(data, studentPrn);
-  }
-
-  static evaluateSectionStudentUpdate(ctx: FirestoreRuleContext, studentPrn: string): boolean {
-    if (!ctx.auth) return false;
-    if (!RulesEvaluator.isFaculty(ctx) && !RulesEvaluator.isAdmin(ctx)) return false;
-    const data = ctx.request.resource?.data;
-    if (!data) return false;
-    return RulesEvaluator.isValidSectionStudent(data, studentPrn);
-  }
-
-  static evaluateSectionStudentDelete(ctx: FirestoreRuleContext): boolean {
+    if (!RulesEvaluator.isValidSection(data)) return false;
+    if (data.facultyId !== existingData.facultyId) return false;
+    const incomingCreatedAt = data.createdAt !== undefined ? data.createdAt : null;
+    const existingCreatedAt = existingData.createdAt !== undefined ? existingData.createdAt : null;
+    if (incomingCreatedAt !== existingCreatedAt) return false;
     return true;
+  }
+
+  static evaluateSectionDelete(ctx: FirestoreRuleContext): boolean {
+    if (!ctx.auth) return false;
+    return RulesEvaluator.isAdmin(ctx);
+  }
+
+  static evaluateSectionPrivateRead(
+    ctx: FirestoreRuleContext,
+    parentSectionData?: Record<string, any>
+  ): boolean {
+    if (!ctx.auth) return false;
+    const parent = parentSectionData || ctx.resource?.data;
+    return RulesEvaluator.sectionOwner(ctx, parent);
+  }
+
+  static evaluateSectionPrivateWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateSectionStudentRead(
+    ctx: FirestoreRuleContext,
+    studentId: string,
+    parentSectionData?: Record<string, any>
+  ): boolean {
+    if (!ctx.auth) return false;
+    const parent = parentSectionData || ctx.resource?.data;
+    return RulesEvaluator.isOwnerId(ctx, studentId) || RulesEvaluator.sectionOwner(ctx, parent);
+  }
+
+  static evaluateSectionStudentList(
+    ctx: FirestoreRuleContext,
+    parentSectionData?: Record<string, any>
+  ): boolean {
+    if (!ctx.auth) return false;
+    const parent = parentSectionData || ctx.resource?.data;
+    return RulesEvaluator.sectionOwner(ctx, parent);
+  }
+
+  static evaluateSectionStudentWrite(_ctx: FirestoreRuleContext): boolean {
+    return false;
+  }
+
+  static evaluateSectionStudentCreate(_ctx: FirestoreRuleContext, ..._args: any[]): boolean {
+    return false;
+  }
+
+  static evaluateSectionStudentUpdate(_ctx: FirestoreRuleContext, ..._args: any[]): boolean {
+    return false;
+  }
+
+  static evaluateSectionStudentDelete(_ctx: FirestoreRuleContext): boolean {
+    return false;
   }
 
   static isValidSectionStudent(data: Record<string, any>, studentPrn: string): boolean {
@@ -2936,36 +3007,53 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     expect(RulesEvaluator.evaluatePublicProfileCreateOrUpdate(adminPiiLeakCtx, 'admin_charlie')).toBe(false);
   });
 
-  it('ACADEMIC SECTIONS & ROSTERS: Public read access enabled, writes strictly guarded', () => {
+  it('ACADEMIC SECTIONS & ROSTERS: Scoped section access, enrolled student get, and validation', () => {
     const unauthenticatedCtx: FirestoreRuleContext = { auth: null, request: {} };
     const studentCtx: FirestoreRuleContext = { auth: studentAlice, request: {} };
     const facultyDrSmith: AuthContext = {
       uid: 'faculty_dr_smith',
-      token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' },
+      token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY', email_verified: true },
     };
     const facultyCtx: FirestoreRuleContext = { auth: facultyDrSmith, request: {} };
-
-    // 1. Public read for sections/{sectionId} -> MUST SUCCEED for unauthenticated and students
-    expect(RulesEvaluator.evaluateSectionRead(unauthenticatedCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionRead(studentCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionRead(facultyCtx)).toBe(true);
-
-    // 2. Public read for sections/{sectionId}/students/{studentId} -> MUST SUCCEED for unauthenticated and students
-    expect(RulesEvaluator.evaluateSectionStudentRead(unauthenticatedCtx, 'student_alice')).toBe(true);
-    expect(RulesEvaluator.evaluateSectionStudentRead(studentCtx, 'student_bob')).toBe(true);
-
-    // 3. Public read for enrolled_students/{docId} -> MUST SUCCEED for unauthenticated and students
-    expect(RulesEvaluator.evaluateEnrolledStudentRead(unauthenticatedCtx, 'any_student')).toBe(true);
-    expect(RulesEvaluator.evaluateEnrolledStudentRead(studentCtx, 'student_bob')).toBe(true);
-
-    // 4. Section write restrictions remain intact:
     const validSectionData = {
       id: 'sec_101',
       sectionName: 'CSE-A',
       course: 'B.Tech CSE',
       subject: 'Data Structures',
       facultyId: 'faculty_dr_smith',
+      createdAt: '2026-11-10T10:00:00Z',
     };
+
+    // 1. Unauthenticated read -> MUST FAIL
+    expect(RulesEvaluator.evaluateSectionGet(unauthenticatedCtx, 'sec_101')).toBe(false);
+
+    // 2. Section owner faculty can get & list their section
+    const facultyOwnerSectionCtx: FirestoreRuleContext = {
+      auth: facultyDrSmith,
+      resource: { data: validSectionData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(facultyOwnerSectionCtx, 'sec_101')).toBe(true);
+    expect(RulesEvaluator.evaluateSectionList(facultyOwnerSectionCtx)).toBe(true);
+
+    // 3. Enrolled student can get section
+    const enrolledMap = { sec_101: ['student_alice'] };
+    const enrolledStudentGetCtx: FirestoreRuleContext = {
+      auth: studentAlice,
+      resource: { data: validSectionData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(enrolledStudentGetCtx, 'sec_101', enrolledMap)).toBe(true);
+
+    // 4. Non-enrolled student cannot get section
+    const nonEnrolledCtx: FirestoreRuleContext = {
+      auth: studentBob,
+      resource: { data: validSectionData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(nonEnrolledCtx, 'sec_101', enrolledMap)).toBe(false);
+
+    // 5. Section write restrictions:
     const studentCreateSectionCtx: FirestoreRuleContext = {
       auth: studentAlice,
       request: { resource: { data: validSectionData } },
@@ -2990,12 +3078,13 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.evaluateSectionCreate(invalidSectionCtx)).toBe(false);
 
-    // 5. Section delete restriction: faculty or admin only
+    // 6. Section delete restriction: Admin only
     expect(RulesEvaluator.evaluateSectionDelete(studentCtx)).toBe(false);
     expect(RulesEvaluator.evaluateSectionDelete(unauthenticatedCtx)).toBe(false);
-    expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionStudentDelete(unauthenticatedCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateEnrolledStudentDelete(unauthenticatedCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(facultyCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete({ auth: adminCharlie, request: {} })).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentDelete(unauthenticatedCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentWrite(facultyCtx)).toBe(false);
 
     // 6. Enrolled student validation: supports college, department, year, division, joinedVia
     const validEnrolledStudentData = {
@@ -3379,14 +3468,14 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     // enrolled_students/{docId} rules
     expect(firestoreRules).toContain('allow get: if isFaculty() || isAdmin() || isOwnerId(docId);');
 
-    // sections faculty ownership binding
-    expect(firestoreRules).toContain('isAdmin() || request.resource.data.facultyId == request.auth.uid');
-    expect(firestoreRules).toContain('isAdmin() || resource.data.facultyId == request.auth.uid');
-    expect(firestoreRules).toContain('isAdmin() || request.resource.data.facultyId == resource.data.facultyId');
-
-    // sections studentPrn roster
-    expect(firestoreRules).toContain('match /students/{studentPrn}');
-    expect(firestoreRules).toContain('isValidSectionStudent(request.resource.data, studentPrn)');
+    // sections faculty ownership binding and helper functions
+    expect(firestoreRules).toContain('function sectionOwner(data)');
+    expect(firestoreRules).toContain('function parentSection(sectionId)');
+    expect(firestoreRules).toContain('function isEnrolled(sectionId)');
+    expect(firestoreRules).toContain('match /sections/{sectionId}');
+    expect(firestoreRules).toContain('match /private/{docId}');
+    expect(firestoreRules).toContain('match /students/{studentId}');
+    expect(firestoreRules).toContain('allow write: if false; // Joins, CSV imports, and removals go strictly through the backend API');
   });
 
   it('SECTION HARDENING & FACULTY OWNERSHIP: Enforces facultyId binding on create/update and title validation', () => {
@@ -3466,15 +3555,22 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       request: { resource: { data: { ...validSection, facultyId: 'faculty_dr_jones' } } },
     })).toBe(false);
 
-    // 12. Section update: Admin updating any section & reassigning facultyId -> MUST PASS
+    // 12. Section update: Admin updating any section without changing facultyId -> MUST PASS
+    expect(RulesEvaluator.evaluateSectionUpdate({
+      ...adminCtx,
+      resource: { data: validSection },
+      request: { resource: { data: { ...validSection, description: 'Updated syllabus by admin.' } } },
+    })).toBe(true);
+
+    // 13. Section update: FacultyId tampering by any user (including Admin) is blocked -> MUST FAIL
     expect(RulesEvaluator.evaluateSectionUpdate({
       ...adminCtx,
       resource: { data: validSection },
       request: { resource: { data: { ...validSection, facultyId: 'faculty_dr_jones' } } },
-    })).toBe(true);
+    })).toBe(false);
   });
 
-  it('SECTION STUDENT ROSTER & PRN FORMAT VALIDATION: Enforces PRN regex and path matching on students subcollection', () => {
+  it('SECTION STUDENT ROSTER & PRN FORMAT VALIDATION: Enforces PRN regex, and blocks client roster writes (API only)', () => {
     const facultyDrSmith: AuthContext = {
       uid: 'faculty_dr_smith',
       token: { email: 'smith@sanjivani.edu.in', role: 'FACULTY' },
@@ -3490,17 +3586,9 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
 
     // 1. Valid section student with matching PRN -> MUST PASS
     expect(RulesEvaluator.isValidSectionStudent(validStudentData, validStudentPrn)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionStudentCreate({
-      auth: facultyDrSmith,
-      request: { resource: { data: validStudentData } },
-    }, validStudentPrn)).toBe(true);
 
     // 2. Mismatched PRN between path and body -> MUST FAIL
     expect(RulesEvaluator.isValidSectionStudent(validStudentData, '2026AIMF0002')).toBe(false);
-    expect(RulesEvaluator.evaluateSectionStudentCreate({
-      auth: facultyDrSmith,
-      request: { resource: { data: validStudentData } },
-    }, '2026AIMF0002')).toBe(false);
 
     // 3. Invalid PRN format (lowercase letters) -> MUST FAIL
     expect(RulesEvaluator.isValidSectionStudent({ ...validStudentData, prn: '2026aimf0001' }, '2026aimf0001')).toBe(false);
@@ -3511,9 +3599,17 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     // 5. Invalid PRN format (wrong length) -> MUST FAIL
     expect(RulesEvaluator.isValidSectionStudent({ ...validStudentData, prn: '2026AIM001' }, '2026AIM001')).toBe(false);
 
-    // 6. Student attempting to write directly to section roster -> MUST FAIL
-    expect(RulesEvaluator.evaluateSectionStudentCreate({
+    // 6. Direct client writes to /sections/{id}/students/{studentId} are strictly rejected (API only)
+    expect(RulesEvaluator.evaluateSectionStudentWrite({
+      auth: facultyDrSmith,
+      request: { resource: { data: validStudentData } },
+    })).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentWrite({
       auth: studentAlice,
+      request: { resource: { data: validStudentData } },
+    })).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentCreate({
+      auth: facultyDrSmith,
       request: { resource: { data: validStudentData } },
     }, validStudentPrn)).toBe(false);
   });
@@ -3641,8 +3737,8 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
       request: {},
     };
     expect(RulesEvaluator.isFaculty(customClaimFacultyCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionDelete(customClaimFacultyCtx)).toBe(true);
-    expect(RulesEvaluator.evaluateSectionStudentList(customClaimFacultyCtx)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionDelete(customClaimFacultyCtx)).toBe(false); // strictly isAdmin!
+    expect(RulesEvaluator.evaluateSectionStudentList(customClaimFacultyCtx, { facultyId: 'service_faculty_no_email' })).toBe(true);
 
     // Unverified institutional email with faculty claim fails isFaculty()
     const unverifiedFacultyCtx: FirestoreRuleContext = {
@@ -3686,6 +3782,180 @@ describe('Firestore Security Rules: Adversarial Cheating Attack Suite', () => {
     };
     expect(RulesEvaluator.isOwnerId(emptyPrnCtx, '2026AIMF0001')).toBe(false);
     expect(RulesEvaluator.isOwnerId(emptyPrnCtx, '')).toBe(false);
+  });
+
+  it('HARDENED SECTIONS & ACCESS CONTROL: Enforces strict ownership, enrolled student access, secrets isolation, and API-only roster writes', () => {
+    const facultyA: AuthContext = {
+      uid: 'faculty_A',
+      token: { email: 'faculty_a@sanjivani.edu.in', role: 'FACULTY', email_verified: true },
+    };
+    const facultyB: AuthContext = {
+      uid: 'faculty_B',
+      token: { email: 'faculty_b@sanjivani.edu.in', role: 'FACULTY', email_verified: true },
+    };
+    const enrolledStudentUid: AuthContext = {
+      uid: 'student_alice',
+      token: { email: 'alice@sanjivani.edu.in', role: 'STUDENT', email_verified: true },
+    };
+    const enrolledStudentPrn: AuthContext = {
+      uid: 'student_charlie_uid',
+      token: { email: 'charlie@sanjivani.edu.in', prn: '2026AIMF0001', role: 'STUDENT', email_verified: true },
+    };
+    const nonEnrolledStudent: AuthContext = {
+      uid: 'student_bob',
+      token: { email: 'bob@sanjivani.edu.in', prn: '2026TESM0002', role: 'STUDENT', email_verified: true },
+    };
+    const adminCtx: FirestoreRuleContext = {
+      auth: { uid: 'admin_root', token: { role: 'ADMIN' } },
+      request: {},
+    };
+
+    const sectionAData = {
+      id: 'section_A',
+      sectionName: 'Algorithms Section A',
+      course: 'B.Tech CSE',
+      subject: 'Algorithms',
+      facultyId: 'faculty_A',
+      createdAt: '2026-11-10T10:00:00Z',
+    };
+
+    const enrolledMap = {
+      section_A: ['student_alice', '2026AIMF0001'],
+    };
+
+    // 1. Faculty B cannot update or delete Faculty A's section
+    const facultyBUpdateCtx: FirestoreRuleContext = {
+      auth: facultyB,
+      resource: { data: sectionAData },
+      request: { resource: { data: { ...sectionAData, sectionName: 'Hijacked' } } },
+    };
+    expect(RulesEvaluator.evaluateSectionUpdate(facultyBUpdateCtx)).toBe(false);
+
+    const facultyBDeleteCtx: FirestoreRuleContext = {
+      auth: facultyB,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionDelete(facultyBDeleteCtx)).toBe(false);
+
+    // 2. Faculty B cannot hijack ownership (facultyId: 'faculty_B')
+    const hijackOwnershipCtx: FirestoreRuleContext = {
+      auth: facultyB,
+      resource: { data: sectionAData },
+      request: { resource: { data: { ...sectionAData, facultyId: 'faculty_B' } } },
+    };
+    expect(RulesEvaluator.evaluateSectionUpdate(hijackOwnershipCtx)).toBe(false);
+
+    // 3. Faculty A can update their own section
+    const facultyAUpdateCtx: FirestoreRuleContext = {
+      auth: facultyA,
+      resource: { data: sectionAData },
+      request: { resource: { data: { ...sectionAData, sectionName: 'Updated Name' } } },
+    };
+    expect(RulesEvaluator.evaluateSectionUpdate(facultyAUpdateCtx)).toBe(true);
+
+    // 4. Faculty A cannot delete their own section (only Admin can)
+    const facultyADeleteCtx: FirestoreRuleContext = {
+      auth: facultyA,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionDelete(facultyADeleteCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionDelete(adminCtx)).toBe(true);
+
+    // 5. Faculty list query requires facultyId == uid
+    const facultyAListOwnCtx: FirestoreRuleContext = {
+      auth: facultyA,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionList(facultyAListOwnCtx)).toBe(true);
+
+    const facultyBListCtx: FirestoreRuleContext = {
+      auth: facultyB,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionList(facultyBListCtx)).toBe(false);
+
+    const adminListCtx: FirestoreRuleContext = {
+      ...adminCtx,
+      resource: { data: sectionAData },
+    };
+    expect(RulesEvaluator.evaluateSectionList(adminListCtx)).toBe(true);
+
+    // 6. Enrolled student (via PRN or UID) can get section
+    const enrolledUidGetCtx: FirestoreRuleContext = {
+      auth: enrolledStudentUid,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(enrolledUidGetCtx, 'section_A', enrolledMap)).toBe(true);
+
+    const enrolledPrnGetCtx: FirestoreRuleContext = {
+      auth: enrolledStudentPrn,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(enrolledPrnGetCtx, 'section_A', enrolledMap)).toBe(true);
+
+    // 7. Non-enrolled student cannot get section
+    const nonEnrolledGetCtx: FirestoreRuleContext = {
+      auth: nonEnrolledStudent,
+      resource: { data: sectionAData },
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionGet(nonEnrolledGetCtx, 'section_A', enrolledMap)).toBe(false);
+
+    // 8. Student cannot read /sections/{id}/private/join
+    const studentPrivateReadCtx: FirestoreRuleContext = {
+      auth: enrolledStudentUid,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionPrivateRead(studentPrivateReadCtx, sectionAData)).toBe(false);
+
+    const facultyAPrivateReadCtx: FirestoreRuleContext = {
+      auth: facultyA,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionPrivateRead(facultyAPrivateReadCtx, sectionAData)).toBe(true);
+
+    // 9. Student can get their own roster entry (students/{prn} or students/{uid})
+    const studentUidRosterCtx: FirestoreRuleContext = {
+      auth: enrolledStudentUid,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionStudentRead(studentUidRosterCtx, 'student_alice', sectionAData)).toBe(true);
+
+    const studentPrnRosterCtx: FirestoreRuleContext = {
+      auth: enrolledStudentPrn,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionStudentRead(studentPrnRosterCtx, '2026AIMF0001', sectionAData)).toBe(true);
+
+    // Student cannot read peer's roster entry
+    expect(RulesEvaluator.evaluateSectionStudentRead(studentUidRosterCtx, 'student_bob', sectionAData)).toBe(false);
+
+    // 10. Student cannot list roster (students)
+    expect(RulesEvaluator.evaluateSectionStudentList(studentUidRosterCtx, sectionAData)).toBe(false);
+
+    // 11. Client write to students/{id} is rejected (API only)
+    expect(RulesEvaluator.evaluateSectionStudentWrite(studentUidRosterCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentWrite({ auth: facultyA, request: {} })).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentWrite(adminCtx)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionPrivateWrite({ auth: facultyA, request: {} })).toBe(false);
+
+    // 12. Faculty B cannot read Faculty A's section roster
+    const facultyBCtx: FirestoreRuleContext = {
+      auth: facultyB,
+      request: {},
+    };
+    expect(RulesEvaluator.evaluateSectionStudentList(facultyBCtx, sectionAData)).toBe(false);
+    expect(RulesEvaluator.evaluateSectionStudentRead(facultyBCtx, 'student_alice', sectionAData)).toBe(false);
+
+    // Faculty A (owner) and Admin CAN read roster
+    expect(RulesEvaluator.evaluateSectionStudentList({ auth: facultyA, request: {} }, sectionAData)).toBe(true);
+    expect(RulesEvaluator.evaluateSectionStudentList(adminCtx, sectionAData)).toBe(true);
   });
 });
 
