@@ -349,6 +349,17 @@ service cloud.firestore {
       );
     }
 
+    function ownsProgress(prn) {
+      return isOwnerId(prn) || (
+        isAuthenticated() &&
+        request.auth.token.get('email_verified', false) == true &&
+        exists(/databases/$(database)/documents/cohort_progress/$(prn)) &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '') != '' &&
+        get(/databases/$(database)/documents/cohort_progress/$(prn)).data.get('email', '').lower()
+          == request.auth.token.get('email', '').lower()
+      );
+    }
+
     function isStudentOwner(data, identifier) {
       return isOwnerId(identifier);
     }

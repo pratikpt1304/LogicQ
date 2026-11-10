@@ -156,7 +156,8 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
       const displayName = isHari ? 'Dr. Hari Prasath (Admin)' : 'Admin';
       const fullName = isHari ? 'Dr. Hari Prasath' : 'LogicQ Admin';
       const bcrypt = (await import('bcryptjs')).default;
-      const placeholderHash = await bcrypt.hash('AdminPassword123!', 10);
+      const crypto = (await import('crypto')).default;
+      const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
 
       user = await prisma.user.upsert({
         where: { email: adminEmail },

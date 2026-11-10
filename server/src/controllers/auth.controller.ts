@@ -1249,6 +1249,9 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
     lower === 'faculty@logicq.io' ||
     lower === 'faculty'
   ) {
+    if (process.env.NODE_ENV === 'production') {
+      return null; // Walkthrough accounts disabled in production
+    }
     const passwordHash = await bcrypt.hash('password123', 10);
     return await prisma.user.upsert({
       where: { email: 'faculty@logicq.io' },
@@ -1302,7 +1305,7 @@ async function ensureWalkthroughOrAdminUser(cleanId: string) {
         role: 'ADMIN',
         fullName: lower.includes('hariprasath') ? 'Dr. Hari Prasath' : 'System Administrator',
         displayName: lower.includes('hariprasath') ? 'Dr. Hari Prasath (Admin)' : 'Admin',
-        passwordHash: await bcrypt.hash('AdminPassword123!', 10),
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
         college: 'Sanjivani University',
         department: 'CSE',
         profileComplete: true,
@@ -1972,24 +1975,19 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Path A: Verification via Current Password (no email required)
+    // Path A: Verification via Current Password (requires existing set password)
     if (currentPassword) {
-      if (user.passwordHash) {
-        const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
-        if (!isValid) {
-          res.status(400).json({ success: false, message: 'Current password is incorrect.' });
-          return;
-        }
-      } else {
-        const isDefaultMatch = Boolean(
-          (user.prn && currentPassword.toUpperCase() === user.prn.toUpperCase()) ||
-          currentPassword === 'StudentPassword123!' ||
-          currentPassword === 'password123'
-        );
-        if (!isDefaultMatch) {
-          res.status(400).json({ success: false, message: 'Current default password (PRN) is incorrect.' });
-          return;
-        }
+      if (!user.passwordHash) {
+        res.status(400).json({
+          success: false,
+          message: 'No password has been set for this account yet. Please verify using email OTP to set your password.',
+        });
+        return;
+      }
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+        return;
       }
     } else if (code) {
       // Path B: Verification via 6-digit Email OTP

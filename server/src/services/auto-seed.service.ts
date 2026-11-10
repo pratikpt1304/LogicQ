@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma.js';
 import bcrypt from 'bcryptjs';
 import { PRACTICE_MODULE_1_PROBLEMS, PracticeProblemDef } from '../data/practice-module1.data.js';
@@ -311,7 +312,8 @@ export async function autoSeedDatabase(): Promise<void> {
     }
 
     // 6. Ensure Core Admins and Canonical Section Exist in Database
-    const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'AdminPassword123!', 10);
+    const adminPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? crypto.randomBytes(32).toString('hex') : 'AdminPassword123!');
+    const adminHash = await bcrypt.hash(adminPassword, 10);
 
     // Purge deprecated template placeholder admin accounts permanently
     await prisma.user.deleteMany({
